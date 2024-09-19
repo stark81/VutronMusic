@@ -1,47 +1,30 @@
 <div align="center">
-
-![vutron-logo](src/renderer/public/images/vutron-logo.webp)
-
----
-
-Quick Start Templates for **[Vite](https://vitejs.dev)** + **[Vue 3](https://vuejs.org)** + **[Electron](https://www.electronjs.org)**
-
-[![awesome-vite](https://awesome.re/mentioned-badge.svg)](https://github.com/vitejs/awesome-vite) [![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/jooy2/vutron/blob/master/LICENSE) ![Stars](https://img.shields.io/github/stars/jooy2/vutron?style=social) ![Commit Count](https://img.shields.io/github/commit-activity/y/jooy2/vutron) [![Followers](https://img.shields.io/github/followers/jooy2?style=social)](https://github.com/jooy2)
-
-![vutron-logo](.github/resources/vutron-sample.webp)
-
-**English** · [한국어](https://github.com/jooy2/vutron/blob/master/README.ko-KR.md) · [简体中文](https://github.com/jooy2/vutron/blob/master/README.zh-CN.md)
-
-**Vutron** is a preconfigured template for developing `Electron` cross-platform desktop apps. It uses `Vue 3` and allows you to build a fast development environment with little effort.
-
+  <a href="https://github.com/stark81/VutronMusic" target="blank">
+    <img src="buildAssets/icons/icon.png" alt="Logo" width="156" height="156">
+  </a>
+  <h2  style="font-weight: 600">VutronMusic</h2>
+  <p>高颜值的第三方网易云播放器</p>
 </div>
 
-## Advantages of use
+[![LocalMusic][localMusic-screenShot]](https://github.com/stark81/VutronMusic)
 
-- ✅ You can build immediately without any presets, so you can develop quickly.
-- ✅ It is being maintained quickly to be compatible with the latest `Vue` and `Electron`, as well as many modules.
-- ✅ There is no need to worry about layout and data management by using various additional templates.
+## 说明
 
-## Features
+- 本项目为本人个人项目，仅用于个人学习研究，请勿用于商业用途。
+- 本项目大部份界面和功能参考 [YesPlayMusic](https://github.com/qier222/YesPlayMusic)，侧边导航栏设计参考"方格音乐"，本地音乐top部分的信息统计参考 [NSMusicS](https://github.com/Super-Badmen-Viper/NSMusicS)。
+- 为了减少内存使用，本项目使用虚拟列表来显示绝大部分的列表内容，包括：歌曲列表(单列、固定高度)、评论列表(单列、不固定高度、数量会增减)、探索页面的歌单、歌手列表(多列、不固定高度、数量会增减)等，因此部分列表滚动时可能会发生跳动、闪烁等现象，这些问题还在研究和处理。
 
-- ⚡️ Rapid development through hot-reload
-- ⚡️ Cross-platform development and build support
-- ⚡️ Support for automated application testing
-- ⚡️ TypeScript support
-- ⚡️ Multilingual support
-- ⚡️ Support for themes (dark & light)
-- ⚡️ Basic layout manager
-- ⚡️ Global state management through the Pinia store
-- ⚡️ Quick support through the GitHub community and official documentation
+## 特点
 
-## [Documentation (Getting Started)](https://vutron.jooy2.com/installation-and-build/getting-started)
+- ⚡️ 使用 Vue3 + ts + pinia + fastify + better-sqlite3 进行开发；
+- ⚡️ 支持本地歌曲、离线歌单功能，本地歌曲支持读取内嵌封面、内嵌歌词功能，支持线上信息匹配(使用的是匹配接口，非搜索接口)；
+- ⚡️ 支持Mac状态栏歌词、TouchBar歌词等；
+- ⚡️ 支持云盘、歌曲评论等功能；
 
-For complete documentation including installation instructions and basic usage, please refer to each item in the link below: https://vutron.jooy2.com/installation-and-build/getting-started
+## 开源许可
 
-## Contribute
+本项目仅供个人学习研究使用，禁止用于商业及非法用途。
 
-You can report issues on [GitHub Issue](https://github.com/jooy2/vutron/issues). You can also request a pull to fix bugs and add frequently used features.
+基于 [MIT license](https://opensource.org/licenses/MIT) 许可进行开源。
 
-## License
-
-Copyright © 2022-2024 [Jooy2](https://jooy2.com) <[jooy2.contact@gmail.com](mailto:jooy2.contact@gmail.com)> Released under the MIT license.
+[localMusic-screenShot]: images/localMusic.jpg

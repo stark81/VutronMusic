@@ -58,7 +58,7 @@ const lock = ref(false)
 const listRef = ref()
 const itemsRef = ref()
 const startRow = ref(0)
-const endRow = ref(0)
+// const endRow = ref(0)
 const styleBefore = ref()
 const startOffset = ref(0)
 const position = ref<any[]>([])
@@ -88,6 +88,7 @@ const anchorPoint = computed(() =>
   position.value.length ? position.value[startRow.value * props.columnNumber] : null
 )
 const visibleCount = computed(() => Math.floor(containerHeight.value / itemSize.value))
+const endRow = computed(() => startRow.value + visibleCount.value)
 const aboveCount = computed(() => Math.min(startRow.value, props.aboveValue))
 const belowCount = computed(() => Math.min(list.value.length - endRow.value, props.belowValue))
 const visibleData = computed(() => {
@@ -234,7 +235,7 @@ const onScroll = () => {
   const scrollTop = listRef.value.scrollTop
   if (scrollTop > anchorPoint.value?.bottom || scrollTop < anchorPoint.value?.top) {
     startRow.value = getStartIndex(scrollTop)
-    endRow.value = startRow.value + visibleCount.value
+    // endRow.value = startRow.value + visibleCount.value
     setStartOffset()
   }
 }
@@ -278,7 +279,7 @@ watch(_listData, (newList, oldList) => {
     nextTick(() => {
       initPosition()
       startRow.value = 0
-      endRow.value = startRow.value + visibleCount.value
+      // endRow.value = startRow.value + visibleCount.value
     })
   }
 })
@@ -291,13 +292,13 @@ onActivated(() => {
 
 onDeactivated(() => {
   startRow.value = 0
-  endRow.value = startRow.value + visibleCount.value
+  // endRow.value = startRow.value + visibleCount.value
   observer.unobserve(listRef.value)
 })
 
 onMounted(() => {
   startRow.value = 0
-  endRow.value = startRow.value + visibleCount.value
+  // endRow.value = startRow.value + visibleCount.value
   observer.observe(listRef.value)
 })
 

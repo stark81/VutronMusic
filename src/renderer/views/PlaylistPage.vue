@@ -168,6 +168,7 @@ import Modal from '../components/BaseModal.vue'
 import { isAccountLoggedIn } from '../utils/auth'
 import { tricklingProgress } from '../utils/tricklingProgress'
 import { useI18n } from 'vue-i18n'
+import { getTrackDetail } from '../api/track'
 import {
   getPlaylistDetail,
   subscribePlaylist,
@@ -336,13 +337,22 @@ const loadLocalData = (id: number) => {
 }
 
 const loadData = async (id: number) => {
-  await getPlaylistDetail(id, true).then((data: any) => {
-    playlist.value = data.playlist
-    tracks.value = data.playlist.tracks
-    lastLoadedTrackIndex.value = data.playlist.tracks.length - 1
-    tricklingProgress.done()
-    show.value = true
-  })
+  await getPlaylistDetail(id, true)
+    .then((data: any) => {
+      playlist.value = data.playlist
+      tracks.value = data.playlist.tracks
+      lastLoadedTrackIndex.value = data.playlist.tracks.length - 1
+      tricklingProgress.done()
+      show.value = true
+    })
+    .then(() => {
+      if (playlist.value.trackCount > tracks.value.length) {
+        const trackIDs = playlist.value.trackIds.slice(tracks.value.length).map((t) => t.id)
+        getTrackDetail(trackIDs.join(',')).then((data: any) => {
+          tracks.value.push(...data.songs)
+        })
+      }
+    })
 }
 
 const likePlaylist = (toast = false) => {
