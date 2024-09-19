@@ -1,0 +1,21 @@
+{
+    "workbench.settings.useSplitJSON": true,
+    "eslint.codeActionsOnSave.rules": null,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "explicit"
+    },
+    "eslint.validate": [
+        "javascript"
+    ],
+    "eslint.workingDirectories": [
+      {
+        "mode": "auto"
+      }
+    ],
+    "emmet.syntaxProfiles": {},
+    "files.autoSave": "off",
+    "editor.wordWrap": "on",
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true,
+    "editor.tabSize": 2
+}

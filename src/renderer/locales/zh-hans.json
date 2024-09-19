@@ -1,0 +1,264 @@
+{
+  "desc": {
+    "welcome-title": "你好武特龙！ 一切都准备好了。",
+    "welcome-desc": "您现在可以编写跨平台的 Web 应用程序。 实时查看更改并使用一个命令构建到多个平台。 如果您还不熟悉它，可以从下面的文档页面获得帮助，或者运行一些预先编写的示例代码。",
+    "second-desc": "您已移至第二个屏幕！ 这里什么都没有！",
+    "selected-file": "选定的文件：{filePath}."
+  },
+  "menu": {
+    "change-theme": "更改主题",
+    "change-language": "更改语言",
+    "increase-count": "计数 + 1",
+    "documentation": "文档",
+    "github": "源代码",
+    "open-file": "打开一个text文件"
+  },
+  "nav": {
+    "home": "首页",
+    "search": "搜索",
+    "library": "音乐库",
+    "localMusic": "本地音乐",
+    "settings": "设置",
+    "github": "GitHub仓库",
+    "error": "未知错误",
+    "track": "单曲",
+    "artist": "歌手",
+    "album": "专辑",
+    "playlist": "歌单",
+    "lyric": "歌词",
+    "chart": "排行榜",
+    "newTrack": "新歌速递",
+    "newAlbum": "新专速递"
+  },
+  "home": {
+    "recommendPlaylist": "推荐歌单",
+    "recommendArtist": "推荐艺人",
+    "newAlbum": "新专速递",
+    "charts": "排行榜",
+    "seeMore": "查看全部"
+  },
+  "library": {
+    "userProfileMenu": {
+      "logout": "登出",
+      "settings": "设置"
+    },
+    "playlist": {
+      "playlist": "歌单",
+      "addToPlaylist": "添加至歌单",
+      "title": "歌单标题",
+      "setPrivate": "设置为隐私歌单",
+      "newPlaylist": "新建歌单",
+      "updatedAt": "最后更新于",
+      "search": "搜索"
+    },
+    "likedSongs": "我喜欢的音乐",
+    "albums": "专辑",
+    "artists": "艺人",
+    "mvs": "MV",
+    "cloudDisk": "云盘",
+    "playHistory": {
+      "title": "听歌排行",
+      "all": "所有时间",
+      "week": "最近一周"
+    }
+  },
+  "explore": {
+    "allPlaylist": "歌单",
+    "recommendPlaylist": "推荐歌单",
+    "recommendArtist": "歌手",
+    "newAlbum": "新专速递",
+    "charts": "排行榜",
+    "seeMore": "查看全部"
+  },
+  "localMusic": {
+    "latedAdd": "最近添加",
+    "songs": "本地歌曲",
+    "playlist": {
+      "text": "离线歌单",
+      "addToPlaylist": "添加至离线歌单",
+      "newPlaylist": "新建离线歌单"
+    },
+    "albums": "专辑",
+    "artists": "艺人",
+    "placeholder": "搜索本地歌曲",
+    "scrollToTop": "回到顶部",
+    "localMusicFolderPath": "本地音乐文件夹路径",
+    "clearLocalMusic": {
+      "text": "清空本地歌曲信息",
+      "desc": "此操作仅会清除此程序内的本地歌曲匹配信息，不会删除本地歌曲文件"
+    },
+    "replayGain": {
+      "text": "音量平衡",
+      "desc": "此功能只会读取本地歌曲元数据里的音量平衡信息，无法扫描计算得到结果"
+    },
+    "embeddedInformation": "优先使用歌曲内嵌信息",
+    "positionTrack": "定位歌曲"
+  },
+  "artist": {
+    "artist": "艺人",
+    "withAlbums": "张专辑",
+    "videos": "个MV",
+    "follow": "关注",
+    "following": "已关注",
+    "latestRelease": "最新发布",
+    "latestMV": "最新MV",
+    "popularSongs": "热门歌曲",
+    "showMore": "查看更多",
+    "showLess": "收起",
+    "albums": "专辑",
+    "EPsSingles": "EP和单曲",
+    "similarArtists": "相似艺人",
+    "artistDesc": "艺术家介绍"
+  },
+  "album": {
+    "released": "发行于",
+    "albumDesc": "专辑介绍"
+  },
+  "playlist": {
+    "search": "搜索歌单音乐"
+  },
+  "contextMenu": {
+    "defaultSort": "默认排序",
+    "sortByName": "按名称排序",
+    "descendSort": "按时间降序排序",
+    "ascendSort": "按时间升序排序",
+    "selectAll": "全选",
+    "batchOperation": "批量操作",
+    "reScan": "重新扫描歌曲",
+    "showComment": "查看评论",
+    "showLyric": "显示歌词",
+    "setConvolver": "音效设置",
+    "playBackSpeed": "倍速播放",
+    "lyricOffset": "歌词时间调整",
+    "play": "播放",
+    "addToQueue": "添加至队列",
+    "accurateMatch": "精确匹配",
+    "addToLocalPlaylist": "添加至本地歌单",
+    "removeTrackFromPlaylist": "从歌单里删除",
+    "showInFolder": "在文件管理器中打开",
+    "deletePlaylist": "删除歌单",
+    "finish": "完成",
+    "allPlaylists": "全部歌单",
+    "minePlaylists": "创建的歌单",
+    "likedPlaylists": "收藏的歌单"
+  },
+  "login": {
+    "login": "登录",
+    "phone": "手机号",
+    "email": "邮箱",
+    "password": "密码",
+    "loginText": "登录网易云账号",
+    "usernameLogin": "用户名登录",
+    "loginWithEmail": "邮箱登录",
+    "loginWithPhone": "手机号登录",
+    "noticeElectron": "你的密码会在本地进行MD5加密后再传输到网易云API。YesPlayMusic 不会传输你的账号数据到任何非网易云音乐官方的服务器。"
+  },
+  "player": {
+    "play": "播放",
+    "pause": "暂停",
+    "previous": "上一首",
+    "moveToFMTrash": "不喜欢",
+    "next": "下一首",
+    "volume": "音量",
+    "mute": "静音",
+    "shuffle": "随机",
+    "singleLoop": "单曲循环",
+    "sequence": "顺序播放",
+    "playlist": "歌单",
+    "download": "下载",
+    "addToPlaylist": "添加到歌单",
+    "noAllowCauseLocal": "本地歌曲，无法操作",
+    "osdLyrics": "显示桌面歌词",
+    "nextUp": "播放列表",
+    "repeat": "循环播放",
+    "repeatTrack": "单曲循环",
+    "resetPlayer": "重置播放器状态",
+    "like": "喜欢",
+    "getFMTimeout": "获取私人FM超时",
+    "getFMOverCount": "获取私人FM时重试次数过多，请手动切换下一首",
+    "converlution": {
+      "title": "环境混响音效",
+      "mainGain": "原始音频增益",
+      "sendGain": "环境音效增益",
+      "bright_hall": "大厅",
+      "cardiod_35_10_spread": "心形扩散",
+      "cinema_diningroom": "电影院",
+      "dining_living_true_stereo": "餐厅",
+      "feedback_spring": "反馈弹簧",
+      "living_bedroom_leveled": "卫生间",
+      "matrix_1": "矩阵混响",
+      "matrix_2": "矩阵混响2",
+      "s2_r4_bd": "教堂",
+      "s3_r1_bd": "立体声",
+      "spreader50_65ms": "室内",
+      "telephone": "电话",
+      "tim_omni_35_10_magnetic": "磁性立体声",
+      "main_gain": "原始音频增益",
+      "send_gain": "环境音效增益"
+    },
+    "frequad": {
+      "title": "均衡器设置",
+      "reset": "重置",
+      "classical": "古典",
+      "dance": "舞曲",
+      "electronic": "电子乐",
+      "pop": "流行",
+      "rock": "摇滚",
+      "slow": "慢歌",
+      "soft": "柔和",
+      "subwoofer": "重低音",
+      "vocal": "人声"
+    }
+  },
+  "common": {
+    "songs": "首歌",
+    "play": "播放"
+  },
+  "settings": {
+    "nav": {
+      "general": "通用",
+      "appearance": "外观",
+      "tray": "系统托盘",
+      "localMusic": "本地歌曲"
+    },
+    "general": {
+      "language": {
+        "text": "语言",
+        "zhHans": "简体中文",
+        "en": "English"
+      },
+      "showTimeOrID": {
+        "text": "歌曲列表信息显示选项",
+        "time": "歌曲时长",
+        "ID": "歌曲ID"
+      },
+      "outputDevice": {
+        "text": "音频输出设备",
+        "deviceID": "default"
+      },
+      "logout": "登出"
+    },
+    "tray": {
+      "showLyric": "显示状态栏歌词",
+      "showControl": "显示控制按钮",
+      "lyricScrollFrameRate": {
+        "text": "歌词滚动帧率",
+        "desc": "该数值并非越大越好，太高会导致歌词滚动速度过快而无法流畅显示"
+      },
+      "lyricFrameWidth": "歌词滚动宽度(px)"
+    }
+  },
+  "toast": {
+    "createLocalPlaylistSuccess": "成功创建本地歌单",
+    "createLocalPlaylistFailed": "创建本地歌单失败",
+    "savedToPlaylist": "已添加到歌单",
+    "tracksAlreadyInPlaylist": "歌曲已在歌单中",
+    "needToLogin": "此操作需要登录网易云帐号",
+    "getColorFailed": "获取颜色失败",
+    "scanning": "正在扫描本地音乐，请稍后",
+    "addFailed": "操作失败，专辑下架或版权锁定",
+    "removedFromPlaylist": "已从歌单中删除",
+    "deleteSuccess": "删除成功",
+    "deleteFailed": "删除失败"
+  }
+}

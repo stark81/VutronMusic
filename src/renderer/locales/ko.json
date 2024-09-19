@@ -1,0 +1,21 @@
+{
+  "desc": {
+    "welcome-title": "안녕 Vutron! 모든 준비를 마쳤습니다.",
+    "welcome-desc": "이제 크로스플랫폼 웹 애플리케이션을 작성할 수 있습니다. 변경사항을 실시간으로 확인하고 한 번의 명령으로 여러 플랫폼으로 빌드하세요. 아직 익숙하지 않다면, 아래 문서 페이지에서 도움을 받아보거나 사전에 작성된 예제 코드를 실행해볼 수 있습니다.",
+    "second-desc": "두번째 화면으로 이동하였습니다! 여기는 아무 것도 없습니다!",
+    "selected-file": "선택한 파일: {filePath}."
+  },
+  "title": {
+    "main": "메인 화면",
+    "second": "두번째 화면",
+    "error": "에러 발생"
+  },
+  "menu": {
+    "change-theme": "테마 변경",
+    "change-language": "언어 변경",
+    "increase-count": "카운트 1 증가",
+    "documentation": "문서",
+    "github": "소스코드",
+    "open-file": "텍스트 파일 열기"
+  }
+}

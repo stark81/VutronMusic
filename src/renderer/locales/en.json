@@ -1,0 +1,125 @@
+{
+  "desc": {
+    "welcome-title": "Hello Vutron! Everything is ready.",
+    "welcome-desc": "You can now write cross-platform web applications. See changes in real time and build to multiple platforms with one command. If you're not already familiar with it, you can get help from the documentation page below, or run some pre-written example code.",
+    "second-desc": "You have moved to the second screen! There is nothing here!",
+    "selected-file": "Selected file: {filePath}."
+  },
+  "title": {
+    "main": "Main Screen",
+    "second": "Second Screen",
+    "error": "Unknown Error"
+  },
+  "menu": {
+    "change-theme": "Change Theme",
+    "change-language": "Change Language",
+    "increase-count": "Count 1 increment",
+    "documentation": "Documentation",
+    "github": "Source Code",
+    "open-file": "Open a text file"
+  },
+  "nav": {
+    "home": "Home",
+    "search": "Search",
+    "library": "Library",
+    "localMusic": "Music",
+    "settings": "Settings",
+    "github": "GitHub",
+    "error": "Error"
+  },
+  "localMusic": {
+    "latedAdd": "Lated add",
+    "songs": "Songs",
+    "playlist": "Playlist",
+    "albums": "Albums",
+    "artists": "Artists",
+    "placeholder": "Search local music",
+    "scrollToTop": "Scroll to top",
+    "positionTrack": "Locate Track",
+    "localMusicFolderPath": "Local music folder path",
+    "clearLocalMusic": {
+      "text": "Clear local music information",
+      "desc": "This operation won't delete the local song files."
+    },
+    "replayGain": {
+      "text": "Replay Gain",
+      "desc": "This feature will only read the repaly-gain information from the local song's metadata and cannot scan or calculate the result."
+    }
+  },
+  "contextMenu": {
+    "defaultSort": "Default sort",
+    "sortByName": "Sort by name",
+    "descendSort": "Descend sort",
+    "ascendSort": "Ascend sort",
+    "selectAll": "Select all",
+    "batchOperation": "Batch operation",
+    "reScan": "Rescan",
+    "showComment": "Show comment",
+    "setConvolver": "Set convolver",
+    "playBackSpeed": "Playback speed",
+    "lyricOffset": "Lyric time adjustment"
+  },
+  "login": {
+    "login": "Login",
+    "phone": "Phone",
+    "email": "Email",
+    "password": "Password",
+    "loginText": "Login",
+    "usernameLogin": "Login with username",
+    "loginWithEmail": "Login with email",
+    "loginWithPhone": "Login with phone",
+    "noticeElectron": "你的密码会在本地进行MD5加密后再传输到网易云API。YesPlayMusic 不会传输你的账号数据到任何非网易云音乐官方的服务器。"
+  },
+  "player": {
+    "play": "play",
+    "pause": "pause",
+    "previous": "previous",
+    "next": "next",
+    "volume": "volume",
+    "mute": "mute",
+    "shuffle": "shuffle",
+    "singleLoop": "singleLoop",
+    "sequence": "sequence",
+    "playlist": "playlist",
+    "download": "download",
+    "addToPlaylist": "addToPlaylist",
+    "osdLyrics": "osdLyrics",
+    "nextUp": "nextUp",
+    "repeat": "repeat",
+    "resetPlayer": "resetPlayer",
+    "like": "like"
+  },
+  "settings": {
+    "nav": {
+      "general": "General",
+      "appearance": "Appearance",
+      "tray": "Tray",
+      "localMusic": "LocalMusic"
+    },
+    "general": {
+      "language": {
+        "text": "Language",
+        "zhHans": "简体中文",
+        "en": "English"
+      },
+      "showTimeOrID": {
+        "text": "The display options of song list information",
+        "time": "Time",
+        "ID": "ID"
+      },
+      "outputDevice": {
+        "text": "Output device",
+        "deviceID": "default"
+      }
+    },
+    "tray": {
+      "showLyric": "Show tray lyric",
+      "showControl": "Show tray control nemu",
+      "lyricScrollFrameRate": {
+        "text": "Lyric scroll rate",
+        "desc": "The value should not be too large, as an excessively high value would cause the lyrics to scroll too quickly, resulting in an inability to display them smoothly."
+      },
+      "lyricFrameWidth": "Lyric scroll width(px)"
+    }
+  }
+}

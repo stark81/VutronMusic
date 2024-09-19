@@ -1,0 +1,348 @@
+<template>
+  <div v-show="show" class="album-page">
+    <div class="playlist-info">
+      <Cover
+        :id="album?.id || 0"
+        :image-url="album?.picUrl + '?param=512y512'"
+        :show-play-button="true"
+        :always-show-shadow="true"
+        :click-cover-to-play="true"
+        :fixed-size="288"
+        type="album"
+        :cover-hover="false"
+        :play-button-size="18"
+      />
+      <div class="info">
+        <div class="title" @click.right="() => {}"> {{ title }}</div>
+        <div v-if="subtitle !== ''" class="subtitle" @click.right="() => {}">{{ subtitle }}</div>
+        <div class="artist">
+          <span v-if="album?.artist?.id !== 104700">
+            <span>{{ album?.type }} by </span
+            ><router-link :to="`/artist/${album?.artist?.id}`">{{
+              album?.artist?.name
+            }}</router-link></span
+          >
+          <span v-else>Compilation by Various Artists</span>
+        </div>
+        <div class="date-and-count">
+          <span v-if="album?.mark === 1056768" class="explicit-symbol"><ExplicitSymbol /></span>
+          <span :title="album?.publishTime">{{ new Date(album?.publishTime).getFullYear() }}</span>
+          <span> · {{ album?.size }} {{ $t('common.songs') }}</span
+          >,
+          {{ formatTime(albumTime, 'Human') }}
+        </div>
+        <div class="description" @click="toggleFullDescription">
+          {{ album?.description }}
+        </div>
+        <div class="buttons" style="margin-top: 32px">
+          <ButtonTwoTone icon-class="play" @click="() => {}">
+            {{ $t('common.play') }}
+          </ButtonTwoTone>
+          <ButtonTwoTone
+            :icon-class="dynamicDetail.isSub ? 'heart-solid' : 'heart'"
+            :icon-button="true"
+            :horizontal-padding="0"
+            :color="dynamicDetail?.isSub ? 'blue' : 'grey'"
+            :text-color="dynamicDetail?.isSub ? '#335eea' : ''"
+            :background-color="dynamicDetail?.isSub ? 'var(--color-secondary-bg)' : ''"
+            @click="() => {}"
+          >
+          </ButtonTwoTone>
+          <ButtonTwoTone
+            icon-class="more"
+            :icon-button="true"
+            :horizontal-padding="0"
+            color="grey"
+            @click="() => {}"
+          >
+          </ButtonTwoTone>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="tracksByDisc.length > 1">
+      <div v-for="item in tracksByDisc" :key="item.disc" :style="{ marginBottom: '20px' }">
+        <h2 class="disc">Disc {{ item.disc }}</h2>
+        <TrackList
+          :id="album.id"
+          :items="item.tracks"
+          :item-height="48"
+          :colunm-number="1"
+          :show-position="false"
+          :type="'album'"
+          :album-object="album"
+        />
+      </div>
+    </div>
+    <div v-else>
+      <TrackList
+        :id="album.id"
+        :items="tracks"
+        :colunm-number="1"
+        :item-height="48"
+        :show-position="false"
+        :type="'album'"
+        :album-object="album"
+      />
+    </div>
+    <div class="extra-info">
+      <div class="album-time"></div>
+      <div class="release-date">
+        {{ $t('album.released') }}
+        {{ formatDate(album.publishTime, 'MMMM D, YYYY') }}
+      </div>
+      <div v-if="album.company" class="copyright"> © {{ album.company }} </div>
+    </div>
+
+    <div v-if="filteredMoreAlbums.length !== 0" class="more-by">
+      <div class="section-title">
+        More by
+        <router-link :to="`/artist/${album.artist.id}`">{{ album.artist.name }}</router-link>
+      </div>
+      <div style="padding-bottom: 40px">
+        <CoverRow
+          type="album"
+          :items="filteredMoreAlbums"
+          :colunm-number="5"
+          :item-height="270"
+          sub-text="albumType+releaseYear"
+        ></CoverRow>
+      </div>
+    </div>
+
+    <Modal
+      :show="showFullDescription"
+      :close-fn="toggleFullDescription"
+      :show-footer="false"
+      :click-outside-hide="true"
+      :title="$t('album.albumDesc')"
+    >
+      <p class="description-fulltext">
+        {{ album.description }}
+      </p>
+    </Modal>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted, computed } from 'vue'
+import { onBeforeRouteUpdate, useRoute } from 'vue-router'
+import { tricklingProgress } from '../utils/tricklingProgress'
+import Cover from '../components/CoverBox.vue'
+import Modal from '../components/BaseModal.vue'
+import ButtonTwoTone from '../components/ButtonTwoTone.vue'
+import { getAlbum, albumDynamicDetail } from '../api/album'
+import { getTrackDetail } from '../api/track'
+import { getArtistAlbum } from '../api/artist'
+import { splitSoundtrackAlbumTitle, splitAlbumTitle } from '../utils/common'
+import { formatTime, formatDate } from '../utils'
+import { groupBy, toPairs, sortBy } from 'lodash'
+import TrackList from '../components/VirtualTrackList.vue'
+import CoverRow from '../components/VirtualCoverRow.vue'
+import ExplicitSymbol from '../components/ExplicitSymbol.vue'
+
+const show = ref(false)
+const album = ref<{ [key: string]: any }>({})
+const tracks = ref<any[]>([])
+const dynamicDetail = ref<{ [key: string]: any }>({})
+const moreAlbums = ref<any[]>([])
+const title = ref('')
+const subtitle = ref('')
+const showFullDescription = ref(false)
+
+const albumTime = computed(() => {
+  let time = 0
+  tracks.value.map((t) => (time = time + t.dt))
+  return time
+})
+
+const tracksByDisc = computed(() => {
+  if (tracks.value.length <= 1) return []
+  const pairs = toPairs(groupBy(tracks.value, 'cd'))
+  return sortBy(pairs, (p) => p[0]).map((items) => ({
+    disc: items[0],
+    tracks: items[1]
+  }))
+})
+
+const filteredMoreAlbums = computed(() => {
+  const mAlbums = moreAlbums.value.filter((a) => a.id !== album.value.id)
+  const realAlbums = mAlbums.filter((a) => a.type === '专辑')
+  const eps = mAlbums.filter((a) => a.type === 'EP' || (a.type === 'EP/Single' && a.size > 1))
+  const restItems = mAlbums.filter(
+    (a) =>
+      realAlbums.find((al) => al.id === a.id) === undefined &&
+      eps.find((a1) => a1.id === a.id) === undefined
+  )
+  if (realAlbums.length === 0) {
+    return [...realAlbums, ...eps, ...restItems].slice(0, 5)
+  } else {
+    return [...realAlbums, ...restItems].slice(0, 5)
+  }
+})
+
+const formatTitle = () => {
+  const splitTitle = splitSoundtrackAlbumTitle(album.value.name)
+  const splitTitle2 = splitAlbumTitle(splitTitle.title)
+  title.value = splitTitle2.title
+
+  if (splitTitle.subtitle !== '' && splitTitle2.subtitle !== '') {
+    subtitle.value = `${splitTitle.subtitle} · ${splitTitle2.subtitle}`
+  } else {
+    subtitle.value = splitTitle.subtitle === '' ? splitTitle2.subtitle : splitTitle.subtitle
+  }
+}
+
+const toggleFullDescription = () => {
+  showFullDescription.value = !showFullDescription.value
+}
+
+const loadData = (id: string) => {
+  setTimeout(() => {
+    if (!show.value) tricklingProgress.start()
+  }, 1000)
+
+  getAlbum(Number(id)).then((data) => {
+    album.value = data.album
+    tracks.value = data.songs
+    formatTitle()
+    tricklingProgress.done()
+    show.value = true
+
+    const trackIDs = tracks.value.map((t) => t.id)
+    getTrackDetail(trackIDs.join(',')).then((data) => {
+      tracks.value = data.songs
+    })
+
+    getArtistAlbum({ id: album.value.artist.id, limit: 100 }).then((data) => {
+      moreAlbums.value = data.hotAlbums
+    })
+  })
+
+  albumDynamicDetail(Number(id)).then((data) => {
+    dynamicDetail.value = data
+  })
+}
+const route = useRoute()
+
+onBeforeRouteUpdate((to, from, next) => {
+  show.value = false
+  loadData(to.params.id as string)
+  next()
+})
+
+onMounted(() => {
+  show.value = false
+  loadData(route.params.id as string)
+})
+</script>
+
+<style scoped lang="scss">
+.album-page {
+  margin-top: 32px;
+}
+.playlist-info {
+  display: flex;
+  width: 78vw;
+  margin-bottom: 72px;
+  .info {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    flex: 1;
+    margin-left: 56px;
+    color: var(--color-text);
+    .title {
+      font-size: 56px;
+      font-weight: 700;
+    }
+    .subtitle {
+      font-size: 22px;
+      font-weight: 600;
+    }
+    .artist {
+      font-size: 18px;
+      opacity: 0.88;
+      margin-top: 24px;
+      a {
+        font-weight: 600;
+      }
+    }
+    .date-and-count {
+      font-size: 14px;
+      opacity: 0.68;
+      margin-top: 2px;
+    }
+    .description {
+      user-select: none;
+      font-size: 14px;
+      opacity: 0.68;
+      margin-top: 24px;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 3;
+      overflow: hidden;
+      cursor: pointer;
+      white-space: pre-line;
+      &:hover {
+        transition: opacity 0.3s;
+        opacity: 0.88;
+      }
+    }
+    .buttons {
+      margin-top: 32px;
+      display: flex;
+      button {
+        margin-right: 16px;
+      }
+    }
+  }
+}
+.disc {
+  color: var(--color-text);
+}
+
+.explicit-symbol {
+  opacity: 0.28;
+  color: var(--color-text);
+  margin-right: 4px;
+  .svg-icon {
+    margin-bottom: -3px;
+  }
+}
+
+.extra-info {
+  margin-top: 36px;
+  margin-bottom: 36px;
+  font-size: 12px;
+  opacity: 0.48;
+  color: var(--color-text);
+  div {
+    margin-bottom: 4px;
+  }
+  .album-time {
+    opacity: 0.68;
+  }
+}
+
+.more-by {
+  border-top: 1px solid rgba(128, 128, 128, 0.18);
+
+  padding: 22px 0;
+  .section-title {
+    font-size: 22px;
+    font-weight: 600;
+    opacity: 0.88;
+    color: var(--color-text);
+    margin-bottom: 20px;
+  }
+}
+.description-fulltext {
+  font-size: 16px;
+  margin-top: 24px;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: pre-line;
+}
+</style>

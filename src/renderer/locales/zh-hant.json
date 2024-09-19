@@ -1,0 +1,21 @@
+{
+  "desc": {
+    "welcome-title": "你好武特龍！ 一切都準備好了。",
+    "welcome-desc": "您現在可以編寫跨平台的 Web 應用程序。 實時查看更改並使用一個命令構建到多個平台。 如果您還不熟悉它，可以從下面的文檔頁面獲得幫助，或者運行一些預先編寫的示例代碼。",
+    "second-desc": "您已移至第二個屏幕！ 這裡什麼都沒有！",
+    "selected-file": "選定的文件：{filePath}."
+  },
+  "title": {
+    "main": "主屏幕",
+    "second": "第二屏",
+    "error": "未知錯誤"
+  },
+  "menu": {
+    "change-theme": "改變主題",
+    "change-language": "改變語言",
+    "increase-count": "計數 1 個增量",
+    "documentation": "文檔",
+    "github": "源代碼",
+    "open-file": "開啟文字文件"
+  }
+}

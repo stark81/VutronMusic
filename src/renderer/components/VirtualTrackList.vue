@@ -1,0 +1,349 @@
+<template>
+  <VirtualScroll
+    :list="items"
+    :item-size="itemHeight"
+    :column-number="colunmNumber"
+    :show-position="showPosition"
+    :height="height"
+    :padding-bottom="paddingBottom"
+    :load-more="loadMore"
+    :above-value="4"
+    :below-value="4"
+    :gap="gap"
+    :pid="id"
+  >
+    <template #position="{ scrollToCurrent }">
+      <div v-show="showScrollTo" @click="scrollToCurrent(currentIndex)">{{
+        $t('localMusic.positionTrack')
+      }}</div>
+    </template>
+    <template #default="{ item, index }">
+      <div class="track-item">
+        <TrackListItem
+          :track-prop="item"
+          :track-no="index + 1"
+          :type-prop="type"
+          :is-lyric="isLyric"
+          :album-object="albumObject"
+          :highlight-playing-track="highlightPlayingTrack"
+          @dblclick="playThisList(item.id || item.songId)"
+          @click.right="openMenu($event, item, index)"
+        />
+      </div>
+    </template>
+  </VirtualScroll>
+  <ContextMenu ref="trackListMenuRef" @close-menu="closeMenu">
+    <div v-show="type !== 'cloudDisk'" class="item-info">
+      <img :src="image" loading="lazy" />
+      <div class="info">
+        <div class="title">{{ rightClickedTrackComputed.name }}</div>
+        <div class="subtitle">{{ rightClickedTrackComputed.artists[0].name }}</div>
+      </div>
+    </div>
+    <hr v-show="type !== 'cloudDisk'" />
+    <div class="item" @click="play">{{ $t('contextMenu.play') }}</div>
+    <div class="item" @click="addToQueue(rightClickedTrack.id)">{{
+      $t('contextMenu.addToQueue')
+    }}</div>
+    <div
+      v-if="extraContextMenuItem.includes('accurateMatch')"
+      class="item"
+      @click="accurateMatchTrack"
+      >{{ $t('contextMenu.accurateMatch') }}</div
+    >
+    <div
+      v-if="extraContextMenuItem.includes('addToLocalList')"
+      class="item"
+      @click="addToLocalPlaylist([rightClickedTrackComputed.id])"
+      >{{ $t('contextMenu.addToLocalPlaylist') }}</div
+    >
+    <div v-if="extraContextMenuItem.includes('showInFolder')" class="item" @click="showInFolder">{{
+      $t('contextMenu.showInFolder')
+    }}</div>
+    <hr v-show="type !== 'cloudDisk' || 'localTracks'" />
+    <div
+      v-if="extraContextMenuItem.includes('removeTrackFromPlaylist')"
+      class="item"
+      @click="rmTrackFromPlaylist"
+      >从歌单中删除</div
+    >
+  </ContextMenu>
+</template>
+
+<script setup lang="ts">
+import {
+  PropType,
+  toRefs,
+  provide,
+  ref,
+  computed,
+  inject,
+  onActivated,
+  onBeforeUnmount,
+  onDeactivated,
+  onMounted
+} from 'vue'
+import { usePlayerStore } from '../store/player'
+import { useNormalStateStore } from '../store/state'
+import { useLocalMusicStore } from '../store/localMusic'
+import VirtualScroll from './VirtualScrollNoHeight.vue'
+import { storeToRefs } from 'pinia'
+import TrackListItem from './TrackListItem.vue'
+import ContextMenu from './ContextMenu.vue'
+import { useI18n } from 'vue-i18n'
+import { addOrRemoveTrackFromPlaylist } from '../api/playlist'
+import _ from 'lodash'
+import { isAccountLoggedIn } from '../utils/auth'
+
+const props = defineProps({
+  items: {
+    type: Array as PropType<{ [key: string]: any }[]>,
+    required: true
+  },
+  type: {
+    type: String,
+    required: true
+  },
+  isLyric: {
+    type: Boolean,
+    default: false
+  },
+  showPosition: {
+    type: Boolean,
+    default: true
+  },
+  colunmNumber: {
+    type: Number,
+    required: true
+  },
+  gap: {
+    type: Number,
+    default: 20
+  },
+  extraContextMenuItem: {
+    type: Array,
+    default: () => []
+  },
+  id: {
+    type: Number,
+    default: 0
+  },
+  height: {
+    type: Number,
+    default: 660
+  },
+  albumObject: {
+    type: Object,
+    default: () => {
+      return {
+        artist: {
+          name: ''
+        }
+      }
+    }
+  },
+  itemHeight: {
+    type: Number,
+    default: 60.5
+  },
+  loadMore: {
+    type: Function as PropType<() => void>,
+    default: () => {}
+  },
+  highlightPlayingTrack: {
+    type: Boolean,
+    default: true
+  },
+  paddingBottom: {
+    type: Number,
+    default: 64
+  }
+})
+const { items, colunmNumber, id } = toRefs(props)
+const trackListMenuRef = ref<InstanceType<typeof ContextMenu>>()
+const selectedList = ref<number[]>([])
+const rightClickedTrackIndex = ref(-1)
+const rightClickedTrack = ref({
+  id: 0,
+  name: '',
+  matched: true,
+  isLocal: false,
+  filePath: '',
+  artists: [{ name: '' }],
+  album: { picUrl: '' },
+  al: { picUrl: '' }
+})
+const { t } = useI18n()
+const playerStore = usePlayerStore()
+const { playlistSource, currentTrack } = storeToRefs(playerStore)
+const { replacePlaylist, addTrackToPlayNext } = playerStore
+
+const stateStore = useNormalStateStore()
+const { showToast } = stateStore
+const { addTrackToPlaylistModal, accurateMatchModal } = storeToRefs(stateStore)
+
+const isSelectAll = computed(() => {
+  return selectedList.value.length === items.value.length
+})
+const rightClickedTrackComputed = computed(() => {
+  return props.type === 'cloudDisk'
+    ? {
+        id: 0,
+        name: '',
+        matched: true,
+        isLocal: false,
+        filePath: '',
+        artists: [{ name: '' }],
+        album: { picUrl: '' },
+        al: { picUrl: '' }
+      }
+    : rightClickedTrack.value
+})
+const image = computed(() => {
+  const alPic = rightClickedTrackComputed.value.al.picUrl
+  const albumPic = rightClickedTrackComputed.value.album.picUrl
+
+  return rightClickedTrackComputed.value.matched !== false
+    ? ((alPic !== '' && alPic) ||
+        (albumPic !== '' && albumPic) ||
+        'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg') + '?param=56y56'
+    : rightClickedTrackComputed.value.filePath
+      ? `atom://get-pic/${rightClickedTrackComputed.value.id}`
+      : ''
+})
+const isLocal = computed(() => props.type.includes('local'))
+const showScrollTo = computed(() => {
+  return (
+    currentTrack.value &&
+    ((playlistSource.value.type === props.type && playlistSource.value.id === props.id) ||
+      (playlistSource.value.type === 'localPlaylist' &&
+        playlistSource.value.type === props.type &&
+        props.id === 0))
+  )
+})
+const currentIndex = computed(() => {
+  return items.value.findIndex((item) => (item.id || item.songId) === currentTrack.value?.id)
+})
+
+const playThisList = (index: number) => {
+  const IDs = items.value.map((track) => track.id || track.songId)
+  const idx = items.value.findIndex((item) => (item.id || item.songId) === index)
+  replacePlaylist(props.type, id.value, IDs, idx)
+}
+
+const closeMenu = () => {}
+
+const accurateMatchTrack = () => {
+  accurateMatchModal.value = {
+    show: true,
+    selectedTrackID: rightClickedTrack.value.id
+  }
+}
+
+const selectAll = () => {
+  if (!isSelectAll.value) {
+    selectedList.value = items.value.map((track) => track.id)
+  } else {
+    selectedList.value = []
+  }
+}
+const doFinish = () => {
+  selectedList.value = []
+}
+
+const play = () => {
+  addTrackToPlayNext(rightClickedTrack.value.id, true, true)
+}
+
+const showInFolder = () => {
+  window.mainApi.send('msgShowInFolder', rightClickedTrackComputed.value.filePath)
+}
+
+const openMenu = (e: MouseEvent, track: { [key: string]: any }, index: number) => {
+  _.merge(rightClickedTrack.value, track)
+  rightClickedTrack.value.matched = !isLocal.value || track.matched || false
+  rightClickedTrackIndex.value = index
+  trackListMenuRef.value?.openMenu(e)
+}
+
+const { removeTrackFromPlaylist } = useLocalMusicStore()
+const rmTrackFromPlaylist = () => {
+  if (isLocal.value) {
+    if (confirm(`确定要从歌单删除 ${rightClickedTrack.value.name}？`)) {
+      removeTrackFromPlaylist(props.id, rightClickedTrackComputed.value.id).then((result) => {
+        if (result) {
+          items.value.splice(rightClickedTrackIndex.value, 1)
+          showToast(t('toast.removedFromPlaylist'))
+        }
+      })
+    }
+  } else {
+    if (!isAccountLoggedIn()) {
+      showToast(t('toast.loginRequired'))
+      return
+    }
+    if (confirm(`确定要从歌单删除 ${rightClickedTrackComputed.value.name}？`)) {
+      addOrRemoveTrackFromPlaylist({
+        op: 'del',
+        pid: props.id,
+        tracks: rightClickedTrackComputed.value.id
+      }).then((result) => {
+        if (result.body.code === 200) {
+          showToast(t('toast.removedFromPlaylist'))
+          removeTrack(rightClickedTrackComputed.value.id)
+        } else {
+          showToast(result.body.message)
+        }
+      })
+    }
+  }
+}
+
+const addToLocalPlaylist = (trackIDs: number[] = []) => {
+  // 设置延迟执行，保证contextMenu的滚动效果生效后再打开弹窗，以避免两者的滚动效果冲突
+  if (!trackIDs.length) {
+    trackIDs = selectedList.value
+  }
+  setTimeout(() => {
+    addTrackToPlaylistModal.value = {
+      show: true,
+      selectedTrackID: trackIDs,
+      isLocal: true
+    }
+  })
+}
+const addToQueue = (ids: number | number[] | null = null) => {
+  if (!ids) {
+    ids = selectedList.value
+  }
+  addTrackToPlayNext(ids)
+}
+const updatePadding = inject('updatePadding') as (padding: number) => void
+const removeTrack = inject('removeTrack', (id: number) => {})
+
+provide('playThisList', playThisList)
+provide('selectedList', selectedList)
+provide('rightClickedTrack', rightClickedTrack)
+defineExpose({ selectAll, doFinish, addToLocalPlaylist, addToQueue })
+
+onActivated(() => {
+  updatePadding(0)
+})
+onDeactivated(() => {
+  updatePadding(96)
+})
+
+onMounted(() => {
+  updatePadding(0)
+})
+onBeforeUnmount(() => {
+  updatePadding(96)
+})
+</script>
+
+<style scoped lang="scss">
+.track-item {
+  width: 100%;
+  // padding-bottom: 4px;
+}
+</style>

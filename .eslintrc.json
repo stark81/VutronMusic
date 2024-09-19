@@ -1,0 +1,31 @@
+{
+  "root": true,
+  "parser": "vue-eslint-parser",
+  "parserOptions": {
+    "parser": "@typescript-eslint/parser",
+    "sourceType": "module",
+    "ecmaVersion": 2022,
+    "ecmaFeatures": {
+      "jsx": true
+    }
+  },
+  "env": {
+    "node": true,
+    "es6": true
+  },
+  "extends": ["standard", "plugin:vue/vue3-recommended", "prettier"],
+  "globals": {
+    "__static": true
+  },
+  "plugins": ["vue"],
+  "rules": {
+    "arrow-parens": 0,
+    "generator-star-spacing": 0,
+    "no-case-declarations": 0,
+    "array-callback-return": 0,
+    "no-trailing-spaces": 1,
+    "no-control-regex": 0,
+    "no-useless-constructor": 0,
+    "node/no-deprecated-api": 0
+  }
+}

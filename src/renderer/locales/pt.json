@@ -1,0 +1,21 @@
+{
+  "desc": {
+    "welcome-title": "Olá Vutron! Tudo está pronto.",
+    "welcome-desc": "Agora você pode escrever aplicativos da Web de plataforma cruzada. Veja suas alterações em tempo real e crie para várias plataformas com um único comando. Se ainda não estiver familiarizado com ele, você pode obter ajuda na página de documentação abaixo ou executar algum código de exemplo pré-escrito.",
+    "second-desc": "Movido para a segunda tela! Não há nenhum aqui!",
+    "selected-file": "Arquivo selecionado: {filePath}."
+  },
+  "title": {
+    "main": "Tela principal",
+    "second": "Segunda tela",
+    "error": "Erro desconhecido"
+  },
+  "menu": {
+    "change-theme": "Mudar Tema",
+    "change-language": "Mudar Idioma",
+    "increase-count": "Aumentar a contagem em 1",
+    "documentation": "Documento",
+    "github": "Código fonte",
+    "open-file": "Abra um arquivo de texto"
+  }
+}

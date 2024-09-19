@@ -1,0 +1,21 @@
+{
+  "desc": {
+    "welcome-title": "Bonjour Vutron ! Tout est prêt.",
+    "welcome-desc": "Vous pouvez maintenant écrire des applications Web multiplateformes. Visualisez vos modifications en temps réel et créez sur plusieurs plates-formes avec une seule commande. Si vous ne le connaissez pas encore, vous pouvez obtenir de l'aide sur la page de documentation ci-dessous ou exécuter un exemple de code pré-écrit.",
+    "second-desc": "Déplacé vers le deuxième écran! Il n'y en a pas ici !",
+    "selected-file": "Fichier sélectionné: {filePath}."
+  },
+  "title": {
+    "main": "écran principal",
+    "second": "Deuxième écran",
+    "error": "Erreur est survenue"
+  },
+  "menu": {
+    "change-theme": "Change le thème",
+    "change-language": "Changer de langue",
+    "increase-count": "Augmenter le nombre de 1",
+    "documentation": "Document",
+    "github": "Code source",
+    "open-file": "Ouvrir un fichier texte"
+  }
+}

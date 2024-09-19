@@ -1,0 +1,10 @@
+# Node artifact files
+node_modules/
+
+# VitePress files
+dist
+dist/*
+src/.vitepress/.temp
+src/.vitepress/.temp/*
+src/.vitepress/cache
+src/.vitepress/cache/*

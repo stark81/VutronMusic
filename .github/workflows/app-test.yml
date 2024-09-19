@@ -1,0 +1,67 @@
+name: app-test
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '**'
+      - '!README.md'
+      - '!LICENSE'
+      - '!CODE_OF_CONDUCT.md'
+      - '!docs/**'
+      - '!.github/**'
+      - '.github/workflows/app-test.yml'
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  app-test:
+    runs-on: ${{ matrix.os }}
+    name: Test NodeJS ${{ matrix.node_version }} on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        node_version: ['18', '20']
+        os: [windows-latest, macos-latest, ubuntu-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install xvfb
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt install -y -q --no-install-recommends xvfb
+
+      - name: Setup NodeJS ${{ matrix.node_version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node_version }}
+          cache: npm
+          cache-dependency-path: '**/package-lock.json'
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        id: npm-cache
+        with:
+          path: |
+            **/node_modules
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
+      - name: Install dependencies
+        if: steps.npm-cache.outputs.cache-hit != 'true'
+        run: npm i
+
+      - name: Test module script (Windows or macOS)
+        if: runner.os != 'Linux'
+        run: |
+          npm run test
+
+      - name: Test module script (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          npm run test:linux

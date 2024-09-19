@@ -1,0 +1,21 @@
+{
+  "desc": {
+    "welcome-title": "Hola Vutron! Todo está listo.",
+    "welcome-desc": "Ahora puede escribir aplicaciones web multiplataforma. Vea sus cambios en tiempo real y cree en múltiples plataformas con un solo comando. Si aún no está familiarizado con él, puede obtener ayuda en la página de documentación a continuación o ejecutar un código de ejemplo preescrito.",
+    "second-desc": "¡Movido a la segunda pantalla! ¡Aquí no hay ninguno!",
+    "selected-file": "Archivo seleccionado: {filePath}."
+  },
+  "title": {
+    "main": "Pantalla principal",
+    "second": "segunda pantalla",
+    "error": "Se produjo un error"
+  },
+  "menu": {
+    "change-theme": "cambiar de tema",
+    "change-language": "cambiar idioma",
+    "increase-count": "aumentar la cuenta en 1",
+    "documentation": "documento",
+    "github": "código fuente",
+    "open-file": "Abrir un archivo de texto"
+  }
+}

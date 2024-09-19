@@ -1,0 +1,9 @@
+:root {
+  --bg-opacity: 0.05;
+}
+body {
+  background-color: rgba(0, 0, 0, var(--bg-opacity));
+  scrollbar-width: none;
+  padding: 0;
+  margin: 0;
+}

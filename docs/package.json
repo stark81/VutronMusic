@@ -1,0 +1,20 @@
+{
+  "name": "vutron-docs",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "vitepress dev src",
+    "build": "vitepress build src",
+    "serve": "vitepress serve src"
+  },
+  "author": "jooy2 <jooy2.contact@gmail.com>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "vitepress": "^1.0.0-rc.40",
+    "vitepress-sidebar": "^1.18.6",
+    "vue": "^3.4.15"
+  }
+}
