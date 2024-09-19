@@ -80,7 +80,7 @@
     "@playwright/test": "^1.42.0",
     "@types/better-sqlite3": "^7.6.11",
     "@types/howler": "^2.2.11",
-    "@typescript-eslint/eslint-plugin": "^7.1.0",
+    "@typescript-eslint/eslint-plugin": "^8.6.0",
     "@typescript-eslint/parser": "^7.1.0",
     "@vitejs/plugin-vue": "^5.0.4",
     "@vitejs/plugin-vue-jsx": "^3.1.0",
