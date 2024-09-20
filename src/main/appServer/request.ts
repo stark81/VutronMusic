@@ -1,5 +1,6 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
 import Constants from '../utils/Constants'
+import { session } from 'electron'
 
 const port = Number(
   Constants.IS_DEV_ENV
@@ -16,6 +17,10 @@ const service: AxiosInstance = axios.create({
 })
 
 service.interceptors.request.use(async (config: any) => {
+  if (!config.params) config.params = {}
+  const cookieString = await session.defaultSession.cookies.get({})
+  const cookie = cookieString.find((cookie: any) => cookie.name === 'MUSIC_U')
+  if (cookie) config.params.cookie = `MUSIC_U=${cookie.value}`
   return config
 })
 

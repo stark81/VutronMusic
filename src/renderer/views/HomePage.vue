@@ -130,7 +130,7 @@ const bannerNext = () => {
 }
 
 const handleBannerClick = (banner: any) => {
-  if (banner.typeTitle === ('新歌首发' || '热歌推荐')) {
+  if (['新歌首发', '热歌推荐'].includes(banner.typeTitle)) {
     addTrackToPlayNext(banner.targetId, true, true)
   } else if (banner.typeTitle === '新碟首发') {
     router.push(`/album/${banner.targetId}`)
