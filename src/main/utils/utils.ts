@@ -400,12 +400,12 @@ export const getAudioSource = async (track: any) => {
   // 先从缓存里取
 
   // 缓存里没有，从网易云里获取
-  const source = await getAudioSourceFromNetease(track)
+  let source = await getAudioSourceFromNetease(track)
 
   // 网易云里没有，从unblock里获取
-  // if (!source) {
-  //   await getAudioSourceFromUnblock(track)
-  // }
+  if (!source) {
+    source = await getAudioSourceFromUnblock(track)
+  }
   return source
 }
 
@@ -451,3 +451,10 @@ export const getTrackDetail = (ids: string) => {
 
 //   console.log('retrevedSong: ', retrevedSong)
 // }
+
+export const getAudioSourceFromUnblock = async (track: any) => {
+  const match = require('@unblockneteasemusic/server')
+  return match(track.id, ['qq', 'kugou', 'kuwo', 'bilibili', 'pyncmd', 'migu']).then(
+    (res: any) => res.url
+  )
+}

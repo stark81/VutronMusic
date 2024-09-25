@@ -102,15 +102,9 @@ export default defineConfig(({ mode }) => {
       minify: !isDevEnv,
       outDir: resolve('./dist'),
       rollupOptions: {
-        external: ['@unblockneteasemusic/rust-napi'],
         input: {
           main: resolve('./src/renderer/index.html'),
           lyricWin: resolve('./src/renderer/osdlyric.html')
-        },
-        output: {
-          globals: {
-            '@unblockneteasemusic/rust-napi': 'rustNapi'
-          }
         }
       }
     },

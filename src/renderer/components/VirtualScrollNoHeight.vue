@@ -150,9 +150,11 @@ const setStartOffset = () => {
 }
 
 const scrollTocurrent = (index: number) => {
+  const elTop =
+    listRef.value.getBoundingClientRect().top - document.documentElement.getBoundingClientRect().top
   const root = document.documentElement
   root.scrollTo({
-    top: 384,
+    top: elTop,
     behavior: 'smooth'
   })
   const idx = Math.floor((index - props.aboveValue) / props.columnNumber) || 0
