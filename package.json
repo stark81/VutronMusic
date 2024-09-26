@@ -52,7 +52,7 @@
     "compare-versions": "^6.1.0",
     "dayjs": "^1.11.10",
     "dompurify": "^3.1.6",
-    "electron-log": "^5.1.2",
+    "electron-log": "^5.2.0",
     "electron-store": "^8.2.0",
     "eslint": "^8.57.0",
     "fastify": "^4.26.2",
