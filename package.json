@@ -63,7 +63,7 @@
     "node-vibrant": "^3.2.1-alpha.1",
     "pinia": "^2.1.7",
     "pinia-plugin-persistedstate": "^3.2.1",
-    "qrcode": "^1.5.3",
+    "qrcode": "^1.5.4",
     "soundtouchjs": "^0.1.30",
     "trickling": "^1.14.0",
     "vite-plugin-multiple": "^0.2.0",
