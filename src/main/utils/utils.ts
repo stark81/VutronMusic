@@ -30,18 +30,18 @@ export const getLyricFromMetadata = (metadata: IAudioMetadata) => {
   let lyrics: string = ''
   if (common.lyrics) {
     // 这种一般是iTunes的歌词
-    lyrics = common.lyrics.length ? common.lyrics[0] : ''
+    lyrics = common.lyrics.length ? common.lyrics[0].text : ''
   } else {
     for (const tag of format.tagTypes ?? []) {
       if (tag === 'vorbis') {
         // flac
-        lyrics = native.vorbis?.find((item) => item.id === 'LYRICS')?.value ?? ''
+        lyrics = (native.vorbis?.find((item) => item.id === 'LYRICS')?.value ?? '') as string
         break
       } else if (tag === 'ID3v2.3') {
-        lyrics = native['ID3v2.3'].find((item) => item.id === 'USLT')?.value.text ?? ''
+        lyrics = (native['ID3v2.3'].find((item) => item.id === 'USLT')?.value as any).text ?? ''
         break
       } else if (tag === 'ID3v2.4') {
-        lyrics = native['ID3v2.4'].find((item) => item.id === 'USLT')?.value.text ?? ''
+        lyrics = (native['ID3v2.4'].find((item) => item.id === 'USLT')?.value as any).text ?? ''
         break
       }
     }
@@ -161,7 +161,7 @@ const getPicFromMetadata = async (metadata: IAudioMetadata) => {
   let pic: Buffer
   let format: string
   if (metadata.common.picture && metadata.common.picture.length > 0) {
-    pic = metadata.common.picture[0].data
+    pic = Buffer.from(metadata.common.picture[0].data)
     format = metadata.common.picture[0].format
   }
   return { pic, format }
@@ -397,16 +397,19 @@ const getAudioSourceFromNetease = (track: any): Promise<string> => {
 }
 
 export const getAudioSource = async (track: any) => {
+  let source = 'netease'
   // 先从缓存里取
 
   // 缓存里没有，从网易云里获取
-  let source = await getAudioSourceFromNetease(track)
+  let url = await getAudioSourceFromNetease(track)
 
   // 网易云里没有，从unblock里获取
-  if (!source) {
-    source = await getAudioSourceFromUnblock(track)
+  if (!url) {
+    const res = await getAudioSourceFromUnblock(track)
+    url = res.url
+    source = res.source
   }
-  return source
+  return { url, source }
 }
 
 export const getTrackDetail = (ids: string) => {
@@ -454,7 +457,5 @@ export const getTrackDetail = (ids: string) => {
 
 export const getAudioSourceFromUnblock = async (track: any) => {
   const match = require('@unblockneteasemusic/server')
-  return match(track.id, ['qq', 'kugou', 'kuwo', 'bilibili', 'pyncmd', 'migu']).then(
-    (res: any) => res.url
-  )
+  return match(track.id, ['qq', 'kugou', 'kuwo', 'bilibili', 'pyncmd', 'migu'])
 }

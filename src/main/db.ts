@@ -2,7 +2,7 @@
 import SQLite3 from 'better-sqlite3'
 import fs from 'fs'
 import path from 'path'
-import log from './log'
+// import log from './log'
 import { app } from 'electron'
 import { createFileIfNotExist } from './utils/utils'
 import Constants from './utils/Constants'
@@ -94,9 +94,9 @@ class DB {
     try {
       createFileIfNotExist(this.dbFilePath)
       const root = path.join(__dirname, '../../')
-      log.info('[db] Initializing database...')
+      // log.info('[db] Initializing database...')
       // @ts-ignore
-      log.info(path.join(root, import.meta.env.VITE_BETTER_SQLITE3_BINDING))
+      // log.info(path.join(root, import.meta.env.VITE_BETTER_SQLITE3_BINDING))
       this.sqlite = new SQLite3(this.dbFilePath, {
         // @ts-ignore
         nativeBinding: path.join(root, import.meta.env.VITE_BETTER_SQLITE3_BINDING)
@@ -105,8 +105,8 @@ class DB {
       this.initTables()
       this.migrate()
     } catch (e) {
-      log.error('[db] Database initialization failed.')
-      log.error(e)
+      // log.error('[db] Database initialization failed.')
+      // log.error(e)
     }
   }
 
@@ -119,7 +119,7 @@ class DB {
   migrate() {
     const key = 'appVersion'
     const appVersion = this.find(Tables.AppData, key)
-    log.info('[db] App version:', appVersion)
+    // log.info('[db] App version:', appVersion)
     const updateAppVersionInDB = () => {
       this.upsert(Tables.AppData, { id: key, value: Constants.APP_VERSION })
     }
@@ -137,7 +137,7 @@ class DB {
       }
     })
     updateAppVersionInDB()
-    log.info('[db] Database migration completed.')
+    // log.info('[db] Database migration completed.')
   }
 
   find<T extends TableNames>(

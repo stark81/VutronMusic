@@ -125,7 +125,7 @@ const props = defineProps({
     default: () => []
   },
   id: {
-    type: Number,
+    type: [Number, String],
     default: 0
   },
   height: {
@@ -270,12 +270,14 @@ const { removeTrackFromPlaylist } = useLocalMusicStore()
 const rmTrackFromPlaylist = () => {
   if (isLocal.value) {
     if (confirm(`确定要从歌单删除 ${rightClickedTrack.value.name}？`)) {
-      removeTrackFromPlaylist(props.id, rightClickedTrackComputed.value.id).then((result) => {
-        if (result) {
-          items.value.splice(rightClickedTrackIndex.value, 1)
-          showToast(t('toast.removedFromPlaylist'))
+      removeTrackFromPlaylist(props.id as number, rightClickedTrackComputed.value.id).then(
+        (result) => {
+          if (result) {
+            items.value.splice(rightClickedTrackIndex.value, 1)
+            showToast(t('toast.removedFromPlaylist'))
+          }
         }
-      })
+      )
     }
   } else {
     if (!isAccountLoggedIn()) {

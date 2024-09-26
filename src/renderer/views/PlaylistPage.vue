@@ -145,6 +145,10 @@
         @click="deleteAPlaylist"
         >{{ $t('contextMenu.deletePlaylist') }}</div
       >
+      <div v-if="!isLocal" class="item" @click="copyUrl">{{ $t('contextMenu.copyURL') }}</div>
+      <div v-if="!isLocal" class="item" @click="openOnBrowser">{{
+        $t('contextMenu.openOnBrowser')
+      }}</div>
     </ContextMenu>
   </div>
 </template>
@@ -157,7 +161,7 @@ import { useNormalStateStore } from '../store/state'
 import { usePlayerStore } from '../store/player'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
-import { formatDate } from '../utils'
+import { formatDate, openExternal } from '../utils'
 import Cover from '../components/CoverBox.vue'
 import ButtonTwoTone from '../components/ButtonTwoTone.vue'
 import TrackList from '../components/VirtualTrackList.vue'
@@ -377,7 +381,7 @@ const likePlaylist = (toast = false) => {
 
 const play = () => {
   const trackIDs = tracks.value.map((t) => t.id)
-  replacePlaylist(isLocal.value ? 'localTracks' : 'playlist', playlist.value.id || 0, trackIDs, 0)
+  replacePlaylist(isLocal.value ? 'localPlaylist' : 'playlist', playlist.value.id || 0, trackIDs, 0)
 }
 
 const playIntelligenceList = () => {
@@ -435,6 +439,18 @@ const deleteAPlaylist = () => {
       })
     }
   }
+}
+
+const copyUrl = () => {
+  const url = `https://music.163.com/#/playlist?id=${playlist.value.id}`
+  navigator.clipboard.writeText(url).then(() => {
+    showToast(t('toast.copySuccess'))
+  })
+}
+
+const openOnBrowser = () => {
+  const url = `https://music.163.com/#/playlist?id=${playlist.value.id}`
+  openExternal(url)
 }
 
 const removeTrack = (trackID: number) => {

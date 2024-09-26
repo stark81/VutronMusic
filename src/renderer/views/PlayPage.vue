@@ -16,7 +16,11 @@
             <div class="controls">
               <div class="top-part">
                 <div class="track-info">
-                  <div class="title" :title="currentTrack?.name">
+                  <div
+                    :class="['title', { haslist: hasListSource() }]"
+                    :title="source"
+                    @click="hasListSource() && goToList()"
+                  >
                     <span>{{ currentTrack?.name }}</span>
                   </div>
                   <div class="subtitle">
@@ -193,12 +197,15 @@ import ContextMenu from '../components/ContextMenu.vue'
 import ConvolverModal from '../components/ConvolverModal.vue'
 import LyricPage from '../components/LyricPage.vue'
 import Comment from '../components/CommentPage.vue'
+import { hasListSource, getListSourcePath } from '../utils/playlist'
 import { useNormalStateStore } from '../store/state'
 import { usePlayerStore } from '../store/player'
 import { useDataStore } from '../store/data'
 import { storeToRefs } from 'pinia'
 import { ref, computed, watch, provide } from 'vue'
+import { useRouter } from 'vue-router'
 
+const router = useRouter()
 const playPageContextMenu = ref<InstanceType<typeof ContextMenu>>()
 const show = ref('lyric')
 
@@ -249,6 +256,22 @@ const artist = computed(() => {
   return currentTrack.value?.artists ? currentTrack.value.artists[0] : currentTrack.value?.ar[0]
 })
 
+const source = computed(() => {
+  const sourceMap = {
+    localTrack: '本地音乐',
+    netease: '网易云音乐',
+    qq: 'QQ音乐',
+    kugou: '酷狗音乐',
+    kuwo: '酷我音乐',
+    bilibili: '哔哩哔哩',
+    pyncmd: '第三方网易云音乐',
+    migu: '咪咕音乐'
+  }
+  return currentTrack.value
+    ? `${currentTrack.value.name}, 音源来自${sourceMap[currentTrack.value.source!]}`
+    : ''
+})
+
 const album = computed(() => {
   return currentTrack.value?.album ?? currentTrack.value?.al
 })
@@ -259,12 +282,6 @@ watch(showLyrics, (value) => {
   }
 })
 
-// watch(currentTrack, (value) => {
-//   if (value?.matched !== true) {
-//     show.value = 'lyric'
-//   }
-// })
-
 const addTrackToPlaylist = () => {
   if (!currentTrack.value) return
   addTrackToPlaylistModal.value = {
@@ -272,6 +289,12 @@ const addTrackToPlaylist = () => {
     selectedTrackID: [currentTrack.value.id],
     isLocal: playlistSource.value.type.includes('local')
   }
+}
+
+const goToList = () => {
+  const path = getListSourcePath()
+  router.push(path)
+  showLyrics.value = false
 }
 
 const showContextMenu = (e: MouseEvent): void => {
@@ -344,6 +367,12 @@ provide('show', show)
       -webkit-box-orient: vertical;
       -webkit-line-clamp: 1;
       overflow: hidden;
+    }
+    .haslist {
+      cursor: pointer;
+      &:hover {
+        text-decoration: underline;
+      }
     }
     .subtitle {
       // margin-top: 4px;

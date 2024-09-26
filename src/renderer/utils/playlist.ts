@@ -1,5 +1,31 @@
 import { isAccountLoggedIn } from './auth'
 import { recommendPlaylist, dailyRecommendPlaylist, getPlaylistDetail } from '../api/playlist'
+import { usePlayerStore } from '../store/player'
+import { useDataStore } from '../store/data'
+import { storeToRefs } from 'pinia'
+
+export const hasListSource = () => {
+  const playerStore = usePlayerStore()
+  const { playlistSource, isPersonalFM } = storeToRefs(playerStore)
+  return !isPersonalFM.value && playlistSource.value.id !== 0
+}
+
+export const getListSourcePath = () => {
+  const { likedSongPlaylistID } = storeToRefs(useDataStore())
+  const { playlistSource } = storeToRefs(usePlayerStore())
+
+  if (playlistSource.value.id === likedSongPlaylistID.value) {
+    return '/library/liked-songs'
+  } else if (playlistSource.value.type === 'url') {
+    return playlistSource.value.id as string
+  } else if (playlistSource.value.type === 'cloudDisk') {
+    return '/library'
+  } else if (playlistSource.value.type.includes('local') && playlistSource.value.id === 0) {
+    return '/localMusic'
+  } else {
+    return `/${playlistSource.value.type}/${playlistSource.value.id}`
+  }
+}
 
 export const getRecommendPlayList = async (limit: number, removePrivateRecommand: boolean) => {
   if (isAccountLoggedIn()) {

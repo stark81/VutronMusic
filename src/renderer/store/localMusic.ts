@@ -35,6 +35,7 @@ export interface Track {
   album: Album
   artists: Artist[]
   picUrl: string
+  source?: string
   [key: string]: any
 }
 

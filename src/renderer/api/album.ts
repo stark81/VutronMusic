@@ -47,3 +47,11 @@ export function albumDynamicDetail(id) {
     params: { id, timestamp: new Date().getTime() }
   })
 }
+
+export function likeAAlbum(params: { id: number; t: number }) {
+  return request({
+    url: '/album/sub',
+    method: 'post',
+    params
+  })
+}

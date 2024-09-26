@@ -59,7 +59,7 @@
     "howler": "^2.2.4",
     "js-cookie": "^3.0.5",
     "mitt": "^3.0.1",
-    "music-metadata": "7.13.0",
+    "music-metadata": "^10.5.0",
     "node-vibrant": "^3.2.1-alpha.1",
     "pinia": "^2.1.7",
     "pinia-plugin-persistedstate": "^3.2.1",

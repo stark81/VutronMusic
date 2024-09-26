@@ -57,7 +57,7 @@ const playDailyTracks = () => {
     return
   }
   const trackIDs = dailyTracks.value.map((track) => track.id)
-  replacePlaylist('/daily/songs', 'url', trackIDs, 0)
+  replacePlaylist('url', '/daily/songs', trackIDs, 0)
 }
 
 const loadDailyTracks = () => {

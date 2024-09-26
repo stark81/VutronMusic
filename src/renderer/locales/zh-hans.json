@@ -140,7 +140,9 @@
     "finish": "完成",
     "allPlaylists": "全部歌单",
     "minePlaylists": "创建的歌单",
-    "likedPlaylists": "收藏的歌单"
+    "likedPlaylists": "收藏的歌单",
+    "openOnBrowser": "在浏览器中打开",
+    "copyURL": "复制链接"
   },
   "login": {
     "login": "登录",
@@ -259,6 +261,7 @@
     "addFailed": "操作失败，专辑下架或版权锁定",
     "removedFromPlaylist": "已从歌单中删除",
     "deleteSuccess": "删除成功",
-    "deleteFailed": "删除失败"
+    "deleteFailed": "删除失败",
+    "copySuccess": "复制成功"
   }
 }

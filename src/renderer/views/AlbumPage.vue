@@ -13,8 +13,8 @@
         :play-button-size="18"
       />
       <div class="info">
-        <div class="title" @click.right="() => {}"> {{ title }}</div>
-        <div v-if="subtitle !== ''" class="subtitle" @click.right="() => {}">{{ subtitle }}</div>
+        <div class="title"> {{ title }}</div>
+        <div v-if="subtitle !== ''" class="subtitle">{{ subtitle }}</div>
         <div class="artist">
           <span v-if="album?.artist?.id !== 104700">
             <span>{{ album?.type }} by </span
@@ -35,7 +35,7 @@
           {{ album?.description }}
         </div>
         <div class="buttons" style="margin-top: 32px">
-          <ButtonTwoTone icon-class="play" @click="() => {}">
+          <ButtonTwoTone icon-class="play" @click="play">
             {{ $t('common.play') }}
           </ButtonTwoTone>
           <ButtonTwoTone
@@ -45,7 +45,7 @@
             :color="dynamicDetail?.isSub ? 'blue' : 'grey'"
             :text-color="dynamicDetail?.isSub ? '#335eea' : ''"
             :background-color="dynamicDetail?.isSub ? 'var(--color-secondary-bg)' : ''"
-            @click="() => {}"
+            @click="likeAlbum"
           >
           </ButtonTwoTone>
           <ButtonTwoTone
@@ -53,7 +53,7 @@
             :icon-button="true"
             :horizontal-padding="0"
             color="grey"
-            @click="() => {}"
+            @click="openMenu"
           >
           </ButtonTwoTone>
         </div>
@@ -121,6 +121,11 @@
         {{ album.description }}
       </p>
     </Modal>
+
+    <ContextMenu ref="albumMenu">
+      <div class="item" @click="copyURL">{{ $t('contextMenu.copyURL') }}</div>
+      <div class="item" @click="openOnBrowser">{{ $t('contextMenu.openOnBrowser') }}</div>
+    </ContextMenu>
   </div>
 </template>
 
@@ -131,15 +136,20 @@ import { tricklingProgress } from '../utils/tricklingProgress'
 import Cover from '../components/CoverBox.vue'
 import Modal from '../components/BaseModal.vue'
 import ButtonTwoTone from '../components/ButtonTwoTone.vue'
-import { getAlbum, albumDynamicDetail } from '../api/album'
+import ContextMenu from '../components/ContextMenu.vue'
+import { getAlbum, albumDynamicDetail, likeAAlbum } from '../api/album'
 import { getTrackDetail } from '../api/track'
 import { getArtistAlbum } from '../api/artist'
 import { splitSoundtrackAlbumTitle, splitAlbumTitle } from '../utils/common'
-import { formatTime, formatDate } from '../utils'
+import { formatTime, formatDate, openExternal } from '../utils'
 import { groupBy, toPairs, sortBy } from 'lodash'
 import TrackList from '../components/VirtualTrackList.vue'
 import CoverRow from '../components/VirtualCoverRow.vue'
 import ExplicitSymbol from '../components/ExplicitSymbol.vue'
+import { useI18n } from 'vue-i18n'
+import { useNormalStateStore } from '../store/state'
+import { usePlayerStore } from '../store/player'
+import { isAccountLoggedIn } from '../utils/auth'
 
 const show = ref(false)
 const album = ref<{ [key: string]: any }>({})
@@ -148,7 +158,11 @@ const dynamicDetail = ref<{ [key: string]: any }>({})
 const moreAlbums = ref<any[]>([])
 const title = ref('')
 const subtitle = ref('')
+const albumMenu = ref()
 const showFullDescription = ref(false)
+
+const { t } = useI18n()
+const { showToast } = useNormalStateStore()
 
 const albumTime = computed(() => {
   let time = 0
@@ -195,6 +209,43 @@ const formatTitle = () => {
 
 const toggleFullDescription = () => {
   showFullDescription.value = !showFullDescription.value
+}
+
+const { replacePlaylist } = usePlayerStore()
+const play = () => {
+  const ids = tracks.value.map((t) => t.id)
+  replacePlaylist('album', album.value.id, ids, 0)
+}
+
+const likeAlbum = (toast = false) => {
+  if (!isAccountLoggedIn()) {
+    showToast(t('toast.needToLogin'))
+    return
+  }
+  likeAAlbum({ id: album.value.id, t: dynamicDetail.value.isSub ? 0 : 1 }).then((data) => {
+    if (data.code === 200) {
+      dynamicDetail.value.isSub = !dynamicDetail.value.isSub
+      if (toast) {
+        showToast(dynamicDetail.value.isSub ? '已保存到音乐库' : '已从音乐库删除')
+      }
+    }
+  })
+}
+
+const openMenu = (e: MouseEvent) => {
+  albumMenu.value.openMenu(e)
+}
+
+const copyURL = () => {
+  const url = `https://music.163.com/#/album?id=${album.value.id}`
+  navigator.clipboard.writeText(url).then(() => {
+    showToast(t('toast.copySuccess'))
+  })
+}
+
+const openOnBrowser = () => {
+  const url = `https://music.163.com/#/album?id=${album.value.id}`
+  openExternal(url)
 }
 
 const loadData = (id: string) => {

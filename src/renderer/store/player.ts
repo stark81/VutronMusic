@@ -472,6 +472,7 @@ export const usePlayerStore = defineStore(
             if (!isLocalList.value) {
               showToast(`使用本地文件播放`)
             }
+            matchTrack.source = 'localTrack'
             resolve(matchTrack)
             return
           }
@@ -861,6 +862,8 @@ export const usePlayerStore = defineStore(
       isPersonalFM.value = true
       if (!enabled.value) enabled.value = true
       if (currentTrack.value?.id !== _personalFMTrack.value.id) {
+        playlistSource.value.type = 'personalFM'
+        playlistSource.value.id = _personalFMTrack.value.id
         replaceCurrentTrack(_personalFMTrack.value.id, true)
       } else {
         playOrPause()

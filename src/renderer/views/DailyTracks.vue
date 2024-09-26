@@ -6,7 +6,7 @@
     </div>
 
     <div>
-      <TrackList :items="dailyTracks" :colunm-number="1" type="playlist" />
+      <TrackList id="/daily/songs" :items="dailyTracks" :colunm-number="1" type="url" />
     </div>
   </div>
 </template>

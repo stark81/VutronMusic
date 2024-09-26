@@ -342,14 +342,16 @@ class BackGround {
         const res = cache.get(CacheAPIs.Track, { ids })
         if (res) {
           const track = res.songs[0]
+          track.source = 'localTrack'
           return new Response(JSON.stringify(track), {
             headers: { 'content-type': 'application/json' }
           })
         } else {
           const res = await getTrackDetail(ids)
           const track = res.songs[0]
-          const url = await getAudioSource(track)
+          const { url, source } = await getAudioSource(track)
           track.url = url
+          track.source = source
           cacheTracks.set(ids, track)
           return new Response(JSON.stringify(track), {
             headers: { 'content-type': 'application/json' }

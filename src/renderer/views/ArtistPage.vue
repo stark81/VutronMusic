@@ -167,6 +167,11 @@
     >
       <p class="description-fulltext">{{ artist.briefDesc }}</p>
     </Modal>
+
+    <ContextMenu ref="artistMenu">
+      <div class="item" @click="copyURL">{{ $t('contextMenu.copyURL') }}</div>
+      <div class="item" @click="openOnBrowser">{{ $t('contextMenu.openOnBrowser') }}</div>
+    </ContextMenu>
   </div>
 </template>
 
@@ -176,12 +181,14 @@ import ButtonTwoTone from '../components/ButtonTwoTone.vue'
 import Modal from '../components/BaseModal.vue'
 import MvRow from '../components/MvRow.vue'
 import TrackList from '../components/VirtualTrackList.vue'
+import ContextMenu from '../components/ContextMenu.vue'
 import Cover from '../components/CoverBox.vue'
 import CoverRow from '../components/VirtualCoverRow.vue'
+import { usePlayerStore } from '../store/player'
 import { onBeforeRouteUpdate, useRoute } from 'vue-router'
 import { tricklingProgress } from '../utils/tricklingProgress'
 import { getArtist, getArtistAlbum, artistMv, similarArtists, followAnArtist } from '../api/artist'
-import { formatDate, formatAlbumType } from '../utils/index'
+import { formatDate, formatAlbumType, openExternal } from '../utils'
 import { isAccountLoggedIn } from '../utils/auth'
 import { useNormalStateStore } from '../store/state'
 import { useI18n } from 'vue-i18n'
@@ -204,6 +211,7 @@ const mvHover = ref(false)
 const hasMoreMV = ref(false)
 const showMorePopTracks = ref(false)
 const showFullDescription = ref(false)
+const artistMenu = ref()
 
 const stateStore = useNormalStateStore()
 const { showToast } = stateStore
@@ -223,6 +231,8 @@ const albums = computed(() => albumsData.value.filter((a) => a.type === '专辑'
 const eps = computed(() =>
   albumsData.value.filter((a) => ['EP/Single', 'EP', 'Single'].includes(a.type))
 )
+
+const { replacePlaylist } = usePlayerStore()
 
 const route = useRoute()
 const loadData = (id: string, next: any = undefined) => {
@@ -258,7 +268,10 @@ const goToMv = (id: string) => {}
 
 const scrollTo = (div: string, block = 'center') => {}
 
-const playPopularSongs = () => {}
+const playPopularSongs = () => {
+  const ids = popularTracks.value.map((t) => t.id)
+  replacePlaylist('artist', artist.value.id, ids, 0)
+}
 
 const toggleFullDescription = () => {
   showFullDescription.value = !showFullDescription.value
@@ -277,7 +290,21 @@ const followArtist = () => {
   })
 }
 
-const openMenu = () => {}
+const copyURL = () => {
+  const url = `https://music.163.com/#/artist?id=${artist.value.id}`
+  navigator.clipboard.writeText(url).then(() => {
+    showToast(t('toast.copySuccess'))
+  })
+}
+
+const openOnBrowser = () => {
+  const url = `https://music.163.com/#/artist?id=${artist.value.id}`
+  openExternal(url)
+}
+
+const openMenu = (e: MouseEvent) => {
+  artistMenu.value.openMenu(e)
+}
 
 onBeforeRouteUpdate((to, from, next) => {
   artist.value.img1v1Url = 'https://p1.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg'

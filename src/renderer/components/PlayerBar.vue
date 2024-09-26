@@ -27,9 +27,12 @@
       <div class="left">
         <img :src="pic" loading="lazy" @click="goToAlbum" />
         <div class="track-info">
-          <div class="title">
+          <div
+            :class="['title', { haslist: hasListSource() }]"
+            :title="source"
+            @click="hasListSource() && goToList()"
+          >
             <span>{{ currentTrack?.name }}</span>
-            <!-- <span> - </span> -->
           </div>
           <div class="albumAndLyric">
             <!-- <span>{{ currentTrack?.al?.name }}</span> -->
@@ -153,6 +156,7 @@ import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
 import { useDataStore } from '../store/data'
 import { useNormalStateStore } from '../store/state'
+import { hasListSource, getListSourcePath } from '../utils/playlist'
 import { useSettingsStore } from '../store/settings'
 import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
@@ -197,6 +201,22 @@ const artists = computed(() => {
   return currentTrack.value?.artists ?? currentTrack.value?.ar
 })
 
+const source = computed(() => {
+  const sourceMap = {
+    localTrack: '本地音乐',
+    netease: '网易云音乐',
+    qq: 'QQ音乐',
+    kugou: '酷狗音乐',
+    kuwo: '酷我音乐',
+    bilibili: '哔哩哔哩',
+    pyncmd: '第三方网易云音乐',
+    migu: '咪咕音乐'
+  }
+  return currentTrack.value
+    ? `${currentTrack.value.name}, 音源来自${sourceMap[currentTrack.value.source!]}`
+    : ''
+})
+
 const likeTrack = () => {
   if (currentTrack.value?.matched) {
     likeATrack(currentTrack.value.id)
@@ -220,6 +240,11 @@ const goToAlbum = () => {
   if (album.matched !== false) {
     router.push(`/album/${album.id}`)
   }
+}
+
+const goToList = () => {
+  const path = getListSourcePath()
+  router.push(path)
 }
 
 const formatVolume = computed(() => {
@@ -292,9 +317,20 @@ onMounted(() => {
       overflow: hidden;
       word-break: break-all;
     }
+    .track-info .haslist {
+      cursor: pointer;
+      &:hover {
+        text-decoration: underline;
+      }
+    }
     .albumAndLyric {
       font-size: 12px;
       opacity: 0.66;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 1;
+      overflow: hidden;
+      word-break: break-all;
       .artist .ar {
         cursor: pointer;
         &:hover {
