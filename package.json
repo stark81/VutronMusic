@@ -47,7 +47,7 @@
     "@unblockneteasemusic/server": "^0.27.8-patch.1",
     "NeteaseCloudMusicApi": "4.15.6",
     "better-sqlite3": "^11.1.2",
-    "change-case": "^5.4.3",
+    "change-case": "^5.4.4",
     "color": "^4.2.3",
     "compare-versions": "^6.1.0",
     "dayjs": "^1.11.10",
