@@ -54,7 +54,7 @@
     "dompurify": "^3.1.6",
     "electron-log": "^5.1.2",
     "electron-store": "^8.2.0",
-    "eslint": "^8.57.0",
+    "eslint": "^8.57.1",
     "fastify": "^4.26.2",
     "howler": "^2.2.4",
     "js-cookie": "^3.0.5",
