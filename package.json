@@ -74,7 +74,7 @@
     "vue-i18n": "^9.9.1",
     "vue-router": "^4.3.0",
     "vue3-virtual-scroll": "^0.1.10",
-    "vuetify": "^3.5.11"
+    "vuetify": "^3.7.2"
   },
   "devDependencies": {
     "@playwright/test": "^1.42.0",
