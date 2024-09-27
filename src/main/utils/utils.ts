@@ -457,5 +457,5 @@ export const getTrackDetail = (ids: string) => {
 
 export const getAudioSourceFromUnblock = async (track: any) => {
   const match = require('@unblockneteasemusic/server')
-  return match(track.id, ['qq', 'kugou', 'kuwo', 'bilibili', 'pyncmd', 'migu'])
+  return match(track.id, ['kuwo', 'qq', 'kugou', 'bilibili', 'pyncmd', 'migu'])
 }

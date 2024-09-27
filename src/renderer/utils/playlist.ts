@@ -7,7 +7,10 @@ import { storeToRefs } from 'pinia'
 export const hasListSource = () => {
   const playerStore = usePlayerStore()
   const { playlistSource, isPersonalFM } = storeToRefs(playerStore)
-  return !isPersonalFM.value && playlistSource.value.id !== 0
+  return (
+    !isPersonalFM.value &&
+    (playlistSource.value.id !== 0 || playlistSource.value.type.includes('local'))
+  )
 }
 
 export const getListSourcePath = () => {

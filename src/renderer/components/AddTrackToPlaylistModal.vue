@@ -120,10 +120,10 @@ const addTrackToPlaylist = (playlistId: number) => {
       tracks: id
     }).then((result) => {
       show.value = false
-      if (result.body.code === 200) {
+      if (result?.body?.code === 200) {
         showToast(t('toast.savedToPlaylist'))
       } else {
-        showToast(result.body.message)
+        showToast(result.message)
       }
     })
   }

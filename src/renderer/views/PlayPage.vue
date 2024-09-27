@@ -268,7 +268,7 @@ const source = computed(() => {
     migu: '咪咕音乐'
   }
   return currentTrack.value
-    ? `${currentTrack.value.name}, 音源来自${sourceMap[currentTrack.value.source!]}`
+    ? `${currentTrack.value.name}, 音源：${sourceMap[currentTrack.value.source!]}`
     : ''
 })
 

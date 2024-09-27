@@ -154,7 +154,20 @@ const handleClickSortType = (type: number) => {
   loadComment()
 }
 
+/**
+ * 加载评论。逻辑为：
+ * 1. 先加载推荐评论，但推荐评论一般只有一页，所以之后需要自动切换到加载最新评论
+ * 2. 加载最新评论时，评论列表为之前的推荐+最新评论，所以评论列表数量比评论总数要更多
+ * 3. 网易评论返回的数据问题很大，要么是hasMore为true但实际没有更多数据，要么是hasMore为false但实际还有更多数据, 要么会出现评论数量和总数不一致的问题，所以处理有些复杂，本项目里暂时按评论数量大于总数 或者 评论数量和总数之间的差值小于3视为加载完毕
+ */
 const loadComment = () => {
+  if (
+    !commentInfo.hasMore &&
+    (comments.value.length >= commentInfo.totalCount ||
+      Math.abs(comments.value.length - commentInfo.totalCount) < 3)
+  ) {
+    return
+  }
   const params = {
     id: props.id,
     type: typeMap[props.type],
@@ -178,9 +191,7 @@ const loadComment = () => {
       commentInfo.totalCount = res.data.totalCount || commentInfo.totalCount
       commentInfo.hasMore = res.data.hasMore
       commentInfo.pageNo++
-      if (res.data.hasMore) {
-        commentInfo.cursor = res.data.cursor
-      }
+      commentInfo.cursor = res.data.cursor
       comments.value.push(...res.data.comments)
     }
     show.value = true

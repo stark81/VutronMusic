@@ -13,7 +13,7 @@
         :play-button-size="18"
       />
       <div class="info">
-        <div class="title"> {{ title }}</div>
+        <div class="title" :title="title"> {{ title }}</div>
         <div v-if="subtitle !== ''" class="subtitle">{{ subtitle }}</div>
         <div class="artist">
           <span v-if="album?.artist?.id !== 104700">
@@ -37,6 +37,9 @@
         <div class="buttons" style="margin-top: 32px">
           <ButtonTwoTone icon-class="play" @click="play">
             {{ $t('common.play') }}
+          </ButtonTwoTone>
+          <ButtonTwoTone icon-class="floor-comment" @click="openComment">
+            {{ '评论' }}
           </ButtonTwoTone>
           <ButtonTwoTone
             :icon-class="dynamicDetail.isSub ? 'heart-solid' : 'heart'"
@@ -127,6 +130,12 @@
       <div class="item" @click="openOnBrowser">{{ $t('contextMenu.openOnBrowser') }}</div>
     </ContextMenu>
   </div>
+  <div v-show="showComment" class="comment" @click="closeComment">
+    <div></div>
+    <div class="comment-container" @click.stop>
+      <CommentPage v-if="showComment" :id="album.id" type="album" />
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -145,6 +154,7 @@ import { formatTime, formatDate, openExternal } from '../utils'
 import { groupBy, toPairs, sortBy } from 'lodash'
 import TrackList from '../components/VirtualTrackList.vue'
 import CoverRow from '../components/VirtualCoverRow.vue'
+import CommentPage from '../components/CommentPage.vue'
 import ExplicitSymbol from '../components/ExplicitSymbol.vue'
 import { useI18n } from 'vue-i18n'
 import { useNormalStateStore } from '../store/state'
@@ -159,6 +169,7 @@ const moreAlbums = ref<any[]>([])
 const title = ref('')
 const subtitle = ref('')
 const albumMenu = ref()
+const showComment = ref(false)
 const showFullDescription = ref(false)
 
 const { t } = useI18n()
@@ -248,6 +259,14 @@ const openOnBrowser = () => {
   openExternal(url)
 }
 
+const openComment = () => {
+  showComment.value = true
+}
+
+const closeComment = () => {
+  showComment.value = false
+}
+
 const loadData = (id: string) => {
   setTimeout(() => {
     if (!show.value) tricklingProgress.start()
@@ -304,8 +323,12 @@ onMounted(() => {
     margin-left: 56px;
     color: var(--color-text);
     .title {
-      font-size: 56px;
+      font-size: 52px;
       font-weight: 700;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 1;
+      overflow: hidden;
     }
     .subtitle {
       font-size: 22px;
@@ -314,7 +337,7 @@ onMounted(() => {
     .artist {
       font-size: 18px;
       opacity: 0.88;
-      margin-top: 24px;
+      margin-top: 20px;
       a {
         font-weight: 600;
       }
@@ -331,7 +354,7 @@ onMounted(() => {
       margin-top: 24px;
       display: -webkit-box;
       -webkit-box-orient: vertical;
-      -webkit-line-clamp: 3;
+      -webkit-line-clamp: 2;
       overflow: hidden;
       cursor: pointer;
       white-space: pre-line;
@@ -341,7 +364,7 @@ onMounted(() => {
       }
     }
     .buttons {
-      margin-top: 32px;
+      margin-top: 30px;
       display: flex;
       button {
         margin-right: 16px;
@@ -395,5 +418,21 @@ onMounted(() => {
   -webkit-box-orient: vertical;
   overflow: hidden;
   white-space: pre-line;
+}
+
+.comment {
+  background-color: rgba(0, 0, 0, 0.38);
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.comment-container {
+  background-color: var(--color-body-bg);
 }
 </style>

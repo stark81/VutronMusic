@@ -49,6 +49,9 @@
           <ButtonTwoTone icon-class="play" @click="play">
             {{ $t('common.play') }}
           </ButtonTwoTone>
+          <ButtonTwoTone v-if="!isLocal" icon-class="floor-comment" @click="openComment">
+            {{ '评论' }}
+          </ButtonTwoTone>
           <ButtonTwoTone
             v-if="!isLocal && playlist.creator.userId !== user.userId"
             :icon-class="playlist.subscribed ? 'heart-solid' : 'heart'"
@@ -84,6 +87,9 @@
         <ButtonTwoTone class="play-button" icon-class="play" color="grey" @click="play">
           {{ $t('common.play') }}
         </ButtonTwoTone>
+        <ButtonTwoTone color="grey" icon-class="floor-comment" @click="openComment">
+          {{ '评论' }}
+        </ButtonTwoTone>
         <ButtonTwoTone
           v-if="playlist.creator.userId !== user.userId"
           :icon-class="playlist.subscribed ? 'heart-solid' : 'heart'"
@@ -112,6 +118,9 @@
           @click="playIntelligenceList"
           >心动模式</ButtonTwoTone
         >
+        <ButtonTwoTone color="grey" icon-class="floor-comment" @click="openComment">
+          {{ '评论' }}
+        </ButtonTwoTone>
         <SearchBox ref="pSearchBoxRef" :placeholder="$t('playlist.search')" />
       </div>
     </div>
@@ -151,6 +160,12 @@
       }}</div>
     </ContextMenu>
   </div>
+  <div v-show="showComment" class="comment" @click="closeComment">
+    <div></div>
+    <div class="comment-container" @click.stop>
+      <CommentPage v-if="showComment" :id="playlist.id" type="playlist" />
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -163,6 +178,7 @@ import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 import { formatDate, openExternal } from '../utils'
 import Cover from '../components/CoverBox.vue'
+import CommentPage from '../components/CommentPage.vue'
 import ButtonTwoTone from '../components/ButtonTwoTone.vue'
 import TrackList from '../components/VirtualTrackList.vue'
 import ContextMenu from '../components/ContextMenu.vue'
@@ -288,6 +304,7 @@ const playlistMenu = ref()
 const show = ref(false)
 const lastLoadedTrackIndex = ref(9)
 const showFullDescription = ref(false)
+const showComment = ref(false)
 const pSearchBoxRef = ref<InstanceType<typeof SearchBox>>()
 
 const { user, likedSongPlaylistID } = storeToRefs(useDataStore())
@@ -451,6 +468,14 @@ const copyUrl = () => {
 const openOnBrowser = () => {
   const url = `https://music.163.com/#/playlist?id=${playlist.value.id}`
   openExternal(url)
+}
+
+const openComment = () => {
+  showComment.value = true
+}
+
+const closeComment = () => {
+  showComment.value = false
 }
 
 const removeTrack = (trackID: number) => {
@@ -860,5 +885,21 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   margin-top: 32px;
+}
+
+.comment {
+  background-color: rgba(0, 0, 0, 0.38);
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.comment-container {
+  background-color: var(--color-body-bg);
 }
 </style>

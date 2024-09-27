@@ -32,6 +32,12 @@
       </div>
     </template>
   </VirtualScroll>
+  <div v-show="showComment" class="comment" @click="closeComment">
+    <div></div>
+    <div class="comment-container" @click.stop>
+      <CommentPage v-if="showComment" :id="rightClickedTrackComputed.id" type="music" />
+    </div>
+  </div>
   <ContextMenu ref="trackListMenuRef" @close-menu="closeMenu">
     <div v-show="type !== 'cloudDisk'" class="item-info">
       <img :src="image" loading="lazy" />
@@ -46,10 +52,29 @@
       $t('contextMenu.addToQueue')
     }}</div>
     <div
+      v-if="type !== 'cloudDisk' && rightClickedTrackComputed.matched"
+      class="item"
+      @click="openComment"
+      >{{ $t('contextMenu.showComment') }}</div
+    >
+    <div
       v-if="extraContextMenuItem.includes('accurateMatch')"
       class="item"
       @click="accurateMatchTrack"
       >{{ $t('contextMenu.accurateMatch') }}</div
+    >
+    <hr v-show="type !== 'cloudDisk' && type !== 'localTracks'" />
+    <div
+      v-show="type !== 'cloudDisk' && rightClickedTrack.matched"
+      class="item"
+      @click="addTrackToPlaylist"
+      >{{ $t('player.addToPlaylist') }}</div
+    >
+    <div
+      v-if="extraContextMenuItem.includes('removeTrackFromPlaylist')"
+      class="item"
+      @click="rmTrackFromPlaylist"
+      >从歌单中删除</div
     >
     <div
       v-if="extraContextMenuItem.includes('addToLocalList')"
@@ -60,13 +85,6 @@
     <div v-if="extraContextMenuItem.includes('showInFolder')" class="item" @click="showInFolder">{{
       $t('contextMenu.showInFolder')
     }}</div>
-    <hr v-show="type !== 'cloudDisk' || 'localTracks'" />
-    <div
-      v-if="extraContextMenuItem.includes('removeTrackFromPlaylist')"
-      class="item"
-      @click="rmTrackFromPlaylist"
-      >从歌单中删除</div
-    >
   </ContextMenu>
 </template>
 
@@ -87,6 +105,7 @@ import { usePlayerStore } from '../store/player'
 import { useNormalStateStore } from '../store/state'
 import { useLocalMusicStore } from '../store/localMusic'
 import VirtualScroll from './VirtualScrollNoHeight.vue'
+import CommentPage from './CommentPage.vue'
 import { storeToRefs } from 'pinia'
 import TrackListItem from './TrackListItem.vue'
 import ContextMenu from './ContextMenu.vue'
@@ -163,6 +182,7 @@ const { items, colunmNumber, id } = toRefs(props)
 const trackListMenuRef = ref<InstanceType<typeof ContextMenu>>()
 const selectedList = ref<number[]>([])
 const rightClickedTrackIndex = ref(-1)
+const showComment = ref(false)
 const rightClickedTrack = ref({
   id: 0,
   name: '',
@@ -314,6 +334,30 @@ const addToLocalPlaylist = (trackIDs: number[] = []) => {
     }
   })
 }
+
+const addTrackToPlaylist = () => {
+  if (!isAccountLoggedIn()) {
+    showToast(t('toast.loginRequired'))
+    return
+  }
+  const trackIDs = [rightClickedTrack.value?.id]
+  setTimeout(() => {
+    addTrackToPlaylistModal.value = {
+      show: true,
+      selectedTrackID: trackIDs,
+      isLocal: false
+    }
+  })
+}
+
+const openComment = () => {
+  showComment.value = true
+}
+
+const closeComment = () => {
+  showComment.value = false
+}
+
 const addToQueue = (ids: number | number[] | null = null) => {
   if (!ids) {
     ids = selectedList.value
@@ -347,5 +391,20 @@ onBeforeUnmount(() => {
 .track-item {
   width: 100%;
   // padding-bottom: 4px;
+}
+.comment {
+  background-color: rgba(0, 0, 0, 0.38);
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.comment-container {
+  background-color: var(--color-body-bg);
 }
 </style>

@@ -166,6 +166,7 @@ import { storeToRefs } from 'pinia'
 import { useNormalStateStore } from '../store/state'
 import { useLocalMusicStore } from '../store/localMusic'
 import { usePlayerStore } from '../store/player'
+import { useSettingsStore } from '../store/settings'
 import {
   computed,
   ref,
@@ -195,6 +196,8 @@ const { localTracks, playlists, sortBy } = storeToRefs(localMusicStore)
 const { newPlaylistModal } = storeToRefs(useNormalStateStore())
 const { addTrackToPlayNext } = usePlayerStore()
 
+const { theme } = storeToRefs(useSettingsStore())
+
 // ref
 const currentTab = ref('localTracks')
 const isDarkMode = ref(false)
@@ -210,7 +213,10 @@ const noLyricTracks = ref<number[]>([])
 const isBatchOp = ref(false)
 
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-  isDarkMode.value = window.matchMedia('(prefers-color-scheme: dark)').matches
+  isDarkMode.value =
+    theme.value.appearance === 'auto'
+      ? window.matchMedia('(prefers-color-scheme: dark)').matches
+      : theme.value.appearance === 'dark'
 })
 
 const formatedTime = computed(() => {
@@ -399,7 +405,10 @@ watch(currentTab, () => {
 onMounted(() => {
   window.addEventListener('resize', handleResize)
   updatePadding(0)
-  isDarkMode.value = window.matchMedia('(prefers-color-scheme: dark)').matches
+  isDarkMode.value =
+    theme.value.appearance === 'auto'
+      ? window.matchMedia('(prefers-color-scheme: dark)').matches
+      : theme.value.appearance === 'dark'
   if (tabsRowRef.value) {
     observeTab.observe(tabsRowRef.value)
   }
