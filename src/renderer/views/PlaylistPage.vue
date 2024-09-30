@@ -133,6 +133,7 @@
         :colunm-number="1"
         :show-position="true"
         :height="650"
+        :load-more="loadMore"
         :extra-context-menu-item="isUserOwnPlaylist ? ['removeTrackFromPlaylist'] : []"
       />
     </div>
@@ -368,12 +369,26 @@ const loadData = async (id: number) => {
     })
     .then(() => {
       if (playlist.value.trackCount > tracks.value.length) {
-        const trackIDs = playlist.value.trackIds.slice(tracks.value.length).map((t) => t.id)
+        const trackIDs = playlist.value.trackIds
+          .slice(tracks.value.length, tracks.value.length + 500)
+          .map((t) => t.id)
         getTrackDetail(trackIDs.join(',')).then((data: any) => {
           tracks.value.push(...data.songs)
         })
       }
     })
+}
+
+const loadMore = (Num: number = 500) => {
+  if (playlist.value.trackCount > tracks.value.length) {
+    const trackIDs = playlist.value.trackIds
+      .slice(tracks.value.length, tracks.value.length + Num)
+      .map((t) => t.id)
+    getTrackDetail(trackIDs.join(',')).then((data: any) => {
+      tracks.value.push(...data.songs)
+      lastLoadedTrackIndex.value = tracks.value.length - 1
+    })
+  }
 }
 
 const likePlaylist = (toast = false) => {
