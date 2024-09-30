@@ -30,7 +30,7 @@ export const getLyricFromMetadata = (metadata: IAudioMetadata) => {
   let lyrics: string = ''
   if (common.lyrics) {
     // 这种一般是iTunes的歌词
-    lyrics = common.lyrics.length ? common.lyrics[0].text : ''
+    lyrics = common.lyrics.length ? ((common.lyrics[0].text ?? common.lyrics[0]) as string) : ''
   } else {
     for (const tag of format.tagTypes ?? []) {
       if (tag === 'vorbis') {
