@@ -68,7 +68,7 @@
     "trickling": "^1.14.0",
     "vite-plugin-multiple": "^0.2.0",
     "vite-plugin-svg-icons": "^2.0.1",
-    "vue": "^3.4.21",
+    "vue": "^3.5.10",
     "vue-3-slider-component": "^0.1.4",
     "vue-draggable-plus": "^0.5.2",
     "vue-i18n": "^9.9.1",
