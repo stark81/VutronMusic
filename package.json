@@ -39,7 +39,7 @@
   },
   "dependencies": {
     "@electron/rebuild": "^3.6.0",
-    "@fastify/cookie": "^9.3.1",
+    "@fastify/cookie": "^10.0.1",
     "@fastify/cors": "^9.0.1",
     "@fastify/static": "^7.0.1",
     "@mdi/font": "^7.4.47",
