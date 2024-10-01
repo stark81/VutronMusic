@@ -94,7 +94,7 @@
     "eslint-plugin-import": "^2.29.1",
     "eslint-plugin-n": "^16.6.2",
     "eslint-plugin-promise": "^6.1.1",
-    "eslint-plugin-vue": "^9.22.0",
+    "eslint-plugin-vue": "^9.28.0",
     "playwright": "^1.42.0",
     "prettier": "^3.2.5",
     "sass": "^1.72.0",
