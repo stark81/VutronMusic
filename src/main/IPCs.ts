@@ -1,4 +1,4 @@
-import { ipcMain, shell, IpcMainEvent, dialog, BrowserWindow } from 'electron'
+import { app, ipcMain, shell, IpcMainEvent, dialog, BrowserWindow } from 'electron'
 import { YPMTray } from './tray'
 import Constants from './utils/Constants'
 import store from './store'
@@ -21,14 +21,65 @@ export default class IPCs {
     tray: YPMTray,
     lrc: { [key: string]: Function }
   ): void {
-    initWindowIpcMain()
+    initWindowIpcMain(win)
     initOSDWindowIpcMain(win, lyricWin, lrc)
     initTrayIpcMain(win, tray)
     initTaskbarIpcMain()
     initOtherIpcMain(win)
   }
 }
-function initWindowIpcMain(): void {}
+
+function exitAsk(event: IpcMainEvent, win: BrowserWindow) {
+  event.preventDefault()
+  dialog.showMessageBox({
+    type: 'info',
+    title: 'Infomation',
+    cancelId: 2,
+    defaultId: 0,
+    message: '确定要关闭吗？',
+    buttons: ['最小化到托盘', '直接退出'],
+    checkboxLabel: '记住我的选择',
+  }).then((result) => {
+    if (result.checkboxChecked && result.response !== 2) {
+      win.webContents.send('rememberCloseAppOption', result.response === 0 ? 'minimizeToTray' : 'exit')
+    }
+    if (result.response === 0) {
+      event.preventDefault()
+      win.hide()
+    } else if (result.response === 1) {
+      setTimeout(() => {
+        win = null
+        app.exit()
+      }, 100)
+    }
+  }).catch((err) => {
+    console.log('========', err)
+  })
+}
+
+function initWindowIpcMain(win: BrowserWindow): void {
+  ipcMain.on('minimize', (event: IpcMainEvent) => {
+    win.minimize()
+  })
+
+  ipcMain.handle('maximizeOrUnmaximize', (event: IpcMainEvent) => {
+    win.isMaximized() ? win.unmaximize() : win.maximize()
+    return !win.isMaximized()
+  })
+
+  ipcMain.on('close', (event: IpcMainEvent) => {
+    const closeAppOption = store.get('settings.closeAppOption') || 'ask'
+    if (closeAppOption === 'exit') {
+      win = null
+      app.exit()
+    } else if (closeAppOption === 'minimizeToTray') {
+      event.preventDefault()
+      win.hide()
+    } else {
+      exitAsk(event, win)
+    }
+  })
+}
 
 function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
   ipcMain.on(

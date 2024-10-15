@@ -1,6 +1,8 @@
 <template>
-  <div class="nav-bar">
-    <nav>
+  <div>
+    <nav :class="{ 'has-custom-titlebar': isLinux }">
+      <LinuxTitleBar v-if="isLinux" />
+
       <div class="navigation-buttons">
         <button-icon @click.stop="router.go(-1)">
           <svg-icon icon-class="arrow-left" />
@@ -89,6 +91,7 @@ import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
 import SearchBox from './SearchBox.vue'
 import ContextMenu from './ContextMenu.vue'
+import LinuxTitleBar from './LinuxTitleBar.vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../store/data'
 import { useNormalStateStore } from '../store/state'
@@ -104,6 +107,7 @@ const searchBoxRef = ref()
 const keywords = ref('')
 
 const isLooseLoggedIn = computed(() => data.user.value.userId !== null)
+const isLinux = computed(() => window.env?.isLinux)
 
 defineExpose({ searchBoxRef })
 
@@ -157,22 +161,26 @@ const doSearch = (keyword: string, tab: string | null = null) => {
 </script>
 
 <style lang="scss" scoped>
-.nav-bar {
+nav {
   position: fixed;
   top: 0;
   right: 0;
   left: 0;
-  z-index: 3;
-  -webkit-app-region: drag;
-}
-nav {
   display: flex;
   justify-content: space-between;
   align-items: center;
   height: 64px;
   padding: 0 30px 0 6vw;
+  box-sizing: content-box;
   backdrop-filter: saturate(180%) blur(20px);
   background-color: var(--color-navbar-bg);
+  z-index: 10;
+  -webkit-app-region: drag;
+}
+
+nav.has-custom-titlebar {
+  padding-top: 20px;
+  -webkit-app-region: no-drag;
 }
 
 .navigation-buttons {

@@ -40,6 +40,7 @@ const store = new Store<TypeElectronStore>({
       innerFirst: false,
       lang: 'zh',
       enableTrayMenu: false,
+      closeAppOption: 'ask',
       shortcuts: [
         {
           id: 'play',

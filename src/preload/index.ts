@@ -25,7 +25,10 @@ const mainAvailChannels: string[] = [
   'toggleOSDWindow',
   'updateLyricIndex',
   'updateLyric',
-  'clearDeletedMusic'
+  'clearDeletedMusic',
+  'minimize',
+  'maximizeOrUnmaximize',
+  'close',
 ]
 const rendererAvailChannels: string[] = [
   'msgHandleScanLocalMusic',
@@ -41,6 +44,7 @@ const rendererAvailChannels: string[] = [
   'updateLyric',
   'updateLyricIndex',
   'toggleOSDWindow',
+  'rememberCloseAppOption',
   'msgDeletedTracks'
 ]
 

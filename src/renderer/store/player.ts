@@ -46,6 +46,7 @@ export const usePlayerStore = defineStore(
     const volumeBeforeMuted = ref(1)
     const isPersonalFM = ref(false)
     const currentTrack = ref<Track | null>(null)
+    const title = ref<string | null>(null)
     const outputDevice = ref('default')
     let setIntervalTimer: any
     let setLyricIntervalTimer: any
@@ -591,6 +592,7 @@ export const usePlayerStore = defineStore(
     const play = () => {
       audioContext.resume().then(() => {
         audio.play()
+        title.value = `${currentTrack.value?.name} · ${currentTrack.value?.artists[0].name} - VutronMusic`
         howler.masterGain.gain.linearRampToValueAtTime(volume.value, audioContext.currentTime + 0.2)
       })
     }
@@ -598,6 +600,7 @@ export const usePlayerStore = defineStore(
     const pause = async () => {
       howler.masterGain.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.2)
       audio.pause()
+      title.value = 'VutronMusic'
       await audioContext.suspend()
     }
 
@@ -918,6 +921,7 @@ export const usePlayerStore = defineStore(
       progress,
       seek,
       repeatMode,
+      title,
       shuffle,
       volume,
       _volume,

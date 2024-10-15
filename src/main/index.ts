@@ -105,7 +105,7 @@ class BackGround {
       y: (store.get('window.y') as number) || undefined,
       minWidth: 1080,
       minHeight: 720,
-      frames: false,
+      frame: false,
       useContentSize: true,
       titleBarStyle: 'hiddenInset' as const,
       webPreferences: Constants.DEFAULT_WEB_PREFERENCES

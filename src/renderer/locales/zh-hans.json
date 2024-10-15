@@ -238,6 +238,12 @@
         "text": "音频输出设备",
         "deviceID": "default"
       },
+      "closeAppOption": {
+        "text": "软件退出选项",
+        "minimizeToTray": "最小化至托盘",
+        "exit": "直接退出",
+        "ask": "询问"
+      },
       "logout": "登出"
     },
     "tray": {

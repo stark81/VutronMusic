@@ -80,7 +80,8 @@ const listHeight = computed(() => {
 })
 
 const containerHeight = computed(() => {
-  const windowHeight = window.innerHeight - 64
+  const navBarHeight = hasCustomTitleBar.value ? 84 : 64
+  const windowHeight = window.innerHeight - navBarHeight
   return Math.min(windowHeight, listHeight.value, props.height)
 })
 const contentTransform = computed(() => `translateY(${startOffset.value}px)`)
@@ -97,13 +98,17 @@ const visibleData = computed(() => {
   return _listData.value.slice(_start, _end)
 })
 const listStyles = computed(() => {
-  const windowHeight = window.innerHeight - 64
+  const navBarHeight = hasCustomTitleBar.value ? 84 : 64
+  const windowHeight = window.innerHeight - navBarHeight
   return {
     gap: `0 ${props.gap}px`,
     gridTemplateColumns: `repeat(${props.columnNumber}, 1fr)`,
     transform: contentTransform.value,
     paddingBottom: `${listHeight.value > windowHeight ? props.paddingBottom : 0}px`
   }
+})
+const hasCustomTitleBar = computed(() => {
+  return window.env?.isLinux || window.env?.isWindows
 })
 
 const initPosition = () => {
@@ -261,7 +266,7 @@ const observer = new IntersectionObserver(
   },
   {
     root: null,
-    threshold: 0.99
+    threshold: 1
   }
 )
 

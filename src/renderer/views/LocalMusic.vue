@@ -61,7 +61,7 @@
       <div class="right-bottom">{{ artist }} - {{ trackName }}</div>
     </div>
     <div class="section-two">
-      <div ref="tabsRowRef" class="tabs-row">
+      <div ref="tabsRowRef" class="tabs-row" :style="{ height: (hasCustomTitleBar ? 84 : 64) + 'px', paddingTop: (hasCustomTitleBar ? 20 : 0) + 'px' }">
         <div class="tabs">
           <div
             class="tab dropdown"
@@ -120,7 +120,7 @@
           ><svg-icon icon-class="plus" />{{ $t('library.playlist.newPlaylist') }}
         </button>
       </div>
-      <div class="section-two-content">
+      <div class="section-two-content" :style="{ height: sessionTwoHeight + 'px'  }">
         <TrackList
           v-if="currentTab === 'localTracks'"
           :id="0"
@@ -217,6 +217,14 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () 
     theme.value.appearance === 'auto'
       ? window.matchMedia('(prefers-color-scheme: dark)').matches
       : theme.value.appearance === 'dark'
+})
+
+const hasCustomTitleBar = computed(() => {
+  return window.env?.isLinux || window.env?.isWindows
+})
+
+const sessionTwoHeight = computed(() => {
+  return window.innerHeight - (hasCustomTitleBar.value ? 84 : 64)
 })
 
 const formatedTime = computed(() => {
@@ -330,8 +338,7 @@ const openAddPlaylistModal = () => {
 // provide
 provide('isBatchOp', isBatchOp)
 
-const navBarRef = inject('navBarRef') as any
-
+const navBarRef = inject('navBarRef', ref())
 // 这里需要进行调整
 // 1. 将滚动条组件变更为控制root元素滚动，而非main元素滚动
 // 2. root元素滚动应该和虚拟列表滚动互斥，即root元素滚动时虚拟列表不滚动，反之亦然
@@ -356,7 +363,7 @@ const observeTab = new IntersectionObserver(
   },
   {
     root: null,
-    rootMargin: `-${navBarRef.value?.$el?.offsetHeight | 64}px 0px 0px 0px`,
+    rootMargin: `-${hasCustomTitleBar.value ? 84 : 64}px 0px 0px 0px`,
     threshold: Array.from({ length: 101 }, (v, i) => i / 100)
   }
 )
@@ -539,7 +546,6 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 64px;
   width: 100%;
   z-index: 10;
   background-color: rgba(0, 0, 0, 0);
@@ -615,6 +621,6 @@ button.tab-button {
 }
 
 .section-two-content {
-  height: calc(100vh - 64px);
+  margin-top: 20px;
 }
 </style>

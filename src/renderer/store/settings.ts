@@ -24,6 +24,7 @@ export const useSettingsStore = defineStore(
       showTrackTimeOrID: 'time',
       musicQuality: 320000,
       musicLanguage: 'all',
+      closeAppOption: 'ask',
       enabledPlaylistCategories
     })
 
@@ -81,6 +82,13 @@ export const useSettingsStore = defineStore(
       }
     )
 
+    watch(
+      () => general.closeAppOption,
+      (newValue) => {
+        window.mainApi.send('setStoreSettings', { closeAppOption: newValue })
+      }
+    )
+
     const togglePlaylistCategory = (name: string) => {
       const index = general.enabledPlaylistCategories.findIndex((c) => c === name)
       if (index !== -1) {
@@ -99,7 +107,8 @@ export const useSettingsStore = defineStore(
         shortcuts: toRaw(shortcuts.value),
         enableTrayMenu: trayMenu,
         innerFirst: localMusic.useInnerInfoFirst,
-        musicQuality: general.musicQuality
+        musicQuality: general.musicQuality,
+        closeAppOption: general.closeAppOption
       })
     })
     return { theme, general, localMusic, tray, shortcuts, osdLyric, togglePlaylistCategory }

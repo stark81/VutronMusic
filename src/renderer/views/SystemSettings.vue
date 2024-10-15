@@ -56,6 +56,18 @@
               </select>
             </div>
           </div>
+          <div v-if="!isMac" class="item">
+            <div class="left">
+              <div class="title">{{ $t('settings.general.closeAppOption.text') }}</div>
+            </div>
+            <div class="right">
+              <select v-model="selectOptions">
+                <option value="ask">{{ $t('settings.general.closeAppOption.ask') }}</option>
+                <option value="minimizeToTray">{{ $t('settings.general.closeAppOption.minimizeToTray') }}</option>
+                <option value="exit">{{ $t('settings.general.closeAppOption.exit') }}</option>
+              </select>
+            </div>
+          </div>
           <div class="item">
             <div class="left">
               <div class="title">{{ $t('settings.general.showTimeOrID.text') }}</div>
@@ -249,7 +261,7 @@ import Utils from '../utils'
 const settingsStore = useSettingsStore()
 const { localMusic, general, tray, theme } = storeToRefs(settingsStore)
 const { scanDir, replayGain, useInnerInfoFirst } = toRefs(localMusic.value)
-const { showTrackTimeOrID, language } = toRefs(general.value)
+const { showTrackTimeOrID, language, closeAppOption } = toRefs(general.value)
 const { appearance } = toRefs(theme.value)
 const { showLyric, showControl, lyricWidth, scrollRate } = toRefs(tray.value)
 
@@ -264,6 +276,7 @@ const localMusicStore = useLocalMusicStore()
 const { resetLocalMusic } = localMusicStore
 
 const isElectron = window.env?.isElectron || false
+const isMac = window.env?.isMac
 
 const showTrackInfo = computed({
   get: () => showTrackTimeOrID.value,
@@ -285,6 +298,15 @@ const selectLanguage = computed({
   set: (value) => {
     language.value = value
     locale.value = value
+  }
+})
+
+const selectOptions = computed({
+  get: () => {
+    return closeAppOption.value
+  },
+  set: (value) => {
+    closeAppOption.value = value
   }
 })
 

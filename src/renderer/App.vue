@@ -83,7 +83,7 @@ const fetchLocalData = () => {
 
 const padding = ref(96)
 const settingsStore = useSettingsStore()
-const { theme, localMusic } = storeToRefs(settingsStore)
+const { theme, localMusic, general } = storeToRefs(settingsStore)
 const appearance = ref(theme.value.appearance)
 const { scanDir, scanning } = toRefs(localMusic.value)
 Utils.changeAppearance(appearance.value)
@@ -151,6 +151,9 @@ const handleChanelEvent = () => {
   })
   window.mainApi.on('msgDeletedTracks', (_: any, trackIDs: number[]) => {
     deleteLocalTracks(trackIDs)
+  })
+  window.mainApi.on('rememberCloseAppOption', (_: any, result: string) => {
+    general.value.closeAppOption = result
   })
 }
 
