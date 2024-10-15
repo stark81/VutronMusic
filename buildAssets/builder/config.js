@@ -3,7 +3,7 @@ const dotenv = require('dotenv')
 
 const baseConfig = {
   productName: 'Vutron',
-  appId: 'com.vutron.vutron',
+  appId: '',
   asar: true,
   extends: null,
   compression: 'maximum',
@@ -71,7 +71,7 @@ const baseConfig = {
   },
   linux: {
     executableName: 'vutron',
-    icon: 'buildAssets/icons',
+    icon: 'buildAssets/icons/icon.icns',
     category: 'Utility',
     target: [
       {

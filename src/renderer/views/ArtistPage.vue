@@ -188,6 +188,7 @@ import { usePlayerStore } from '../store/player'
 import { onBeforeRouteUpdate, useRoute } from 'vue-router'
 import { tricklingProgress } from '../utils/tricklingProgress'
 import { getArtist, getArtistAlbum, artistMv, similarArtists, followAnArtist } from '../api/artist'
+import { getTrackDetail } from '../api/track'
 import { formatDate, formatAlbumType, openExternal } from '../utils'
 import { isAccountLoggedIn } from '../utils/auth'
 import { useNormalStateStore } from '../store/state'
@@ -243,7 +244,10 @@ const loadData = (id: string, next: any = undefined) => {
 
   getArtist(Number(id)).then((res) => {
     artist.value = res.artist
-    popularTracks.value = res.hotSongs
+    const ids = res.hotSongs.map((t) => t.id)
+    getTrackDetail(ids.join(',')).then((data) => {
+      popularTracks.value = data.songs
+    })
     if (next !== undefined) next()
     tricklingProgress.done()
     show.value = true

@@ -283,6 +283,8 @@ watch(_listData, (newList, oldList) => {
       startRow.value = 0
       // endRow.value = startRow.value + visibleCount.value
     })
+  } else {
+    initPosition()
   }
 })
 

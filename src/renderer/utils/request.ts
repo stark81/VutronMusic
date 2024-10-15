@@ -1,4 +1,5 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
+import { doLogout } from './auth'
 // import { getCookie } from './auth'
 
 const baseUrl = '/netease'
@@ -23,6 +24,7 @@ service.interceptors.response.use(
     const data = response?.data as any
     if (data?.code === 301 && data?.message === '未登录') {
       console.log('未登录')
+      doLogout()
     }
     return Promise.reject(error)
   }
