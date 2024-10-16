@@ -2,7 +2,7 @@
 const dotenv = require('dotenv')
 
 const baseConfig = {
-  productName: 'Vutron',
+  productName: 'VutronMusic',
   appId: '',
   asar: true,
   extends: null,
