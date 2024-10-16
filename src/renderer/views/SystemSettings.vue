@@ -63,7 +63,9 @@
             <div class="right">
               <select v-model="selectOptions">
                 <option value="ask">{{ $t('settings.general.closeAppOption.ask') }}</option>
-                <option value="minimizeToTray">{{ $t('settings.general.closeAppOption.minimizeToTray') }}</option>
+                <option value="minimizeToTray">{{
+                  $t('settings.general.closeAppOption.minimizeToTray')
+                }}</option>
                 <option value="exit">{{ $t('settings.general.closeAppOption.exit') }}</option>
               </select>
             </div>

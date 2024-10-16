@@ -61,7 +61,14 @@
       <div class="right-bottom">{{ artist }} - {{ trackName }}</div>
     </div>
     <div class="section-two">
-      <div ref="tabsRowRef" class="tabs-row" :style="{ height: (hasCustomTitleBar ? 84 : 64) + 'px', paddingTop: (hasCustomTitleBar ? 20 : 0) + 'px' }">
+      <div
+        ref="tabsRowRef"
+        class="tabs-row"
+        :style="{
+          height: (hasCustomTitleBar ? 84 : 64) + 'px',
+          paddingTop: (hasCustomTitleBar ? 20 : 0) + 'px'
+        }"
+      >
         <div class="tabs">
           <div
             class="tab dropdown"
@@ -120,7 +127,7 @@
           ><svg-icon icon-class="plus" />{{ $t('library.playlist.newPlaylist') }}
         </button>
       </div>
-      <div class="section-two-content" :style="{ height: sessionTwoHeight + 'px'  }">
+      <div class="section-two-content" :style="tabStyle">
         <TrackList
           v-if="currentTab === 'localTracks'"
           :id="0"
@@ -223,8 +230,13 @@ const hasCustomTitleBar = computed(() => {
   return window.env?.isLinux || window.env?.isWindows
 })
 
-const sessionTwoHeight = computed(() => {
-  return window.innerHeight - (hasCustomTitleBar.value ? 84 : 64)
+const tabStyle = computed(() => {
+  const height = window.innerHeight - (hasCustomTitleBar.value ? 84 : 64)
+  const marginTop = hasCustomTitleBar.value ? 20 : 0
+  return {
+    height: `${height}px`,
+    marginTop: `${marginTop}px`
+  }
 })
 
 const formatedTime = computed(() => {
@@ -621,6 +633,6 @@ button.tab-button {
 }
 
 .section-two-content {
-  margin-top: 20px;
+  // margin-top: 20px;
 }
 </style>

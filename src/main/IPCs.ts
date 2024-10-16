@@ -31,30 +31,36 @@ export default class IPCs {
 
 function exitAsk(event: IpcMainEvent, win: BrowserWindow) {
   event.preventDefault()
-  dialog.showMessageBox({
-    type: 'info',
-    title: 'Infomation',
-    cancelId: 2,
-    defaultId: 0,
-    message: '确定要关闭吗？',
-    buttons: ['最小化到托盘', '直接退出'],
-    checkboxLabel: '记住我的选择',
-  }).then((result) => {
-    if (result.checkboxChecked && result.response !== 2) {
-      win.webContents.send('rememberCloseAppOption', result.response === 0 ? 'minimizeToTray' : 'exit')
-    }
-    if (result.response === 0) {
-      event.preventDefault()
-      win.hide()
-    } else if (result.response === 1) {
-      setTimeout(() => {
-        win = null
-        app.exit()
-      }, 100)
-    }
-  }).catch((err) => {
-    console.log('========', err)
-  })
+  dialog
+    .showMessageBox({
+      type: 'info',
+      title: 'Infomation',
+      cancelId: 2,
+      defaultId: 0,
+      message: '确定要关闭吗？',
+      buttons: ['最小化到托盘', '直接退出'],
+      checkboxLabel: '记住我的选择'
+    })
+    .then((result) => {
+      if (result.checkboxChecked && result.response !== 2) {
+        win.webContents.send(
+          'rememberCloseAppOption',
+          result.response === 0 ? 'minimizeToTray' : 'exit'
+        )
+      }
+      if (result.response === 0) {
+        event.preventDefault()
+        win.hide()
+      } else if (result.response === 1) {
+        setTimeout(() => {
+          win = null
+          app.exit()
+        }, 100)
+      }
+    })
+    .catch((err) => {
+      console.log('========', err)
+    })
 }
 
 function initWindowIpcMain(win: BrowserWindow): void {

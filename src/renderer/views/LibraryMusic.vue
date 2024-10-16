@@ -38,7 +38,14 @@
     </div>
 
     <div class="section-two">
-      <div ref="tabsRowRef" class="tabs-row">
+      <div
+        ref="tabsRowRef"
+        class="tabs-row"
+        :style="{
+          height: (hasCustomTitleBar ? 84 : 64) + 'px',
+          paddingTop: (hasCustomTitleBar ? 20 : 0) + 'px'
+        }"
+      >
         <div class="tabs">
           <div
             class="tab dropdown"
@@ -97,7 +104,7 @@
         </button>
       </div>
 
-      <div class="section-two-content">
+      <div class="section-two-content" :style="tabStyle">
         <div v-if="currentTab === 'playlist'">
           <CoverRow
             :items="filterPlaylists"
@@ -237,6 +244,19 @@ const pickedLyric = computed(() => {
   return result
 })
 
+const hasCustomTitleBar = computed(() => {
+  return window.env?.isLinux || window.env?.isWindows
+})
+
+const tabStyle = computed(() => {
+  const height = window.innerHeight - (hasCustomTitleBar.value ? 84 : 64)
+  const marginTop = hasCustomTitleBar.value ? 20 : 0
+  return {
+    height: `${height}px`,
+    marginTop: `${marginTop}px`
+  }
+})
+
 const playlistFilter = computed(() => {
   return libraryPlaylistFilter.value || 'all'
 })
@@ -366,7 +386,7 @@ const observeTab = new IntersectionObserver(
   },
   {
     root: null,
-    rootMargin: `-64px 0px 0px 0px`,
+    rootMargin: `-${hasCustomTitleBar.value ? 84 : 64}px 0px 0px 0px`,
     threshold: Array.from({ length: 101 }, (v, i) => i / 100)
   }
 )
@@ -504,7 +524,7 @@ onUnmounted(() => {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 64px;
+    // height: 64px;
     width: 100%;
     z-index: 10;
 

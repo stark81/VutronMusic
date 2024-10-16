@@ -79,6 +79,10 @@ const baseConfig = {
         arch: 'x64'
       },
       {
+        target: 'AppImage',
+        arch: 'x64'
+      },
+      {
         target: 'deb',
         arch: 'x64'
       },

@@ -225,7 +225,6 @@ const likeTrack = () => {
 
 const toggleOSDLyrics = () => {
   osdLyric.value.show = !osdLyric.value.show
-  console.log(osdLyric.value.show)
   window.mainApi.send('toggleOSDWindow', osdLyric.value.show)
 }
 

@@ -3,15 +3,7 @@
     <ScrollBar v-show="!showLyrics" ref="scrollBarRef" />
     <SideNav />
     <NavBar ref="navBarRef" />
-    <div
-      id="main"
-      ref="mainRef"
-      :style="{
-        overflow: enableScrolling ? 'auto' : 'hidden',
-        paddingBottom: padding + 'px'
-      }"
-      @scroll="handleScroll"
-    >
+    <div id="main" ref="mainRef" :style="mainStyle" @scroll="handleScroll">
       <router-view v-slot="{ Component }">
         <keep-alive
           :include="['HomePage', 'ExplorePage', 'LibraryMusic', 'SearchPage', 'ArtistPage']"
@@ -29,7 +21,7 @@
 </template>
 
 <script setup lang="tsx">
-import { onMounted, ref, provide, toRefs, watch } from 'vue'
+import { onMounted, ref, provide, toRefs, watch, computed } from 'vue'
 import ScrollBar from './components/ScrollBar.vue'
 import PlayerBar from './components/PlayerBar.vue'
 import NavBar from './components/NavBar.vue'
@@ -101,6 +93,18 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () 
 // const route = useRoute()
 
 const scrollBarRef = ref()
+
+const hasCustomTitleBar = computed(() => {
+  return window.env?.isLinux || window.env?.isWindows
+})
+
+const mainStyle = computed(() => {
+  return {
+    overflow: enableScrolling ? 'auto' : 'hidden',
+    paddingTop: (hasCustomTitleBar.value ? 84 : 64) + 'px',
+    paddingBottom: padding.value + 'px'
+  }
+})
 
 const handleScroll = () => {
   scrollBarRef.value.handleScroll()
@@ -181,7 +185,7 @@ onMounted(async () => {
 }
 
 #main {
-  padding: 64px 30px 96px 130px;
+  padding: 0px 30px 0px 130px;
   box-sizing: border-box;
   scrollbar-width: none;
   color: var(--color-text);

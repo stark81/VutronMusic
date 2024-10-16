@@ -28,7 +28,7 @@ const mainAvailChannels: string[] = [
   'clearDeletedMusic',
   'minimize',
   'maximizeOrUnmaximize',
-  'close',
+  'close'
 ]
 const rendererAvailChannels: string[] = [
   'msgHandleScanLocalMusic',

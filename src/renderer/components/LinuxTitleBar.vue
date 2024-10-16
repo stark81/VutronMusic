@@ -5,22 +5,16 @@
     </div>
     <div class="title">{{ title }}</div>
     <div class="controls">
-      <div
-        class="button minimize codicon codicon-chrome-minimize"
-        @click="windowMinimize"
-      ></div>
+      <div class="button minimize codicon codicon-chrome-minimize" @click="windowMinimize"></div>
       <div
         class="button max-restore codicon"
         :class="{
           'codicon-chrome-restore': isMaximized,
-          'codicon-chrome-maximize': !isMaximized,
+          'codicon-chrome-maximize': !isMaximized
         }"
         @click="windowMaxRestore"
       ></div>
-      <div
-        class="button close codicon codicon-chrome-close"
-        @click="windowClose"
-      ></div>
+      <div class="button close codicon codicon-chrome-close" @click="windowClose"></div>
     </div>
   </div>
 </template>
@@ -35,7 +29,6 @@ const isMaximized = ref(false)
 
 const playerStore = usePlayerStore()
 const { title } = storeToRefs(playerStore)
-console.log('title = ', title.value)
 
 const windowMinimize = () => {
   window.mainApi.send('minimize')
@@ -48,7 +41,6 @@ const windowMaxRestore = () => {
 const windowClose = () => {
   window.mainApi.send('close')
 }
-
 </script>
 
 <style scoped lang="scss">

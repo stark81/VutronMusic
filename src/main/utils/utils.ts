@@ -36,13 +36,12 @@ export const getLyricFromMetadata = (metadata: IAudioMetadata) => {
       if (tag === 'vorbis') {
         // flac
         lyrics = (native.vorbis?.find((item) => item.id === 'LYRICS')?.value ?? '') as string
-        break
       } else if (tag === 'ID3v2.3') {
-        lyrics = (native['ID3v2.3'].find((item) => item.id === 'USLT')?.value as any).text ?? ''
-        break
+        lyrics = (native['ID3v2.3'].find((item) => item.id === 'USLT')?.value as any)?.text ?? ''
       } else if (tag === 'ID3v2.4') {
-        lyrics = (native['ID3v2.4'].find((item) => item.id === 'USLT')?.value as any).text ?? ''
-        break
+        lyrics = (native['ID3v2.4'].find((item) => item.id === 'USLT')?.value as any)?.text ?? ''
+      } else if (tag === 'APEv2') {
+        // APEv2好像并没有固定的歌词标签，todo...
       }
     }
   }
@@ -380,15 +379,17 @@ const getAudioSourceFromNetease = (track: any): Promise<string> => {
     })
   }
 
-  return getMP3(track.id).then((result: any) => {
-    if (!result.data[0]) return null
-    if (!result.data[0].url) return null
-    if (result.data[0].freeTrialInfo !== null) return null
-    const source = result.data[0].url.replace(/^http:/, 'https:')
-    return source
-  }).catch(() => {
-    return `https://music.163.com/song/media/outer/url?id=${track.id}`
-  })
+  return getMP3(track.id)
+    .then((result: any) => {
+      if (!result.data[0]) return null
+      if (!result.data[0].url) return null
+      if (result.data[0].freeTrialInfo !== null) return null
+      const source = result.data[0].url.replace(/^http:/, 'https:')
+      return source
+    })
+    .catch(() => {
+      return `https://music.163.com/song/media/outer/url?id=${track.id}`
+    })
 }
 
 export const getAudioSource = async (track: any) => {
