@@ -1,6 +1,22 @@
 <template>
   <Transition enter-active-class="animated-fast fadeIn" leave-active-class="animated-fast fadeOut">
-    <div v-show="!noLyric" class="lyric-container">
+    <div
+      v-show="!noLyric"
+      class="lyric-container"
+      @mouseenter="hover = true"
+      @mouseleave="hover = false"
+    >
+      <div v-show="hover" class="offset">
+        <button-icon title="后退0.5s" @click="setOffset(-0.5)">
+          <svg-icon icon-class="back5s" />
+        </button-icon>
+        <button-icon class="recovery" title="恢复" @click="setOffset(0)">
+          <svg-icon icon-class="recovery" />
+        </button-icon>
+        <button-icon title="提前0.5s" @click="setOffset(0.5)">
+          <svg-icon icon-class="forward5s" />
+        </button-icon>
+      </div>
       <div id="line-1" class="line"></div>
       <div
         v-for="(line, index) in lyricWithTranslation"
@@ -22,16 +38,21 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch, nextTick, onMounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
 import { useNormalStateStore } from '../store/state'
+import ButtonIcon from './ButtonIcon.vue'
+import SvgIcon from './SvgIcon.vue'
 
 const playerStore = usePlayerStore()
 const { noLyric, currentTrack, currentLyricIndex, seek, lyrics } = storeToRefs(playerStore)
 
 const stateStore = useNormalStateStore()
 const { showLyrics } = storeToRefs(stateStore)
+const { showToast } = stateStore
+
+const hover = ref(false)
 
 const lyricWithTranslation = computed(() => {
   let ret: any[] = []
@@ -78,6 +99,29 @@ const lyricWithTranslation = computed(() => {
   return ret
 })
 
+const setOffset = (offset: number) => {
+  if (!currentTrack.value!.offset) {
+    currentTrack.value!.offset = 0
+  }
+  if (currentTrack.value!.isLocal) {
+    window.mainApi
+      .invoke('updateLocalTrackInfo', currentTrack.value!.id, {
+        offset: currentTrack.value!.offset + offset
+      })
+      .then((isSussess: boolean) => {
+        if (!isSussess) showToast('歌词延迟信息未保存至数据库，下次启动程序后需要重置歌词延迟')
+      })
+  }
+  if (offset === 0) {
+    currentTrack.value!.offset = 0
+  } else {
+    currentTrack.value!.offset += offset
+  }
+  showToast(
+    `当前歌曲的歌词延迟为: ${currentTrack.value!.offset > 0 ? '延迟' : '提前'}${Math.abs(currentTrack.value!.offset)}s`
+  )
+}
+
 watch(currentLyricIndex, (value) => {
   const el = document.getElementById(`line${value}`)
   if (el) {
@@ -114,6 +158,27 @@ onMounted(() => {
   scrollbar-width: none;
   padding-left: 4vh;
   transition: all 0.5s;
+
+  .offset {
+    display: flex;
+    position: fixed;
+    flex-direction: column;
+    background-color: rgba(0, 0, 0, 0.05);
+    padding: 10px 6px;
+    top: 50%;
+    right: 30px;
+    border-radius: 8px;
+    transform: translate(0, -50%);
+    z-index: 1;
+
+    .button-icon {
+      margin: unset;
+    }
+
+    .recovery {
+      margin: 10px 0;
+    }
+  }
 
   .line {
     width: 60vh;
@@ -163,7 +228,7 @@ onMounted(() => {
   }
 }
 
-.lyric-container .line:first-child {
+.lyric-container .line#line-1 {
   margin-top: 40vh;
 }
 .lyric-container .line:last-child {

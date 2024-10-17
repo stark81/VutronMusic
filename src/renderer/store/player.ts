@@ -48,6 +48,7 @@ export const usePlayerStore = defineStore(
     const currentTrack = ref<Track | null>(null)
     const title = ref<string | null>(null)
     const outputDevice = ref('default')
+    const backRate = ref(1.0)
     let setIntervalTimer: any
     let setLyricIntervalTimer: any
     const currentLyricIndex = ref(-1)
@@ -177,6 +178,14 @@ export const usePlayerStore = defineStore(
       set(value) {
         _volume.value = value
         howler.masterGain.gain.linearRampToValueAtTime(value, audioContext.currentTime + 0.2)
+      }
+    })
+
+    const playbackRate = computed({
+      get: () => backRate.value,
+      set: (value) => {
+        backRate.value = value
+        audio.playbackRate = value
       }
     })
 
@@ -921,6 +930,7 @@ export const usePlayerStore = defineStore(
       enabled,
       progress,
       seek,
+      playbackRate,
       repeatMode,
       title,
       shuffle,

@@ -22,6 +22,7 @@ const mainAvailChannels: string[] = [
   'logout',
   'setCookie',
   'accurateMatch',
+  'updateLocalTrackInfo',
   'toggleOSDWindow',
   'updateLyricIndex',
   'updateLyric',

@@ -182,8 +182,11 @@
   </div>
   <div>
     <ConvolverModal />
+    <PlaybackModal />
     <ContextMenu ref="playPageContextMenu">
-      <div class="item">{{ $t('contextMenu.playBackSpeed') }}</div>
+      <div class="item" @click="setPlaybackRateModal = true">{{
+        $t('contextMenu.playBackSpeed')
+      }}</div>
       <div class="item" @click="setConvolverModal = true">{{ $t('contextMenu.setConvolver') }}</div>
     </ContextMenu>
   </div>
@@ -195,6 +198,7 @@ import VueSlider from 'vue-3-slider-component'
 import SvgIcon from '../components/SvgIcon.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import ConvolverModal from '../components/ConvolverModal.vue'
+import PlaybackModal from '../components/PlaybackModal.vue'
 import LyricPage from '../components/LyricPage.vue'
 import Comment from '../components/CommentPage.vue'
 import { hasListSource, getListSourcePath } from '../utils/playlist'
@@ -210,7 +214,8 @@ const playPageContextMenu = ref<InstanceType<typeof ContextMenu>>()
 const show = ref('lyric')
 
 const stateStore = useNormalStateStore()
-const { showLyrics, setConvolverModal, addTrackToPlaylistModal } = storeToRefs(stateStore)
+const { showLyrics, setConvolverModal, setPlaybackRateModal, addTrackToPlaylistModal } =
+  storeToRefs(stateStore)
 
 const playerStore = usePlayerStore()
 const {

@@ -87,7 +87,20 @@ class Cache {
         return true
       }
       case CacheAPIs.Track: {
-        break
+        const trackRaw = db.find(Tables.Track, query.id)
+        const track = JSON.parse(trackRaw.json)
+        track.offset = data.offset
+        const result = {
+          ...trackRaw,
+          json: JSON.stringify(track),
+          updatedAt: Date.now()
+        }
+        try {
+          db.update(Tables.Track, trackRaw.id, result)
+          return true
+        } catch (error) {
+          return false
+        }
       }
     }
   }

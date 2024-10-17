@@ -7,6 +7,7 @@ export const useNormalStateStore = defineStore('state', () => {
   const searchTab = ref('track')
   const exploreTab = ref('playlist')
   const setConvolverModal = ref(false)
+  const setPlaybackRateModal = ref(false)
   const addTrackToPlaylistModal = ref({
     show: false,
     selectedTrackID: [0],
@@ -52,6 +53,7 @@ export const useNormalStateStore = defineStore('state', () => {
     searchTab,
     exploreTab,
     setConvolverModal,
+    setPlaybackRateModal,
     addTrackToPlaylistModal,
     newPlaylistModal,
     accurateMatchModal,

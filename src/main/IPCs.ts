@@ -369,6 +369,11 @@ function initOtherIpcMain(win: BrowserWindow): void {
     return result
   })
 
+  ipcMain.handle('updateLocalTrackInfo', (event, trackId: number, data: any) => {
+    const result = cache.set(CacheAPIs.Track, data, { id: trackId })
+    return result
+  })
+
   ipcMain.handle('deleteLocalPlaylist', (event, pid: number) => {
     try {
       db.delete(Tables.Playlist, pid)
