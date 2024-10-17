@@ -64,6 +64,9 @@
       >{{ $t('contextMenu.accurateMatch') }}</div
     >
     <hr v-show="type !== 'cloudDisk' && type !== 'localTracks'" />
+    <div v-if="extraContextMenuItem.includes('copyId')" class="item" @click="copyId">{{
+      $t('contextMenu.copyId')
+    }}</div>
     <div
       v-show="type !== 'cloudDisk' && rightClickedTrack.matched"
       class="item"
@@ -332,6 +335,12 @@ const addToLocalPlaylist = (trackIDs: number[] = []) => {
       selectedTrackID: trackIDs,
       isLocal: true
     }
+  })
+}
+
+const copyId = () => {
+  navigator.clipboard.writeText(rightClickedTrackComputed.value.id.toString()).then(() => {
+    showToast(t('toast.copySuccess'))
   })
 }
 

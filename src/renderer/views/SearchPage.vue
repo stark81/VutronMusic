@@ -11,6 +11,7 @@
         :item-height="60.5"
         :load-more="() => loadData(keywords, searchTab)"
         :type="'playlist'"
+        :extra-context-menu-item="['copyId']"
       />
     </div>
     <div v-else-if="searchTab === 'lyric'" class="container">

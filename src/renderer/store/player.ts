@@ -590,9 +590,10 @@ export const usePlayerStore = defineStore(
     }
 
     const play = () => {
+      const arts = currentTrack.value?.artists ?? currentTrack.value?.ar
       audioContext.resume().then(() => {
         audio.play()
-        title.value = `${currentTrack.value?.name} · ${currentTrack.value?.artists[0].name} - VutronMusic`
+        title.value = `${currentTrack.value?.name} · ${arts[0].name} - VutronMusic`
         howler.masterGain.gain.linearRampToValueAtTime(volume.value, audioContext.currentTime + 0.2)
       })
     }

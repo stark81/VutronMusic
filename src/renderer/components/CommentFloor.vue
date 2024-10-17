@@ -10,7 +10,7 @@
       <VirtualScroll
         :list="floorComments"
         :height="560"
-        :item-size="80"
+        :item-size="63"
         :padding-bottom="0"
         :show-position="false"
         :load-more="() => loadFloorComment(props.beRepliedCommentId)"
@@ -36,7 +36,10 @@
                 <label>{{ item.beReplied[0].content ?? '该评论已删除' }}</label>
               </div>
               <div class="comment-ex">
-                <div>{{ formatDate(item.time, 'YYYY年MM月DD日 H:mm') }}</div>
+                <div class="time-ip">
+                  <div class="time">{{ formatDate(item.time, 'YYYY年MM月DD日 H:mm') }}</div>
+                  <div v-if="item.ipLocation.location">来自{{ item.ipLocation.location }}</div>
+                </div>
                 <div class="comment-btns">
                   <button
                     v-if="isAccountLoggedIn && item.owner"
@@ -299,6 +302,7 @@ onMounted(() => {
 .comment-item {
   display: flex;
   width: 100%;
+  padding-bottom: 4px;
 
   img {
     width: 40px;
@@ -348,6 +352,13 @@ onMounted(() => {
   justify-content: center;
   justify-content: space-between;
 
+  .time-ip {
+    display: flex;
+
+    .time {
+      margin-right: 10px;
+    }
+  }
   .comment-btns {
     display: flex;
   }
