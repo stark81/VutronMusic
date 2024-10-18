@@ -1,6 +1,6 @@
 <template>
   <div>
-    <nav :class="{ 'has-custom-titlebar': isLinux }">
+    <nav :class="{ 'has-custom-titlebar': isLinux }" :style="navStyle">
       <LinuxTitleBar v-if="isLinux" />
 
       <div class="navigation-buttons">
@@ -108,6 +108,11 @@ const keywords = ref('')
 
 const isLooseLoggedIn = computed(() => data.user.value.userId !== null)
 const isLinux = computed(() => window.env?.isLinux)
+const navStyle = computed(() => {
+  return {
+    paddingLeft: isLinux.value ? '20px' : '5vw'
+  }
+})
 
 defineExpose({ searchBoxRef })
 
@@ -170,7 +175,7 @@ nav {
   justify-content: space-between;
   align-items: center;
   height: 64px;
-  padding: 0 30px 0 6vw;
+  padding: 0 30px 0 0;
   box-sizing: content-box;
   backdrop-filter: saturate(180%) blur(20px);
   background-color: var(--color-navbar-bg);

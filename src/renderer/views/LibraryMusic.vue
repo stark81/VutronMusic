@@ -173,7 +173,7 @@
           <TrackList
             :items="playHistoryList"
             :colunm-number="1"
-            :height="608"
+            :height="hasCustomTitleBar ? 588 : 608"
             :item-height="56"
             :padding-bottom="64"
             type="tracklist"
@@ -372,14 +372,18 @@ const observeTab = new IntersectionObserver(
     entries.forEach((entry) => {
       const intersectionRatio = entry.intersectionRatio
       const maxPadding = 42
-      const maxPaddingRight = 76
+      const maxPaddingRight = 84
       if (intersectionRatio > 0) {
-        const paddingLeft = maxPadding * (1 - intersectionRatio)
+        if (!hasCustomTitleBar.value) {
+          const paddingLeft = maxPadding * (1 - intersectionRatio)
+          tabsRowRef.value.style.paddingLeft = `${paddingLeft}px`
+        }
         const paddingRight = maxPaddingRight * (1 - intersectionRatio)
-        tabsRowRef.value.style.paddingLeft = `${paddingLeft}px`
         tabsRowRef.value.style.width = `calc(100% - ${paddingRight}px)`
       } else {
-        tabsRowRef.value.style.paddingLeft = `${maxPadding}px`
+        if (!hasCustomTitleBar.value) {
+          tabsRowRef.value.style.paddingLeft = `${maxPadding}px`
+        }
         tabsRowRef.value.style.width = `calc(100% - ${maxPaddingRight}px)`
       }
     })
@@ -614,6 +618,7 @@ button.tab-button {
   opacity: 0.68;
   font-weight: 500;
   font-size: 14px;
+  -webkit-app-region: no-drag;
   .svg-icon {
     width: 14px;
     height: 14px;

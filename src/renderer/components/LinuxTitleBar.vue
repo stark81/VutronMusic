@@ -50,6 +50,7 @@ const windowClose = () => {
   left: 0;
   top: 0;
   right: 0;
+  z-index: 15;
   -webkit-app-region: drag;
   display: flex;
   align-items: center;

@@ -365,7 +365,7 @@ onBeforeUnmount(() => {
   right: 30px;
   transform: translate(0, -50%);
   transition: opacity 0.3s ease;
-  z-index: 1;
+  z-index: 15;
 }
 .position:hover {
   opacity: 0.9;

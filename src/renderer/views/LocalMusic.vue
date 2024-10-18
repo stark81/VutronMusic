@@ -361,13 +361,17 @@ const observeTab = new IntersectionObserver(
       const maxPadding = 42
       const maxPaddingRight = 42
       if (intersectionRatio > 0) {
-        const paddingLeft = maxPadding * (1 - intersectionRatio)
+        if (!hasCustomTitleBar.value) {
+          const paddingLeft = maxPadding * (1 - intersectionRatio)
+          tabsRowRef.value.style.paddingLeft = `${paddingLeft}px`
+        }
         const paddingRight = maxPaddingRight * (1 - intersectionRatio)
-        tabsRowRef.value.style.paddingLeft = `${paddingLeft}px`
         tabsRowRef.value.style.width = `calc(100% - ${paddingRight}px)`
         if (navBarRef.value) navBarRef.value.searchBoxRef.$el.style.display = ''
       } else {
-        tabsRowRef.value.style.paddingLeft = `${maxPadding}px`
+        if (!hasCustomTitleBar.value) {
+          tabsRowRef.value.style.paddingLeft = `${maxPadding}px`
+        }
         tabsRowRef.value.style.width = `calc(100% - ${maxPaddingRight}px)`
         if (navBarRef.value) navBarRef.value.searchBoxRef.$el.style.display = 'none'
       }

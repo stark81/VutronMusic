@@ -3,6 +3,7 @@
 
 # Node artifact files
 node_modules/
+yarn.lock
 
 # Log files
 *.log
