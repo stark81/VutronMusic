@@ -89,6 +89,7 @@ class Cache {
       case CacheAPIs.Track: {
         try {
           const trackRaw = db.find(Tables.Track, query.id)
+          if (!trackRaw) return false
           const track = JSON.parse(trackRaw.json)
           track.offset = data.offset
           const result = {
