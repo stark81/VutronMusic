@@ -351,7 +351,7 @@ button {
 }
 
 .trackitem {
-  padding: 6px 10px;
+  padding: 8px 10px;
   border-radius: 12px;
   user-select: none;
 }

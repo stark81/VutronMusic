@@ -11,6 +11,7 @@
           :key="index"
           class="artist-item"
           :selected="selectedIdx === index"
+          :style="{ marginRight: '20px' }"
           :artist-prop="item"
           :track-prop="tracks.filter((track) => track.artists.some((ar) => ar.name === item.name))"
           @click="selectedIdx = index"
@@ -24,6 +25,7 @@
           :track-prop="item"
           :track-no="index + 1"
           type-prop="artist"
+          :style="{ marginLeft: '20px' }"
           @dblclick="playThisList(item.id)"
         />
       </template>
@@ -38,33 +40,12 @@
         </div>
       </template>
     </VirtualScroll>
-    <!-- <div class="track-list">
-      <TrackListItem
-        v-for="(track, index) in showTracks"
-        :key="`track-${track.id}`"
-        :track-prop="track"
-        :track-no="index + 1"
-        type-prop="artist"
-        @dblclick="playThisList(track.id)"
-      />
-      <div
-        v-if="artistsArray[selectedIdx]?.matched && artistsArray[selectedIdx]?.id !== 0"
-        class="listen-more"
-      >
-        <span
-          >听听<router-link :to="`/artist/${artistsArray[selectedIdx].id}`">{{
-            artistsArray[selectedIdx].name
-          }}</router-link
-          >的其他歌曲</span
-        >
-      </div>
-    </div> -->
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, toRefs, onMounted, onBeforeUnmount, provide, inject } from 'vue'
-import VirtualScroll from './VirtualScroll.vue'
+import VirtualScroll from './VirtualScrollNoHeight.vue'
 import { Track } from '../store/localMusic'
 import ArtistListItem from './ArtistListItem.vue'
 import TrackListItem from './TrackListItem.vue'
@@ -130,7 +111,6 @@ onBeforeUnmount(() => {
 .artist-list {
   height: 100%;
   width: 250px;
-  padding-right: 20px;
   border-right: 1px solid var(--color-secondary-bg);
   overflow-y: scroll;
   scrollbar-width: none;

@@ -6,6 +6,7 @@
           :key="index"
           class="album-item"
           :selected="selectedIdx === index"
+          :style="{ marginRight: '20px' }"
           :track-prop="tracks.filter((t) => t.album.name === item.name)"
           type-prop="album"
           @click="selectedIdx = index"
@@ -19,6 +20,7 @@
           :track-prop="item"
           :track-no="index + 1"
           type-prop="album"
+          :style="{ marginLeft: '20px' }"
           @dblclick="playThisList(item.id)"
         />
       </template>
@@ -42,7 +44,7 @@
 
 <script setup lang="ts">
 import { computed, ref, toRefs, onMounted, onBeforeUnmount, provide, inject } from 'vue'
-import VirtualScroll from './VirtualScroll.vue'
+import VirtualScroll from './VirtualScrollNoHeight.vue'
 import AlbumListItem from './AlbumListItem.vue'
 import TrackListItem from './TrackListItem.vue'
 import { usePlayerStore } from '../store/player'
@@ -100,9 +102,7 @@ onBeforeUnmount(() => {
 .album-list {
   height: 100%;
   width: 300px;
-  padding-right: 20px;
   border-right: 1px solid var(--color-secondary-bg);
-  overflow-y: scroll;
   scrollbar-width: none;
   scroll-behavior: smooth;
 }

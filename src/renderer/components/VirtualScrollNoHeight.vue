@@ -22,6 +22,9 @@
           <slot name="default" :index="row._key" :item="row.value"></slot>
         </div>
       </div>
+      <div ref="footerRef">
+        <slot name="footer"></slot>
+      </div>
     </div>
   </div>
 </template>
@@ -56,6 +59,7 @@ const props = defineProps({
 
 const lock = ref(false)
 const listRef = ref()
+const footerRef = ref()
 const itemsRef = ref()
 const startRow = ref(0)
 // const endRow = ref(0)
@@ -76,9 +80,9 @@ const _listData = computed(() => {
 const listHeight = computed(() => {
   const totalRows = Math.ceil(_listData.value.length / props.columnNumber)
   const idx = Math.floor((position.value.length - 1) / props.columnNumber) * props.columnNumber
-  return position.value[idx]?.bottom || totalRows * itemSize.value
+  return (position.value[idx]?.bottom || totalRows * itemSize.value) + footerHeight.value
 })
-
+const footerHeight = computed(() => footerRef.value?.clientHeight || 0)
 const containerHeight = computed(() => {
   const navBarHeight = hasCustomTitleBar.value ? 84 : 64
   const windowHeight = window.innerHeight - navBarHeight
