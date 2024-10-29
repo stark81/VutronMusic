@@ -34,10 +34,14 @@
       >
         <template #default="{ item }">
           <div class="comment-item">
-            <div> <img :src="getImage(item.user.avatarUrl)" alt="" loading="lazy" /></div>
+            <div @click="goToUser(item)">
+              <img :src="getImage(item.user.avatarUrl)" alt="" loading="lazy"
+            /></div>
             <div class="comment-info">
               <div class="comment">
-                <label class="comment-nickname">{{ item.user.nickname }}：</label>
+                <label class="comment-nickname" @click="goToUser(item)"
+                  >{{ item.user.nickname }}：</label
+                >
                 <label>{{ item.content }}</label>
               </div>
               <div
@@ -55,7 +59,7 @@
               <div class="comment-ex">
                 <div class="time-ip">
                   <div class="time">{{ formatDate(item.time, 'YYYY年MM月DD日 H:mm') }}</div>
-                  <div v-if="item.ipLocation.location">来自{{ item.ipLocation.location }}</div>
+                  <div v-if="item.ipLocation?.location">来自{{ item.ipLocation.location }}</div>
                 </div>
                 <div class="comment-btns">
                   <button v-if="isAccountLoggedIn && item.owner" @click="handleDeleteComment(item)"
@@ -98,6 +102,8 @@ import SvgIcon from './SvgIcon.vue'
 import { useI18n } from 'vue-i18n'
 import { formatDate } from '../utils'
 import { isAccountLoggedIn } from '../utils/auth'
+import { useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
 
 const props = defineProps({
   id: {
@@ -116,6 +122,7 @@ const show = ref(false)
 const comments = ref<any[]>([])
 const mainRef = ref()
 const commentSubmitRef = ref()
+const router = useRouter()
 const commentInfo = reactive({
   totalCount: 0,
   sortType: 1,
@@ -137,6 +144,7 @@ const typeMap = {
 
 const { t } = useI18n()
 const stateStore = useNormalStateStore()
+const { showLyrics } = storeToRefs(stateStore)
 const { showToast } = stateStore
 
 const getImage = (url: string) => {
@@ -199,6 +207,11 @@ const loadComment = () => {
     }
     show.value = true
   })
+}
+
+const goToUser = (item: any) => {
+  router.push(`/user/${item.user.userId}`)
+  showLyrics.value = false
 }
 
 const switchCommentPage = (pid: number) => {

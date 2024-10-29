@@ -101,7 +101,9 @@
         :items="popularTracks.slice(0, showMorePopTracks ? 24 : 12)"
         :type="'tracklist'"
         :colunm-number="4"
+        :is-end="false"
         :gap="4"
+        :padding-bottom="0"
         :show-position="false"
         :highlight-playing-track="false"
       />
@@ -148,12 +150,14 @@
       />
     </div>
 
-    <div v-if="simiArtists.length !== 0" class="similar-artists" style="padding-bottom: 64px">
+    <div v-if="simiArtists.length !== 0" class="similar-artists">
       <div class="section-title">{{ $t('artist.similarArtists') }}</div>
       <CoverRow
         type="artist"
         :colunm-number="6"
         :gap="20"
+        :is-end="true"
+        :padding-bottom="64"
         :items="simiArtists.slice(0, 12)"
         :item-height="210"
       />
@@ -176,7 +180,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onActivated, onMounted, computed } from 'vue'
+import { ref, onActivated, onMounted, computed, inject } from 'vue'
 import ButtonTwoTone from '../components/ButtonTwoTone.vue'
 import Modal from '../components/BaseModal.vue'
 import MvRow from '../components/MvRow.vue'
@@ -237,12 +241,14 @@ const { replacePlaylist } = usePlayerStore()
 
 const route = useRoute()
 const loadData = (id: string, next: any = undefined) => {
+  console.log('loadData', id)
   setTimeout(() => {
     if (!show.value) tricklingProgress.start()
   }, 1000)
   show.value = false
 
   getArtist(Number(id)).then((res) => {
+    console.log('getArtist', res)
     artist.value = res.artist
     const ids = res.hotSongs.map((t) => t.id)
     getTrackDetail(ids.join(',')).then((data) => {
@@ -269,6 +275,7 @@ const loadData = (id: string, next: any = undefined) => {
 }
 
 const goToMv = (id: string) => {}
+const updatePadding = inject('updatePadding') as (padding: number) => void
 
 const scrollTo = (div: string, block = 'center') => {}
 
@@ -316,6 +323,7 @@ onBeforeRouteUpdate((to, from, next) => {
 })
 
 onActivated(() => {
+  updatePadding(96)
   if (artist.value?.id?.toString() !== route.params.id) {
     loadData(route.params.id as string)
   }

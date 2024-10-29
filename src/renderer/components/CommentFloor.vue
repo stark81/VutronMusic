@@ -38,7 +38,7 @@
               <div class="comment-ex">
                 <div class="time-ip">
                   <div class="time">{{ formatDate(item.time, 'YYYY年MM月DD日 H:mm') }}</div>
-                  <div v-if="item.ipLocation.location">来自{{ item.ipLocation.location }}</div>
+                  <div v-if="item.ipLocation?.location">来自{{ item.ipLocation.location }}</div>
                 </div>
                 <div class="comment-btns">
                   <button

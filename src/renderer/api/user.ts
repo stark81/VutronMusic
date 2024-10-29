@@ -105,7 +105,7 @@ export function cloudDisk(params: { [key: string]: any } = {}) {
 /**
  * 获取云盘歌曲详情（需要登录）
  */
-export function cloudDiskTrackDetail(id) {
+export function cloudDiskTrackDetail(id: number) {
   return request({
     url: '/user/cloud/detail',
     method: 'get',
@@ -125,9 +125,17 @@ export function cloudDiskTrackDetail(id) {
  * @param {number} params.uid
  * @param {number} params.type
  */
-export function userPlayHistory(params) {
+export function userPlayHistory(params: { uid: number; type: number }) {
   return request({
     url: '/user/record',
+    method: 'get',
+    params
+  })
+}
+
+export function userDetail(params: { uid: string }) {
+  return request({
+    url: '/user/detail',
     method: 'get',
     params
   })

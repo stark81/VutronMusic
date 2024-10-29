@@ -8,7 +8,7 @@ import { useNormalStateStore } from './state'
 import { useDataStore } from './data'
 import { searchMatch, fmTrash, personalFM } from '../api/other'
 import { useI18n } from 'vue-i18n'
-import { scrobble } from '../api/track'
+// import { scrobble } from '../api/track'
 
 interface biquadType {
   31: number
@@ -441,7 +441,7 @@ export const usePlayerStore = defineStore(
 
     const replaceCurrentTrack = async (trackID: number, autoPlay = true) => {
       if (autoPlay && currentTrack.value?.name && currentTrack.value?.matched !== false) {
-        _scrobble(currentTrack.value, seek.value)
+        // _scrobble(currentTrack.value, seek.value)
       }
       return getLocalMusic(trackID)
         .then((data: Track | undefined) => {
@@ -572,7 +572,7 @@ export const usePlayerStore = defineStore(
 
     const nextTrackCallback = () => {
       if (currentTrack.value?.matched !== false) {
-        _scrobble(currentTrack.value, 0, true)
+        // _scrobble(currentTrack.value, 0, true)
       }
       if (!isPersonalFM.value && repeatMode.value === 'one') {
         replaceCurrentTrack(currentTrack.value!.id)
@@ -581,13 +581,13 @@ export const usePlayerStore = defineStore(
       }
     }
 
-    const _scrobble = (track: any, time: number, completed = false) => {
-      const trackDuration = ~~(track.dt / 1000)
-      time = completed ? trackDuration : ~~time
-      const sourceID =
-        playlistSource.value.id === 0 ? track.al?.id || track.album?.id : playlistSource.value.id
-      scrobble({ id: track.id, sourceid: sourceID, time })
-    }
+    // const _scrobble = (track: any, time: number, completed = false) => {
+    //   const trackDuration = ~~(track.dt / 1000)
+    //   time = completed ? trackDuration : ~~time
+    //   const sourceID =
+    //     playlistSource.value.id === 0 ? track.al?.id || track.album?.id : playlistSource.value.id
+    //   scrobble({ id: track.id, sourceid: sourceID, time })
+    // }
 
     const stop = async () => {
       howler.masterGain.gain.setValueAtTime(0, audioContext.currentTime)

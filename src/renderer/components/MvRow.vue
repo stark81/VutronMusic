@@ -4,9 +4,11 @@
     :list="mvs"
     :gap="gap"
     :column-number="5"
+    :is-end="isEnd"
     :item-size="180"
     :show-position="false"
-    :padding-bottom="64"
+    :show-footer="false"
+    :padding-bottom="0"
   >
     <template #default="{ item }">
       <div class="mv">
@@ -44,6 +46,10 @@ const props = defineProps({
   mvs: {
     type: Array as () => any[],
     required: true
+  },
+  isEnd: {
+    type: Boolean,
+    default: false
   },
   subtitle: {
     type: String,

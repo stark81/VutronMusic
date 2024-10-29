@@ -55,6 +55,7 @@ const tagMap = {
   album: '张专辑',
   artist: '位歌手',
   playlist: '个歌单',
+  user: '位用户',
   lyric: '个歌词'
 }
 const result = reactive<{ [key: string]: any }>({
@@ -66,6 +67,8 @@ const result = reactive<{ [key: string]: any }>({
   artistCount: 0,
   playlist: [],
   playlistCount: 0,
+  user: [],
+  userCount: 0,
   lyric: [],
   lyricCount: 0
 })
@@ -79,6 +82,7 @@ const searchType = {
   album: 10,
   artist: 100,
   playlist: 1000,
+  user: 1002,
   lyric: 1006
 }
 
@@ -105,6 +109,14 @@ const handleResult = (res: any) => {
       result.playlist.push(...res.result.playlists)
       result.playlistCount = res.result.playlistCount || result.playlistCount
 
+      break
+    case 'user':
+      if (res.result.userprofileCount === 0) return
+      const users = res.result.userprofiles.map((item: any) => {
+        return { id: item.userId, name: item.nickname, avatarUrl: item.avatarUrl, ...item }
+      })
+      result.user.push(...users)
+      result.userCount = res.result.userprofileCount
       break
     case 'lyric':
       result.lyric.push(...res.result.songs)

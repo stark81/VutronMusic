@@ -71,6 +71,7 @@
           :items="item.tracks"
           :item-height="48"
           :colunm-number="1"
+          :is-end="false"
           :show-position="false"
           :type="'album'"
           :album-object="album"
@@ -83,6 +84,7 @@
         :items="tracks"
         :colunm-number="1"
         :item-height="48"
+        :is-end="false"
         :show-position="false"
         :type="'album'"
         :album-object="album"
@@ -102,11 +104,13 @@
         More by
         <router-link :to="`/artist/${album.artist.id}`">{{ album.artist.name }}</router-link>
       </div>
-      <div style="padding-bottom: 40px">
+      <div>
         <CoverRow
           type="album"
           :items="filteredMoreAlbums"
           :colunm-number="5"
+          :is-end="true"
+          :padding-bottom="0"
           :item-height="270"
           sub-text="albumType+releaseYear"
         ></CoverRow>
@@ -139,7 +143,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, inject } from 'vue'
 import { onBeforeRouteUpdate, useRoute } from 'vue-router'
 import { tricklingProgress } from '../utils/tricklingProgress'
 import Cover from '../components/CoverBox.vue'
@@ -295,6 +299,8 @@ const loadData = (id: string) => {
 }
 const route = useRoute()
 
+const updatePadding = inject('updatePadding') as (padding: number) => void
+
 onBeforeRouteUpdate((to, from, next) => {
   show.value = false
   loadData(to.params.id as string)
@@ -303,6 +309,7 @@ onBeforeRouteUpdate((to, from, next) => {
 
 onMounted(() => {
   show.value = false
+  updatePadding(96)
   loadData(route.params.id as string)
 })
 </script>

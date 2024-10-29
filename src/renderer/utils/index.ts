@@ -108,7 +108,7 @@ export default class Utils {
   }
 
   static formatPlayCount(count: any) {
-    if (!count) return ''
+    if (!count) return '0'
     const { locale } = useI18n()
     if (locale.value === 'zh') {
       if (count > 100000000) {

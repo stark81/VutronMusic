@@ -5,6 +5,7 @@
     :column-number="colunmNumber"
     :show-position="showPosition"
     :height="height"
+    :is-end="isEnd"
     :padding-bottom="paddingBottom"
     :load-more="loadMore"
     :above-value="4"
@@ -24,6 +25,7 @@
           :track-no="index + 1"
           :type-prop="type"
           :is-lyric="isLyric"
+          :style="{ height: itemHeight + 'px' }"
           :album-object="albumObject"
           :highlight-playing-track="highlightPlayingTrack"
           @dblclick="playThisList(item.id || item.songId)"
@@ -176,9 +178,13 @@ const props = defineProps({
     type: Boolean,
     default: true
   },
+  isEnd: {
+    type: Boolean,
+    default: true
+  },
   paddingBottom: {
     type: Number,
-    default: 64
+    default: 96
   }
 })
 const { items, colunmNumber, id } = toRefs(props)

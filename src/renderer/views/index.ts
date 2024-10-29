@@ -11,6 +11,7 @@ import SearchPage from './SearchPage.vue'
 import HomePage from './HomePage.vue'
 import PlaylistPage from './PlaylistPage.vue'
 import DailyTracks from './DailyTracks.vue'
+import UserPage from './UserPage.vue'
 
 export {
   ErrorScreen,
@@ -25,5 +26,6 @@ export {
   SearchPage,
   HomePage,
   PlaylistPage,
-  DailyTracks
+  DailyTracks,
+  UserPage
 }

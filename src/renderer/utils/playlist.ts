@@ -17,7 +17,7 @@ export const getListSourcePath = () => {
   const { likedSongPlaylistID } = storeToRefs(useDataStore())
   const { playlistSource } = storeToRefs(usePlayerStore())
 
-  if (playlistSource.value.id === likedSongPlaylistID.value) {
+  if (playlistSource.value.id === likedSongPlaylistID.value && playlistSource.value.id !== 0) {
     return '/library/liked-songs'
   } else if (playlistSource.value.type === 'url') {
     return playlistSource.value.id as string

@@ -130,8 +130,8 @@ export const useDataStore = defineStore(
     const fetchPlayHistory = () => {
       if (!isAccountLoggedIn()) return
       return Promise.all([
-        userPlayHistory({ uid: user.value.userId, type: 0 }),
-        userPlayHistory({ uid: user.value.userId, type: 1 })
+        userPlayHistory({ uid: user.value.userId as number, type: 0 }),
+        userPlayHistory({ uid: user.value.userId as number, type: 1 })
       ]).then((result) => {
         const data: { allData: any[]; weekData: any[] } = { allData: [], weekData: [] }
         const dataType = { 0: 'allData', 1: 'weekData' }

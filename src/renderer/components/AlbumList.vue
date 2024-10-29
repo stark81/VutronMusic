@@ -1,6 +1,6 @@
 <template>
   <div class="album-container">
-    <VirtualScroll :list="albums" class="album-list" :item-height="64" :show-position="false">
+    <VirtualScroll :list="albums" class="album-list" :item-height="60" :show-position="false">
       <template #default="{ item, index }">
         <AlbumListItem
           :key="index"
@@ -121,7 +121,7 @@ onBeforeUnmount(() => {
 .album-item {
   box-sizing: border-box;
   border-radius: 6px;
-  height: 64px;
+  height: 60px;
 }
 .active {
   background-color: var(--color-secondary-bg);

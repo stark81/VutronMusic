@@ -7,6 +7,8 @@
     :padding-bottom="paddingBottom"
     :height="containerHeight"
     :load-more="loadMore"
+    :is-end="isEnd"
+    :show-footer="showFooter"
     :show-position="showPosition"
   >
     <template #default="{ item }">
@@ -42,15 +44,7 @@
 </template>
 
 <script setup lang="ts">
-import {
-  inject,
-  onActivated,
-  onBeforeUnmount,
-  onDeactivated,
-  onMounted,
-  PropType,
-  toRefs
-} from 'vue'
+import { PropType, toRefs } from 'vue'
 import VirtualScroll from './VirtualScrollNoHeight.vue'
 import Cover from './CoverBox.vue'
 import SvgIcon from './SvgIcon.vue'
@@ -70,6 +64,8 @@ const props = defineProps({
   gap: { type: Number, default: 20 },
   playButtonSize: { type: Number, default: 22 },
   paddingBottom: { type: Number, default: 0 },
+  isEnd: { type: Boolean, default: false },
+  showFooter: { type: Boolean, default: false },
   loadMore: { type: Function as PropType<() => void>, default: () => {} }
 })
 
@@ -83,7 +79,7 @@ const getImageUrl = (item: any) => {
       return 'https://p2.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg?param=512y512'
     }
   }
-  const img = item.img1v1Url || item.picUrl || item.coverImgUrl
+  const img = item.img1v1Url || item.picUrl || item.coverImgUrl || item.avatarUrl
   return `${img?.replace('http://', 'https://')}?param=512y512`
 }
 
@@ -122,22 +118,6 @@ const getSubText = (item: any) => {
   }
   return subText
 }
-
-const updatePadding = inject('updatePadding') as (padding: number) => void
-
-onActivated(() => {
-  updatePadding(0)
-})
-onDeactivated(() => {
-  updatePadding(96)
-})
-
-onMounted(() => {
-  updatePadding(0)
-})
-onBeforeUnmount(() => {
-  updatePadding(96)
-})
 </script>
 
 <style scoped lang="scss">

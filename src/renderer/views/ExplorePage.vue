@@ -433,6 +433,7 @@ watch(albumType, () => {
 })
 
 onBeforeRouteUpdate((to, from, next) => {
+  updatePadding(0)
   playlists.value = []
   showList.value = []
   activeCategory.value = (to.query.category as string) || saveCategory.value
@@ -441,16 +442,19 @@ onBeforeRouteUpdate((to, from, next) => {
 })
 
 onActivated(() => {
+  updatePadding(0)
   showList.value = []
   activeCategory.value = (route.query.category as string) || saveCategory.value
   loadData()
 })
 
 onDeactivated(() => {
+  updatePadding(96)
   saveCategory.value = activeCategory.value
 })
 
 onBeforeUnmount(() => {
+  updatePadding(96)
   exploreTab.value = 'playlist'
 })
 </script>

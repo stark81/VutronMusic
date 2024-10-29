@@ -30,12 +30,9 @@
             style="font-weight: 600"
             >Apple Music</span
           >
-          <a
-            v-else
-            :href="`https://music.163.com/#/user/home?id=${playlist.creator.userId}`"
-            target="blank"
-            >{{ playlist.creator.nickname }}</a
-          >
+          <router-link :to="`/user/${playlist.creator.userId}`">{{
+            playlist.creator.nickname
+          }}</router-link>
         </div>
         <div class="date-and-count">
           {{ $t('library.playlist.updatedAt') }}

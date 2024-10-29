@@ -22,7 +22,7 @@
           <slot name="default" :index="row._key" :item="row.value"></slot>
         </div>
       </div>
-      <div ref="footerRef">
+      <div v-if="showFooter" ref="footerRef">
         <slot name="footer"></slot>
       </div>
     </div>
@@ -52,6 +52,8 @@ const props = defineProps({
   belowValue: { type: Number, default: 2 },
   paddingBottom: { type: Number, default: 64 },
   showPosition: { type: Boolean, default: true },
+  isEnd: { type: Boolean, default: true },
+  showFooter: { type: Boolean, default: true },
   gap: { type: Number, default: 4 },
   height: { type: Number, default: 656 },
   loadMore: { type: Function as PropType<() => void>, default: () => {} }
@@ -62,7 +64,6 @@ const listRef = ref()
 const footerRef = ref()
 const itemsRef = ref()
 const startRow = ref(0)
-// const endRow = ref(0)
 const styleBefore = ref()
 const startOffset = ref(0)
 const position = ref<any[]>([])
@@ -80,7 +81,11 @@ const _listData = computed(() => {
 const listHeight = computed(() => {
   const totalRows = Math.ceil(_listData.value.length / props.columnNumber)
   const idx = Math.floor((position.value.length - 1) / props.columnNumber) * props.columnNumber
-  return (position.value[idx]?.bottom || totalRows * itemSize.value) + footerHeight.value
+  return (
+    (position.value[idx]?.bottom || totalRows * itemSize.value) +
+    (props.showFooter ? footerHeight.value : 0) +
+    (props.isEnd ? props.paddingBottom : 0)
+  )
 })
 const footerHeight = computed(() => footerRef.value?.clientHeight || 0)
 const containerHeight = computed(() => {
@@ -102,13 +107,13 @@ const visibleData = computed(() => {
   return _listData.value.slice(_start, _end)
 })
 const listStyles = computed(() => {
-  const navBarHeight = hasCustomTitleBar.value ? 84 : 64
-  const windowHeight = window.innerHeight - navBarHeight
+  // const navBarHeight = hasCustomTitleBar.value ? 84 : 64
+  // const windowHeight = window.innerHeight - navBarHeight
   return {
     gap: `0 ${props.gap}px`,
     gridTemplateColumns: `repeat(${props.columnNumber}, 1fr)`,
-    transform: contentTransform.value,
-    paddingBottom: `${listHeight.value > windowHeight ? props.paddingBottom : 0}px`
+    transform: contentTransform.value
+    // paddingBottom: `${props.isEnd ? props.paddingBottom : 0}px`
   }
 })
 const hasCustomTitleBar = computed(() => {

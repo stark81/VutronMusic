@@ -2,12 +2,12 @@
   <div
     class="cover"
     :class="{ 'cover-hover': coverHover }"
-    @mouseover="focus = true"
-    @mouseleave="focus = false"
+    @mouseover="doHover(true)"
+    @mouseleave="doHover(false)"
     @click="clickCoverToPlay ? play() : goTo()"
   >
     <div class="cover-container">
-      <div class="shade">
+      <div v-if="coverHover" class="shade">
         <button v-show="focus" class="play-button" :style="playButtonStyles" @click.stop="play()"
           ><svg-icon icon-class="play" />
         </button>
@@ -85,6 +85,11 @@ const shadowStyles = computed(() => {
   }
   return styles
 })
+
+const doHover = (isHover: boolean) => {
+  if (props.type === 'user') return
+  focus.value = isHover
+}
 
 const play = () => {
   if (props.type === 'playlist') {

@@ -6,6 +6,7 @@ import {
   LibraryMusic,
   AlbumPage,
   ArtistPage,
+  UserPage,
   SearchPage,
   HomePage,
   ExplorePage,
@@ -125,6 +126,11 @@ const routes = [
     meta: {
       keepAlive: true
     }
+  },
+  {
+    path: '/user/:id',
+    name: 'user',
+    component: UserPage
   },
   {
     path: '/:pathMatch(.*)*',

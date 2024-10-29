@@ -30,6 +30,9 @@
           @click="searchTab = 'playlist'"
           >{{ $t('nav.playlist') }}</div
         >
+        <div :class="{ active: searchTab === 'user' }" class="item" @click="searchTab = 'user'">{{
+          $t('nav.user')
+        }}</div>
         <div :class="{ active: searchTab === 'lyric' }" class="item" @click="searchTab = 'lyric'">{{
           $t('nav.lyric')
         }}</div>
