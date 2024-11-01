@@ -78,7 +78,7 @@
     "vuetify": "^3.5.11"
   },
   "devDependencies": {
-    "@playwright/test": "^1.42.0",
+    "@playwright/test": "^1.48.2",
     "@types/better-sqlite3": "^7.6.11",
     "@types/howler": "^2.2.11",
     "@typescript-eslint/eslint-plugin": "^7.1.0",
