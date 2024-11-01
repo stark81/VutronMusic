@@ -157,9 +157,9 @@
         :colunm-number="6"
         :gap="20"
         :is-end="true"
-        :padding-bottom="64"
+        :padding-bottom="0"
         :items="simiArtists.slice(0, 12)"
-        :item-height="210"
+        :item-height="212"
       />
     </div>
 
@@ -180,7 +180,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onActivated, onMounted, computed, inject } from 'vue'
+import { ref, onActivated, onMounted, computed, inject, nextTick } from 'vue'
 import ButtonTwoTone from '../components/ButtonTwoTone.vue'
 import Modal from '../components/BaseModal.vue'
 import MvRow from '../components/MvRow.vue'
@@ -241,14 +241,12 @@ const { replacePlaylist } = usePlayerStore()
 
 const route = useRoute()
 const loadData = (id: string, next: any = undefined) => {
-  console.log('loadData', id)
   setTimeout(() => {
     if (!show.value) tricklingProgress.start()
   }, 1000)
   show.value = false
 
   getArtist(Number(id)).then((res) => {
-    console.log('getArtist', res)
     artist.value = res.artist
     const ids = res.hotSongs.map((t) => t.id)
     getTrackDetail(ids.join(',')).then((data) => {
@@ -323,14 +321,19 @@ onBeforeRouteUpdate((to, from, next) => {
 })
 
 onActivated(() => {
-  updatePadding(96)
   if (artist.value?.id?.toString() !== route.params.id) {
     loadData(route.params.id as string)
   }
+  nextTick(() => {
+    updatePadding(96)
+  })
 })
 
 onMounted(() => {
   loadData(route.params.id as string)
+  nextTick(() => {
+    updatePadding(96)
+  })
 })
 </script>
 

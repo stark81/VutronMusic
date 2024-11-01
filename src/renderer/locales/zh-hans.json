@@ -144,7 +144,8 @@
     "likedPlaylists": "收藏的歌单",
     "openOnBrowser": "在浏览器中打开",
     "copyURL": "复制链接",
-    "copyId": "复制ID"
+    "copyId": "复制ID",
+    "playMV": "播放MV"
   },
   "login": {
     "login": "登录",

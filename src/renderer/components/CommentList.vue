@@ -1,5 +1,5 @@
 <template>
-  <div v-if="show" class="comment-container">
+  <div v-if="show" class="comment-container" :style="containerStyle">
     <div class="comment-head">
       <label>评论({{ commentInfo.totalCount }})</label>
       <div class="btns">
@@ -23,18 +23,18 @@
         >
       </div>
     </div>
-    <div ref="mainRef" class="comment-main">
+    <div ref="mainRef" class="comment-main" :style="mainStyle">
       <VirtualScroll
         :list="comments"
         :item-size="63"
-        :height="560"
+        :height="props.type === 'mv' ? 510 : 560"
         :padding-bottom="0"
         :show-position="false"
         :load-more="loadComment"
       >
         <template #default="{ item }">
           <div class="comment-item">
-            <div @click="goToUser(item)">
+            <div class="avatar" @click="goToUser(item)">
               <img :src="getImage(item.user.avatarUrl)" alt="" loading="lazy"
             /></div>
             <div class="comment-info">
@@ -93,7 +93,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, inject } from 'vue'
+import { ref, onMounted, reactive, inject, computed } from 'vue'
 import { getComment, likeComment, submitComment } from '../api/comment'
 import { useNormalStateStore } from '../store/state'
 import VirtualScroll from './VirtualScrollNoHeight.vue'
@@ -131,6 +131,19 @@ const commentInfo = reactive({
   hasMore: true,
   cursor: 0,
   pageSize: 50
+})
+
+const containerStyle = computed(() => {
+  return {
+    height: props.type === 'mv' ? 'calc(100vh - 84px)' : '100vh',
+    padding: props.type === 'mv' ? '0 0 0 3vh' : '40px 8vh 0 4vh'
+  }
+})
+
+const mainStyle = computed(() => {
+  return {
+    height: props.type === 'mv' ? 'calc(100vh - 205px)' : 'calc(100vh - 160px)'
+  }
 })
 
 const typeMap = {
@@ -305,11 +318,11 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .comment-container {
-  height: 100vh;
+  // height: 100vh;
   display: flex;
   flex-direction: column;
   scrollbar-width: none;
-  padding: 40px 8vh 0 4vh;
+  // padding: 40px 8vh 0 4vh;
   transition: all 0.5s;
 }
 
@@ -344,7 +357,7 @@ onMounted(() => {
 
 .comment-main {
   width: 100%;
-  height: calc(100vh - 160px);
+  // height: calc(100vh - 160px);
 }
 
 .comment-item {
@@ -352,9 +365,12 @@ onMounted(() => {
   width: 100%;
   padding-bottom: 4px;
 
+  .avatar {
+    cursor: pointer;
+  }
   img {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     margin-right: 10px;
   }
@@ -375,6 +391,7 @@ onMounted(() => {
   width: auto;
 
   .comment-nickname {
+    cursor: pointer;
     font-weight: bold;
   }
 }
@@ -404,7 +421,7 @@ onMounted(() => {
     display: flex;
 
     .time {
-      margin-right: 10px;
+      margin-right: 6px;
     }
   }
   .comment-btns {

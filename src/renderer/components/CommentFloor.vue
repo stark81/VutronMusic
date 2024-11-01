@@ -1,15 +1,15 @@
 <template>
-  <div v-if="show" class="comment-container">
+  <div v-if="show" class="comment-container" :style="containerStyle">
     <div class="comment-head">
       <label>回复({{ floorCommentInfo.totalCount }})</label>
       <div class="btns">
         <button class="btn" @click="switchToCommentPage">关闭</button>
       </div>
     </div>
-    <div ref="mainRef" class="comment-main">
+    <div ref="mainRef" class="comment-main" :style="mainStyle">
       <VirtualScroll
         :list="floorComments"
-        :height="560"
+        :height="props.type === 'mv' ? 510 : 560"
         :item-size="63"
         :padding-bottom="0"
         :show-position="false"
@@ -17,10 +17,14 @@
       >
         <template #default="{ item, index }">
           <div class="comment-item" :class="{ first: index === 0 }">
-            <div><img :src="getImage(item.user.avatarUrl)" alt="" loading="lazy" /></div>
+            <div class="avatar" @click="goToUser(item)"
+              ><img :src="getImage(item.user.avatarUrl)" alt="" loading="lazy"
+            /></div>
             <div class="comment-info" @click="replyFloor(item)">
               <div class="comment">
-                <label class="comment-nickname">{{ item.user.nickname }}：</label>
+                <label class="comment-nickname" @click="goToUser(item)"
+                  >{{ item.user.nickname }}：</label
+                >
                 <label>{{ item.content }}</label>
               </div>
               <div
@@ -75,9 +79,11 @@ import { useNormalStateStore } from '../store/state'
 import VirtualScroll from './VirtualScrollNoHeight.vue'
 import WriteComment from './WriteComment.vue'
 import SvgIcon from './SvgIcon.vue'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { formatDate } from '../utils'
 import { isAccountLoggedIn } from '../utils/auth'
+import { storeToRefs } from 'pinia'
 
 const props = defineProps({
   beRepliedCommentId: {
@@ -111,6 +117,19 @@ const placeholder = computed(() => {
   return `回复${selectedComment.value.user.nickname}:`
 })
 
+const containerStyle = computed(() => {
+  return {
+    height: props.type === 'mv' ? 'calc(100vh - 84px)' : '100vh',
+    padding: props.type === 'mv' ? '0 0 0 3.5vh' : '40px 8vh 0 4vh'
+  }
+})
+
+const mainStyle = computed(() => {
+  return {
+    height: props.type === 'mv' ? 'calc(100vh - 205px)' : 'calc(100vh - 160px)'
+  }
+})
+
 const typeMap = {
   music: 0,
   mv: 1,
@@ -122,6 +141,7 @@ const typeMap = {
 
 const { t } = useI18n()
 const stateStore = useNormalStateStore()
+const { showLyrics } = storeToRefs(stateStore)
 const { showToast } = stateStore
 
 const getImage = (url: string) => {
@@ -129,6 +149,12 @@ const getImage = (url: string) => {
     url = url.replace('http:', 'https:')
   }
   return url + '?param=64y64'
+}
+
+const router = useRouter()
+const goToUser = (item: any) => {
+  router.push(`/user/${item.user.userId}`)
+  showLyrics.value = false
 }
 
 const switchToCommentPage = () => {
@@ -255,13 +281,13 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .comment-container {
-  height: 100vh;
+  // height: 100vh;
   width: 100%;
   display: flex;
   flex-direction: column;
   overflow-y: hidden;
   scrollbar-width: none;
-  padding: 40px 8vh 0 4vh;
+  // padding: 40px 8vh 0 4vh;
   transition: all 0.5s;
 }
 
@@ -296,7 +322,7 @@ onMounted(() => {
 
 .comment-main {
   width: 100%;
-  height: calc(100vh - 160px);
+  // height: calc(100vh - 160px);
 }
 
 .comment-item {
@@ -304,9 +330,12 @@ onMounted(() => {
   width: 100%;
   padding-bottom: 4px;
 
+  .avatar {
+    cursor: pointer;
+  }
   img {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     margin-right: 10px;
   }
@@ -327,6 +356,7 @@ onMounted(() => {
   width: auto;
 
   .comment-nickname {
+    cursor: pointer;
     font-weight: bold;
   }
 }

@@ -41,6 +41,13 @@ const computedPrefix = computed(() => {
 </script>
 
 <style scoped lang="scss">
+.artist-in-line {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  overflow: hidden;
+}
 .separator {
   /* make separator distinct enough in long list */
   margin-left: 1px;

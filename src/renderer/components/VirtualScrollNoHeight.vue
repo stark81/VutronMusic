@@ -152,12 +152,13 @@ const updateItemsSize = () => {
   })
 }
 const setStartOffset = () => {
+  if (!position.value.length) return
   if (startRow.value >= 1) {
     // 此处可能有bug
     const size =
-      position.value[startRow.value * props.columnNumber].top -
-      (position.value[(startRow.value - aboveCount.value) * props.columnNumber].top || 0)
-    startOffset.value = position.value[(startRow.value - 1) * props.columnNumber].bottom - size
+      position.value[startRow.value * props.columnNumber]?.top -
+      (position.value[(startRow.value - aboveCount.value) * props.columnNumber]?.top || 0)
+    startOffset.value = position.value[(startRow.value - 1) * props.columnNumber]?.bottom - size
   } else {
     startOffset.value = 0
   }

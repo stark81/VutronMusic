@@ -39,8 +39,9 @@
 </template>
 
 <script setup lang="ts">
-import { inject, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, toRefs } from 'vue'
+import { ref, toRefs } from 'vue'
 import VirtualList from './VirtualScrollNoHeight.vue'
+import { useRouter } from 'vue-router'
 
 const props = defineProps({
   mvs: {
@@ -64,6 +65,7 @@ const props = defineProps({
 const { mvs } = toRefs(props)
 const hoverVideoID = ref(0)
 const listRef = ref()
+const router = useRouter()
 
 const getID = (item: { [key: string]: any }) => {
   if (item.id !== undefined) {
@@ -74,7 +76,7 @@ const getID = (item: { [key: string]: any }) => {
 }
 
 const goToMv = (id: number) => {
-  console.log(id)
+  router.push(`/mv/${id}`)
 }
 
 const getTitle = (item: { [key: string]: any }) => {
@@ -107,21 +109,21 @@ const getUrl = (item: { [key: string]: any }) => {
   return url.replace(/^http:/, 'https:') + '?param=464y260'
 }
 
-const updatePadding = inject('updatePadding') as (padding: number) => void
+// const updatePadding = inject('updatePadding') as (padding: number) => void
 
-onActivated(() => {
-  updatePadding(0)
-})
-onDeactivated(() => {
-  updatePadding(96)
-})
+// onActivated(() => {
+//   updatePadding(0)
+// })
+// onDeactivated(() => {
+//   updatePadding(96)
+// })
 
-onMounted(() => {
-  updatePadding(0)
-})
-onBeforeUnmount(() => {
-  updatePadding(96)
-})
+// onMounted(() => {
+//   updatePadding(0)
+// })
+// onBeforeUnmount(() => {
+//   updatePadding(96)
+// })
 </script>
 
 <style scoped lang="scss">

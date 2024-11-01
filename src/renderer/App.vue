@@ -12,7 +12,7 @@
         </keep-alive>
       </router-view>
     </div>
-    <PlayerBar v-if="enabled" />
+    <PlayerBar v-if="enabled" v-show="showPlayerBar" />
     <ShowToast />
     <AddTrackToPlaylistModal />
     <newPlaylistModal />
@@ -37,6 +37,7 @@ import { useSettingsStore } from './store/settings'
 import { useNormalStateStore } from './store/state'
 import { storeToRefs } from 'pinia'
 import Utils from './utils'
+import { useRoute } from 'vue-router'
 
 const localMusicStore = useLocalMusicStore()
 const { localTracks } = storeToRefs(localMusicStore)
@@ -90,7 +91,7 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () 
   }
 })
 
-// const route = useRoute()
+const route = useRoute()
 
 const scrollBarRef = ref()
 
@@ -104,6 +105,10 @@ const mainStyle = computed(() => {
     paddingTop: (hasCustomTitleBar.value ? 84 : 64) + 'px',
     paddingBottom: padding.value + 'px'
   }
+})
+
+const showPlayerBar = computed(() => {
+  return ['mv', 'loginAccount'].includes(route.name as string) === false
 })
 
 const handleScroll = () => {

@@ -38,6 +38,9 @@
               ><ExplicitSymbol :size="15"
             /></span>
             <ArtistsInLine :artists="artists" />
+            <span v-if="track.mvid && track.mvid !== 0" class="mv-icon" @click="goToMv"
+              ><svg-icon icon-class="mv" :style="{ height: '15px' }"
+            /></span>
           </div>
         </div>
         <div></div>
@@ -310,6 +313,10 @@ const goToAlbum = () => {
   router.push(`/album/${album.value.id}`)
 }
 
+const goToMv = () => {
+  router.push(`/mv/${track.value.mvid}`)
+}
+
 const likeThisSong = () => {
   if (track.value.isLocal && !track.value.matched) {
     showToast(t('player.noAllowCauseLocal'))
@@ -449,9 +456,12 @@ button {
       font-size: 13px;
       opacity: 0.68;
       color: var(--color-text);
-      display: -webkit-box;
+      display: flex;
+      align-items: center;
       -webkit-box-orient: vertical;
+      vertical-align: top;
       -webkit-line-clamp: 1;
+      line-clamp: 1;
       overflow: hidden;
       a {
         span {
@@ -462,6 +472,12 @@ button {
           text-decoration: underline;
           cursor: pointer;
         }
+      }
+      .mv-icon {
+        margin-left: 8px;
+        color: var(--color-primary);
+        font-size: 13px;
+        cursor: pointer;
       }
     }
   }

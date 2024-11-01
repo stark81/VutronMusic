@@ -84,6 +84,7 @@ img {
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 1;
+    line-clamp: 1;
     overflow: hidden;
     word-break: break-all;
   }
@@ -91,10 +92,13 @@ img {
     margin-top: 2px;
     font-size: 13px;
     opacity: 0.68;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 1;
-    overflow: hidden;
+    // display: -webkit-box;
+    // display: flex;
+    display: flex;
+    // -webkit-box-orient: vertical;
+    // -webkit-line-clamp: 1;
+    // line-clamp: 1;
+    // overflow: hidden;
     a {
       span {
         margin-right: 3px;

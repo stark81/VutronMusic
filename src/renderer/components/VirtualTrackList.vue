@@ -197,6 +197,7 @@ const rightClickedTrack = ref({
   name: '',
   matched: true,
   isLocal: false,
+  mvid: 0,
   filePath: '',
   artists: [{ name: '' }],
   album: { picUrl: '' },
@@ -221,6 +222,7 @@ const rightClickedTrackComputed = computed(() => {
         name: '',
         matched: true,
         isLocal: false,
+        mvid: 0,
         filePath: '',
         artists: [{ name: '' }],
         album: { picUrl: '' },
@@ -260,7 +262,21 @@ const playThisList = (index: number) => {
   replacePlaylist(props.type, id.value, IDs, idx)
 }
 
-const closeMenu = () => {}
+const closeMenu = () => {
+  if (showComment.value) return
+  rightClickedTrack.value = {
+    id: 0,
+    name: '',
+    matched: true,
+    isLocal: false,
+    mvid: 0,
+    filePath: '',
+    artists: [{ name: '' }],
+    album: { picUrl: '' },
+    al: { picUrl: '' }
+  }
+  rightClickedTrackIndex.value = -1
+}
 
 const accurateMatchTrack = () => {
   accurateMatchModal.value = {
@@ -371,6 +387,18 @@ const openComment = () => {
 
 const closeComment = () => {
   showComment.value = false
+  rightClickedTrack.value = {
+    id: 0,
+    name: '',
+    matched: true,
+    isLocal: false,
+    mvid: 0,
+    filePath: '',
+    artists: [{ name: '' }],
+    album: { picUrl: '' },
+    al: { picUrl: '' }
+  }
+  rightClickedTrackIndex.value = -1
 }
 
 const addToQueue = (ids: number | number[] | null = null) => {
@@ -388,17 +416,17 @@ provide('rightClickedTrack', rightClickedTrack)
 defineExpose({ selectAll, doFinish, addToLocalPlaylist, addToQueue })
 
 onActivated(() => {
-  updatePadding(0)
+  if (props.isEnd) updatePadding(0)
 })
 onDeactivated(() => {
-  updatePadding(96)
+  if (props.isEnd) updatePadding(96)
 })
 
 onMounted(() => {
-  updatePadding(0)
+  if (props.isEnd) updatePadding(0)
 })
 onBeforeUnmount(() => {
-  updatePadding(96)
+  if (props.isEnd) updatePadding(96)
 })
 </script>
 

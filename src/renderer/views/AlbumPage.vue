@@ -111,7 +111,7 @@
           :colunm-number="5"
           :is-end="true"
           :padding-bottom="0"
-          :item-height="270"
+          :item-height="260"
           sub-text="albumType+releaseYear"
         ></CoverRow>
       </div>
@@ -335,6 +335,7 @@ onMounted(() => {
       display: -webkit-box;
       -webkit-box-orient: vertical;
       -webkit-line-clamp: 1;
+      line-clamp: 1;
       overflow: hidden;
     }
     .subtitle {

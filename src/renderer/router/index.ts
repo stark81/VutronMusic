@@ -7,6 +7,7 @@ import {
   AlbumPage,
   ArtistPage,
   UserPage,
+  MvPage,
   SearchPage,
   HomePage,
   ExplorePage,
@@ -131,6 +132,11 @@ const routes = [
     path: '/user/:id',
     name: 'user',
     component: UserPage
+  },
+  {
+    path: '/mv/:id',
+    name: 'mv',
+    component: MvPage
   },
   {
     path: '/:pathMatch(.*)*',
