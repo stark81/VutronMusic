@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, net, protocol } from 'electron'
+import { app, BrowserWindow, Menu, net, protocol, screen } from 'electron'
 import { release } from 'os'
 import Constants from './utils/Constants'
 import store from './store'
@@ -110,6 +110,46 @@ class BackGround {
       titleBarStyle: 'hiddenInset' as const,
       webPreferences: Constants.DEFAULT_WEB_PREFERENCES
     }
+
+    if (store.get('window.x') && store.get('window.y')) {
+      const x = store.get('window.x') as number
+      const y = store.get('window.y') as number
+
+      const displays = screen.getAllDisplays()
+      let isResetWindow = false
+      if (displays.length === 1) {
+        const { bounds } = displays[0]
+        if (
+          x < bounds.x ||
+          x > bounds.x + bounds.width - 50 ||
+          y < bounds.y ||
+          y > bounds.y + bounds.height - 50
+        ) {
+          isResetWindow = true
+        }
+      } else {
+        isResetWindow = true
+
+        for (let i = 0; i < displays.length; i++) {
+          const { bounds } = displays[i]
+          if (
+            x > bounds.x &&
+            x < bounds.x + bounds.width &&
+            y > bounds.y &&
+            y < bounds.y + bounds.height
+          ) {
+            isResetWindow = false
+            break
+          }
+        }
+      }
+
+      if (!isResetWindow) {
+        option.x = x
+        option.y = y
+      }
+    }
+
     this.win = new BrowserWindow(option)
     this.win.setMenuBarVisibility(false)
 
@@ -137,6 +177,45 @@ class BackGround {
       hiddenInMissionControl: true,
       skipTaskbar: true,
       webPreferences: Constants.DEFAULT_OSD_PREFERENCES
+    }
+
+    if (store.get('osdWindow.x') && store.get('osdWindow.y')) {
+      const x = store.get('osdWindow.x') as number
+      const y = store.get('osdWindow.y') as number
+
+      const displays = screen.getAllDisplays()
+      let isResetWindow = false
+      if (displays.length === 1) {
+        const { bounds } = displays[0]
+        if (
+          x < bounds.x ||
+          x > bounds.x + bounds.width - 50 ||
+          y < bounds.y ||
+          y > bounds.y + bounds.height - 50
+        ) {
+          isResetWindow = true
+        }
+      } else {
+        isResetWindow = true
+
+        for (let i = 0; i < displays.length; i++) {
+          const { bounds } = displays[i]
+          if (
+            x > bounds.x &&
+            x < bounds.x + bounds.width &&
+            y > bounds.y &&
+            y < bounds.y + bounds.height
+          ) {
+            isResetWindow = false
+            break
+          }
+        }
+      }
+
+      if (!isResetWindow) {
+        option.x = x
+        option.y = y
+      }
     }
     this.lyricWin = new BrowserWindow(option)
     await this.lyricWin.loadURL(Constants.APP_OSD_URL)

@@ -1,7 +1,8 @@
 <template>
   <div>
-    <nav :class="{ 'has-custom-titlebar': isLinux }" :style="navStyle">
+    <nav :class="{ 'has-custom-titlebar': isLinux || isWin }" :style="navStyle">
       <LinuxTitleBar v-if="isLinux" />
+      <Win32TitleBar v-if="isWin" />
 
       <div class="navigation-buttons">
         <button-icon @click.stop="router.go(-1)">
@@ -95,6 +96,7 @@ import SvgIcon from './SvgIcon.vue'
 import SearchBox from './SearchBox.vue'
 import ContextMenu from './ContextMenu.vue'
 import LinuxTitleBar from './LinuxTitleBar.vue'
+import Win32TitleBar from './Win32TitleBar.vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../store/data'
 import { useNormalStateStore } from '../store/state'
@@ -111,9 +113,10 @@ const keywords = ref('')
 
 const isLooseLoggedIn = computed(() => data.user.value.userId !== null)
 const isLinux = computed(() => window.env?.isLinux)
+const isWin = computed(() => window.env?.isWindows)
 const navStyle = computed(() => {
   return {
-    paddingLeft: isLinux.value ? '20px' : '5vw'
+    paddingLeft: isLinux.value || isWin.value ? '20px' : '5vw'
   }
 })
 

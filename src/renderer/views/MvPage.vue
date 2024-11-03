@@ -1,5 +1,5 @@
 <template>
-  <div class="mv-page">
+  <div class="mv-page" :style="mainStyle">
     <div class="left">
       <div class="current-video">
         <div class="video">
@@ -42,7 +42,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, inject, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, inject, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import { mvDetail, mvDetailInfo, likeAMV, subAMV, mvUrl, simiMv } from '../api/mv'
 import { tricklingProgress } from '../utils/tricklingProgress'
@@ -72,6 +72,12 @@ const mv = ref<{ [key: string]: any }>({
 const simiMvs = ref<any[]>([])
 const videoPlayer = ref()
 const player = ref()
+const isMac = computed(() => window.env?.isMac)
+const mainStyle = computed(() => {
+  return {
+    marginTop: isMac.value ? '20px' : '0'
+  }
+})
 
 const playerStore = usePlayerStore()
 const { playing, volume } = storeToRefs(playerStore)
@@ -127,7 +133,7 @@ const handleLikeMv = (mv: any) => {
     .then((res) => {
       if (res.code === 200) {
         mv.data.liked = !mv.data.liked
-        mv.data.likedCount += mv.data.liked ? -1 : 1
+        mv.data.likedCount += mv.data.liked ? 1 : -1
       } else {
         showToast(res.msg)
       }
@@ -150,7 +156,7 @@ const handleSubMv = (mv: any) => {
     .then((res) => {
       if (res.code === 200) {
         mv.data.subed = !mv.data.subed
-        mv.data.subCount += mv.data.subed ? -1 : 1
+        mv.data.subCount += mv.data.subed ? 1 : -1
       } else {
         showToast(res.msg)
       }
@@ -192,7 +198,7 @@ onBeforeUnmount(() => {
 
 <style lang="scss" scoped>
 .mv-page {
-  margin-top: 20px;
+  // margin-top: 20px;
   width: 100%;
   height: calc(100vh - 84px);
   display: flex;
