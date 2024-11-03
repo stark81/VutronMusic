@@ -54,24 +54,14 @@ const windowClose = () => {
   --hover: #e6e6e6;
   --active: #cccccc;
 
-  .logo {
-    padding: 0 8px;
-    img {
-      height: 18px;
-      width: 18px;
-    }
-  }
-
   .title {
     padding: 8px;
     font-size: 12px;
     font-family: 'Segoe UI', 'Microsoft YaHei UI', 'Microsoft YaHei', sans-serif;
-    justify-self: center;
-    margin: 0 auto;
   }
   .controls {
     height: 32px;
-    //margin-left: auto;
+    margin-left: auto;
     justify-content: flex-end;
     display: flex;
     .button {

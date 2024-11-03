@@ -157,6 +157,7 @@ function bindingSqlite3(
   return {
     name: 'vite-plugin-binding-sqlite3',
     config(config) {
+      if (process.platform === 'win32') return
       const resolvedRoot = normalizePath(process.cwd())
       const output = posix.resolve(resolvedRoot, options.output as string)
       const betterSqlite3 = require.resolve('better-sqlite3')
