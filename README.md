@@ -22,6 +22,21 @@
 - ⚡️ 支持Mac状态栏歌词、TouchBar歌词等；
 - ⚡️ 支持云盘、歌曲评论等功能；
 
+## 配置开发环境
+
+```
+# 安装依赖
+yarn install  # Windows用户安装依赖时可能会报better-sqlite3的pre-build错误，不用理会
+
+# Windows用户创建本地环境变量
+cp .env.example .env
+同时将 dist-native/better-sqlite3-v11.5.0-electron-v130-win32-x64.tar/build/Release/better-sqlite3.node 解压到dist-native/better-sqlite3.node
+
+# 运行
+yarn run dev（开发）
+yarn run build（构建）
+```
+
 ## 开源许可
 
 本项目仅供个人学习研究使用，禁止用于商业及非法用途。

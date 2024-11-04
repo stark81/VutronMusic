@@ -105,6 +105,13 @@
               <button @click="resetPlayer">确定</button>
             </div>
           </div>
+          <div class="version-info">
+            <p class="author">
+              MADE BY
+              <a href="https://github.com/stark81" target="_blank">stark81</a>
+            </p>
+            <p class="version">{{ appVersion }}</p>
+          </div>
         </div>
         <div v-show="tab === 'appearance'" key="appearance">
           <div class="item">
@@ -352,6 +359,13 @@ const chooseDir = () => {
   })
 }
 
+const appVersion = ref('Unknown')
+const getVersion = () => {
+  window.mainApi?.invoke('msgRequestGetVersion').then((result: string) => {
+    appVersion.value = `v${result}`
+  })
+}
+
 const updateAppearance = (mode: string) => {
   appearance.value = mode
   Utils.changeAppearance(mode)
@@ -384,6 +398,7 @@ const deleteLocalMusic = () => {
 
 onMounted(() => {
   getAllOutputDevices()
+  getVersion()
 })
 </script>
 
@@ -665,5 +680,18 @@ input.text-input {
   color: var(--color-text);
   font-weight: 600;
   font-size: 16px;
+}
+
+.version-info {
+  text-align: center;
+  color: var(--color-text);
+  font-weight: 600;
+  .author {
+    font-size: 0.9rem;
+  }
+  .version {
+    font-size: 0.88rem;
+    opacity: 0.58;
+  }
 }
 </style>
