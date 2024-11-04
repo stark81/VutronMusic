@@ -30,7 +30,7 @@ yarn install  # Windows用户安装依赖时可能会报better-sqlite3的pre-bui
 
 # Windows用户创建本地环境变量
 cp .env.example .env
-同时将 dist-native/better-sqlite3-v11.5.0-electron-v130-win32-x64.tar/build/Release/better-sqlite3.node 解压到dist-native/better-sqlite3.node
+同时将 dist-native-bak/better-sqlite3-v11.5.0-electron-v130-win32-x64.tar/build/Release/better-sqlite3.node 解压到dist-native/better-sqlite3.node
 
 # 运行
 yarn run dev（开发）
