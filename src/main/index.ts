@@ -259,7 +259,7 @@ class BackGround {
   handleOSDWindowEvents() {
     this.lyricWin.once('ready-to-show', () => {
       this.lyricWin.showInactive()
-      this.toggleMouseIgnore()
+      if (!Constants.IS_LINUX) this.toggleMouseIgnore()
     })
     this.lyricWin.on('resize', () => {
       const data = this.lyricWin.getBounds()
