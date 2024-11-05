@@ -6,7 +6,7 @@ export const useOsdLyricStore = defineStore(
   () => {
     const isLock = ref(false)
     const alwaysOnTop = ref(false)
-    const isHoverHide = ref(false)
+    const isHoverHide = ref(true)
     return { isLock, alwaysOnTop, isHoverHide }
   },
   {

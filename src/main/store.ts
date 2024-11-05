@@ -31,7 +31,7 @@ const store = new Store<TypeElectronStore>({
     osdWindow: {
       show: false,
       isLock: false,
-      isHoverHide: false,
+      isHoverHide: true,
       isAlwaysOnTop: false,
       width: 840,
       height: 480
