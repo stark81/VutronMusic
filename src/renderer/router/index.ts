@@ -8,6 +8,7 @@ import {
   ArtistPage,
   UserPage,
   MvPage,
+  ArtistMv,
   SearchPage,
   HomePage,
   ExplorePage,
@@ -116,6 +117,14 @@ const routes = [
     path: '/artist/:id',
     name: 'ArtistPage',
     component: ArtistPage,
+    meta: {
+      keepAlive: true
+    }
+  },
+  {
+    path: '/artist/:id/mv',
+    name: 'artistMV',
+    component: ArtistMv,
     meta: {
       keepAlive: true
     }

@@ -10,7 +10,7 @@
         :use-keyboard="false"
         :tooltip-formatter="formatTime"
         :rail-style="{ backgroundColor: 'rgba(128, 128, 128, 0.18)' }"
-        :process-style="{ backgroundColor: 'blue' }"
+        :process-style="{ background: 'var(--color-primary)' }"
         :dot-style="{
           display: 'none',
           backgroundColor: 'white',
@@ -121,7 +121,7 @@
               :drag-on-click="false"
               :tooltip-formatter="formatVolume"
               :rail-style="{ backgroundColor: 'rgba(128, 128, 128, 0.18)' }"
-              :process-style="{ backgroundColor: 'blue' }"
+              :process-style="{ background: 'var(--color-primary)' }"
               :dot-style="{
                 display: 'none',
                 backgroundColor: 'white',

@@ -118,6 +118,7 @@ const handleResult = (res: any) => {
       result.userCount = res.result.userprofileCount
       break
     case 'lyric':
+      if (res.result.songCount === 0) return
       result.lyric.push(...res.result.songs)
       result.lyricCount = res.result.songCount || result.lyricCount
       break

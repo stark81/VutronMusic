@@ -13,6 +13,7 @@
             :height="2"
             :use-keyboard="false"
             :drag-on-click="false"
+            :process-style="{ background: 'var(--color-primary)' }"
             :dot-style="{ display: 'none' }"
             tooltip="none"
             :lazy="false"

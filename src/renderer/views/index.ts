@@ -13,6 +13,7 @@ import PlaylistPage from './PlaylistPage.vue'
 import DailyTracks from './DailyTracks.vue'
 import UserPage from './UserPage.vue'
 import MvPage from './MvPage.vue'
+import ArtistMv from './ArtistMv.vue'
 
 export {
   ErrorScreen,
@@ -29,5 +30,6 @@ export {
   PlaylistPage,
   DailyTracks,
   UserPage,
-  MvPage
+  MvPage,
+  ArtistMv
 }

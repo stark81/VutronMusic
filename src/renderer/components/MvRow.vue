@@ -5,10 +5,11 @@
     :gap="gap"
     :column-number="5"
     :is-end="isEnd"
-    :item-size="180"
-    :show-position="false"
+    :item-size="162.5"
+    :show-position="showPosition"
     :show-footer="false"
-    :padding-bottom="0"
+    :padding-bottom="paddingBottom"
+    :load-more="loadMore"
   >
     <template #default="{ item }">
       <div class="mv">
@@ -39,7 +40,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, toRefs } from 'vue'
+import { PropType, ref, toRefs } from 'vue'
 import VirtualList from './VirtualScrollNoHeight.vue'
 import { useRouter } from 'vue-router'
 
@@ -59,6 +60,18 @@ const props = defineProps({
   gap: {
     type: Number,
     default: 20
+  },
+  showPosition: {
+    type: Boolean,
+    default: false
+  },
+  paddingBottom: {
+    type: Number,
+    default: 0
+  },
+  loadMore: {
+    type: Function as PropType<() => void>,
+    default: () => {}
   }
 })
 
