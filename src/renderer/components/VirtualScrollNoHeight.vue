@@ -307,6 +307,9 @@ initPosition()
 
 onActivated(() => {
   observer.observe(listRef.value)
+  setTimeout(() => {
+    updateItemsSize()
+  }, 100)
 })
 
 onDeactivated(() => {
@@ -319,6 +322,9 @@ onMounted(() => {
   startRow.value = 0
   // endRow.value = startRow.value + visibleCount.value
   observer.observe(listRef.value)
+  setTimeout(() => {
+    updateItemsSize()
+  }, 100)
 })
 
 onUpdated(() => {

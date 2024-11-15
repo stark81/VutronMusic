@@ -18,9 +18,9 @@
               `${randomtrack?.ar[0].name} -- ${randomtrack?.name}`
             }}</div>
           </div>
-          <button @click.stop="openPlayModeTabMenu">
+          <!-- <button @click.stop="openPlayModeTabMenu">
             <svg-icon icon-class="play" />
-          </button>
+          </button> -->
         </div>
       </div>
       <div class="songs">
@@ -29,10 +29,9 @@
           :items="liked.songsWithDetails"
           :type="'tracklist'"
           :show-position="false"
-          :item-height="56"
+          :item-height="60"
           :padding-bottom="0"
           :colunm-number="2"
-          :height="224"
         />
       </div>
     </div>
@@ -144,7 +143,6 @@
           <TrackList
             :id="-8"
             :items="liked.cloudDisk"
-            :item-height="60"
             :colunm-number="1"
             :padding-bottom="64"
             type="cloudDisk"
@@ -174,7 +172,7 @@
             :items="playHistoryList"
             :colunm-number="1"
             :height="hasCustomTitleBar ? 588 : 608"
-            :item-height="56"
+            :item-height="60"
             :padding-bottom="64"
             type="tracklist"
           />
@@ -342,7 +340,7 @@ const goToLikedSongsList = () => {
 
 const updatePadding = inject('updatePadding') as (padding: number) => void
 
-const openPlayModeTabMenu = () => {}
+// const openPlayModeTabMenu = () => {}
 
 const openAddPlaylistModal = () => {
   newPlaylistModal.value = {
@@ -444,7 +442,7 @@ onUnmounted(() => {
     .title {
       font-size: 20px;
       font-weight: 700;
-      margin: 16px 0 10px 0;
+      margin: 24px 0 10px 0;
       color: var(--color-primary);
     }
     .sub-title {
@@ -465,38 +463,39 @@ onUnmounted(() => {
           font-weight: 700;
           display: -webkit-box;
           -webkit-line-clamp: 1;
+          line-clamp: 1;
           -webkit-box-orient: vertical;
           overflow: hidden;
           text-overflow: ellipsis;
         }
       }
 
-      button {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 36px;
-        width: 36px;
-        background: var(--color-primary);
-        border-radius: 50%;
-        transition: 0.2s;
-        box-shadow: 0 6px 12px -4px rgba(0, 0, 0, 0.2);
-        cursor: default;
+      // button {
+      //   display: flex;
+      //   justify-content: center;
+      //   align-items: center;
+      //   height: 36px;
+      //   width: 36px;
+      //   background: var(--color-primary);
+      //   border-radius: 50%;
+      //   transition: 0.2s;
+      //   box-shadow: 0 6px 12px -4px rgba(0, 0, 0, 0.2);
+      //   cursor: default;
 
-        .svg-icon {
-          color: var(--color-primary-bg);
-          margin-left: 4px;
-          height: 16px;
-          width: 16px;
-        }
-        &:hover {
-          transform: scale(1.06);
-          box-shadow: 0 6px 12px -4px rgba(0, 0, 0, 0.4);
-        }
-        &:active {
-          transform: scale(0.94);
-        }
-      }
+      //   .svg-icon {
+      //     color: var(--color-primary-bg);
+      //     margin-left: 4px;
+      //     height: 16px;
+      //     width: 16px;
+      //   }
+      //   &:hover {
+      //     transform: scale(1.06);
+      //     box-shadow: 0 6px 12px -4px rgba(0, 0, 0, 0.4);
+      //   }
+      //   &:active {
+      //     transform: scale(0.94);
+      //   }
+      // }
     }
 
     .top {
@@ -507,6 +506,10 @@ onUnmounted(() => {
       color: var(--color-primary);
       p {
         margin-top: 2px;
+        -webkit-line-clamp: 1;
+        line-clamp: 1;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
       }
     }
   }

@@ -8,7 +8,6 @@
       <TrackList
         :items="result[searchTab]"
         :colunm-number="1"
-        :item-height="60.5"
         :load-more="() => loadData(keywords, searchTab)"
         :type="'playlist'"
         :extra-context-menu-item="['copyId']"

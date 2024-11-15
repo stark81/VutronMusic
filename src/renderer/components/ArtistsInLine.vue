@@ -42,7 +42,7 @@ const computedPrefix = computed(() => {
 
 <style scoped lang="scss">
 .artist-in-line {
-  display: -webkit-box;
+  // display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 1;
   line-clamp: 1;

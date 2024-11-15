@@ -39,7 +39,7 @@
             /></span>
             <ArtistsInLine :artists="artists" />
             <span v-if="track.mvid && track.mvid !== 0" class="mv-icon" @click="goToMv"
-              ><svg-icon icon-class="mv" :style="{ height: '15px' }"
+              ><svg-icon icon-class="mv" :style="{ height: '16px' }"
             /></span>
           </div>
         </div>
@@ -437,6 +437,7 @@ button {
       display: -webkit-box;
       -webkit-box-orient: vertical;
       -webkit-line-clamp: 1;
+      line-clamp: 1;
       overflow: hidden;
       word-break: break-all;
       .featured {
@@ -463,6 +464,9 @@ button {
       -webkit-line-clamp: 1;
       line-clamp: 1;
       overflow: hidden;
+      .artist-in-line {
+        display: -webkit-box;
+      }
       a {
         span {
           margin-right: 3px;
@@ -491,6 +495,7 @@ button {
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     overflow: hidden;
   }
   .createTime {
@@ -558,8 +563,8 @@ button {
 .trackitem.tracklist {
   .track {
     img {
-      height: 36px;
-      width: 36px;
+      height: 42px;
+      width: 42px;
       border-radius: 6px;
       margin-right: 14px;
       cursor: pointer;

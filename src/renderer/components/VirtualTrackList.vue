@@ -168,7 +168,7 @@ const props = defineProps({
   },
   itemHeight: {
     type: Number,
-    default: 60.5
+    default: 64
   },
   loadMore: {
     type: Function as PropType<() => void>,

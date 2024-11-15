@@ -101,6 +101,7 @@
         :items="popularTracks.slice(0, showMorePopTracks ? 24 : 12)"
         :type="'tracklist'"
         :colunm-number="4"
+        :item-height="60"
         :is-end="false"
         :gap="4"
         :padding-bottom="0"
@@ -120,6 +121,7 @@
       <CoverRow
         :type="'album'"
         :items="albums"
+        :item-height="240"
         :show-position="false"
         :colunm-number="5"
         :sub-text="'releaseYear'"
@@ -143,7 +145,7 @@
         :type="'album'"
         :items="eps"
         :colunm-number="5"
-        :item-height="250"
+        :item-height="240"
         :show-position="false"
         :sub-text="'albumType+releaseYear'"
         :show-play-button="true"
@@ -159,7 +161,7 @@
         :is-end="true"
         :padding-bottom="0"
         :items="simiArtists.slice(0, 12)"
-        :item-height="212"
+        :item-height="194"
       />
     </div>
 
@@ -180,7 +182,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onActivated, onMounted, computed, inject, nextTick } from 'vue'
+import { ref, onActivated, onDeactivated, onMounted, onBeforeUnmount, computed, inject } from 'vue'
 import ButtonTwoTone from '../components/ButtonTwoTone.vue'
 import Modal from '../components/BaseModal.vue'
 import MvRow from '../components/MvRow.vue'
@@ -324,16 +326,26 @@ onActivated(() => {
   if (artist.value?.id?.toString() !== route.params.id) {
     loadData(route.params.id as string)
   }
-  nextTick(() => {
+  setTimeout(() => {
     updatePadding(96)
-  })
+  }, 100)
+})
+
+onDeactivated(() => {
+  setTimeout(() => {
+    updatePadding(96)
+  }, 100)
 })
 
 onMounted(() => {
   loadData(route.params.id as string)
-  nextTick(() => {
+  setTimeout(() => {
     updatePadding(96)
-  })
+  }, 100)
+})
+
+onBeforeUnmount(() => {
+  updatePadding(96)
 })
 </script>
 
@@ -390,6 +402,7 @@ onMounted(() => {
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     overflow: hidden;
     cursor: pointer;
     white-space: pre-line;
