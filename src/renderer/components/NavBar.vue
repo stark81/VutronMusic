@@ -116,7 +116,7 @@ const isLinux = computed(() => window.env?.isLinux)
 const isWin = computed(() => window.env?.isWindows)
 const navStyle = computed(() => {
   return {
-    paddingLeft: isLinux.value || isWin.value ? '20px' : '5vw'
+    paddingLeft: isLinux.value || isWin.value ? '20px' : '6vw'
   }
 })
 

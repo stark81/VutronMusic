@@ -13,7 +13,8 @@ import {
   HomePage,
   ExplorePage,
   PlaylistPage,
-  DailyTracks
+  DailyTracks,
+  NextUp
 } from '../views'
 import { createRouter, createWebHashHistory } from 'vue-router'
 import { isAccountLoggedIn } from '../utils/auth'
@@ -146,6 +147,11 @@ const routes = [
     path: '/mv/:id',
     name: 'mv',
     component: MvPage
+  },
+  {
+    path: '/next',
+    name: 'next',
+    component: NextUp
   },
   {
     path: '/:pathMatch(.*)*',

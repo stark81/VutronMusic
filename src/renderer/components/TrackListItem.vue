@@ -182,7 +182,7 @@ const isPlaying = computed(() => {
 const trackClass = computed(() => {
   const clsList: string[] = [type.value]
   if (props.isLyric && props.trackNo % 2 === 1) clsList.push('odd')
-  if (isPlaying.value) clsList.push('playing')
+  if (isPlaying.value && props.highlightPlayingTrack) clsList.push('playing')
   if (focus.value) clsList.push('focus')
   return clsList
 })

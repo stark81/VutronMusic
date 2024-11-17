@@ -38,6 +38,7 @@ export const usePlayerStore = defineStore(
   'player',
   () => {
     const playing = ref(false)
+    const playingNext = ref(false)
     const enabled = ref(false)
     const progress = ref(0)
     const repeatMode = ref('off')
@@ -433,9 +434,14 @@ export const usePlayerStore = defineStore(
         id: playlistSourceID
       }
 
-      currentTrackIndex.value = autoPlayTrackID
-      if (_shuffle.value) shuffleTheList()
-      replaceCurrentTrack(trackIDS[autoPlayTrackID], true)
+      if (_shuffle.value) {
+        currentTrackIndex.value = 0
+        shuffleTheList(autoPlayTrackID)
+        replaceCurrentTrack(list.value[0], true)
+      } else {
+        currentTrackIndex.value = autoPlayTrackID
+        replaceCurrentTrack(list.value[autoPlayTrackID], true)
+      }
       enabled.value = true
     }
 
@@ -535,20 +541,20 @@ export const usePlayerStore = defineStore(
       return true
     }
 
-    const getNextTrack = () => {
+    const getNextTrack = (): [number | undefined, number, boolean] => {
       const next = currentTrackIndex.value + 1
 
       if (_playNextList.value.length > 0) {
         const trackID = _playNextList.value.shift()
-        return [trackID, currentTrackIndex.value]
+        return [trackID!, currentTrackIndex.value, true]
       }
 
       if (repeatMode.value === 'on') {
         if (list.value.length === currentTrackIndex.value + 1) {
-          return [list.value[0], 0]
+          return [list.value[0], 0, false]
         }
       }
-      return [list.value[next], next]
+      return [list.value[next], next, false]
     }
 
     const _playNextTrack = (isPersonal: any) => {
@@ -561,11 +567,12 @@ export const usePlayerStore = defineStore(
 
     const playNext = async () => {
       stop()
-      const [trackID, index] = getNextTrack()
+      const [trackID, index, isPlayingNext] = getNextTrack()
+      playingNext.value = isPlayingNext
       if (!trackID) {
         return false
       }
-      currentTrackIndex.value = index!
+      currentTrackIndex.value = index
       await replaceCurrentTrack(trackID, true)
       return true
     }
@@ -590,6 +597,15 @@ export const usePlayerStore = defineStore(
     // }
 
     const stop = async () => {
+      if (playingNext.value) {
+        if (_shuffle.value) {
+          _shuffleList.value.splice(currentTrackIndex.value + 1, 0, currentTrack.value!.id)
+          currentLyricIndex.value++
+        } else {
+          _list.value.splice(currentTrackIndex.value + 1, 0, currentTrack.value!.id)
+          currentLyricIndex.value++
+        }
+      }
       howler.masterGain.gain.setValueAtTime(0, audioContext.currentTime)
       await pause()
       audio.src =
@@ -641,8 +657,12 @@ export const usePlayerStore = defineStore(
       }
     }
 
-    const shuffleTheList = () => {
-      _shuffleList.value = shuffleFn(_list.value.slice())
+    const shuffleTheList = (firstTrackID = 0) => {
+      const id = _list.value[firstTrackID]
+      let list = _list.value.filter((trackID) => trackID !== id)
+      if (firstTrackID === 0) list = _list.value
+      _shuffleList.value = shuffleFn(list)
+      if (firstTrackID !== 0) _shuffleList.value.unshift(id)
     }
 
     const addTrackToPlayNext = (trackID: number | number[], playNow = false, addToHead = false) => {
@@ -940,6 +960,7 @@ export const usePlayerStore = defineStore(
       _list,
       _shuffleList,
       _shuffle,
+      _playNextList,
       list,
       currentTrack,
       isPersonalFM,

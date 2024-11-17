@@ -273,5 +273,11 @@
     "deleteSuccess": "删除成功",
     "deleteFailed": "删除失败",
     "copySuccess": "复制成功"
+  },
+  "next": {
+    "nowPlaying": "正在播放",
+    "insertPlaying": "插队播放",
+    "nextPlaying": "即将播放",
+    "historyPlaying": "历史播放"
   }
 }

@@ -90,6 +90,7 @@
             active: route.name === 'next',
             disabled: isPersonalFM
           }"
+          @click="goToNextTracksPage"
           ><svg-icon icon-class="list"
         /></button-icon>
         <button-icon
@@ -244,6 +245,11 @@ const goToAlbum = () => {
 const goToList = () => {
   const path = getListSourcePath()
   router.push(path)
+}
+
+const goToNextTracksPage = () => {
+  if (isPersonalFM.value) return
+  route.name === 'next' ? router.go(-1) : router.push({ name: 'next' })
 }
 
 const formatVolume = computed(() => {

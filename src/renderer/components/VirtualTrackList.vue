@@ -170,6 +170,10 @@ const props = defineProps({
     type: Number,
     default: 64
   },
+  dbclickEnable: {
+    type: Boolean,
+    default: true
+  },
   loadMore: {
     type: Function as PropType<() => void>,
     default: () => {}
@@ -257,6 +261,7 @@ const currentIndex = computed(() => {
 })
 
 const playThisList = (index: number) => {
+  if (!props.dbclickEnable) return
   const IDs = items.value.map((track) => track.id || track.songId)
   const idx = items.value.findIndex((item) => (item.id || item.songId) === index)
   replacePlaylist(props.type, id.value, IDs, idx)

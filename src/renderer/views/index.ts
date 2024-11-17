@@ -14,6 +14,7 @@ import DailyTracks from './DailyTracks.vue'
 import UserPage from './UserPage.vue'
 import MvPage from './MvPage.vue'
 import ArtistMv from './ArtistMv.vue'
+import NextUp from './NextUp.vue'
 
 export {
   ErrorScreen,
@@ -31,5 +32,6 @@ export {
   DailyTracks,
   UserPage,
   MvPage,
-  ArtistMv
+  ArtistMv,
+  NextUp
 }

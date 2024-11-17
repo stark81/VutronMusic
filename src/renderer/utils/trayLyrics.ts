@@ -124,6 +124,7 @@ class TrayLyric {
   }
 
   handleEvent() {
+    this._updateLyric(currentLyricIndex.value)
     watch(isPersonalFM, async (value) => {
       this._control?.updateImage(0, value ? thumbsDown : previous)
       await this._control?.draw()
@@ -200,7 +201,6 @@ class TrayLyric {
         window.mainApi.send('showWindow')
       }
     })
-    this._updateLyric(currentLyricIndex.value)
   }
 
   _updateLyric(value: number) {
