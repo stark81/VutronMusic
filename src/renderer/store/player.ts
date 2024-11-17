@@ -542,6 +542,7 @@ export const usePlayerStore = defineStore(
     }
 
     const getNextTrack = (): [number | undefined, number, boolean] => {
+      console.log('getNextTrack', currentTrackIndex.value)
       const next = currentTrackIndex.value + 1
 
       if (_playNextList.value.length > 0) {
@@ -600,10 +601,10 @@ export const usePlayerStore = defineStore(
       if (playingNext.value) {
         if (_shuffle.value) {
           _shuffleList.value.splice(currentTrackIndex.value + 1, 0, currentTrack.value!.id)
-          currentLyricIndex.value++
+          currentTrackIndex.value += 1
         } else {
           _list.value.splice(currentTrackIndex.value + 1, 0, currentTrack.value!.id)
-          currentLyricIndex.value++
+          currentTrackIndex.value += 1
         }
       }
       howler.masterGain.gain.setValueAtTime(0, audioContext.currentTime)
