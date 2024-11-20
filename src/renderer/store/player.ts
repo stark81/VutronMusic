@@ -435,9 +435,9 @@ export const usePlayerStore = defineStore(
       }
 
       if (_shuffle.value) {
-        currentTrackIndex.value = 0
         shuffleTheList(autoPlayTrackID)
-        replaceCurrentTrack(list.value[0], true)
+        currentTrackIndex.value = 0
+        replaceCurrentTrack(list.value[currentTrackIndex.value], true)
       } else {
         currentTrackIndex.value = autoPlayTrackID
         replaceCurrentTrack(list.value[autoPlayTrackID], true)
@@ -535,14 +535,16 @@ export const usePlayerStore = defineStore(
     const playPrev = async () => {
       stop()
       const [trackID, index] = getPrevTrack()
-      if (!trackID) return false
+      if (!trackID) {
+        playing.value = false
+        return false
+      }
       currentTrackIndex.value = index!
       await replaceCurrentTrack(trackID, true)
       return true
     }
 
     const getNextTrack = (): [number | undefined, number, boolean] => {
-      console.log('getNextTrack', currentTrackIndex.value)
       const next = currentTrackIndex.value + 1
 
       if (_playNextList.value.length > 0) {
@@ -571,6 +573,7 @@ export const usePlayerStore = defineStore(
       const [trackID, index, isPlayingNext] = getNextTrack()
       playingNext.value = isPlayingNext
       if (!trackID) {
+        playing.value = false
         return false
       }
       currentTrackIndex.value = index
@@ -660,10 +663,10 @@ export const usePlayerStore = defineStore(
 
     const shuffleTheList = (firstTrackID = 0) => {
       const id = _list.value[firstTrackID]
-      let list = _list.value.filter((trackID) => trackID !== id)
-      if (firstTrackID === 0) list = _list.value
+      const list = _list.value.filter((trackID) => trackID !== id)
+      // if (firstTrackID === 0) list = _list.value
       _shuffleList.value = shuffleFn(list)
-      if (firstTrackID !== 0) _shuffleList.value.unshift(id)
+      _shuffleList.value.unshift(id)
     }
 
     const addTrackToPlayNext = (trackID: number | number[], playNow = false, addToHead = false) => {

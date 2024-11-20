@@ -46,7 +46,9 @@ const props = defineProps({
 
 const focus = ref(false)
 const router = useRouter()
-const { replacePlaylist } = usePlayerStore()
+const playerStore =  usePlayerStore()
+const { _shuffle } = storeToRefs(playerStore)
+const { replacePlaylist } = playerStore
 const localMusic = storeToRefs(useLocalMusicStore())
 
 const playButtonStyles = computed(() => {
@@ -95,16 +97,19 @@ const play = () => {
   if (props.type === 'playlist') {
     getPlaylistDetail(props.id, false).then((data) => {
       const trackIDs = data.playlist.trackIds.map((t: any) => t.id)
-      replacePlaylist(props.type, props.id, trackIDs, 0)
+      const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
+      replacePlaylist(props.type, props.id, trackIDs, idx)
     })
   } else if (props.type === 'localPlaylist') {
     const playlist = localMusic.playlists.value.find((p) => p.id === props.id)!
     const trackIDs = playlist.trackIds
-    replacePlaylist('localPlaylist', props.id, trackIDs, trackIDs.length - 1)
+    const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : trackIDs.length - 1
+    replacePlaylist('localPlaylist', props.id, trackIDs, idx)
   } else if (props.type === 'artist') {
     getArtist(props.id).then((data) => {
       const trackIDs = data.hotSongs.map((t) => t.id)
-      replacePlaylist(props.type, props.id, trackIDs, 0)
+      const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
+      replacePlaylist(props.type, props.id, trackIDs, idx)
     })
   }
 }

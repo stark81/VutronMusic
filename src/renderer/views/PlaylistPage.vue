@@ -326,7 +326,9 @@ const { deleteLocalPlaylist } = useLocalMusicStore()
 
 const { showToast } = useNormalStateStore()
 
-const { replacePlaylist } = usePlayerStore()
+const playerStore =  usePlayerStore()
+const { _shuffle } = storeToRefs(playerStore)
+const { replacePlaylist } = playerStore
 
 const { t } = useI18n()
 
@@ -410,7 +412,8 @@ const likePlaylist = (toast = false) => {
 
 const play = () => {
   const trackIDs = tracks.value.map((t) => t.id)
-  replacePlaylist(isLocal.value ? 'localPlaylist' : 'playlist', playlist.value.id || 0, trackIDs, 0)
+  const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
+  replacePlaylist(isLocal.value ? 'localPlaylist' : 'playlist', playlist.value.id || 0, trackIDs, idx)
 }
 
 const playIntelligenceList = () => {
@@ -418,7 +421,8 @@ const playIntelligenceList = () => {
   const songId = tracks.value[randomId].id
   intelligencePlaylist({ id: songId, pid: likedSongPlaylistID.value }).then((result) => {
     const trackIDs = result.data.map((t: any) => t.id)
-    replacePlaylist('playlist', likedSongPlaylistID.value, trackIDs, 0)
+    const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
+    replacePlaylist('playlist', likedSongPlaylistID.value, trackIDs, idx)
   })
 }
 

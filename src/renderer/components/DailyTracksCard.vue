@@ -40,7 +40,9 @@ const { dailyTracks } = storeToRefs(stateStore)
 const { showToast } = stateStore
 const { t } = useI18n()
 
-const { replacePlaylist } = usePlayerStore()
+const playerStore =  usePlayerStore()
+const { _shuffle } = storeToRefs(playerStore)
+const { replacePlaylist } = playerStore
 
 const coverUrl = computed(() => {
   return `${dailyTracks.value[0]?.al.picUrl || _.sample(defaultCovers)}?param=1024y1024`
@@ -57,7 +59,8 @@ const playDailyTracks = () => {
     return
   }
   const trackIDs = dailyTracks.value.map((track) => track.id)
-  replacePlaylist('url', '/daily/songs', trackIDs, 0)
+  const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
+  replacePlaylist('url', '/daily/songs', trackIDs, idx)
 }
 
 const loadDailyTracks = () => {

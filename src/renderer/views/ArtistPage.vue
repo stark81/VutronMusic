@@ -199,6 +199,7 @@ import { formatDate, formatAlbumType, openExternal } from '../utils'
 import { isAccountLoggedIn } from '../utils/auth'
 import { useNormalStateStore } from '../store/state'
 import { useI18n } from 'vue-i18n'
+import { storeToRefs } from 'pinia'
 
 const show = ref(false)
 const artist = ref<{ [key: string]: any }>({})
@@ -239,7 +240,9 @@ const eps = computed(() =>
   albumsData.value.filter((a) => ['EP/Single', 'EP', 'Single'].includes(a.type))
 )
 
-const { replacePlaylist } = usePlayerStore()
+const playerStore =  usePlayerStore()
+const { _shuffle } = storeToRefs(playerStore)
+const { replacePlaylist } = playerStore
 
 const route = useRoute()
 const loadData = (id: string, next: any = undefined) => {
@@ -281,7 +284,8 @@ const scrollTo = (div: string, block = 'center') => {}
 
 const playPopularSongs = () => {
   const ids = popularTracks.value.map((t) => t.id)
-  replacePlaylist('artist', artist.value.id, ids, 0)
+  const idx = _shuffle.value ? Math.floor(Math.random() * ids.length) : 0
+  replacePlaylist('artist', artist.value.id, ids, idx)
 }
 
 const toggleFullDescription = () => {

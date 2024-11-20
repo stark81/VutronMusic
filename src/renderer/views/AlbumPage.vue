@@ -164,6 +164,7 @@ import { useI18n } from 'vue-i18n'
 import { useNormalStateStore } from '../store/state'
 import { usePlayerStore } from '../store/player'
 import { isAccountLoggedIn } from '../utils/auth'
+import { storeToRefs } from 'pinia'
 
 const show = ref(false)
 const album = ref<{ [key: string]: any }>({})
@@ -226,10 +227,14 @@ const toggleFullDescription = () => {
   showFullDescription.value = !showFullDescription.value
 }
 
-const { replacePlaylist } = usePlayerStore()
+const playerStore =  usePlayerStore()
+const { _shuffle } = storeToRefs(playerStore)
+const { replacePlaylist } = playerStore
+
 const play = () => {
   const ids = tracks.value.map((t) => t.id)
-  replacePlaylist('album', album.value.id, ids, 0)
+  const idx = _shuffle.value ? Math.floor(Math.random() * ids.length) : 0
+  replacePlaylist('album', album.value.id, ids, idx)
 }
 
 const likeAlbum = (toast = false) => {
