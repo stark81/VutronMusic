@@ -1,5 +1,5 @@
 <template>
-  <div class="system-settings">
+  <div class="system-settings" :style="mainStyle">
     <div v-if="user.userId" class="user-info">
       <div class="left">
         <img class="avatar" :src="user.avatarUrl" loading="lazy" />
@@ -34,10 +34,10 @@
         <div class="tab" :class="{ active: tab === 'appearance' }" @click="updateTab(1)">{{
           $t('settings.nav.appearance')
         }}</div>
-        <div class="tab" :class="{ active: tab === 'tray' }" @click="updateTab(2)">{{
+        <div v-if="isMac" class="tab" :class="{ active: tab === 'tray' }" @click="updateTab(2)">{{
           $t('settings.nav.tray')
         }}</div>
-        <div class="tab" :class="{ active: tab === 'localTracks' }" @click="updateTab(3)">{{
+        <div class="tab" :class="{ active: tab === 'localTracks' }" @click="updateTab(isMac ? 3 : 2)">{{
           $t('settings.nav.localMusic')
         }}</div>
       </div>
@@ -103,6 +103,22 @@
             </div>
             <div class="right">
               <button @click="resetPlayer">确定</button>
+            </div>
+          </div>
+          <div v-if="isLinux" class="item">
+            <div class="left">
+              <div class="title">{{ $t('settings.general.useCustomTitlebar') }}</div>
+            </div>
+            <div class="right">
+              <div class="toggle">
+                <input
+                  id="linux-title-bar"
+                  v-model="useLinuxTitleBar"
+                  type="checkbox"
+                  name="linux-title-bar"
+                />
+                <label for="linux-title-bar"></label>
+              </div>
             </div>
           </div>
           <div class="version-info">
@@ -256,7 +272,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, toRefs, computed, onMounted } from 'vue'
+import { ref, toRefs, computed, inject, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '../store/settings'
 import { usePlayerStore } from '../store/player'
@@ -270,7 +286,7 @@ import Utils from '../utils'
 const settingsStore = useSettingsStore()
 const { localMusic, general, tray, theme } = storeToRefs(settingsStore)
 const { scanDir, replayGain, useInnerInfoFirst } = toRefs(localMusic.value)
-const { showTrackTimeOrID, language, closeAppOption } = toRefs(general.value)
+const { showTrackTimeOrID, useCustomTitlebar, language, closeAppOption } = toRefs(general.value)
 const { appearance } = toRefs(theme.value)
 const { showLyric, showControl, lyricWidth, scrollRate } = toRefs(tray.value)
 
@@ -286,11 +302,25 @@ const { resetLocalMusic } = localMusicStore
 
 const isElectron = window.env?.isElectron || false
 const isMac = window.env?.isMac
+const isLinux = window.env?.isLinux
 
 const showTrackInfo = computed({
   get: () => showTrackTimeOrID.value,
   set: (value) => {
     showTrackTimeOrID.value = value
+  }
+})
+
+const useLinuxTitleBar = computed({
+  get: () => useCustomTitlebar.value,
+  set: (value) => {
+    useCustomTitlebar.value = value
+  }
+})
+
+const mainStyle = computed(() => {
+  return {
+    marginTop: (isMac || !useCustomTitlebar.value) ? '20px' : '0'
   }
 })
 
@@ -347,7 +377,11 @@ const getAllOutputDevices = () => {
 
 const tab = ref('general')
 const updateTab = (index: number) => {
-  const tabName = ['general', 'appearance', 'tray', 'localTracks'][index]
+  const tabs = ['general', 'appearance', 'localTracks']
+  if (isMac) {
+    tabs.splice(2, 0, 'tray')
+  }
+  const tabName = tabs[index]
   tab.value = tabName
   slideTop.value = index * 40
 }
@@ -358,6 +392,8 @@ const chooseDir = () => {
     if (folderPath) scanDir.value = folderPath
   })
 }
+
+const updatePadding = inject('updatePadding') as (value: number) => void
 
 const appVersion = ref('Unknown')
 const getVersion = () => {
@@ -397,15 +433,20 @@ const deleteLocalMusic = () => {
 }
 
 onMounted(() => {
+  updatePadding(64)
   getAllOutputDevices()
   getVersion()
+})
+onBeforeUnmount(() => {
+  updatePadding(96)
 })
 </script>
 
 <style scoped lang="scss">
 .system-settings {
   width: 100%;
-  height: 100%;
+  height: calc(100vh - 84px);
+  // height: 100%;
 }
 .user-info {
   display: flex;

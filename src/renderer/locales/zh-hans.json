@@ -238,6 +238,7 @@
         "time": "歌曲时长",
         "ID": "歌曲ID"
       },
+      "useCustomTitlebar": "启用自定义标题栏 (重启后生效)",
       "outputDevice": {
         "text": "音频输出设备",
         "deviceID": "default"

@@ -203,7 +203,7 @@ const { localTracks, playlists, sortBy } = storeToRefs(localMusicStore)
 const { newPlaylistModal } = storeToRefs(useNormalStateStore())
 const { addTrackToPlayNext } = usePlayerStore()
 
-const { theme } = storeToRefs(useSettingsStore())
+const { general, theme } = storeToRefs(useSettingsStore())
 
 // ref
 const currentTab = ref('localTracks')
@@ -227,8 +227,10 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () 
 })
 
 const hasCustomTitleBar = computed(() => {
-  return window.env?.isLinux || window.env?.isWindows
+  return (window.env?.isLinux && general.value.useCustomTitlebar) || window.env?.isWindows
 })
+
+const isMac = computed(() => window.env?.isMac)
 
 const tabStyle = computed(() => {
   const height = window.innerHeight - (hasCustomTitleBar.value ? 84 : 64)
@@ -361,7 +363,7 @@ const observeTab = new IntersectionObserver(
       const maxPadding = 42
       const maxPaddingRight = 42
       if (intersectionRatio > 0) {
-        if (!hasCustomTitleBar.value) {
+        if (isMac.value) {
           const paddingLeft = maxPadding * (1 - intersectionRatio)
           tabsRowRef.value.style.paddingLeft = `${paddingLeft}px`
         }
@@ -369,7 +371,7 @@ const observeTab = new IntersectionObserver(
         tabsRowRef.value.style.width = `calc(100% - ${paddingRight}px)`
         if (navBarRef.value) navBarRef.value.searchBoxRef.$el.style.display = ''
       } else {
-        if (!hasCustomTitleBar.value) {
+        if (isMac.value) {
           tabsRowRef.value.style.paddingLeft = `${maxPadding}px`
         }
         tabsRowRef.value.style.width = `calc(100% - ${maxPaddingRight}px)`

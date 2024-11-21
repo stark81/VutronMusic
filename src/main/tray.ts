@@ -157,10 +157,23 @@ class TrayImpl implements YPMTray {
   }
 
   createTray() {
-    const tray = new Tray(nativeImage.createEmpty())
-    this._tray = tray
+    if (Constants.IS_MAC) {
+      const tray = new Tray(nativeImage.createEmpty())
+      this._tray = tray
+    } else {
+      const image = nativeImage.createFromPath(
+        Constants.IS_DEV_ENV
+          ? path.join(process.cwd(), `./src/public/images/tray/vutronmusic-icon.png`)
+          : path.join(__dirname, `../images/tray/vutronmusic-icon.png`)
+      ).resize({ height: 20, width: 20 })
+      this._tray = new Tray(image)
+    }
     this._tray.on('click', (event, bounds, position) => {
-      this._win.webContents.send('handleTrayClick', { event, bounds, position })
+      if (Constants.IS_MAC) {
+        this._win.webContents.send('handleTrayClick', { event, bounds, position })
+      } else {
+        this._win.show()
+      }
     })
   }
 
@@ -205,12 +218,14 @@ class TrayImpl implements YPMTray {
     repeatMode = mode
     if (!this._contextMenu) return
     this._contextMenu.getMenuItemById(repeatMode).checked = true
+    this._tray.setContextMenu(this._contextMenu)
   }
 
   setShuffleMode(isShuffle: boolean) {
     shuffleMode = isShuffle
     if (!this._contextMenu) return
     this._contextMenu.getMenuItemById('shuffle').checked = isShuffle
+    this._tray.setContextMenu(this._contextMenu)
   }
 }
 

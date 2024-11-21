@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, net, protocol, screen } from 'electron'
+import { app, BrowserWindow, dialog, Menu, net, protocol, screen } from 'electron'
 import { release } from 'os'
 import Constants from './utils/Constants'
 import store from './store'
@@ -27,6 +27,41 @@ import {
 import { CacheAPIs } from './utils/CacheApis'
 
 const cacheTracks = new Map<string, any>()
+
+const closeOnLinux = (e: any, win: BrowserWindow) => {
+  const closeOpt = store.get('settings.closeAppOption') || 'ask'
+  if (closeOpt !== 'exit') {
+    e.preventDefault()
+  }
+
+  if (closeOpt === 'ask') {
+    dialog.showMessageBox({
+      type: 'info',
+      title: 'Information',
+      cancelId: 2,
+      defaultId: 0,
+      message: '确定要关闭吗？',
+      buttons: ['最小化到托盘', '直接退出'],
+      checkboxLabel: '记住我的选择',
+    }).then((result) => {
+      if (result.checkboxChecked && result.response !== 2) {
+        win.webContents.send(
+          'rememberCloseAppOption',
+          result.response === 0 ? 'minimizeToTray' : 'exit'
+        )
+      }
+
+      if (result.response === 0) {
+        win.hide()
+      } else if (result.response === 1) {
+        setTimeout(() => {
+          win = null
+          app.exit()
+        }, 100)
+      }
+    }).catch()
+  }
+}
 
 class BackGround {
   win: BrowserWindow | null = null
@@ -105,7 +140,7 @@ class BackGround {
       y: (store.get('window.y') as number) || undefined,
       minWidth: 1080,
       minHeight: 720,
-      frame: false,
+      frame: !(Constants.IS_WINDOWS || (Constants.IS_LINUX && store.get('settings.useCustomTitlebar'))),
       useContentSize: true,
       titleBarStyle: 'hiddenInset' as const,
       webPreferences: Constants.DEFAULT_WEB_PREFERENCES
@@ -541,6 +576,8 @@ class BackGround {
           e.preventDefault()
           this.win.hide()
         }
+      } else {
+        closeOnLinux(e, this.win)
       }
     })
 

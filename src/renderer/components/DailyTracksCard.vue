@@ -40,7 +40,7 @@ const { dailyTracks } = storeToRefs(stateStore)
 const { showToast } = stateStore
 const { t } = useI18n()
 
-const playerStore =  usePlayerStore()
+const playerStore = usePlayerStore()
 const { _shuffle } = storeToRefs(playerStore)
 const { replacePlaylist } = playerStore
 

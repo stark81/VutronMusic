@@ -96,7 +96,7 @@ const route = useRoute()
 const scrollBarRef = ref()
 
 const hasCustomTitleBar = computed(() => {
-  return window.env?.isLinux || window.env?.isWindows
+  return (window.env?.isLinux && general.value.useCustomTitlebar)|| window.env?.isWindows
 })
 
 const mainStyle = computed(() => {
@@ -110,6 +110,8 @@ const mainStyle = computed(() => {
 const showPlayerBar = computed(() => {
   return ['mv', 'loginAccount'].includes(route.name as string) === false
 })
+
+const isMac = computed(() => window.env?.isMac)
 
 const handleScroll = () => {
   scrollBarRef.value.handleScroll()
@@ -169,13 +171,15 @@ const handleChanelEvent = () => {
 // ;(window as any).scanLocalMusic = scanLocalMusic
 
 onMounted(async () => {
-  import('./utils/trayLyrics').then((module) => {
-    const buildTrays = module.buildTrays
-    buildTrays()
+  if (isMac.value) {
+    import('./utils/trayLyrics').then((module) => {
+      const buildTrays = module.buildTrays
+      buildTrays()
 
-    const buildTouchBars = module.buildTouchBars
-    buildTouchBars()
-  })
+      const buildTouchBars = module.buildTouchBars
+      buildTouchBars()
+    })
+  }
   fetchData()
   fetchLocalData()
   handleChanelEvent()

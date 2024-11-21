@@ -240,7 +240,7 @@ const eps = computed(() =>
   albumsData.value.filter((a) => ['EP/Single', 'EP', 'Single'].includes(a.type))
 )
 
-const playerStore =  usePlayerStore()
+const playerStore = usePlayerStore()
 const { _shuffle } = storeToRefs(playerStore)
 const { replacePlaylist } = playerStore
 

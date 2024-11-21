@@ -199,6 +199,7 @@
 import { storeToRefs } from 'pinia'
 import { useDataStore } from '../store/data'
 import { useNormalStateStore } from '../store/state'
+import { useSettingsStore } from '../store/settings'
 import { onActivated, onDeactivated, ref, computed, onMounted, onUnmounted, inject } from 'vue'
 import { dailyTask, randomNum } from '../utils'
 import { tricklingProgress } from '../utils/tricklingProgress'
@@ -213,6 +214,7 @@ import { useRouter } from 'vue-router'
 
 const dataStore = useDataStore()
 const { liked, libraryPlaylistFilter, user } = storeToRefs(dataStore)
+const { general } = storeToRefs(useSettingsStore())
 
 const { newPlaylistModal } = storeToRefs(useNormalStateStore())
 
@@ -243,8 +245,10 @@ const pickedLyric = computed(() => {
 })
 
 const hasCustomTitleBar = computed(() => {
-  return window.env?.isLinux || window.env?.isWindows
+  return (window.env?.isLinux && general.value.useCustomTitlebar) || window.env?.isWindows
 })
+
+const isMac = computed(() => window.env?.isMac)
 
 const tabStyle = computed(() => {
   const height = window.innerHeight - (hasCustomTitleBar.value ? 84 : 64)
@@ -372,14 +376,14 @@ const observeTab = new IntersectionObserver(
       const maxPadding = 42
       const maxPaddingRight = 84
       if (intersectionRatio > 0) {
-        if (!hasCustomTitleBar.value) {
+        if (isMac.value) {
           const paddingLeft = maxPadding * (1 - intersectionRatio)
           tabsRowRef.value.style.paddingLeft = `${paddingLeft}px`
         }
         const paddingRight = maxPaddingRight * (1 - intersectionRatio)
         tabsRowRef.value.style.width = `calc(100% - ${paddingRight}px)`
       } else {
-        if (!hasCustomTitleBar.value) {
+        if (isMac.value) {
           tabsRowRef.value.style.paddingLeft = `${maxPadding}px`
         }
         tabsRowRef.value.style.width = `calc(100% - ${maxPaddingRight}px)`

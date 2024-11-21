@@ -46,7 +46,7 @@ const props = defineProps({
 
 const focus = ref(false)
 const router = useRouter()
-const playerStore =  usePlayerStore()
+const playerStore = usePlayerStore()
 const { _shuffle } = storeToRefs(playerStore)
 const { replacePlaylist } = playerStore
 const localMusic = storeToRefs(useLocalMusicStore())

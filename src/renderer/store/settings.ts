@@ -19,12 +19,12 @@ export const useSettingsStore = defineStore(
     })
     const general = reactive({
       language: 'zh',
-      showTimeOrID: 'time',
       subTitleDefault: true,
       showTrackTimeOrID: 'time',
       musicQuality: 320000,
       musicLanguage: 'all',
       closeAppOption: 'ask',
+      useCustomTitlebar: false,
       enabledPlaylistCategories
     })
 
@@ -89,6 +89,10 @@ export const useSettingsStore = defineStore(
       }
     )
 
+    watch(() => general.useCustomTitlebar, (val) => {
+      window.mainApi.send('setStoreSettings', { useCustomTitlebar: val })
+    })
+
     const togglePlaylistCategory = (name: string) => {
       const index = general.enabledPlaylistCategories.findIndex((c) => c === name)
       if (index !== -1) {
@@ -108,7 +112,8 @@ export const useSettingsStore = defineStore(
         enableTrayMenu: trayMenu,
         innerFirst: localMusic.useInnerInfoFirst,
         musicQuality: general.musicQuality,
-        closeAppOption: general.closeAppOption
+        closeAppOption: general.closeAppOption,
+        useCustomTitlebar: general.useCustomTitlebar
       })
     })
     return { theme, general, localMusic, tray, shortcuts, osdLyric, togglePlaylistCategory }

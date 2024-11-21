@@ -1,7 +1,7 @@
 <template>
   <div>
-    <nav :class="{ 'has-custom-titlebar': isLinux || isWin }" :style="navStyle">
-      <LinuxTitleBar v-if="isLinux" />
+    <nav :class="{ 'has-custom-titlebar': (isLinux && useCustomTitlebar) || isWin }" :style="navStyle">
+      <LinuxTitleBar v-if="isLinux && useCustomTitlebar" />
       <Win32TitleBar v-if="isWin" />
 
       <div class="navigation-buttons">
@@ -90,7 +90,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, toRefs } from 'vue'
 import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
 import SearchBox from './SearchBox.vue'
@@ -100,10 +100,13 @@ import Win32TitleBar from './Win32TitleBar.vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../store/data'
 import { useNormalStateStore } from '../store/state'
+import { useSettingsStore } from '../store/settings'
 import { storeToRefs } from 'pinia'
 import { doLogout } from '../utils/auth'
 
 const { searchTab, exploreTab } = storeToRefs(useNormalStateStore())
+const { general } = storeToRefs(useSettingsStore())
+const { useCustomTitlebar } = toRefs(general.value)
 
 const router = useRouter()
 const route = useRoute()

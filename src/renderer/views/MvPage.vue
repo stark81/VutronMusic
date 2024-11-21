@@ -42,7 +42,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, inject, onBeforeUnmount } from 'vue'
+import { ref, toRefs, computed, onMounted, inject, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import { mvDetail, mvDetailInfo, likeAMV, subAMV, mvUrl, simiMv } from '../api/mv'
 import { tricklingProgress } from '../utils/tricklingProgress'
@@ -57,6 +57,10 @@ import Plyr from 'plyr'
 import { isAccountLoggedIn } from '../utils/auth'
 import { useI18n } from 'vue-i18n'
 import { useNormalStateStore } from '../store/state'
+import { useSettingsStore } from '../store/settings'
+
+const { general } = storeToRefs(useSettingsStore())
+const { useCustomTitlebar } = toRefs(general.value)
 
 const mv = ref<{ [key: string]: any }>({
   url: '',
@@ -75,7 +79,7 @@ const player = ref()
 const isMac = computed(() => window.env?.isMac)
 const mainStyle = computed(() => {
   return {
-    marginTop: isMac.value ? '20px' : '0'
+    marginTop: (isMac.value || !useCustomTitlebar.value) ? '20px' : '0'
   }
 })
 

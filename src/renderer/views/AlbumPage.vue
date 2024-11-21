@@ -227,7 +227,7 @@ const toggleFullDescription = () => {
   showFullDescription.value = !showFullDescription.value
 }
 
-const playerStore =  usePlayerStore()
+const playerStore = usePlayerStore()
 const { _shuffle } = storeToRefs(playerStore)
 const { replacePlaylist } = playerStore
 
