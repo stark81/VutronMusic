@@ -96,7 +96,7 @@ const route = useRoute()
 const scrollBarRef = ref()
 
 const hasCustomTitleBar = computed(() => {
-  return (window.env?.isLinux && general.value.useCustomTitlebar)|| window.env?.isWindows
+  return (window.env?.isLinux && general.value.useCustomTitlebar) || window.env?.isWindows
 })
 
 const mainStyle = computed(() => {

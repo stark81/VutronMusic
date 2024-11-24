@@ -9,6 +9,13 @@ declare global {
   // eslint-disable-next-line no-unused-vars
   interface Window {
     mainApi?: any
+    env?: {
+      isElectron: boolean
+      isEnableTitlebar: boolean
+      isLinux: boolean
+      isMac: boolean
+      isWindows: boolean
+    }
   }
 }
 

@@ -11,6 +11,7 @@ import { CacheAPIs } from './utils/CacheApis'
 import { createMD5, getReplayGainFromMetadata, splitArtist } from './utils/utils'
 
 let isLock = store.get('osdWindow.isLock') as boolean
+let isPlaying = false
 /*
  * IPC Communications
  * */
@@ -22,7 +23,7 @@ export default class IPCs {
     lrc: { [key: string]: Function }
   ): void {
     initWindowIpcMain(win)
-    initOSDWindowIpcMain(win, lyricWin, lrc)
+    initOSDWindowIpcMain(win, lrc)
     initTrayIpcMain(win, tray)
     initTaskbarIpcMain()
     initOtherIpcMain(win)
@@ -101,6 +102,7 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
   ipcMain.on('updatePlayerState', (event: IpcMainEvent, data: any) => {
     for (const [key, value] of Object.entries(data) as [string, any]) {
       if (key === 'playing') {
+        isPlaying = value
         tray.setPlayState(value)
       } else if (key === 'repeatMode') {
         tray.setRepeatMode(value)
@@ -124,13 +126,9 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
   })
 }
 
-function initOSDWindowIpcMain(
-  win: BrowserWindow,
-  lyricWin: BrowserWindow,
-  lrc: { [key: string]: Function }
-): void {
+function initOSDWindowIpcMain(win: BrowserWindow, lrc: { [key: string]: Function }): void {
   ipcMain.on('toggleOSDWindow', (event, show) => {
-    store.set('osdWindow.show', show)
+    store.set('osdWin.show', show)
     lrc.toggleOSDWindow()
   })
   ipcMain.on('updateLyric', (event, lyrics) => {
@@ -141,7 +139,7 @@ function initOSDWindowIpcMain(
   })
   ipcMain.on('set-osd-window', (event, data) => {
     const [key, value] = Object.entries(data)[0] as [string, any]
-    store.set(`osdWindow.${key}`, value)
+    store.set(`osdWin.${key}`, value)
     if (key === 'show') {
       lrc.toggleOSDWindow()
     } else if (key === 'isAlwaysOnTop') {
@@ -149,21 +147,36 @@ function initOSDWindowIpcMain(
     } else if (key === 'isLock') {
       isLock = value
       // 当设置鼠标忽略时，同时设置窗口置顶，避免窗口不位于最上层而导致无法点击
-      store.set('osdWindow.isAlwaysOnTop', value)
+      store.set('osdWin.isAlwaysOnTop', value)
       lrc.toggleMouseIgnore()
       lrc.toggleOSDWindowAlwaysOnTop()
     }
   })
+  ipcMain.on('from-osd', (event, message: string) => {
+    if (message === 'showMainWin') {
+      win.show()
+    } else if (message === 'playPrev') {
+      win.webContents.send('previous')
+    } else if (message === 'playNext') {
+      win.webContents.send('next')
+    } else if (message === 'playOrPause') {
+      win.webContents.send('play')
+    }
+  })
+  ipcMain.handle('get-playing-status', (event) => isPlaying)
   ipcMain.on('set-ignore-mouse', (event, ignore) => {
-    store.set('osdWindow.isLock', ignore)
+    store.set('osdWin.isLock', ignore)
     lrc.toggleMouseIgnore()
   })
   ipcMain.on('setWindowPosition', (event, position) => {
     lrc.handleLyricWindowPosition(position)
   })
   ipcMain.on('mouseleave', () => {
-    store.set('osdWindow.isLock', isLock)
+    store.set('osdWin.isLock', isLock)
     lrc.toggleMouseIgnore()
+  })
+  ipcMain.on('switchOsdWinMode', (event, showMode) => {
+    lrc.switchOSDWindow(showMode)
   })
 }
 

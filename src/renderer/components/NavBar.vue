@@ -1,6 +1,9 @@
 <template>
   <div>
-    <nav :class="{ 'has-custom-titlebar': (isLinux && useCustomTitlebar) || isWin }" :style="navStyle">
+    <nav
+      :class="{ 'has-custom-titlebar': (isLinux && useCustomTitlebar) || isWin }"
+      :style="navStyle"
+    >
       <LinuxTitleBar v-if="isLinux && useCustomTitlebar" />
       <Win32TitleBar v-if="isWin" />
 

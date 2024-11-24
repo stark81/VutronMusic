@@ -37,9 +37,12 @@
         <div v-if="isMac" class="tab" :class="{ active: tab === 'tray' }" @click="updateTab(2)">{{
           $t('settings.nav.tray')
         }}</div>
-        <div class="tab" :class="{ active: tab === 'localTracks' }" @click="updateTab(isMac ? 3 : 2)">{{
-          $t('settings.nav.localMusic')
-        }}</div>
+        <div
+          class="tab"
+          :class="{ active: tab === 'localTracks' }"
+          @click="updateTab(isMac ? 3 : 2)"
+          >{{ $t('settings.nav.localMusic') }}</div
+        >
       </div>
     </div>
     <div class="main-container">
@@ -320,7 +323,7 @@ const useLinuxTitleBar = computed({
 
 const mainStyle = computed(() => {
   return {
-    marginTop: (isMac || !useCustomTitlebar.value) ? '20px' : '0'
+    marginTop: isMac || !useCustomTitlebar.value ? '20px' : '0'
   }
 })
 
@@ -445,7 +448,7 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
 .system-settings {
   width: 100%;
-  height: calc(100vh - 84px);
+  // height: calc(100vh - 84px);
   // height: 100%;
 }
 .user-info {
@@ -456,7 +459,7 @@ onBeforeUnmount(() => {
   color: var(--color-text);
   padding: 16px 20px;
   border-radius: 16px;
-  margin-bottom: 48px;
+  margin: 20px 0;
   img.avatar {
     border-radius: 50%;
     height: 64px;

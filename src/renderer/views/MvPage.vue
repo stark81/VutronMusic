@@ -79,7 +79,7 @@ const player = ref()
 const isMac = computed(() => window.env?.isMac)
 const mainStyle = computed(() => {
   return {
-    marginTop: (isMac.value || !useCustomTitlebar.value) ? '20px' : '0'
+    marginTop: isMac.value || !useCustomTitlebar.value ? '20px' : '0'
   }
 })
 

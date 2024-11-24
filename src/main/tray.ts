@@ -161,11 +161,13 @@ class TrayImpl implements YPMTray {
       const tray = new Tray(nativeImage.createEmpty())
       this._tray = tray
     } else {
-      const image = nativeImage.createFromPath(
-        Constants.IS_DEV_ENV
-          ? path.join(process.cwd(), `./src/public/images/tray/vutronmusic-icon.png`)
-          : path.join(__dirname, `../images/tray/vutronmusic-icon.png`)
-      ).resize({ height: 20, width: 20 })
+      const image = nativeImage
+        .createFromPath(
+          Constants.IS_DEV_ENV
+            ? path.join(process.cwd(), `./src/public/images/tray/vutronmusic-icon.png`)
+            : path.join(__dirname, `../images/tray/vutronmusic-icon.png`)
+        )
+        .resize({ height: 20, width: 20 })
       this._tray = new Tray(image)
     }
     this._tray.on('click', (event, bounds, position) => {

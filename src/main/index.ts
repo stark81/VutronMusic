@@ -35,36 +35,40 @@ const closeOnLinux = (e: any, win: BrowserWindow) => {
   }
 
   if (closeOpt === 'ask') {
-    dialog.showMessageBox({
-      type: 'info',
-      title: 'Information',
-      cancelId: 2,
-      defaultId: 0,
-      message: '确定要关闭吗？',
-      buttons: ['最小化到托盘', '直接退出'],
-      checkboxLabel: '记住我的选择',
-    }).then((result) => {
-      if (result.checkboxChecked && result.response !== 2) {
-        win.webContents.send(
-          'rememberCloseAppOption',
-          result.response === 0 ? 'minimizeToTray' : 'exit'
-        )
-      }
+    dialog
+      .showMessageBox({
+        type: 'info',
+        title: 'Information',
+        cancelId: 2,
+        defaultId: 0,
+        message: '确定要关闭吗？',
+        buttons: ['最小化到托盘', '直接退出'],
+        checkboxLabel: '记住我的选择'
+      })
+      .then((result) => {
+        if (result.checkboxChecked && result.response !== 2) {
+          win.webContents.send(
+            'rememberCloseAppOption',
+            result.response === 0 ? 'minimizeToTray' : 'exit'
+          )
+        }
 
-      if (result.response === 0) {
-        win.hide()
-      } else if (result.response === 1) {
-        setTimeout(() => {
-          win = null
-          app.exit()
-        }, 100)
-      }
-    }).catch()
+        if (result.response === 0) {
+          win.hide()
+        } else if (result.response === 1) {
+          setTimeout(() => {
+            win = null
+            app.exit()
+          }, 100)
+        }
+      })
+      .catch()
   }
 }
 
 class BackGround {
   win: BrowserWindow | null = null
+  osdMode: string
   lyricWin: BrowserWindow | null = null
   tray: YPMTray | null = null
   menu: Menu | null = null
@@ -140,7 +144,10 @@ class BackGround {
       y: (store.get('window.y') as number) || undefined,
       minWidth: 1080,
       minHeight: 720,
-      frame: !(Constants.IS_WINDOWS || (Constants.IS_LINUX && store.get('settings.useCustomTitlebar'))),
+      frame: !(
+        Constants.IS_WINDOWS ||
+        (Constants.IS_LINUX && store.get('settings.useCustomTitlebar'))
+      ),
       useContentSize: true,
       titleBarStyle: 'hiddenInset' as const,
       webPreferences: Constants.DEFAULT_WEB_PREFERENCES
@@ -196,27 +203,46 @@ class BackGround {
     }
   }
 
-  async createOSDWindow() {
+  async createOSDWindow(type: string) {
+    this.osdMode = type
+    store.set('osdWin.type', type)
     const option = {
       title: '桌面歌词',
       show: false,
-      width: (store.get('osdWindow.width') as number) || 840,
-      height: (store.get('osdWindow.height') as number) || 480,
-      x: (store.get('osdWindow.x') as number) || undefined,
-      y: (store.get('osdWindow.y') as number) || undefined,
+      // width: store.get('osdWin.type') === 'small' ? 700 : 400,
+      // height: store.get('osdWin.type') === 'small' ? 140 : 700,
+      width:
+        type === 'small'
+          ? ((store.get('osdWin.width') || 700) as number)
+          : ((store.get('osdWin.width2') || 500) as number),
+      height:
+        type === 'small'
+          ? ((store.get('osdWin.height') || 140) as number)
+          : ((store.get('osdWin.height2') || 600) as number),
+      minHeight: type === 'small' ? 140 : 400,
+      maxHeight: type === 'small' ? 140 : undefined,
+      minWidth: type === 'small' ? 700 : 400,
+      maxWidth: type === 'small' ? undefined : 400,
+      useContentSize: true,
+      x:
+        ((type === 'small' ? store.get('osdWin.x') : store.get('osdWin.x2')) as number) ||
+        undefined,
+      y:
+        ((type === 'small' ? store.get('osdWin.y') : store.get('osdWin.y2')) as number) ||
+        undefined,
       transparent: true,
       frame: false,
-      useContentSize: true,
-      alwaysOnTop: (store.get('osdWindow.isAlwaysOnTop') as boolean) || false,
+      alwaysOnTop: true,
       hasShadow: false,
       hiddenInMissionControl: true,
       skipTaskbar: true,
+      maximizable: false,
       webPreferences: Constants.DEFAULT_OSD_PREFERENCES
     }
 
-    if (store.get('osdWindow.x') && store.get('osdWindow.y')) {
-      const x = store.get('osdWindow.x') as number
-      const y = store.get('osdWindow.y') as number
+    if (option.x && option.y) {
+      const x = option.x
+      const y = option.y
 
       const displays = screen.getAllDisplays()
       let isResetWindow = false
@@ -257,14 +283,14 @@ class BackGround {
   }
 
   toggleMouseIgnore() {
-    const isLock = (store.get('osdWindow.isLock') as boolean) || false
-    const isHoverHide = (store.get('osdWindow.isHoverHide') as boolean) || false
+    const isLock = (store.get('osdWin.isLock') as boolean) || false
+    const isHoverHide = (store.get('osdWin.isHoverHide') as boolean) || false
     this.lyricWin.setIgnoreMouseEvents(isLock, { forward: !Constants.IS_LINUX && isHoverHide })
     this.lyricWin.setVisibleOnAllWorkspaces(isLock)
   }
 
   toggleOSDWindowAlwaysOnTop() {
-    const isAlwaysOnTop = (store.get('osdWindow.isAlwaysOnTop') as boolean) || false
+    const isAlwaysOnTop = (store.get('osdWin.isAlwaysOnTop') as boolean) || false
     this.lyricWin.setAlwaysOnTop(isAlwaysOnTop)
   }
 
@@ -274,13 +300,19 @@ class BackGround {
   }
 
   toggleOSDWindow() {
-    const osdLyric = store.get('osdWindow.show') || false
+    const osdLyric = (store.get('osdWin.show') as boolean) || false
+    const showMode = (store.get('osdWin.type') as string) || 'small'
     this.win.webContents.send('toggleOSDWindow', osdLyric)
     if (osdLyric) {
-      this.showOSDWindow()
+      this.showOSDWindow(showMode)
     } else {
       this.hideOSDWindow()
     }
+  }
+
+  switchOSDWindow(showMode: string) {
+    this.hideOSDWindow()
+    this.showOSDWindow(showMode)
   }
 
   sendLyricToOSDWindow(lyrics: { lyric: any[]; tlyric: any[]; rlyric: any[] }) {
@@ -298,13 +330,13 @@ class BackGround {
     })
     this.lyricWin.on('resize', () => {
       const data = this.lyricWin.getBounds()
-      store.set('osdWindow.width', data.width)
-      store.set('osdWindow.height', data.height)
+      store.set(this.osdMode === 'small' ? 'osdWin.width' : 'osdWin.width2', data.width)
+      store.set(this.osdMode === 'small' ? 'osdWin.height' : 'osdWin.height2', data.height)
     })
     this.lyricWin.on('move', () => {
       const data = this.lyricWin.getBounds()
-      store.set('osdWindow.x', data.x)
-      store.set('osdWindow.y', data.y)
+      store.set(this.osdMode === 'small' ? 'osdWin.x' : 'osdWin.x2', data.x)
+      store.set(this.osdMode === 'small' ? 'osdWin.y' : 'osdWin.y2', data.y)
     })
   }
 
@@ -315,17 +347,18 @@ class BackGround {
     }
   }
 
-  showOSDWindow() {
+  showOSDWindow(type = 'small') {
     if (!this.lyricWin) {
-      this.createOSDWindow()
+      this.createOSDWindow(type)
       this.handleOSDWindowEvents()
     }
   }
 
   initOSDWindow() {
-    const osd = store.get('osdWindow.show') || false
+    const osd = store.get('osdWin.show') || false
+    const showMode = (store.get('osdWin.type') as string) || 'small'
     if (osd) {
-      this.showOSDWindow()
+      this.showOSDWindow(showMode)
     }
   }
 
@@ -519,7 +552,8 @@ class BackGround {
         toggleOSDWindowAlwaysOnTop: () => this.toggleOSDWindowAlwaysOnTop(),
         updateLyric: (lrc: any) => this.sendLyricToOSDWindow(lrc),
         updateLyricIndex: (index: number) => this.sendLyricIndexToOSDWindow(index),
-        handleLyricWindowPosition: (position: any) => this.handleLyricWindowPosition(position)
+        handleLyricWindowPosition: (position: any) => this.handleLyricWindowPosition(position),
+        switchOSDWindow: (showMode: string) => this.switchOSDWindow(showMode)
       }
       IPCs.initialize(this.win, this.lyricWin, this.tray, lrc)
       createMenu(this.win)

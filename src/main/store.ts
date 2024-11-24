@@ -7,15 +7,14 @@ export interface TypeElectronStore {
     x?: number
     y?: number
   }
-  osdWindow: {
+  osdWin: {
     show: boolean
     isLock: boolean
-    isHoverHide: boolean
-    isAlwaysOnTop: boolean
-    width: number
-    height: number
+    type: string
     x?: number
     y?: number
+    x2?: number
+    y2?: number
   }
   settings: {
     [key: string]: any
@@ -28,13 +27,10 @@ const store = new Store<TypeElectronStore>({
       width: 1080,
       height: 720
     },
-    osdWindow: {
+    osdWin: {
+      type: 'small',
       show: false,
-      isLock: false,
-      isHoverHide: true,
-      isAlwaysOnTop: false,
-      width: 840,
-      height: 480
+      isLock: false
     },
     settings: {
       innerFirst: false,

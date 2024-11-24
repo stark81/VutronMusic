@@ -89,9 +89,12 @@ export const useSettingsStore = defineStore(
       }
     )
 
-    watch(() => general.useCustomTitlebar, (val) => {
-      window.mainApi.send('setStoreSettings', { useCustomTitlebar: val })
-    })
+    watch(
+      () => general.useCustomTitlebar,
+      (val) => {
+        window.mainApi.send('setStoreSettings', { useCustomTitlebar: val })
+      }
+    )
 
     const togglePlaylistCategory = (name: string) => {
       const index = general.enabledPlaylistCategories.findIndex((c) => c === name)

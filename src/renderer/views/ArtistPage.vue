@@ -107,6 +107,7 @@
         :padding-bottom="0"
         :show-position="false"
         :highlight-playing-track="false"
+        :extra-context-menu-item="['copyId']"
       />
       <div id="seeMore" class="show-more">
         <button @click="showMorePopTracks = !showMorePopTracks">

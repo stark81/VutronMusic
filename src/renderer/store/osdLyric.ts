@@ -1,13 +1,17 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
+export type Type = 'small' | 'normal'
+
 export const useOsdLyricStore = defineStore(
   'osdLyric',
   () => {
+    const type = ref<Type>('small')
     const isLock = ref(false)
     const alwaysOnTop = ref(false)
-    const isHoverHide = ref(true)
-    return { isLock, alwaysOnTop, isHoverHide }
+    const fontColor = ref('black')
+    const entered = ref(false)
+    return { type, isLock, alwaysOnTop, fontColor, entered }
   },
   {
     persist: true

@@ -1,7 +1,14 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
 // import store from '../main/store'
 
-const mainAvailChannels: string[] = ['set-osd-window', 'setWindowPosition', 'mouseleave']
+const mainAvailChannels: string[] = [
+  'set-osd-window',
+  'setWindowPosition',
+  'mouseleave',
+  'switchOsdWinMode',
+  'from-osd',
+  'get-playing-status'
+]
 
 const rendererAvailChannels: string[] = ['updateLyric', 'updateLyricIndex', 'set-isLock']
 
@@ -42,6 +49,14 @@ contextBridge.exposeInMainWorld('mainApi', {
 
     throw new Error(`Unknown ipc channel name: ${channel}`)
   }
+})
+
+contextBridge.exposeInMainWorld('env', {
+  isElectron: true,
+  isEnableTitlebar: process.platform === 'win32' || process.platform === 'linux',
+  isLinux: process.platform === 'linux',
+  isMac: process.platform === 'darwin',
+  isWindows: process.platform === 'win32'
 })
 
 window.addEventListener('DOMContentLoaded', () => {
