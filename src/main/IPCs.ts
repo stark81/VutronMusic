@@ -149,7 +149,7 @@ function initOSDWindowIpcMain(win: BrowserWindow, lrc: { [key: string]: Function
       // 当设置鼠标忽略时，同时设置窗口置顶，避免窗口不位于最上层而导致无法点击
       store.set('osdWin.isAlwaysOnTop', value)
       lrc.toggleMouseIgnore()
-      lrc.toggleOSDWindowAlwaysOnTop()
+      // lrc.toggleOSDWindowAlwaysOnTop()
     }
   })
   ipcMain.on('from-osd', (event, message: string) => {

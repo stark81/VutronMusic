@@ -60,7 +60,35 @@ contextBridge.exposeInMainWorld('env', {
 })
 
 window.addEventListener('DOMContentLoaded', () => {
-  const headerEl = document.querySelector('#osd-lock')
+  let timeoutId: any = null
+  let lastMoveTime: number = 0
+
+  const root = document.querySelector('#main') as HTMLElement
+  const headerEl = document.querySelector('#osd-lock') as HTMLElement
+
+  root.addEventListener('mouseenter', () => {
+    headerEl.style.opacity = '1'
+  })
+
+  root.addEventListener('mouseleave', () => {
+    headerEl.style.opacity = '0'
+    clearTimeout(timeoutId)
+    root.style.opacity = '1'
+  })
+
+  root.addEventListener('mousemove', () => {
+    if (!root.classList.contains('is-lock')) return
+    clearTimeout(timeoutId)
+
+    lastMoveTime = Date.now()
+    timeoutId = setTimeout(() => {
+      const now = Date.now()
+      if (now - lastMoveTime >= 3000) {
+        root.style.opacity = '0.05'
+      }
+    }, 3000)
+  })
+
   headerEl.addEventListener('mouseenter', () => {
     ipcRenderer.send('set-ignore-mouse', false)
   })

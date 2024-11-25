@@ -1,5 +1,5 @@
 <template>
-  <div id="main">
+  <div id="main" :class="{ 'is-lock': isLock }">
     <Header v-show="!isLock" class="control-bar" />
     <div v-show="isLock" class="control-lock">
       <button
@@ -82,10 +82,10 @@ provide('openMenu', openMenu)
 <style lang="scss" scoped>
 .control-lock {
   width: 100%;
-  height: 34px;
+  height: 38px;
   z-index: 1;
   display: flex;
-  height: 40px;
+  // height: 40px;
   justify-content: center;
   align-items: center;
 }
@@ -120,6 +120,13 @@ provide('openMenu', openMenu)
 
   &:hover {
     background-color: rgba(0, 0, 0, 0.2);
+    .control-bar {
+      opacity: 1;
+    }
+  }
+
+  &.is-lock:hover {
+    background-color: rgba(0, 0, 0, 0);
     .control-bar {
       opacity: 1;
     }

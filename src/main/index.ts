@@ -284,8 +284,7 @@ class BackGround {
 
   toggleMouseIgnore() {
     const isLock = (store.get('osdWin.isLock') as boolean) || false
-    const isHoverHide = (store.get('osdWin.isHoverHide') as boolean) || false
-    this.lyricWin.setIgnoreMouseEvents(isLock, { forward: !Constants.IS_LINUX && isHoverHide })
+    this.lyricWin.setIgnoreMouseEvents(isLock, { forward: !Constants.IS_LINUX })
     this.lyricWin.setVisibleOnAllWorkspaces(isLock)
   }
 
