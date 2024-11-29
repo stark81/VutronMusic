@@ -10,7 +10,12 @@ const mainAvailChannels: string[] = [
   'get-playing-status'
 ]
 
-const rendererAvailChannels: string[] = ['updateLyric', 'updateLyricIndex', 'set-isLock']
+const rendererAvailChannels: string[] = [
+  'updateLyric',
+  'updateLyricIndex',
+  'set-isLock',
+  'update-osd-playing-status'
+]
 
 contextBridge.exposeInMainWorld('mainApi', {
   send: (channel: string, ...data: any[]): void => {

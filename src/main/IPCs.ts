@@ -164,6 +164,13 @@ function initOSDWindowIpcMain(win: BrowserWindow, lrc: { [key: string]: Function
     }
   })
   ipcMain.handle('get-playing-status', (event) => isPlaying)
+  ipcMain.on('updatePlayerState', (event: IpcMainEvent, data: any) => {
+    for (const [key, value] of Object.entries(data) as [string, any]) {
+      if (key === 'playing') {
+        lrc.updateOSDPlayingState(value)
+      }
+    }
+  })
   ipcMain.on('set-ignore-mouse', (event, ignore) => {
     store.set('osdWin.isLock', ignore)
     lrc.toggleMouseIgnore()

@@ -309,6 +309,10 @@ class BackGround {
     }
   }
 
+  updateOSDPlayingState(playing: boolean) {
+    this.lyricWin?.webContents.send('update-osd-playing-status', playing)
+  }
+
   switchOSDWindow(showMode: string) {
     this.hideOSDWindow()
     this.showOSDWindow(showMode)
@@ -552,7 +556,8 @@ class BackGround {
         updateLyric: (lrc: any) => this.sendLyricToOSDWindow(lrc),
         updateLyricIndex: (index: number) => this.sendLyricIndexToOSDWindow(index),
         handleLyricWindowPosition: (position: any) => this.handleLyricWindowPosition(position),
-        switchOSDWindow: (showMode: string) => this.switchOSDWindow(showMode)
+        switchOSDWindow: (showMode: string) => this.switchOSDWindow(showMode),
+        updateOSDPlayingState: (state: boolean) => this.updateOSDPlayingState(state)
       }
       IPCs.initialize(this.win, this.lyricWin, this.tray, lrc)
       createMenu(this.win)

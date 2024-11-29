@@ -65,6 +65,9 @@ onMounted(() => {
   window.mainApi?.invoke('get-playing-status').then((res: boolean) => {
     isPlaying.value = res
   })
+  window.mainApi?.on('update-osd-playing-status', (event: any, res: boolean) => {
+    isPlaying.value = res
+  })
 })
 </script>
 
