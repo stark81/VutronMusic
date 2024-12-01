@@ -97,7 +97,7 @@
     "eslint-plugin-promise": "^6.1.1",
     "eslint-plugin-vue": "^9.22.0",
     "playwright": "^1.42.0",
-    "prettier": "^3.2.5",
+    "prettier": "^3.4.1",
     "sass": "^1.72.0",
     "tree-kill": "^1.2.2",
     "typescript": "^5.5.3",
