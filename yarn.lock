@@ -275,9 +275,10 @@
   optionalDependencies:
     global-agent "^3.0.0"
 
-"@electron/node-gyp@git+https://github.com/electron/node-gyp.git#06b29aafb7708acef8b3669835c8a7857ebc92d2":
+"@electron/node-gyp@https://github.com/electron/node-gyp#06b29aafb7708acef8b3669835c8a7857ebc92d2":
   version "10.2.0-electron.1"
-  resolved "git+https://github.com/electron/node-gyp.git#06b29aafb7708acef8b3669835c8a7857ebc92d2"
+  uid "06b29aafb7708acef8b3669835c8a7857ebc92d2"
+  resolved "https://github.com/electron/node-gyp#06b29aafb7708acef8b3669835c8a7857ebc92d2"
   dependencies:
     env-paths "^2.2.0"
     exponential-backoff "^3.1.1"
@@ -6412,10 +6413,10 @@ prelude-ls@^1.2.1:
   resolved "https://registry.npmmirror.com/prelude-ls/-/prelude-ls-1.2.1.tgz#debc6489d7a6e6b0e7611888cec880337d316396"
   integrity sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g==
 
-prettier@^3.2.5:
-  version "3.3.3"
-  resolved "https://registry.npmmirror.com/prettier/-/prettier-3.3.3.tgz#30c54fe0be0d8d12e6ae61dbb10109ea00d53105"
-  integrity sha512-i2tDNA0O5IrMO757lfrdQZCc2jPNDVntV0m/+4whiDfWaTKfMNgR7Qz0NAeGz/nRqF4m5/6CLzbP4/liHt12Ew==
+prettier@^3.4.1:
+  version "3.4.1"
+  resolved "https://registry.yarnpkg.com/prettier/-/prettier-3.4.1.tgz#e211d451d6452db0a291672ca9154bc8c2579f7b"
+  integrity sha512-G+YdqtITVZmOJje6QkXQWzl3fSfMxFwm1tjTyo9exhkmWSqC4Yhd1+lug++IlR2mvRVAxEDDWYkQdeSztajqgg==
 
 proc-log@^2.0.1:
   version "2.0.1"
