@@ -6,6 +6,7 @@ import { createTray, YPMTray } from './tray'
 import { createMenu } from './menu'
 import { createDockMenu } from './dock'
 import { createTouchBar } from './touchBar'
+import { createMpris, MprisImpl } from './mpris'
 import fastify, { FastifyInstance } from 'fastify'
 import fastifyCookie from '@fastify/cookie'
 import netease from './appServer/netease'
@@ -72,6 +73,7 @@ class BackGround {
   lyricWin: BrowserWindow | null = null
   tray: YPMTray | null = null
   menu: Menu | null = null
+  mpris: MprisImpl | null = null
   fastifyApp: FastifyInstance | null = null
   willQuitApp: boolean = !Constants.IS_MAC
 
@@ -81,6 +83,13 @@ class BackGround {
     if (!app.requestSingleInstanceLock()) {
       app.quit()
       process.exit(0)
+    }
+
+    if (Constants.IS_LINUX) {
+      app.commandLine.appendSwitch(
+        'disable-features',
+        'HardwareMediaKeyHandling,MediaSessionService'
+      )
     }
 
     protocol.registerSchemesAsPrivileged([
@@ -103,13 +112,6 @@ class BackGround {
     this.fastifyApp = await this.createFastifyApp()
 
     this.handleAppEvents()
-
-    if (Constants.IS_LINUX) {
-      app.commandLine.appendSwitch(
-        'disable-features',
-        'HardwareMediaKeyHandling,MediaSessionService'
-      )
-    }
   }
 
   async createFastifyApp() {
@@ -547,7 +549,9 @@ class BackGround {
 
       this.tray = createTray(this.win)
       createTouchBar(this.win)
-      // this.mprs = createMpris(this.win)
+      if (Constants.IS_LINUX) {
+        this.mpris = createMpris(this.win)
+      }
 
       const lrc = {
         toggleOSDWindow: () => this.toggleOSDWindow(),
@@ -559,7 +563,7 @@ class BackGround {
         switchOSDWindow: (showMode: string) => this.switchOSDWindow(showMode),
         updateOSDPlayingState: (state: boolean) => this.updateOSDPlayingState(state)
       }
-      IPCs.initialize(this.win, this.lyricWin, this.tray, lrc)
+      IPCs.initialize(this.win, this.tray, this.mpris, lrc)
       createMenu(this.win)
       createDockMenu(this.win)
     })

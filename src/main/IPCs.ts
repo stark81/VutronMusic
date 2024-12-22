@@ -1,5 +1,8 @@
 import { app, ipcMain, shell, IpcMainEvent, dialog, BrowserWindow } from 'electron'
 import { YPMTray } from './tray'
+import { MprisImpl } from './mpris'
+// import { createDBus, signalNameEnum } from './dbusService'
+import { createDBus } from './dbusClient'
 import Constants from './utils/Constants'
 import store from './store'
 import fs from 'fs'
@@ -18,14 +21,15 @@ let isPlaying = false
 export default class IPCs {
   static initialize(
     win: BrowserWindow,
-    lyricWin: BrowserWindow,
     tray: YPMTray,
+    mpris: MprisImpl,
     lrc: { [key: string]: Function }
   ): void {
     initWindowIpcMain(win)
     initOSDWindowIpcMain(win, lrc)
     initTrayIpcMain(win, tray)
     initTaskbarIpcMain()
+    initMprisIpcMain(win, mpris)
     initOtherIpcMain(win)
   }
 }
@@ -410,5 +414,48 @@ function initOtherIpcMain(win: BrowserWindow): void {
     } catch (error) {
       return false
     }
+  })
+}
+
+async function initMprisIpcMain(win: BrowserWindow, mpris: MprisImpl): Promise<void> {
+  if (!Constants.IS_LINUX || !mpris) return
+
+  // 下面这一段注释请勿删除。它是本程序作为插件歌词服务端的实现方式，可供以后参考。
+  // 目前插件和本程序所采用的实现方式是：插件为服务端，本程序为客户端。
+
+  // const dbus = createDBus(win)
+  // ipcMain.on('updateCurrentLyric', (event, data) => {
+  //   dbus.iface?.emit(signalNameEnum.currentLrc, data)
+  // })
+
+  const busName = 'org.gnome.Shell.TrayLyric'
+  const dbus = createDBus(busName)
+
+  ipcMain.on('updateCurrentLyric', (event: IpcMainEvent, data: { [key: string]: any }) => {
+    data.sender = 'VutronMusic'
+    dbus.iface?.UpdateLyric(JSON.stringify(data))
+  })
+
+  ipcMain.on('metadata', (event: IpcMainEvent, metadata: any) => {
+    mpris?.setMetadata(metadata)
+  })
+  ipcMain.on('updatePlayerState', (event: IpcMainEvent, data: any) => {
+    for (const [key, value] of Object.entries(data) as [string, any]) {
+      if (key === 'playing') {
+        mpris?.setPlayState(value)
+      } else if (key === 'repeatMode') {
+        mpris?.setRepeatMode(value)
+      } else if (key === 'shuffle') {
+        mpris?.setShuffleMode(value)
+      } else if (key === 'like') {
+        // dbus.iface?.LikeThisTrack(value)
+        // dbus.iface?.emit(signalNameEnum.updateLikeStatus, value)
+      } else if (key === 'isPersonalFM') {
+        mpris?.setPersonalFM(value)
+      }
+    }
+  })
+  ipcMain.on('playerCurrentTrackTime', (event: IpcMainEvent, progress: number) => {
+    mpris?.setPosition(progress)
   })
 }

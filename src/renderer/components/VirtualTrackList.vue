@@ -66,9 +66,12 @@
       >{{ $t('contextMenu.accurateMatch') }}</div
     >
     <hr v-show="type !== 'cloudDisk' && type !== 'localTracks'" />
-    <div v-if="extraContextMenuItem.includes('copyId')" class="item" @click="copyId">{{
+    <div v-if="!type.includes('local')" class="item" @click="copyId">{{
       $t('contextMenu.copyId')
     }}</div>
+    <!-- <div v-if="extraContextMenuItem.includes('copyId')" class="item" @click="copyId">{{
+      $t('contextMenu.copyId')
+    }}</div> -->
     <div
       v-show="type !== 'cloudDisk' && rightClickedTrack.matched"
       class="item"

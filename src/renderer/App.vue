@@ -95,9 +95,7 @@ const route = useRoute()
 
 const scrollBarRef = ref()
 
-const hasCustomTitleBar = computed(() => {
-  return (window.env?.isLinux && general.value.useCustomTitlebar) || window.env?.isWindows
-})
+const hasCustomTitleBar = ref(false)
 
 const mainStyle = computed(() => {
   return {
@@ -171,6 +169,8 @@ const handleChanelEvent = () => {
 // ;(window as any).scanLocalMusic = scanLocalMusic
 
 onMounted(async () => {
+  hasCustomTitleBar.value =
+    (window.env?.isLinux && general.value.useCustomTitlebar) || window.env?.isWindows || false
   if (isMac.value) {
     import('./utils/trayLyrics').then((module) => {
       const buildTrays = module.buildTrays

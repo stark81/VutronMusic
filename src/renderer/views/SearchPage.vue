@@ -10,7 +10,6 @@
         :colunm-number="1"
         :load-more="() => loadData(keywords, searchTab)"
         :type="'playlist'"
-        :extra-context-menu-item="['copyId']"
       />
     </div>
     <div v-else-if="searchTab === 'lyric'" class="container">

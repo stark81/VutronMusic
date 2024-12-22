@@ -1,10 +1,7 @@
 <template>
   <div>
-    <nav
-      :class="{ 'has-custom-titlebar': (isLinux && useCustomTitlebar) || isWin }"
-      :style="navStyle"
-    >
-      <LinuxTitleBar v-if="isLinux && useCustomTitlebar" />
+    <nav :class="{ 'has-custom-titlebar': useCustomBar || isWin }" :style="navStyle">
+      <LinuxTitleBar v-if="useCustomBar" />
       <Win32TitleBar v-if="isWin" />
 
       <div class="navigation-buttons">
@@ -93,7 +90,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, toRefs } from 'vue'
+import { computed, ref, toRefs, onMounted } from 'vue'
 import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
 import SearchBox from './SearchBox.vue'
@@ -116,9 +113,10 @@ const route = useRoute()
 
 const searchBoxRef = ref()
 const keywords = ref('')
+const useCustomBar = ref(false)
 
 const isLooseLoggedIn = computed(() => data.user.value.userId !== null)
-const isLinux = computed(() => window.env?.isLinux)
+const isLinux = computed(() => window.env?.isLinux || false)
 const isWin = computed(() => window.env?.isWindows)
 const navStyle = computed(() => {
   return {
@@ -175,6 +173,10 @@ const doSearch = (keyword: string, tab: string | null = null) => {
     query: { keywords: keyword }
   })
 }
+
+onMounted(() => {
+  useCustomBar.value = useCustomTitlebar.value && isLinux.value
+})
 </script>
 
 <style lang="scss" scoped>

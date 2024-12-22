@@ -210,6 +210,21 @@ export const usePlayerStore = defineStore(
     })
 
     watch(
+      () => lyrics.lyric[currentLyricIndex.value],
+      (value) => {
+        if (currentLyricIndex.value < lyrics.lyric.length) {
+          const nextLyric = lyrics.lyric[currentLyricIndex.value + 1]
+          const diff = nextLyric?.time - value?.time || 10
+          const newLyricInfo = {
+            content: value?.content || currentTrack.value?.name || '听你想听的音乐',
+            time: diff
+          }
+          window.mainApi.send('updateCurrentLyric', newLyricInfo)
+        }
+      }
+    )
+
+    watch(
       () => convolverParams.buffer,
       (value) => {
         if (value instanceof AudioBuffer) {
@@ -606,6 +621,7 @@ export const usePlayerStore = defineStore(
     // }
 
     const stop = async () => {
+      seek.value = 0
       if (playingNext.value) {
         if (_shuffle.value) {
           _shuffleList.value.splice(currentTrackIndex.value + 1, 0, currentTrack.value!.id)
@@ -620,7 +636,6 @@ export const usePlayerStore = defineStore(
       audio.src =
         'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA'
       audio.load()
-      seek.value = 0
     }
 
     const play = () => {
@@ -733,9 +748,7 @@ export const usePlayerStore = defineStore(
     }
 
     const updateMediaSessionMetaData = async (track: Track) => {
-      if ('mediaSession' in navigator === false) {
-        return
-      }
+      if ('mediaSession' in navigator === false) return
       const arts = track.artists ?? track.ar
       const artists = arts.map((a) => a.name)
       const metadata = {
@@ -759,6 +772,12 @@ export const usePlayerStore = defineStore(
         url: '/trackid/' + track.id
       }
       navigator.mediaSession.metadata = new MediaMetadata(metadata)
+      if (window.env?.isLinux) {
+        metadata.artwork.map((art) => {
+          art.src = (currentTrack.value?.album?.picUrl || currentTrack.value?.al?.picUrl)!
+        })
+        window.mainApi.send('metadata', metadata)
+      }
     }
 
     const resetPlayer = () => {
@@ -923,10 +942,12 @@ export const usePlayerStore = defineStore(
     }
 
     onMounted(async () => {
-      seek.value = progress.value
+      playing.value = false
+      title.value = 'VutronMusic'
       if (enabled.value) {
         pic.value = `atom://get-pic/${currentTrack.value?.id}`
         await setupAudioNode()
+        seek.value = progress.value
         replaceCurrentTrack(currentTrack.value!.id, false).then(() => {
           window.mainApi.send('updatePlayerState', {
             playing: playing.value,

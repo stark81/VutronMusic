@@ -19,7 +19,7 @@
 
 - ⚡️ 使用 Vue3 + ts + pinia + fastify + better-sqlite3 进行开发；
 - ⚡️ 支持本地歌曲、离线歌单功能，本地歌曲支持读取内嵌封面、内嵌歌词功能，支持线上信息匹配(使用的是匹配接口，非搜索接口)；
-- ⚡️ 支持Mac状态栏歌词、TouchBar歌词等；
+- ⚡️ 支持Mac状态栏歌词、TouchBar歌词等；Linux下可通过[media-controls](https://github.com/stark81/media-controls)插件将歌词显示在TopBar里；
 - ⚡️ 支持云盘、歌曲评论等功能；
 
 ## 配置开发环境
@@ -52,7 +52,7 @@ yarn run build（构建）
 
 ## 截图
 
-![home-screenShot][home-screenShot] ![explore-screenShot][explore-screenShot] ![library-screenShot][library-screenShot] ![likepage-screenShot][likepage-screenShot] ![local-music-screenShot][local-music-screenShot] ![playlist-screenShot][playlist-screenShot] ![playpage-screenShot][playpage-screenShot] ![comment-screenShot][comment-screenShot] ![search-screenShot][search-screenShot] ![user-screenShot][user-screenShot] ![mv-screenShot][mv-screenShot] ![tray-lyric-screenShot][tray-lyric-screenShot]
+![home-screenShot][home-screenShot] ![explore-screenShot][explore-screenShot] ![library-screenShot][library-screenShot] ![likepage-screenShot][likepage-screenShot] ![local-music-screenShot][local-music-screenShot] ![playlist-screenShot][playlist-screenShot] ![playpage-screenShot][playpage-screenShot] ![comment-screenShot][comment-screenShot] ![search-screenShot][search-screenShot] ![user-screenShot][user-screenShot] ![mv-screenShot][mv-screenShot] ![tray-lyric-screenShot][tray-lyric-screenShot] ![media-controls-screenShot][media-controls-screenShot]
 
 [localMusic-screenShot]: images/localMusic.jpg
 [home-screenShot]: images/home.jpg
@@ -68,3 +68,4 @@ yarn run build（构建）
 [user-screenShot]: images/user.jpg
 [tray-lyric-screenShot]: images/tray-TouchBar-lyric.jpg
 [mv-screenShot]: images/mv.jpg
+[media-controls-screenShot]: images/media-control-lyric.png

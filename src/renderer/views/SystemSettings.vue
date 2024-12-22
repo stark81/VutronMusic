@@ -321,11 +321,13 @@ const useLinuxTitleBar = computed({
   }
 })
 
-const mainStyle = computed(() => {
-  return {
-    marginTop: isMac || !useCustomTitlebar.value ? '20px' : '0'
-  }
-})
+const mainStyle = ref({})
+
+// const mainStyle = computed(() => {
+//   return {
+//     marginTop: isMac || !useCustomTitlebar.value ? '20px' : '0'
+//   }
+// })
 
 // const useReplayGain = computed({
 //   get: () => replayGain.value,
@@ -436,6 +438,9 @@ const deleteLocalMusic = () => {
 }
 
 onMounted(() => {
+  mainStyle.value = {
+    marginTop: isMac || !useCustomTitlebar.value ? '20px' : '0'
+  }
   updatePadding(64)
   getAllOutputDevices()
   getVersion()
@@ -448,8 +453,6 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
 .system-settings {
   width: 100%;
-  // height: calc(100vh - 84px);
-  // height: 100%;
 }
 .user-info {
   display: flex;

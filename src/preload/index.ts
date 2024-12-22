@@ -12,6 +12,8 @@ const mainAvailChannels: string[] = [
   'msgNativeAlert',
   'selecteFolder',
   'updateTray',
+  'metadata',
+  'updateCurrentLyric',
   'updateTouchBarLyric',
   'showWindow',
   'updatePlayerState',

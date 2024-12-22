@@ -200,7 +200,16 @@ import { storeToRefs } from 'pinia'
 import { useDataStore } from '../store/data'
 import { useNormalStateStore } from '../store/state'
 import { useSettingsStore } from '../store/settings'
-import { onActivated, onDeactivated, ref, computed, onMounted, onUnmounted, inject } from 'vue'
+import {
+  onActivated,
+  onDeactivated,
+  ref,
+  computed,
+  onMounted,
+  onUnmounted,
+  inject,
+  nextTick
+} from 'vue'
 import { dailyTask, randomNum } from '../utils'
 import { tricklingProgress } from '../utils/tricklingProgress'
 import { getTrackDetail } from '../api/track'
@@ -356,6 +365,9 @@ const openAddPlaylistModal = () => {
 
 const updateCurrentTab = (tab: string) => {
   currentTab.value = tab
+  nextTick(() => {
+    updatePadding(0)
+  })
 }
 
 // const scrollTo = inject('scrollTo') as (top: number) => void

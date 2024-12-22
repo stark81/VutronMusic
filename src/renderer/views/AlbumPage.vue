@@ -75,7 +75,6 @@
           :show-position="false"
           :type="'album'"
           :album-object="album"
-          :extra-context-menu-item="['copyId']"
         />
       </div>
     </div>
@@ -89,7 +88,6 @@
         :show-position="false"
         :type="'album'"
         :album-object="album"
-        :extra-context-menu-item="['copyId']"
       />
     </div>
     <div class="extra-info">

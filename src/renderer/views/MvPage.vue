@@ -77,11 +77,7 @@ const simiMvs = ref<any[]>([])
 const videoPlayer = ref()
 const player = ref()
 const isMac = computed(() => window.env?.isMac)
-const mainStyle = computed(() => {
-  return {
-    marginTop: isMac.value || !useCustomTitlebar.value ? '20px' : '0'
-  }
-})
+const mainStyle = ref({})
 
 const playerStore = usePlayerStore()
 const { playing, volume } = storeToRefs(playerStore)
@@ -174,6 +170,9 @@ const updatePadding = inject('updatePadding') as (val: number) => void
 
 onMounted(() => {
   updatePadding(0)
+  mainStyle.value = {
+    marginTop: isMac.value || !useCustomTitlebar.value ? '20px' : '0'
+  }
   const videoOptions = {
     settings: ['quality', 'speed'],
     autoplay: false,

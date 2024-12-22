@@ -72,11 +72,12 @@ window.addEventListener('DOMContentLoaded', () => {
   const headerEl = document.querySelector('#osd-lock') as HTMLElement
 
   root.addEventListener('mouseenter', () => {
+    if (!headerEl) return
     headerEl.style.opacity = '1'
   })
 
   root.addEventListener('mouseleave', () => {
-    headerEl.style.opacity = '0'
+    if (headerEl) headerEl.style.opacity = '0'
     clearTimeout(timeoutId)
     root.style.opacity = '1'
   })

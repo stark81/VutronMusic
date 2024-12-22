@@ -16,9 +16,11 @@
       :style="lineStyle(index)"
     >
       <div class="content">
-        <span v-if="line.contents[0]">{{ line.contents[0] }}</span>
+        <span v-if="line.contents[0]" :style="spanStyle">{{ line.contents[0] }}</span>
         <br />
-        <span v-if="line.contents[1]" class="translation">{{ line.contents[1] }}</span>
+        <span v-if="line.contents[1]" :style="spanStyle" class="translation">{{
+          line.contents[1]
+        }}</span>
       </div>
     </div>
     <div class="line" :style="{ paddingBottom: type === 'normal' ? '45vh' : '6px' }"></div>
@@ -95,6 +97,12 @@ const lyricWithTranslation = computed(() => {
 const highlightIdx = computed(() => {
   const idx = lyricWithTranslation.value.length === 1 ? 0 : currentLyricIndex.value % 2
   return type.value === 'normal' ? currentLyricIndex.value : idx
+})
+
+const spanStyle = computed(() => {
+  return {
+    textShadow: `2px 2px 2px ${fontColor.value === 'black' ? 'rgba(210, 210, 210, 0.2)' : 'rgba(0, 0, 0, 0.2)'}`
+  }
 })
 
 const lineStyle = (idx: number) => {
@@ -177,7 +185,6 @@ onMounted(() => {
   margin: 2px 0;
   padding: 2px 18px;
   transition: 0.5s;
-  text-shadow: 2px 2px 2px rgba(0, 0, 0, 0.2);
   font-weight: bold;
   width: 100vw;
 

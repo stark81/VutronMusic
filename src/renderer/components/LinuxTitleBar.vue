@@ -73,7 +73,7 @@ const windowClose = () => {
     margin: 0 auto;
   }
   .controls {
-    height: 32px;
+    height: 34px;
     //margin-left: auto;
     justify-content: flex-end;
     display: flex;

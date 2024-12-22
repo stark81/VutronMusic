@@ -67,7 +67,10 @@ const baseConfig = {
     artifactName: '${productName} ${version}_${arch} Portable.${ext}'
   },
   nsis: {
-    oneClick: true
+    oneClick: false,
+    allowToChangeInstallationDirectory: true,
+    createDesktopShortcut: true,
+    runAfterFinish: true
   },
   linux: {
     executableName: 'vutron',

@@ -13,6 +13,9 @@
   "bugs": {
     "url": "https://github.com/stark81/VutronMusic/issues"
   },
+  "resolutions": {
+    "nan": "2.18.0"
+  },
   "scripts": {
     "dev": "vite",
     "dev:debug": "vite -d",
@@ -50,6 +53,7 @@
     "color": "^4.2.3",
     "compare-versions": "^6.1.0",
     "dayjs": "^1.11.10",
+    "dbus-native": "^0.4.0",
     "dompurify": "^3.1.6",
     "electron-log": "^5.1.2",
     "electron-store": "^8.2.0",
@@ -58,6 +62,7 @@
     "howler": "^2.2.4",
     "js-cookie": "^3.0.5",
     "mitt": "^3.0.1",
+    "mpris-service": "^2.1.2",
     "music-metadata": "^10.5.0",
     "node-vibrant": "^3.2.1-alpha.1",
     "pinia": "^2.1.7",
@@ -96,6 +101,8 @@
     "eslint-plugin-n": "^16.6.2",
     "eslint-plugin-promise": "^6.1.1",
     "eslint-plugin-vue": "^9.22.0",
+    "nan": "2.18.0",
+    "node-gyp": "10.0.1",
     "playwright": "^1.42.0",
     "prettier": "^3.2.5",
     "sass": "^1.72.0",
