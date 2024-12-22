@@ -2152,10 +2152,10 @@ basic-ftp@^5.0.2:
   resolved "https://registry.npmmirror.com/basic-ftp/-/basic-ftp-5.0.5.tgz#14a474f5fffecca1f4f406f1c26b18f800225ac0"
   integrity sha512-4Bcg1P8xhUuqcii/S0Z9wiHIrQVPMermM1any+MX5GeGD7faD3/msQUDGLol9wOcz4/jbg/WJnGqoJF6LiBdtg==
 
-better-sqlite3@^11.3.0:
-  version "11.5.0"
-  resolved "https://registry.npmmirror.com/better-sqlite3/-/better-sqlite3-11.5.0.tgz#58faa51e02845a578dd154f0083487132ead0695"
-  integrity sha512-e/6eggfOutzoK0JWiU36jsisdWoHOfN9iWiW/SieKvb7SAa6aGNmBM/UKyp+/wWSXpLlWNN8tCPwoDNPhzUvuQ==
+better-sqlite3@^11.7.0:
+  version "11.7.0"
+  resolved "https://registry.yarnpkg.com/better-sqlite3/-/better-sqlite3-11.7.0.tgz#3eaa0f54f9e57d0a100d980e42320f8b9a4cd676"
+  integrity sha512-mXpa5jnIKKHeoGzBrUJrc65cXFKcILGZpU3FXR0pradUEm9MA7UZz02qfEejaMcm9iXrSOCenwwYMJ/tZ1y5Ig==
   dependencies:
     bindings "^1.5.0"
     prebuild-install "^7.1.1"

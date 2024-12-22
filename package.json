@@ -48,7 +48,7 @@
     "@soundtouchjs/audio-worklet": "^0.1.17",
     "@unblockneteasemusic/server": "^0.27.8-patch.1",
     "NeteaseCloudMusicApi": "^4.23.2",
-    "better-sqlite3": "^11.3.0",
+    "better-sqlite3": "^11.7.0",
     "change-case": "^5.4.3",
     "color": "^4.2.3",
     "compare-versions": "^6.1.0",
