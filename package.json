@@ -107,7 +107,7 @@
     "prettier": "^3.2.5",
     "sass": "^1.72.0",
     "tree-kill": "^1.2.2",
-    "typescript": "^5.5.3",
+    "typescript": "^5.7.2",
     "vite": "^5.3.3",
     "vite-plugin-electron": "^0.28.2",
     "vite-plugin-electron-renderer": "^0.14.5",
