@@ -1,7 +1,7 @@
+if (process.platform === 'win32') return
+
 const path = require('path')
 const child = require('child_process')
-
-if (process.platform === 'win32') return
 
 const betterSqlite3 = require.resolve('better-sqlite3')
 const betterSqlite3Root = path.posix.join(

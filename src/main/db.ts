@@ -105,6 +105,7 @@ class DB {
       this.initTables()
       this.migrate()
     } catch (e) {
+      console.log('111111111111111111112222, init error = ', e)
       // log.error('[db] Database initialization failed.')
       // log.error(e)
     }

@@ -635,7 +635,15 @@ class BackGround {
       store.set('window', this.win.getBounds())
     })
 
+    this.win.on('moved', () => {
+      if (!Constants.IS_WINDOWS) return
+      const pos = this.win.getPosition()
+      store.set('window.x', pos[0])
+      store.set('window.y', pos[1])
+    })
+
     this.win.on('move', () => {
+      if(Constants.IS_WINDOWS) return
       const pos = this.win.getPosition()
       store.set('window.x', pos[0])
       store.set('window.y', pos[1])
