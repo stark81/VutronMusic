@@ -100,7 +100,7 @@
     "eslint-plugin-import": "^2.29.1",
     "eslint-plugin-n": "^16.6.2",
     "eslint-plugin-promise": "^6.1.1",
-    "eslint-plugin-vue": "^9.22.0",
+    "eslint-plugin-vue": "^9.32.0",
     "nan": "2.18.0",
     "node-gyp": "10.0.1",
     "playwright": "^1.42.0",
