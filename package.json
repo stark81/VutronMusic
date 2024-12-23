@@ -13,9 +13,6 @@
   "bugs": {
     "url": "https://github.com/stark81/VutronMusic/issues"
   },
-  "resolutions": {
-    "nan": "2.18.0"
-  },
   "scripts": {
     "dev": "vite",
     "dev:debug": "vite -d",
@@ -48,7 +45,7 @@
     "@soundtouchjs/audio-worklet": "^0.1.17",
     "@unblockneteasemusic/server": "^0.27.8-patch.1",
     "NeteaseCloudMusicApi": "^4.23.2",
-    "better-sqlite3": "^11.3.0",
+    "better-sqlite3": "^11.7.0",
     "change-case": "^5.4.3",
     "color": "^4.2.3",
     "compare-versions": "^6.1.0",
@@ -91,7 +88,7 @@
     "@vitejs/plugin-vue": "^5.0.4",
     "@vitejs/plugin-vue-jsx": "^3.1.0",
     "dotenv": "^16.4.5",
-    "electron": "<33.0.0",
+    "electron": "^33.0.0",
     "electron-builder": "^24.13.3",
     "electron-extension-installer": "^1.2.0",
     "eslint-config-prettier": "^9.1.0",
@@ -101,8 +98,6 @@
     "eslint-plugin-n": "^16.6.2",
     "eslint-plugin-promise": "^6.1.1",
     "eslint-plugin-vue": "^9.22.0",
-    "nan": "2.18.0",
-    "node-gyp": "10.0.1",
     "playwright": "^1.42.0",
     "prettier": "^3.2.5",
     "sass": "^1.72.0",

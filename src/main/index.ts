@@ -338,10 +338,16 @@ class BackGround {
       store.set(this.osdMode === 'small' ? 'osdWin.width' : 'osdWin.width2', data.width)
       store.set(this.osdMode === 'small' ? 'osdWin.height' : 'osdWin.height2', data.height)
     })
+    let moveTimeout
     this.lyricWin.on('move', () => {
-      const data = this.lyricWin.getBounds()
-      store.set(this.osdMode === 'small' ? 'osdWin.x' : 'osdWin.x2', data.x)
-      store.set(this.osdMode === 'small' ? 'osdWin.y' : 'osdWin.y2', data.y)
+      if (moveTimeout) {
+        clearTimeout(moveTimeout)
+      }
+      moveTimeout = setTimeout(() => {
+        const data = this.lyricWin.getBounds()
+        store.set(this.osdMode === 'small' ? 'osdWin.x' : 'osdWin.x2', data.x)
+        store.set(this.osdMode === 'small' ? 'osdWin.y' : 'osdWin.y2', data.y)
+      }, 500)
     })
   }
 
@@ -635,18 +641,15 @@ class BackGround {
       store.set('window', this.win.getBounds())
     })
 
-    this.win.on('moved', () => {
-      if (!Constants.IS_WINDOWS) return
-      const pos = this.win.getPosition()
-      store.set('window.x', pos[0])
-      store.set('window.y', pos[1])
-    })
-
+    let moveTimeout
     this.win.on('move', () => {
-      if(Constants.IS_WINDOWS) return
-      const pos = this.win.getPosition()
-      store.set('window.x', pos[0])
-      store.set('window.y', pos[1])
+      // if (Constants.IS_LINUX) return
+      if (moveTimeout) {
+        clearTimeout(moveTimeout)
+      }
+      setTimeout(() => {
+        store.set('window', this.win.getBounds())
+      }, 500)
     })
   }
 }

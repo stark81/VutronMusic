@@ -51,7 +51,6 @@ class ServiceMonitor {
           if (err) {
             this.onLostOwnerName()
           } else {
-            console.log('Initial service owner:', owner)
             this.onOwnerName(owner)
           }
         })
@@ -60,7 +59,6 @@ class ServiceMonitor {
   }
 
   private onOwnerName(owner: string) {
-    console.log('Service owner changed:', owner)
     const path = `/${this.serviceName.replace(/\./g, '/')}`
     this.sessionBus
       .getService(this.serviceName)
