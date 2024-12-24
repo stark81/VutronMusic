@@ -209,30 +209,20 @@ export const usePlayerStore = defineStore(
       window.mainApi.send('updateLyricIndex', value)
     })
 
-    const currentLyric = computed(() => {
-      let result: { content: string; time: number }
-      if (currentLyricIndex.value < lyrics.lyric.length) {
-        const lyric = lyrics.lyric[currentLyricIndex.value]
-        const nextLyric = lyrics.lyric[currentLyricIndex.value + 1]
-        const diff = nextLyric?.time - lyric?.time || 10
-        result = {
-          content: lyric?.content || currentTrack.value?.name || '听你想听的音乐',
-          time: diff
-        }
-      } else {
-        result = {
-          content: currentTrack.value?.name || '听你想听的音乐',
-          time: 10
+    watch(
+      () => lyrics.lyric[currentLyricIndex.value],
+      (value) => {
+        if (currentLyricIndex.value < lyrics.lyric.length) {
+          const nextLyric = lyrics.lyric[currentLyricIndex.value + 1]
+          const diff = nextLyric?.time - value?.time || 10
+          const newLyricInfo = {
+            content: value?.content || currentTrack.value?.name || '听你想听的音乐',
+            time: diff
+          }
+          window.mainApi.send('updateCurrentLyric', newLyricInfo)
         }
       }
-      return result
-    })
-
-    watch(currentLyric, (value) => {
-      if (window.env?.isLinux && settingsStore.tray.enableExtension) {
-        window.mainApi.send('updateCurrentLyric', value)
-      }
-    })
+    )
 
     watch(
       () => convolverParams.buffer,
@@ -1020,7 +1010,6 @@ export const usePlayerStore = defineStore(
       personalFMTrack,
       personalFMNextTrack,
       currentLyricIndex,
-      currentLyric,
       color,
       color2,
       playlistSource,

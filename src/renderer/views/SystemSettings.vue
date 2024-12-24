@@ -38,9 +38,16 @@
           $t('settings.nav.tray')
         }}</div>
         <div
+          v-else-if="isLinux"
+          class="tab"
+          :class="{ active: tab === 'extension' }"
+          @click="updateTab(2)"
+          >{{ $t('settings.nav.extension') }}</div
+        >
+        <div
           class="tab"
           :class="{ active: tab === 'localTracks' }"
-          @click="updateTab(isMac ? 3 : 2)"
+          @click="updateTab(isMac || isLinux ? 3 : 2)"
           >{{ $t('settings.nav.localMusic') }}</div
         >
       </div>
@@ -106,22 +113,6 @@
             </div>
             <div class="right">
               <button @click="resetPlayer">确定</button>
-            </div>
-          </div>
-          <div v-if="isLinux" class="item">
-            <div class="left">
-              <div class="title">{{ $t('settings.general.useCustomTitlebar') }}</div>
-            </div>
-            <div class="right">
-              <div class="toggle">
-                <input
-                  id="linux-title-bar"
-                  v-model="useLinuxTitleBar"
-                  type="checkbox"
-                  name="linux-title-bar"
-                />
-                <label for="linux-title-bar"></label>
-              </div>
             </div>
           </div>
           <div class="version-info">
@@ -216,6 +207,53 @@
             </div>
           </div>
         </div>
+        <div v-if="isElectron" v-show="tab === 'extension'" key="extension">
+          <div class="item">
+            <div class="left">
+              <div class="title"
+                >{{ $t('settings.extension.status') }}：{{
+                  extensionCheckResult ? '已开启' : '已停用'
+                }}</div
+              >
+              <div class="description"
+                >如果未安装插件，可点击 <a @click="openOnBrowser">此处</a> 下载</div
+              >
+            </div>
+          </div>
+          <div class="item">
+            <div class="left">
+              <div class="title">{{ $t('settings.extension.showLyric.text') }}</div>
+              <div class="description">{{ $t('settings.extension.showLyric.desc') }}</div>
+            </div>
+            <div class="right">
+              <div class="toggle">
+                <input
+                  id="enable-extension"
+                  v-model="enableExtension"
+                  type="checkbox"
+                  name="enable-extension"
+                />
+                <label for="enable-extension"></label>
+              </div>
+            </div>
+          </div>
+          <div class="item">
+            <div class="left">
+              <div class="title">{{ $t('settings.general.useCustomTitlebar') }}</div>
+            </div>
+            <div class="right">
+              <div class="toggle">
+                <input
+                  id="linux-title-bar"
+                  v-model="useLinuxTitleBar"
+                  type="checkbox"
+                  name="linux-title-bar"
+                />
+                <label for="linux-title-bar"></label>
+              </div>
+            </div>
+          </div>
+        </div>
         <div v-if="isElectron" v-show="tab === 'localTracks'" key="localTracks">
           <div class="item">
             <div class="left">
@@ -280,6 +318,7 @@ import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '../store/settings'
 import { usePlayerStore } from '../store/player'
 import { useLocalMusicStore } from '../store/localMusic'
+import { useNormalStateStore } from '../store/state'
 import { useDataStore } from '../store/data'
 import { storeToRefs } from 'pinia'
 import { doLogout } from '../utils/auth'
@@ -291,7 +330,8 @@ const { localMusic, general, tray, theme } = storeToRefs(settingsStore)
 const { scanDir, replayGain, useInnerInfoFirst } = toRefs(localMusic.value)
 const { showTrackTimeOrID, useCustomTitlebar, language, closeAppOption } = toRefs(general.value)
 const { appearance } = toRefs(theme.value)
-const { showLyric, showControl, lyricWidth, scrollRate } = toRefs(tray.value)
+const { showLyric, showControl, lyricWidth, scrollRate, enableExtension } = toRefs(tray.value)
+const { extensionCheckResult } = toRefs(useNormalStateStore())
 
 const dataStore = useDataStore()
 const { user } = storeToRefs(dataStore)
@@ -385,6 +425,8 @@ const updateTab = (index: number) => {
   const tabs = ['general', 'appearance', 'localTracks']
   if (isMac) {
     tabs.splice(2, 0, 'tray')
+  } else if (isLinux) {
+    tabs.splice(2, 0, 'extension')
   }
   const tabName = tabs[index]
   tab.value = tabName
@@ -435,6 +477,11 @@ const deleteLocalMusic = () => {
   resetLocalMusic()
   scanDir.value = ''
   window.mainApi.send('deleteLocalMusicDB')
+}
+
+const openOnBrowser = () => {
+  const url = 'https://github.com/stark81/media-controls'
+  Utils.openExternal(url)
 }
 
 onMounted(() => {
@@ -541,6 +588,7 @@ onBeforeUnmount(() => {
   .container {
     width: 100%;
     padding-top: 30px;
+    min-height: 200px;
     height: 100%;
 
     .appearance {

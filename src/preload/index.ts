@@ -31,7 +31,8 @@ const mainAvailChannels: string[] = [
   'clearDeletedMusic',
   'minimize',
   'maximizeOrUnmaximize',
-  'close'
+  'close',
+  'askExtensionStatus'
 ]
 const rendererAvailChannels: string[] = [
   'msgHandleScanLocalMusic',
@@ -48,7 +49,8 @@ const rendererAvailChannels: string[] = [
   'updateLyricIndex',
   'toggleOSDWindow',
   'rememberCloseAppOption',
-  'msgDeletedTracks'
+  'msgDeletedTracks',
+  'msgExtensionCheckResult'
 ]
 
 contextBridge.exposeInMainWorld('mainApi', {

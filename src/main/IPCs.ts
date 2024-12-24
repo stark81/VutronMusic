@@ -429,7 +429,11 @@ async function initMprisIpcMain(win: BrowserWindow, mpris: MprisImpl): Promise<v
   // })
 
   const busName = 'org.gnome.Shell.TrayLyric'
-  const dbus = createDBus(busName)
+  const dbus = createDBus(busName, win)
+
+  ipcMain.handle('askExtensionStatus', async (event) => {
+    return dbus.status
+  })
 
   ipcMain.on('updateCurrentLyric', (event: IpcMainEvent, data: { [key: string]: any }) => {
     data.sender = 'VutronMusic'

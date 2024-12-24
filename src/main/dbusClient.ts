@@ -1,3 +1,5 @@
+import { BrowserWindow } from 'electron'
+
 export interface Iface {
   UpdateLyric: (lrcObj: string) => void
   LikeThisTrack: (liked: boolean) => void
@@ -8,12 +10,16 @@ class ServiceMonitor {
   private interfaceName: string = 'org.freedesktop.DBus'
   private objectPath: string = '/org/freedesktop/DBus'
   private dbus = require('dbus-native')
+  private win: BrowserWindow
   serviceName: string
   iface: Iface | null
+  status: boolean
 
-  constructor(serviceName: string) {
+  constructor(serviceName: string, win: BrowserWindow) {
     this.sessionBus = this.dbus.sessionBus()
     this.serviceName = serviceName
+    this.status = false
+    this.win = win
     this.iface = null
 
     this.watchName()
@@ -65,17 +71,22 @@ class ServiceMonitor {
       .getInterface(path, this.serviceName, (err: any, iface: any) => {
         if (err) {
           console.error('Failed to get D-Bus interface:', err)
+          this.status = false
+          this.win.webContents.send('msgExtensionCheckResult', false)
           return
         }
         this.iface = iface
+        this.status = true
+        this.win.webContents.send('msgExtensionCheckResult', true)
       })
   }
 
   private onLostOwnerName() {
-    console.log('Service owner lost')
+    this.status = false
+    this.win.webContents.send('msgExtensionCheckResult', false)
   }
 }
 
-export const createDBus = (busName: string) => {
-  return new ServiceMonitor(busName)
+export const createDBus = (busName: string, win: BrowserWindow) => {
+  return new ServiceMonitor(busName, win)
 }

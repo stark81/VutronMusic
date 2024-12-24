@@ -197,7 +197,7 @@ class TrayImpl implements YPMTray {
 
   setContextMenu(setMenu: boolean) {
     if (!this._tray) this.createTray()
-      showContext = setMenu
+    showContext = setMenu
     if (setMenu) {
       const template = createMenuTemplate(this._win)
       this._contextMenu = Menu.buildFromTemplate(template)

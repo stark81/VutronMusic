@@ -225,6 +225,7 @@
       "general": "通用",
       "appearance": "外观",
       "tray": "系统托盘",
+      "extension": "歌词插件",
       "localMusic": "本地歌曲"
     },
     "general": {
@@ -259,6 +260,13 @@
         "desc": "该数值并非越大越好，太高会导致歌词滚动速度过快而无法流畅显示"
       },
       "lyricFrameWidth": "歌词滚动宽度(px)"
+    },
+    "extension": {
+      "status": "歌词插件服务检测状态",
+      "showLyric": {
+        "text": "显示状态栏歌词",
+        "desc": "该功能需要安装并启用歌词插件服务"
+      }
     }
   },
   "toast": {

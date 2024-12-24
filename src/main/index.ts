@@ -339,12 +339,12 @@ class BackGround {
       store.set(this.osdMode === 'small' ? 'osdWin.height' : 'osdWin.height2', data.height)
     })
 
-    this.lyricWin.on('moved', () => {
-      if (Constants.IS_LINUX) return
-      const data = this.lyricWin.getBounds()
-      store.set(this.osdMode === 'small' ? 'osdWin.x' : 'osdWin.x2', data.x)
-      store.set(this.osdMode === 'small' ? 'osdWin.y' : 'osdWin.y2', data.y)
-    })
+    // this.lyricWin.on('moved', () => {
+    //   if (Constants.IS_LINUX) return
+    //   const data = this.lyricWin.getBounds()
+    //   store.set(this.osdMode === 'small' ? 'osdWin.x' : 'osdWin.x2', data.x)
+    //   store.set(this.osdMode === 'small' ? 'osdWin.y' : 'osdWin.y2', data.y)
+    // })
 
     let moveTimeout
     this.lyricWin.on('move', () => {
@@ -650,10 +650,10 @@ class BackGround {
       store.set('window', this.win.getBounds())
     })
 
-    this.win.on('moved', () => {
-      if (Constants.IS_LINUX) return
-      store.set('window', this.win.getBounds())
-    })
+    // this.win.on('moved', () => {
+    //   if (Constants.IS_LINUX) return
+    //   store.set('window', this.win.getBounds())
+    // })
 
     let moveTimeout
     this.win.on('move', () => {
@@ -661,7 +661,7 @@ class BackGround {
       if (moveTimeout) {
         clearTimeout(moveTimeout)
       }
-      setTimeout(() => {
+      moveTimeout = setTimeout(() => {
         store.set('window', this.win.getBounds())
       }, 500)
     })

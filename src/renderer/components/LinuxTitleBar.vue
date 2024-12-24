@@ -58,7 +58,9 @@ const windowClose = () => {
   --active: #cccccc;
 
   .logo {
-    padding: 0 8px;
+    padding-left: 30px;
+    width: 114px;
+    align-items: center;
     img {
       height: 18px;
       width: 18px;

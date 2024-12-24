@@ -47,7 +47,7 @@ const playerStore = usePlayerStore()
 const { enabled } = storeToRefs(playerStore)
 
 const stateStore = useNormalStateStore()
-const { showLyrics, enableScrolling } = storeToRefs(stateStore)
+const { showLyrics, enableScrolling, extensionCheckResult } = storeToRefs(stateStore)
 
 const {
   fetchLikedPlaylist,
@@ -110,6 +110,7 @@ const showPlayerBar = computed(() => {
 })
 
 const isMac = computed(() => window.env?.isMac)
+const isLinux = computed(() => window.env?.isLinux)
 
 const handleScroll = () => {
   scrollBarRef.value.handleScroll()
@@ -164,9 +165,10 @@ const handleChanelEvent = () => {
   window.mainApi.on('rememberCloseAppOption', (_: any, result: string) => {
     general.value.closeAppOption = result
   })
+  window.mainApi.on('msgExtensionCheckResult', (_: any, result: boolean) => {
+    extensionCheckResult.value = result
+  })
 }
-
-// ;(window as any).scanLocalMusic = scanLocalMusic
 
 onMounted(async () => {
   hasCustomTitleBar.value =
@@ -178,6 +180,11 @@ onMounted(async () => {
 
       const buildTouchBars = module.buildTouchBars
       buildTouchBars()
+    })
+  }
+  if (isLinux.value) {
+    window.mainApi.invoke('askExtensionStatus').then((result: boolean) => {
+      extensionCheckResult.value = result
     })
   }
   fetchData()

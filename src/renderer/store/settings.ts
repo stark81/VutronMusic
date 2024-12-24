@@ -32,7 +32,8 @@ export const useSettingsStore = defineStore(
       showLyric: true,
       showControl: true,
       lyricWidth: 192,
-      scrollRate: 34
+      scrollRate: 34,
+      enableExtension: true
     })
 
     const osdLyric = reactive({
