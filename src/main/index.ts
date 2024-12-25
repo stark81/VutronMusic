@@ -339,16 +339,8 @@ class BackGround {
       store.set(this.osdMode === 'small' ? 'osdWin.height' : 'osdWin.height2', data.height)
     })
 
-    // this.lyricWin.on('moved', () => {
-    //   if (Constants.IS_LINUX) return
-    //   const data = this.lyricWin.getBounds()
-    //   store.set(this.osdMode === 'small' ? 'osdWin.x' : 'osdWin.x2', data.x)
-    //   store.set(this.osdMode === 'small' ? 'osdWin.y' : 'osdWin.y2', data.y)
-    // })
-
     let moveTimeout
     this.lyricWin.on('move', () => {
-      if (!Constants.IS_LINUX) return
       if (moveTimeout) {
         clearTimeout(moveTimeout)
       }
@@ -651,14 +643,8 @@ class BackGround {
       store.set('window', this.win.getBounds())
     })
 
-    // this.win.on('moved', () => {
-    //   if (Constants.IS_LINUX) return
-    //   store.set('window', this.win.getBounds())
-    // })
-
     let moveTimeout
     this.win.on('move', () => {
-      if (!Constants.IS_LINUX) return
       if (moveTimeout) {
         clearTimeout(moveTimeout)
       }
