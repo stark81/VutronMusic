@@ -33,7 +33,8 @@ export const useSettingsStore = defineStore(
       showControl: true,
       lyricWidth: 192,
       scrollRate: 34,
-      enableExtension: true
+      enableExtension: true,
+      showTray: true
     })
 
     const osdLyric = reactive({
@@ -59,6 +60,13 @@ export const useSettingsStore = defineStore(
       () => !tray.showControl && !tray.showLyric,
       (newValue) => {
         window.mainApi.send('setStoreSettings', { enableTrayMenu: newValue })
+      }
+    )
+
+    watch(
+      () => tray.showTray,
+      (value) => {
+        window.mainApi.send('setStoreSettings', { showTray: value })
       }
     )
 

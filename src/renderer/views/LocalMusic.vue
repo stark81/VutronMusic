@@ -61,14 +61,7 @@
       <div class="right-bottom">{{ artist }} - {{ trackName }}</div>
     </div>
     <div class="section-two">
-      <div
-        ref="tabsRowRef"
-        class="tabs-row"
-        :style="{
-          height: (hasCustomTitleBar ? 84 : 64) + 'px',
-          paddingTop: (hasCustomTitleBar ? 20 : 0) + 'px'
-        }"
-      >
+      <div ref="tabsRowRef" class="tabs-row">
         <div class="tabs">
           <div
             class="tab dropdown"
@@ -233,11 +226,11 @@ const hasCustomTitleBar = computed(() => {
 const isMac = computed(() => window.env?.isMac)
 
 const tabStyle = computed(() => {
-  const height = window.innerHeight - (hasCustomTitleBar.value ? 84 : 64)
-  const marginTop = hasCustomTitleBar.value ? 20 : 0
+  const height = window.innerHeight - (hasCustomTitleBar.value ? 74 : 54)
+  const paddingTop = hasCustomTitleBar.value ? 10 : 10
   return {
     height: `${height}px`,
-    marginTop: `${marginTop}px`
+    paddingTop: `${paddingTop}px`
   }
 })
 
@@ -456,7 +449,7 @@ onUnmounted(() => {
   transition: all 0.4s;
 }
 .section-one {
-  margin-top: 20px;
+  margin: 20px 0 60px 0;
   box-sizing: border-box;
   background: var(--color-primary-bg);
   border-radius: 14px;
@@ -553,10 +546,8 @@ onUnmounted(() => {
 
 .section-two {
   position: relative;
-  margin-top: 20px;
   min-height: calc(100vh - 190px);
-  padding-top: 64px;
-  // background: red;
+  padding-top: 44px;
 }
 .tabs-row {
   position: absolute;

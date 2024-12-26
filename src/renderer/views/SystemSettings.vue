@@ -35,14 +35,14 @@
           $t('settings.nav.appearance')
         }}</div>
         <div v-if="isMac" class="tab" :class="{ active: tab === 'tray' }" @click="updateTab(2)">{{
-          $t('settings.nav.tray')
+          $t('settings.nav.platformSetting')
         }}</div>
         <div
           v-else-if="isLinux"
           class="tab"
           :class="{ active: tab === 'extension' }"
           @click="updateTab(2)"
-          >{{ $t('settings.nav.extension') }}</div
+          >{{ $t('settings.nav.platformSetting') }}</div
         >
         <div
           class="tab"
@@ -239,6 +239,17 @@
           </div>
           <div class="item">
             <div class="left">
+              <div class="title">{{ $t('settings.extension.showTray') }}</div>
+            </div>
+            <div class="right">
+              <div class="toggle">
+                <input id="enable-tray" v-model="showTray" type="checkbox" name="enable-tray" />
+                <label for="enable-tray"></label>
+              </div>
+            </div>
+          </div>
+          <div class="item">
+            <div class="left">
               <div class="title">{{ $t('settings.general.useCustomTitlebar') }}</div>
             </div>
             <div class="right">
@@ -330,7 +341,9 @@ const { localMusic, general, tray, theme } = storeToRefs(settingsStore)
 const { scanDir, replayGain, useInnerInfoFirst } = toRefs(localMusic.value)
 const { showTrackTimeOrID, useCustomTitlebar, language, closeAppOption } = toRefs(general.value)
 const { appearance } = toRefs(theme.value)
-const { showLyric, showControl, lyricWidth, scrollRate, enableExtension } = toRefs(tray.value)
+const { showLyric, showControl, lyricWidth, scrollRate, enableExtension, showTray } = toRefs(
+  tray.value
+)
 const { extensionCheckResult } = toRefs(useNormalStateStore())
 
 const dataStore = useDataStore()

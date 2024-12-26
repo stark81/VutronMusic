@@ -551,9 +551,10 @@ class BackGround {
   }
 
   handleAppEvents() {
+    this.handleProtocol()
     app.whenReady().then(() => {
       // handle protocol
-      this.handleProtocol()
+      // this.handleProtocol()
 
       // create window
       this.createMainWindow()

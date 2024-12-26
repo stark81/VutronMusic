@@ -235,6 +235,20 @@ export const usePlayerStore = defineStore(
     })
 
     watch(
+      () => settingsStore.tray.enableExtension,
+      (value) => {
+        if (!value) {
+          window.mainApi.send('updateCurrentLyric', {
+            content: '',
+            time: 10
+          })
+        } else {
+          window.mainApi.send('updateCurrentLyric', currentLyric.value)
+        }
+      }
+    )
+
+    watch(
       () => convolverParams.buffer,
       (value) => {
         if (value instanceof AudioBuffer) {

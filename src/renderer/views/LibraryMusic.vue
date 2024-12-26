@@ -386,7 +386,7 @@ const observeTab = new IntersectionObserver(
     entries.forEach((entry) => {
       const intersectionRatio = entry.intersectionRatio
       const maxPadding = 42
-      const maxPaddingRight = 84
+      const maxPaddingRight = hasCustomTitleBar.value ? 120 : 84
       if (intersectionRatio > 0) {
         if (isMac.value) {
           const paddingLeft = maxPadding * (1 - intersectionRatio)
@@ -404,7 +404,7 @@ const observeTab = new IntersectionObserver(
   },
   {
     root: null,
-    rootMargin: `-${hasCustomTitleBar.value ? 84 : 64}px 0px 0px 0px`,
+    rootMargin: `-${hasCustomTitleBar.value ? 64 : 64}px 0px 0px 0px`,
     threshold: Array.from({ length: 101 }, (v, i) => i / 100)
   }
 )

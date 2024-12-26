@@ -38,6 +38,7 @@ const store = new Store<TypeElectronStore>({
       enableTrayMenu: false,
       closeAppOption: 'ask',
       useCustomTitlebar: false,
+      showTray: true,
       shortcuts: [
         {
           id: 'play',

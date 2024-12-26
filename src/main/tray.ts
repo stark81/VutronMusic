@@ -138,6 +138,7 @@ const createMenuTemplate = (win: BrowserWindow) => {
 export interface YPMTray {
   createTray: () => void
   updateTray: (img: string, width: number, height: number) => void
+  destroyTray: () => void
   show: () => void
   setContextMenu: (setMenu: boolean) => void
   setPlayState: (isPlaying: boolean) => void
@@ -162,6 +163,7 @@ class TrayImpl implements YPMTray {
   }
 
   createTray() {
+    if (store.get('settings.showTray') === false) return
     if (Constants.IS_MAC) {
       const tray = new Tray(nativeImage.createEmpty())
       this._tray = tray
@@ -184,7 +186,15 @@ class TrayImpl implements YPMTray {
     })
   }
 
+  destroyTray() {
+    if (this._tray) {
+      this._tray.destroy()
+      this._tray = null
+    }
+  }
+
   updateTray(img: string, width: number, height: number) {
+    if (store.get('settings.showTray') === false) return
     if (!this._tray) this.createTray()
     const image = nativeImage.createFromDataURL(img).resize({ height, width })
     image.setTemplateImage(true)
@@ -196,6 +206,7 @@ class TrayImpl implements YPMTray {
   }
 
   setContextMenu(setMenu: boolean) {
+    if (store.get('settings.showTray') === false) return
     if (!this._tray) this.createTray()
     showContext = setMenu
     if (setMenu) {

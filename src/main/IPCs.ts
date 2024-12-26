@@ -125,6 +125,12 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
         tray.setContextMenu(value)
       } else if (key === 'lang') {
         tray.setContextMenu(store.get('settings.enableTrayMenu'))
+      } else if (key === 'showTray') {
+        if (value) {
+          tray.createTray()
+        } else {
+          tray.destroyTray()
+        }
       }
     }
   })

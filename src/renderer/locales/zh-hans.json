@@ -226,6 +226,7 @@
       "appearance": "外观",
       "tray": "系统托盘",
       "extension": "歌词插件",
+      "platformSetting": "平台设置",
       "localMusic": "本地歌曲"
     },
     "general": {
@@ -266,7 +267,8 @@
       "showLyric": {
         "text": "显示状态栏歌词",
         "desc": "该功能需要安装并启用歌词插件服务"
-      }
+      },
+      "showTray": "显示托盘图标"
     }
   },
   "toast": {
