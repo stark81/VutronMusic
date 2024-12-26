@@ -17,8 +17,7 @@ const trayIcon = new URL('../assets/tray/menu_white.png', import.meta.url).href
 
 const playerStore = usePlayerStore()
 const { playPrev, _playNextTrack, moveToFMTrash, playOrPause } = playerStore
-const { isPersonalFM, playing, currentTrack, lyrics, currentLyricIndex, isLiked } =
-  storeToRefs(playerStore)
+const { isPersonalFM, playing, currentTrack, currentLyric, isLiked } = storeToRefs(playerStore)
 
 const settingsStore = useSettingsStore()
 const { tray } = storeToRefs(settingsStore)
@@ -39,7 +38,8 @@ class TrayLyric {
 
   getIcons() {
     this._lyric = new Lyric({ width: tray.value.lyricWidth })
-    if (currentTrack.value) this._lyric.lyric.text = currentTrack.value.name
+    if (currentTrack.value)
+      this._lyric.lyric.text = currentLyric.value.content || currentTrack.value.name
     this._control = new Control([
       isPersonalFM.value ? thumbsDown : previous,
       playing.value ? pause : play,
@@ -124,30 +124,23 @@ class TrayLyric {
   }
 
   handleEvent() {
-    this._updateLyric(currentLyricIndex.value)
     watch(isPersonalFM, async (value) => {
       this._control?.updateImage(0, value ? thumbsDown : previous)
       await this._control?.draw()
       this.buildTray()
     })
-    watch(
-      () => lyrics.value.lyric,
-      (value) => {
-        this._lyric!.lyric = {
-          text: currentTrack.value?.name ?? '听你想听的音乐',
-          width: 0,
-          time: 1000
-        }
-        this._lyric!.updateLyric()
+    watch(currentLyric, (value) => {
+      this._lyric!.lyric = {
+        text: value.content,
+        width: 0,
+        time: value.time * 1000
       }
-    )
+      this._lyric?.updateLyric()
+    })
     watch(playing, async (value) => {
       this._control?.updateImage(1, value ? pause : play)
       await this._control?.draw()
       this.buildTray()
-    })
-    watch(currentLyricIndex, (value) => {
-      this._updateLyric(value)
     })
     watch(isLiked, async (value) => {
       this._control?.updateImage(3, value ? likeSolid : liked)
@@ -202,40 +195,6 @@ class TrayLyric {
       }
     })
   }
-
-  _updateLyric(value: number) {
-    if (value === -1 || !lyrics.value.lyric) {
-      this._lyric!.lyric = {
-        text: currentTrack.value?.name ?? '听你想听的音乐',
-        width: 0,
-        time: 1000
-      }
-      this._lyric!.updateLyric()
-      return
-    }
-    const lyric = lyrics.value.lyric
-    if (!lyric) {
-      this._lyric!.lyric = {
-        text: currentTrack.value ? currentTrack.value.name : '听你想听的音乐',
-        width: 0,
-        time: 1000
-      }
-      this._lyric!.updateLyric()
-      return
-    }
-    let currentLyricTime = 0
-    if (value === lyric.length - 1) {
-      currentLyricTime = 10 * 1000
-    } else {
-      currentLyricTime = lyric[value + 1].time * 1000 - lyric[value].time * 1000
-    }
-    this._lyric!.lyric = {
-      text: lyric[value].content,
-      width: 0,
-      time: currentLyricTime
-    }
-    this._lyric!.updateLyric()
-  }
 }
 
 class TouchBarLyric {
@@ -243,7 +202,8 @@ class TouchBarLyric {
   private _touchBar: Canvas
   constructor() {
     this._lyric = new Lyric({ width: 252, fontSize: 12 })
-    if (currentTrack.value) this._lyric.lyric.text = currentTrack.value.name
+    if (currentTrack.value)
+      this._lyric.lyric.text = currentLyric.value.content || currentTrack.value.name
     this._touchBar = new Canvas({
       width: this._lyric.canvas.width,
       height: this._lyric.canvas.height,
@@ -264,54 +224,14 @@ class TouchBarLyric {
     })
   }
 
-  _updateLyric(value: number) {
-    if (value === -1 || !lyrics.value.lyric) {
-      this._lyric!.lyric = {
-        text: currentTrack.value?.name ?? '听你想听的音乐',
-        width: 0,
-        time: 1000
-      }
-      this._lyric!.updateLyric()
-      return
-    }
-    const lyric = lyrics.value.lyric
-    if (!lyric) {
-      this._lyric!.lyric = {
-        text: currentTrack.value ? currentTrack.value.name : '听你想听的音乐',
-        width: 0,
-        time: 1000
-      }
-      this._lyric!.updateLyric()
-      return
-    }
-    let currentLyricTime = 0
-    if (value === lyric.length - 1) {
-      currentLyricTime = 10 * 1000
-    } else {
-      currentLyricTime = lyric[value + 1].time * 1000 - lyric[value].time * 1000
-    }
-    this._lyric!.lyric = {
-      text: lyric[value].content,
-      width: 0,
-      time: currentLyricTime
-    }
-    this._lyric!.updateLyric()
-  }
-
   handleEvent() {
-    watch(
-      () => lyrics.value.lyric,
-      (value) => {
-        this._lyric.lyric = {
-          text: currentTrack.value?.name ?? '听你想听的音乐',
-          width: 0,
-          time: 1000
-        }
-        this._lyric.updateLyric()
+    watch(currentLyric, (value) => {
+      this._lyric!.lyric = {
+        text: value.content,
+        width: 0,
+        time: value.time * 1000
       }
-    )
-    watch(currentLyricIndex, (value) => {
-      this._updateLyric(value)
+      this._lyric.updateLyric()
     })
     eventBus.on('lyric-draw', () => {
       this.buildTouchBar()
@@ -332,7 +252,7 @@ export const buildTouchBars = () => {
   const touchBar = new TouchBarLyric()
   touchBar.buildTouchBar()
   touchBar.handleEvent()
-  setTimeout(() => {
-    touchBar._updateLyric(currentLyricIndex.value)
-  }, 500)
+  // setTimeout(() => {
+  //   touchBar._updateLyric(currentLyricIndex.value)
+  // }, 500)
 }
