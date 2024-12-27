@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, Menu, net, protocol, screen } from 'electron'
+import { app, BrowserWindow, dialog, globalShortcut, Menu, net, protocol, screen } from 'electron'
 import { release } from 'os'
 import Constants from './utils/Constants'
 import store from './store'
@@ -26,6 +26,7 @@ import {
   getAudioSource
 } from './utils/utils'
 import { CacheAPIs } from './utils/CacheApis'
+import { registerGlobalShortcuts } from './globalShortcut'
 
 const cacheTracks = new Map<string, any>()
 
@@ -561,6 +562,10 @@ class BackGround {
         this.mpris = createMpris(this.win)
       }
 
+      if (store.get('settings.enableGlobalShortcut')) {
+        registerGlobalShortcuts(this.win)
+      }
+
       const lrc = {
         toggleOSDWindow: () => this.toggleOSDWindow(),
         toggleMouseIgnore: () => this.toggleMouseIgnore(),
@@ -596,7 +601,9 @@ class BackGround {
       this.fastifyApp?.close()
     })
 
-    app.on('will-quit', () => {})
+    app.on('will-quit', () => {
+      globalShortcut.unregisterAll()
+    })
 
     if (!Constants.IS_MAC) {
       app.on('second-instance', () => {

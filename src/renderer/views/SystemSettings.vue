@@ -1,5 +1,5 @@
 <template>
-  <div class="system-settings" :style="mainStyle">
+  <div class="system-settings" :style="mainStyle" @click="clickOutside">
     <div v-if="user.userId" class="user-info">
       <div class="left">
         <img class="avatar" :src="user.avatarUrl" loading="lazy" />
@@ -49,6 +49,12 @@
           :class="{ active: tab === 'localTracks' }"
           @click="updateTab(isMac || isLinux ? 3 : 2)"
           >{{ $t('settings.nav.localMusic') }}</div
+        >
+        <div
+          class="tab"
+          :class="{ active: tab === 'shortcut' }"
+          @click="updateTab(isMac || isLinux ? 4 : 3)"
+          >{{ $t('settings.nav.shortcut') }}</div
         >
       </div>
     </div>
@@ -318,6 +324,75 @@
             </div>
           </div>
         </div>
+        <div v-if="isElectron" v-show="tab === 'shortcut'" key="shortcut">
+          <div class="item">
+            <div class="left">
+              <div class="title"> {{ $t('settings.shortcut.enableGlobalShortcut') }} </div>
+            </div>
+            <div class="right">
+              <div class="toggle">
+                <input
+                  id="enable-global-shortcut"
+                  v-model="enableGlobalShortcut"
+                  type="checkbox"
+                  name="enable-global-shortcut"
+                />
+                <label for="enable-global-shortcut"></label>
+              </div>
+            </div>
+          </div>
+          <div
+            id="shortcut-table"
+            :class="{ 'global-disabled': !enableGlobalShortcut }"
+            tabindex="0"
+            @keydown="handleShortcutKeydown"
+          >
+            <div class="row row-head">
+              <div class="col">{{ $t('settings.shortcut.function') }}</div>
+              <div class="col">{{ $t('settings.shortcut.shortcut') }}</div>
+              <div class="col">{{ $t('settings.shortcut.globalShortcut') }}</div>
+            </div>
+            <div v-for="shortcut in shortcuts" :key="shortcut.id" class="row">
+              <div class="col">{{ shortcut.name }}</div>
+              <div class="col">
+                <div
+                  class="keyboard-input"
+                  :class="{
+                    active: shortcutInput.id === shortcut.id && shortcutInput.type === 'shortcut'
+                  }"
+                  @click.stop="readyToRecordShortcut(shortcut.id, 'shortcut')"
+                  >{{
+                    shortcutInput.id === shortcut.id &&
+                    shortcutInput.type === 'shortcut' &&
+                    recordedShortcutComputed !== ''
+                      ? formatShortcut(recordedShortcutComputed)
+                      : formatShortcut(shortcut.shortcut)
+                  }}</div
+                >
+              </div>
+              <div class="col">
+                <div
+                  class="keyboard-input"
+                  :class="{
+                    active:
+                      shortcutInput.id === shortcut.id && shortcutInput.type === 'globalShortcut'
+                  }"
+                  @click.stop="readyToRecordShortcut(shortcut.id, 'globalShortcut')"
+                  >{{
+                    shortcutInput.id === shortcut.id &&
+                    shortcutInput.type === 'globalShortcut' &&
+                    recordedShortcutComputed !== ''
+                      ? formatShortcut(recordedShortcutComputed)
+                      : formatShortcut(shortcut.globalShortcut)
+                  }}</div
+                >
+              </div>
+            </div>
+          </div>
+          <button class="restore-default-shortcut" @click="restoreDefaultShortcuts">{{
+            $t('settings.shortcut.resetShortcut')
+          }}</button>
+        </div>
       </div>
     </div>
   </div>
@@ -337,7 +412,8 @@ import SvgIcon from '../components/SvgIcon.vue'
 import Utils from '../utils'
 
 const settingsStore = useSettingsStore()
-const { localMusic, general, tray, theme } = storeToRefs(settingsStore)
+const { localMusic, general, tray, theme, shortcuts, enableGlobalShortcut } =
+  storeToRefs(settingsStore)
 const { scanDir, replayGain, useInnerInfoFirst } = toRefs(localMusic.value)
 const { showTrackTimeOrID, useCustomTitlebar, language, closeAppOption } = toRefs(general.value)
 const { appearance } = toRefs(theme.value)
@@ -356,6 +432,8 @@ const { outputDevice } = storeToRefs(playerStore)
 const localMusicStore = useLocalMusicStore()
 const { resetLocalMusic } = localMusicStore
 
+const { restoreDefaultShortcuts, updateShortcut } = useSettingsStore()
+
 const isElectron = window.env?.isElectron || false
 const isMac = window.env?.isMac
 const isLinux = window.env?.isLinux
@@ -373,6 +451,14 @@ const useLinuxTitleBar = computed({
     useCustomTitlebar.value = value
   }
 })
+
+const shortcutInput = ref({
+  id: '',
+  type: '',
+  recording: false
+})
+
+const recordedShortcut = ref<any[]>([])
 
 const mainStyle = ref({})
 
@@ -435,7 +521,7 @@ const getAllOutputDevices = () => {
 
 const tab = ref('general')
 const updateTab = (index: number) => {
-  const tabs = ['general', 'appearance', 'localTracks']
+  const tabs = ['general', 'appearance', 'localTracks', 'shortcut']
   if (isMac) {
     tabs.splice(2, 0, 'tray')
   } else if (isLinux) {
@@ -497,6 +583,114 @@ const openOnBrowser = () => {
   Utils.openExternal(url)
 }
 
+const handleShortcutKeydown = (e: KeyboardEvent) => {
+  if (shortcutInput.value.recording === false) return
+  e.preventDefault()
+  if (recordedShortcut.value.find((s) => s.keyCode === e.keyCode)) return
+  recordedShortcut.value.push(e)
+  if (
+    (e.keyCode >= 65 && e.keyCode <= 90) || // A-Z
+    (e.keyCode >= 48 && e.keyCode <= 57) || // 0-9
+    (e.keyCode >= 112 && e.keyCode <= 123) || // F1-F12
+    e.keyCode === 32 || // Space
+    ['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown'].includes(e.key) ||
+    ['=', '-', '~', '[', ']', ';', "'", ',', '.', '/'].includes(e.key)
+  ) {
+    saveShortcut()
+  }
+}
+
+const recordedShortcutComputed = computed(() => {
+  let shortcut: string[] = []
+  recordedShortcut.value.map((e) => {
+    if (e.keyCode >= 65 && e.keyCode <= 90) {
+      shortcut.push(e.code.replace('Key', ''))
+    } else if (e.key === 'Meta') {
+      shortcut.push('Command')
+    } else if (['Alt', 'Control', 'Shift'].includes(e.key)) {
+      shortcut.push(e.key)
+    } else if (e.keyCode >= 48 && e.keyCode <= 57) {
+      shortcut.push(e.code.replace('Digit', ''))
+    } else if (e.keyCode >= 112 && e.keyCode <= 123) {
+      shortcut.push(e.code)
+    } else if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+      shortcut.push(e.code.replace('Arrow', ''))
+    } else if (e.keyCode === 32) {
+      shortcut.push('Space')
+    } else if (['=', '-', '~', '[', ']', ';', "'", ',', '.', '/'].includes(e.key)) {
+      shortcut.push(e.key)
+    }
+  })
+  const sortTable = {
+    Control: 1,
+    Shift: 2,
+    Alt: 3,
+    Command: 4
+  }
+  shortcut = shortcut.sort((a, b) => {
+    if (!sortTable[a] || !sortTable[b]) return 0
+    if (sortTable[a] - sortTable[b] <= -1) {
+      return -1
+    } else if (sortTable[a] - sortTable[b] >= 1) {
+      return 1
+    } else {
+      return 0
+    }
+  })
+  return shortcut.join('+')
+})
+
+const clickOutside = () => {
+  exitRecordShortcut()
+}
+
+const exitRecordShortcut = () => {
+  if (shortcutInput.value.recording === false) return
+  shortcutInput.value = { id: '', type: '', recording: false }
+  recordedShortcut.value = []
+}
+
+const saveShortcut = () => {
+  const { id, type } = shortcutInput.value
+  const payload = {
+    id,
+    type,
+    shortcut: recordedShortcutComputed.value
+  }
+  updateShortcut(payload)
+}
+
+const readyToRecordShortcut = (id: string, type: string) => {
+  if (type === 'globalShortcut' && !enableGlobalShortcut.value) return
+  shortcutInput.value = {
+    id,
+    type,
+    recording: true
+  }
+  recordedShortcut.value = []
+}
+
+const formatShortcut = (shortcut: string) => {
+  shortcut = shortcut
+    .replaceAll('+', ' + ')
+    .replace('Up', '↑')
+    .replace('Down', '↓')
+    .replace('Left', '←')
+    .replace('Right', '→')
+  if (language.value === 'zh') {
+    shortcut = shortcut.replace('Space', '空格')
+  }
+  if (isMac) {
+    return shortcut
+      .replace('CommandOrControl', '⌘')
+      .replace('Command', '⌘')
+      .replace('Alt', '⌥')
+      .replace('Shift', '⇧')
+      .replace('Control', '⌃')
+  }
+  return shortcut.replace('CommandOrControl', 'Ctrl')
+}
+
 onMounted(() => {
   mainStyle.value = {
     marginTop: isMac || !useCustomTitlebar.value ? '20px' : '0'
@@ -522,7 +716,7 @@ onBeforeUnmount(() => {
   color: var(--color-text);
   padding: 16px 20px;
   border-radius: 16px;
-  margin: 20px 0;
+  margin-top: 20px;
   img.avatar {
     border-radius: 50%;
     height: 64px;
@@ -598,6 +792,7 @@ onBeforeUnmount(() => {
   height: 100%;
   padding: 0 30px 0 180px;
   transition: all 0.3s;
+  margin-bottom: 32px;
   .container {
     width: 100%;
     padding-top: 30px;
@@ -663,7 +858,59 @@ onBeforeUnmount(() => {
     transition: margin 0.3s;
   }
 }
-
+#shortcut-table {
+  font-size: 14px;
+  /* border: 1px solid black; */
+  user-select: none;
+  color: var(--color-text);
+  margin-bottom: 20px;
+  .row {
+    display: flex;
+  }
+  .row.row-head {
+    opacity: 0.58;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .col {
+    min-width: 192px;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    /* border: 1px solid red; */
+    &:first-of-type {
+      padding-left: 0;
+      min-width: 128px;
+    }
+  }
+  .keyboard-input {
+    font-weight: 600;
+    background-color: var(--color-secondary-bg);
+    padding: 8px 12px 8px 12px;
+    border-radius: 0.5rem;
+    min-width: 146px;
+    min-height: 34px;
+    box-sizing: border-box;
+    &.active {
+      color: var(--color-primary);
+      background-color: var(--color-primary-bg);
+    }
+  }
+  .restore-default-shortcut {
+    margin-top: 12px;
+  }
+  &.global-disabled {
+    .row .col:last-child {
+      opacity: 0.48;
+    }
+    .row.row-head .col:last-child {
+      opacity: 1;
+    }
+  }
+  &:focus {
+    outline: none;
+  }
+}
 .item {
   margin-bottom: 6px;
   display: flex;

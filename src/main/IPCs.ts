@@ -1,4 +1,4 @@
-import { app, ipcMain, shell, IpcMainEvent, dialog, BrowserWindow } from 'electron'
+import { app, ipcMain, shell, IpcMainEvent, dialog, BrowserWindow, globalShortcut } from 'electron'
 import { YPMTray } from './tray'
 import { MprisImpl } from './mpris'
 // import { createDBus, signalNameEnum } from './dbusService'
@@ -12,6 +12,8 @@ import cache from './cache'
 import { db, Tables } from './db'
 import { CacheAPIs } from './utils/CacheApis'
 import { createMD5, getReplayGainFromMetadata, splitArtist } from './utils/utils'
+import { registerGlobalShortcuts } from './globalShortcut'
+import { createMenu } from './menu'
 
 let isLock = store.get('osdWindow.isLock') as boolean
 let isPlaying = false
@@ -131,6 +133,16 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
         } else {
           tray.destroyTray()
         }
+      } else if (key === 'enableGlobalShortcut') {
+        if (value) {
+          registerGlobalShortcuts(win)
+        } else {
+          globalShortcut.unregisterAll()
+        }
+      } else if (key === 'shortcuts') {
+        createMenu(win)
+        globalShortcut.unregisterAll()
+        registerGlobalShortcuts(win)
       }
     }
   })

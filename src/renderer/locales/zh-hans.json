@@ -227,7 +227,8 @@
       "tray": "系统托盘",
       "extension": "歌词插件",
       "platformSetting": "平台设置",
-      "localMusic": "本地歌曲"
+      "localMusic": "本地歌曲",
+      "shortcut": "快捷键设置"
     },
     "general": {
       "language": {
@@ -269,6 +270,13 @@
         "desc": "该功能需要安装并启用歌词插件服务"
       },
       "showTray": "显示托盘图标"
+    },
+    "shortcut": {
+      "enableGlobalShortcut": "启用全局快捷键",
+      "function": "功能",
+      "shortcut": "快捷键",
+      "globalShortcut": "全局快捷键",
+      "resetShortcut": "恢复默认快捷键"
     }
   },
   "toast": {

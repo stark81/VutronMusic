@@ -1,4 +1,5 @@
 import { app, BrowserWindow, Menu, ipcMain, shell } from 'electron'
+import defaultShortcuts from './utils/shortcuts'
 import Constants from './utils/Constants'
 import store from './store'
 
@@ -7,7 +8,17 @@ let repeatMode = 'off'
 let shuffleMode = false
 
 export function createMenu(win: BrowserWindow) {
-  const shortcuts = store.get('settings.shortcuts') as Array<any>
+  let shortcuts = store.get('settings.shortcuts') as
+    | {
+        id: string
+        name: string
+        shortcut: string
+        globalShortcut: string
+      }[]
+    | undefined
+  if (shortcuts === undefined) {
+    shortcuts = defaultShortcuts
+  }
   const lang = store.get('settings.lang') as string
 
   let menu = null
@@ -458,8 +469,6 @@ export function createMenu(win: BrowserWindow) {
     const [key, value] = Object.entries(data)[0] as [string, any]
     if (key === 'lang') {
       updateMenu(value)
-    } else if (key === 'shortcuts') {
-      updateMenu(store.get('settings.lang') as string)
     }
   })
 }

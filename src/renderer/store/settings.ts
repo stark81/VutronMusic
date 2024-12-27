@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, reactive, watch, onMounted, toRaw } from 'vue'
 import DefaultShortcuts from '../utils/shortcuts'
 import { playlistCategories } from '../utils/common'
+import cloneDeep from 'lodash/cloneDeep'
 
 export const useSettingsStore = defineStore(
   'settings',
@@ -47,7 +48,12 @@ export const useSettingsStore = defineStore(
       lock: false
     })
 
-    const shortcuts = ref<any[]>(DefaultShortcuts)
+    const enableGlobalShortcut = ref(false)
+
+    const shortcuts =
+      ref<{ id: string; name: string; shortcut: string; globalShortcut: string }[]>(
+        DefaultShortcuts
+      )
 
     watch(
       () => localMusic.useInnerInfoFirst,
@@ -70,12 +76,16 @@ export const useSettingsStore = defineStore(
       }
     )
 
-    watch(
-      () => shortcuts.value,
-      (newValue) => {
-        window.mainApi.send('setStoreSettings', { shortcuts: toRaw(newValue) })
-      }
-    )
+    watch(enableGlobalShortcut, (value) => {
+      window.mainApi.send('setStoreSettings', { enableGlobalShortcut: value })
+    })
+
+    // watch(
+    //   () => shortcuts.value.shortcutArray,
+    //   (newValue) => {
+    //     window.mainApi.send('setStoreSettings', { shortcuts: toRaw(newValue) })
+    //   }
+    // )
 
     watch(
       () => general.language,
@@ -116,10 +126,23 @@ export const useSettingsStore = defineStore(
       }
     }
 
+    const updateShortcut = ({ id, type, shortcut }) => {
+      const newShortcut = shortcuts.value.find((s) => s.id === id)!
+      newShortcut[type] = shortcut
+      shortcuts.value = shortcuts.value.map((s) => (s.id === id ? newShortcut : s))
+      window.mainApi.send('setStoreSettings', { shortcuts: cloneDeep(toRaw(shortcuts.value)) })
+    }
+
+    const restoreDefaultShortcuts = () => {
+      shortcuts.value = cloneDeep(DefaultShortcuts)
+      window.mainApi.send('setStoreSettings', { shortcuts: cloneDeep(toRaw(shortcuts.value)) })
+    }
+
     onMounted(() => {
       const trayMenu = !tray.showControl && !tray.showLyric
       window.mainApi.send('setStoreSettings', {
         lang: general.language,
+        enableGlobalShortcut: enableGlobalShortcut.value,
         shortcuts: toRaw(shortcuts.value),
         enableTrayMenu: trayMenu,
         innerFirst: localMusic.useInnerInfoFirst,
@@ -128,7 +151,18 @@ export const useSettingsStore = defineStore(
         useCustomTitlebar: general.useCustomTitlebar
       })
     })
-    return { theme, general, localMusic, tray, shortcuts, osdLyric, togglePlaylistCategory }
+    return {
+      theme,
+      general,
+      localMusic,
+      tray,
+      enableGlobalShortcut,
+      shortcuts,
+      osdLyric,
+      updateShortcut,
+      togglePlaylistCategory,
+      restoreDefaultShortcuts
+    }
   },
   { persist: true }
 )

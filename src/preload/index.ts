@@ -44,6 +44,8 @@ const rendererAvailChannels: string[] = [
   'repeat',
   'repeat-shuffle',
   'like',
+  'increaseVolume',
+  'decreaseVolume',
   'fm-trash',
   'updateLyric',
   'updateLyricIndex',

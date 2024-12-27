@@ -170,6 +170,20 @@ const handleChanelEvent = () => {
   })
 }
 
+const handleKeydown = (e: KeyboardEvent) => {
+  if (e.code === 'Space') {
+    if (
+      // @ts-ignore
+      e.target!.tagName === 'INPUT' ||
+      // @ts-ignore
+      e.target!.classList?.contains('comment-input') ||
+      route.name === 'mv'
+    ) {
+      e.preventDefault()
+    }
+  }
+}
+
 onMounted(async () => {
   hasCustomTitleBar.value =
     (window.env?.isLinux && general.value.useCustomTitlebar) || window.env?.isWindows || false
@@ -187,6 +201,7 @@ onMounted(async () => {
       extensionCheckResult.value = result
     })
   }
+  window.addEventListener('keydown', handleKeydown)
   fetchData()
   fetchLocalData()
   handleChanelEvent()
