@@ -104,7 +104,7 @@
     "tree-kill": "^1.2.2",
     "typescript": "^5.5.3",
     "vite": "^5.3.3",
-    "vite-plugin-electron": "^0.28.2",
+    "vite-plugin-electron": "^0.29.0",
     "vite-plugin-electron-renderer": "^0.14.5",
     "vite-plugin-eslint": "^1.8.1",
     "vite-plugin-vuetify": "^2.0.2",
