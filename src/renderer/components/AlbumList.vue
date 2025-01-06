@@ -75,8 +75,7 @@ const showTracks = computed(() => {
 const playThisList = (id: number) => {
   const IDs = showTracks.value.map((track) => track.id)
   const idx = showTracks.value.findIndex((item) => item.id === id)
-  const album = albums.value[selectedIdx.value]
-  replacePlaylist(album.matched ? 'album' : 'localAlbum', album.id, IDs, idx)
+  replacePlaylist('localPlaylist', 0, IDs, idx)
 }
 
 const updatePadding = inject('updatePadding') as (padding: number) => void

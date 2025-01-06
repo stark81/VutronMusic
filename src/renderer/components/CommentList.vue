@@ -25,6 +25,7 @@
     </div>
     <div ref="mainRef" class="comment-main" :style="mainStyle">
       <VirtualScroll
+        v-if="comments.length"
         :list="comments"
         :item-size="63"
         :height="props.type === 'mv' ? 510 : 560"
