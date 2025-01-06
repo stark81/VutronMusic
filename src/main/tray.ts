@@ -14,7 +14,6 @@ import path from 'path'
 let playState = false
 let repeatMode = 'off'
 let shuffleMode = false
-let showContext = false
 
 // const getIcon = () => {}
 
@@ -157,13 +156,15 @@ class TrayImpl implements YPMTray {
     this._tray = null
     this._contextMenu = null
 
+    this.createTray()
+    this.setContextMenu()
+
     nativeTheme.on('updated', () => {
-      this.setContextMenu(showContext)
+      this.setContextMenu(true)
     })
   }
 
   createTray() {
-    if (store.get('settings.showTray') === false) return
     if (Constants.IS_MAC) {
       const tray = new Tray(nativeImage.createEmpty())
       this._tray = tray
@@ -205,15 +206,13 @@ class TrayImpl implements YPMTray {
     this._win.show()
   }
 
-  setContextMenu(setMenu: boolean) {
-    if (store.get('settings.showTray') === false) return
-    if (!this._tray) this.createTray()
-    showContext = setMenu
+  setContextMenu(setMenu: boolean = true) {
     if (setMenu) {
       const template = createMenuTemplate(this._win)
       this._contextMenu = Menu.buildFromTemplate(template)
       this._tray.setContextMenu(this._contextMenu)
     } else {
+      this._contextMenu = null
       this._tray.setContextMenu(null)
     }
   }

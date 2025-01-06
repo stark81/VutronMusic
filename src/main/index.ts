@@ -3,6 +3,7 @@ import { release } from 'os'
 import Constants from './utils/Constants'
 import store from './store'
 import { createTray, YPMTray } from './tray'
+// import { createTray, YPMTray } from './testTray'
 import { createMenu } from './menu'
 import { createDockMenu } from './dock'
 import { createTouchBar } from './touchBar'
@@ -65,6 +66,11 @@ const closeOnLinux = (e: any, win: BrowserWindow) => {
         }
       })
       .catch()
+  } else if (closeOpt === 'exit') {
+    win = null
+    app.quit()
+  } else {
+    win.hide()
   }
 }
 

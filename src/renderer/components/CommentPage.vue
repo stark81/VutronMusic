@@ -1,11 +1,13 @@
 <template>
-  <CommentList v-show="currentPage === 'comment'" :id="props.id" :type="props.type" />
-  <FloorComment
-    v-if="currentPage === 'floorComment'"
-    :id="props.id"
-    :type="props.type"
-    :be-replied-comment-id="beRepliedCommentId"
-  />
+  <div class="comment-page">
+    <CommentList v-show="currentPage === 'comment'" :id="props.id" :type="props.type" />
+    <FloorComment
+      v-if="currentPage === 'floorComment'"
+      :id="props.id"
+      :type="props.type"
+      :be-replied-comment-id="beRepliedCommentId"
+    />
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -30,4 +32,8 @@ provide('currentPage', currentPage)
 provide('beRepliedCommentId', beRepliedCommentId)
 </script>
 
-<style scoped lang="scss"></style>
+<style scoped lang="scss">
+.comment-page {
+  width: 100%;
+}
+</style>

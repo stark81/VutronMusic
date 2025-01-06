@@ -63,11 +63,7 @@ const { replacePlaylist } = playerStore
 
 // ==================== computed ==================== //
 const artistsArray = computed(() => {
-  const ar = props.tracks
-    .slice()
-    .reverse()
-    .map((track) => track.artists)
-    .flat()
+  const ar = props.tracks.map((track) => track.artists).flat()
   return [...new Map(ar.map((item) => [item.name, item])).values()]
 })
 

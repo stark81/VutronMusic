@@ -65,9 +65,7 @@ function exitAsk(event: IpcMainEvent, win: BrowserWindow) {
         }, 100)
       }
     })
-    .catch((err) => {
-      console.log('========', err)
-    })
+    .catch()
 }
 
 function initWindowIpcMain(win: BrowserWindow): void {
@@ -124,15 +122,10 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
     for (const [key, value] of Object.entries(data) as [string, any]) {
       store.set(`settings.${key}`, value)
       if (key === 'enableTrayMenu') {
-        tray.setContextMenu(value)
+        tray.setContextMenu(Constants.IS_MAC ? value : true)
       } else if (key === 'lang') {
-        tray.setContextMenu(store.get('settings.enableTrayMenu'))
-      } else if (key === 'showTray') {
-        if (value) {
-          tray.createTray()
-        } else {
-          tray.destroyTray()
-        }
+        const showMenu = Constants.IS_MAC ? (store.get('settings.enableTrayMenu') as boolean) : true
+        tray.setContextMenu(showMenu)
       } else if (key === 'enableGlobalShortcut') {
         if (value) {
           registerGlobalShortcuts(win)

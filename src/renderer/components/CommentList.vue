@@ -319,6 +319,7 @@ onMounted(() => {
 <style scoped lang="scss">
 .comment-container {
   // height: 100vh;
+  width: 100%;
   display: flex;
   flex-direction: column;
   scrollbar-width: none;
@@ -388,7 +389,8 @@ onMounted(() => {
   width: 100%;
 }
 .comment {
-  width: auto;
+  // width: auto;
+  word-break: break-all;
 
   .comment-nickname {
     cursor: pointer;

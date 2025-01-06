@@ -6,7 +6,7 @@ const baseConfig = {
   appId: '',
   asar: true,
   extends: null,
-  compression: 'maximum',
+  // compression: 'maximum',
   artifactName: '${productName} ${version}_${arch}.${ext}',
   directories: {
     output: './release/${version}'

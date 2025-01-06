@@ -172,8 +172,10 @@
             </div>
           </div>
         </div>
-        <LyricPage v-if="show === 'lyric'" />
-        <Comment v-else :id="currentTrack!.id" type="music" />
+        <div class="right-side">
+          <LyricPage v-if="show === 'lyric'" />
+          <Comment v-else :id="currentTrack!.id" type="music" />
+        </div>
         <button-icon class="close-button" @click="showLyrics = !showLyrics">
           <SvgIcon icon-class="arrow-down" />
         </button-icon>
@@ -469,6 +471,10 @@ provide('show', show)
       }
     }
   }
+}
+
+.right-side {
+  max-width: 50vw;
 }
 
 .close-button {

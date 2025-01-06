@@ -138,8 +138,8 @@
         <div v-else-if="currentTab === 'localPlaylist'">
           <CoverRow :items="playlists" :type="currentTab" />
         </div>
-        <AlbumList v-else-if="currentTab === 'album'" :tracks="filterLocalTracks" />
-        <ArtistList v-else-if="currentTab === 'artist'" :tracks="filterLocalTracks" />
+        <AlbumList v-else-if="currentTab === 'album'" :tracks="sortedLocalTracks" />
+        <ArtistList v-else-if="currentTab === 'artist'" :tracks="sortedLocalTracks" />
       </div>
     </div>
 
@@ -295,25 +295,30 @@ const pickedLyric = computed(() => {
 const keyword = computed(() => localSearchBoxRef.value?.keywords || '')
 
 const sortedLocalTracks = computed(() => {
-  if (sortBy.value === 'default') {
-    return filterLocalTracks.value.slice()
-  } else {
-    return filterLocalTracks.value.slice().sort((a, b) => {
-      if (sortBy.value === 'ascend') {
-        const timeA = new Date(a.createTime).getTime()
-        const timeB = new Date(b.createTime).getTime()
-        return timeA - timeB
-      } else if (sortBy.value === 'descend') {
-        const timeA = new Date(a.createTime).getTime()
-        const timeB = new Date(b.createTime).getTime()
-        return timeB - timeA
-      } else return a.name.localeCompare(b.name, 'zh-CN', { numeric: true })
-    })
-  }
+  return filterLocalTracks.value.slice().sort((a, b) => {
+    if (sortBy.value === 'default') {
+      return a.index - b.index
+    } else if (sortBy.value === 'ascend') {
+      const timeA = new Date(a.createTime).getTime()
+      const timeB = new Date(b.createTime).getTime()
+      return timeA - timeB
+    } else if (sortBy.value === 'descend') {
+      const timeA = new Date(a.createTime).getTime()
+      const timeB = new Date(b.createTime).getTime()
+      return timeB - timeA
+    } else return a.name.localeCompare(b.name, 'zh-CN', { numeric: true })
+  })
+})
+
+const defaultTracks = computed(() => {
+  return localTracks.value.map((track, index) => ({
+    ...track,
+    index
+  }))
 })
 
 const filterLocalTracks = computed(() => {
-  return localTracks.value.filter(
+  return defaultTracks.value.filter(
     (track) =>
       (track.name && track.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
       (track.album?.name &&

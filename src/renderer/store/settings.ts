@@ -63,9 +63,9 @@ export const useSettingsStore = defineStore(
     )
 
     watch(
-      () => !tray.showControl && !tray.showLyric,
+      () => tray.showControl || tray.showLyric,
       (newValue) => {
-        window.mainApi.send('setStoreSettings', { enableTrayMenu: newValue })
+        window.mainApi.send('setStoreSettings', { enableTrayMenu: !newValue })
       }
     )
 
@@ -139,7 +139,7 @@ export const useSettingsStore = defineStore(
     }
 
     onMounted(() => {
-      const trayMenu = !tray.showControl && !tray.showLyric
+      const trayMenu = !(tray.showControl || tray.showLyric)
       window.mainApi.send('setStoreSettings', {
         lang: general.language,
         enableGlobalShortcut: enableGlobalShortcut.value,

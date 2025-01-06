@@ -293,11 +293,11 @@ watch(_listData, (newList, oldList) => {
 
     lock.value = false
   } else if (newList.length === oldList.length) {
-    nextTick(() => {
-      initPosition()
-      startRow.value = 0
-      // endRow.value = startRow.value + visibleCount.value
-    })
+    // nextTick(() => {
+    //   initPosition()
+    //   startRow.value = 0
+    //   // endRow.value = startRow.value + visibleCount.value
+    // })
   } else {
     initPosition()
   }
