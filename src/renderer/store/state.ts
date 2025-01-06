@@ -9,6 +9,7 @@ export const useNormalStateStore = defineStore('state', () => {
   const setConvolverModal = ref(false)
   const setPlaybackRateModal = ref(false)
   const extensionCheckResult = ref(false)
+  const modalOpen = ref(false)
   const addTrackToPlaylistModal = ref({
     show: false,
     selectedTrackID: [0],
@@ -61,6 +62,7 @@ export const useNormalStateStore = defineStore('state', () => {
     accurateMatchModal,
     dailyTracks,
     toast,
+    modalOpen,
     showToast
   }
 })

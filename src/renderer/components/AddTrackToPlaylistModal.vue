@@ -34,7 +34,7 @@ import { useNormalStateStore } from '../store/state'
 import { useLocalMusicStore, Playlist } from '../store/localMusic'
 import { useDataStore } from '../store/data'
 import { storeToRefs } from 'pinia'
-import { computed, toRaw } from 'vue'
+import { computed, toRaw, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { addOrRemoveTrackFromPlaylist } from '../api/playlist'
 
@@ -42,7 +42,7 @@ const { t } = useI18n()
 
 const stateStore = useNormalStateStore()
 const { showToast } = stateStore
-const { addTrackToPlaylistModal, newPlaylistModal } = storeToRefs(stateStore)
+const { addTrackToPlaylistModal, newPlaylistModal, modalOpen } = storeToRefs(stateStore)
 
 const localMusicStore = useLocalMusicStore()
 const { sortPlaylistsIDs, playlists } = storeToRefs(localMusicStore)
@@ -81,6 +81,10 @@ const ownPlaylists = computed(() => {
         playlist.creator.userId === user.value.userId && playlist.id !== likedSongPlaylistID.value
     )
   }
+})
+
+watch(show, (value) => {
+  modalOpen.value = value
 })
 
 const close = () => {

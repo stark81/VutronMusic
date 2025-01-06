@@ -88,11 +88,11 @@ const baseConfig = {
       {
         target: 'deb',
         arch: 'x64'
+      },
+      {
+        target: 'rpm',
+        arch: 'x64'
       }
-      // {
-      //   target: 'rpm',
-      //   arch: 'x64'
-      // }
     ]
   }
 }

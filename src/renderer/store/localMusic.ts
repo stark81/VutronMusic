@@ -67,9 +67,9 @@ export const useLocalMusicStore = defineStore(
       // 更新本地歌单里对应的歌曲ID
       playlists.value.forEach((p) => {
         if (p.trackIds.includes(localTrack.id)) {
-          p.coverImgUrl = `atom://get-playlist-pic/${track.id}`
-          p.trackIds = p.trackIds.map((id) => (id === localTrack.id ? track.id : id))
+          p.trackIds.splice(p.trackIds.indexOf(localTrack.id), 1, track.id)
           p.coverImgUrl = `atom://get-playlist-pic/${p.trackIds[p.trackIds.length - 1]}`
+          p.updateTime = Date.now()
         }
       })
 

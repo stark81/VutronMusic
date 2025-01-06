@@ -31,8 +31,10 @@ class Cache {
         const newTrack = data.result.songs[0]
         playlists.forEach((p: any) => {
           if (p.trackIds.includes(track.id)) {
-            p.coverImgUrl = `atom://get-playlist-pic/${newTrack.id}`
-            p.trackIds = p.trackIds.map((id: number) => (id === track.id ? newTrack.id : id))
+            // p.trackIds = p.trackIds.map((id: number) => (id === track.id ? newTrack.id : id))
+            // p.coverImgUrl = `atom://get-playlist-pic/${newTrack.id}`
+            p.trackIds.splice(p.trackIds.indexOf(track.id), 1, newTrack.id)
+            p.coverImgUrl = `atom://get-playlist-pic/${p.trackIds[p.trackIds.length - 1]}`
             const playlist = {
               id: p.id,
               isLocal: 1,

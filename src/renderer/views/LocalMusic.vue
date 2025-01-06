@@ -111,7 +111,7 @@
           </div>
         </div>
         <div v-if="currentTab !== 'localPlaylist'" class="search-box">
-          <SearchBox ref="localSearchBoxRef" :placeholder="$t('localMusic.placeholder')" />
+          <SearchBox ref="localSearchBoxRef" :placeholder="`搜索${placeHolderMap(currentTab)}`" />
         </div>
         <button
           v-show="currentTab === 'localPlaylist'"
@@ -188,12 +188,13 @@ import ContextMenu from '../components/ContextMenu.vue'
 import AccurateMatchModal from '../components/AccurateMatchModal.vue'
 import { randomNum } from '../utils/index'
 import { lyricParse } from '../utils/lyric'
+import { useI18n } from 'vue-i18n'
 
 // load
 const localMusicStore = useLocalMusicStore()
 const { localTracks, playlists, sortBy } = storeToRefs(localMusicStore)
 
-const { newPlaylistModal } = storeToRefs(useNormalStateStore())
+const { newPlaylistModal, modalOpen } = storeToRefs(useNormalStateStore())
 const { addTrackToPlayNext } = usePlayerStore()
 
 const { general, theme } = storeToRefs(useSettingsStore())
@@ -251,6 +252,12 @@ const localTrackIDs = computed(() => {
   const ids = localTracks.value.map((track) => track.id)
   const result = ids.filter((id) => !noLyricTracks.value.includes(id))
   return result
+})
+
+watch(modalOpen, (value) => {
+  if (!value) {
+    isBatchOp.value = false
+  }
 })
 
 const updateTab = (val: string) => {
@@ -349,6 +356,16 @@ const openAddPlaylistModal = () => {
 
 // provide
 provide('isBatchOp', isBatchOp)
+
+const { t } = useI18n()
+const placeHolderMap = (tab: string) => {
+  const pMap = {
+    localTracks: t('localMusic.songs'),
+    album: t('localMusic.albums'),
+    artist: t('localMusic.artists')
+  }
+  return pMap[tab]
+}
 
 const navBarRef = inject('navBarRef', ref())
 // 这里需要进行调整

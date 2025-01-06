@@ -419,11 +419,11 @@ export const usePlayerStore = defineStore(
         showToast(t('toast.getColorFailed'))
       }
       const lyricData = data.lyrics
-      if (!lyricData.lrc.lyric.length) {
-        lyricData.lrc.lyric.push(
-          '[00:00.000] 暂无歌词 \n[00:05:000] 请进行歌曲匹配或者编辑元数据以添加歌词'
-        )
-      }
+      // if (!lyricData.lrc.lyric.length) {
+      //   lyricData.lrc.lyric.push(
+      //     '[00:00.000] 暂无歌词 \n[00:05:000] 请进行歌曲匹配或者编辑元数据以添加歌词'
+      //   )
+      // }
 
       let { lyric, tlyric, rlyric } = lyricParse(lyricData)
       lyric = lyric.filter((l) => !/^作(词|曲)\s*(:|：)\s*无$/.exec(l.content))
