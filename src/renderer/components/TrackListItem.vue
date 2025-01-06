@@ -166,6 +166,8 @@ const image = computed(() => {
       `https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg`
   if (url && url.startsWith('http')) {
     url = url.replace('http:', 'https:')
+  }
+  if (url.startsWith('https')) {
     url += '?param=128y128'
   }
   return url

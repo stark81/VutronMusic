@@ -157,6 +157,9 @@ export const splitArtist = (artist: string | undefined) => {
 const getPicOnline = async (url: string) => {
   let pic: Buffer | null = null
   let format: string = ''
+  if (!url.includes('?param=')) {
+    url = `${url}?param=512y512`
+  }
   pic = await net
     .fetch(url)
     .then((res) => {
