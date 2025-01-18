@@ -4,6 +4,8 @@ import DefaultShortcuts from '../utils/shortcuts'
 import { playlistCategories } from '../utils/common'
 import cloneDeep from 'lodash/cloneDeep'
 
+export type TranslationMode = 'none' | 'tlyric' | 'rlyric'
+
 export const useSettingsStore = defineStore(
   'settings',
   () => {
@@ -36,6 +38,16 @@ export const useSettingsStore = defineStore(
       scrollRate: 34,
       enableExtension: true,
       showTray: true
+    })
+
+    const normalLyric = reactive<{
+      nFontSize: number
+      isNWordByWord: boolean
+      nTranslationMode: TranslationMode
+    }>({
+      nFontSize: 28,
+      isNWordByWord: true,
+      nTranslationMode: 'tlyric'
     })
 
     const osdLyric = reactive({
@@ -158,6 +170,7 @@ export const useSettingsStore = defineStore(
       tray,
       enableGlobalShortcut,
       shortcuts,
+      normalLyric,
       osdLyric,
       updateShortcut,
       togglePlaylistCategory,

@@ -198,14 +198,13 @@ const labelStyle = (lyricIndex: number, wordIndex: number) => {
     fontSize: `${fontSize.value}px`,
     textShadow: `2px 2px 2px ${textShadow.value}`
   }
+  // lyricIndex < highlight.value
   if (lyricWithTranslation.value[lyricIndex].contentTimes && lyricIndex < highlight.value) {
     result.color = playedLrcColor.value
     result.transition = 'unset'
   } else if (lyricIndex === highlight.value && wordIndex <= wBywLyricIndex.value) {
-    if (result.color !== playedLrcColor.value) {
-      result.color = playedLrcColor.value
-      result.transition = 'all 0.3s ease-in'
-    }
+    result.color = playedLrcColor.value
+    result.transition = 'all 0.3s ease-in'
   }
   return result
 }
@@ -268,14 +267,23 @@ window.mainApi.on('updateLyricInfo', (event, data) => {
       const el = document.getElementById(`line0`)
       el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
-    containerHeight.value = 200
-  } else if (key === 'lrcIdx') {
-    currentLyricIndex.value = value[0]
-    wBywLyricIndex.value = value[1]
-    setTimeout(() => {
-      if (type.value === 'normal' || !containerRef.value?.offsetHeight) return
-      containerHeight.value = containerRef.value?.offsetHeight + 40
-    }, 50)
+    // containerHeight.value = 200
+  } else if (key === 'currentLyricIndex') {
+    currentLyricIndex.value = value
+    const el = document.getElementById(`line${value}`)
+    if (type.value === 'normal' && el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+    // setTimeout(() => {
+    if (type.value === 'normal' || !containerRef.value?.offsetHeight) return
+    containerHeight.value = containerRef.value?.offsetHeight + 40
+    // })
+  } else if (key === 'wBywLyricIndex') {
+    wBywLyricIndex.value = value
+    // setTimeout(() => {
+    if (type.value === 'normal' || !containerRef.value?.offsetHeight) return
+    containerHeight.value = containerRef.value?.offsetHeight + 40
+    // }, 50)
   }
 })
 

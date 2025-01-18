@@ -139,32 +139,33 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
       }
     }
   })
+
+  ipcMain.on('updateOsdState', (event, data) => {
+    const [key, value] = Object.entries(data)[0] as [string, any]
+    if (key === 'show') {
+      tray.setShowOSD(value)
+    } else if (key === 'isLock') {
+      tray.setOSDLock(value)
+    }
+  })
 }
 
 function initOSDWindowIpcMain(win: BrowserWindow, lrc: { [key: string]: Function }): void {
-  ipcMain.on('toggleOSDWindow', (event, show) => {
-    store.set('osdWin.show', show)
-    lrc.toggleOSDWindow()
+  ipcMain.on('updateLyricInfo', (event, data) => {
+    lrc.updateLyricInfo(data)
   })
-  ipcMain.on('updateLyric', (event, lyrics) => {
-    lrc.updateLyric(lyrics)
-  })
-  ipcMain.on('updateLyricIndex', (event, index) => {
-    lrc.updateLyricIndex(index)
-  })
-  ipcMain.on('set-osd-window', (event, data) => {
+  ipcMain.on('updateOsdState', (event, data) => {
     const [key, value] = Object.entries(data)[0] as [string, any]
     store.set(`osdWin.${key}`, value)
     if (key === 'show') {
       lrc.toggleOSDWindow()
-    } else if (key === 'isAlwaysOnTop') {
-      lrc.toggleOSDWindowAlwaysOnTop()
+    } else if (key === 'type') {
+      lrc.switchOSDWindow(value)
     } else if (key === 'isLock') {
       isLock = value
       // 当设置鼠标忽略时，同时设置窗口置顶，避免窗口不位于最上层而导致无法点击
       store.set('osdWin.isAlwaysOnTop', value)
       lrc.toggleMouseIgnore()
-      // lrc.toggleOSDWindowAlwaysOnTop()
     }
   })
   ipcMain.on('from-osd', (event, message: string) => {
@@ -178,6 +179,9 @@ function initOSDWindowIpcMain(win: BrowserWindow, lrc: { [key: string]: Function
       win.webContents.send('play')
     }
   })
+  ipcMain.on('osd-resize', (event, height) => {
+    lrc.updateOsdHeight(height)
+  })
   ipcMain.handle('get-playing-status', (event) => isPlaying)
   ipcMain.on('updatePlayerState', (event: IpcMainEvent, data: any) => {
     for (const [key, value] of Object.entries(data) as [string, any]) {
@@ -190,15 +194,9 @@ function initOSDWindowIpcMain(win: BrowserWindow, lrc: { [key: string]: Function
     store.set('osdWin.isLock', ignore)
     lrc.toggleMouseIgnore()
   })
-  ipcMain.on('setWindowPosition', (event, position) => {
-    lrc.handleLyricWindowPosition(position)
-  })
   ipcMain.on('mouseleave', () => {
     store.set('osdWin.isLock', isLock)
     lrc.toggleMouseIgnore()
-  })
-  ipcMain.on('switchOsdWinMode', (event, showMode) => {
-    lrc.switchOSDWindow(showMode)
   })
 }
 
@@ -228,13 +226,6 @@ function initOtherIpcMain(win: BrowserWindow): void {
       filters
     })
     return dialogResult
-  })
-
-  ipcMain.on('msgNativeAlert', (event, message: string) => {
-    dialog.showMessageBoxSync({
-      type: 'warning',
-      message
-    })
   })
 
   ipcMain.handle('msgCheckFileExist', (event, path: string) => {
@@ -394,10 +385,6 @@ function initOtherIpcMain(win: BrowserWindow): void {
     // db.vacuum()
   })
 
-  ipcMain.on('setCookie', (event, cookie: string) => {
-    store.set('settings.cookie', cookie)
-  })
-
   ipcMain.handle('accurateMatch', (event, track, id) => {
     const data = { result: { songs: [track] } }
     const result = cache.set(CacheAPIs.searchMatch, data, { localID: id })
@@ -446,9 +433,12 @@ async function initMprisIpcMain(win: BrowserWindow, mpris: MprisImpl): Promise<v
     return dbus.status
   })
 
-  ipcMain.on('updateCurrentLyric', (event: IpcMainEvent, data: { [key: string]: any }) => {
-    data.sender = 'VutronMusic'
-    dbus.iface?.UpdateLyric(JSON.stringify(data))
+  ipcMain.on('updateLyricInfo', (event: IpcMainEvent, data: any) => {
+    const [key, value] = Object.entries(data)[0] as [string, any]
+    if (key === 'currentLyric') {
+      value.sender = 'VutronMusic'
+      dbus.iface?.UpdateLyric(JSON.stringify(value))
+    }
   })
 
   ipcMain.on('metadata', (event: IpcMainEvent, metadata: any) => {

@@ -30,15 +30,12 @@
         <div class="tab" :class="{ active: tab === 'appearance' }" @click="updateTab(1)">{{
           $t('settings.nav.appearance')
         }}</div>
-        <div v-if="isMac" class="tab" :class="{ active: tab === 'tray' }" @click="updateTab(2)">{{
-          $t('settings.nav.platformSetting')
-        }}</div>
         <div
-          v-else-if="isLinux"
+          v-if="isLinux"
           class="tab"
-          :class="{ active: tab === 'extension' }"
+          :class="{ active: tab === 'lyric' }"
           @click="updateTab(2)"
-          >{{ $t('settings.nav.platformSetting') }}</div
+          >{{ $t('settings.nav.lyricSetting') }}</div
         >
         <div
           class="tab"
@@ -117,6 +114,22 @@
               <button @click="resetPlayer">确定</button>
             </div>
           </div>
+          <div v-if="isElectron && isLinux" class="item">
+            <div class="left">
+              <div class="title">{{ $t('settings.general.useCustomTitlebar') }}</div>
+            </div>
+            <div class="right">
+              <div class="toggle">
+                <input
+                  id="linux-title-bar"
+                  v-model="useLinuxTitleBar"
+                  type="checkbox"
+                  name="linux-title-bar"
+                />
+                <label for="linux-title-bar"></label>
+              </div>
+            </div>
+          </div>
           <div class="version-info">
             <p class="author">
               MADE BY
@@ -149,109 +162,301 @@
             >
           </div>
         </div>
-        <div v-if="isElectron" v-show="tab === 'tray'" key="tray">
-          <div class="item">
-            <div class="left">
-              <div class="title">
-                {{ $t('settings.tray.showLyric') }}
-              </div>
-            </div>
-            <div class="right">
-              <div class="toggle">
-                <input id="show-lyric" v-model="showLyric" type="checkbox" name="show-lyric" />
-                <label for="show-lyric"></label>
-              </div>
-            </div>
+        <div v-show="tab === 'lyric'" key="lyric">
+          <div class="lyric-tab">
+            <button
+              v-if="isElectron && !isWindows"
+              :class="{ 'lyric-button': true, 'lyric-button--selected': lyricTab === 'trayLyric' }"
+              @click="lyricTab = 'trayLyric'"
+              >{{ $t('settings.nav.trayLyric') }}</button
+            >
+            <button
+              :class="{ 'lyric-button': true, 'lyric-button--selected': lyricTab === 'lyric' }"
+              @click="lyricTab = 'lyric'"
+              >{{ $t('settings.nav.lyric') }}</button
+            >
+            <button
+              :class="{ 'lyric-button': true, 'lyric-button--selected': lyricTab === 'osdLyric' }"
+              @click="lyricTab = 'osdLyric'"
+              >{{ $t('settings.nav.osdLyric') }}</button
+            >
           </div>
-          <div class="item">
-            <div class="left">
-              <div class="title">
-                {{ $t('settings.tray.showControl') }}
+          <div v-show="lyricTab === 'osdLyric'">
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('settings.osdLyric.isLock') }}</div>
+              </div>
+              <div class="right">
+                <div class="toggle">
+                  <input id="isLock" v-model="isLock" type="checkbox" name="isLock" />
+                  <label for="isLock"></label>
+                </div>
               </div>
             </div>
-            <div class="right">
-              <div class="toggle">
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('settings.osdLyric.isWordByWord') }}</div>
+              </div>
+              <div class="right">
+                <div class="toggle">
+                  <input
+                    id="isWordByWord"
+                    v-model="isWordByWord"
+                    type="checkbox"
+                    name="isWordByWord"
+                  />
+                  <label for="isWordByWord"></label>
+                </div>
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
+                <div class="title"> {{ $t('settings.osdLyric.fontSize') }} </div>
+              </div>
+              <div class="right">
                 <input
-                  id="show-control"
-                  v-model="showControl"
-                  type="checkbox"
-                  name="show-control"
+                  v-model="inputFontSizeValue"
+                  type="number"
+                  class="text-input margin-right-0"
+                  @input="inputFontSizeDebounce"
                 />
-                <label for="show-control"></label>
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
+                <div class="title"> {{ $t('settings.osdLyric.staticTime.text') }} </div>
+                <div class="description"> {{ $t('settings.osdLyric.staticTime.desc') }} </div>
+              </div>
+              <div class="right">
+                <input
+                  v-model="staticTime"
+                  type="number"
+                  step="100"
+                  class="text-input margin-right-0"
+                />
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('settings.osdLyric.type.text') }}</div>
+              </div>
+              <div class="right">
+                <select v-model="typeOption">
+                  <option value="small">{{ $t('settings.osdLyric.type.small') }}</option>
+                  <option value="normal">{{ $t('settings.osdLyric.type.normal') }}</option>
+                </select>
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('settings.osdLyric.mode.text') }}</div>
+                <div class="description">{{ $t('settings.osdLyric.mode.desc') }}</div>
+              </div>
+              <div class="right">
+                <select v-model="modeOption">
+                  <option value="oneLine">{{ $t('settings.osdLyric.mode.oneLine') }}</option>
+                  <option value="twoLines">{{ $t('settings.osdLyric.mode.twoLines') }}</option>
+                </select>
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('settings.osdLyric.translationMode.text') }}</div>
+              </div>
+              <div class="right">
+                <select v-model="translationOption">
+                  <option value="none">{{ $t('settings.osdLyric.translationMode.none') }}</option>
+                  <option value="tlyric">{{
+                    $t('settings.osdLyric.translationMode.tlyric')
+                  }}</option>
+                  <option value="romalrc">{{
+                    $t('settings.osdLyric.translationMode.romalrc')
+                  }}</option>
+                </select>
+              </div>
+            </div>
+            <div class="item">
+              <div class="color">
+                <pick-colors
+                  v-model:value="backgroundColor"
+                  :width="100"
+                  :height="100"
+                  format="rgb"
+                  show-alpha
+                />
+                <div class="text">背景色</div>
+              </div>
+              <div class="color">
+                <pick-colors
+                  v-model:value="playedLrcColor"
+                  :width="100"
+                  :height="100"
+                  format="rgb"
+                  show-alpha
+                />
+                <div class="text">已播放颜色</div>
+              </div>
+              <div class="color">
+                <pick-colors
+                  v-model:value="unplayLrcColor"
+                  :width="100"
+                  :height="100"
+                  format="rgb"
+                  show-alpha
+                />
+                <div class="text">未播放颜色</div>
+              </div>
+              <div class="color">
+                <pick-colors
+                  v-model:value="textShadow"
+                  :width="100"
+                  :height="100"
+                  format="rgb"
+                  show-alpha
+                />
+                <div class="text">阴影颜色</div>
               </div>
             </div>
           </div>
-          <div class="item">
-            <div class="left">
-              <div class="title"> {{ $t('settings.tray.lyricFrameWidth') }} </div>
+          <div v-show="lyricTab === 'lyric'">
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('settings.osdLyric.isWordByWord') }}</div>
+              </div>
+              <div class="right">
+                <div class="toggle">
+                  <input
+                    id="isNWordByWord"
+                    v-model="isNWordByWord"
+                    type="checkbox"
+                    name="isNWordByWord"
+                  />
+                  <label for="isNWordByWord"></label>
+                </div>
+              </div>
             </div>
-            <div class="right">
-              <input
-                v-model="inputValue"
-                type="number"
-                class="text-input margin-right-0"
-                @input="inputDebounce()"
-              />
-            </div>
-          </div>
-          <div class="item">
-            <div class="left">
-              <div class="title"> {{ $t('settings.tray.lyricScrollFrameRate.text') }} </div>
-              <div class="description"> {{ $t('settings.tray.lyricScrollFrameRate.desc') }}</div>
-            </div>
-            <div class="right">
-              <input
-                v-model="inputRateValue"
-                type="number"
-                class="text-input margin-right-0"
-                @input="inputRateDebounce()"
-              />
-            </div>
-          </div>
-        </div>
-        <div v-if="isElectron" v-show="tab === 'extension'" key="extension">
-          <div class="item">
-            <div class="left">
-              <div class="title"
-                >{{ $t('settings.extension.status') }}：{{
-                  extensionCheckResult ? '已开启' : '已停用'
-                }}</div
-              >
-              <div class="description"
-                >如果未安装插件，可点击 <a @click="openOnBrowser">此处</a> 下载</div
-              >
-            </div>
-          </div>
-          <div class="item">
-            <div class="left">
-              <div class="title">{{ $t('settings.extension.showLyric.text') }}</div>
-              <div class="description">{{ $t('settings.extension.showLyric.desc') }}</div>
-            </div>
-            <div class="right">
-              <div class="toggle">
+            <div class="item">
+              <div class="left">
+                <div class="title"> {{ $t('settings.osdLyric.fontSize') }} </div>
+              </div>
+              <div class="right">
                 <input
-                  id="enable-extension"
-                  v-model="enableExtension"
-                  type="checkbox"
-                  name="enable-extension"
+                  v-model="inputNFontSizeValue"
+                  type="number"
+                  class="text-input margin-right-0"
+                  @input="inputNValue"
                 />
-                <label for="enable-extension"></label>
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('settings.osdLyric.translationMode.text') }}</div>
+              </div>
+              <div class="right">
+                <select v-model="nTranslationOption">
+                  <option value="none">{{ $t('settings.osdLyric.translationMode.none') }}</option>
+                  <option value="tlyric">{{
+                    $t('settings.osdLyric.translationMode.tlyric')
+                  }}</option>
+                  <option value="rlyric">{{
+                    $t('settings.osdLyric.translationMode.romalrc')
+                  }}</option>
+                </select>
               </div>
             </div>
           </div>
-          <div class="item">
-            <div class="left">
-              <div class="title">{{ $t('settings.general.useCustomTitlebar') }}</div>
+          <div v-if="!isWindows" v-show="lyricTab === 'trayLyric'">
+            <div v-if="isMac">
+              <div class="item">
+                <div class="left">
+                  <div class="title">
+                    {{ $t('settings.tray.showLyric') }}
+                  </div>
+                </div>
+                <div class="right">
+                  <div class="toggle">
+                    <input id="show-lyric" v-model="showLyric" type="checkbox" name="show-lyric" />
+                    <label for="show-lyric"></label>
+                  </div>
+                </div>
+              </div>
+              <div class="item">
+                <div class="left">
+                  <div class="title">
+                    {{ $t('settings.tray.showControl') }}
+                  </div>
+                </div>
+                <div class="right">
+                  <div class="toggle">
+                    <input
+                      id="show-control"
+                      v-model="showControl"
+                      type="checkbox"
+                      name="show-control"
+                    />
+                    <label for="show-control"></label>
+                  </div>
+                </div>
+              </div>
+              <div class="item">
+                <div class="left">
+                  <div class="title"> {{ $t('settings.tray.lyricFrameWidth') }} </div>
+                </div>
+                <div class="right">
+                  <input
+                    v-model="inputValue"
+                    type="number"
+                    class="text-input margin-right-0"
+                    @input="inputDebounce()"
+                  />
+                </div>
+              </div>
+              <div class="item">
+                <div class="left">
+                  <div class="title"> {{ $t('settings.tray.lyricScrollFrameRate.text') }} </div>
+                  <div class="description">
+                    {{ $t('settings.tray.lyricScrollFrameRate.desc') }}</div
+                  >
+                </div>
+                <div class="right">
+                  <input
+                    v-model="inputRateValue"
+                    type="number"
+                    class="text-input margin-right-0"
+                    @input="inputRateDebounce()"
+                  />
+                </div>
+              </div>
             </div>
-            <div class="right">
-              <div class="toggle">
-                <input
-                  id="linux-title-bar"
-                  v-model="useLinuxTitleBar"
-                  type="checkbox"
-                  name="linux-title-bar"
-                />
-                <label for="linux-title-bar"></label>
+            <div v-else-if="isLinux">
+              <div class="item">
+                <div class="left">
+                  <div class="title"
+                    >{{ $t('settings.extension.status') }}：{{
+                      extensionCheckResult ? '已开启' : '已停用'
+                    }}</div
+                  >
+                  <div class="description"
+                    >如果未安装插件，可点击 <a @click="openOnBrowser">此处</a> 下载</div
+                  >
+                </div>
+              </div>
+              <div class="item">
+                <div class="left">
+                  <div class="title">{{ $t('settings.extension.showLyric.text') }}</div>
+                  <div class="description">{{ $t('settings.extension.showLyric.desc') }}</div>
+                </div>
+                <div class="right">
+                  <div class="toggle">
+                    <input
+                      id="enable-extension"
+                      v-model="enableExtension"
+                      type="checkbox"
+                      name="enable-extension"
+                    />
+                    <label for="enable-extension"></label>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -385,11 +590,13 @@
 
 <script setup lang="ts">
 import { ref, toRefs, computed, inject, onMounted, onBeforeUnmount } from 'vue'
+import pickColors from 'vue-pick-colors'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '../store/settings'
 import { usePlayerStore } from '../store/player'
 import { useLocalMusicStore } from '../store/localMusic'
 import { useNormalStateStore } from '../store/state'
+import { useOsdLyricStore } from '../store/osdLyric'
 import { useDataStore } from '../store/data'
 import { storeToRefs } from 'pinia'
 import { doLogout } from '../utils/auth'
@@ -399,16 +606,33 @@ import Utils from '../utils'
 import imageUrl from '../utils/settingImg.dataurl?raw'
 
 const settingsStore = useSettingsStore()
-const { localMusic, general, tray, theme, shortcuts, enableGlobalShortcut } =
+const { localMusic, general, tray, theme, shortcuts, enableGlobalShortcut, normalLyric } =
   storeToRefs(settingsStore)
 const { scanDir, replayGain, useInnerInfoFirst } = toRefs(localMusic.value)
 const { showTrackTimeOrID, useCustomTitlebar, language, closeAppOption } = toRefs(general.value)
 const { appearance } = toRefs(theme.value)
 const { showLyric, showControl, lyricWidth, scrollRate, enableExtension } = toRefs(tray.value)
+const { nFontSize, isNWordByWord, nTranslationMode } = toRefs(normalLyric.value)
 const { extensionCheckResult } = toRefs(useNormalStateStore())
 
 const dataStore = useDataStore()
 const { user } = storeToRefs(dataStore)
+
+const osdLyric = useOsdLyricStore()
+const {
+  // alwaysOnTop,
+  isLock,
+  type,
+  mode,
+  isWordByWord,
+  translationMode,
+  fontSize,
+  backgroundColor,
+  playedLrcColor,
+  unplayLrcColor,
+  textShadow,
+  staticTime
+} = storeToRefs(osdLyric)
 
 const playerStore = usePlayerStore()
 const { resetPlayer } = playerStore
@@ -422,11 +646,40 @@ const { restoreDefaultShortcuts, updateShortcut } = useSettingsStore()
 const isElectron = window.env?.isElectron || false
 const isMac = window.env?.isMac
 const isLinux = window.env?.isLinux
+const isWindows = window.env?.isWindows
 
 const showTrackInfo = computed({
   get: () => showTrackTimeOrID.value,
   set: (value) => {
     showTrackTimeOrID.value = value
+  }
+})
+
+const typeOption = computed({
+  get: () => type.value,
+  set: (value) => {
+    type.value = value
+  }
+})
+
+const modeOption = computed({
+  get: () => mode.value,
+  set: (value) => {
+    mode.value = value
+  }
+})
+
+const translationOption = computed({
+  get: () => translationMode.value,
+  set: (value) => {
+    translationMode.value = value
+  }
+})
+
+const nTranslationOption = computed({
+  get: () => nTranslationMode.value,
+  set: (value) => {
+    nTranslationMode.value = value
   }
 })
 
@@ -505,13 +758,9 @@ const getAllOutputDevices = () => {
 }
 
 const tab = ref('general')
+const lyricTab = ref('trayLyric')
 const updateTab = (index: number) => {
-  const tabs = ['general', 'appearance', 'localTracks', 'shortcut']
-  if (isMac) {
-    tabs.splice(2, 0, 'tray')
-  } else if (isLinux) {
-    tabs.splice(2, 0, 'extension')
-  }
+  const tabs = ['general', 'appearance', 'lyric', 'localTracks', 'shortcut']
   const tabName = tabs[index]
   tab.value = tabName
   slideTop.value = index * 40
@@ -553,6 +802,22 @@ const inputRateDebounce = () => {
   if (debounceTimeoutRate) clearTimeout(debounceTimeoutRate)
   debounceTimeoutRate = setTimeout(() => {
     scrollRate.value = inputRateValue.value
+  }, 500)
+}
+
+const inputFontSizeValue = ref<number>(fontSize.value)
+const inputFontSizeDebounce = () => {
+  if (debounceTimeout) clearTimeout(debounceTimeout)
+  debounceTimeout = setTimeout(() => {
+    fontSize.value = inputFontSizeValue.value
+  }, 500)
+}
+
+const inputNFontSizeValue = ref<number>(nFontSize.value)
+const inputNValue = () => {
+  if (debounceTimeout) clearTimeout(debounceTimeout)
+  debounceTimeout = setTimeout(() => {
+    nFontSize.value = inputNFontSizeValue.value
   }, 500)
 }
 
@@ -802,6 +1067,10 @@ onBeforeUnmount(() => {
         border: 2px solid var(--color-primary);
       }
     }
+
+    .lyric-tab {
+      margin-bottom: 10px;
+    }
   }
 }
 .iconfont {
@@ -915,6 +1184,13 @@ onBeforeUnmount(() => {
     font-size: 14px;
     opacity: 0.7;
   }
+  .color {
+    margin-top: 10px;
+    text-align: center;
+    .text {
+      margin-top: 6px;
+    }
+  }
 }
 button {
   color: var(--color-text);
@@ -923,6 +1199,28 @@ button {
   font-weight: 600;
   border-radius: 8px;
   transition: 0.2;
+}
+button.lyric-button {
+  color: var(--color-text);
+  background: unset;
+  border-radius: 8px;
+  padding: 6px 8px;
+  margin-bottom: 12px;
+  margin-right: 10px;
+  transition: 0.2s;
+  opacity: 0.68;
+  font-weight: 500;
+  cursor: pointer;
+  &:hover {
+    opacity: 1;
+    background: var(--color-secondary-bg);
+  }
+}
+button.lyric-button--selected {
+  color: var(--color-text);
+  background: var(--color-secondary-bg);
+  opacity: 1;
+  font-weight: 700;
 }
 select {
   font-weight: 600;
@@ -1020,6 +1318,8 @@ input.text-input {
   color: var(--color-text);
   font-weight: 600;
   font-size: 16px;
+  width: 150px;
+  text-align: center;
 }
 
 .version-info {

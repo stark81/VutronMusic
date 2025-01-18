@@ -17,20 +17,33 @@
           <svg-icon icon-class="forward5s" />
         </button-icon>
       </div>
+
       <div id="line-1" class="line"></div>
       <div
         v-for="(line, index) in lyricWithTranslation"
         :id="`line${index}`"
-        :ref="`lyricRef${index}`"
         :key="index"
         class="line"
-        :class="{ highlight: currentLyricIndex === index }"
         @click="seek = Number(line.time)"
       >
-        <div class="content">
-          <span v-if="line.contents[0]">{{ line.contents[0] }}</span>
+        <div v-if="line?.contents" class="content">
+          <span
+            v-for="(word, idx) in line.contents[0]"
+            :key="idx"
+            :style="labelStyle(index, idx)"
+            >{{ word }}</span
+          >
           <br />
-          <span v-if="true && line.contents[1]" class="translation">{{ line.contents[1] }}</span>
+          <span
+            v-if="nTranslationMode === 'tlyric' && line.contents[1]"
+            :style="translationStyle(index)"
+            >{{ line.contents[1] }}</span
+          >
+          <span
+            v-if="nTranslationMode === 'rlyric' && line.contents[2]"
+            :style="translationStyle(index)"
+            >{{ line.contents[2] }}</span
+          >
         </div>
       </div>
     </div>
@@ -38,19 +51,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, toRefs } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
 import { useNormalStateStore } from '../store/state'
+import { useSettingsStore } from '../store/settings'
 import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
 
 const playerStore = usePlayerStore()
-const { noLyric, currentTrack, currentLyricIndex, seek, lyrics } = storeToRefs(playerStore)
+const { noLyric, currentTrack, currentLyricIndex, lyrics, wBywLyricIndex, seek } =
+  storeToRefs(playerStore)
 
 const stateStore = useNormalStateStore()
 const { showLyrics } = storeToRefs(stateStore)
 const { showToast } = stateStore
+
+const settingsStore = useSettingsStore()
+const { normalLyric } = storeToRefs(settingsStore)
+const { nFontSize, nTranslationMode, isNWordByWord } = toRefs(normalLyric.value)
 
 const hover = ref(false)
 
@@ -59,12 +78,11 @@ const lyricWithTranslation = computed(() => {
   const lyricFiltered = lyrics.value.lyric.filter(({ content }) => Boolean(content))
   if (lyricFiltered.length) {
     lyricFiltered.forEach((l) => {
-      const { rawTime, time, content } = l
-      const lyricItem = { time, content, contents: [content] }
+      const { time, content, contentArray } = l
+      const contentForUse = contentArray?.length ? contentArray : [content]
+      const lyricItem = { time, content, contents: [contentForUse] }
       // 歌词翻译
-      const sameTimeTLyric = lyrics.value.tlyric.find(
-        ({ rawTime: tLyricRawTime }) => tLyricRawTime === rawTime
-      )
+      const sameTimeTLyric = lyrics.value.tlyric.find(({ time: tTime }) => tTime === time)
       if (sameTimeTLyric) {
         const { content: tLyricContent } = sameTimeTLyric
         if (content) {
@@ -76,9 +94,7 @@ const lyricWithTranslation = computed(() => {
         lyricItem.contents.push(null)
       }
       // 歌词音译
-      const sameTimeRLyric = lyrics.value.rlyric.find(
-        ({ rawTime: rLyricRawTime }) => rLyricRawTime === rawTime
-      )
+      const sameTimeRLyric = lyrics.value.rlyric.find(({ time: rTime }) => rTime === time)
       if (sameTimeRLyric) {
         const { content: rLyricContent } = sameTimeRLyric
         if (content) {
@@ -93,7 +109,7 @@ const lyricWithTranslation = computed(() => {
     ret = lyricFiltered.map(({ time, content }) => ({
       time,
       content,
-      contents: [content]
+      contents: [[content]]
     }))
   }
   return ret
@@ -122,6 +138,35 @@ const setOffset = (offset: number) => {
   )
 }
 
+const labelStyle = (lineIdx: number, wordIdx: number) => {
+  const result: { [key: string]: any } = {
+    fontSize: `${nFontSize.value}px`
+  }
+  if (
+    lineIdx === currentLyricIndex.value &&
+    ((isNWordByWord.value && wordIdx <= wBywLyricIndex.value) || !isNWordByWord.value)
+  ) {
+    result.opacity = 0.95
+    result.transition = 'all 0.3s ease-in'
+  }
+  return result
+}
+
+const translationStyle = (lineIdx: number) => {
+  const result: { [key: string]: any } = {
+    fontSize: nFontSize.value - 4 + 'px'
+  }
+  if (
+    lineIdx === currentLyricIndex.value &&
+    wBywLyricIndex.value >=
+      lyricWithTranslation.value[currentLyricIndex.value].contents[0]?.length - 2
+  ) {
+    result.opacity = 0.65
+    result.transition = 'all 0.5s ease-in'
+  }
+  return result
+}
+
 watch(currentLyricIndex, (value) => {
   const el = document.getElementById(`line${value}`)
   if (el) {
@@ -138,6 +183,7 @@ watch(showLyrics, (value) => {
       }
     })
 })
+
 onMounted(() => {
   if (!currentTrack.value) return
   nextTick(() => {
@@ -156,7 +202,7 @@ onMounted(() => {
   flex-direction: column;
   overflow-y: scroll;
   scrollbar-width: none;
-  padding-left: 4vh;
+  padding: 0 6vw 0 3vw;
   transition: all 0.5s;
 
   .offset {
@@ -179,61 +225,38 @@ onMounted(() => {
       margin: 10px 0;
     }
   }
+}
 
-  .line {
-    width: 60vh;
-    margin: 2px 0;
-    padding: 12px 18px;
-    transition: 0.5s;
-    border-radius: 12px;
+.line {
+  border-radius: 12px;
+  margin: 2px 0;
 
-    .content {
-      width: 100%;
-      transform-origin: center left;
-      transform: scale(0.95);
-      transition: all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-
-      span {
-        width: 100%;
-        overflow-wrap: break-word;
-        opacity: 0.28;
-        cursor: default;
-        font-size: 28px;
-        font-weight: 600;
-      }
-
-      span.translation {
-        opacity: 0.2;
-        font-size: 26px;
-      }
-    }
-
-    &:hover {
-      background: var(--color-secondary-bg-for-transparent);
-    }
+  &:hover {
+    background: var(--color-secondary-bg-for-transparent);
   }
 
-  .line#line-1:hover {
-    background: unset;
-  }
-
-  .highlight div.content {
-    span {
-      opacity: 0.98;
-      display: inline-block;
-    }
-    span.translation {
-      opacity: 0.65;
-    }
+  &:first-child {
+    margin-top: 40vh;
   }
 }
 
-.lyric-container .line#line-1 {
+.line#line-1 {
   margin-top: 40vh;
 }
-.lyric-container .line:last-child {
+
+.line:last-child {
   margin-bottom: calc(50vh - 128px);
 }
+
+.content {
+  font-weight: bold;
+  padding: 12px;
+
+  span {
+    opacity: 0.28;
+  }
+}
+
 .animated-fast {
   animation-duration: 0.5s;
   animation-fill-mode: both;
@@ -271,5 +294,34 @@ onMounted(() => {
 
 .fadeOut {
   animation-name: fadeOut;
+}
+
+.word {
+  opacity: 0.28;
+  transition: opacity 0.3s ease-in-out;
+  // white-space: pre;
+}
+
+.word.highlight {
+  opacity: 0.98;
+  animation: highlightAnimation 0.3s ease-in-out forwards;
+}
+
+@keyframes coverFromLeft {
+  from {
+    clip-path: polygon(0 0, 0 100%, 0 100%, 0 0);
+  }
+  to {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+  }
+}
+
+@keyframes highlightAnimation {
+  from {
+    opacity: 0.28;
+  }
+  to {
+    opacity: 0.98;
+  }
 }
 </style>

@@ -1,26 +1,24 @@
 <template>
-  <div class="header-container">
-    <div class="header">
-      <div class="btns">
-        <button class="btn" @click="showMain"><svg-icon icon-class="logo" /></button>
-        <button class="btn" @click="playPrev"><svg-icon icon-class="previous" /></button>
-        <button class="btn" @click="playOrPause"
-          ><svg-icon :icon-class="isPlaying ? 'pause' : 'play'"
-        /></button>
-        <button class="btn" @click="playNext"><svg-icon icon-class="next" /></button>
-        <button class="btn" @click="openMenu"><svg-icon icon-class="color-plate" /></button>
-        <button class="btn" @click="switchMode"
-          ><svg-icon :icon-class="type === 'small' ? 'normal-mode' : 'mini-mode'"
-        /></button>
-        <button class="btn" @click="handleLock"><svg-icon icon-class="lock" /></button>
-        <button class="btn" @click="handleClose"><svg-icon icon-class="close" /></button>
-      </div>
+  <div class="header">
+    <div class="btns">
+      <button class="btn" @click="showMain"><svg-icon icon-class="logo" /></button>
+      <button class="btn" @click="playPrev"><svg-icon icon-class="previous" /></button>
+      <button class="btn" @click="playOrPause"
+        ><svg-icon :icon-class="isPlaying ? 'pause' : 'play'"
+      /></button>
+      <button class="btn" @click="playNext"><svg-icon icon-class="next" /></button>
+      <!-- <button class="btn"><svg-icon icon-class="color-plate" /></button> -->
+      <button class="btn" @click="switchMode"
+        ><svg-icon :icon-class="type === 'small' ? 'normal-mode' : 'mini-mode'"
+      /></button>
+      <button class="btn" @click="isLock = true"><svg-icon icon-class="lock" /></button>
+      <button class="btn" @click="show = !show"><svg-icon icon-class="close" /></button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, inject, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useOsdLyricStore } from '../store/osdLyric'
 import { storeToRefs } from 'pinia'
 import SvgIcon from './SvgIcon.vue'
@@ -28,7 +26,7 @@ import SvgIcon from './SvgIcon.vue'
 const isPlaying = ref(false)
 
 const osdLyricStore = useOsdLyricStore()
-const { isLock, type } = storeToRefs(osdLyricStore)
+const { isLock, type, show } = storeToRefs(osdLyricStore)
 
 const showMain = () => {
   window.mainApi.send('from-osd', 'showMainWin')
@@ -44,21 +42,9 @@ const playNext = () => {
   window.mainApi.send('from-osd', 'playNext')
 }
 
-const handleClose = () => {
-  window.mainApi.send('set-osd-window', { show: false })
-}
-
-const handleLock = () => {
-  isLock.value = !isLock.value
-  window.mainApi.send('set-osd-window', { isLock: isLock.value })
-}
-
 const switchMode = () => {
   type.value = type.value === 'small' ? 'normal' : 'small'
-  window.mainApi.send('switchOsdWinMode', type.value)
 }
-
-const openMenu = inject('openMenu') as (e: MouseEvent) => void
 
 onMounted(() => {
   isLock.value = window.env?.isLinux ? false : isLock.value
@@ -98,15 +84,5 @@ onMounted(() => {
   color: #fff;
   transition: opacity 0.3s ease;
   -webkit-app-region: no-drag;
-}
-
-.animated-fast {
-  animation-duration: 0.3s;
-  animation-fill-mode: both;
-}
-
-.animated {
-  animation-duration: 0.5s;
-  animation-fill-mode: both;
 }
 </style>

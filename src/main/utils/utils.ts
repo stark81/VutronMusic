@@ -63,7 +63,10 @@ export const getLyricFromLocalTrack = async (metadata: IAudioMetadata) => {
   let result = {
     lrc: { lyric: [] },
     tlyric: { lyric: [] },
-    romalrc: { lyric: [] }
+    romalrc: { lyric: [] },
+    yrc: { lyric: [] },
+    ytlrc: { lyric: [] },
+    yromalrc: { lyric: [] }
   }
 
   const lyrics = getLyricFromMetadata(metadata)
@@ -97,7 +100,10 @@ export const getLyricFromLocalTrack = async (metadata: IAudioMetadata) => {
       result = {
         lrc: { lyric: lyricArray[0] || [] },
         tlyric: { lyric: lyricArray[1] || [] },
-        romalrc: { lyric: lyricArray[2] || [] }
+        romalrc: { lyric: lyricArray[2] || [] },
+        yrc: { lyric: [] },
+        ytlrc: { lyric: [] },
+        yromalrc: { lyric: [] }
       }
     }
   }
@@ -228,32 +234,26 @@ export const getPicColor = async (pic: Buffer) => {
 export const getLyricFromApi = (
   id: number
 ): Promise<{
-  lrc: {
-    lyric: any[]
-  }
-  tlyric: {
-    lyric: any[]
-  }
-  romalrc: {
-    lyric: any[]
-  }
+  lrc: { lyric: any[] }
+  tlyric: { lyric: any[] }
+  romalrc: { lyric: any[] }
+  yrc: { lyric: any[] }
+  ytlrc: { lyric: any[] }
+  yromalrc: { lyric: any[] }
 }> => {
   return request({
-    url: '/lyric',
+    url: '/lyric/new',
     method: 'get',
     params: {
       id
     }
   }).catch(() => ({
-    lrc: {
-      lyric: []
-    },
-    tlyric: {
-      lyric: []
-    },
-    romalrc: {
-      lyric: []
-    }
+    lrc: { lyric: [] },
+    tlyric: { lyric: [] },
+    romalrc: { lyric: [] },
+    yrc: { lyric: [] },
+    ytlrc: { lyric: [] },
+    yromalrc: { lyric: [] }
   }))
 }
 
@@ -262,15 +262,12 @@ export const getLyric = async (
   matched: boolean,
   paramForLocal: IAudioMetadata | string | null
 ): Promise<{
-  lrc: {
-    lyric: any[]
-  }
-  tlyric: {
-    lyric: any[]
-  }
-  romalrc: {
-    lyric: any[]
-  }
+  lrc: { lyric: any[] }
+  tlyric: { lyric: any[] }
+  romalrc: { lyric: any[] }
+  yrc: { lyric: any[] }
+  ytlrc: { lyric: any[] }
+  yromalrc: { lyric: any[] }
 }> => {
   const methodPools = []
   if (matched) methodPools.push([getLyricFromApi, id])
@@ -429,41 +426,6 @@ export const getTrackDetail = (ids: string) => {
     params: { ids }
   })
 }
-
-// export const getAudioSourceFromUnblock = async (track: any) => {
-//   const UNM = require('@unblockneteasemusic/rust-napi')
-//   const unmExecutor = new UNM.Executor()
-//   const ar = track.ar || track.artists
-//   const song = {
-//     id: track.id.toString(),
-//     name: track.name,
-//     duration: track.dt || track.duration,
-//     album: track.al && {
-//       id: track.al.id && track.al.id.toString(),
-//       name: track.al.name
-//     },
-//     artists: ar ? ar.map(({ id, name }) => ({ id: id && id.toString(), name })) : []
-//   }
-//   // console.log('unmExecutor: ', unmExecutor)
-//   // console.log('song: ', song)
-//   const sourceList = ['qq', 'kugou', 'kuwo', 'bilibili', 'pyncm']
-//   const context = {
-//     enableFlac: true,
-//     proxyUri: null,
-//     searchMode: 1,
-//     config: {
-//       'joox:cookie': null,
-//       'qq:cookie':
-//         'uin=849966181;qm_keyst=Q_H_L_5cNaoPJ68-8t2eXh5tdKyzM-x9CYUYWuuw43ERacPEP0RnSTgxCZoKg;',
-//       'ytdl:exe': '/Users/stark81/Environment/anaconda3/bin/yt-dlp'
-//     }
-//   }
-//   const matchedAudio = await unmExecutor.search(sourceList, song, context)
-//   console.log('matchedAudio: ', matchedAudio)
-//   const retrevedSong = await unmExecutor.retrieve(matchedAudio, context)
-
-//   console.log('retrevedSong: ', retrevedSong)
-// }
 
 export const getAudioSourceFromUnblock = async (track: any) => {
   const match = require('@unblockneteasemusic/server')

@@ -45,6 +45,21 @@
                 </div>
                 <div class="top-right">
                   <div class="buttons">
+                    <div class="transPro" @click="switchTransitionMode">
+                      <label
+                        v-show="lyrics.tlyric.length"
+                        :class="{ active: nTranslationMode === 'tlyric' }"
+                        >译</label
+                      >
+                      <label v-if="lyrics.tlyric.length && lyrics.rlyric.length" class="m-label"
+                        >|</label
+                      >
+                      <label
+                        v-show="lyrics.rlyric.length"
+                        :class="{ active: nTranslationMode === 'rlyric' }"
+                        >音</label
+                      >
+                    </div>
                     <button-icon
                       :title="heartDisabled ? $t('player.noAllowCauseLocal') : $t('player.like')"
                       class="button"
@@ -205,10 +220,11 @@ import LyricPage from '../components/LyricPage.vue'
 import Comment from '../components/CommentPage.vue'
 import { hasListSource, getListSourcePath } from '../utils/playlist'
 import { useNormalStateStore } from '../store/state'
+import { useSettingsStore, TranslationMode } from '../store/settings'
 import { usePlayerStore } from '../store/player'
 import { useDataStore } from '../store/data'
 import { storeToRefs } from 'pinia'
-import { ref, computed, watch, provide } from 'vue'
+import { ref, computed, watch, provide, toRefs } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
@@ -219,11 +235,16 @@ const stateStore = useNormalStateStore()
 const { showLyrics, setConvolverModal, setPlaybackRateModal, addTrackToPlaylistModal } =
   storeToRefs(stateStore)
 
+const settingsStore = useSettingsStore()
+const { normalLyric } = storeToRefs(settingsStore)
+const { nTranslationMode } = toRefs(normalLyric.value)
+
 const playerStore = usePlayerStore()
 const {
   currentTrack,
   seek,
   noLyric,
+  lyrics,
   volume,
   currentTrackDuration,
   isPersonalFM,
@@ -238,6 +259,19 @@ const {
 } = storeToRefs(playerStore)
 const { playPrev, playOrPause, _playNextTrack, switchRepeatMode, moveToFMTrash } = playerStore
 const { likeATrack } = useDataStore()
+
+const tags = computed(() => {
+  const lst = ['none']
+  if (lyrics.value.tlyric.length) {
+    lst.splice(1, 0, 'tlyric')
+  }
+  if (lyrics.value.rlyric.length) {
+    lst.push('rlyric')
+  }
+  return lst as TranslationMode[]
+})
+
+const idx = ref(tags.value.indexOf(nTranslationMode.value))
 
 const likeTrack = () => {
   if (currentTrack.value?.matched) {
@@ -296,6 +330,12 @@ const addTrackToPlaylist = () => {
     selectedTrackID: [currentTrack.value.id],
     isLocal: playlistSource.value.type.includes('local')
   }
+}
+
+const switchTransitionMode = () => {
+  idx.value = (idx.value + 1) % tags.value.length
+  const value = tags.value[idx.value] as TranslationMode
+  nTranslationMode.value = value
 }
 
 const goToList = () => {
@@ -373,6 +413,7 @@ provide('show', show)
       display: -webkit-box;
       -webkit-box-orient: vertical;
       -webkit-line-clamp: 1;
+      line-clamp: 1;
       overflow: hidden;
     }
     .haslist {
@@ -388,6 +429,7 @@ provide('show', show)
       display: -webkit-box;
       -webkit-box-orient: vertical;
       -webkit-line-clamp: 1;
+      line-clamp: 1;
       overflow: hidden;
     }
 
@@ -410,6 +452,25 @@ provide('show', show)
         .comment {
           height: 22px;
           width: 22px;
+        }
+      }
+
+      .transPro {
+        cursor: pointer;
+        line-height: 34px;
+        padding: 0 6px;
+        margin: 0 2px;
+        display: flex;
+
+        label {
+          cursor: pointer;
+          opacity: 0.5;
+        }
+        .active {
+          opacity: 0.95;
+        }
+        .m-label {
+          margin: 0 2px;
         }
       }
     }

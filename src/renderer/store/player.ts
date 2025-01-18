@@ -52,7 +52,9 @@ export const usePlayerStore = defineStore(
     const backRate = ref(1.0)
     let setIntervalTimer: any
     let setLyricIntervalTimer: any
+    let wBywIntervalTimer: any
     const currentLyricIndex = ref(-1)
+    const wBywLyricIndex = ref(0)
     const localMusics = ref<Track[]>([])
     const isLiked = ref(false)
     const isLocalList = ref(false)
@@ -169,6 +171,7 @@ export const usePlayerStore = defineStore(
       },
       set(value) {
         audio.currentTime = value
+        getLyricIndex()
       }
     })
 
@@ -201,14 +204,6 @@ export const usePlayerStore = defineStore(
       updateMediaSessionMetaData(value)
     })
 
-    watch(lyrics, (value) => {
-      window.mainApi.send('updateLyric', toRaw(value))
-    })
-
-    watch(currentLyricIndex, (value) => {
-      window.mainApi.send('updateLyricIndex', value)
-    })
-
     const currentLyric = computed(() => {
       let result: { content: string; time: number }
       if (currentLyricIndex.value < lyrics.lyric.length) {
@@ -228,22 +223,39 @@ export const usePlayerStore = defineStore(
       return result
     })
 
+    watch(lyrics, (value) => {
+      window.mainApi.send('updateLyricInfo', { lyrics: toRaw(value) })
+    })
+
     watch(currentLyric, (value) => {
       if (window.env?.isLinux && settingsStore.tray.enableExtension) {
-        window.mainApi.send('updateCurrentLyric', value)
+        window.mainApi.send('updateLyricInfo', { currentLyric: value })
       }
     })
+
+    // watch(currentLyricIndex, (value) => {
+    //   window.mainApi.send('updateLyricInfo', { currentLyricIndex: value })
+    // })
+
+    // watch(wBywLyricIndex, (value) => {
+    //   window.mainApi.send('updateLyricInfo', { wBywLyricIndex: value })
+    // })
+
+    watch(
+      () => [currentLyricIndex.value, wBywLyricIndex.value],
+      (value) => {
+        window.mainApi.send('updateLyricInfo', { lrcIdx: value })
+      }
+    )
 
     watch(
       () => settingsStore.tray.enableExtension,
       (value) => {
         if (!value) {
-          window.mainApi.send('updateCurrentLyric', {
-            content: '',
-            time: 10
-          })
+          const lrc = { content: '', time: 10 }
+          window.mainApi.send('updateLyricInfo', { currentLyric: lrc })
         } else {
-          window.mainApi.send('updateCurrentLyric', currentLyric.value)
+          window.mainApi.send('updateLyricInfo', { currentLyric: currentLyric.value })
         }
       }
     )
@@ -297,28 +309,56 @@ export const usePlayerStore = defineStore(
       }
     )
 
-    watch(enabled, (value) => {
-      if (value) {
-        setIntervalTimer = setInterval(() => {
-          if (audio === null) return
-          progress.value = audio.currentTime
-        }, 1000)
-        setLyricIntervalTimer = setInterval(() => {
-          const progress = seek.value + lyricOffset.value
-          currentLyricIndex.value = lyrics.lyric.findIndex((l, index) => {
-            const nextLyric = lyrics.lyric[index + 1]
-            const nextLyricTime = nextLyric ? nextLyric.time : currentTrackDuration.value
-            return progress >= l.time && progress < nextLyricTime
-          })
-        }, 50)
+    const getLyricIndex = () => {
+      const progress = audio.currentTime + lyricOffset.value
+      currentLyricIndex.value = lyrics.lyric.findIndex((l, index) => {
+        const nextLyric = lyrics.lyric[index + 1]
+        const nextLyricTime = nextLyric ? nextLyric.time : currentTrackDuration.value
+        return progress >= l.time && progress < nextLyricTime
+      })
+    }
+
+    const getWordByWordLyricIdx = () => {
+      const progress = audio.currentTime + lyricOffset.value
+      const lyricCurrent = lyrics.lyric[currentLyricIndex.value]
+      const nextLine = lyrics.lyric[currentLyricIndex.value + 1]
+      if (!lyricCurrent?.contentTimes?.length) {
+        wBywLyricIndex.value = 0
       } else {
-        clearInterval(setIntervalTimer)
-        clearInterval(setLyricIntervalTimer)
+        wBywLyricIndex.value = lyricCurrent?.contentTimes?.findIndex(
+          (timeArray: number[], index: number) => {
+            const nextWord = lyricCurrent.contentTimes[index + 1]
+            const start = timeArray[0] / 1000
+            const end = nextWord
+              ? nextWord[0] / 1000
+              : nextLine
+                ? nextLine.time
+                : currentTrackDuration.value
+            return progress >= start && progress < end
+          }
+        )
+        if (wBywLyricIndex.value === -1) {
+          currentLyricIndex.value += 1
+        }
       }
-    })
+    }
 
     watch(playing, (value) => {
       window.mainApi.send('updatePlayerState', { playing: value })
+      if (value) {
+        setLyricIntervalTimer = setInterval(getLyricIndex, 50)
+        setIntervalTimer = setInterval(() => {
+          if (audio === null) return
+          progress.value = audio.currentTime
+        }, 500)
+
+        // 当存在逐字歌词时，获取当前进度对应的单字歌词index
+        wBywIntervalTimer = setInterval(getWordByWordLyricIdx, 20)
+      } else {
+        clearInterval(setLyricIntervalTimer)
+        clearInterval(setIntervalTimer)
+        clearInterval(wBywIntervalTimer)
+      }
     })
 
     watch(isLiked, (value) => {
@@ -407,6 +447,7 @@ export const usePlayerStore = defineStore(
 
     const getCurrentTrackInfo = async (track: Track) => {
       if (!track) return
+      wBywLyricIndex.value = 0
       const data = await fetch(`atom://get-track-info/${track.id}`).then((res) => res.json())
       const buffer = new Uint8Array(data.pic.data)
       const blob = new Blob([buffer], { type: data.format })
@@ -419,11 +460,6 @@ export const usePlayerStore = defineStore(
         showToast(t('toast.getColorFailed'))
       }
       const lyricData = data.lyrics
-      // if (!lyricData.lrc.lyric.length) {
-      //   lyricData.lrc.lyric.push(
-      //     '[00:00.000] 暂无歌词 \n[00:05:000] 请进行歌曲匹配或者编辑元数据以添加歌词'
-      //   )
-      // }
 
       let { lyric, tlyric, rlyric } = lyricParse(lyricData)
       lyric = lyric.filter((l) => !/^作(词|曲)\s*(:|：)\s*无$/.exec(l.content))
@@ -831,7 +867,15 @@ export const usePlayerStore = defineStore(
     }
 
     const handleIpcRenderer = () => {
-      window.mainApi.on('play', playOrPause)
+      window.mainApi.on('play', () => {
+        if (
+          document.activeElement?.tagName === 'INPUT' ||
+          document.activeElement?.classList?.contains('comment-input')
+        ) {
+          return
+        }
+        playOrPause()
+      })
       window.mainApi.on('previous', playPrev)
       window.mainApi.on('next', playNext)
       window.mainApi.on('repeat', (_: any, value: string) => {
@@ -980,6 +1024,8 @@ export const usePlayerStore = defineStore(
             repeatMode: repeatMode.value,
             shuffle: shuffle.value
           })
+          getLyricIndex()
+          getWordByWordLyricIdx()
         })
         handleIpcRenderer()
         initMediaSession()
@@ -1030,6 +1076,7 @@ export const usePlayerStore = defineStore(
       isLiked,
       isLocalList,
       lyrics,
+      wBywLyricIndex,
       noLyric,
       personalFMTrack,
       personalFMNextTrack,

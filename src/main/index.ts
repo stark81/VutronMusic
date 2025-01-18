@@ -13,9 +13,7 @@ import fastifyCookie from '@fastify/cookie'
 import netease from './appServer/netease'
 import IPCs from './IPCs'
 import fastifyStatic from '@fastify/static'
-// import fastifyCors from '@fastify/cors'
 import path from 'path'
-// import { pathToFileURL } from 'url'
 import { parseFile, IAudioMetadata } from 'music-metadata'
 import cache from './cache'
 import {
@@ -229,9 +227,9 @@ class BackGround {
           ? ((store.get('osdWin.height') || 140) as number)
           : ((store.get('osdWin.height2') || 600) as number),
       minHeight: type === 'small' ? 140 : 400,
-      maxHeight: type === 'small' ? 140 : undefined,
+      maxHeight: type === 'small' ? 200 : undefined,
       minWidth: type === 'small' ? 700 : 400,
-      maxWidth: type === 'small' ? undefined : 400,
+      maxWidth: type === 'small' ? undefined : undefined,
       useContentSize: true,
       x:
         ((type === 'small' ? store.get('osdWin.x') : store.get('osdWin.x2')) as number) ||
@@ -293,29 +291,28 @@ class BackGround {
 
   toggleMouseIgnore() {
     const isLock = (store.get('osdWin.isLock') as boolean) || false
-    this.lyricWin.setIgnoreMouseEvents(isLock, { forward: !Constants.IS_LINUX })
-    this.lyricWin.setVisibleOnAllWorkspaces(isLock)
-  }
-
-  toggleOSDWindowAlwaysOnTop() {
-    const isAlwaysOnTop = (store.get('osdWin.isAlwaysOnTop') as boolean) || false
-    this.lyricWin.setAlwaysOnTop(isAlwaysOnTop)
-  }
-
-  handleLyricWindowPosition(position: { x: number; y: number }) {
-    const data = this.lyricWin.getBounds()
-    this.lyricWin.setPosition(data.x + position.x, data.y + position.y)
+    this.lyricWin?.setIgnoreMouseEvents(isLock, { forward: !Constants.IS_LINUX })
+    this.lyricWin?.setVisibleOnAllWorkspaces(isLock)
   }
 
   toggleOSDWindow() {
     const osdLyric = (store.get('osdWin.show') as boolean) || false
     const showMode = (store.get('osdWin.type') as string) || 'small'
-    this.win.webContents.send('toggleOSDWindow', osdLyric)
     if (osdLyric) {
       this.showOSDWindow(showMode)
     } else {
       this.hideOSDWindow()
     }
+  }
+
+  updateOsdHeight(height: number) {
+    const bounds = this.lyricWin?.getBounds()
+    this.lyricWin?.setBounds({
+      x: bounds.x,
+      y: bounds.y,
+      width: bounds.width,
+      height
+    })
   }
 
   updateOSDPlayingState(playing: boolean) {
@@ -327,12 +324,8 @@ class BackGround {
     this.showOSDWindow(showMode)
   }
 
-  sendLyricToOSDWindow(lyrics: { lyric: any[]; tlyric: any[]; rlyric: any[] }) {
-    this.lyricWin?.webContents.send('updateLyric', lyrics)
-  }
-
-  sendLyricIndexToOSDWindow(index: number) {
-    this.lyricWin?.webContents.send('updateLyricIndex', index)
+  updateLyricInfo(data: any) {
+    this.lyricWin?.webContents.send('updateLyricInfo', data)
   }
 
   handleOSDWindowEvents() {
@@ -443,7 +436,10 @@ class BackGround {
         let lyrics = {
           lrc: { lyric: [] },
           tlyric: { lyric: [] },
-          romalrc: { lyric: [] }
+          romalrc: { lyric: [] },
+          yrc: { lyric: [] },
+          ytlrc: { lyric: [] },
+          yromalrc: { lyric: [] }
         }
 
         if (res?.songs?.length > 0) {
@@ -575,12 +571,10 @@ class BackGround {
       const lrc = {
         toggleOSDWindow: () => this.toggleOSDWindow(),
         toggleMouseIgnore: () => this.toggleMouseIgnore(),
-        toggleOSDWindowAlwaysOnTop: () => this.toggleOSDWindowAlwaysOnTop(),
-        updateLyric: (lrc: any) => this.sendLyricToOSDWindow(lrc),
-        updateLyricIndex: (index: number) => this.sendLyricIndexToOSDWindow(index),
-        handleLyricWindowPosition: (position: any) => this.handleLyricWindowPosition(position),
+        updateLyricInfo: (data: any) => this.updateLyricInfo(data),
         switchOSDWindow: (showMode: string) => this.switchOSDWindow(showMode),
-        updateOSDPlayingState: (state: boolean) => this.updateOSDPlayingState(state)
+        updateOSDPlayingState: (state: boolean) => this.updateOSDPlayingState(state),
+        updateOsdHeight: (height: number) => this.updateOsdHeight(height)
       }
       IPCs.initialize(this.win, this.tray, this.mpris, lrc)
       createMenu(this.win)

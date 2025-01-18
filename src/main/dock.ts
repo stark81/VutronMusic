@@ -2,12 +2,13 @@ import { app, Menu, BrowserWindow, ipcMain } from 'electron'
 import store from './store'
 
 let isPlaying = false
+let enableOSD = false
+let isLock = false
 
 export function createDockMenu(win: BrowserWindow) {
   const lang = store.get('settings.lang') as string
 
   const updateDockMenu = (language: string) => {
-    const osdStatus = store.get('osdWindow.show') as boolean
     const template = {
       zh: [
         {
@@ -30,7 +31,7 @@ export function createDockMenu(win: BrowserWindow) {
         },
         { type: 'separator' },
         {
-          label: osdStatus ? '关闭桌面歌词' : '启用桌面歌词',
+          label: enableOSD ? '关闭桌面歌词' : '启用桌面歌词',
           click() {}
         }
       ],
@@ -53,11 +54,19 @@ export function createDockMenu(win: BrowserWindow) {
             win.webContents.send('previous')
           }
         },
-        { type: 'separator' },
         {
-          label: osdStatus ? 'Disable desktop lyric' : 'Enable desktop lyric',
-          click() {}
-        }
+          label: enableOSD ? 'Close OSD Lyric' : 'Open OSD Lyric',
+          click() {
+            win.webContents.send('updateOSDSetting', { show: !enableOSD })
+          }
+        },
+        {
+          label: isLock ? 'Unlock OSD Lyric' : 'Lock OSD Lyric',
+          click() {
+            win.webContents.send('updateOSDSetting', { isLock: !isLock })
+          }
+        },
+        { type: 'separator' }
       ]
     }
     const menu = Menu.buildFromTemplate(template[language])
@@ -72,6 +81,17 @@ export function createDockMenu(win: BrowserWindow) {
         isPlaying = value
         updateDockMenu(lang)
       }
+    }
+  })
+
+  ipcMain.on('updateOsdState', (event, data) => {
+    const [key, value] = Object.entries(data)[0] as [string, any]
+    if (key === 'show') {
+      enableOSD = value
+      updateDockMenu(lang)
+    } else if (key === 'isLock') {
+      isLock = value
+      updateDockMenu(lang)
     }
   })
 

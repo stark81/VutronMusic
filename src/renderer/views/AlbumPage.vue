@@ -72,7 +72,6 @@
           :item-height="48"
           :colunm-number="1"
           :is-end="false"
-          :show-position="false"
           :type="'album'"
           :album-object="album"
         />
@@ -85,8 +84,7 @@
         :colunm-number="1"
         :item-height="48"
         :is-end="false"
-        :show-position="false"
-        :type="'album'"
+        type="album"
         :album-object="album"
       />
     </div>
@@ -111,6 +109,7 @@
           :colunm-number="5"
           :is-end="true"
           :padding-bottom="0"
+          :show-position="false"
           :item-height="260"
           sub-text="albumType+releaseYear"
         ></CoverRow>

@@ -110,7 +110,6 @@ import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 import { setCookies } from '../utils/auth'
 import _ from 'lodash'
-// import { nativeAlert } from '../utils'
 
 const router = useRouter()
 const route = useRoute()
@@ -173,7 +172,6 @@ const handleLoginResponse = (data: any) => {
   if (data.code === 200) {
     setCookies(data.cookie)
     const cookie = localStorage.getItem('cookie-MUSIC_U') || ''
-    window.mainApi.send('setCookie', cookie)
     getLoginStatus(cookie).then((res) => {
       _.merge(user.value, res.data.profile)
       router.push('/')

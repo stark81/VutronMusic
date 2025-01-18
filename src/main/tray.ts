@@ -11,7 +11,7 @@ import Constants from './utils/Constants'
 import store from './store'
 import path from 'path'
 
-let playState = false
+// let playState = false
 let repeatMode = 'off'
 let shuffleMode = false
 
@@ -42,13 +42,42 @@ const createMenuTemplate = (win: BrowserWindow) => {
     : []
   return template.concat([
     {
+      label: lang === 'zh' ? '开启桌面歌词' : 'Open OSD Lyric',
+      click: () => {
+        win.webContents.send('updateOSDSetting', { show: true })
+      },
+      id: 'openOSD'
+    },
+    {
+      label: lang === 'zh' ? '关闭桌面歌词' : 'Close OSD Lyric',
+      click: () => {
+        win.webContents.send('updateOSDSetting', { show: false })
+      },
+      id: 'closeOSD',
+      visible: false
+    },
+    {
+      label: lang === 'zh' ? '锁定桌面歌词' : 'Lock OSD Lyric',
+      click: () => {
+        win.webContents.send('updateOSDSetting', { lock: true })
+      },
+      id: 'lockOSD'
+    },
+    {
+      label: lang === 'zh' ? '解锁桌面歌词' : 'Unlock OSD Lyric',
+      click: () => {
+        win.webContents.send('updateOSDSetting', { lock: false })
+      },
+      id: 'unlockOSD',
+      visible: false
+    },
+    {
       label: lang === 'zh' ? '播放' : 'Play',
       icon: createNativeImage('play'),
       click: () => {
         win.webContents.send('play')
       },
-      id: 'play',
-      visible: !playState
+      id: 'play'
     },
     {
       label: lang === 'zh' ? '暂停' : 'Pause',
@@ -57,7 +86,7 @@ const createMenuTemplate = (win: BrowserWindow) => {
         win.webContents.send('play')
       },
       id: 'pause',
-      visible: playState
+      visible: false
     },
     {
       label: lang === 'zh' ? '上一首' : 'Prev',
@@ -144,6 +173,8 @@ export interface YPMTray {
   setLikeState: (isLiked: boolean) => void
   setRepeatMode: (repeat: string) => void
   setShuffleMode: (isShuffle: boolean) => void
+  setShowOSD: (show: boolean) => void
+  setOSDLock: (lock: boolean) => void
 }
 
 class TrayImpl implements YPMTray {
@@ -217,8 +248,22 @@ class TrayImpl implements YPMTray {
     }
   }
 
+  setShowOSD(show: boolean) {
+    if (!this._contextMenu) return
+    this._contextMenu.getMenuItemById('openOSD').visible = !show
+    this._contextMenu.getMenuItemById('closeOSD').visible = show
+    this._tray.setContextMenu(this._contextMenu)
+  }
+
+  setOSDLock(lock: boolean) {
+    if (!this._contextMenu) return
+    this._contextMenu.getMenuItemById('lockOSD').visible = !lock
+    this._contextMenu.getMenuItemById('unlockOSD').visible = lock
+    this._tray.setContextMenu(this._contextMenu)
+  }
+
   setPlayState(isPlaying: boolean) {
-    playState = isPlaying || false
+    // playState = isPlaying || false
     if (!this._contextMenu) return
     this._contextMenu.getMenuItemById('play').visible = !isPlaying
     this._contextMenu.getMenuItemById('pause').visible = isPlaying

@@ -32,6 +32,7 @@ import newPlaylistModal from './components/NewPlaylistModal.vue'
 import PlayPage from './views/PlayPage.vue'
 import { useDataStore } from './store/data'
 import { useLocalMusicStore } from './store/localMusic'
+import { useOsdLyricStore } from './store/osdLyric'
 import { usePlayerStore } from './store/player'
 import { useSettingsStore } from './store/settings'
 import { useNormalStateStore } from './store/state'
@@ -46,8 +47,12 @@ const { fetchLocalMusic, deleteLocalTracks } = localMusicStore
 const playerStore = usePlayerStore()
 const { enabled } = storeToRefs(playerStore)
 
+const osdLyricStore = useOsdLyricStore()
+const { show, type, isLock } = storeToRefs(osdLyricStore)
+
 const stateStore = useNormalStateStore()
 const { showLyrics, enableScrolling, extensionCheckResult } = storeToRefs(stateStore)
+const { showToast } = stateStore
 
 const {
   fetchLikedPlaylist,
@@ -124,6 +129,18 @@ const scrollTo = (top: number) => {
   mainRef.value.scrollTo({ top, behavior: 'smooth' })
 }
 
+const watchOsdEvent = () => {
+  watch(show, (value) => {
+    window.mainApi.send('updateOsdState', { show: value })
+  })
+  watch(type, (value) => {
+    window.mainApi.send('updateOsdState', { type: value })
+  })
+  watch(isLock, (value) => {
+    window.mainApi.send('updateOsdState', { isLock: value })
+  })
+}
+
 const mainRef = ref()
 const navBarRef = ref()
 
@@ -168,21 +185,21 @@ const handleChanelEvent = () => {
   window.mainApi.on('msgExtensionCheckResult', (_: any, result: boolean) => {
     extensionCheckResult.value = result
   })
+  window.mainApi.on('updateOSDSetting', (_: any, data: { [key: string]: any }) => {
+    const [key, value] = Object.entries(data)[0] as [string, any]
+    if (key === 'show') {
+      show.value = value
+    } else if (key === 'lock') {
+      if (!show.value) {
+        showToast('桌面歌词锁定/解锁功能仅在桌面歌词开启状态下可用')
+        return
+      }
+      isLock.value = value
+    }
+  })
 }
 
-const handleKeydown = (e: KeyboardEvent) => {
-  if (e.code === 'Space') {
-    if (
-      // @ts-ignore
-      e.target!.tagName === 'INPUT' ||
-      // @ts-ignore
-      e.target!.classList?.contains('comment-input') ||
-      route.name === 'mv'
-    ) {
-      e.preventDefault()
-    }
-  }
-}
+watchOsdEvent()
 
 onMounted(async () => {
   hasCustomTitleBar.value =
@@ -201,7 +218,6 @@ onMounted(async () => {
       extensionCheckResult.value = result
     })
   }
-  window.addEventListener('keydown', handleKeydown)
   fetchData()
   fetchLocalData()
   handleChanelEvent()

@@ -6,6 +6,8 @@ import store from './store'
 let isPlaying = false
 let repeatMode = 'off'
 let shuffleMode = false
+let enableOSD = false
+let isLock = false
 
 export function createMenu(win: BrowserWindow) {
   let shortcuts = store.get('settings.shortcuts') as
@@ -167,6 +169,18 @@ export function createMenu(win: BrowserWindow) {
               accelerator: 'Alt+S',
               click: () => {
                 win.webContents.send('repeat-shuffle', !shuffleMode)
+              }
+            },
+            {
+              label: `${enableOSD ? 'Close' : 'Open'} OSD Lyric`,
+              click: () => {
+                win.webContents.send('updateOSDSetting', { show: !enableOSD })
+              }
+            },
+            {
+              label: `${isLock ? 'Unlock' : 'Lock'} OSD Lyric`,
+              click: () => {
+                win.webContents.send('updateOSDSetting', { isLock: !isLock })
               }
             }
           ]
@@ -378,6 +392,18 @@ export function createMenu(win: BrowserWindow) {
               click: () => {
                 win.webContents.send('repeat-shuffle', !shuffleMode)
               }
+            },
+            {
+              label: `${enableOSD ? '关闭' : '开启'}桌面歌词`,
+              click: () => {
+                win.webContents.send('updateOSDSetting', { show: !enableOSD })
+              }
+            },
+            {
+              label: `${isLock ? '解锁' : '锁定'}桌面歌词`,
+              click: () => {
+                win.webContents.send('updateOSDSetting', { isLock: !isLock })
+              }
             }
           ]
         },
@@ -462,6 +488,17 @@ export function createMenu(win: BrowserWindow) {
       } else if (key === 'shuffle') {
         shuffleMode = value
       }
+    }
+  })
+
+  ipcMain.on('updateOsdState', (event, data) => {
+    const [key, value] = Object.entries(data)[0] as [string, any]
+    if (key === 'show') {
+      enableOSD = value
+      updateMenu(lang)
+    } else if (key === 'isLock') {
+      isLock = value
+      updateMenu(lang)
     }
   })
 

@@ -1,20 +1,12 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
 // import store from '../main/store'
 
-const mainAvailChannels: string[] = [
-  'set-osd-window',
-  'setWindowPosition',
-  'mouseleave',
-  'switchOsdWinMode',
-  'from-osd',
-  'get-playing-status'
-]
+const mainAvailChannels: string[] = ['mouseleave', 'from-osd', 'osd-resize', 'get-playing-status']
 
 const rendererAvailChannels: string[] = [
-  'updateLyric',
-  'updateLyricIndex',
   'set-isLock',
-  'update-osd-playing-status'
+  'update-osd-playing-status',
+  'updateLyricInfo'
 ]
 
 contextBridge.exposeInMainWorld('mainApi', {
@@ -69,22 +61,42 @@ window.addEventListener('DOMContentLoaded', () => {
   let lastMoveTime: number = 0
 
   const root = document.querySelector('#main') as HTMLElement
-  const headerEl = document.querySelector('#osd-lock') as HTMLElement
+  const header = document.querySelector('.header') as HTMLElement
+  const lockEl = document.querySelector('#osd-lock') as HTMLElement
+  const container = document.querySelector('.container') as HTMLElement
+
+  container.addEventListener('mouseenter', () => {
+    header.style.opacity = '1'
+  })
+
+  container.addEventListener('mouseleave', () => {
+    header.style.opacity = '0'
+    root.style.opacity = '1'
+  })
+
+  header.addEventListener('mouseenter', () => {
+    header.style.opacity = '1'
+  })
+
+  header.addEventListener('mouseleave', () => {
+    header.style.opacity = '0'
+  })
 
   root.addEventListener('mouseenter', () => {
-    if (!headerEl) return
-    headerEl.style.opacity = '1'
+    if (!lockEl) return
+    lockEl.style.opacity = '1'
   })
 
   root.addEventListener('mouseleave', () => {
-    if (headerEl) headerEl.style.opacity = '0'
+    if (lockEl) lockEl.style.opacity = '0'
     clearTimeout(timeoutId)
-    root.style.opacity = '1'
   })
 
   root.addEventListener('mousemove', () => {
     if (!root.classList.contains('is-lock')) return
     clearTimeout(timeoutId)
+
+    const osdLyric = JSON.parse(localStorage.getItem('osdLyric'))
 
     lastMoveTime = Date.now()
     timeoutId = setTimeout(() => {
@@ -92,14 +104,14 @@ window.addEventListener('DOMContentLoaded', () => {
       if (now - lastMoveTime >= 3000) {
         root.style.opacity = '0.05'
       }
-    }, 3000)
+    }, osdLyric.staticTime ?? 1500)
   })
 
-  headerEl.addEventListener('mouseenter', () => {
+  lockEl?.addEventListener('mouseenter', () => {
     ipcRenderer.send('set-ignore-mouse', false)
   })
 
-  headerEl.addEventListener('mouseleave', () => {
+  lockEl?.addEventListener('mouseleave', () => {
     ipcRenderer.send('mouseleave')
   })
 })

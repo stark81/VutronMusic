@@ -105,7 +105,7 @@ export function createPlaylist(params) {
   params.timestamp = new Date().getTime()
   return request({
     url: '/playlist/create',
-    method: 'post',
+    method: 'get',
     params
   })
 }

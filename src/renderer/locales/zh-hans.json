@@ -227,6 +227,10 @@
       "tray": "系统托盘",
       "extension": "歌词插件",
       "platformSetting": "平台设置",
+      "lyricSetting": "歌词设置",
+      "lyric": "主窗口歌词",
+      "osdLyric": "桌面歌词",
+      "trayLyric": "状态栏歌词",
       "localMusic": "本地歌曲",
       "shortcut": "快捷键设置"
     },
@@ -270,6 +274,34 @@
         "desc": "该功能需要安装并启用歌词插件服务"
       },
       "showTray": "显示托盘图标"
+    },
+    "osdLyric": {
+      "showOsdLyric": "显示桌面歌词",
+      "alwaysOnTop": "桌面歌词窗口置顶",
+      "type": {
+        "text": "桌面歌词窗口模式",
+        "small": "mini模式",
+        "normal": "普通模式"
+      },
+      "mode": {
+        "text": "歌词显示模式",
+        "desc": "此选项仅在桌面歌词窗口为mini模式生效",
+        "oneLine": "单行",
+        "twoLines": "双行"
+      },
+      "isLock": "桌面歌词锁定",
+      "isWordByWord": "启用逐字歌词（如果可用）",
+      "translationMode": {
+        "text": "显示歌词翻译/音译",
+        "none": "从不",
+        "tlyric": "翻译",
+        "romalrc": "音译"
+      },
+      "fontSize": "字体大小（px）",
+      "staticTime": {
+        "text": "鼠标停留时长",
+        "desc": "锁定后，鼠标停留该时长后（毫秒）降低窗体透明度，Linux系统下无效"
+      }
     },
     "shortcut": {
       "enableGlobalShortcut": "启用全局快捷键",

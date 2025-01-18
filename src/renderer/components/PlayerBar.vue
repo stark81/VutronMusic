@@ -76,8 +76,8 @@
           /></button-icon>
           <button-icon
             :title="$t('player.osdLyrics')"
-            :class="{ active: osdLyric.show }"
-            @click="toggleOSDLyrics"
+            :class="{ active: show }"
+            @click="show = !show"
             ><svg-icon icon-class="osd-lyrics"
           /></button-icon>
         </div>
@@ -156,12 +156,12 @@ import VueSlider from 'vue-3-slider-component'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
 import { useDataStore } from '../store/data'
+import { useOsdLyricStore } from '../store/osdLyric'
 import { useNormalStateStore } from '../store/state'
 import { hasListSource, getListSourcePath } from '../utils/playlist'
-import { useSettingsStore } from '../store/settings'
 import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
-import { computed, watch, onMounted } from 'vue'
+import { computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 
 const router = useRouter()
@@ -182,8 +182,8 @@ const {
   pic
 } = storeToRefs(playerStore)
 
-const settingsStore = useSettingsStore()
-const { osdLyric } = storeToRefs(settingsStore)
+const osdLyric = useOsdLyricStore()
+const { show } = storeToRefs(osdLyric)
 
 const stateStore = useNormalStateStore()
 const { showLyrics } = storeToRefs(stateStore)
@@ -224,11 +224,6 @@ const likeTrack = () => {
   }
 }
 
-const toggleOSDLyrics = () => {
-  osdLyric.value.show = !osdLyric.value.show
-  window.mainApi.send('toggleOSDWindow', osdLyric.value.show)
-}
-
 const goToArtist = (artist: any) => {
   if (artist.matched !== false) {
     router.push(`/artist/${artist.id}`)
@@ -266,11 +261,6 @@ watch(
     isLiked.value = value
   }
 )
-onMounted(() => {
-  window.mainApi.on('toggleOSDWindow', (envet: any, show: boolean) => {
-    osdLyric.value.show = show
-  })
-})
 </script>
 
 <style scoped lang="scss">

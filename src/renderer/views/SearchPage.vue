@@ -36,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onActivated, onDeactivated, reactive, watch, inject } from 'vue'
+import { ref, onActivated, onDeactivated, reactive, watch, inject, nextTick } from 'vue'
 import { search } from '../api/other'
 import { getTrackDetail } from '../api/track'
 import { useNormalStateStore } from '../store/state'
@@ -146,6 +146,9 @@ watch(searchTab, (value) => {
   if (!keywords.value) return
   if (result[value].length > 0) return
   loadData(keywords.value, value)
+  nextTick(() => {
+    updatePadding(0)
+  })
 })
 
 onBeforeRouteUpdate((to, from, next) => {

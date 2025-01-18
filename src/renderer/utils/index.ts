@@ -21,10 +21,6 @@ export default class Utils {
     return window.mainApi.invoke('msgOpenFile', type)
   }
 
-  static async nativeAlert(msg: string): Promise<void> {
-    return window.mainApi.send('msgNativeAlert', msg)
-  }
-
   static changeAppearance(appearance: string): void {
     if (appearance === 'auto' || appearance === undefined) {
       appearance = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
@@ -159,7 +155,6 @@ export const {
   getCurrentLocale,
   openExternal,
   openFile,
-  nativeAlert,
   changeAppearance,
   randomNum,
   formatTime,
