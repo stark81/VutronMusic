@@ -1009,6 +1009,10 @@ export const usePlayerStore = defineStore(
       }
     }
 
+    const clearPlayNextList = () => {
+      _playNextList.value = []
+    }
+
     onMounted(async () => {
       playing.value = false
       title.value = 'VutronMusic'
@@ -1089,6 +1093,7 @@ export const usePlayerStore = defineStore(
       replacePlaylist,
       playPrev,
       _playNextTrack,
+      clearPlayNextList,
       playOrPause,
       resetPlayer,
       setDevice,

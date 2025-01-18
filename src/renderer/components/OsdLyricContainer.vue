@@ -273,6 +273,8 @@ window.mainApi.on('updateLyricInfo', (event, data) => {
     currentLyricIndex.value = value[0]
     wBywLyricIndex.value = value[1]
     setTimeout(() => {
+      const el = document.getElementById(`line${value[0]}`)
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
       if (type.value === 'normal' || !containerRef.value?.offsetHeight) return
       containerHeight.value = containerRef.value?.offsetHeight + 40
     }, 50)

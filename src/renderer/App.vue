@@ -170,6 +170,7 @@ const scanLocalMusic = async () => {
 provide('scanLocalMusic', scanLocalMusic)
 
 const handleChanelEvent = () => {
+  window.mainApi.send('updateOsdState', { show: show.value })
   window.mainApi.on('msgHandleScanLocalMusic', (_: any, data: { track: any }) => {
     localTracks.value.push(data.track)
   })

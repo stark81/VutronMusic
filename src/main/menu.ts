@@ -180,7 +180,7 @@ export function createMenu(win: BrowserWindow) {
             {
               label: `${isLock ? 'Unlock' : 'Lock'} OSD Lyric`,
               click: () => {
-                win.webContents.send('updateOSDSetting', { isLock: !isLock })
+                win.webContents.send('updateOSDSetting', { lock: !isLock })
               }
             }
           ]
@@ -402,7 +402,7 @@ export function createMenu(win: BrowserWindow) {
             {
               label: `${isLock ? '解锁' : '锁定'}桌面歌词`,
               click: () => {
-                win.webContents.send('updateOSDSetting', { isLock: !isLock })
+                win.webContents.send('updateOSDSetting', { lock: !isLock })
               }
             }
           ]

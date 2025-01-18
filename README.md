@@ -25,16 +25,8 @@
 ## 配置开发环境
 
 ```
-# 安装依赖
-yarn install  # Windows用户安装依赖时可能会报better-sqlite3的pre-build错误，不用理会
-
-# Linux用户
-   本项目使用的electron版本为^33.0.0, 但Linux用户在安装该版本依赖时可能会报electron/node-gyp相关的错误，如果出现此错误的话，请手动修改package.json中的electron版本为~32.0.0，然后重新安装依赖即可；
-
-# Windows用户创建本地环境变量
-  cp .env.example .env
-  - 同时将 dist-native-bak/better-sqlite3-v11.5.0-electron-v130-win32-x64.tar/build/Release/better-sqlite3.node 解压到dist-native/better-sqlite3.node；
-  - 本项目提供的better-sqlite3.node文件是针对electron33版本的，假如您使用的electron版本不是33，请自行到better-sqlite3项目里下载对应版本的better-sqlite3.node文件，并替换dist-native/better-sqlite3.node文件；
+# 安装依赖，建议使用node21 + python3.9,其他的python版本可能会导致依赖安装失败的问题；
+yarn install
 
 # arm64的Mac用户
   使用苹果M系列芯片的用户，在安装依赖前先把buildAssets/builder/config.js文件中的mac.target.arch的值改为['arm64']，然后重新安装依赖即可；

@@ -32,7 +32,15 @@ export function createDockMenu(win: BrowserWindow) {
         { type: 'separator' },
         {
           label: enableOSD ? '关闭桌面歌词' : '启用桌面歌词',
-          click() {}
+          click() {
+            win.webContents.send('updateOSDSetting', { show: !enableOSD })
+          }
+        },
+        {
+          label: isLock ? '解锁桌面歌词' : '锁定桌面歌词',
+          click() {
+            win.webContents.send('updateOSDSetting', { lock: !isLock })
+          }
         }
       ],
       en: [
@@ -63,7 +71,7 @@ export function createDockMenu(win: BrowserWindow) {
         {
           label: isLock ? 'Unlock OSD Lyric' : 'Lock OSD Lyric',
           click() {
-            win.webContents.send('updateOSDSetting', { isLock: !isLock })
+            win.webContents.send('updateOSDSetting', { lock: !isLock })
           }
         },
         { type: 'separator' }

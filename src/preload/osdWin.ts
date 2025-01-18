@@ -101,8 +101,8 @@ window.addEventListener('DOMContentLoaded', () => {
     lastMoveTime = Date.now()
     timeoutId = setTimeout(() => {
       const now = Date.now()
-      if (now - lastMoveTime >= 3000) {
-        root.style.opacity = '0.05'
+      if (now - lastMoveTime >= (osdLyric.staticTime ?? 1500)) {
+        root.style.opacity = '0.02'
       }
     }, osdLyric.staticTime ?? 1500)
   })

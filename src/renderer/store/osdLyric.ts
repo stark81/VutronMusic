@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 
 export type Type = 'small' | 'normal'
 export type Mode = 'oneLine' | 'twoLines'
@@ -19,8 +19,8 @@ export const useOsdLyricStore = defineStore(
     const translationMode = ref<TranslationMode>('tlyric')
     const backgroundColor = ref('rgba(0, 0, 0, 0)')
     const playedLrcColor = ref('#37cf88')
-    const unplayLrcColor = ref('rgba(255, 255, 255, 0.55)')
-    const textShadow = ref('rgba(210, 210, 210, 0.2)')
+    const unplayLrcColor = ref('rgba(210, 210, 210, 1)')
+    const textShadow = ref('rgba(0, 0, 0, 0.2)')
 
     window.addEventListener('storage', (event) => {
       if (event.key === 'osdLyric') {
@@ -42,9 +42,9 @@ export const useOsdLyricStore = defineStore(
       }
     })
 
-    onMounted(() => {
-      window.mainApi.send('updateOsdState', { show: show.value })
-    })
+    // onMounted(() => {
+    //   window.mainApi.send('updateOsdState', { show: show.value })
+    // })
 
     return {
       show,

@@ -30,23 +30,19 @@
         <div class="tab" :class="{ active: tab === 'appearance' }" @click="updateTab(1)">{{
           $t('settings.nav.appearance')
         }}</div>
-        <div
-          v-if="isLinux"
-          class="tab"
-          :class="{ active: tab === 'lyric' }"
-          @click="updateTab(2)"
-          >{{ $t('settings.nav.lyricSetting') }}</div
-        >
+        <div class="tab" :class="{ active: tab === 'lyric' }" @click="updateTab(2)">{{
+          $t('settings.nav.lyricSetting')
+        }}</div>
         <div
           class="tab"
           :class="{ active: tab === 'localTracks' }"
-          @click="updateTab(isMac || isLinux ? 3 : 2)"
+          @click="updateTab(3)"
           >{{ $t('settings.nav.localMusic') }}</div
         >
         <div
           class="tab"
           :class="{ active: tab === 'shortcut' }"
-          @click="updateTab(isMac || isLinux ? 4 : 3)"
+          @click="updateTab(4)"
           >{{ $t('settings.nav.shortcut') }}</div
         >
       </div>
@@ -758,7 +754,7 @@ const getAllOutputDevices = () => {
 }
 
 const tab = ref('general')
-const lyricTab = ref('trayLyric')
+const lyricTab = ref(isWindows ? 'lyric' : 'trayLyric')
 const updateTab = (index: number) => {
   const tabs = ['general', 'appearance', 'lyric', 'localTracks', 'shortcut']
   const tabName = tabs[index]

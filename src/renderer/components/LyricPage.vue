@@ -10,7 +10,7 @@
         <button-icon title="后退0.5s" @click="setOffset(-0.5)">
           <svg-icon icon-class="back5s" />
         </button-icon>
-        <button-icon class="recovery" title="恢复" @click="setOffset(0)">
+        <button-icon class="recovery" :title="offset" @click="setOffset(0)">
           <svg-icon icon-class="recovery" />
         </button-icon>
         <button-icon title="提前0.5s" @click="setOffset(0.5)">
@@ -113,6 +113,17 @@ const lyricWithTranslation = computed(() => {
     }))
   }
   return ret
+})
+
+const offset = computed(() => {
+  const lrcOffset = currentTrack.value!.offset || 0
+  if (lrcOffset === 0) {
+    return '未调整'
+  } else if (lrcOffset > 0) {
+    return `提前${lrcOffset}s`
+  } else {
+    return `延后${Math.abs(lrcOffset)}s`
+  }
 })
 
 const setOffset = (offset: number) => {
