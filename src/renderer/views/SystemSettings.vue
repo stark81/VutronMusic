@@ -33,18 +33,12 @@
         <div class="tab" :class="{ active: tab === 'lyric' }" @click="updateTab(2)">{{
           $t('settings.nav.lyricSetting')
         }}</div>
-        <div
-          class="tab"
-          :class="{ active: tab === 'localTracks' }"
-          @click="updateTab(3)"
-          >{{ $t('settings.nav.localMusic') }}</div
-        >
-        <div
-          class="tab"
-          :class="{ active: tab === 'shortcut' }"
-          @click="updateTab(4)"
-          >{{ $t('settings.nav.shortcut') }}</div
-        >
+        <div class="tab" :class="{ active: tab === 'localTracks' }" @click="updateTab(3)">{{
+          $t('settings.nav.localMusic')
+        }}</div>
+        <div class="tab" :class="{ active: tab === 'shortcut' }" @click="updateTab(4)">{{
+          $t('settings.nav.shortcut')
+        }}</div>
       </div>
     </div>
     <div class="main-container">

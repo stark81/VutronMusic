@@ -13,7 +13,7 @@
 
     <h1 v-if="_playNextList.length > 0">
       {{ $t('next.insertPlaying') }}
-      <button @click=clearPlayNextList>清除队列</button>
+      <button @click="clearPlayNextList">清除队列</button>
     </h1>
     <TrackList
       v-if="tracks.length > 0"
