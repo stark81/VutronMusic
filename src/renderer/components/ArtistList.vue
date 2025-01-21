@@ -5,6 +5,7 @@
       class="artist-list"
       :item-height="64"
       :show-position="false"
+      :is-end="true"
     >
       <template #default="{ item, index }">
         <ArtistListItem
@@ -18,7 +19,14 @@
         />
       </template>
     </VirtualScroll>
-    <VirtualScroll :list="showTracks" :item-height="64" class="track-list" :show-position="false">
+    <VirtualScroll
+      :list="showTracks"
+      :item-height="64"
+      class="track-list"
+      :show-position="false"
+      :padding-bottom="116"
+      :is-end="true"
+    >
       <template #default="{ item, index }">
         <TrackListItem
           :key="index"

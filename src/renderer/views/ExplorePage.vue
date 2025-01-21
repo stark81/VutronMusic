@@ -119,7 +119,7 @@
     </div>
 
     <div v-if="exploreTab === 'newTrack'" class="playlists">
-      <TrackList :id="11" :items="tracks" :colunm-number="1" :type="'playlist'" />
+      <TrackList :id="11" :items="tracks" :colunm-number="1" :type="'playlist'" :is-end="true" />
     </div>
     <div v-else-if="exploreTab === 'newAlbum'" class="playlists">
       <div v-if="albumType === '热门' && newAlbumInfo.topAlbum.weekData.length !== 0">
@@ -133,6 +133,7 @@
           :show-play-count="false"
           :show-position="true"
           :colunm-number="5"
+          :is-end="true"
         />
       </div>
       <div>
@@ -147,6 +148,7 @@
           :show-play-button="false"
           :show-play-count="false"
           :show-position="true"
+          :is-end="true"
           :colunm-number="5"
           :load-more="loadMore"
         />
@@ -160,6 +162,7 @@
         :sub-text="subText"
         :show-play-button="true"
         :show-position="true"
+        :is-end="true"
         :show-play-count="activeCategory !== '排行榜' && exploreTab !== 'artist' ? true : false"
         :item-height="exploreTab === 'artist' ? 224 : 270"
         :colunm-number="5"
@@ -324,7 +327,6 @@ const getNewTrack = () => {
     韩国: 16
   }
   topSong(trackMap[activeCategory.value]).then((data) => {
-    // console.log('getNewTrack', data)
     playlists.value = []
     tracks.value = data.data
     tricklingProgress.done()

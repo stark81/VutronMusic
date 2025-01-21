@@ -28,7 +28,8 @@
         v-if="comments.length"
         :list="comments"
         :item-size="63"
-        :height="props.type === 'mv' ? 510 : 560"
+        :is-end="false"
+        :height="commentHeight"
         :padding-bottom="0"
         :show-position="false"
         :load-more="loadComment"
@@ -94,7 +95,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, inject, computed } from 'vue'
+import { ref, onMounted, reactive, inject, computed, onBeforeUnmount } from 'vue'
 import { getComment, likeComment, submitComment } from '../api/comment'
 import { useNormalStateStore } from '../store/state'
 import VirtualScroll from './VirtualScrollNoHeight.vue'
@@ -124,6 +125,7 @@ const comments = ref<any[]>([])
 const mainRef = ref()
 const commentSubmitRef = ref()
 const router = useRouter()
+const winHeight = ref(window.innerHeight)
 const commentInfo = reactive({
   totalCount: 0,
   sortType: 1,
@@ -139,6 +141,10 @@ const containerStyle = computed(() => {
     height: props.type === 'mv' ? 'calc(100vh - 84px)' : '100vh',
     padding: props.type === 'mv' ? '0 0 0 3vh' : '40px 8vh 0 4vh'
   }
+})
+
+const commentHeight = computed(() => {
+  return winHeight.value - (props.type === 'mv' ? 205 : 160)
 })
 
 const mainStyle = computed(() => {
@@ -166,6 +172,10 @@ const getImage = (url: string) => {
     url = url.replace('http:', 'https:')
   }
   return url + '?param=64y64'
+}
+
+const updateWindowHeight = () => {
+  winHeight.value = window.innerHeight
 }
 
 const handleClickSortType = (type: number) => {
@@ -313,7 +323,12 @@ const handleSubmitComment = () => {
 }
 
 onMounted(() => {
+  window.addEventListener('resize', updateWindowHeight)
   loadComment()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateWindowHeight)
 })
 </script>
 

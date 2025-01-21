@@ -10,6 +10,7 @@
         :colunm-number="1"
         :load-more="() => loadData(keywords, searchTab)"
         :type="'playlist'"
+        :is-end="true"
       />
     </div>
     <div v-else-if="searchTab === 'lyric'" class="container">
@@ -20,6 +21,7 @@
         :is-lyric="true"
         :load-more="() => loadData(keywords, searchTab)"
         :type="'playlist'"
+        :is-end="true"
       />
     </div>
     <div v-else class="container">
@@ -30,6 +32,7 @@
         :colunm-number="5"
         :sub-text="'artist'"
         :load-more="() => loadData(keywords, searchTab)"
+        :is-end="true"
       />
     </div>
   </div>

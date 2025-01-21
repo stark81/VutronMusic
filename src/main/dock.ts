@@ -43,6 +43,40 @@ export function createDockMenu(win: BrowserWindow) {
           }
         }
       ],
+      zht: [
+        // 新增繁体中文
+        {
+          label: isPlaying ? '暫停' : '播放',
+          click() {
+            win.webContents.send('play')
+          }
+        },
+        {
+          label: '下一首',
+          click() {
+            win.webContents.send('next')
+          }
+        },
+        {
+          label: '上一首',
+          click() {
+            win.webContents.send('previous')
+          }
+        },
+        { type: 'separator' },
+        {
+          label: enableOSD ? '關閉桌面歌詞' : '啟用桌面歌詞',
+          click() {
+            win.webContents.send('updateOSDSetting', { show: !enableOSD })
+          }
+        },
+        {
+          label: isLock ? '解鎖桌面歌詞' : '鎖定桌面歌詞',
+          click() {
+            win.webContents.send('updateOSDSetting', { lock: !isLock })
+          }
+        }
+      ],
       en: [
         {
           label: isPlaying ? 'Pause' : 'Play',

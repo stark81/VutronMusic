@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, globalShortcut, Menu, net, protocol, screen } from 'electron'
 import { release } from 'os'
+import fs from 'fs'
 import Constants from './utils/Constants'
 import store from './store'
 import { createTray, YPMTray } from './tray'
@@ -15,6 +16,7 @@ import IPCs from './IPCs'
 import fastifyStatic from '@fastify/static'
 import path from 'path'
 import { parseFile, IAudioMetadata } from 'music-metadata'
+import mime from 'mime-types'
 import cache from './cache'
 import {
   getReplayGainFromMetadata,
@@ -100,15 +102,6 @@ class BackGround {
     protocol.registerSchemesAsPrivileged([
       {
         scheme: 'atom',
-        // privileges: { secure: true, standard: true, supportFetchAPI: true }
-        privileges: { secure: true, standard: true, supportFetchAPI: true, stream: true }
-      },
-      {
-        scheme: 'media',
-        privileges: { secure: true, standard: true, supportFetchAPI: true, stream: true }
-      },
-      {
-        scheme: 'music',
         privileges: { secure: true, standard: true, supportFetchAPI: true, stream: true }
       }
     ])
@@ -453,9 +446,6 @@ class BackGround {
         return new Response(JSON.stringify(lyrics), {
           headers: { 'content-type': 'application/json' }
         })
-      } else if (host === 'get-music') {
-        const url = pathname.slice(1)
-        return net.fetch(url)
       } else if (host === 'get-track-info') {
         const ids = pathname.slice(1)
         let track
@@ -526,21 +516,39 @@ class BackGround {
         return new Response(JSON.stringify({ color, color2 }), {
           headers: { 'content-type': 'application/json' }
         })
-      }
-    })
-    // 由于electron使用了handle来处理自定义协议之后会导致音频流和视频流文件的seek方法失效，暂时回退到使用registerFileProtocol来处理音频流文件
-    // 待electron更新后再使用回handle
-    protocol.registerFileProtocol('media', (request, callback) => {
-      const { host, pathname } = new URL(request.url)
-      if (host === 'get-music') {
-        callback({ path: decodeURI(pathname.slice(1)) })
-      }
-    })
-    protocol.registerHttpProtocol('music', (request, callback) => {
-      const { host, pathname } = new URL(request.url)
-      if (host === 'online-music') {
+      } else if (host === 'get-music') {
+        const filePath = decodeURI(pathname.slice(1))
+        if (!fs.existsSync(filePath)) {
+          return new Response('Not Found', { status: 404 })
+        }
+        const fileStat = fs.statSync(filePath)
+        const range = request.headers.get('range')
+        let start = 0
+        let end = fileStat.size - 1
+        if (range) {
+          const match = range.match(/bytes=(\d*)-(\d*)/)
+          if (match) {
+            start = match[1] ? parseInt(match[1], 10) : start
+            end = match[2] ? parseInt(match[2], 10) : end
+          }
+        }
+        const chunkSize = end - start + 1
+        const stream = fs.createReadStream(filePath, { start, end })
+        const mimeType = mime.lookup(filePath)
+        // @ts-ignore
+        return new Response(stream, {
+          status: range ? 206 : 200,
+          headers: {
+            'content-type': mimeType,
+            'content-length': chunkSize.toString(),
+            'accept-ranges': 'bytes',
+            'content-range': `bytes ${start}-${end}/${fileStat.size}`
+          }
+        })
+      } else if (host === 'get-online-music') {
         const url = pathname.slice(1)
-        callback({ url })
+        const headers = request.headers
+        return fetch(url, { headers })
       }
     })
   }

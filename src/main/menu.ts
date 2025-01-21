@@ -469,6 +469,229 @@ export function createMenu(win: BrowserWindow) {
             }
           ]
         }
+      ],
+      zht: [
+        // 新增繁体中文配置
+        ...(Constants.IS_MAC
+          ? [
+              {
+                label: app.name,
+                submenu: [
+                  { role: 'about', label: '關於 ' + app.name },
+                  { type: 'separator' },
+                  { role: 'services', label: '服務' },
+                  { type: 'separator' },
+                  {
+                    label: '偏好設定...',
+                    accelerator: 'CmdOrCtrl+,',
+                    click: () => {
+                      win.webContents.send('changeRouteTo', '/settings')
+                    },
+                    role: 'preferences'
+                  },
+                  { type: 'separator' },
+                  { role: 'hide', label: '隱藏' },
+                  { role: 'hideothers', label: '隱藏其他' },
+                  { role: 'unhide', label: '顯示所有' },
+                  { type: 'separator' },
+                  { role: 'quit', label: '退出' }
+                ]
+              }
+            ]
+          : []),
+        {
+          label: '編輯',
+          submenu: [
+            { role: 'undo', label: '復原' },
+            { role: 'redo', label: '重做' },
+            { type: 'separator' },
+            { role: 'cut', label: '剪下' },
+            { role: 'copy', label: '複製' },
+            { role: 'paste', label: '貼上' },
+            ...(Constants.IS_MAC
+              ? [
+                  { role: 'delete', label: '刪除' },
+                  { role: 'selectAll', label: '選取全部' },
+                  { type: 'separator' },
+                  {
+                    label: '聽寫',
+                    submenu: [
+                      {
+                        role: 'startspeaking',
+                        label: '開始聽寫'
+                      },
+                      { role: 'stopspeaking', label: '停止聽寫' }
+                    ]
+                  }
+                ]
+              : [
+                  { role: 'delete', label: '刪除' },
+                  { type: 'separator' },
+                  { role: 'selectAll', label: '選取全部' }
+                ]),
+            {
+              label: '搜尋',
+              accelerator: 'CmdOrCtrl+F',
+              click: () => {
+                win.webContents.send('search')
+              }
+            }
+          ]
+        },
+        {
+          label: '控制',
+          submenu: [
+            {
+              label: isPlaying ? '暫停' : '播放',
+              accelerator: shortcuts?.find((s) => s.id === 'play')?.shortcut,
+              click: () => {
+                win.webContents.send('play')
+              }
+            },
+            {
+              label: '下一首',
+              accelerator: shortcuts?.find((s) => s.id === 'next')?.shortcut,
+              click: () => {
+                win.webContents.send('next')
+              }
+            },
+            {
+              label: '上一首',
+              accelerator: shortcuts?.find((s) => s.id === 'previous')?.shortcut,
+              click: () => {
+                win.webContents.send('previous')
+              }
+            },
+            {
+              label: '提高音量',
+              accelerator: shortcuts?.find((s) => s.id === 'increaseVolume')?.shortcut,
+              click: () => {
+                win.webContents.send('increaseVolume')
+              }
+            },
+            {
+              label: '降低音量',
+              accelerator: shortcuts?.find((s) => s.id === 'decreaseVolume')?.shortcut,
+              click: () => {
+                win.webContents.send('decreaseVolume')
+              }
+            },
+            {
+              label: '喜歡',
+              accelerator: shortcuts?.find((s) => s.id === 'like')?.shortcut,
+              click: () => {
+                win.webContents.send('like')
+              }
+            },
+            {
+              label: '循環播放',
+              submenu: [
+                {
+                  label: '關閉循環',
+                  click: () => win.webContents.send('repeat', 'off'),
+                  id: 'off',
+                  checked: repeatMode === 'off',
+                  type: 'radio'
+                },
+                {
+                  label: '列表循環',
+                  click: () => win.webContents.send('repeat', 'on'),
+                  id: 'on',
+                  checked: repeatMode === 'on',
+                  type: 'radio'
+                },
+                {
+                  label: '單曲循環',
+                  click: () => win.webContents.send('repeat', 'one'),
+                  id: 'one',
+                  checked: repeatMode === 'one',
+                  type: 'radio'
+                }
+              ]
+            },
+            {
+              label: '隨機播放',
+              accelerator: 'Alt+S',
+              click: () => {
+                win.webContents.send('repeat-shuffle', !shuffleMode)
+              }
+            },
+            {
+              label: `${enableOSD ? '關閉' : '開啟'}桌面歌詞`,
+              click: () => {
+                win.webContents.send('updateOSDSetting', { show: !enableOSD })
+              }
+            },
+            {
+              label: `${isLock ? '解鎖' : '鎖定'}桌面歌詞`,
+              click: () => {
+                win.webContents.send('updateOSDSetting', { lock: !isLock })
+              }
+            }
+          ]
+        },
+        {
+          label: '視窗',
+          submenu: [
+            { role: 'close', label: '關閉' },
+            { role: 'minimize', label: '最小化' },
+            { role: 'zoom', label: '最大化' },
+            { role: 'reload', label: '重新載入' },
+            { role: 'forcereload', label: '強制重新載入' },
+            {
+              role: 'toggledevtools',
+              label: '切換開發者工具'
+            },
+            { type: 'separator' },
+            { role: 'togglefullscreen', label: '切換全螢幕' },
+            ...(Constants.IS_MAC
+              ? [
+                  { type: 'separator' },
+                  { role: 'front', label: '全部置頂' },
+                  { type: 'separator' },
+                  {
+                    role: 'window',
+                    id: 'window',
+                    label: app.name,
+                    type: 'checkbox',
+                    checked: true,
+                    click: () => {
+                      const current = menu.getMenuItemById('window')
+                      if (current.checked === false) {
+                        win.hide()
+                      } else {
+                        win.show()
+                      }
+                    }
+                  }
+                ]
+              : [{ role: 'close' }])
+          ]
+        },
+        {
+          label: '說明',
+          submenu: [
+            {
+              label: 'GitHub',
+              click: async () => {
+                await shell.openExternal('https://github.com/stark81/VutronMusic/')
+              }
+            },
+            {
+              label: 'Electron',
+              click: async () => {
+                await shell.openExternal('https://electronjs.org')
+              }
+            },
+            {
+              label: '開發者工具',
+              accelerator: 'F12',
+              click: () => {
+                win.webContents.openDevTools()
+              }
+            }
+          ]
+        }
       ]
     }
     menu = Menu.buildFromTemplate(template[language])

@@ -389,8 +389,8 @@ provide('show', show)
   z-index: 10;
 
   img {
-    height: 54vh;
-    width: 54vh;
+    height: 36vw;
+    width: 36vw;
     user-select: none;
     object-fit: cover;
     border-radius: 0.75rem;
@@ -401,7 +401,8 @@ provide('show', show)
     position: relative;
   }
   .top-part {
-    width: 54vh;
+    // width: 54vh;
+    width: 36vw;
     display: flex;
     justify-content: space-between;
 

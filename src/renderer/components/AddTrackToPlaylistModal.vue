@@ -13,14 +13,14 @@
       >
       <div
         v-for="playlist in ownPlaylists"
-        :key="playlist.id"
+        :key="playlist?.id"
         class="playlist"
-        @click="addTrackToPlaylist(playlist.id)"
+        @click="addTrackToPlaylist(playlist?.id)"
       >
-        <img :src="playlist.coverImgUrl" loading="lazy" />
+        <img :src="playlist?.coverImgUrl" loading="lazy" />
         <div class="info">
-          <div class="title">{{ playlist.name }}</div>
-          <div class="track-count">{{ playlist.trackCount }} 首</div>
+          <div class="title">{{ playlist?.name }}</div>
+          <div class="track-count">{{ playlist?.trackCount }} 首</div>
         </div>
       </div>
     </template>

@@ -152,6 +152,7 @@ provide('mainRef', mainRef)
 provide('navBarRef', navBarRef)
 
 provide('appearance', appearance)
+provide('hasCustomTitleBar', hasCustomTitleBar)
 
 provide('updatePadding', (value: number) => {
   padding.value = value

@@ -172,6 +172,7 @@ export const usePlayerStore = defineStore(
       set(value) {
         audio.currentTime = value
         getLyricIndex()
+        getWordByWordLyricIdx()
       }
     })
 
@@ -591,9 +592,9 @@ export const usePlayerStore = defineStore(
           resolve('')
         }
         if (track.isLocal) {
-          resolve(`media://get-music/${track.filePath}`)
+          resolve(`atom://get-music/${track.filePath}`)
         } else {
-          resolve(`music://online-music/${track.url}`)
+          resolve(`atom://get-online-music/${track.url}`)
         }
       })
     }

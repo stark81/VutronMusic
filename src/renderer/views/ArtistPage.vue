@@ -104,8 +104,7 @@
         :item-height="60"
         :is-end="false"
         :gap="4"
-        :padding-bottom="0"
-        :show-position="false"
+        :show-position="true"
         :highlight-playing-track="false"
       />
       <div id="seeMore" class="show-more">
@@ -124,6 +123,7 @@
         :item-height="240"
         :show-position="false"
         :colunm-number="5"
+        :is-end="false"
         :sub-text="'releaseYear'"
         :show-play-button="true"
       />
@@ -146,7 +146,8 @@
         :items="eps"
         :colunm-number="5"
         :item-height="240"
-        :show-position="false"
+        :container-height="600"
+        :is-end="false"
         :sub-text="'albumType+releaseYear'"
         :show-play-button="true"
       />
@@ -157,7 +158,6 @@
       <CoverRow
         type="artist"
         :colunm-number="6"
-        :gap="20"
         :is-end="true"
         :padding-bottom="0"
         :items="simiArtists.slice(0, 12)"
@@ -189,7 +189,7 @@ import MvRow from '../components/MvRow.vue'
 import TrackList from '../components/VirtualTrackList.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import Cover from '../components/CoverBox.vue'
-import CoverRow from '../components/VirtualCoverRow.vue'
+import CoverRow from '../components/CoverRow.vue'
 import { usePlayerStore } from '../store/player'
 import { onBeforeRouteUpdate, useRoute } from 'vue-router'
 import { tricklingProgress } from '../utils/tricklingProgress'

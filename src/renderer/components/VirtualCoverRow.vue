@@ -8,6 +8,7 @@
     :height="containerHeight"
     :load-more="loadMore"
     :is-end="isEnd"
+    :enable-virtual-scroll="enableVirtualScroll"
     :show-footer="showFooter"
     :show-position="showPosition"
   >
@@ -59,13 +60,14 @@ const props = defineProps({
   showPosition: { type: Boolean, default: true },
   subTextFontSize: { type: String, default: '16px' },
   showPlayCount: { type: Boolean, default: false },
-  containerHeight: { type: Number, default: 660 },
+  containerHeight: { type: Number, default: 0 },
   colunmNumber: { type: Number, default: 1 },
   gap: { type: Number, default: 20 },
   playButtonSize: { type: Number, default: 22 },
-  paddingBottom: { type: Number, default: 0 },
-  isEnd: { type: Boolean, default: false },
+  paddingBottom: { type: Number, default: 96 },
+  isEnd: { type: Boolean, required: true },
   showFooter: { type: Boolean, default: false },
+  enableVirtualScroll: { type: Boolean, default: true },
   loadMore: { type: Function as PropType<() => void>, default: () => {} }
 })
 
@@ -135,6 +137,7 @@ const getSubText = (item: any) => {
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     overflow: hidden;
     word-break: break-all;
   }
@@ -145,6 +148,7 @@ const getSubText = (item: any) => {
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     overflow: hidden;
     word-break: break-word;
   }

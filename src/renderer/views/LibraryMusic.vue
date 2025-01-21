@@ -30,6 +30,8 @@
           :type="'tracklist'"
           :show-position="false"
           :item-height="60"
+          :height="240"
+          :is-end="false"
           :padding-bottom="0"
           :colunm-number="2"
         />
@@ -110,7 +112,7 @@
             type="playlist"
             sub-text="creator"
             :colunm-number="5"
-            :padding-bottom="64"
+            :is-end="true"
           />
         </div>
 
@@ -120,7 +122,7 @@
             type="album"
             sub-text="artist"
             :colunm-number="5"
-            :padding-bottom="64"
+            :is-end="true"
           />
         </div>
 
@@ -135,7 +137,7 @@
             sub-text="artist"
             :item-height="230"
             :colunm-number="5"
-            :padding-bottom="64"
+            :is-end="true"
           />
         </div>
 
@@ -144,8 +146,8 @@
             :id="-8"
             :items="liked.cloudDisk"
             :colunm-number="1"
-            :padding-bottom="64"
             type="cloudDisk"
+            :is-end="true"
           />
         </div>
 
@@ -171,10 +173,10 @@
           <TrackList
             :items="playHistoryList"
             :colunm-number="1"
-            :height="hasCustomTitleBar ? 588 : 608"
+            :height="historyHeight"
             :item-height="60"
-            :padding-bottom="64"
             type="tracklist"
+            :is-end="true"
           />
         </div>
       </div>
@@ -199,7 +201,6 @@
 import { storeToRefs } from 'pinia'
 import { useDataStore } from '../store/data'
 import { useNormalStateStore } from '../store/state'
-import { useSettingsStore } from '../store/settings'
 import {
   onActivated,
   onDeactivated,
@@ -223,7 +224,6 @@ import { useRouter } from 'vue-router'
 
 const dataStore = useDataStore()
 const { liked, libraryPlaylistFilter, user } = storeToRefs(dataStore)
-const { general } = storeToRefs(useSettingsStore())
 
 const { newPlaylistModal } = storeToRefs(useNormalStateStore())
 
@@ -253,19 +253,22 @@ const pickedLyric = computed(() => {
   return result
 })
 
-const hasCustomTitleBar = computed(() => {
-  return (window.env?.isLinux && general.value.useCustomTitlebar) || window.env?.isWindows
-})
+const hasCustomTitleBar = inject('hasCustomTitleBar', ref(true))
 
 const isMac = computed(() => window.env?.isMac)
 
 const tabStyle = computed(() => {
-  const height = window.innerHeight - (hasCustomTitleBar.value ? 84 : 64)
   const marginTop = hasCustomTitleBar.value ? 20 : 0
   return {
-    height: `${height}px`,
     marginTop: `${marginTop}px`
   }
+})
+
+const winHeight = ref(window.innerHeight)
+
+const historyHeight = computed(() => {
+  const height = winHeight.value - 46 - (hasCustomTitleBar.value ? 84 : 64)
+  return height
 })
 
 const playlistFilter = computed(() => {
@@ -404,24 +407,27 @@ const observeTab = new IntersectionObserver(
   },
   {
     root: null,
-    rootMargin: `-${hasCustomTitleBar.value ? 64 : 64}px 0px 0px 0px`,
-    threshold: Array.from({ length: 101 }, (v, i) => i / 100)
+    rootMargin: `-${hasCustomTitleBar.value ? 84 : 64}px 0px 0px 0px`,
+    threshold: Array.from({ length: 100 }, (v, i) => i / 100)
   }
 )
 
 const handleResize = () => {
+  winHeight.value = window.innerHeight
   observeTab.unobserve(tabsRowRef.value)
   observeTab.disconnect()
   if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
 }
 
 onActivated(() => {
-  updatePadding(0)
   setTimeout(() => {
     if (!show.value) tricklingProgress.start()
   }, 1000)
   loadData()
   dailyTask()
+  setTimeout(() => {
+    updatePadding(0)
+  }, 100)
 })
 onDeactivated(() => {
   updatePadding(96)
@@ -538,7 +544,6 @@ onUnmounted(() => {
 .section-two {
   position: relative;
   margin-top: 20px;
-  // min-height: calc(100vh - 190px);
   padding-top: 64px;
 
   .tabs-row {
@@ -601,8 +606,7 @@ button.playHistory-button {
   color: var(--color-text);
   border-radius: 8px;
   padding: 6px 8px;
-  margin-bottom: 12px;
-  margin-right: 4px;
+  margin: 2px 4px 10px 0;
   transition: 0.2s;
   opacity: 0.68;
   font-weight: 500;

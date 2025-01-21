@@ -29,106 +29,92 @@ const createNativeImage = (filename: string) => {
 
 const createMenuTemplate = (win: BrowserWindow) => {
   const lang = store.get('settings.lang') as string
+  // 定义多语言文本映射
+  const i18n = {
+    showMainPanel: { zh: '显示主面板', zht: '顯示主面板', en: 'Show Main Panel' },
+    openOSD: { zh: '开启歌词', zht: '開啟歌詞', en: 'Open Lyric' },
+    closeOSD: { zh: '关闭歌词', zht: '關閉歌詞', en: 'Close Lyric' },
+    lockOSD: { zh: '锁定歌词', zht: '鎖定歌詞', en: 'Lock Lyric' },
+    unlockOSD: { zh: '解锁歌词', zht: '解鎖歌詞', en: 'Unlock Lyric' },
+    play: { zh: '播放', zht: '播放', en: 'Play' },
+    pause: { zh: '暂停', zht: '暫停', en: 'Pause' },
+    prev: { zh: '上一首', zht: '上一首', en: 'Prev' },
+    next: { zh: '下一首', zht: '下一首', en: 'Next' },
+    repeatMenu: { zh: '循环播放', zht: '循環播放', en: 'Repeat Mode' },
+    repeatOff: { zh: '关闭循环', zht: '關閉循環', en: 'Repeat Off' },
+    repeatOn: { zh: '列表循环', zht: '列表循環', en: 'Repeat On' },
+    repeatOne: { zh: '单曲循环', zht: '單曲循環', en: 'Repeat One' },
+    shuffle: { zh: '随机播放', zht: '隨機播放', en: 'Shuffle' },
+    like: { zh: '加入喜欢', zht: '加入喜歡', en: 'Like' },
+    unlike: { zh: '取消喜欢', zht: '取消喜歡', en: 'Dislike' },
+    quit: { zh: '退出', zht: '退出', en: 'Quit' }
+  }
+
+  // 获取对应语言的文本
+  const t = (key: keyof typeof i18n) =>
+    i18n[key][lang === 'zh' ? 'zh' : lang === 'zht' ? 'zht' : 'en']
+
   const template: MenuItemConstructorOptions[] = Constants.IS_LINUX
     ? [
         {
-          label: lang === 'zh' ? '显示主面板' : 'Show Main Panel',
+          label: t('showMainPanel'),
           click: () => win.show()
         },
-        {
-          type: 'separator'
-        }
+        { type: 'separator' }
       ]
     : []
+
   return template.concat([
     {
-      label: lang === 'zh' ? '开启桌面歌词' : 'Open OSD Lyric',
-      click: () => {
-        win.webContents.send('updateOSDSetting', { show: true })
-      },
-      id: 'openOSD'
-    },
-    {
-      label: lang === 'zh' ? '关闭桌面歌词' : 'Close OSD Lyric',
-      click: () => {
-        win.webContents.send('updateOSDSetting', { show: false })
-      },
-      id: 'closeOSD',
-      visible: false
-    },
-    {
-      label: lang === 'zh' ? '锁定桌面歌词' : 'Lock OSD Lyric',
-      click: () => {
-        win.webContents.send('updateOSDSetting', { lock: true })
-      },
-      id: 'lockOSD'
-    },
-    {
-      label: lang === 'zh' ? '解锁桌面歌词' : 'Unlock OSD Lyric',
-      click: () => {
-        win.webContents.send('updateOSDSetting', { lock: false })
-      },
-      id: 'unlockOSD',
-      visible: false
-    },
-    {
-      label: lang === 'zh' ? '播放' : 'Play',
+      label: t('play'),
       icon: createNativeImage('play'),
-      click: () => {
-        win.webContents.send('play')
-      },
+      click: () => win.webContents.send('play'),
       id: 'play'
     },
     {
-      label: lang === 'zh' ? '暂停' : 'Pause',
+      label: t('pause'),
       icon: createNativeImage('pause'),
-      click: () => {
-        win.webContents.send('play')
-      },
+      click: () => win.webContents.send('play'),
       id: 'pause',
       visible: false
     },
     {
-      label: lang === 'zh' ? '上一首' : 'Prev',
+      label: t('prev'),
       icon: createNativeImage('left'),
-      click: () => {
-        win.webContents.send('previous')
-      }
+      click: () => win.webContents.send('previous')
     },
     {
-      label: lang === 'zh' ? '下一首' : 'Next',
+      label: t('next'),
       icon: createNativeImage('right'),
-      click: () => {
-        win.webContents.send('next')
-      }
+      click: () => win.webContents.send('next')
     },
     {
-      label: lang === 'zh' ? '循环播放' : 'Repeat Mode',
+      label: t('repeatMenu'),
       icon: createNativeImage('repeat'),
       submenu: [
         {
-          label: lang === 'zh' ? '关闭循环' : 'Repeat Off',
+          label: t('repeatOff'),
           click: () => win.webContents.send('repeat', 'off'),
           id: 'off',
           checked: repeatMode === 'off',
           type: 'radio'
         },
         {
-          label: lang === 'zh' ? '列表循环' : 'Repeat On',
+          label: t('repeatOn'),
           click: () => win.webContents.send('repeat', 'on'),
           id: 'on',
           checked: repeatMode === 'on',
           type: 'radio'
         },
         {
-          label: lang === 'zh' ? '单曲循环' : ' Repeat One',
+          label: t('repeatOne'),
           click: () => win.webContents.send('repeat', 'one'),
           id: 'one',
           checked: repeatMode === 'one',
           type: 'radio'
         },
         {
-          label: lang === 'zh' ? '随机播放' : 'Shuffle',
+          label: t('shuffle'),
           click: (item) => win.webContents.send('repeat-shuffle', item.checked),
           id: 'shuffle',
           checked: shuffleMode,
@@ -137,28 +123,50 @@ const createMenuTemplate = (win: BrowserWindow) => {
       ]
     },
     {
-      label: lang === 'zh' ? '加入喜欢' : 'Like',
+      label: t('like'),
       icon: createNativeImage('like'),
-      click: () => {
-        win.webContents.send('like')
-      },
+      click: () => win.webContents.send('like'),
       id: 'like'
     },
     {
-      label: lang === 'zh' ? '取消喜欢' : 'Dislike',
+      label: t('unlike'),
       icon: createNativeImage('unlike'),
-      click: () => {
-        win.webContents.send('like')
-      },
+      click: () => win.webContents.send('like'),
       id: 'unlike',
       visible: false
     },
+    { type: 'separator' },
     {
-      label: lang === 'zh' ? '退出' : 'Quit',
+      label: t('openOSD'),
+      icon: createNativeImage('lrc'),
+      click: () => win.webContents.send('updateOSDSetting', { show: true }),
+      id: 'openOSD'
+    },
+    {
+      label: t('closeOSD'),
+      icon: createNativeImage('lrc'),
+      click: () => win.webContents.send('updateOSDSetting', { show: false }),
+      id: 'closeOSD',
+      visible: false
+    },
+    {
+      label: t('lockOSD'),
+      icon: createNativeImage('lock'),
+      click: () => win.webContents.send('updateOSDSetting', { lock: true }),
+      id: 'lockOSD'
+    },
+    {
+      label: t('unlockOSD'),
+      icon: createNativeImage('unlock'),
+      click: () => win.webContents.send('updateOSDSetting', { lock: false }),
+      id: 'unlockOSD',
+      visible: false
+    },
+    { type: 'separator' },
+    {
+      label: t('quit'),
       icon: createNativeImage('quit'),
-      click: () => {
-        app.exit()
-      }
+      click: () => app.exit()
     }
   ])
 }

@@ -51,6 +51,7 @@
             <div class="right">
               <select v-model="selectLanguage">
                 <option value="zh">{{ $t('settings.general.language.zhHans') }}</option>
+                <option value="zht">{{ $t('settings.general.language.zhHant') }}</option>
                 <option value="en">{{ $t('settings.general.language.en') }}</option>
               </select>
             </div>

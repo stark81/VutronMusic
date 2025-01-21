@@ -2,19 +2,27 @@
   <VueDraggable v-model="list" class="cover-row" :disabled="!isLocal" :style="rowStyles">
     <div v-for="item in list" :key="item?.id" class="item" :class="{ artist: type === 'artist' }">
       <Cover
-        :id="item?.id"
+        :id="item.id"
         :image-url="getImageUrl(item)"
         :type="type"
         :play-button-size="type === 'artist' ? 26 : playButtonSize"
       />
       <div class="text">
-        <div class="title">
-          <p>
-            <RouterLink :to="`/${type}/${item.id}`">{{ item.name }}</RouterLink>
-            {{ `${item.trackCount && isLocal ? '-' + item.trackCount + '首' : ''}` }}</p
-          >
+        <div v-show="showPlayCount" class="info">
+          <span class="play-count">
+            <svg-icon icon-class="play" />{{ formatPlayCount(item.playCount) }}
+          </span>
         </div>
-        <div v-if="type !== 'artist' && subText !== 'none'" class="info">
+        <div class="title" :style="{ fontSize: subTextFontSize }">
+          <span v-show="isExplicit(item)" class="explicit-symbol">
+            <ExplicitSymbol />
+          </span>
+          <span v-show="isPrivacy(item)" class="lock-icon">
+            <SvgIcon icon-class="lock" />
+          </span>
+          <router-link :to="`/${type}/${item.id}`">{{ item.name }}</router-link>
+        </div>
+        <div v-show="type !== 'artist' && subText !== 'none'" class="info">
           <span v-same-html="getSubText(item)"></span>
         </div>
       </div>
@@ -27,17 +35,21 @@ import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useLocalMusicStore } from '../store/localMusic'
 import Cover from './CoverBox.vue'
+import SvgIcon from './SvgIcon.vue'
+import ExplicitSymbol from './ExplicitSymbol.vue'
 import { VueDraggable } from 'vue-draggable-plus'
+import { formatPlayCount } from '../utils'
 
 const props = defineProps({
   items: {
     type: Array as () => any[],
     required: true
   },
+  showPlayCount: { type: Boolean, default: false },
   type: { type: String, required: true },
   subText: { type: String, default: 'null' },
   subTextFontSize: { type: String, default: '16px' },
-  columnNumber: { type: Number, default: 5 },
+  colunmNumber: { type: Number, default: 5 },
   gap: { type: String, default: '34px 24px' },
   playButtonSize: { type: Number, default: 22 }
 })
@@ -58,7 +70,7 @@ const list = computed({
 
 const rowStyles = computed(() => {
   return {
-    'grid-template-columns': `repeat(${props.columnNumber}, 1fr)`,
+    'grid-template-columns': `repeat(${props.colunmNumber}, 1fr)`,
     gap: props.gap
   }
 })
@@ -73,6 +85,14 @@ const getImageUrl = (item: any) => {
   }
   const img = item.img1v1Url || item.picUrl || item.coverImgUrl
   return `${img?.replace('http://', 'https://')}?param=512y512`
+}
+
+const isExplicit = (item: any) => {
+  return props.type === 'album' && item.mark === 1056768
+}
+
+const isPrivacy = (item: any) => {
+  return props.type === 'playlist' && item.privacy === 10
 }
 
 const getSubText = (item: any) => {

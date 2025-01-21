@@ -101,7 +101,7 @@ const loadData = (id: string) => {
         type: 'video',
         title: mv.value.data.name,
         sources,
-        poster: mv.value.data.cover.replace(/^http:/, 'https:')
+        poster: mv.value.data.cover?.replace(/^http:/, 'https:')
       }
       tricklingProgress.done()
     })

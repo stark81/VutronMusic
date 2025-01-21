@@ -61,7 +61,14 @@
       <div class="right-bottom">{{ artist }} - {{ trackName }}</div>
     </div>
     <div class="section-two">
-      <div ref="tabsRowRef" class="tabs-row">
+      <div
+        ref="tabsRowRef"
+        class="tabs-row"
+        :style="{
+          height: (hasCustomTitleBar ? 84 : 64) + 'px',
+          paddingTop: (hasCustomTitleBar ? 20 : 0) + 'px'
+        }"
+      >
         <div class="tabs">
           <div
             class="tab dropdown"
@@ -121,25 +128,32 @@
         </button>
       </div>
       <div class="section-two-content" :style="tabStyle">
-        <TrackList
-          v-if="currentTab === 'localTracks'"
-          :id="0"
-          ref="trackListRef"
-          :items="sortedLocalTracks"
-          :type="'localPlaylist'"
-          :colunm-number="1"
-          :extra-context-menu-item="[
-            'showInFolder',
-            'removeLocalTrack',
-            'addToLocalList',
-            'accurateMatch'
-          ]"
-        ></TrackList>
-        <div v-else-if="currentTab === 'localPlaylist'">
-          <CoverRow :items="playlists" :type="currentTab" />
+        <div v-if="currentTab === 'localTracks'">
+          <TrackList
+            :id="0"
+            ref="trackListRef"
+            :items="sortedLocalTracks"
+            :type="'localPlaylist'"
+            :colunm-number="1"
+            :is-end="true"
+            :extra-context-menu-item="[
+              'showInFolder',
+              'removeLocalTrack',
+              'addToLocalList',
+              'accurateMatch'
+            ]"
+          ></TrackList>
         </div>
-        <AlbumList v-else-if="currentTab === 'album'" :tracks="sortedLocalTracks" />
-        <ArtistList v-else-if="currentTab === 'artist'" :tracks="sortedLocalTracks" />
+
+        <div v-else-if="currentTab === 'localPlaylist'">
+          <CoverRow :items="playlists" :type="currentTab" :style="{ paddingBottom: '96px' }" />
+        </div>
+        <div v-else-if="currentTab === 'album'">
+          <AlbumList :tracks="sortedLocalTracks" />
+        </div>
+        <div v-else-if="currentTab === 'artist'">
+          <ArtistList :tracks="sortedLocalTracks" />
+        </div>
       </div>
     </div>
 
@@ -197,7 +211,8 @@ const { localTracks, playlists, sortBy } = storeToRefs(localMusicStore)
 const { newPlaylistModal, modalOpen } = storeToRefs(useNormalStateStore())
 const { addTrackToPlayNext } = usePlayerStore()
 
-const { general, theme } = storeToRefs(useSettingsStore())
+// const { general, theme } = storeToRefs(useSettingsStore())
+const { theme } = storeToRefs(useSettingsStore())
 
 // ref
 const currentTab = ref('localTracks')
@@ -220,19 +235,13 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () 
       : theme.value.appearance === 'dark'
 })
 
-const hasCustomTitleBar = computed(() => {
-  return (window.env?.isLinux && general.value.useCustomTitlebar) || window.env?.isWindows
-})
+const hasCustomTitleBar = inject('hasCustomTitleBar', ref(true))
 
 const isMac = computed(() => window.env?.isMac)
 
 const tabStyle = computed(() => {
-  const height = window.innerHeight - (hasCustomTitleBar.value ? 74 : 54)
-  const paddingTop = hasCustomTitleBar.value ? 10 : 10
-  return {
-    height: `${height}px`,
-    paddingTop: `${paddingTop}px`
-  }
+  const marginTop = hasCustomTitleBar.value ? 20 : 0
+  return { marginTop: `${marginTop}px` }
 })
 
 const formatedTime = computed(() => {
@@ -444,14 +453,14 @@ watch(currentTab, () => {
 
 onMounted(() => {
   window.addEventListener('resize', handleResize)
-  updatePadding(0)
   isDarkMode.value =
     theme.value.appearance === 'auto'
       ? window.matchMedia('(prefers-color-scheme: dark)').matches
       : theme.value.appearance === 'dark'
-  if (tabsRowRef.value) {
-    observeTab.observe(tabsRowRef.value)
-  }
+  setTimeout(() => {
+    updatePadding(0)
+    if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
+  }, 100)
   if (!localTrackIDs.value.length) return
   randomID.value = localTrackIDs.value[randomNum(0, localTrackIDs.value.length - 1)]
   getRandomTrack(randomID.value)
@@ -467,11 +476,11 @@ onUnmounted(() => {
 </script>
 
 <style scoped lang="scss">
-.local-music {
-  transition: all 0.4s;
-}
+// .local-music {
+//   transition: all 0.4s;
+// }
 .section-one {
-  margin: 20px 0 60px 0;
+  margin: 20px 0 0 0;
   box-sizing: border-box;
   background: var(--color-primary-bg);
   border-radius: 14px;
@@ -568,58 +577,59 @@ onUnmounted(() => {
 
 .section-two {
   position: relative;
-  min-height: calc(100vh - 190px);
-  padding-top: 44px;
-}
-.tabs-row {
-  position: absolute;
-  top: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  z-index: 10;
-  background-color: rgba(0, 0, 0, 0);
-}
-.tabs {
-  display: flex;
-  flex-wrap: wrap;
-  font-size: 18px;
-  -webkit-app-region: no-drag;
-  .tab {
-    font-weight: 600;
-    padding: 8px 14px;
-    margin-right: 14px;
-    border-radius: 8px;
-    cursor: pointer;
-    user-select: none;
-    transition: 0.2s;
-    opacity: 0.68;
-    &:hover {
-      opacity: 0.88;
-      background-color: var(--color-secondary-bg);
-    }
-  }
-  .tab.active {
-    opacity: 0.88;
-    background-color: var(--color-secondary-bg);
-  }
-  .tab.dropdown {
+  margin-top: 20px;
+  padding-top: 64px;
+
+  .tabs-row {
+    position: absolute;
+    top: 0;
     display: flex;
     align-items: center;
-    padding: 0;
-    overflow: hidden;
-    .text {
-      padding: 8px 3px 8px 14px;
-    }
-    .icon {
-      height: 100%;
+    justify-content: space-between;
+    width: 100%;
+    z-index: 10;
+
+    .tabs {
       display: flex;
-      align-items: center;
-      padding: 0 8px 0 3px;
-      .svg-icon {
-        height: 16px;
-        width: 16px;
+      flex-wrap: wrap;
+      font-size: 18px;
+      -webkit-app-region: no-drag;
+      .tab {
+        font-weight: 600;
+        padding: 8px 14px;
+        margin-right: 14px;
+        border-radius: 8px;
+        cursor: pointer;
+        user-select: none;
+        transition: 0.2s;
+        opacity: 0.68;
+        &:hover {
+          opacity: 0.88;
+          background-color: var(--color-secondary-bg);
+        }
+      }
+      .tab.active {
+        opacity: 0.88;
+        background-color: var(--color-secondary-bg);
+      }
+      .tab.dropdown {
+        display: flex;
+        align-items: center;
+        padding: 0;
+        overflow: hidden;
+        .text {
+          padding: 8px 3px 8px 14px;
+        }
+        .icon {
+          height: 100%;
+          display: flex;
+          align-items: center;
+          padding: 0 8px 0 3px;
+          .svg-icon {
+            height: 16px;
+            width: 16px;
+          }
+        }
       }
     }
   }
@@ -649,9 +659,5 @@ button.tab-button {
     opacity: 1;
     transform: scale(0.92);
   }
-}
-
-.section-two-content {
-  // margin-top: 20px;
 }
 </style>

@@ -148,6 +148,7 @@ export const useLocalMusicStore = defineStore(
       const result = (await window.mainApi.invoke('deleteLocalPlaylist', playlistId)) as boolean
       if (result) {
         playlists.value = playlists.value.filter((p) => p.id !== playlistId)
+        sortPlaylistsIDs.value = sortPlaylistsIDs.value.filter((id) => id !== playlistId)
       }
       return result
     }

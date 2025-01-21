@@ -127,38 +127,17 @@ const props = defineProps({
     type: Array as PropType<{ [key: string]: any }[]>,
     required: true
   },
-  type: {
-    type: String,
-    required: true
-  },
-  isLyric: {
-    type: Boolean,
-    default: false
-  },
-  showPosition: {
-    type: Boolean,
-    default: true
-  },
-  colunmNumber: {
-    type: Number,
-    required: true
-  },
-  gap: {
-    type: Number,
-    default: 20
-  },
+  type: { type: String, required: true },
+  isLyric: { type: Boolean, default: false },
+  showPosition: { type: Boolean, default: true },
+  colunmNumber: { type: Number, required: true },
+  gap: { type: Number, default: 20 },
   extraContextMenuItem: {
     type: Array,
     default: () => []
   },
-  id: {
-    type: [Number, String],
-    default: 0
-  },
-  height: {
-    type: Number,
-    default: 660
-  },
+  id: { type: [Number, String], default: 0 },
+  height: { type: Number, default: 0 },
   albumObject: {
     type: Object,
     default: () => {
@@ -169,30 +148,15 @@ const props = defineProps({
       }
     }
   },
-  itemHeight: {
-    type: Number,
-    default: 64
-  },
-  dbclickEnable: {
-    type: Boolean,
-    default: true
-  },
+  itemHeight: { type: Number, default: 64 },
+  dbclickEnable: { type: Boolean, default: true },
   loadMore: {
     type: Function as PropType<() => void>,
     default: () => {}
   },
-  highlightPlayingTrack: {
-    type: Boolean,
-    default: true
-  },
-  isEnd: {
-    type: Boolean,
-    default: true
-  },
-  paddingBottom: {
-    type: Number,
-    default: 96
-  }
+  highlightPlayingTrack: { type: Boolean, default: true },
+  isEnd: { type: Boolean, required: true },
+  paddingBottom: { type: Number, default: 96 }
 })
 const { items, colunmNumber, id } = toRefs(props)
 const trackListMenuRef = ref<InstanceType<typeof ContextMenu>>()

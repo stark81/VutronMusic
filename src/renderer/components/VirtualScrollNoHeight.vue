@@ -41,7 +41,8 @@ import {
   watch,
   onBeforeUnmount,
   onActivated,
-  onDeactivated
+  onDeactivated,
+  inject
 } from 'vue'
 
 const props = defineProps({
@@ -52,10 +53,11 @@ const props = defineProps({
   belowValue: { type: Number, default: 2 },
   paddingBottom: { type: Number, default: 64 },
   showPosition: { type: Boolean, default: true },
-  isEnd: { type: Boolean, default: true },
+  isEnd: { type: Boolean, required: true },
   showFooter: { type: Boolean, default: true },
   gap: { type: Number, default: 4 },
-  height: { type: Number, default: 656 },
+  height: { type: Number, default: 0 },
+  enableVirtualScroll: { type: Boolean, default: true },
   loadMore: { type: Function as PropType<() => void>, default: () => {} }
 })
 
@@ -67,6 +69,7 @@ const startRow = ref(0)
 const styleBefore = ref()
 const startOffset = ref(0)
 const position = ref<any[]>([])
+const windowHeight = ref(window.innerHeight)
 const { list, itemSize } = toRefs(props)
 
 const _listData = computed(() => {
@@ -87,11 +90,14 @@ const listHeight = computed(() => {
     (props.isEnd ? props.paddingBottom : 0)
   )
 })
+
 const footerHeight = computed(() => footerRef.value?.clientHeight || 0)
+
 const containerHeight = computed(() => {
   const navBarHeight = hasCustomTitleBar.value ? 84 : 64
-  const windowHeight = window.innerHeight - navBarHeight
-  return Math.min(windowHeight, listHeight.value, props.height)
+  const winHeight = windowHeight.value - navBarHeight
+  const height = props.height || winHeight
+  return props.enableVirtualScroll ? Math.min(height, listHeight.value) : listHeight.value
 })
 const contentTransform = computed(() => `translateY(${startOffset.value}px)`)
 const anchorPoint = computed(() =>
@@ -107,18 +113,32 @@ const visibleData = computed(() => {
   return _listData.value.slice(_start, _end)
 })
 const listStyles = computed(() => {
-  // const navBarHeight = hasCustomTitleBar.value ? 84 : 64
-  // const windowHeight = window.innerHeight - navBarHeight
   return {
     gap: `0 ${props.gap}px`,
     gridTemplateColumns: `repeat(${props.columnNumber}, 1fr)`,
     transform: contentTransform.value
-    // paddingBottom: `${props.isEnd ? props.paddingBottom : 0}px`
   }
 })
-const hasCustomTitleBar = computed(() => {
-  return window.env?.isLinux || window.env?.isWindows
-})
+
+const hasCustomTitleBar = inject('hasCustomTitleBar', ref(true))
+
+const _isPrefixSubset = (oldArray: any[], newArray: any[]) => {
+  if (newArray.length < oldArray.length || !oldArray.length) return false
+  for (let i = 0; i < oldArray.length; i++) {
+    if (
+      Object.prototype.hasOwnProperty.call(newArray[i].value, 'commentId') &&
+      newArray[i].value?.commentId !== oldArray[i].value?.commentId
+    ) {
+      return false
+    } else if (
+      Object.prototype.hasOwnProperty.call(newArray[i].value, 'id') &&
+      newArray[i].value?.id !== oldArray[i].value?.id
+    ) {
+      return false
+    }
+  }
+  return true
+}
 
 const initPosition = () => {
   position.value = _listData.value.map((d: any, index: number) => ({
@@ -252,7 +272,6 @@ const onScroll = () => {
   const scrollTop = listRef.value.scrollTop
   if (scrollTop > anchorPoint.value?.bottom || scrollTop < anchorPoint.value?.top) {
     startRow.value = getStartIndex(scrollTop)
-    // endRow.value = startRow.value + visibleCount.value
     setStartOffset()
   }
 }
@@ -262,6 +281,12 @@ const scrollEvent = rafThrottle(() => {
   onScroll()
 })
 
+/**
+ * 条件：
+ * 1. 该组件请在页面的最后来使用，如果在页面中间使用时，请确保传入的props.height小于window.innerHeight - 84(64)
+ * 2. 当滚动组件与窗口的intersect为1时，将window设置为不可滚动，组件内部设置为可滚动，同时记录滚动距离；
+ * 3. 当内部滚动到顶部、底部时，设置窗口可滚动、组件内部不可滚动；
+ */
 const observer = new IntersectionObserver(
   (entries) => {
     entries.forEach((entry) => {
@@ -276,28 +301,31 @@ const observer = new IntersectionObserver(
   },
   {
     root: null,
+    rootMargin: `-${hasCustomTitleBar.value ? 84 : 64}px 0px 0px 0px`,
+    // 这里设置成0.98的目的，是为了确保在special-playlist页面可以正常进入到滚动状态
     threshold: 0.98
   }
 )
 
+const updateWindowHeight = () => {
+  windowHeight.value = window.innerHeight
+}
+
 watch(_listData, (newList, oldList) => {
-  if (newList.length > oldList.length) {
+  const isMore = _isPrefixSubset(oldList, newList)
+  if (isMore) {
     lock.value = true
     const newItems = newList.slice(oldList.length)
 
     newItems.forEach(({ _key }) => {
       const idx = _key
-      const top = itemSize.value * Math.floor(idx / props.columnNumber)
+      // idx的top，应该是上一行第一个的bottom，获取上一行第一个的index
+      const i = (Math.floor(idx / props.columnNumber) - 1) * props.columnNumber
+      const top = position.value[i]?.bottom
       position.value.push({ index: idx, height: itemSize.value, top, bottom: top + itemSize.value })
     })
 
     lock.value = false
-  } else if (newList.length === oldList.length) {
-    // nextTick(() => {
-    //   initPosition()
-    //   startRow.value = 0
-    //   // endRow.value = startRow.value + visibleCount.value
-    // })
   } else {
     initPosition()
   }
@@ -314,13 +342,12 @@ onActivated(() => {
 
 onDeactivated(() => {
   startRow.value = 0
-  // endRow.value = startRow.value + visibleCount.value
   observer.unobserve(listRef.value)
 })
 
 onMounted(() => {
   startRow.value = 0
-  // endRow.value = startRow.value + visibleCount.value
+  window.addEventListener('resize', updateWindowHeight)
   observer.observe(listRef.value)
   setTimeout(() => {
     updateItemsSize()
@@ -334,6 +361,7 @@ onUpdated(() => {
   })
 })
 onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateWindowHeight)
   observer.unobserve(listRef.value)
 })
 </script>

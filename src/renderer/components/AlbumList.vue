@@ -1,6 +1,12 @@
 <template>
   <div class="album-container">
-    <VirtualScroll :list="albums" class="album-list" :item-height="60" :show-position="false">
+    <VirtualScroll
+      :list="albums"
+      class="album-list"
+      :item-height="60"
+      :show-position="false"
+      :is-end="true"
+    >
       <template #default="{ item, index }">
         <AlbumListItem
           :key="index"
@@ -13,7 +19,13 @@
         />
       </template>
     </VirtualScroll>
-    <VirtualScroll :list="showTracks" :item-height="48" class="track-list" :show-position="false">
+    <VirtualScroll
+      :list="showTracks"
+      :item-height="48"
+      class="track-list"
+      :show-position="false"
+      :is-end="true"
+    >
       <template #default="{ item, index }">
         <TrackListItem
           :key="index"

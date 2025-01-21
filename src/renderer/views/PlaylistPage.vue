@@ -1,5 +1,5 @@
 <template>
-  <div v-show="show" class="playlist">
+  <div v-if="show" class="playlist">
     <div v-if="specialPlaylistInfo === undefined && !isLikedSongsPage" class="playlist-info">
       <Cover
         :id="playlist?.id"
@@ -14,7 +14,7 @@
       />
       <div class="info">
         <div class="title" :title="playlist?.name"
-          ><span v-if="playlist.privacy === 10" class="lock-icon"
+          ><span v-if="playlist?.privacy === 10" class="lock-icon"
             ><svg-icon icon-class="lock" /></span
           >{{ playlist?.name }}</div
         >
@@ -30,7 +30,7 @@
             style="font-weight: 600"
             >Apple Music</span
           >
-          <router-link :to="`/user/${playlist.creator.userId}`">{{
+          <router-link :to="`/user/${playlist?.creator?.userId}`">{{
             playlist.creator.nickname
           }}</router-link>
         </div>
@@ -50,7 +50,7 @@
             {{ '评论' }}
           </ButtonTwoTone>
           <ButtonTwoTone
-            v-if="!isLocal && playlist.creator.userId !== user.userId"
+            v-if="!isLocal && playlist?.creator?.userId !== user.userId"
             :icon-class="playlist.subscribed ? 'heart-solid' : 'heart'"
             :icon-button="true"
             :horizontal-padding="0"
@@ -129,9 +129,9 @@
         :type="isLocal ? 'localPlaylist' : 'playlist'"
         :colunm-number="1"
         :show-position="true"
-        :height="650"
         :load-more="loadMore"
         :extra-context-menu-item="isUserOwnPlaylist ? ['removeTrackFromPlaylist'] : []"
+        :is-end="true"
       />
     </div>
 
@@ -167,7 +167,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, provide, onMounted, watchEffect } from 'vue'
+import { computed, ref, provide, onMounted } from 'vue'
 import { useDataStore } from '../store/data'
 import { Playlist, useLocalMusicStore, Track } from '../store/localMusic'
 import { useNormalStateStore } from '../store/state'
@@ -307,7 +307,7 @@ const pSearchBoxRef = ref<InstanceType<typeof SearchBox>>()
 
 const { user, likedSongPlaylistID } = storeToRefs(useDataStore())
 const listType = computed(() => route.name!.toString())
-const specialPlaylistInfo = computed(() => specialPlaylist[playlist.value.id])
+const specialPlaylistInfo = computed(() => specialPlaylist[playlist.value?.id])
 const keyword = computed(() => pSearchBoxRef.value?.keywords || '')
 const filterTracks = computed(() => {
   return tracks.value.filter(
@@ -505,10 +505,6 @@ const removeTrack = (trackID: number) => {
 
 provide('removeTrack', removeTrack)
 
-watchEffect(() => {
-  if (isLocal.value) loadLocalData(Number(route.params.id))
-})
-
 onMounted(() => {
   if (isLocal.value) {
     loadLocalData(Number(route.params.id))
@@ -544,6 +540,7 @@ onMounted(() => {
       display: -webkit-box;
       -webkit-box-orient: vertical;
       -webkit-line-clamp: 1;
+      line-clamp: 1;
       overflow: hidden;
       color: var(--color-text);
 
@@ -578,6 +575,7 @@ onMounted(() => {
       display: -webkit-box;
       -webkit-box-orient: vertical;
       -webkit-line-clamp: 3;
+      line-clamp: 3;
       overflow: hidden;
       cursor: pointer;
       &:hover {

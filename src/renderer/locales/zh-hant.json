@@ -1,21 +1,335 @@
 {
   "desc": {
     "welcome-title": "你好武特龍！ 一切都準備好了。",
-    "welcome-desc": "您現在可以編寫跨平台的 Web 應用程序。 實時查看更改並使用一個命令構建到多個平台。 如果您還不熟悉它，可以從下面的文檔頁面獲得幫助，或者運行一些預先編寫的示例代碼。",
-    "second-desc": "您已移至第二個屏幕！ 這裡什麼都沒有！",
-    "selected-file": "選定的文件：{filePath}."
-  },
-  "title": {
-    "main": "主屏幕",
-    "second": "第二屏",
-    "error": "未知錯誤"
+    "welcome-desc": "您現在可以編寫跨平台的 Web 應用程式。即時查看更改並使用一個命令建置到多個平台。如果您還不熟悉它，可以從下面的文件頁面獲得幫助，或者執行一些預先編寫的範例程式碼。",
+    "second-desc": "您已移至第二個螢幕！ 這裡什麼都沒有！",
+    "selected-file": "選定的檔案：{filePath}."
   },
   "menu": {
-    "change-theme": "改變主題",
-    "change-language": "改變語言",
-    "increase-count": "計數 1 個增量",
-    "documentation": "文檔",
-    "github": "源代碼",
-    "open-file": "開啟文字文件"
+    "change-theme": "變更主題",
+    "change-language": "變更語言",
+    "increase-count": "計數 + 1",
+    "documentation": "文件",
+    "github": "原始碼",
+    "open-file": "開啟一個文字檔案"
+  },
+  "nav": {
+    "home": "首頁",
+    "search": "搜尋",
+    "library": "音樂庫",
+    "localMusic": "本地音樂",
+    "settings": "設定",
+    "github": "GitHub 倉庫",
+    "error": "未知錯誤",
+    "track": "單曲",
+    "artist": "歌手",
+    "album": "專輯",
+    "playlist": "歌單",
+    "user": "使用者",
+    "lyric": "歌詞",
+    "mv": "MV",
+    "chart": "排行榜",
+    "newTrack": "新歌速遞",
+    "newAlbum": "新專速遞"
+  },
+  "home": {
+    "recommendPlaylist": "推薦歌單",
+    "recommendArtist": "推薦藝人",
+    "newAlbum": "新專速遞",
+    "charts": "排行榜",
+    "seeMore": "查看全部"
+  },
+  "library": {
+    "userProfileMenu": {
+      "logout": "登出",
+      "settings": "設定"
+    },
+    "playlist": {
+      "playlist": "歌單",
+      "addToPlaylist": "新增至歌單",
+      "title": "歌單標題",
+      "setPrivate": "設為私人歌單",
+      "newPlaylist": "新增歌單",
+      "updatedAt": "最後更新於",
+      "search": "搜尋"
+    },
+    "likedSongs": "我喜歡的音樂",
+    "albums": "專輯",
+    "artists": "藝人",
+    "mvs": "MV",
+    "cloudDisk": "雲端硬碟",
+    "playHistory": {
+      "title": "聽歌排行",
+      "all": "所有時間",
+      "week": "最近一週"
+    }
+  },
+  "explore": {
+    "allPlaylist": "歌單",
+    "recommendPlaylist": "推薦歌單",
+    "recommendArtist": "歌手",
+    "newAlbum": "新專速遞",
+    "charts": "排行榜",
+    "seeMore": "查看全部"
+  },
+  "localMusic": {
+    "latedAdd": "最近新增",
+    "songs": "本地歌曲",
+    "playlist": {
+      "text": "離線歌單",
+      "addToPlaylist": "新增至離線歌單",
+      "newPlaylist": "新增離線歌單"
+    },
+    "albums": "專輯",
+    "artists": "藝人",
+    "placeholder": "搜尋本地歌曲",
+    "scrollToTop": "回到頂部",
+    "localMusicFolderPath": "本地音樂資料夾路徑",
+    "clearLocalMusic": {
+      "text": "清空本地歌曲資訊",
+      "desc": "此操作僅會清除此程式內的本地歌曲匹配資訊，不會刪除本地歌曲檔案"
+    },
+    "replayGain": {
+      "text": "音量平衡",
+      "desc": "此功能只會讀取本地歌曲元資料裡的音量平衡資訊，無法掃描計算得到結果"
+    },
+    "embeddedInformation": "優先使用歌曲內嵌資訊",
+    "positionTrack": "定位歌曲"
+  },
+  "artist": {
+    "artist": "藝人",
+    "withAlbums": "張專輯",
+    "videos": "個MV",
+    "follow": "關注",
+    "following": "已關注",
+    "latestRelease": "最新發布",
+    "latestMV": "最新MV",
+    "popularSongs": "熱門歌曲",
+    "showMore": "查看更多",
+    "showLess": "收起",
+    "albums": "專輯",
+    "EPsSingles": "EP和單曲",
+    "similarArtists": "相似藝人",
+    "artistDesc": "藝人介紹"
+  },
+  "album": {
+    "released": "發行於",
+    "albumDesc": "專輯介紹"
+  },
+  "playlist": {
+    "search": "搜尋歌單音樂"
+  },
+  "contextMenu": {
+    "defaultSort": "預設排序",
+    "sortByName": "按名稱排序",
+    "descendSort": "按時間降序排序",
+    "ascendSort": "按時間升序排序",
+    "selectAll": "全選",
+    "batchOperation": "批次操作",
+    "reScan": "重新掃描歌曲",
+    "showComment": "查看評論",
+    "showLyric": "顯示歌詞",
+    "setConvolver": "音效設定",
+    "playBackSpeed": "倍速播放",
+    "lyricOffset": "歌詞時間調整",
+    "play": "播放",
+    "addToQueue": "新增至佇列",
+    "accurateMatch": "精確匹配",
+    "addToLocalPlaylist": "新增至本地歌單",
+    "removeTrackFromPlaylist": "從歌單裡刪除",
+    "showInFolder": "在檔案管理員中開啟",
+    "deletePlaylist": "刪除歌單",
+    "finish": "完成",
+    "allPlaylists": "全部歌單",
+    "minePlaylists": "建立的歌單",
+    "likedPlaylists": "收藏的歌單",
+    "openOnBrowser": "在瀏覽器中開啟",
+    "copyURL": "複製連結",
+    "copyId": "複製ID",
+    "playMV": "播放MV"
+  },
+  "login": {
+    "login": "登入",
+    "phone": "手機號碼",
+    "email": "電子郵件",
+    "password": "密碼",
+    "loginText": "登入網易雲帳號",
+    "usernameLogin": "使用者名稱登入",
+    "loginWithEmail": "電子郵件登入",
+    "loginWithPhone": "手機號碼登入",
+    "noticeElectron": "您的密碼會在本地進行MD5加密後再傳輸到網易雲API。YesPlayMusic 不會傳輸您的帳號資料到任何非網易雲音樂官方的伺服器。"
+  },
+  "player": {
+    "play": "播放",
+    "pause": "暫停",
+    "previous": "上一首",
+    "moveToFMTrash": "不喜歡",
+    "next": "下一首",
+    "volume": "音量",
+    "mute": "靜音",
+    "shuffle": "隨機",
+    "singleLoop": "單曲循環",
+    "sequence": "順序播放",
+    "playlist": "歌單",
+    "download": "下載",
+    "addToPlaylist": "新增到歌單",
+    "noAllowCauseLocal": "本地歌曲，無法操作",
+    "osdLyrics": "顯示桌面歌詞",
+    "nextUp": "播放清單",
+    "repeat": "循環播放",
+    "repeatTrack": "單曲循環",
+    "resetPlayer": "重設播放器狀態",
+    "like": "喜歡",
+    "getFMTimeout": "取得私人FM超時",
+    "getFMOverCount": "取得私人FM時重試次數過多，請手動切換下一首",
+    "converlution": {
+      "title": "環境混響音效",
+      "mainGain": "原始音訊增益",
+      "sendGain": "環境音效增益",
+      "bright_hall": "大廳",
+      "cardiod_35_10_spread": "心形擴散",
+      "cinema_diningroom": "電影院",
+      "dining_living_true_stereo": "餐廳",
+      "feedback_spring": "回饋彈簧",
+      "living_bedroom_leveled": "衛生間",
+      "matrix_1": "矩陣混響",
+      "matrix_2": "矩陣混響2",
+      "s2_r4_bd": "教堂",
+      "s3_r1_bd": "立體聲",
+      "spreader50_65ms": "室內",
+      "telephone": "電話",
+      "tim_omni_35_10_magnetic": "磁性立體聲",
+      "main_gain": "原始音訊增益",
+      "send_gain": "環境音效增益"
+    },
+    "frequad": {
+      "title": "等化器設定",
+      "reset": "重設",
+      "classical": "古典",
+      "dance": "舞曲",
+      "electronic": "電子樂",
+      "pop": "流行",
+      "rock": "搖滾",
+      "slow": "慢歌",
+      "soft": "柔和",
+      "subwoofer": "重低音",
+      "vocal": "人聲"
+    }
+  },
+  "common": {
+    "songs": "首歌",
+    "play": "播放"
+  },
+  "settings": {
+    "nav": {
+      "general": "通用",
+      "appearance": "外觀",
+      "tray": "系統托盤",
+      "extension": "歌詞插件",
+      "platformSetting": "平台設定",
+      "lyricSetting": "歌詞設定",
+      "lyric": "主視窗歌詞",
+      "osdLyric": "桌面歌詞",
+      "trayLyric": "狀態列歌詞",
+      "localMusic": "本地歌曲",
+      "shortcut": "快捷鍵設定"
+    },
+    "general": {
+      "language": {
+        "text": "語言",
+        "zhHans": "簡體中文",
+        "zhHant": "繁體中文",
+        "en": "English"
+      },
+      "showTimeOrID": {
+        "text": "歌曲清單資訊顯示選項",
+        "time": "歌曲時長",
+        "ID": "歌曲ID"
+      },
+      "useCustomTitlebar": "啟用自訂標題列 (重新啟動後生效)",
+      "outputDevice": {
+        "text": "音訊輸出裝置",
+        "deviceID": "default"
+      },
+      "closeAppOption": {
+        "text": "軟體退出選項",
+        "minimizeToTray": "最小化至托盤",
+        "exit": "直接退出",
+        "ask": "詢問"
+      },
+      "logout": "登出"
+    },
+    "tray": {
+      "showLyric": "顯示狀態列歌詞",
+      "showControl": "顯示控制按鈕",
+      "lyricScrollFrameRate": {
+        "text": "歌詞捲動幀率",
+        "desc": "該數值並非越大越好，太高會導致歌詞捲動速度過快而無法流暢顯示"
+      },
+      "lyricFrameWidth": "歌詞捲動寬度(px)"
+    },
+    "extension": {
+      "status": "歌詞插件服務檢測狀態",
+      "showLyric": {
+        "text": "顯示狀態列歌詞",
+        "desc": "該功能需要安裝並啟用歌詞插件服務"
+      },
+      "showTray": "顯示托盤圖示"
+    },
+    "osdLyric": {
+      "showOsdLyric": "顯示桌面歌詞",
+      "alwaysOnTop": "桌面歌詞視窗置頂",
+      "type": {
+        "text": "桌面歌詞視窗模式",
+        "small": "mini模式",
+        "normal": "普通模式"
+      },
+      "mode": {
+        "text": "歌詞顯示模式",
+        "desc": "此選項僅在桌面歌詞視窗為mini模式生效",
+        "oneLine": "單行",
+        "twoLines": "雙行"
+      },
+      "isLock": "桌面歌詞鎖定",
+      "isWordByWord": "啟用逐字歌詞（如果可用）",
+      "translationMode": {
+        "text": "顯示歌詞翻譯/音譯",
+        "none": "從不",
+        "tlyric": "翻譯",
+        "romalrc": "音譯"
+      },
+      "fontSize": "字型大小（px）",
+      "staticTime": {
+        "text": "滑鼠停留時長",
+        "desc": "鎖定後，滑鼠停留該時長後（毫秒）降低視窗透明度，Linux系統下無效"
+      }
+    },
+    "shortcut": {
+      "enableGlobalShortcut": "啟用全域快捷鍵",
+      "function": "功能",
+      "shortcut": "快捷鍵",
+      "globalShortcut": "全域快捷鍵",
+      "resetShortcut": "恢復預設快捷鍵"
+    }
+  },
+  "toast": {
+    "createLocalPlaylistSuccess": "成功建立本地歌單",
+    "createLocalPlaylistFailed": "建立本地歌單失敗",
+    "savedToPlaylist": "已新增到歌單",
+    "tracksAlreadyInPlaylist": "歌曲已在歌單中",
+    "needToLogin": "此操作需要登入網易雲帳號",
+    "getColorFailed": "取得顏色失敗",
+    "scanning": "正在掃描本地音樂，請稍後",
+    "addFailed": "操作失敗，專輯下架或版權鎖定",
+    "removedFromPlaylist": "已從歌單中刪除",
+    "deleteSuccess": "刪除成功",
+    "deleteFailed": "刪除失敗",
+    "copySuccess": "複製成功"
+  },
+  "next": {
+    "nowPlaying": "正在播放",
+    "insertPlaying": "插隊播放",
+    "nextPlaying": "即將播放",
+    "historyPlaying": "歷史播放"
   }
 }
