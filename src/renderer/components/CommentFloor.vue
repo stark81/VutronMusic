@@ -13,6 +13,7 @@
         :item-size="63"
         :padding-bottom="0"
         :show-position="false"
+        :is-end="true"
         :load-more="() => loadFloorComment(props.beRepliedCommentId)"
       >
         <template #default="{ item, index }">
