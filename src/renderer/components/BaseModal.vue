@@ -164,7 +164,7 @@ watch(
     }
   }
   button.primary {
-    color: var(--color-primary-bg);
+    color: var(--color-text);
     background: var(--color-primary);
     font-weight: 500;
   }

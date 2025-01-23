@@ -106,7 +106,7 @@
       </div>
 
       <div class="section-two-content" :style="tabStyle">
-        <div v-if="currentTab === 'playlist'">
+        <div v-show="currentTab === 'playlist'">
           <CoverRow
             :items="filterPlaylists"
             type="playlist"
@@ -116,7 +116,7 @@
           />
         </div>
 
-        <div v-if="currentTab === 'album'">
+        <div v-show="currentTab === 'album'">
           <CoverRow
             :items="liked.albums"
             type="album"
@@ -126,11 +126,11 @@
           />
         </div>
 
-        <div v-if="currentTab === 'mvs'">
+        <div v-show="currentTab === 'mvs'">
           <Mvrow :mvs="liked.mvs" />
         </div>
 
-        <div v-if="currentTab === 'artist'">
+        <div v-show="currentTab === 'artist'">
           <CoverRow
             :items="liked.artists"
             type="artist"
@@ -141,7 +141,7 @@
           />
         </div>
 
-        <div v-if="currentTab === 'cloudDisk'">
+        <div v-show="currentTab === 'cloudDisk'">
           <TrackList
             :id="-8"
             :items="liked.cloudDisk"
@@ -151,7 +151,7 @@
           />
         </div>
 
-        <div v-if="currentTab === 'playHistory'">
+        <div v-show="currentTab === 'playHistory'">
           <button
             :class="{
               'playHistory-button': true,
@@ -459,7 +459,7 @@ onUnmounted(() => {
     flex-direction: column;
     justify-items: center;
     transition: all 0.4s;
-    background: var(--color-primary-bg);
+    background: color-mix(in oklab, var(--color-primary) var(--bg-alpha), white);
 
     .title {
       font-size: 20px;
@@ -491,33 +491,6 @@ onUnmounted(() => {
           text-overflow: ellipsis;
         }
       }
-
-      // button {
-      //   display: flex;
-      //   justify-content: center;
-      //   align-items: center;
-      //   height: 36px;
-      //   width: 36px;
-      //   background: var(--color-primary);
-      //   border-radius: 50%;
-      //   transition: 0.2s;
-      //   box-shadow: 0 6px 12px -4px rgba(0, 0, 0, 0.2);
-      //   cursor: default;
-
-      //   .svg-icon {
-      //     color: var(--color-primary-bg);
-      //     margin-left: 4px;
-      //     height: 16px;
-      //     width: 16px;
-      //   }
-      //   &:hover {
-      //     transform: scale(1.06);
-      //     box-shadow: 0 6px 12px -4px rgba(0, 0, 0, 0.4);
-      //   }
-      //   &:active {
-      //     transform: scale(0.94);
-      //   }
-      // }
     }
 
     .top {

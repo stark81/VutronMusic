@@ -95,7 +95,7 @@ const isCurrentRoute = (path: string): boolean => {
       display: none;
       visibility: hidden;
       left: 60px;
-      color: blue;
+      color: var(--color-primary);
       font-size: 16px;
       .toast {
         position: absolute;
@@ -113,7 +113,7 @@ const isCurrentRoute = (path: string): boolean => {
       height: 26px;
     }
     &:hover {
-      background: blue;
+      background: var(--color-primary);
       .mouseOver {
         display: inherit;
         visibility: visible;
@@ -128,7 +128,7 @@ const isCurrentRoute = (path: string): boolean => {
     }
   }
   button.active {
-    background: blue;
+    background: var(--color-primary);
     color: white;
   }
 }

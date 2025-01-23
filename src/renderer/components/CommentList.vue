@@ -31,6 +31,8 @@
         :is-end="false"
         :height="commentHeight"
         :padding-bottom="0"
+        :above-value="5"
+        :below-value="5"
         :show-position="false"
         :load-more="loadComment"
       >

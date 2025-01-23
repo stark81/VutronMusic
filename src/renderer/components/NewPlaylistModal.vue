@@ -9,8 +9,21 @@
     <template #default>
       <input v-model="title" type="text" :placeholder="$t('library.playlist.title')" />
       <div v-show="!isLocal" class="checkbox">
-        <input id="checkbox-private" v-model="isPrivate" type="checkbox" />
-        <label for="checkbox-private">{{ $t('library.playlist.setPrivate') }}</label>
+        <input
+          id="checkbox-private"
+          v-model="isPrivate"
+          type="checkbox"
+          class="input"
+          @input="checked = !checked"
+        />
+        <!-- <label for="checkbox-private">{{ $t('library.playlist.setPrivate') }}</label> -->
+        <label for="checkbox-private" class="label-content">
+          <div class="container" role="checkbox" :aria-checked="checked">
+            <svg-icon v-if="checked" icon-class="checked" style="color: var(--color-primary)" />
+            <svg-icon v-else icon-class="checkbox" />
+          </div>
+          <span class="label">{{ $t('library.playlist.setPrivate') }}</span>
+        </label>
       </div>
     </template>
     <template #footer>
@@ -26,6 +39,7 @@ import BaseModal from './BaseModal.vue'
 import { useNormalStateStore } from '../store/state'
 import { useLocalMusicStore } from '../store/localMusic'
 import { useDataStore } from '../store/data'
+import SvgIcon from './SvgIcon.vue'
 import { createPlaylist, addOrRemoveTrackFromPlaylist } from '../api/playlist'
 import { useI18n } from 'vue-i18n'
 
@@ -39,6 +53,7 @@ const { fetchLikedPlaylist } = useDataStore()
 
 const title = ref('')
 const isPrivate = ref(false)
+const checked = ref(false)
 
 const show = computed({
   get: () => newPlaylistModal.value.show,
@@ -136,7 +151,7 @@ const createAPlaylist = async () => {
       margin-top: -1px;
       color: var(--color-text);
       &:focus {
-        background: var(--color-primary-bg-for-transparent);
+        background: color-mix(in oklab, var(--color-primary) var(--bg-alpha), white);
         opacity: 1;
       }
       [data-theme='light'] &:focus {
@@ -147,11 +162,33 @@ const createAPlaylist = async () => {
       display: flex;
       user-select: none;
       align-items: center;
-      label {
-        font-size: 12px;
+      // margin: 3px 3px 3px 4px;
+
+      .input {
+        display: none;
+
+        &:checked {
+          + .label-content {
+            .container {
+              &:after {
+                border-color: var(--color-primary-font);
+              }
+            }
+            .icon {
+              transform: scale(1);
+            }
+          }
+        }
       }
-      input[type='checkbox' i] {
-        margin: 3px 3px 3px 4px;
+      .label-content {
+        display: flex;
+        align-items: center;
+
+        .container {
+          display: flex;
+          align-items: center;
+          margin-right: 4px;
+        }
       }
     }
   }
@@ -176,7 +213,7 @@ const createAPlaylist = async () => {
     }
   }
   button.primary {
-    color: var(--color-primary-bg);
+    color: white;
     background: var(--color-primary);
     font-weight: 500;
   }

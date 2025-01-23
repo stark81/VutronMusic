@@ -260,11 +260,12 @@ onMounted(() => {
 }
 
 .content {
-  font-weight: bold;
+  font-weight: bolder;
   padding: 12px;
 
   span {
     opacity: 0.28;
+    margin-right: 1px;
   }
 }
 

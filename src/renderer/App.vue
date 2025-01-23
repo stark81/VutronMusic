@@ -1,12 +1,18 @@
 <template>
   <div id="app">
-    <ScrollBar v-show="!showLyrics" ref="scrollBarRef" />
     <SideNav />
     <NavBar ref="navBarRef" />
-    <div id="main" ref="mainRef" :style="mainStyle" @scroll="handleScroll">
+    <div id="main" ref="mainRef" :style="mainStyle">
       <router-view v-slot="{ Component }">
         <keep-alive
-          :include="['HomePage', 'ExplorePage', 'LibraryMusic', 'SearchPage', 'ArtistPage']"
+          :include="[
+            'HomePage',
+            'ExplorePage',
+            'LibraryMusic',
+            'SearchPage',
+            'ArtistPage'
+            // 'LocalMusic'
+          ]"
         >
           <component :is="Component"></component>
         </keep-alive>
@@ -22,7 +28,7 @@
 
 <script setup lang="tsx">
 import { onMounted, ref, provide, toRefs, watch, computed } from 'vue'
-import ScrollBar from './components/ScrollBar.vue'
+// import ScrollBar from './components/ScrollBar.vue'
 import PlayerBar from './components/PlayerBar.vue'
 import NavBar from './components/NavBar.vue'
 import SideNav from './components/SideNav.vue'
@@ -51,7 +57,8 @@ const osdLyricStore = useOsdLyricStore()
 const { show, type, isLock } = storeToRefs(osdLyricStore)
 
 const stateStore = useNormalStateStore()
-const { showLyrics, enableScrolling, extensionCheckResult } = storeToRefs(stateStore)
+const { enableScrolling, extensionCheckResult } = storeToRefs(stateStore)
+// const { showLyrics, enableScrolling, extensionCheckResult } = storeToRefs(stateStore)
 const { showToast } = stateStore
 
 const {
@@ -116,10 +123,6 @@ const showPlayerBar = computed(() => {
 
 const isMac = computed(() => window.env?.isMac)
 const isLinux = computed(() => window.env?.isLinux)
-
-const handleScroll = () => {
-  scrollBarRef.value.handleScroll()
-}
 
 const restorePosition = () => {
   scrollBarRef.value.restorePosition()
@@ -239,8 +242,6 @@ onMounted(async () => {
   scrollbar-width: none;
   color: var(--color-text);
   overflow: auto;
-  // height: 720px;
-  // height: 100vh;
 }
 
 main::-webkit-scrollbar {

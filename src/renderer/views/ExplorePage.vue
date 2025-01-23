@@ -486,12 +486,12 @@ onBeforeUnmount(() => {
   transition: 0.2s;
 
   &:hover {
-    background-color: var(--color-primary-bg);
+    background: color-mix(in oklab, var(--color-primary) var(--bg-alpha), white);
     color: var(--color-primary);
   }
 }
 .button.active {
-  background-color: var(--color-primary-bg);
+  background: color-mix(in oklab, var(--color-primary) var(--bg-alpha), white);
   color: var(--color-primary);
 }
 .panel {
@@ -542,7 +542,7 @@ onBeforeUnmount(() => {
       opacity: 0.88;
       &:hover {
         opacity: 1;
-        background-color: var(--color-primary-bg);
+        background: color-mix(in oklab, var(--color-primary) var(--bg-alpha), white);
         color: var(--color-primary);
       }
     }

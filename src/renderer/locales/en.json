@@ -237,8 +237,8 @@
     "general": {
       "language": {
         "text": "Language",
-        "zhHans": "Simplified Chinese",
-        "zhHant": "Traditional Chinese",
+        "zhHans": "简体中文",
+        "zhHant": "繁體中文",
         "en": "English"
       },
       "showTimeOrID": {
@@ -258,6 +258,17 @@
         "ask": "Ask"
       },
       "logout": "Logout"
+    },
+    "theme": {
+      "auto": "Auto",
+      "light": "Light",
+      "dark": "Dark",
+      "accent": "Accent Color",
+      "blue": "Blue",
+      "purple": "Purple",
+      "orange": "Orange",
+      "cyan": "Cyan",
+      "Customize": "Customize"
     },
     "tray": {
       "showLyric": "Show Tray Lyrics",
@@ -309,7 +320,14 @@
       "function": "Function",
       "shortcut": "Shortcut",
       "globalShortcut": "Global Shortcuts",
-      "resetShortcut": "Reset to Default"
+      "resetShortcut": "Reset to Default",
+      "play": "Play / Pause",
+      "next": "Next",
+      "previous": "Previous",
+      "increaseVolume": "Increase Volume",
+      "decreaseVolume": "Decrease Volume",
+      "like": "Like",
+      "minimize": "Show/Hide Player"
     }
   },
   "toast": {

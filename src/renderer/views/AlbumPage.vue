@@ -45,8 +45,8 @@
             :icon-class="dynamicDetail.isSub ? 'heart-solid' : 'heart'"
             :icon-button="true"
             :horizontal-padding="0"
-            :color="dynamicDetail?.isSub ? 'blue' : 'grey'"
-            :text-color="dynamicDetail?.isSub ? '#335eea' : ''"
+            :color="dynamicDetail?.isSub ? 'var(--color-primary)' : 'grey'"
+            :text-color="dynamicDetail?.isSub ? 'var(--color-primary)' : ''"
             :background-color="dynamicDetail?.isSub ? 'var(--color-secondary-bg)' : ''"
             @click="likeAlbum"
           >

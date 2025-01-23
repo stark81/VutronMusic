@@ -157,7 +157,7 @@ const addTrackToPlaylist = (playlistId: number) => {
   }
   &:hover {
     color: var(--color-primary);
-    background: var(--color-primary-bg-for-transparent);
+    background: color-mix(in oklab, var(--color-primary) var(--bg-alpha), white);
   }
 }
 .playlist {
@@ -188,6 +188,7 @@ const addTrackToPlaylist = (playlistId: number) => {
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 1;
+    line-clamp: 1;
     overflow: hidden;
     word-break: break-all;
   }

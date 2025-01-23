@@ -1,19 +1,17 @@
 <template>
   <div v-show="show">
-    <div class="special-playlist">
+    <div class="special-playlist1">
       <div class="title gradient"> 每日歌曲推荐 </div>
       <div class="subtitle">根据你的音乐口味生成 · 每天6:00更新</div>
     </div>
 
-    <div>
-      <TrackList
-        id="/daily/songs"
-        :items="dailyTracks"
-        :colunm-number="1"
-        type="url"
-        :is-end="true"
-      />
-    </div>
+    <TrackList
+      id="/daily/songs"
+      :items="dailyTracks"
+      :colunm-number="1"
+      type="url"
+      :is-end="true"
+    />
   </div>
 </template>
 
@@ -44,7 +42,7 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-.special-playlist {
+.special-playlist1 {
   margin-top: 192px;
   margin-bottom: 128px;
   border-radius: 1.25em;

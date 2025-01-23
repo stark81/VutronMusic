@@ -64,7 +64,7 @@ const props = defineProps({
   colunmNumber: { type: Number, default: 1 },
   gap: { type: Number, default: 20 },
   playButtonSize: { type: Number, default: 22 },
-  paddingBottom: { type: Number, default: 96 },
+  paddingBottom: { type: Number, default: 64 },
   isEnd: { type: Boolean, required: true },
   showFooter: { type: Boolean, default: false },
   enableVirtualScroll: { type: Boolean, default: true },

@@ -305,7 +305,7 @@ onBeforeUnmount(() => {
   }
 
   .active {
-    background: var(--color-primary-bg);
+    background: color-mix(in oklab, var(--color-primary) var(--bg-alpha), white);
     input,
     .svg-icon {
       color: var(--color-primary);
@@ -319,7 +319,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   font-size: 20px;
   font-weight: 600;
-  background-color: var(--color-primary-bg);
+  background: color-mix(in oklab, var(--color-primary) var(--bg-alpha), white);
   color: var(--color-primary);
   border-radius: 8px;
   margin-top: 24px;
@@ -390,7 +390,7 @@ button.loading {
 }
 
 .qr-code-container {
-  background-color: var(--color-primary-bg);
+  background: color-mix(in oklab, var(--color-primary) var(--bg-alpha), white);
   padding: 24px 24px 21px 24px;
   border-radius: 1.25rem;
   margin-bottom: 12px;

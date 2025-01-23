@@ -1,28 +1,21 @@
 :root {
   --color-body-bg: #ffffff;
-  --color-body-bg-alpha: rgba(255, 255, 255, 0.92);
-  --color-text: #000;
-  --color-text-transparent: rgba(0, 0, 0, 0.35);
-  --color-primary: #335eea;
-  --color-primary-disabled: #1c3eae;
-  --color-primary-bg: #eaeffd;
+  --color-text: #000000;
+  // --color-primary: rgba(51, 94, 234, 1);
+  --bg-alpha: 10%;
   --color-secondary: #7a7a7b;
   --color-secondary-bg: #f5f5f7;
-  --color-secondary-bg-disabled: #dcdcdc;
-  --color-secondary-bg-disabled-after: #f0eeee;
   --color-navbar-bg: rgba(255, 255, 255, 0.86);
   --color-primary-bg-for-transparent: rgba(189, 207, 255, 0.28);
-  --color-secondary-bg-for-transparent: rgba(200, 200, 200, 0.4);
+  --color-secondary-bg-for-transparent: rgba(180, 180, 180, 0.4);
   --html-overflow-y: overlay;
 }
 
 [data-theme='dark'] {
   --color-body-bg: #222222;
-  --color-body-bg-alpha: rgba(56, 56, 56, 0.85);
   --color-text: #ffffff;
-  --color-text-transparent: rgba(255, 255, 255, 0.35);
-  --color-primary: #335eea;
-  --color-primary-bg: #bbcdff;
+  // --color-primary: rgba(51, 94, 234, 1);
+  --bg-alpha: 15%;
   --color-secondary: #7a7a7b;
   --color-secondary-bg: #323232;
   --color-navbar-bg: rgba(34, 34, 34, 0.86);

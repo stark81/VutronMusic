@@ -66,7 +66,7 @@ button {
   font-size: 18px;
   line-height: 18px;
   font-weight: 600;
-  background-color: var(--color-primary-bg);
+  background: color-mix(in oklab, var(--color-primary) var(--bg-alpha), white);
   color: var(--color-primary);
   margin-right: 12px;
   transition: 0.2s;

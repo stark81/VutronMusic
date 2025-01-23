@@ -109,13 +109,9 @@
                     :drag-on-click="false"
                     :rail-style="{ backgroundColor: 'rgba(128, 128, 128, 0.18)' }"
                     :process-style="{ backgroundColor: '#eee', opacity: 0.8 }"
-                    :dot-style="{
-                      display: 'none',
-                      backgroundColor: '#eee',
-                      boxshadow: '0.5px 0.5px 2px 1px rgba(0, 0, 0, 0.18)'
-                    }"
+                    :dot-style="{ display: 'none' }"
                     tooltip="none"
-                    :lazy="true"
+                    :lazy="false"
                     :silent="true"
                   ></vue-slider>
                 </div>

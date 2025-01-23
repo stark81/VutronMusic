@@ -46,7 +46,7 @@ const image = computed(() => {
   }
 }
 .item.selected {
-  background: var(--color-primary-bg);
+  background: color-mix(in oklab, var(--color-primary) var(--bg-alpha), white);
   color: var(--color-primary);
   .artist {
     font-weight: 600;

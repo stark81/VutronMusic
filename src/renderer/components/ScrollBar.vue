@@ -1,33 +1,51 @@
 <template>
   <div>
     <transition name="fade">
-      <div v-show="show">
-        <div :style="thumbStyle"></div>
+      <div v-show="show" id="scrollbar">
+        <div
+          id="thumbContainer"
+          :style="thumbStyle"
+          @mouseenter="handleMouseEnter"
+          @mouseleave="handleMouseLeave"
+          @mousedown="handleDragStart"
+          @click.stop
+        >
+          <div></div>
+        </div>
       </div>
     </transition>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, inject, computed, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 const show = ref(false)
+const hideTimer = ref()
+const active = ref(false)
 const top = ref(0)
 const thumbHeight = ref(0)
+const onDragClientY = ref(0)
+const isOnDrag = ref(false)
 const positions = ref({
   home: { scrollTop: 0, params: {} }
 })
 
-const mainRef = inject('mainRef') as any
+const thumbStyle = computed(() => ({
+  transform: `translateY(${top.value}px)`,
+  height: `${thumbHeight.value}px`
+}))
+
+const mainRef = document.documentElement
 
 const route = useRoute()
 const router = useRouter()
 
 const handleScroll = () => {
-  const clientHeight = mainRef.value?.clientHeight - 128
-  const scrollHeight = mainRef.value?.scrollHeight - 128
-  const scrollTop = mainRef.value?.scrollTop
+  const clientHeight = mainRef.clientHeight - 128
+  const scrollHeight = mainRef.scrollHeight - 128
+  const scrollTop = mainRef.scrollTop
   let top1 = ~~((scrollTop / scrollHeight) * clientHeight)
   let thumbHeight1 = ~~((clientHeight / scrollHeight) * clientHeight)
 
@@ -49,54 +67,76 @@ const handleScroll = () => {
   }
 }
 
-const thumbStyle = computed(() => {
-  return {
-    transform: `translateY(${top.value}px)`,
-    height: `${thumbHeight.value}px`
-  }
-})
-
-const restorePosition = () => {
-  if (
-    !route.meta.savePosition ||
-    positions.value[route.name!] === undefined ||
-    mainRef.value === undefined
-  ) {
-    return
-  }
-  document.documentElement.scrollTo({ top: positions.value[route.name!].scrollTop })
-  mainRef.value.scrollTo({ top: positions.value[route.name!].scrollTop })
+const handleMouseEnter = () => {
+  active.value = true
 }
 
-onMounted(() => {
-  router.beforeEach((to, from, next) => {
-    show.value = false
-    if (route.meta.savePosition) {
-      positions.value[route.name!] = {
-        scrollTop: mainRef.value?.scrollTop,
-        params: route.params
-      }
-    }
-    if (!to.meta.keepAlive) {
-      mainRef.value?.scrollTo({ top: 0 })
-      document.documentElement.scrollTo({ top: 0 })
-    }
-    next()
-  })
-})
+const handleMouseLeave = () => {
+  active.value = false
+  setScrollbarHideTimeout()
+}
 
-const hideTimer = ref()
-const active = ref(false)
+const handleDragStart = (e: MouseEvent) => {
+  onDragClientY.value = e.clientY
+  isOnDrag.value = true
+  document.addEventListener('mousemove', handleDragMove)
+  document.addEventListener('mouseup', handleDragEnd)
+}
+
+const handleDragMove = (e: MouseEvent) => {
+  if (!isOnDrag.value) return
+  const clientHeight = mainRef.clientHeight - 128
+  const scrollHeight = mainRef.scrollHeight - 128
+  const clientY = e.clientY
+  const scrollTop = mainRef.scrollTop
+
+  const offset = ~~(((clientY - onDragClientY.value) / clientHeight) * scrollHeight)
+
+  top.value = ~~((scrollTop / scrollHeight) * clientHeight)
+  mainRef.scrollBy(0, offset)
+  onDragClientY.value = clientY
+}
+
+const handleDragEnd = (e: MouseEvent) => {
+  isOnDrag.value = false
+  document.removeEventListener('mousemove', handleDragMove)
+  document.removeEventListener('mouseup', handleDragEnd)
+}
+
+const restorePosition = () => {
+  if (!route.meta.savePosition || positions.value[route.name!] === undefined) {
+    return
+  }
+  mainRef.scrollTo({ top: positions.value[route.name!].scrollTop })
+}
 
 const setScrollbarHideTimeout = () => {
   if (hideTimer.value !== null) clearTimeout(hideTimer.value)
   hideTimer.value = setTimeout(() => {
     if (!active.value) show.value = false
     hideTimer.value = null
-  }, 4000)
+  }, 3000)
 }
 
-defineExpose({ handleScroll, restorePosition })
+defineExpose({ restorePosition })
+
+onMounted(() => {
+  window.addEventListener('scroll', handleScroll)
+  router.beforeEach((to, from, next) => {
+    // show.value = false
+    if (route.meta.savePosition) {
+      positions.value[route.name!] = {
+        scrollTop: mainRef.scrollTop,
+        params: route.params
+      }
+    }
+    if (!to.meta.keepAlive) {
+      mainRef.scrollTo({ top: 0 })
+      document.documentElement.scrollTo({ top: 0 })
+    }
+    next()
+  })
+})
 </script>
 
 <style scoped lang="scss">

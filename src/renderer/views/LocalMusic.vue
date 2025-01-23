@@ -128,7 +128,7 @@
         </button>
       </div>
       <div class="section-two-content" :style="tabStyle">
-        <div v-if="currentTab === 'localTracks'">
+        <div v-show="currentTab === 'localTracks'">
           <TrackList
             :id="0"
             ref="trackListRef"
@@ -145,13 +145,13 @@
           ></TrackList>
         </div>
 
-        <div v-else-if="currentTab === 'localPlaylist'">
+        <div v-show="currentTab === 'localPlaylist'">
           <CoverRow :items="playlists" :type="currentTab" :style="{ paddingBottom: '96px' }" />
         </div>
-        <div v-else-if="currentTab === 'album'">
+        <div v-show="currentTab === 'album'">
           <AlbumList :tracks="sortedLocalTracks" />
         </div>
-        <div v-else-if="currentTab === 'artist'">
+        <div v-show="currentTab === 'artist'">
           <ArtistList :tracks="sortedLocalTracks" />
         </div>
       </div>
@@ -188,6 +188,7 @@ import {
   provide,
   inject,
   onMounted,
+  onActivated,
   onUnmounted,
   watch,
   nextTick
@@ -466,6 +467,12 @@ onMounted(() => {
   getRandomTrack(randomID.value)
 })
 
+onActivated(() => {
+  if (!localTrackIDs.value.length) return
+  randomID.value = localTrackIDs.value[randomNum(0, localTrackIDs.value.length - 1)]
+  getRandomTrack(randomID.value)
+})
+
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
   updatePadding(96)
@@ -482,7 +489,7 @@ onUnmounted(() => {
 .section-one {
   margin: 20px 0 0 0;
   box-sizing: border-box;
-  background: var(--color-primary-bg);
+  background: color-mix(in oklab, var(--color-primary) var(--bg-alpha), white);
   border-radius: 14px;
   height: 240px;
   transition: all 0.4s;
@@ -515,7 +522,7 @@ onUnmounted(() => {
     width: 270px;
     font-size: 18px;
     line-height: 30px;
-    color: blue;
+    color: var(--color-primary);
     display: flex;
     justify-content: center;
     flex-direction: column;
@@ -536,42 +543,6 @@ onUnmounted(() => {
     text-align: center;
     box-sizing: border-box;
     // z-index: 1;
-  }
-  .bottom {
-    position: absolute;
-    border-radius: 50%;
-    background: var(--color-primary-bg);
-    left: 860px;
-    bottom: 4px;
-    display: flex;
-    justify-content: center;
-    button {
-      margin-bottom: 2px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 40px;
-      width: 40px;
-      background: var(--color-primary);
-      border-radius: 50%;
-      transition: 0.2s;
-      box-shadow: 0 6px 12px -4px rgba(0, 0, 0, 0.2);
-      cursor: default;
-
-      .svg-icon {
-        color: var(--color-primary-bg);
-        margin-left: 4px;
-        height: 16px;
-        width: 16px;
-      }
-      &:hover {
-        transform: scale(1.06);
-        box-shadow: 0 6px 12px -4px rgba(0, 0, 0, 0.4);
-      }
-      &:active {
-        transform: scale(0.94);
-      }
-    }
   }
 }
 

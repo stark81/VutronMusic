@@ -30,6 +30,8 @@
 </template>
 
 <script setup lang="ts">
+import { storeToRefs } from 'pinia'
+import { useNormalStateStore } from '../store/state'
 import {
   ref,
   toRefs,
@@ -44,6 +46,8 @@ import {
   onDeactivated,
   inject
 } from 'vue'
+
+type ScrollBehavior = 'auto' | 'instant' | 'smooth'
 
 const props = defineProps({
   list: { type: Array as PropType<any[]>, required: true },
@@ -71,6 +75,9 @@ const startOffset = ref(0)
 const position = ref<any[]>([])
 const windowHeight = ref(window.innerHeight)
 const { list, itemSize } = toRefs(props)
+
+const normalState = useNormalStateStore()
+const { enableScrolling } = storeToRefs(normalState)
 
 const _listData = computed(() => {
   return list.value.reduce((init, cur, index) => {
@@ -184,17 +191,17 @@ const setStartOffset = () => {
   }
 }
 
-const scrollTocurrent = (index: number) => {
+const scrollTocurrent = (index: number, behavior: ScrollBehavior = 'smooth') => {
   const elTop =
     listRef.value.getBoundingClientRect().top - document.documentElement.getBoundingClientRect().top
   const root = document.documentElement
   root.scrollTo({
     top: elTop,
-    behavior: 'smooth'
+    behavior
   })
-  const idx = Math.floor((index - props.aboveValue) / props.columnNumber) || 0
+  const idx = index / props.columnNumber - Math.floor(visibleCount.value / 2)
   const top = position.value[idx * props.columnNumber]?.top || 0
-  listRef.value.scrollTo({ top, behavior: 'smooth' })
+  listRef.value.scrollTo({ top, behavior })
 }
 
 let lastScrollTop = listRef.value?.scrollTop
@@ -303,13 +310,22 @@ const observer = new IntersectionObserver(
     root: null,
     rootMargin: `-${hasCustomTitleBar.value ? 84 : 64}px 0px 0px 0px`,
     // 这里设置成0.98的目的，是为了确保在special-playlist页面可以正常进入到滚动状态
-    threshold: 0.98
+    // 某些情况下，页面会无法达到1，导致无法滚动
+    threshold: 0.99
   }
 )
 
 const updateWindowHeight = () => {
   windowHeight.value = window.innerHeight
 }
+
+watch(enableScrolling, (value) => {
+  if (value) {
+    listRef.value.style.overflowY = styleBefore.value
+  } else {
+    listRef.value.style.overflowY = 'hidden'
+  }
+})
 
 watch(_listData, (newList, oldList) => {
   const isMore = _isPrefixSubset(oldList, newList)
@@ -336,17 +352,22 @@ initPosition()
 onActivated(() => {
   observer.observe(listRef.value)
   setTimeout(() => {
+    // 恢复虚拟列表的位置
+    // scrollTocurrent(
+    //   startRow.value * props.columnNumber + Math.ceil(visibleCount.value / 2),
+    //   'instant'
+    // )
     updateItemsSize()
   }, 100)
 })
 
 onDeactivated(() => {
-  startRow.value = 0
+  // startRow.value = 0
   observer.unobserve(listRef.value)
 })
 
 onMounted(() => {
-  startRow.value = 0
+  // startRow.value = 0
   window.addEventListener('resize', updateWindowHeight)
   observer.observe(listRef.value)
   setTimeout(() => {

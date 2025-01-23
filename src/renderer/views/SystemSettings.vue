@@ -137,20 +137,46 @@
               @click="updateAppearance('light')"
             >
               <img src="../assets/images/light.jpg" />
-              浅色</div
+              {{ $t('settings.theme.light') }}</div
             >
             <div
               class="appearance"
               :class="{ selected: appearance === 'dark' }"
               @click="updateAppearance('dark')"
-              ><img src="../assets/images/dark.jpg" /> 深色</div
+              ><img src="../assets/images/dark.jpg" /> {{ $t('settings.theme.dark') }}</div
             >
             <div
               class="appearance"
               :class="{ selected: appearance === 'auto' }"
               @click="updateAppearance('auto')"
-              ><img src="../assets/images/auto.png" /> 自动</div
+              ><img src="../assets/images/auto.png" /> {{ $t('settings.theme.auto') }}</div
             >
+          </div>
+          <div class="item">
+            <div>{{ $t('settings.theme.accent') }}：</div>
+            <div class="colors">
+              <div
+                v-for="color of colors.slice(0, 4)"
+                :key="color.name"
+                class="color theme-color"
+                @click="changeColor(color)"
+              >
+                <div v-show="color.selected" class="selected-icon"></div>
+                <div class="theme-color-item" :style="{ backgroundColor: color.color }"></div>
+                {{ $t(`settings.theme.${color.name}`) }}
+              </div>
+              <div class="color theme-color" @click="changeColor(customizeColor)">
+                <div v-show="customizeColor.selected" class="selected-icon"></div>
+                <pick-colors
+                  v-model:value="customizeColor.color"
+                  :width="60"
+                  :height="60"
+                  :theme="currentTheme ?? 'light'"
+                  format="rgb"
+                />
+                {{ $t(`settings.theme.${customizeColor.name}`) }}
+              </div>
+            </div>
           </div>
         </div>
         <div v-show="tab === 'lyric'" key="lyric">
@@ -272,6 +298,7 @@
                   v-model:value="backgroundColor"
                   :width="100"
                   :height="100"
+                  :theme="currentTheme ?? 'light'"
                   format="rgb"
                   show-alpha
                 />
@@ -282,6 +309,7 @@
                   v-model:value="playedLrcColor"
                   :width="100"
                   :height="100"
+                  :theme="currentTheme ?? 'light'"
                   format="rgb"
                   show-alpha
                 />
@@ -292,6 +320,7 @@
                   v-model:value="unplayLrcColor"
                   :width="100"
                   :height="100"
+                  :theme="currentTheme ?? 'light'"
                   format="rgb"
                   show-alpha
                 />
@@ -302,6 +331,7 @@
                   v-model:value="textShadow"
                   :width="100"
                   :height="100"
+                  :theme="currentTheme ?? 'light'"
                   format="rgb"
                   show-alpha
                 />
@@ -534,7 +564,7 @@
               <div class="col">{{ $t('settings.shortcut.globalShortcut') }}</div>
             </div>
             <div v-for="shortcut in shortcuts" :key="shortcut.id" class="row">
-              <div class="col">{{ shortcut.name }}</div>
+              <div class="col">{{ $t(`settings.shortcut.${shortcut.id}`) }}</div>
               <div class="col">
                 <div
                   class="keyboard-input"
@@ -581,7 +611,7 @@
 
 <script setup lang="ts">
 import { ref, toRefs, computed, inject, onMounted, onBeforeUnmount } from 'vue'
-import pickColors from 'vue-pick-colors'
+import pickColors, { Theme } from 'vue-pick-colors'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '../store/settings'
 import { usePlayerStore } from '../store/player'
@@ -601,7 +631,8 @@ const { localMusic, general, tray, theme, shortcuts, enableGlobalShortcut, norma
   storeToRefs(settingsStore)
 const { scanDir, replayGain, useInnerInfoFirst } = toRefs(localMusic.value)
 const { showTrackTimeOrID, useCustomTitlebar, language, closeAppOption } = toRefs(general.value)
-const { appearance } = toRefs(theme.value)
+const { appearance, colors } = toRefs(theme.value)
+const customizeColor = computed(() => colors.value[4])
 const { showLyric, showControl, lyricWidth, scrollRate, enableExtension } = toRefs(tray.value)
 const { nFontSize, isNWordByWord, nTranslationMode } = toRefs(normalLyric.value)
 const { extensionCheckResult } = toRefs(useNormalStateStore())
@@ -720,6 +751,18 @@ const selectOptions = computed({
   set: (value) => {
     closeAppOption.value = value
   }
+})
+
+const currentTheme = ref(
+  (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') as Theme
+)
+
+const observer = new MutationObserver((mutations) => {
+  mutations.forEach((mutation) => {
+    if (mutation.attributeName === 'data-theme') {
+      currentTheme.value = document.body.getAttribute('data-theme') as Theme
+    }
+  })
 })
 
 const selectedOutputDevice = computed({
@@ -932,6 +975,14 @@ const formatShortcut = (shortcut: string) => {
   return shortcut.replace('CommandOrControl', 'Ctrl')
 }
 
+const changeColor = (color: { name: string }) => {
+  colors.value.forEach((c) => {
+    c.selected = false
+  })
+  const colorObj = colors.value.find((c) => c.name === color.name)!
+  colorObj.selected = true
+}
+
 onMounted(() => {
   mainStyle.value = {
     marginTop: isMac || !useCustomTitlebar.value ? '20px' : '0'
@@ -939,9 +990,15 @@ onMounted(() => {
   updatePadding(64)
   getAllOutputDevices()
   getVersion()
+  // 开始监听 body 元素的属性变化
+  observer.observe(document.body, {
+    attributes: true,
+    attributeFilter: ['data-theme']
+  })
 })
 onBeforeUnmount(() => {
   updatePadding(96)
+  observer.disconnect()
 })
 </script>
 
@@ -1041,13 +1098,11 @@ onBeforeUnmount(() => {
     height: 100%;
 
     .appearance {
-      height: 100px;
-      width: 150px;
+      width: 160px;
       border-radius: 14px;
       text-align: center;
       img {
         width: 100%;
-        height: 100%;
         border-radius: 14px;
         border: 2px solid var(--color-secondary-bg);
       }
@@ -1138,7 +1193,7 @@ onBeforeUnmount(() => {
     box-sizing: border-box;
     &.active {
       color: var(--color-primary);
-      background-color: var(--color-primary-bg);
+      background: color-mix(in oklab, var(--color-primary) var(--bg-alpha), white);
     }
   }
   .restore-default-shortcut {
@@ -1175,11 +1230,39 @@ onBeforeUnmount(() => {
     font-size: 14px;
     opacity: 0.7;
   }
+  .colors {
+    display: flex;
+    width: 90%;
+    justify-content: space-between;
+  }
   .color {
     margin-top: 10px;
     text-align: center;
     .text {
       margin-top: 6px;
+    }
+  }
+  .theme-color {
+    display: flex;
+    flex-direction: column;
+    margin-left: 20px;
+    position: relative;
+
+    .theme-color-item {
+      height: 60px;
+      width: 60px;
+      border-radius: 5px;
+      margin: 5px;
+    }
+    .selected-icon {
+      position: absolute;
+      top: 25px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background-color: #dddddd;
     }
   }
 }
@@ -1258,15 +1341,6 @@ select {
   top: 0;
   left: 0;
   border-radius: 8px;
-}
-
-.toggle input:disabled + label:before {
-  background-color: var(--color-secondary-bg-disabled);
-  cursor: not-allowed;
-}
-.toggle input:disabled:checked + label:before {
-  background-color: var(--color-primary-disabled);
-  cursor: not-allowed;
 }
 
 .toggle input + label:after {

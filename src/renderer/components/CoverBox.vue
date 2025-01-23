@@ -29,6 +29,7 @@ import { useLocalMusicStore } from '../store/localMusic'
 import { storeToRefs } from 'pinia'
 import { getPlaylistDetail } from '../api/playlist'
 import { getArtist } from '../api/artist'
+import { getAlbum } from '../api/album'
 
 const props = defineProps({
   id: { type: Number, required: true },
@@ -108,6 +109,12 @@ const play = () => {
   } else if (props.type === 'artist') {
     getArtist(props.id).then((data) => {
       const trackIDs = data.hotSongs.map((t) => t.id)
+      const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
+      replacePlaylist(props.type, props.id, trackIDs, idx)
+    })
+  } else if (props.type === 'album') {
+    getAlbum(Number(props.id)).then((data) => {
+      const trackIDs = data.songs.map((t) => t.id)
       const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
       replacePlaylist(props.type, props.id, trackIDs, idx)
     })

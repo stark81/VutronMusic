@@ -9,16 +9,16 @@
         :drag-on-click="false"
         :use-keyboard="false"
         :tooltip-formatter="formatTime"
+        :tooltip-style="{
+          backgroundColor: 'var(--color-primary)',
+          borderColor: 'var(--color-primary)'
+        }"
         :rail-style="{ backgroundColor: 'rgba(128, 128, 128, 0.18)' }"
         :process-style="{ background: 'var(--color-primary)' }"
-        :dot-style="{
-          display: 'none',
-          backgroundColor: 'white',
-          boxshadow: '0.5px 0.5px 2px 1px rgba(0, 0, 0, 0.08)'
-        }"
+        :dot-style="{ display: 'none' }"
         :height="2"
         :dot-size="12"
-        :lazy="true"
+        :lazy="false"
         :silent="true"
       ></vue-slider>
     </div>
@@ -121,13 +121,13 @@
               :use-keyboard="false"
               :drag-on-click="false"
               :tooltip-formatter="formatVolume"
+              :tooltip-style="{
+                backgroundColor: 'var(--color-primary)',
+                borderColor: 'var(--color-primary)'
+              }"
               :rail-style="{ backgroundColor: 'rgba(128, 128, 128, 0.18)' }"
               :process-style="{ background: 'var(--color-primary)' }"
-              :dot-style="{
-                display: 'none',
-                backgroundColor: 'white',
-                boxshadow: '0.5px 0.5px 2px 1px rgba(0, 0, 0, 0.08)'
-              }"
+              :dot-style="{ display: 'none' }"
               :height="130"
               :dot-size="12"
               :silent="true"
@@ -186,7 +186,7 @@ const osdLyric = useOsdLyricStore()
 const { show } = storeToRefs(osdLyric)
 
 const stateStore = useNormalStateStore()
-const { showLyrics } = storeToRefs(stateStore)
+const { showLyrics, enableScrolling } = storeToRefs(stateStore)
 
 const dataStore = useDataStore()
 const { liked } = storeToRefs(dataStore)
@@ -253,6 +253,10 @@ const formatVolume = computed(() => {
 
 const heartDisabled = computed(() => {
   return currentTrack.value?.isLocal && !currentTrack.value?.matched
+})
+
+watch(showLyrics, (value) => {
+  enableScrolling.value = !value
 })
 
 watch(

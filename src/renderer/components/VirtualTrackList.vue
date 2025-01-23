@@ -8,8 +8,8 @@
     :is-end="isEnd"
     :padding-bottom="paddingBottom"
     :load-more="loadMore"
-    :above-value="4"
-    :below-value="4"
+    :above-value="5"
+    :below-value="5"
     :gap="gap"
     :pid="id"
   >

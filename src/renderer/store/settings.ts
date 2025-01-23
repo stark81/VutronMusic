@@ -10,9 +10,15 @@ export const useSettingsStore = defineStore(
   'settings',
   () => {
     const enabledPlaylistCategories = playlistCategories.filter((c) => c.enable).map((c) => c.name)
-    const theme = ref({
+    const theme = reactive({
       appearance: 'auto', // auto | dark | light
-      colors: {}
+      colors: [
+        { name: 'blue', color: 'rgba(51, 94, 234, 1)', selected: true },
+        { name: 'purple', color: 'rgba(136, 84, 208, 1)', selected: false },
+        { name: 'orange', color: 'rgba(234, 136, 51, 1)', selected: false },
+        { name: 'cyan', color: 'rgba(29, 185, 181, 1)', selected: false },
+        { name: 'Customize', color: 'rgba(0, 0, 0, 0)', selected: false }
+      ]
     })
     const localMusic = reactive({
       scanDir: '',
@@ -68,6 +74,17 @@ export const useSettingsStore = defineStore(
       )
 
     watch(
+      () => theme.colors,
+      (newValue) => {
+        const selectedColor = newValue.find((c) => c.selected)!
+        document.documentElement.style.setProperty('--color-primary', selectedColor.color)
+      },
+      {
+        deep: true
+      }
+    )
+
+    watch(
       () => localMusic.useInnerInfoFirst,
       (newValue) => {
         window.mainApi.send('setStoreSettings', { innerFirst: newValue })
@@ -91,13 +108,6 @@ export const useSettingsStore = defineStore(
     watch(enableGlobalShortcut, (value) => {
       window.mainApi.send('setStoreSettings', { enableGlobalShortcut: value })
     })
-
-    // watch(
-    //   () => shortcuts.value.shortcutArray,
-    //   (newValue) => {
-    //     window.mainApi.send('setStoreSettings', { shortcuts: toRaw(newValue) })
-    //   }
-    // )
 
     watch(
       () => general.language,
@@ -151,6 +161,23 @@ export const useSettingsStore = defineStore(
     }
 
     onMounted(() => {
+      if (
+        // 检测旧版数据格式
+        theme.colors &&
+        typeof theme.colors === 'object' &&
+        !Array.isArray(theme.colors) &&
+        Object.keys(theme.colors).length === 0
+      ) {
+        // 覆盖为预设数组
+        theme.colors = [
+          { name: 'blue', color: 'rgba(51, 94, 234, 1)', selected: true },
+          { name: 'purple', color: 'rgba(136, 84, 208, 1)', selected: false },
+          { name: 'orange', color: 'rgba(234, 136, 51, 1)', selected: false },
+          { name: 'cyan', color: 'rgba(29, 185, 181, 1)', selected: false },
+          { name: 'Customize', color: 'rgba(0, 0, 0, 0)', selected: false }
+        ]
+      }
+
       const trayMenu = !(tray.showControl || tray.showLyric)
       window.mainApi.send('setStoreSettings', {
         lang: general.language,

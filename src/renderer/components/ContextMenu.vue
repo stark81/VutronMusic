@@ -105,7 +105,7 @@ defineExpose({
   align-items: center;
   &:hover {
     color: var(--color-primary);
-    background: var(--color-primary-bg-for-transparent);
+    background: color-mix(in oklab, var(--color-primary) var(--bg-alpha), white);
     transition:
       opacity 125ms ease-out,
       transform 125ms ease-out;

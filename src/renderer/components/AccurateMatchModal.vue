@@ -77,7 +77,7 @@ const close = () => {
       margin-bottom: 12px;
     }
     input[type='text'] {
-      width: calc(100% - 24px);
+      width: 100%;
       flex: 1;
       background: var(--color-secondary-bg-for-transparent);
       font-size: 16px;
@@ -88,7 +88,7 @@ const close = () => {
       margin-top: -1px;
       color: var(--color-text);
       &:focus {
-        background: var(--color-primary-bg-for-transparent);
+        background: color-mix(in oklab, var(--color-primary) var(--bg-alpha), white);
         opacity: 1;
       }
       [data-theme='light'] &:focus {
@@ -128,7 +128,7 @@ const close = () => {
     }
   }
   button.primary {
-    color: var(--color-primary-bg);
+    color: white;
     background: var(--color-primary);
     font-weight: 500;
   }
