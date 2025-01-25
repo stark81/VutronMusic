@@ -41,7 +41,7 @@ const lockStyle = computed(() => {
 })
 
 const bground = computed(() => {
-  if (!hover.value) return backgroundColor.value
+  if (!hover.value || isLock.value) return backgroundColor.value
   const parts = backgroundColor.value.slice(5, -1).split(',')
   const red = parseInt(parts[0].trim(), 10) // 红色
   const green = parseInt(parts[1].trim(), 10) // 绿色
