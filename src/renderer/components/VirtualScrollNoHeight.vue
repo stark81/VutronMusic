@@ -110,7 +110,11 @@ const contentTransform = computed(() => `translateY(${startOffset.value}px)`)
 const anchorPoint = computed(() =>
   position.value.length ? position.value[startRow.value * props.columnNumber] : null
 )
-const visibleCount = computed(() => Math.floor(containerHeight.value / itemSize.value))
+const visibleCount = computed(() => {
+  const result = Math.floor(containerHeight.value / itemSize.value)
+  if (result % 2 === 0) return result - 1
+  return result
+})
 const endRow = computed(() => startRow.value + visibleCount.value)
 const aboveCount = computed(() => Math.min(startRow.value, props.aboveValue))
 const belowCount = computed(() => Math.min(list.value.length - endRow.value, props.belowValue))
