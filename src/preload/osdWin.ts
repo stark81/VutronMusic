@@ -1,12 +1,13 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
 // import store from '../main/store'
 
-const mainAvailChannels: string[] = ['mouseleave', 'from-osd', 'osd-resize', 'get-playing-status']
+const mainAvailChannels: string[] = ['mouseleave', 'from-osd', 'osd-resize', 'windowMouseleave']
 
 const rendererAvailChannels: string[] = [
   'set-isLock',
   'update-osd-playing-status',
-  'updateLyricInfo'
+  'updateLyricInfo',
+  'mouseleave-completely'
 ]
 
 contextBridge.exposeInMainWorld('mainApi', {
@@ -56,30 +57,61 @@ contextBridge.exposeInMainWorld('env', {
   isWindows: process.platform === 'win32'
 })
 
-window.addEventListener('DOMContentLoaded', () => {
+const throttle = (func: Function, limit: number) => {
+  let inThrottle: boolean
+
+  return function (...args) {
+    if (!inThrottle) {
+      func.apply(this, args)
+      inThrottle = true
+      setTimeout(() => (inThrottle = false), limit)
+    }
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const titleBar = document.getElementById('titleBar')
+  let isDragging = false
   let timeoutId: any = null
   let lastMoveTime: number = 0
 
   const root = document.querySelector('#main') as HTMLElement
-  const header = document.querySelector('.header') as HTMLElement
   const lockEl = document.querySelector('#osd-lock') as HTMLElement
-  const container = document.querySelector('.container') as HTMLElement
 
-  container.addEventListener('mouseenter', () => {
-    header.style.opacity = '1'
+  // 监控鼠标按下事件，用来处理窗口移动，以避免设置元素的drag导致无法相应鼠标hover
+  titleBar?.addEventListener('mousedown', (e: MouseEvent) => {
+    // @ts-ignore
+    if (!e.target?.classList.contains('header')) return
+
+    e.preventDefault()
+    isDragging = true
+
+    const startX = e.clientX
+    const startY = e.clientY
+
+    const onMouseMove = throttle((e: MouseEvent) => {
+      if (!isDragging) return
+      const dx = e.clientX - startX
+      const dy = e.clientY - startY
+      ipcRenderer.send('window-drag', { dx, dy })
+    }, 16)
+
+    const onMouseUp = () => {
+      isDragging = false
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
+
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
   })
 
-  container.addEventListener('mouseleave', () => {
-    header.style.opacity = '0'
-    root.style.opacity = '1'
+  lockEl?.addEventListener('mouseenter', () => {
+    ipcRenderer.send('set-ignore-mouse', false)
   })
 
-  header.addEventListener('mouseenter', () => {
-    header.style.opacity = '1'
-  })
-
-  header.addEventListener('mouseleave', () => {
-    header.style.opacity = '0'
+  lockEl?.addEventListener('mouseleave', () => {
+    ipcRenderer.send('mouseleave')
   })
 
   root.addEventListener('mouseenter', () => {
@@ -88,8 +120,9 @@ window.addEventListener('DOMContentLoaded', () => {
   })
 
   root.addEventListener('mouseleave', () => {
-    if (lockEl) lockEl.style.opacity = '0'
     clearTimeout(timeoutId)
+    if (lockEl) lockEl.style.opacity = '0'
+    root.style.opacity = '1'
   })
 
   root.addEventListener('mousemove', () => {
@@ -105,13 +138,5 @@ window.addEventListener('DOMContentLoaded', () => {
         root.style.opacity = '0.02'
       }
     }, osdLyric.staticTime ?? 1500)
-  })
-
-  lockEl?.addEventListener('mouseenter', () => {
-    ipcRenderer.send('set-ignore-mouse', false)
-  })
-
-  lockEl?.addEventListener('mouseleave', () => {
-    ipcRenderer.send('mouseleave')
   })
 })

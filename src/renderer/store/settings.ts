@@ -5,6 +5,7 @@ import { playlistCategories } from '../utils/common'
 import cloneDeep from 'lodash/cloneDeep'
 
 export type TranslationMode = 'none' | 'tlyric' | 'rlyric'
+export type StreamStatus = 'logout' | 'login' | 'offline'
 
 export const useSettingsStore = defineStore(
   'settings',
@@ -21,6 +22,7 @@ export const useSettingsStore = defineStore(
       ]
     })
     const localMusic = reactive({
+      enble: true,
       scanDir: '',
       replayGain: true,
       useInnerInfoFirst: false,
@@ -66,6 +68,21 @@ export const useSettingsStore = defineStore(
       lock: false
     })
 
+    const unblockNeteaseMusic = reactive({
+      enable: true,
+      source: '',
+      enableFlac: true,
+      orderFirst: true,
+      jooxCookie: '',
+      qqCookie: ''
+    })
+
+    const autoCacheTrack = reactive({
+      enable: false,
+      sizeLimit: 512 as boolean | number,
+      number: 0
+    })
+
     const enableGlobalShortcut = ref(false)
 
     const shortcuts =
@@ -76,12 +93,33 @@ export const useSettingsStore = defineStore(
     watch(
       () => theme.colors,
       (newValue) => {
-        const selectedColor = newValue.find((c) => c.selected)!
-        document.documentElement.style.setProperty('--color-primary', selectedColor.color)
+        const selectedColor = newValue.find((c) => c.selected)
+        document.documentElement.style.setProperty(
+          '--color-primary',
+          selectedColor ? selectedColor.color : 'rgba(51, 94, 234, 1)'
+        )
       },
       {
         deep: true
       }
+    )
+
+    watch(
+      unblockNeteaseMusic,
+      (value) => {
+        window.mainApi.send('setStoreSettings', { unblockNeteaseMusic: cloneDeep(toRaw(value)) })
+      },
+      {
+        deep: true
+      }
+    )
+
+    watch(
+      autoCacheTrack,
+      (value) => {
+        window.mainApi.send('setStoreSettings', { autoCacheTrack: cloneDeep(toRaw(value)) })
+      },
+      { deep: true }
     )
 
     watch(
@@ -199,6 +237,8 @@ export const useSettingsStore = defineStore(
       shortcuts,
       normalLyric,
       osdLyric,
+      autoCacheTrack,
+      unblockNeteaseMusic,
       updateShortcut,
       togglePlaylistCategory,
       restoreDefaultShortcuts

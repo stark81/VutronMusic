@@ -86,3 +86,16 @@ export function fmTrash(id: number) {
     }
   })
 }
+
+/**
+ * 获取歌曲副歌时间
+ */
+export function songChorus(id: number) {
+  return request({
+    url: '/song/chorus',
+    method: 'get',
+    params: {
+      id
+    }
+  })
+}

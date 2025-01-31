@@ -4,9 +4,8 @@
     :class="{ 'is-lock': isLock }"
     :style="{ backgroundColor: bground }"
     @mouseenter="hover = true"
-    @mouseleave="hover = false"
   >
-    <Header v-show="!isLock" class="header" :class="{ lock: isLock }" />
+    <Header v-show="!isLock" :class="{ lock: isLock }" :style="headerStyle" />
     <div v-show="isLock" class="control-lock">
       <button
         v-if="!isLinux"
@@ -18,6 +17,7 @@
       ></div
     >
     <LyricContainer />
+    <!-- <TestLyric /> -->
   </div>
 </template>
 
@@ -25,6 +25,7 @@
 import { storeToRefs } from 'pinia'
 import Header from '../components/OsdHeader.vue'
 import LyricContainer from '../components/OsdLyricContainer.vue'
+// import TestLyric from '../components/TestLyric.vue'
 import SvgIcon from '../components/SvgIcon.vue'
 import { useOsdLyricStore } from '../store/osdLyric'
 import { ref, computed } from 'vue'
@@ -50,14 +51,26 @@ const bground = computed(() => {
   return `rgba(${red}, ${green}, ${blue}, ${Math.min(alpha + 0.2, 1)})`
 })
 
+const headerStyle = computed(() => {
+  return { opacity: hover.value ? 1 : 0 }
+})
+
 const handleLock = () => {
   isLock.value = !isLock.value
 }
+
+document.addEventListener('mouseleave', () => {
+  window.mainApi.send('windowMouseleave')
+})
+
+window.mainApi?.on('mouseleave-completely', () => {
+  hover.value = false
+})
 </script>
 
 <style lang="scss" scoped>
 #main {
-  box-sizing: border-box;
+  // box-sizing: border-box;
   border-radius: 4px;
   overflow: hidden;
   transition: all 0.3s ease;
@@ -65,10 +78,6 @@ const handleLock = () => {
 }
 
 .header {
-  width: 100vw;
-  height: 40px;
-  opacity: 0;
-  -webkit-app-region: drag;
   transition: opacity 0.3s;
 
   .lock {
@@ -78,7 +87,7 @@ const handleLock = () => {
 
 .control-lock {
   width: 100%;
-  height: 40px;
+  height: 44px;
   z-index: 1;
   display: flex;
   justify-content: center;

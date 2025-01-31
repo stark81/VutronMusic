@@ -4,7 +4,6 @@ import fs from 'fs'
 import Constants from './utils/Constants'
 import store from './store'
 import { createTray, YPMTray } from './tray'
-// import { createTray, YPMTray } from './testTray'
 import { createMenu } from './menu'
 import { createDockMenu } from './dock'
 import { createTouchBar } from './touchBar'
@@ -19,15 +18,19 @@ import { parseFile, IAudioMetadata } from 'music-metadata'
 import mime from 'mime-types'
 import cache from './cache'
 import {
-  getReplayGainFromMetadata,
   getPic,
   getLyric,
   getPicColor,
   getTrackDetail,
-  getAudioSource
+  getAudioSource,
+  cacheOnlineTrack,
+  getStreamLyric,
+  getStreamPic,
+  getStreamMusic
 } from './utils/utils'
 import { CacheAPIs } from './utils/CacheApis'
 import { registerGlobalShortcuts } from './globalShortcut'
+// import { Readable } from 'stream'
 
 const cacheTracks = new Map<string, any>()
 
@@ -74,6 +77,10 @@ const closeOnLinux = (e: any, win: BrowserWindow) => {
   }
 }
 
+const defaultImagePath = Constants.IS_DEV_ENV
+  ? path.join(process.cwd(), `./src/public/images/default.jpg`)
+  : path.join(__dirname, `../images/default.jpg`)
+
 class BackGround {
   win: BrowserWindow | null = null
   osdMode: string
@@ -83,6 +90,8 @@ class BackGround {
   mpris: MprisImpl | null = null
   fastifyApp: FastifyInstance | null = null
   willQuitApp: boolean = !Constants.IS_MAC
+  checkInterval: any = null
+  lastKnownMousePosition = { x: 0, y: 0 }
 
   async init() {
     if (release().startsWith('6.1')) app.disableHardwareAcceleration()
@@ -288,6 +297,11 @@ class BackGround {
     this.lyricWin?.setVisibleOnAllWorkspaces(isLock)
   }
 
+  dragOsdWindow(data: { dx: number; dy: number }) {
+    const [x, y] = this.lyricWin?.getPosition()
+    this.lyricWin?.setPosition(x + data.dx, y + data.dy)
+  }
+
   toggleOSDWindow() {
     const osdLyric = (store.get('osdWin.show') as boolean) || false
     const showMode = (store.get('osdWin.type') as string) || 'small'
@@ -317,6 +331,33 @@ class BackGround {
     this.showOSDWindow(showMode)
   }
 
+  checkOsdMouseLeave(inter = 16) {
+    if (this.checkInterval) clearInterval(this.checkInterval)
+    this.checkInterval = setInterval(() => {
+      if (!this.lyricWin) {
+        clearInterval(this.checkInterval)
+        return
+      }
+      const mousePos = screen.getCursorScreenPoint()
+      if (
+        mousePos.x !== this.lastKnownMousePosition.x ||
+        mousePos.y !== this.lastKnownMousePosition.y
+      ) {
+        this.lastKnownMousePosition = { x: mousePos.x, y: mousePos.y }
+        const bounds = this.lyricWin?.getBounds()
+        const isInWindow =
+          mousePos.x >= bounds.x - 4 &&
+          mousePos.x <= bounds.x + bounds.width + 4 &&
+          mousePos.y >= bounds.y - 4 &&
+          mousePos.y <= bounds.y + bounds.height + 4
+        if (!isInWindow) {
+          this.lyricWin.webContents.send('mouseleave-completely')
+          clearInterval(this.checkInterval)
+        }
+      }
+    }, inter)
+  }
+
   updateLyricInfo(data: any) {
     this.lyricWin?.webContents.send('updateLyricInfo', data)
   }
@@ -326,7 +367,12 @@ class BackGround {
       this.lyricWin.showInactive()
       if (!Constants.IS_LINUX) this.toggleMouseIgnore()
     })
+    this.lyricWin.on('will-resize', () => {
+      this.checkOsdMouseLeave(1000)
+    })
     this.lyricWin.on('resize', () => {
+      this.checkOsdMouseLeave(1000)
+
       const data = this.lyricWin.getBounds()
       store.set(this.osdMode === 'small' ? 'osdWin.width' : 'osdWin.width2', data.width)
       store.set(this.osdMode === 'small' ? 'osdWin.height' : 'osdWin.height2', data.height)
@@ -384,13 +430,15 @@ class BackGround {
           track = res.songs[0]
         }
         let url = track.album?.picUrl || track.al?.picUrl
-        if (url.startsWith('http://')) {
+        if (url === 'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg') {
+          url = 'atom://get-default-pic'
+        } else if (url.startsWith('http://')) {
           url = url.replace('http://', 'https://')
           url = `${url}?param=64y64`
         }
         let metadata = null
 
-        if (track.isLocal) {
+        if (track.type === 'local') {
           metadata = await parseFile(decodeURI(track.filePath))
         }
 
@@ -400,6 +448,9 @@ class BackGround {
         const format = result.format
 
         return new Response(pic, { headers: { 'Content-Type': format } })
+      } else if (host === 'get-default-pic') {
+        const pic = fs.readFileSync(defaultImagePath)
+        return new Response(pic)
       } else if (host === 'get-pic-path') {
         const filePath = pathname.slice(1)
         const url = 'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg'
@@ -417,7 +468,7 @@ class BackGround {
           : 'https://p1.music.126.net/jWE3OEZUlwdz0ARvyQ9wWw==/109951165474121408.jpg?param=512y512'
 
         let metadata = null
-        if (track.isLocal) {
+        if (track.type === 'local') {
           metadata = await parseFile(decodeURI(track.filePath))
         }
 
@@ -464,14 +515,16 @@ class BackGround {
         }
 
         let url = track.album?.picUrl || track.al?.picUrl
-        if (url.startsWith('http://')) {
+        if (url === 'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg') {
+          url = 'atom://get-default-pic'
+        } else if (url.startsWith('http://')) {
           url = url.replace('http://', 'https://')
         }
         url = `${url}?param=512y512`
         let metadata: IAudioMetadata | null = null
 
         // const useInnerFirst = store.get('settings.innerFirst') as boolean
-        if (track.isLocal && !track.matched) {
+        if (track.type === 'local' && !track.matched) {
           metadata = await parseFile(decodeURI(track.filePath))
         }
 
@@ -485,35 +538,80 @@ class BackGround {
         // 获取颜色
         const { color, color2 } = await getPicColor(pic)
 
-        const gain = getReplayGainFromMetadata(metadata)
-        return new Response(JSON.stringify({ pic, format, color, color2, gain, lyrics }), {
+        // const gain = getReplayGainFromMetadata(metadata)
+        return new Response(JSON.stringify({ pic, format, color, color2, lyrics }), {
           headers: { 'content-type': 'application/json' }
         })
       } else if (host === 'get-track') {
+        // 这里获取歌曲信息，先从本地、cache里获取，获取不到则从线上获取，获取之后存入cache
         const ids = pathname.slice(1)
-        const res = cache.get(CacheAPIs.Track, { ids })
+        let res = cache.get(CacheAPIs.Track, { ids })
         if (res) {
           const track = res.songs[0]
-          track.source = 'localTrack'
-          return new Response(JSON.stringify(track), {
-            headers: { 'content-type': 'application/json' }
+          // 可能是本地歌曲，也有可能是缓存歌曲
+          if (track.type === 'local') {
+            if (!track.source) track.source = 'localTrack'
+            track.cache = false
+            return new Response(JSON.stringify(track), {
+              headers: { 'content-type': 'application/json' }
+            })
+          } else if (
+            store.get('settings.autoCacheTrack.enable') &&
+            track.url &&
+            fs.existsSync(track.url)
+          ) {
+            return new Response(JSON.stringify(track), {
+              headers: { 'content-type': 'application/json' }
+            })
+          }
+        }
+
+        res = await getTrackDetail(ids)
+        const track = res.songs[0]
+        track.cache = false
+        const { url, br, gain, peak, source } = await getAudioSource(track)
+        track.url = url
+        track.source = source
+        track.gain = gain
+        track.peak = peak
+        track.br = br
+        if (store.get('settings.autoCacheTrack.enable')) {
+          cacheOnlineTrack({ id: ids, name: track.name, url, br, win: this.win }).then((res) => {
+            track.url = res.filePath
+            track.size = res.size
+            track.cache = true
+            track.insertTime = Date.now()
+            cache.set(CacheAPIs.LocalMusic, { newTracks: [track] })
           })
         } else {
-          const res = await getTrackDetail(ids)
-          const track = res.songs[0]
-          const { url, source } = await getAudioSource(track)
-          track.url = url
-          track.source = source
           cacheTracks.set(ids, track)
-          return new Response(JSON.stringify(track), {
-            headers: { 'content-type': 'application/json' }
-          })
         }
+
+        return new Response(JSON.stringify(track), {
+          headers: { 'content-type': 'application/json' }
+        })
       } else if (host === 'get-color') {
-        const url = pathname.slice(1)
-        const { pic } = await getPic(url, true, null)
+        const urlString = pathname.slice(1)
+        const [url, savePic] = urlString.split('/save-pic=')
+        const { pic, format } = await getPic(url, true, null)
         const { color, color2 } = await getPicColor(pic)
-        return new Response(JSON.stringify({ color, color2 }), {
+        const jsonString = savePic
+          ? {
+              pic,
+              format,
+              color,
+              color2,
+              lyrics: {
+                lrc: { lyric: [] },
+                tlyric: { lyric: [] },
+                romalrc: { lyric: [] },
+                yrc: { lyric: [] },
+                ytlrc: { lyric: [] },
+                yromalrc: { lyric: [] }
+              }
+            }
+          : { color, color2 }
+        return new Response(JSON.stringify(jsonString), {
           headers: { 'content-type': 'application/json' }
         })
       } else if (host === 'get-music') {
@@ -549,6 +647,40 @@ class BackGround {
         const url = pathname.slice(1)
         const headers = request.headers
         return fetch(url, { headers })
+      } else if (host === 'get-stream-pic') {
+        const url = pathname.slice(1)
+        return getStreamPic(url)
+      } else if (host === 'get-stream-music') {
+        const id = pathname.slice(1)
+        const headers = request.headers
+        return getStreamMusic(id, headers)
+      } else if (host === 'get-stream-track-info') {
+        const id = pathname.slice(1)
+        let pic: Buffer | null = null
+        let format: string = ''
+
+        // 获取图片
+        pic = await getStreamPic(id)
+          .then((res) => {
+            format = res.headers.get('Content-Type')
+            return res.arrayBuffer()
+          })
+          .then((res) => Buffer.from(res))
+
+        // 获取颜色
+        const { color, color2 } = await getPicColor(pic)
+
+        // 获取歌词
+        const lyrics = await getStreamLyric(id)
+        return new Response(JSON.stringify({ pic, format, color, color2, lyrics }), {
+          headers: { 'content-type': 'application/json' }
+        })
+      } else if (host === 'get-stream-lyric') {
+        const id = pathname.slice(1)
+        const lyrics = await getStreamLyric(id)
+        return new Response(JSON.stringify(lyrics), {
+          headers: { 'content-type': 'application/json' }
+        })
       }
     })
   }
@@ -572,7 +704,7 @@ class BackGround {
         this.mpris = createMpris(this.win)
       }
 
-      if (store.get('settings.enableGlobalShortcut')) {
+      if (store.get('settings.enableGlobalShortcut') || false) {
         registerGlobalShortcuts(this.win)
       }
 
@@ -582,7 +714,9 @@ class BackGround {
         updateLyricInfo: (data: any) => this.updateLyricInfo(data),
         switchOSDWindow: (showMode: string) => this.switchOSDWindow(showMode),
         updateOSDPlayingState: (state: boolean) => this.updateOSDPlayingState(state),
-        updateOsdHeight: (height: number) => this.updateOsdHeight(height)
+        updateOsdHeight: (height: number) => this.updateOsdHeight(height),
+        dragOsdWindow: (data: any) => this.dragOsdWindow(data),
+        windowMouseleave: () => this.checkOsdMouseLeave()
       }
       IPCs.initialize(this.win, this.tray, this.mpris, lrc)
       createMenu(this.win)

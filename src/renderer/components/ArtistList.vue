@@ -81,17 +81,11 @@ const showTracks = computed(() => {
   return tracks.value.filter((track) => track.artists.some((item) => item.name === artist.name))
 })
 
-// ==================== function ==================== //
-// const handleClick = (id: number) => {
-//   console.log('id', id)
-//   const idx = artistsArray.value.findIndex((ar) => ar.id === id)
-//   selectedIdx.value = idx
-// }
-
 const playThisList = (id: number) => {
   const IDs = showTracks.value.map((track) => track.id)
   const idx = showTracks.value.findIndex((item) => item.id === id)
-  replacePlaylist('localPlaylist', 0, IDs, idx)
+  const type = showTracks.value[0].type
+  replacePlaylist(type === 'local' ? 'localPlaylist' : 'streamPlaylist', 0, IDs, idx)
 }
 
 const updatePadding = inject('updatePadding') as (padding: number) => void

@@ -9,17 +9,12 @@
       @input="handleInput"
     />
     <label :for="props.id" class="content">
-      <div class="container" role="checkbox" :aria-checked="checked">
-        <svg-icon v-if="checked" icon-class="checked" style="color: var(--color-primary)" />
-        <svg-icon v-else icon-class="checkbox" />
-      </div>
       <span class="label" v-text="props.label"></span>
     </label>
   </div>
 </template>
 
 <script setup lang="ts">
-import SvgIcon from './SvgIcon.vue'
 import { ref, onMounted, watch } from 'vue'
 
 const props = defineProps({
@@ -86,17 +81,8 @@ onMounted(() => {
   font-size: 15px;
 }
 .input {
-  display: none;
-  &[disabled] {
-    + .content {
-      opacity: 0.5;
-      .container,
-      .label {
-        cursor: default;
-      }
-    }
-  }
   &:checked {
+    accent-color: var(--color-primary);
     + .content {
       .container {
         &:after {
@@ -105,36 +91,12 @@ onMounted(() => {
       }
       .icon {
         transform: scale(1);
-        // opacity: 1;
       }
     }
   }
 }
 .content {
-  display: flex;
   align-items: center;
-}
-.container {
-  flex: none;
-  position: relative;
-  cursor: pointer;
-  display: flex;
-  border-radius: 2px;
-  &:after {
-    position: absolute;
-    content: ' ';
-    top: 0;
-    bottom: 0;
-    left: 0;
-    right: 0;
-  }
-}
-.icon {
-  transition: 0.3s ease;
-  transition-property: transform;
-  transform: scale(0);
-  border-radius: 2px;
-  // opacity: 0;
 }
 
 .label {

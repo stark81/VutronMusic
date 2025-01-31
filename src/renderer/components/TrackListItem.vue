@@ -105,7 +105,7 @@ import { useI18n } from 'vue-i18n'
 const router = useRouter()
 const props = defineProps({
   trackProp: {
-    type: Object as PropType<{ [key: string]: any }>,
+    type: Object as PropType<Record<string, any>>,
     required: true
   },
   trackNo: {
@@ -158,14 +158,24 @@ const track = computed(
 )
 
 const image = computed(() => {
-  let url = track.value.isLocal
-    ? localMusic.value.scanning && !track.value.matched
-      ? `atom://get-pic-path/${track.value.filePath}`
-      : `atom://get-pic/${track.value.id}`
-    : track.value.al?.picUrl ||
-      track.value.album?.picUrl ||
-      track.value.picUrl ||
-      `https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg`
+  if (stateStore.virtualScrolling) {
+    if (track.value.type === 'stream') {
+      if (track.value.source === 'navidrome') {
+        return new URL(`../assets/images/navidrome.webp`, import.meta.url).href
+      } else if (track.value.source === 'emby') {
+        return 'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg'
+      }
+    }
+  }
+  let url =
+    track.value.type === 'local'
+      ? localMusic.value.scanning && !track.value.matched
+        ? `atom://get-pic-path/${track.value.filePath}`
+        : `atom://get-pic/${track.value.id}`
+      : track.value.al?.picUrl ||
+        track.value.album?.picUrl ||
+        track.value.picUrl ||
+        `https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg`
   if (url && url.startsWith('http')) {
     url = url.replace('http:', 'https:')
   }
@@ -276,14 +286,6 @@ const lyrics = computed(() => {
   return result
 })
 
-// const idx = computed(() => {
-//   const start = track.value.lyrics?.range[0].first
-//   const end = track.value.lyrics?.range[0].second
-//   const selectedLyric = track.value.lyrics?.txt.slice(start, end)
-//   const index = lyric.value.findIndex((l) => l.includes(selectedLyric))
-//   return index
-// })
-
 const isSelected = computed({
   get: () => selectedList.value.includes(track.value.id),
   set: (value) => {
@@ -322,7 +324,7 @@ const goToMv = () => {
 }
 
 const likeThisSong = () => {
-  if (track.value.isLocal && !track.value.matched) {
+  if (track.value.type !== 'online' && !track.value.matched) {
     showToast(t('player.noAllowCauseLocal'))
     return
   }
@@ -382,6 +384,7 @@ button {
     height: 18px;
     width: 18px;
     margin-right: 10px;
+    accent-color: var(--color-primary);
   }
 
   .no {

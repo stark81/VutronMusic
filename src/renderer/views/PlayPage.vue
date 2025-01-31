@@ -95,7 +95,7 @@
                 </div>
               </div>
               <div class="progress-bar">
-                <span>{{ formatTime(seek) || '0:00' }}</span>
+                <div class="time">{{ formatTime(seek) || '0:00' }}</div>
                 <div class="slider">
                   <vue-slider
                     v-model="seek"
@@ -105,8 +105,17 @@
                     :duration="0.5"
                     :dot-size="12"
                     :height="4"
+                    :marks="marks"
                     :use-keyboard="false"
                     :drag-on-click="false"
+                    :step-style="{
+                      display: 'block',
+                      height: '8px',
+                      width: '8px',
+                      transform: 'translateY(-2px)',
+                      backgroundColor: 'white',
+                      opacy: 0.8
+                    }"
                     :rail-style="{ backgroundColor: 'rgba(128, 128, 128, 0.18)' }"
                     :process-style="{ backgroundColor: '#eee', opacity: 0.8 }"
                     :dot-style="{ display: 'none' }"
@@ -115,7 +124,7 @@
                     :silent="true"
                   ></vue-slider>
                 </div>
-                <span>{{ formatTime(currentTrackDuration) }}</span>
+                <div class="time">{{ formatTime(currentTrackDuration) }}</div>
               </div>
               <div class="media-controls">
                 <button-icon
@@ -154,7 +163,9 @@
                 /></button-icon>
               </div>
               <div class="progress-bar">
-                <button-icon> <svg-icon icon-class="volume-half" /></button-icon>
+                <div class="time"
+                  ><button-icon> <svg-icon icon-class="volume-half" /></button-icon
+                ></div>
                 <div class="slider">
                   <VueSlider
                     v-model="volume"
@@ -178,7 +189,9 @@
                     :silent="true"
                   />
                 </div>
-                <button-icon> <svg-icon icon-class="volume" /></button-icon>
+                <div class="time">
+                  <button-icon> <svg-icon icon-class="volume" /></button-icon
+                ></div>
               </div>
             </div>
           </div>
@@ -250,8 +263,9 @@ const {
   color,
   color2,
   pic,
-  repeatMode,
-  playlistSource
+  source,
+  chorus,
+  repeatMode
 } = storeToRefs(playerStore)
 const { playPrev, playOrPause, _playNextTrack, switchRepeatMode, moveToFMTrash } = playerStore
 const { likeATrack } = useDataStore()
@@ -286,31 +300,22 @@ const background = computed(() => {
 })
 
 const heartDisabled = computed(() => {
-  return currentTrack.value?.isLocal && !currentTrack.value?.matched
+  return currentTrack.value?.type !== 'online' && !currentTrack.value?.matched
 })
 
 const artist = computed(() => {
   return currentTrack.value?.artists ? currentTrack.value.artists[0] : currentTrack.value?.ar[0]
 })
 
-const source = computed(() => {
-  const sourceMap = {
-    localTrack: '本地音乐',
-    netease: '网易云音乐',
-    qq: 'QQ音乐',
-    kugou: '酷狗音乐',
-    kuwo: '酷我音乐',
-    bilibili: '哔哩哔哩',
-    pyncmd: '第三方网易云音乐',
-    migu: '咪咕音乐'
-  }
-  return currentTrack.value
-    ? `${currentTrack.value.name}, 音源：${sourceMap[currentTrack.value.source!]}`
-    : ''
-})
-
 const album = computed(() => {
   return currentTrack.value?.album ?? currentTrack.value?.al
+})
+
+const marks = computed(() => {
+  const result: Record<string, any> = {}
+  if (chorus.value === 0) return result
+  result[chorus.value.toString()] = { labelStyle: { display: 'none' } }
+  return result
 })
 
 watch(showLyrics, (value) => {
@@ -324,7 +329,7 @@ const addTrackToPlaylist = () => {
   addTrackToPlaylistModal.value = {
     show: true,
     selectedTrackID: [currentTrack.value.id],
-    isLocal: playlistSource.value.type.includes('local')
+    type: currentTrack.value.type!
   }
 }
 
@@ -479,16 +484,15 @@ provide('show', show)
     justify-content: space-between;
 
     .slider {
-      width: 100%;
-      flex-grow: grow;
+      flex: 1;
       padding: 0 10px;
     }
 
-    span {
+    .time {
       font-size: 15px;
       font-weight: 600;
       opacity: 0.58;
-      // min-width: 28px;
+      width: 34px;
     }
   }
   .media-controls {

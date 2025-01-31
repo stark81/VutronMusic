@@ -1,19 +1,26 @@
 <template>
-  <div class="header">
-    <div class="btns">
-      <button class="btn" @click="showMain"><svg-icon icon-class="logo" /></button>
-      <button class="btn" @click="playPrev"><svg-icon icon-class="previous" /></button>
-      <button class="btn" @click="playOrPause"
-        ><svg-icon :icon-class="isPlaying ? 'pause' : 'play'"
-      /></button>
-      <button class="btn" @click="playNext"><svg-icon icon-class="next" /></button>
-      <!-- <button class="btn"><svg-icon icon-class="color-plate" /></button> -->
-      <button class="btn" @click="switchMode"
-        ><svg-icon :icon-class="type === 'small' ? 'normal-mode' : 'mini-mode'"
-      /></button>
-      <button class="btn" @click="isLock = true"><svg-icon icon-class="lock" /></button>
-      <button class="btn" @click="show = !show"><svg-icon icon-class="close" /></button>
-    </div>
+  <div id="titleBar" class="header">
+    <button class="btn" :style="{ color: unplayLrcColor }" @click="showMain"
+      ><svg-icon icon-class="logo"
+    /></button>
+    <button class="btn" :style="{ color: unplayLrcColor }" @click="playPrev"
+      ><svg-icon icon-class="previous"
+    /></button>
+    <button class="btn" :style="{ color: unplayLrcColor }" @click="playOrPause"
+      ><svg-icon :icon-class="isPlaying ? 'pause' : 'play'"
+    /></button>
+    <button class="btn" :style="{ color: unplayLrcColor }" @click="playNext"
+      ><svg-icon icon-class="next"
+    /></button>
+    <button class="btn" :style="{ color: unplayLrcColor }" @click="switchMode"
+      ><svg-icon :icon-class="type === 'small' ? 'normal-mode' : 'mini-mode'"
+    /></button>
+    <button class="btn" :style="{ color: unplayLrcColor }" @click="isLock = true"
+      ><svg-icon icon-class="lock"
+    /></button>
+    <button class="btn" :style="{ color: unplayLrcColor }" @click="show = !show"
+      ><svg-icon icon-class="close"
+    /></button>
   </div>
 </template>
 
@@ -26,7 +33,7 @@ import SvgIcon from './SvgIcon.vue'
 const isPlaying = ref(false)
 
 const osdLyricStore = useOsdLyricStore()
-const { isLock, type, show } = storeToRefs(osdLyricStore)
+const { isLock, type, show, unplayLrcColor } = storeToRefs(osdLyricStore)
 
 const showMain = () => {
   window.mainApi.send('from-osd', 'showMainWin')
@@ -48,9 +55,8 @@ const switchMode = () => {
 
 onMounted(() => {
   isLock.value = window.env?.isLinux ? false : isLock.value
-  window.mainApi?.invoke('get-playing-status').then((res: boolean) => {
-    isPlaying.value = res
-  })
+  const player = JSON.parse(localStorage.getItem('player') || '{}')
+  isPlaying.value = player.playing
   window.mainApi?.on('update-osd-playing-status', (event: any, res: boolean) => {
     isPlaying.value = res
   })
@@ -60,19 +66,11 @@ onMounted(() => {
 <style lang="scss" scoped>
 .header {
   display: flex;
+  height: 44px;
   justify-content: center;
   align-items: center;
   position: relative;
   opacity: 0.7;
-}
-
-.btns {
-  display: flex;
-  height: 34px;
-  padding-top: 4px;
-  flex-flow: row wrap;
-  align-items: center;
-  justify-content: center;
 }
 
 .btn {
@@ -80,6 +78,8 @@ onMounted(() => {
   cursor: pointer;
   border: none;
   outline: none;
+  height: 44px;
+  width: 44px;
   background: none;
   color: #fff;
   transition: opacity 0.3s ease;

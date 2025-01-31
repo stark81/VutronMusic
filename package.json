@@ -1,6 +1,6 @@
 {
   "name": "VutronMusic",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "homepage": "https://github.com/stark81",
   "author": "stark81 <qq2995734001@gmail.com>",
   "license": "MIT",
@@ -34,7 +34,8 @@
     "test:linux": "npm run build:pre && xvfb-run --auto-servernum --server-args='-screen 0, 1280x960x24' -- playwright test"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=18.0.0",
+    "python": "3.9"
   },
   "dependencies": {
     "@electron/rebuild": "^3.7.0",
@@ -67,6 +68,7 @@
     "pinia-plugin-persistedstate": "^3.2.1",
     "plyr": "^3.7.8",
     "qrcode": "^1.5.3",
+    "qs": "^6.14.0",
     "soundtouchjs": "^0.1.30",
     "trickling": "^1.14.0",
     "vite-plugin-multiple": "^0.2.0",

@@ -2,13 +2,13 @@
   <BaseModal
     class="add-playlist-modal"
     :show="show"
-    :title="isLocal ? $t('localMusic.playlist.newPlaylist') : $t('library.playlist.newPlaylist')"
+    :title="modelTitle"
     :close-fn="close"
     width="25vw"
   >
     <template #default>
       <input v-model="title" type="text" :placeholder="$t('library.playlist.title')" />
-      <div v-show="!isLocal" class="checkbox">
+      <div v-show="type === 'online'" class="checkbox">
         <input
           id="checkbox-private"
           v-model="isPrivate"
@@ -16,12 +16,7 @@
           class="input"
           @input="checked = !checked"
         />
-        <!-- <label for="checkbox-private">{{ $t('library.playlist.setPrivate') }}</label> -->
         <label for="checkbox-private" class="label-content">
-          <div class="container" role="checkbox" :aria-checked="checked">
-            <svg-icon v-if="checked" icon-class="checked" style="color: var(--color-primary)" />
-            <svg-icon v-else icon-class="checkbox" />
-          </div>
           <span class="label">{{ $t('library.playlist.setPrivate') }}</span>
         </label>
       </div>
@@ -38,8 +33,8 @@ import { computed, ref, toRaw } from 'vue'
 import BaseModal from './BaseModal.vue'
 import { useNormalStateStore } from '../store/state'
 import { useLocalMusicStore } from '../store/localMusic'
+import { useStreamMusicStore } from '../store/streamingMusic'
 import { useDataStore } from '../store/data'
-import SvgIcon from './SvgIcon.vue'
 import { createPlaylist, addOrRemoveTrackFromPlaylist } from '../api/playlist'
 import { useI18n } from 'vue-i18n'
 
@@ -51,6 +46,10 @@ const { t } = useI18n()
 const { createLocalPlaylist } = useLocalMusicStore()
 const { fetchLikedPlaylist } = useDataStore()
 
+const streamMusicStore = useStreamMusicStore()
+const { select } = storeToRefs(streamMusicStore)
+const { fetchStreamPlaylist, addOrRemoveTrackFromStreamPlaylist } = streamMusicStore
+
 const title = ref('')
 const isPrivate = ref(false)
 const checked = ref(false)
@@ -61,10 +60,10 @@ const show = computed({
     newPlaylistModal.value.show = value
   }
 })
-const isLocal = computed({
-  get: () => newPlaylistModal.value.isLocal,
+const type = computed({
+  get: () => newPlaylistModal.value.type,
   set: (value) => {
-    newPlaylistModal.value.isLocal = value
+    newPlaylistModal.value.type = value
   }
 })
 const ids = computed({
@@ -74,8 +73,17 @@ const ids = computed({
   }
 })
 
+const modelTitle = computed(() => {
+  if (type.value === 'local') {
+    return t('localMusic.playlist.newPlaylist')
+  } else if (type.value === 'stream') {
+    return t('streamMusic.playlist.newPlaylist')
+  }
+  return t('library.playlist.newPlaylist')
+})
+
 const close = () => {
-  isLocal.value = false
+  type.value = 'online'
   ids.value = []
   show.value = false
   title.value = ''
@@ -83,9 +91,9 @@ const close = () => {
 }
 
 const createAPlaylist = async () => {
-  if (isLocal.value) {
+  if (type.value === 'local') {
     let imgID = 0
-    if (ids.value.length) imgID = ids.value[ids.value.length - 1]
+    if (ids.value.length) imgID = ids.value[ids.value.length - 1] as number
     const params = {
       name: title.value,
       trackIds: ids.value,
@@ -102,8 +110,24 @@ const createAPlaylist = async () => {
     } else {
       showToast(t('toast.createLocalPlaylistFailed'))
     }
+  } else if (type.value === 'stream') {
+    window.mainApi
+      .invoke('createStreamPlaylist', {
+        name: title.value,
+        platform: select.value
+      })
+      .then((res: { status: 'ok' | 'failed'; pid: string | undefined }) => {
+        if (res.status === 'ok') {
+          if (ids.value.length) {
+            addOrRemoveTrackFromStreamPlaylist('add', res.pid as string, ids.value as string[])
+          }
+          close()
+          showToast(t('toast.createLocalPlaylistSuccess'))
+          fetchStreamPlaylist()
+        }
+      })
   } else {
-    const params: { [key: string]: any } = { name: title.value }
+    const params: Record<string, any> = { name: title.value }
     if (isPrivate.value) params.privacy = 10
     createPlaylist(params).then((res) => {
       if (res.code === 200) {
@@ -122,7 +146,7 @@ const createAPlaylist = async () => {
           })
         }
         close()
-        showToast(t('toast.createPlaylistSuccess'))
+        showToast(t('toast.createLocalPlaylistSuccess'))
         fetchLikedPlaylist()
       }
     })
@@ -151,7 +175,6 @@ const createAPlaylist = async () => {
       margin-top: -1px;
       color: var(--color-text);
       &:focus {
-        background: color-mix(in oklab, var(--color-primary) var(--bg-alpha), white);
         opacity: 1;
       }
       [data-theme='light'] &:focus {
@@ -159,13 +182,10 @@ const createAPlaylist = async () => {
       }
     }
     .checkbox {
-      display: flex;
       user-select: none;
-      align-items: center;
-      // margin: 3px 3px 3px 4px;
 
       .input {
-        display: none;
+        accent-color: var(--color-primary);
 
         &:checked {
           + .label-content {
@@ -181,14 +201,7 @@ const createAPlaylist = async () => {
         }
       }
       .label-content {
-        display: flex;
-        align-items: center;
-
-        .container {
-          display: flex;
-          align-items: center;
-          margin-right: 4px;
-        }
+        margin-left: 5px;
       }
     }
   }

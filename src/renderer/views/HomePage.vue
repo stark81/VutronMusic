@@ -2,7 +2,7 @@
   <div v-show="show">
     <div ref="bannerRef" class="banner">
       <div v-for="item in banner" :key="item.id" class="banner-item">
-        <img :src="imgFilter(item.imageUrl)" alt="" />
+        <img :src="imgFilter(item.imageUrl ?? item.pic)" alt="" />
         <div class="subtitle" :style="{ backgroundColor: item.titleColor }">{{
           item.typeTitle
         }}</div>
@@ -154,7 +154,7 @@ const loadData = () => {
   setTimeout(() => {
     if (!show.value) tricklingProgress.start()
   }, 1000)
-  getBanner().then((res) => {
+  getBanner({ type: 0 }).then((res) => {
     banner.value = res.banners.filter((item: any) => item.typeTitle !== '广告')
     setTimeout(bannerChange)
 

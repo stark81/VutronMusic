@@ -9,7 +9,9 @@ export const hasListSource = () => {
   const { playlistSource, isPersonalFM } = storeToRefs(playerStore)
   return (
     !isPersonalFM.value &&
-    (playlistSource.value.id !== 0 || playlistSource.value.type.includes('local'))
+    (playlistSource.value.id !== 0 ||
+      playlistSource.value.type.includes('local') ||
+      playlistSource.value.type.includes('stream'))
   )
 }
 
@@ -25,6 +27,8 @@ export const getListSourcePath = () => {
     return '/library'
   } else if (playlistSource.value.type.includes('local') && playlistSource.value.id === 0) {
     return '/localMusic'
+  } else if (playlistSource.value.type.includes('stream') && playlistSource.value.id === 0) {
+    return '/stream'
   } else {
     return `/${playlistSource.value.type}/${playlistSource.value.id}`
   }

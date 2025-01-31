@@ -14,7 +14,9 @@ import {
   ExplorePage,
   PlaylistPage,
   DailyTracks,
-  NextUp
+  NextUp,
+  StreamLogin,
+  StreamPage
 } from '../views'
 import { createRouter, createWebHashHistory } from 'vue-router'
 import { isAccountLoggedIn } from '../utils/auth'
@@ -48,6 +50,21 @@ const routes = [
       titleKey: 'nav.library',
       requireLogin: true
     }
+  },
+  {
+    path: '/streamLogin',
+    name: 'streamLogin',
+    component: StreamLogin
+  },
+  {
+    path: '/stream',
+    name: 'stream',
+    component: StreamPage
+  },
+  {
+    path: '/streamPlaylist/:id',
+    name: 'streamPlaylist',
+    component: PlaylistPage
   },
   {
     path: '/library/liked-songs',
@@ -165,6 +182,7 @@ const router = createRouter({
 })
 
 router.beforeEach((to, from, next) => {
+  document.documentElement.scrollTo({ top: 0 })
   if (to.meta.requireLogin) {
     if (isAccountLoggedIn()) {
       next()

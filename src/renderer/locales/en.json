@@ -1,22 +1,9 @@
 {
-  "desc": {
-    "welcome-title": "Hello Wutron! Everything is ready.",
-    "welcome-desc": "You can now develop cross-platform web applications. View changes in real-time and build for multiple platforms with a single command. If you're new to this, refer to the documentation below or try some pre-written example code.",
-    "second-desc": "You've moved to the second screen! Nothing here yet!",
-    "selected-file": "Selected file: {filePath}."
-  },
-  "menu": {
-    "change-theme": "Change Theme",
-    "change-language": "Change Language",
-    "increase-count": "Count +1",
-    "documentation": "Documentation",
-    "github": "Source Code",
-    "open-file": "Open a Text File"
-  },
   "nav": {
     "home": "Home",
     "search": "Search",
     "library": "Library",
+    "stream": "Stream",
     "localMusic": "Local Music",
     "settings": "Settings",
     "github": "GitHub Repository",
@@ -72,19 +59,31 @@
     "charts": "Charts",
     "seeMore": "See All"
   },
+  "streamMusic": {
+    "track": "All Track",
+    "song": "Stream Songs",
+    "playlist": {
+      "text": "Stream Playlist",
+      "addToPlaylist": "Add to Stream Playlist",
+      "newPlaylist": "New Stream Playlist"
+    },
+    "album": "專輯",
+    "artist": "藝人"
+  },
   "localMusic": {
     "latedAdd": "Recently Added",
     "songs": "Local Songs",
     "playlist": {
-      "text": "Offline Playlist",
-      "addToPlaylist": "Add to Offline Playlist",
-      "newPlaylist": "New Offline Playlist"
+      "text": "Local Playlist",
+      "addToPlaylist": "Add to Local Playlist",
+      "newPlaylist": "New Local Playlist"
     },
     "albums": "Albums",
     "artists": "Artists",
     "placeholder": "Search Local Songs",
     "scrollToTop": "Scroll to Top",
     "localMusicFolderPath": "Local Music Folder Path",
+    "enableLocalMusic": "Enable Local Music",
     "clearLocalMusic": {
       "text": "Clear Local Music Info",
       "desc": "This action will only remove local music metadata from the app, not delete actual files."
@@ -227,11 +226,16 @@
       "tray": "System Tray",
       "extension": "Lyrics Extension",
       "platformSetting": "Platform Settings",
-      "lyricSetting": "Lyrics Settings",
+      "lyricSetting": "Lrc Setting",
       "lyric": "Main Window Lyrics",
       "osdLyric": "Desktop Lyrics",
       "trayLyric": "Tray Lyrics",
       "localMusic": "Local Music",
+      "music": "Msc Setting",
+      "netease": "Online Music",
+      "stream": "Stream Music",
+      "local": "Local Music",
+      "unblock": "Unblock",
       "shortcut": "Shortcuts"
     },
     "general": {
@@ -256,6 +260,13 @@
         "minimizeToTray": "Minimize to Tray",
         "exit": "Exit Directly",
         "ask": "Ask"
+      },
+      "musicQuality": {
+        "text": "Music Quality",
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High",
+        "lossless": "Lossless"
       },
       "logout": "Logout"
     },
@@ -315,6 +326,43 @@
         "desc": "After locking, lyrics fade after this duration (ms). Not supported on Linux."
       }
     },
+    "unblock": {
+      "enable": "Enable UnblockMusic",
+      "source": {
+        "text": "Alternative Audio Source",
+        "desc1": "Specific codes for audio sources.",
+        "desc2": "Separate multiple sources with commas (,).",
+        "desc3": "Leave blank to use UNM's default values.",
+        "linkText": "Click here to check the UNM documentation."
+      },
+      "enableFlac": {
+        "text": "Enable FLAC",
+        "desc": "Clear song cache after enabling for changes to take effect"
+      },
+      "sourceSearchMode": {
+        "text": "Audio Source Search Mode",
+        "orderFirst": "Order Priority",
+        "speedFirst": "Speed Priority"
+      },
+      "qqCookie": {
+        "text": "QQ Engine Cookie",
+        "desc1": "For setup instructions, refer here",
+        "desc2": "Leave blank to skip configuration"
+      },
+      "jooxCookie": {
+        "text": "JOOX Engine Cookie"
+      },
+      "miguCookie": {
+        "text": "Migu Engine Cookie"
+      }
+    },
+    "autoCacheTrack": {
+      "enable": "Enable Automatic Song Caching",
+      "sizeLimit": "Song Cache Limit",
+      "noLimit": "No Limit",
+      "sizeCached": "Cached {song} songs",
+      "clearCache": "Clear Cache"
+    },
     "shortcut": {
       "enableGlobalShortcut": "Enable Global Shortcuts",
       "function": "Function",
@@ -328,12 +376,20 @@
       "decreaseVolume": "Decrease Volume",
       "like": "Like",
       "minimize": "Show/Hide Player"
+    },
+    "stream": {
+      "enable": "Enable Stream Music",
+      "service": "Servers",
+      "login": "Logged in",
+      "logout": "Logged out",
+      "offline": "Offline"
     }
   },
   "toast": {
-    "createLocalPlaylistSuccess": "Local playlist created",
-    "createLocalPlaylistFailed": "Failed to create local playlist",
+    "createLocalPlaylistSuccess": "Playlist created",
+    "createLocalPlaylistFailed": "Failed to create playlist",
     "savedToPlaylist": "Added to playlist",
+    "saveFailed": "Failed To Save",
     "tracksAlreadyInPlaylist": "Tracks already in playlist",
     "needToLogin": "Requires NetEase Account login",
     "getColorFailed": "Failed to fetch color",

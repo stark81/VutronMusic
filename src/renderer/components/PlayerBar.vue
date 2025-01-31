@@ -17,12 +17,11 @@
         :process-style="{ background: 'var(--color-primary)' }"
         :dot-style="{ display: 'none' }"
         :height="2"
-        :dot-size="12"
+        :dot-size="10"
         :lazy="false"
         :silent="true"
-      ></vue-slider>
+      />
     </div>
-    <!-- :tooltip-formatter="formatTime" -->
     <div class="controls">
       <div class="left">
         <img :src="pic" loading="lazy" @click="goToAlbum" />
@@ -35,7 +34,6 @@
             <span>{{ currentTrack?.name }}</span>
           </div>
           <div class="albumAndLyric">
-            <!-- <span>{{ currentTrack?.al?.name }}</span> -->
             <span v-for="(ar, index) in artists" :key="ar.id" class="artist">
               <span :class="{ ar: ar.matched !== false }" @click="goToArtist(ar)">
                 {{ ar.name }}
@@ -179,7 +177,8 @@ const {
   seek,
   volume,
   isLiked,
-  pic
+  pic,
+  source
 } = storeToRefs(playerStore)
 
 const osdLyric = useOsdLyricStore()
@@ -192,30 +191,14 @@ const dataStore = useDataStore()
 const { liked } = storeToRefs(dataStore)
 const { likeATrack } = dataStore
 
-const formatTime = computed(() => {
-  const minutes = Math.floor(seek.value / 60)
+const formatTime = (time: number) => {
+  const minutes = Math.floor(time / 60)
   const remainingSeconds = Math.ceil(seek.value % 60)
   return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
-})
+}
 
 const artists = computed(() => {
   return currentTrack.value?.artists ?? currentTrack.value?.ar
-})
-
-const source = computed(() => {
-  const sourceMap = {
-    localTrack: '本地音乐',
-    netease: '网易云音乐',
-    qq: 'QQ音乐',
-    kugou: '酷狗音乐',
-    kuwo: '酷我音乐',
-    bilibili: '哔哩哔哩',
-    pyncmd: '第三方网易云音乐',
-    migu: '咪咕音乐'
-  }
-  return currentTrack.value
-    ? `${currentTrack.value.name}, 音源：${sourceMap[currentTrack.value.source!]}`
-    : ''
 })
 
 const likeTrack = () => {
@@ -252,7 +235,7 @@ const formatVolume = computed(() => {
 })
 
 const heartDisabled = computed(() => {
-  return currentTrack.value?.isLocal && !currentTrack.value?.matched
+  return currentTrack.value?.type !== 'online' && !currentTrack.value?.matched
 })
 
 watch(showLyrics, (value) => {
@@ -313,6 +296,7 @@ watch(
       display: -webkit-box;
       -webkit-box-orient: vertical;
       -webkit-line-clamp: 1;
+      line-clamp: 1;
       overflow: hidden;
       word-break: break-all;
     }
@@ -328,6 +312,7 @@ watch(
       display: -webkit-box;
       -webkit-box-orient: vertical;
       -webkit-line-clamp: 1;
+      line-clamp: 1;
       overflow: hidden;
       word-break: break-all;
       .artist .ar {
