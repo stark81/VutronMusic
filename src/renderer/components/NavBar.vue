@@ -103,6 +103,7 @@ import { useNormalStateStore } from '../store/state'
 import { useSettingsStore } from '../store/settings'
 import { storeToRefs } from 'pinia'
 import { doLogout } from '../utils/auth'
+import { openExternal } from '../utils'
 
 const { searchTab, exploreTab } = storeToRefs(useNormalStateStore())
 const { general } = storeToRefs(useSettingsStore())
@@ -130,7 +131,9 @@ const toLogin = (): void => {
   handleRoute('/login/account')
 }
 
-const toGitHub = (): void => {}
+const toGitHub = (): void => {
+  openExternal('https://github.com/stark81/VutronMusic')
+}
 
 const handleRoute = (path: string): void => {
   router.push(path)

@@ -9,7 +9,7 @@ import 'virtual:svg-icons-register'
 import './assets/css/global.scss'
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import DOMPurify from 'dompurify'
-// import colors from 'vuetify/lib/util/colors.mjs'
+import { dailyTask } from './utils'
 
 // Add API key defined in contextBridge to window object type
 declare global {
@@ -43,3 +43,5 @@ pinia.use(piniaPluginPersistedstate)
 app.use(vuetify).use(i18n).use(router).use(pinia)
 
 app.mount('#app')
+
+dailyTask()

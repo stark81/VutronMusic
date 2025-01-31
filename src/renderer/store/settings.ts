@@ -66,6 +66,21 @@ export const useSettingsStore = defineStore(
       lock: false
     })
 
+    const unblockNeteaseMusic = reactive({
+      enable: true,
+      source: '',
+      enableFlac: true,
+      orderFirst: true,
+      jooxCookie: '',
+      qqCookie: ''
+    })
+
+    const autoCacheTrack = reactive({
+      enable: false,
+      sizeLimit: 512 as boolean | number,
+      number: 0
+    })
+
     const enableGlobalShortcut = ref(false)
 
     const shortcuts =
@@ -82,6 +97,24 @@ export const useSettingsStore = defineStore(
       {
         deep: true
       }
+    )
+
+    watch(
+      unblockNeteaseMusic,
+      (value) => {
+        window.mainApi.send('setStoreSettings', { unblockNeteaseMusic: cloneDeep(toRaw(value)) })
+      },
+      {
+        deep: true
+      }
+    )
+
+    watch(
+      autoCacheTrack,
+      (value) => {
+        window.mainApi.send('setStoreSettings', { autoCacheTrack: cloneDeep(toRaw(value)) })
+      },
+      { deep: true }
     )
 
     watch(
@@ -199,6 +232,8 @@ export const useSettingsStore = defineStore(
       shortcuts,
       normalLyric,
       osdLyric,
+      autoCacheTrack,
+      unblockNeteaseMusic,
       updateShortcut,
       togglePlaylistCategory,
       restoreDefaultShortcuts

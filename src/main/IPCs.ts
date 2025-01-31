@@ -11,7 +11,7 @@ import { parseFile } from 'music-metadata'
 import cache from './cache'
 import { db, Tables } from './db'
 import { CacheAPIs } from './utils/CacheApis'
-import { createMD5, getReplayGainFromMetadata, splitArtist } from './utils/utils'
+import { createMD5, deleteExcessCache, getReplayGainFromMetadata, splitArtist } from './utils/utils'
 import { registerGlobalShortcuts } from './globalShortcut'
 import { createMenu } from './menu'
 
@@ -341,6 +341,10 @@ function initOtherIpcMain(win: BrowserWindow): void {
               id: songs.length + newTracks.length + 1,
               name: common.title ?? '错误文件',
               dt: (format.duration ?? 0) * 1000,
+              source: 'localTrack',
+              gain: 0,
+              peak: 1,
+              br: format.bitrate ?? 320000,
               filePath,
               show: true,
               deleted: false,
@@ -375,7 +379,7 @@ function initOtherIpcMain(win: BrowserWindow): void {
   })
 
   ipcMain.on('deleteLocalMusicDB', (event) => {
-    const trackIDs = cache.get(CacheAPIs.LocalMusic)?.songs.map((track) => track.id)
+    const trackIDs = cache.get(CacheAPIs.LocalMusic)?.songs.map((track: any) => track.id)
     if (!trackIDs.length) return
     db.deleteMany(Tables.Track, trackIDs)
 
@@ -383,6 +387,19 @@ function initOtherIpcMain(win: BrowserWindow): void {
     if (!playlistIDs.length) return
     db.deleteMany(Tables.Playlist, playlistIDs)
     // db.vacuum()
+  })
+
+  ipcMain.handle('clearCacheTracks', (event) => {
+    const result = deleteExcessCache(true)
+    return result
+  })
+
+  ipcMain.handle('getCacheTracksInfo', (event) => {
+    const tracks = cache.get(CacheAPIs.LocalMusic, { sql: 'isLocal = 0' })
+    const size = tracks.songs
+      .map((track: any) => track.size)
+      .reduce((acc: string, cur: string) => Number(acc) + Number(cur), 0)
+    return { length: tracks.songs.length, size }
   })
 
   ipcMain.handle('accurateMatch', (event, track, id) => {

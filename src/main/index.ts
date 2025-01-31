@@ -24,10 +24,12 @@ import {
   getLyric,
   getPicColor,
   getTrackDetail,
-  getAudioSource
+  getAudioSource,
+  cacheOnlineTrack
 } from './utils/utils'
 import { CacheAPIs } from './utils/CacheApis'
 import { registerGlobalShortcuts } from './globalShortcut'
+// import { Readable } from 'stream'
 
 const cacheTracks = new Map<string, any>()
 
@@ -490,25 +492,53 @@ class BackGround {
           headers: { 'content-type': 'application/json' }
         })
       } else if (host === 'get-track') {
+        // 这里获取歌曲信息，先从本地、cache里获取，获取不到则从线上获取，获取之后存入cache
         const ids = pathname.slice(1)
-        const res = cache.get(CacheAPIs.Track, { ids })
+        let res = cache.get(CacheAPIs.Track, { ids })
         if (res) {
           const track = res.songs[0]
-          track.source = 'localTrack'
-          return new Response(JSON.stringify(track), {
-            headers: { 'content-type': 'application/json' }
+          // 可能是本地歌曲，也有可能是缓存歌曲
+          if (track.isLocal) {
+            if (!track.source) track.source = 'localTrack'
+            track.cache = false
+            return new Response(JSON.stringify(track), {
+              headers: { 'content-type': 'application/json' }
+            })
+          } else if (
+            store.get('settings.autoCacheTrack.enable') &&
+            track.url &&
+            fs.existsSync(track.url)
+          ) {
+            return new Response(JSON.stringify(track), {
+              headers: { 'content-type': 'application/json' }
+            })
+          }
+        }
+
+        res = await getTrackDetail(ids)
+        const track = res.songs[0]
+        track.cache = false
+        const { url, br, gain, peak, source } = await getAudioSource(track)
+        track.url = url
+        track.source = source
+        track.gain = gain
+        track.peak = peak
+        track.br = br
+        if (store.get('settings.autoCacheTrack.enable')) {
+          cacheOnlineTrack({ id: ids, name: track.name, url, br, win: this.win }).then((res) => {
+            track.url = res.filePath
+            track.size = res.size
+            track.cache = true
+            track.insertTime = Date.now()
+            cache.set(CacheAPIs.LocalMusic, { newTracks: [track] })
           })
         } else {
-          const res = await getTrackDetail(ids)
-          const track = res.songs[0]
-          const { url, source } = await getAudioSource(track)
-          track.url = url
-          track.source = source
           cacheTracks.set(ids, track)
-          return new Response(JSON.stringify(track), {
-            headers: { 'content-type': 'application/json' }
-          })
         }
+
+        return new Response(JSON.stringify(track), {
+          headers: { 'content-type': 'application/json' }
+        })
       } else if (host === 'get-color') {
         const url = pathname.slice(1)
         const { pic } = await getPic(url, true, null)

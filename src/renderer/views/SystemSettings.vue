@@ -36,7 +36,10 @@
         <div class="tab" :class="{ active: tab === 'localTracks' }" @click="updateTab(3)">{{
           $t('settings.nav.localMusic')
         }}</div>
-        <div class="tab" :class="{ active: tab === 'shortcut' }" @click="updateTab(4)">{{
+        <div class="tab" :class="{ active: tab === 'unblock' }" @click="updateTab(4)">{{
+          $t('settings.nav.unblock')
+        }}</div>
+        <div class="tab" :class="{ active: tab === 'shortcut' }" @click="updateTab(5)">{{
           $t('settings.nav.shortcut')
         }}</div>
       </div>
@@ -53,6 +56,26 @@
                 <option value="zh">{{ $t('settings.general.language.zhHans') }}</option>
                 <option value="zht">{{ $t('settings.general.language.zhHant') }}</option>
                 <option value="en">{{ $t('settings.general.language.en') }}</option>
+              </select>
+            </div>
+          </div>
+          <div class="item">
+            <div class="left">{{ $t('settings.general.musicQuality.text') }}</div>
+            <div class="right">
+              <select v-model="musicQuality">
+                <option value="128000"
+                  >{{ $t('settings.general.musicQuality.low') }} - 128Kbps</option
+                >
+                <option value="192000"
+                  >{{ $t('settings.general.musicQuality.medium') }} - 192Kbps</option
+                >
+                <option value="320000"
+                  >{{ $t('settings.general.musicQuality.high') }} - 320Kbps</option
+                >
+                <option value="flac"
+                  >{{ $t('settings.general.musicQuality.lossless') }} - FLAC</option
+                >
+                <option value="999000">Hi-Res</option>
               </select>
             </div>
           </div>
@@ -103,6 +126,52 @@
             </div>
             <div class="right">
               <button @click="resetPlayer">确定</button>
+            </div>
+          </div>
+          <div class="item">
+            <div class="left">
+              <div class="title">{{ $t('settings.autoCacheTrack.enable') }}</div>
+            </div>
+            <div class="right">
+              <div class="toggle">
+                <input
+                  id="autoCacheTrack"
+                  v-model="autoCacheTrack.enable"
+                  type="checkbox"
+                  name="autoCacheTrack"
+                />
+                <label for="autoCacheTrack"></label>
+              </div>
+            </div>
+          </div>
+          <div class="item">
+            <div class="left">
+              <div class="title">{{ $t('settings.autoCacheTrack.sizeLimit') }}</div>
+            </div>
+            <div class="right">
+              <select v-model="autoCacheTrack.sizeLimit">
+                <option :value="false">{{ $t('settings.autoCacheTrack.noLimit') }}</option>
+                <option :value="512"> 500M </option>
+                <option :value="1024"> 1G </option>
+                <option :value="2048"> 2G </option>
+                <option :value="4096"> 4G </option>
+                <option :value="8192"> 8G </option>
+              </select>
+            </div>
+          </div>
+          <div class="item">
+            <div class="left">
+              <div class="title"
+                >{{
+                  $t('settings.autoCacheTrack.sizeCached', { song: cacheTracksInfo.length })
+                }}
+                ({{ cacheSize }})</div
+              >
+            </div>
+            <div class="right">
+              <button style="width: 150px" @click="deleteCacheTracks">{{
+                $t('settings.autoCacheTrack.clearCache')
+              }}</button>
             </div>
           </div>
           <div v-if="isElectron && isLinux" class="item">
@@ -458,7 +527,9 @@
                     }}</div
                   >
                   <div class="description"
-                    >如果未安装插件，可点击 <a @click="openOnBrowser">此处</a> 下载</div
+                    >如果未安装插件，可点击
+                    <a @click="openOnBrowser('https://github.com/stark81/media-controls')">此处</a>
+                    下载</div
                   >
                 </div>
               </div>
@@ -532,6 +603,129 @@
                 <input id="replay-gain" v-model="replayGain" type="checkbox" name="replay-gain" />
                 <label for="replay-gain"></label>
               </div>
+            </div>
+          </div>
+        </div>
+        <div v-if="isElectron" v-show="tab === 'unblock'" key="unblock">
+          <div class="item">
+            <div class="left">
+              <div class="title">{{ $t('settings.unblock.enable') }}</div>
+            </div>
+            <div class="right">
+              <div class="toggle">
+                <input
+                  id="unblock-netease"
+                  v-model="unblockNeteaseMusic.enable"
+                  type="checkbox"
+                  name="unblock-netease"
+                />
+                <label for="unblock-netease"></label>
+              </div>
+            </div>
+          </div>
+          <div class="item">
+            <div class="left">
+              <div class="title">{{ $t('settings.unblock.enableFlac.text') }}</div>
+              <div class="description">{{ $t('settings.unblock.enableFlac.desc') }}</div>
+            </div>
+            <div class="right">
+              <div class="toggle">
+                <input
+                  id="unblock-flac"
+                  v-model="unblockNeteaseMusic.enableFlac"
+                  type="checkbox"
+                  name="unblock-flac"
+                />
+                <label for="unblock-flac"></label>
+              </div>
+            </div>
+          </div>
+          <div class="item">
+            <div class="left">
+              <div class="title">{{ $t('settings.unblock.sourceSearchMode.text') }}</div>
+            </div>
+            <div class="right">
+              <select v-model="unblockNeteaseMusic.orderFirst">
+                <option :value="true">{{
+                  $t('settings.unblock.sourceSearchMode.orderFirst')
+                }}</option>
+                <option :value="false">{{
+                  $t('settings.unblock.sourceSearchMode.speedFirst')
+                }}</option>
+              </select>
+            </div>
+          </div>
+          <div class="item">
+            <div class="left">
+              <div class="title">{{ $t('settings.unblock.source.text') }}</div>
+              <div class="description">
+                <label>{{ $t('settings.unblock.source.desc1') }}</label>
+                <a
+                  @click="
+                    openOnBrowser(
+                      'https://github.com/UnblockNeteaseMusic/server#%E9%9F%B3%E6%BA%90%E6%B8%85%E5%8D%95'
+                    )
+                  "
+                >
+                  {{ $t('settings.unblock.source.linkText') }}</a
+                ><br />
+                {{ $t('settings.unblock.source.desc2') }}<br />
+                {{ $t('settings.unblock.source.desc3') }}
+              </div>
+            </div>
+            <div class="right">
+              <input
+                v-model="unblockSource"
+                class="text-input margin-right-0"
+                placeholder="例 bilibili, kuwo"
+                @input="updateUnblockSource"
+              />
+            </div>
+          </div>
+          <div class="item">
+            <div class="left">
+              <div class="title">{{ $t('settings.unblock.jooxCookie.text') }}</div>
+              <div class="description">
+                <a
+                  @click="
+                    openOnBrowser(
+                      'https://github.com/UnblockNeteaseMusic/server#%E7%8E%AF%E5%A2%83%E5%8F%98%E9%87%8F'
+                    )
+                  "
+                  >{{ $t('settings.unblock.qqCookie.desc1') }}</a
+                >
+                <label>, {{ $t('settings.unblock.qqCookie.desc2') }}</label>
+              </div>
+            </div>
+            <div class="right">
+              <input
+                v-model="unblockNeteaseMusic.jooxCookie"
+                class="text-input margin-right-0"
+                placeholder="wmid=..; session_key=.."
+              />
+            </div>
+          </div>
+          <div class="item">
+            <div class="left">
+              <div class="title">{{ $t('settings.unblock.qqCookie.text') }}</div>
+              <div class="description">
+                <a
+                  @click="
+                    openOnBrowser(
+                      'https://github.com/UnblockNeteaseMusic/server#%E7%8E%AF%E5%A2%83%E5%8F%98%E9%87%8F'
+                    )
+                  "
+                  >{{ $t('settings.unblock.qqCookie.desc1') }}</a
+                >
+                <label>, {{ $t('settings.unblock.qqCookie.desc2') }}</label>
+              </div>
+            </div>
+            <div class="right">
+              <input
+                v-model="unblockNeteaseMusic.qqCookie"
+                class="text-input margin-right-0"
+                placeholder="uin=..; qm_keyst=..;"
+              />
             </div>
           </div>
         </div>
@@ -610,7 +804,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, toRefs, computed, inject, onMounted, onBeforeUnmount } from 'vue'
+import { ref, toRefs, computed, inject, onMounted, onBeforeUnmount, reactive, watch } from 'vue'
 import pickColors, { Theme } from 'vue-pick-colors'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '../store/settings'
@@ -627,15 +821,29 @@ import Utils from '../utils'
 import imageUrl from '../utils/settingImg.dataurl?raw'
 
 const settingsStore = useSettingsStore()
-const { localMusic, general, tray, theme, shortcuts, enableGlobalShortcut, normalLyric } =
-  storeToRefs(settingsStore)
+const {
+  localMusic,
+  general,
+  tray,
+  theme,
+  shortcuts,
+  autoCacheTrack,
+  unblockNeteaseMusic,
+  enableGlobalShortcut,
+  normalLyric
+} = storeToRefs(settingsStore)
 const { scanDir, replayGain, useInnerInfoFirst } = toRefs(localMusic.value)
-const { showTrackTimeOrID, useCustomTitlebar, language, closeAppOption } = toRefs(general.value)
+const { showTrackTimeOrID, useCustomTitlebar, language, musicQuality, closeAppOption } = toRefs(
+  general.value
+)
 const { appearance, colors } = toRefs(theme.value)
 const customizeColor = computed(() => colors.value[4])
 const { showLyric, showControl, lyricWidth, scrollRate, enableExtension } = toRefs(tray.value)
 const { nFontSize, isNWordByWord, nTranslationMode } = toRefs(normalLyric.value)
-const { extensionCheckResult } = toRefs(useNormalStateStore())
+
+const stateStore = useNormalStateStore()
+const { extensionCheckResult } = toRefs(stateStore)
+const { showToast } = stateStore
 
 const dataStore = useDataStore()
 const { user } = storeToRefs(dataStore)
@@ -658,12 +866,14 @@ const {
 
 const playerStore = usePlayerStore()
 const { resetPlayer } = playerStore
-const { outputDevice } = storeToRefs(playerStore)
+const { outputDevice, currentTrack } = storeToRefs(playerStore)
 
 const localMusicStore = useLocalMusicStore()
 const { resetLocalMusic } = localMusicStore
 
 const { restoreDefaultShortcuts, updateShortcut } = useSettingsStore()
+
+const cacheTracksInfo = reactive({ length: 0, size: 0 })
 
 const isElectron = window.env?.isElectron || false
 const isMac = window.env?.isMac
@@ -674,6 +884,17 @@ const showTrackInfo = computed({
   get: () => showTrackTimeOrID.value,
   set: (value) => {
     showTrackTimeOrID.value = value
+  }
+})
+
+const cacheSize = computed(() => {
+  const size = cacheTracksInfo.size
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(2)} KB`
+  } else if (size < 1024 * 1024 * 1024) {
+    return `${(size / 1024 / 1024).toFixed(2)} MB`
+  } else {
+    return `${(size / 1024 / 1024 / 1024).toFixed(2)} GB`
   }
 })
 
@@ -721,19 +942,6 @@ const shortcutInput = ref({
 const recordedShortcut = ref<any[]>([])
 
 const mainStyle = ref({})
-
-// const mainStyle = computed(() => {
-//   return {
-//     marginTop: isMac || !useCustomTitlebar.value ? '20px' : '0'
-//   }
-// })
-
-// const useReplayGain = computed({
-//   get: () => replayGain.value,
-//   set: (value) => {
-//     replayGain.value = value
-//   }
-// })
 
 const { locale } = useI18n()
 const selectLanguage = computed({
@@ -794,12 +1002,23 @@ const getAllOutputDevices = () => {
 const tab = ref('general')
 const lyricTab = ref(isWindows ? 'lyric' : 'trayLyric')
 const updateTab = (index: number) => {
-  const tabs = ['general', 'appearance', 'lyric', 'localTracks', 'shortcut']
+  const tabs = ['general', 'appearance', 'lyric', 'localTracks', 'unblock', 'shortcut'] // 'unblock'
   const tabName = tabs[index]
   tab.value = tabName
   slideTop.value = index * 40
 }
 const slideTop = ref(0)
+
+const getCacheTracksInfo = () => {
+  window.mainApi.invoke('getCacheTracksInfo').then((res) => {
+    cacheTracksInfo.length = res.length
+    cacheTracksInfo.size = res.size
+  })
+}
+
+watch(currentTrack, () => {
+  setTimeout(getCacheTracksInfo, 5000)
+})
 
 const chooseDir = () => {
   window.mainApi.invoke('selecteFolder').then((folderPath: string | null) => {
@@ -813,6 +1032,15 @@ const appVersion = ref('Unknown')
 const getVersion = () => {
   window.mainApi?.invoke('msgRequestGetVersion').then((result: string) => {
     appVersion.value = `v${result}`
+  })
+}
+
+const deleteCacheTracks = () => {
+  window.mainApi.invoke('clearCacheTracks').then((res: boolean) => {
+    if (res) {
+      showToast('清除缓存成功')
+      getCacheTracksInfo()
+    }
   })
 }
 
@@ -847,6 +1075,14 @@ const inputFontSizeDebounce = () => {
   }, 500)
 }
 
+const unblockSource = ref(unblockNeteaseMusic.value.source)
+const updateUnblockSource = () => {
+  if (debounceTimeout) clearTimeout(debounceTimeout)
+  debounceTimeout = setTimeout(() => {
+    unblockNeteaseMusic.value.source = unblockSource.value
+  }, 500)
+}
+
 const inputNFontSizeValue = ref<number>(nFontSize.value)
 const inputNValue = () => {
   if (debounceTimeout) clearTimeout(debounceTimeout)
@@ -862,8 +1098,7 @@ const deleteLocalMusic = () => {
   window.mainApi.send('deleteLocalMusicDB')
 }
 
-const openOnBrowser = () => {
-  const url = 'https://github.com/stark81/media-controls'
+const openOnBrowser = (url: string) => {
   Utils.openExternal(url)
 }
 
@@ -987,6 +1222,7 @@ onMounted(() => {
   mainStyle.value = {
     marginTop: isMac || !useCustomTitlebar.value ? '20px' : '0'
   }
+  getCacheTracksInfo()
   updatePadding(64)
   getAllOutputDevices()
   getVersion()

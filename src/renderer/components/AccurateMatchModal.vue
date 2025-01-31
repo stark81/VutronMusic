@@ -88,7 +88,7 @@ const close = () => {
       margin-top: -1px;
       color: var(--color-text);
       &:focus {
-        background: color-mix(in oklab, var(--color-primary) var(--bg-alpha), white);
+        // background: color-mix(in oklab, var(--color-primary) var(--bg-alpha), white);
         opacity: 1;
       }
       [data-theme='light'] &:focus {

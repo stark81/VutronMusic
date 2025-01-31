@@ -591,8 +591,8 @@ export const usePlayerStore = defineStore(
         if (!track.isLocal && !track.url) {
           resolve('')
         }
-        if (track.isLocal) {
-          resolve(`atom://get-music/${track.filePath}`)
+        if (track.isLocal || track.cache) {
+          resolve(`atom://get-music/${track.cache ? track.url : track.filePath}`)
         } else {
           resolve(`atom://get-online-music/${track.url}`)
         }

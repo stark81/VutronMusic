@@ -223,6 +223,10 @@ onMounted(async () => {
       extensionCheckResult.value = result
     })
   }
+  document.documentElement.style.setProperty(
+    '--color-primary',
+    theme.value.colors.find((c) => c.selected)?.color || 'rgba(51, 94, 234, 1)'
+  )
   fetchData()
   fetchLocalData()
   handleChanelEvent()

@@ -140,8 +140,12 @@ const lyricWithTranslation = computed(() => {
   } else if (mode.value === 'oneLine') {
     return ret.slice(idx, idx + 1)
   } else {
-    const index = idx + (idx % 2 === 0 ? 0 : -1) || 0
-    return ret.slice(index, index + 2)
+    // 在双行模式下，如果存在翻译则返回一行内容，如果不存在则返回两行
+    const hasTranslation =
+      (translationMode.value === 'tlyric' && ret[idx]?.contents[1]) ||
+      (translationMode.value === 'romalrc' && ret[idx]?.contents[2])
+    const index = hasTranslation ? idx : idx + (idx % 2 === 0 ? 0 : -1) || 0
+    return ret.slice(index, index + (hasTranslation ? 1 : 2))
   }
 })
 
@@ -254,7 +258,7 @@ watch(wBywLyricIndex, (idx) => {
   adjustScorllPosition(idx)
 })
 
-const containerHeight = ref(200)
+const containerHeight = ref(100)
 watch(containerHeight, (value) => {
   if (!value || type.value === 'normal') return
   window.mainApi.send('osd-resize', value)
@@ -268,7 +272,7 @@ window.mainApi.on('updateLyricInfo', (event, data) => {
       const el = document.getElementById(`line0`)
       el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
-    containerHeight.value = 200
+    containerHeight.value = 100
   } else if (key === 'lrcIdx') {
     currentLyricIndex.value = value[0]
     wBywLyricIndex.value = value[1]

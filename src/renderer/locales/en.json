@@ -227,11 +227,12 @@
       "tray": "System Tray",
       "extension": "Lyrics Extension",
       "platformSetting": "Platform Settings",
-      "lyricSetting": "Lyrics Settings",
+      "lyricSetting": "Lrc Setting",
       "lyric": "Main Window Lyrics",
       "osdLyric": "Desktop Lyrics",
       "trayLyric": "Tray Lyrics",
       "localMusic": "Local Music",
+      "unblock": "Unblock",
       "shortcut": "Shortcuts"
     },
     "general": {
@@ -256,6 +257,13 @@
         "minimizeToTray": "Minimize to Tray",
         "exit": "Exit Directly",
         "ask": "Ask"
+      },
+      "musicQuality": {
+        "text": "Music Quality",
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High",
+        "lossless": "Lossless"
       },
       "logout": "Logout"
     },
@@ -314,6 +322,43 @@
         "text": "Mouse Hover Timeout",
         "desc": "After locking, lyrics fade after this duration (ms). Not supported on Linux."
       }
+    },
+    "unblock": {
+      "enable": "Enable UnblockMusic",
+      "source": {
+        "text": "Alternative Audio Source",
+        "desc1": "Specific codes for audio sources.",
+        "desc2": "Separate multiple sources with commas (,).",
+        "desc3": "Leave blank to use UNM's default values.",
+        "linkText": "Click here to check the UNM documentation."
+      },
+      "enableFlac": {
+        "text": "Enable FLAC",
+        "desc": "Clear song cache after enabling for changes to take effect"
+      },
+      "sourceSearchMode": {
+        "text": "Audio Source Search Mode",
+        "orderFirst": "Order Priority",
+        "speedFirst": "Speed Priority"
+      },
+      "qqCookie": {
+        "text": "QQ Engine Cookie",
+        "desc1": "For setup instructions, refer here",
+        "desc2": "Leave blank to skip configuration"
+      },
+      "jooxCookie": {
+        "text": "JOOX Engine Cookie"
+      },
+      "miguCookie": {
+        "text": "Migu Engine Cookie"
+      }
+    },
+    "autoCacheTrack": {
+      "enable": "Enable Automatic Song Caching",
+      "sizeLimit": "Song Cache Limit",
+      "noLimit": "No Limit",
+      "sizeCached": "Cached {song} songs",
+      "clearCache": "Clear Cache"
     },
     "shortcut": {
       "enableGlobalShortcut": "Enable Global Shortcuts",

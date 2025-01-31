@@ -165,6 +165,7 @@ const router = createRouter({
 })
 
 router.beforeEach((to, from, next) => {
+  document.documentElement.scrollTo({ top: 0 })
   if (to.meta.requireLogin) {
     if (isAccountLoggedIn()) {
       next()

@@ -40,6 +40,18 @@ const store = new Store<TypeElectronStore>({
       useCustomTitlebar: false,
       showTray: true,
       enableGlobalShortcut: false,
+      unblockNeteaseMusic: {
+        enable: true,
+        source: '',
+        enableFlac: true,
+        orderFirst: true,
+        jooxCookie: '',
+        qqCookie: ''
+      },
+      autoCacheTrack: {
+        enable: false,
+        sizeLimit: 512 as boolean | number
+      },
       shortcuts: [
         {
           id: 'play',

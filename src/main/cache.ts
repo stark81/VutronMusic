@@ -113,7 +113,8 @@ class Cache {
       case CacheAPIs.LocalMusic: {
         // 此项用于获取所有本地歌曲
         // 注：是全部本地歌曲，不可获取部分，仅在扫描本地歌曲与程序启动时使用
-        const data = db.findAll(Tables.Track, `isLocal = 1`)
+        const sql = params.sql ?? `isLocal = 1`
+        const data = db.findAll(Tables.Track, sql)
         const tracks = data.map((t: any) => JSON.parse(t.json))
         return {
           code: 200,

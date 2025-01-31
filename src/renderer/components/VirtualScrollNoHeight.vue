@@ -110,11 +110,7 @@ const contentTransform = computed(() => `translateY(${startOffset.value}px)`)
 const anchorPoint = computed(() =>
   position.value.length ? position.value[startRow.value * props.columnNumber] : null
 )
-const visibleCount = computed(() => {
-  const result = Math.floor(containerHeight.value / itemSize.value)
-  if (result % 2 === 0) return result - 1
-  return result
-})
+const visibleCount = computed(() => Math.floor(containerHeight.value / itemSize.value))
 const endRow = computed(() => startRow.value + visibleCount.value)
 const aboveCount = computed(() => Math.min(startRow.value, props.aboveValue))
 const belowCount = computed(() => Math.min(list.value.length - endRow.value, props.belowValue))
@@ -196,16 +192,29 @@ const setStartOffset = () => {
 }
 
 const scrollTocurrent = (index: number, behavior: ScrollBehavior = 'smooth') => {
-  const elTop =
-    listRef.value.getBoundingClientRect().top - document.documentElement.getBoundingClientRect().top
-  const root = document.documentElement
-  root.scrollTo({
-    top: elTop,
-    behavior
-  })
-  const idx = index / props.columnNumber - Math.floor(visibleCount.value / 2)
-  const top = position.value[idx * props.columnNumber]?.top || 0
-  listRef.value.scrollTo({ top, behavior })
+  if (index < visibleCount.value + belowCount.value) {
+    const el = document.getElementById(index.toString())
+    if (el) {
+      el.scrollIntoView({ block: 'center', behavior })
+    }
+  } else {
+    const elTop =
+      listRef.value.getBoundingClientRect().top -
+      document.documentElement.getBoundingClientRect().top
+    const root = document.documentElement
+    root.scrollTo({
+      top: elTop,
+      behavior
+    })
+    let top: number
+    const idx = index / props.columnNumber - Math.floor(visibleCount.value / 2)
+    if (visibleCount.value % 2 === 0) {
+      top = position.value[idx * props.columnNumber + 1]?.top || 0
+    } else {
+      top = position.value[idx * props.columnNumber]?.top || 0
+    }
+    listRef.value.scrollTo({ top, behavior })
+  }
 }
 
 let lastScrollTop = listRef.value?.scrollTop
