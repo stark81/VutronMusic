@@ -191,13 +191,12 @@ const setStartOffset = () => {
   }
 }
 
+let lastScrollTop = listRef.value?.scrollTop
+
 const scrollTocurrent = (index: number, behavior: ScrollBehavior = 'smooth') => {
-  if (index < visibleCount.value + belowCount.value) {
-    const el = document.getElementById(index.toString())
-    if (el) {
-      el.scrollIntoView({ block: 'center', behavior })
-    }
-  } else {
+  const idx = index / props.columnNumber - Math.floor(visibleCount.value / 2)
+
+  if (idx >= -1) {
     const elTop =
       listRef.value.getBoundingClientRect().top -
       document.documentElement.getBoundingClientRect().top
@@ -206,18 +205,41 @@ const scrollTocurrent = (index: number, behavior: ScrollBehavior = 'smooth') => 
       top: elTop,
       behavior
     })
-    let top: number
-    const idx = index / props.columnNumber - Math.floor(visibleCount.value / 2)
-    if (visibleCount.value % 2 === 0) {
-      top = position.value[idx * props.columnNumber + 1]?.top || 0
-    } else {
-      top = position.value[idx * props.columnNumber]?.top || 0
+  } else {
+    // 从上向下滚动
+    const el = document.getElementById(index.toString())
+    el?.scrollIntoView({ block: 'center', behavior })
+  }
+  let top: number
+  if (visibleCount.value % 2 === 0) {
+    top = position.value[idx * props.columnNumber + 1]?.top || 0
+  } else {
+    top = position.value[idx * props.columnNumber]?.top || 0
+  }
+  listRef.value.scrollTo({ top, behavior })
+
+  if (idx < -1 && index < startRow.value) {
+    let isScrolling = true
+    const checkScrolling = () => {
+      const currentScrollTop = listRef.value?.scrollTop
+      if (currentScrollTop === lastScrollTop) {
+        if (isScrolling) {
+          isScrolling = false
+          const el = document.getElementById(index.toString())
+          el?.scrollIntoView({ block: 'center', behavior })
+        }
+      } else {
+        lastScrollTop = currentScrollTop
+        requestAnimationFrame(checkScrolling)
+      }
     }
-    listRef.value.scrollTo({ top, behavior })
+
+    setTimeout(() => {
+      requestAnimationFrame(checkScrolling)
+    }, 30)
   }
 }
 
-let lastScrollTop = listRef.value?.scrollTop
 const scrollToTop = () => {
   let isScrolling = true
   listRef.value?.scrollTo({ top: 0, behavior: 'smooth' })
