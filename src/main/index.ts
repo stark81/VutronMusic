@@ -9,6 +9,8 @@ import { createMenu } from './menu'
 import { createDockMenu } from './dock'
 import { createTouchBar } from './touchBar'
 import { createMpris, MprisImpl } from './mpris'
+// import { testEmby } from './test'
+// import { testNavidrome } from './navidrome'
 import fastify, { FastifyInstance } from 'fastify'
 import fastifyCookie from '@fastify/cookie'
 import netease from './appServer/netease'
@@ -605,6 +607,9 @@ class BackGround {
       if (store.get('settings.enableGlobalShortcut')) {
         registerGlobalShortcuts(this.win)
       }
+
+      // testEmby()
+      // testNavidrome()
 
       const lrc = {
         toggleOSDWindow: () => this.toggleOSDWindow(),

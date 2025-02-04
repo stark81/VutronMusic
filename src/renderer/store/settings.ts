@@ -21,6 +21,7 @@ export const useSettingsStore = defineStore(
       ]
     })
     const localMusic = reactive({
+      enble: true,
       scanDir: '',
       replayGain: true,
       useInnerInfoFirst: false,
@@ -35,6 +36,13 @@ export const useSettingsStore = defineStore(
       closeAppOption: 'ask',
       useCustomTitlebar: false,
       enabledPlaylistCategories
+    })
+
+    const stream = reactive({
+      enable: false,
+      select: null as string | null,
+      url: '',
+      lyricService: null as string | null
     })
 
     const tray = reactive({
@@ -228,6 +236,7 @@ export const useSettingsStore = defineStore(
       general,
       localMusic,
       tray,
+      stream,
       enableGlobalShortcut,
       shortcuts,
       normalLyric,

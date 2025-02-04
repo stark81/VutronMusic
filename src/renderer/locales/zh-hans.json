@@ -17,6 +17,7 @@
     "home": "首页",
     "search": "搜索",
     "library": "音乐库",
+    "stream": "流媒体",
     "localMusic": "本地音乐",
     "settings": "设置",
     "github": "GitHub仓库",
@@ -85,6 +86,7 @@
     "placeholder": "搜索本地歌曲",
     "scrollToTop": "回到顶部",
     "localMusicFolderPath": "本地音乐文件夹路径",
+    "enableLocalMusic": "启用本地音乐",
     "clearLocalMusic": {
       "text": "清空本地歌曲信息",
       "desc": "此操作仅会清除此程序内的本地歌曲匹配信息，不会删除本地歌曲文件"
@@ -232,6 +234,10 @@
       "osdLyric": "桌面歌词",
       "trayLyric": "状态栏歌词",
       "localMusic": "本地歌曲",
+      "music": "音乐设置",
+      "netease": "线上音乐",
+      "stream": "流媒体音乐",
+      "local": "本地音乐",
       "unblock": "音源设置",
       "shortcut": "快捷键设置"
     },
@@ -373,6 +379,9 @@
       "decreaseVolume": "降低音量",
       "like": "喜欢",
       "minimize": "显示/隐藏播放器"
+    },
+    "stream": {
+      "enable": "启用流媒体音乐"
     }
   },
   "toast": {

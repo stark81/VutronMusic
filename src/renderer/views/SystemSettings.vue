@@ -33,8 +33,8 @@
         <div class="tab" :class="{ active: tab === 'lyric' }" @click="updateTab(2)">{{
           $t('settings.nav.lyricSetting')
         }}</div>
-        <div class="tab" :class="{ active: tab === 'localTracks' }" @click="updateTab(3)">{{
-          $t('settings.nav.localMusic')
+        <div class="tab" :class="{ active: tab === 'music' }" @click="updateTab(3)">{{
+          $t('settings.nav.music')
         }}</div>
         <div class="tab" :class="{ active: tab === 'unblock' }" @click="updateTab(4)">{{
           $t('settings.nav.unblock')
@@ -126,52 +126,6 @@
             </div>
             <div class="right">
               <button @click="resetPlayer">确定</button>
-            </div>
-          </div>
-          <div class="item">
-            <div class="left">
-              <div class="title">{{ $t('settings.autoCacheTrack.enable') }}</div>
-            </div>
-            <div class="right">
-              <div class="toggle">
-                <input
-                  id="autoCacheTrack"
-                  v-model="autoCacheTrack.enable"
-                  type="checkbox"
-                  name="autoCacheTrack"
-                />
-                <label for="autoCacheTrack"></label>
-              </div>
-            </div>
-          </div>
-          <div class="item">
-            <div class="left">
-              <div class="title">{{ $t('settings.autoCacheTrack.sizeLimit') }}</div>
-            </div>
-            <div class="right">
-              <select v-model="autoCacheTrack.sizeLimit">
-                <option :value="false">{{ $t('settings.autoCacheTrack.noLimit') }}</option>
-                <option :value="512"> 500M </option>
-                <option :value="1024"> 1G </option>
-                <option :value="2048"> 2G </option>
-                <option :value="4096"> 4G </option>
-                <option :value="8192"> 8G </option>
-              </select>
-            </div>
-          </div>
-          <div class="item">
-            <div class="left">
-              <div class="title"
-                >{{
-                  $t('settings.autoCacheTrack.sizeCached', { song: cacheTracksInfo.length })
-                }}
-                ({{ cacheSize }})</div
-              >
-            </div>
-            <div class="right">
-              <button style="width: 150px" @click="deleteCacheTracks">{{
-                $t('settings.autoCacheTrack.clearCache')
-              }}</button>
             </div>
           </div>
           <div v-if="isElectron && isLinux" class="item">
@@ -553,55 +507,146 @@
             </div>
           </div>
         </div>
-        <div v-if="isElectron" v-show="tab === 'localTracks'" key="localTracks">
-          <div class="item">
-            <div class="left">
-              <div class="title">{{ $t('localMusic.localMusicFolderPath') }}: {{ scanDir }}</div>
+        <div v-if="isElectron" v-show="tab === 'music'" key="music">
+          <div class="lyric-tab">
+            <button
+              :class="{ 'lyric-button': true, 'lyric-button--selected': musicTab === 'netease' }"
+              @click="musicTab = 'netease'"
+              >{{ $t('settings.nav.netease') }}</button
+            >
+            <button
+              :class="{ 'lyric-button': true, 'lyric-button--selected': musicTab === 'local' }"
+              @click="musicTab = 'local'"
+              >{{ $t('settings.nav.local') }}</button
+            >
+            <button
+              :class="{ 'lyric-button': true, 'lyric-button--selected': musicTab === 'stream' }"
+              @click="musicTab = 'stream'"
+              >{{ $t('settings.nav.stream') }}</button
+            >
+          </div>
+          <div v-show="musicTab === 'netease'">
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('settings.autoCacheTrack.enable') }}</div>
+              </div>
+              <div class="right">
+                <div class="toggle">
+                  <input
+                    id="autoCacheTrack"
+                    v-model="autoCacheTrack.enable"
+                    type="checkbox"
+                    name="autoCacheTrack"
+                  />
+                  <label for="autoCacheTrack"></label>
+                </div>
+              </div>
             </div>
-            <div class="right">
-              <button @click="chooseDir">{{ scanDir ? '更改' : '选择' }}</button>
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('settings.autoCacheTrack.sizeLimit') }}</div>
+              </div>
+              <div class="right">
+                <select v-model="autoCacheTrack.sizeLimit">
+                  <option :value="false">{{ $t('settings.autoCacheTrack.noLimit') }}</option>
+                  <option :value="512"> 500M </option>
+                  <option :value="1024"> 1G </option>
+                  <option :value="2048"> 2G </option>
+                  <option :value="4096"> 4G </option>
+                  <option :value="8192"> 8G </option>
+                </select>
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
+                <div class="title"
+                  >{{
+                    $t('settings.autoCacheTrack.sizeCached', { song: cacheTracksInfo.length })
+                  }}
+                  ({{ cacheSize }})</div
+                >
+              </div>
+              <div class="right">
+                <button style="width: 150px" @click="deleteCacheTracks">{{
+                  $t('settings.autoCacheTrack.clearCache')
+                }}</button>
+              </div>
             </div>
           </div>
-          <div class="item">
-            <div class="left">
-              <div class="title">{{ $t('localMusic.clearLocalMusic.text') }}</div>
-              <div class="description">{{ $t('localMusic.clearLocalMusic.desc') }}</div>
+          <div v-show="musicTab === 'local'">
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('localMusic.enableLocalMusic') }}</div>
+              </div>
+              <div class="right">
+                <div class="toggle">
+                  <input id="local-enable" v-model="enble" type="checkbox" name="local-enable" />
+                  <label for="local-enable"></label>
+                </div>
+              </div>
             </div>
-            <div class="right">
-              <button @click="deleteLocalMusic">确定</button>
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('localMusic.localMusicFolderPath') }}: {{ scanDir }}</div>
+              </div>
+              <div class="right">
+                <button @click="chooseDir">{{ scanDir ? '更改' : '选择' }}</button>
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('localMusic.clearLocalMusic.text') }}</div>
+                <div class="description">{{ $t('localMusic.clearLocalMusic.desc') }}</div>
+              </div>
+              <div class="right">
+                <button @click="deleteLocalMusic">确定</button>
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
+                <div class="title">
+                  {{ $t('localMusic.embeddedInformation') }}
+                </div>
+              </div>
+              <div class="right">
+                <div class="toggle">
+                  <input
+                    id="inner-info"
+                    v-model="useInnerInfoFirst"
+                    type="checkbox"
+                    name="inner-info"
+                  />
+                  <label for="inner-info"></label>
+                </div>
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
+                <div class="title">
+                  {{ $t('localMusic.replayGain.text') }}
+                </div>
+                <div class="description">
+                  {{ $t('localMusic.replayGain.desc') }}
+                </div>
+              </div>
+              <div class="right">
+                <div class="toggle">
+                  <input id="replay-gain" v-model="replayGain" type="checkbox" name="replay-gain" />
+                  <label for="replay-gain"></label>
+                </div>
+              </div>
             </div>
           </div>
-          <div class="item">
-            <div class="left">
-              <div class="title">
-                {{ $t('localMusic.embeddedInformation') }}
+          <div v-show="musicTab === 'stream'">
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('settings.stream.enable') }}</div>
               </div>
-            </div>
-            <div class="right">
-              <div class="toggle">
-                <input
-                  id="inner-info"
-                  v-model="useInnerInfoFirst"
-                  type="checkbox"
-                  name="inner-info"
-                />
-                <label for="inner-info"></label>
-              </div>
-            </div>
-          </div>
-          <div class="item">
-            <div class="left">
-              <div class="title">
-                {{ $t('localMusic.replayGain.text') }}
-              </div>
-              <div class="description">
-                {{ $t('localMusic.replayGain.desc') }}
-              </div>
-            </div>
-            <div class="right">
-              <div class="toggle">
-                <input id="replay-gain" v-model="replayGain" type="checkbox" name="replay-gain" />
-                <label for="replay-gain"></label>
+              <div class="right">
+                <div class="toggle">
+                  <input id="stream" v-model="stream.enable" type="checkbox" name="stream" />
+                  <label for="stream"></label>
+                </div>
               </div>
             </div>
           </div>
@@ -826,13 +871,14 @@ const {
   general,
   tray,
   theme,
+  stream,
   shortcuts,
   autoCacheTrack,
   unblockNeteaseMusic,
   enableGlobalShortcut,
   normalLyric
 } = storeToRefs(settingsStore)
-const { scanDir, replayGain, useInnerInfoFirst } = toRefs(localMusic.value)
+const { scanDir, replayGain, useInnerInfoFirst, enble } = toRefs(localMusic.value)
 const { showTrackTimeOrID, useCustomTitlebar, language, musicQuality, closeAppOption } = toRefs(
   general.value
 )
@@ -1001,8 +1047,9 @@ const getAllOutputDevices = () => {
 
 const tab = ref('general')
 const lyricTab = ref(isWindows ? 'lyric' : 'trayLyric')
+const musicTab = ref('netease')
 const updateTab = (index: number) => {
-  const tabs = ['general', 'appearance', 'lyric', 'localTracks', 'unblock', 'shortcut'] // 'unblock'
+  const tabs = ['general', 'appearance', 'lyric', 'music', 'unblock', 'shortcut'] // 'unblock'
   const tabName = tabs[index]
   tab.value = tabName
   slideTop.value = index * 40

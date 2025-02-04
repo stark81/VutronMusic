@@ -33,6 +33,7 @@ export default class IPCs {
     initTaskbarIpcMain()
     initMprisIpcMain(win, mpris)
     initOtherIpcMain(win)
+    initStreaming()
   }
 }
 
@@ -479,5 +480,12 @@ async function initMprisIpcMain(win: BrowserWindow, mpris: MprisImpl): Promise<v
   })
   ipcMain.on('playerCurrentTrackTime', (event: IpcMainEvent, progress: number) => {
     mpris?.setPosition(progress)
+  })
+}
+
+function initStreaming() {
+  ipcMain.on('updateStreamingAccount', (event: IpcMainEvent, data: any) => {
+    const [key, value] = Object.entries(data)[0] as [string, any]
+    console.log('====== updateStreamingAccount ======', key, value)
   })
 }

@@ -21,8 +21,15 @@
       </div>
       <svg-icon class="icon" icon-class="library" />
     </button-icon>
+    <button-icon v-if="stream.enable">
+      <div class="mouseOver">
+        <div class="toast">{{ $t('nav.stream') }}</div>
+        <svg-icon icon-class="slide-bar-mouse-over"></svg-icon>
+      </div>
+      <svg-icon class="icon" icon-class="stream-icon" style="transform: scale(0.9)"></svg-icon>
+    </button-icon>
     <button-icon
-      v-if="isElectron"
+      v-if="isElectron && localMusic.enble"
       :class="{ active: isCurrentRoute('/localMusic') }"
       @click="handleRoute('/localMusic')"
     >
@@ -46,6 +53,11 @@
 import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useSettingsStore } from '../store/settings'
+import { storeToRefs } from 'pinia'
+
+const settingsStore = useSettingsStore()
+const { localMusic, stream } = storeToRefs(settingsStore)
 
 const router = useRouter()
 const route: any = useRoute()

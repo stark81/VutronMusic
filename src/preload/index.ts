@@ -23,6 +23,7 @@ const mainAvailChannels: string[] = [
   'logout',
   'accurateMatch',
   'updateLocalTrackInfo',
+  'updateStreamingAccount',
   'clearCacheTracks',
   'getCacheTracksInfo',
   'updateLyricInfo',

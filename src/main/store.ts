@@ -19,6 +19,9 @@ export interface TypeElectronStore {
   settings: {
     [key: string]: any
   }
+  accounts: {
+    navidrome: { username: string; password: string }
+  }
 }
 
 const store = new Store<TypeElectronStore>({
@@ -96,6 +99,12 @@ const store = new Store<TypeElectronStore>({
           globalShortcut: 'Alt+CommandOrControl+M'
         }
       ]
+    },
+    accounts: {
+      navidrome: {
+        username: '',
+        password: ''
+      }
     }
   }
 })
