@@ -188,8 +188,8 @@ const getQrCodeKey = () => {
           width: 192,
           margin: 0,
           color: {
-            dark: '#335eea',
-            light: '#00000000'
+            dark: '#ffffff', // '#335eea', // 蓝色难扫
+            light: '#000000'
           },
           type: 'svg'
         })
