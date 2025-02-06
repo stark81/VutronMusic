@@ -28,7 +28,8 @@ const mainAvailChannels: string[] = [
   'minimize',
   'maximizeOrUnmaximize',
   'close',
-  'askExtensionStatus'
+  'askExtensionStatus',
+  'queryAmuseInfoReturn'
 ]
 const rendererAvailChannels: string[] = [
   'msgHandleScanLocalMusic',
@@ -46,7 +47,8 @@ const rendererAvailChannels: string[] = [
   'updateOSDSetting',
   'rememberCloseAppOption',
   'msgDeletedTracks',
-  'msgExtensionCheckResult'
+  'msgExtensionCheckResult',
+  'queryAmuseInfo'
 ]
 
 contextBridge.exposeInMainWorld('mainApi', {

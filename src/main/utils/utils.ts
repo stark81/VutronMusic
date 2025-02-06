@@ -431,3 +431,11 @@ export const getAudioSourceFromUnblock = async (track: any) => {
   const match = require('@unblockneteasemusic/server')
   return match(track.id, ['kuwo', 'qq', 'kugou', 'bilibili', 'pyncmd', 'migu'])
 }
+
+export const randomString = (pattern: string, length: number) => {
+  return Array.from({ length }, () => pattern[Math.floor(Math.random() * pattern.length)]).join('')
+}
+
+export const randomAlNum = (length: number) => {
+  return randomString('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ', length)
+}
