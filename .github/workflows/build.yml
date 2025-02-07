@@ -31,8 +31,13 @@ jobs:
           node-version: 22
           cache: 'yarn'
 
+      - name: Install build essentials (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |-
+          brew install rpm
+
       - name: Install deps
-        run:
+        run: |-
           yarn
 
       - name: Build/release Electron app (Windows)
@@ -40,7 +45,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.github_token }}
-        run:
+        run: |-
           yarn build:win || yarn build:win
 
       - name: Build/release Electron app (macOS)
@@ -48,7 +53,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.github_token }}
-        run:
+        run: |-
           yarn build:mac || yarn build:mac
 
       - name: Build/release Electron app (Linux)
@@ -56,7 +61,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.github_token }}
-        run:
+        run: |-
           yarn build:linux || yarn build:linux
 
       - uses: actions/upload-artifact@v4
