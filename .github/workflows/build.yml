@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        os: [macos-latest, windows-latest] #, ubuntu-latest]
 
     steps:
       - name: Check out Git repository
@@ -52,7 +52,7 @@ jobs:
           yarn build:mac || yarn build:mac
 
       - name: Build/release Electron app (Linux)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'macos-latest' # 'ubuntu-latest'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.github_token }}
