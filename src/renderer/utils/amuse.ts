@@ -1,6 +1,38 @@
 import { usePlayerStore } from '../store/player'
 
-import type { AmuseInfo } from '../../main/amuseServer'
+export type LikeStatus = 'INDIFFERENT' | 'LIKE' | 'DISLIKE'
+
+export type RepeatType = 'NONE' | 'ALL' | 'ONE'
+
+export interface PlayerInfo {
+  hasSong: boolean
+  isPaused: boolean
+  volumePercent: number
+  seekbarCurrentPosition: number
+  seekbarCurrentPositionHuman: string
+  statePercent: number
+  likeStatus: string
+  repeatType: string
+}
+
+export interface TrackInfo {
+  author: string
+  title: string
+  album: string
+  cover: string
+  duration: number
+  durationHuman: string
+  url: string
+  id: string
+  isVideo: boolean
+  isAdvertisement: boolean
+  inLibrary: boolean
+}
+
+export interface AmuseInfo {
+  player: PlayerInfo
+  track: TrackInfo
+}
 
 export function initAmuseQueryChannel() {
   const player = usePlayerStore()
@@ -31,8 +63,8 @@ export function initAmuseQueryChannel() {
     }
   } satisfies AmuseInfo
 
-  const transformRepeatMode = (mode: string) => {
-    return { on: 'ALL', one: 'ONE' }[mode] ?? 'NONE'
+  const transformRepeatMode = (mode: string): RepeatType => {
+    return ({ on: 'ALL', one: 'ONE' } as Record<string, RepeatType>)[mode] ?? 'NONE'
   }
 
   const toDurationHuman = (duration: number) => {

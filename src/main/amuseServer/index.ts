@@ -4,42 +4,8 @@ import fastify, { FastifyInstance } from 'fastify'
 
 import { randomAlNum } from '../utils/utils'
 
-export type LikeStatus = 'INDIFFERENT' | 'LIKE' | 'DISLIKE'
-
-export type RepeatType = 'NONE' | 'ALL' | 'ONE'
-
-export interface PlayerInfo {
-  hasSong: boolean
-  isPaused: boolean
-  volumePercent: number
-  seekbarCurrentPosition: number
-  seekbarCurrentPositionHuman: string
-  statePercent: number
-  likeStatus: string
-  repeatType: string
-}
-
-export interface TrackInfo {
-  author: string
-  title: string
-  album: string
-  cover: string
-  duration: number
-  durationHuman: string
-  url: string
-  id: string
-  isVideo: boolean
-  isAdvertisement: boolean
-  inLibrary: boolean
-}
-
-export interface AmuseInfo {
-  player: PlayerInfo
-  track: TrackInfo
-}
-
 export interface AmuseInfoGetter {
-  get(): Promise<AmuseInfo>
+  get(): Promise<any>
 }
 
 export const notImplementedInfoGetter: AmuseInfoGetter = {
@@ -54,14 +20,14 @@ export class MainWindowAmuseInfoGetter {
     public timeout = 1000
   ) {}
 
-  get(): Promise<AmuseInfo> {
+  get(): Promise<any> {
     const currentEcho = randomAlNum(8)
     this.mainWindow.webContents.send('queryAmuseInfo', currentEcho)
     return new Promise((resolve, reject) => {
       const rejectTimeout = setTimeout(() => {
         reject(new Error('Timeout'))
       }, this.timeout)
-      ipcMain.on('queryAmuseInfoReturn', (_, info: AmuseInfo, echo: string) => {
+      ipcMain.on('queryAmuseInfoReturn', (_, info: any, echo: string) => {
         if (currentEcho === echo) {
           resolve(info)
           clearTimeout(rejectTimeout)
