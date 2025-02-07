@@ -26,7 +26,7 @@
     "build:linux": "npm run build:pre && electron-builder --config=buildAssets/builder/config.js --linux",
     "build:win": "npm run build:pre && electron-builder --config=buildAssets/builder/config.js --windows",
     "rebuild": "electron rebuild.js",
-    "postinstall": "npm run rebuild",
+    "postinstall": "node fix-sandbox.js && npm run rebuild",
     "lint": "eslint --ext .js,.ts,.vue -f ./node_modules/eslint-friendly-formatter src",
     "lint:fix": "eslint --ext .js,.ts,.vue -f ./node_modules/eslint-friendly-formatter --fix src",
     "format": "prettier .",
