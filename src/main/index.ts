@@ -28,11 +28,7 @@ import {
 } from './utils/utils'
 import { CacheAPIs } from './utils/CacheApis'
 import { registerGlobalShortcuts } from './globalShortcut'
-import {
-  AmuseServerManager,
-  MainWindowAmuseInfoGetter,
-  notImplementedInfoGetter
-} from './amuseServer'
+import { AmuseServerManager, MainWindowAmuseInfoGetter, emptyInfoGetter } from './amuseServer'
 
 const cacheTracks = new Map<string, any>()
 
@@ -115,7 +111,7 @@ class BackGround {
     // create fastify app
     this.fastifyApp = await this.createFastifyApp()
 
-    this.amuseServer = new AmuseServerManager(notImplementedInfoGetter)
+    this.amuseServer = new AmuseServerManager(emptyInfoGetter)
     this.amuseServer.restart()
 
     this.handleAppEvents()

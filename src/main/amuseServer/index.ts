@@ -1,18 +1,12 @@
+import cors from '@fastify/cors'
 import { BrowserWindow, ipcMain } from 'electron'
 import fastify, { FastifyInstance } from 'fastify'
+
 import { randomAlNum } from '../utils/utils'
 
-export enum LikeStatus {
-  INDIFFERENT = 'INDEFFERENT',
-  LIKE = 'LIKE',
-  DISLIKE = 'DISLIKE'
-}
+export type LikeStatus = 'INDIFFERENT' | 'LIKE' | 'DISLIKE'
 
-export enum RepeatType {
-  NONE = 'NONE',
-  ALL = 'ALL',
-  ONE = 'ONE'
-}
+export type RepeatType = 'NONE' | 'ALL' | 'ONE'
 
 export interface PlayerInfo {
   hasSong: boolean
@@ -64,12 +58,10 @@ export class MainWindowAmuseInfoGetter {
     const currentEcho = randomAlNum(8)
     this.mainWindow.webContents.send('queryAmuseInfo', currentEcho)
     return new Promise((resolve, reject) => {
+      const rejectTimeout = setTimeout(() => {
+        reject(new Error('Timeout'))
+      }, this.timeout)
       ipcMain.on('queryAmuseInfoReturn', (_, info: AmuseInfo, echo: string) => {
-        const rejectTimeout = setTimeout(() => {
-          if (currentEcho === echo) {
-            reject(new Error('Timeout'))
-          }
-        }, this.timeout)
         if (currentEcho === echo) {
           resolve(info)
           clearTimeout(rejectTimeout)
@@ -89,11 +81,12 @@ export class AmuseServerManager {
     public port: number = amuseDefaultPort
   ) {}
 
-  createInstance() {
+  async createInstance() {
     const server = fastify({
       ignoreTrailingSlash: true
     })
-    server.register(async (fastify) => {
+    await server.register(cors, { origin: '*' })
+    await server.register(async (fastify) => {
       fastify.get('/query', async () => {
         return this.infoGetter.get()
       })
@@ -107,7 +100,7 @@ export class AmuseServerManager {
       this.instance = null
       await server.close()
     }
-    this.instance = this.createInstance()
+    this.instance = await this.createInstance()
     await this.instance.listen({ port: this.port })
     console.log(`AmuseServer is running at http://localhost:${this.port}`)
   }
