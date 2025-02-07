@@ -36,17 +36,17 @@ jobs:
       - name: Build/release Electron app (Windows)
         if: matrix.os == 'windows-latest'
         run:
-          yarn build:win
+          yarn build:win || yarn build:win
 
       - name: Build/release Electron app (macOS)
         if: matrix.os == 'macos-latest'
         run:
-          yarn build:mac
+          yarn build:mac || yarn build:mac
 
       - name: Build/release Electron app (Linux)
         if: matrix.os == 'ubuntu-latest'
         run:
-          yarn build:linux
+          yarn build:linux || yarn build:linux
 
       - uses: actions/upload-artifact@v4
         with:
