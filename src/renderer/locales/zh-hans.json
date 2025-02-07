@@ -1,18 +1,4 @@
 {
-  "desc": {
-    "welcome-title": "你好武特龙！ 一切都准备好了。",
-    "welcome-desc": "您现在可以编写跨平台的 Web 应用程序。 实时查看更改并使用一个命令构建到多个平台。 如果您还不熟悉它，可以从下面的文档页面获得帮助，或者运行一些预先编写的示例代码。",
-    "second-desc": "您已移至第二个屏幕！ 这里什么都没有！",
-    "selected-file": "选定的文件：{filePath}."
-  },
-  "menu": {
-    "change-theme": "更改主题",
-    "change-language": "更改语言",
-    "increase-count": "计数 + 1",
-    "documentation": "文档",
-    "github": "源代码",
-    "open-file": "打开一个text文件"
-  },
   "nav": {
     "home": "首页",
     "search": "搜索",
@@ -72,6 +58,13 @@
     "newAlbum": "新专速递",
     "charts": "排行榜",
     "seeMore": "查看全部"
+  },
+  "streamMusic": {
+    "track": "全部歌曲",
+    "song": "流媒体音乐",
+    "playlist": "流媒体歌单",
+    "album": "专辑",
+    "artist": "艺人"
   },
   "localMusic": {
     "latedAdd": "最近添加",

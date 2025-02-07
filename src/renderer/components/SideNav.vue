@@ -21,7 +21,11 @@
       </div>
       <svg-icon class="icon" icon-class="library" />
     </button-icon>
-    <button-icon v-if="stream.enable">
+    <button-icon
+      v-if="stream.enable"
+      :class="{ active: isCurrentRoute('/stream') }"
+      @click="handleRoute('/stream')"
+    >
       <div class="mouseOver">
         <div class="toast">{{ $t('nav.stream') }}</div>
         <svg-icon icon-class="slide-bar-mouse-over"></svg-icon>

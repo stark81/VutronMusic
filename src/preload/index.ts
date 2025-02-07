@@ -31,7 +31,10 @@ const mainAvailChannels: string[] = [
   'minimize',
   'maximizeOrUnmaximize',
   'close',
-  'askExtensionStatus'
+  'askExtensionStatus',
+  'stream-login',
+  'get-stream-songs',
+  'get-stream-playlists'
 ]
 const rendererAvailChannels: string[] = [
   'msgHandleScanLocalMusic',

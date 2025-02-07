@@ -208,7 +208,7 @@ onMounted(() => {
   if (['phone', 'email', 'qrCode'].includes(route.query.mode as string)) {
     mode.value = route.query.mode as string
   }
-  getQrCodeKey()
+  if (mode.value === 'qrCode') getQrCodeKey()
 })
 onBeforeUnmount(() => {
   clearInterval(qrCodeCheckInterval.value)

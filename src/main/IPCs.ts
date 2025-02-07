@@ -1,6 +1,7 @@
 import { app, ipcMain, shell, IpcMainEvent, dialog, BrowserWindow, globalShortcut } from 'electron'
 import { YPMTray } from './tray'
 import { MprisImpl } from './mpris'
+import { NavidromeImpl } from './streaming/navidrome'
 // import { createDBus, signalNameEnum } from './dbusService'
 import { createDBus } from './dbusClient'
 import Constants from './utils/Constants'
@@ -25,7 +26,8 @@ export default class IPCs {
     win: BrowserWindow,
     tray: YPMTray,
     mpris: MprisImpl,
-    lrc: { [key: string]: Function }
+    lrc: Record<string, Function>,
+    navidrome: NavidromeImpl
   ): void {
     initWindowIpcMain(win)
     initOSDWindowIpcMain(win, lrc)
@@ -33,7 +35,7 @@ export default class IPCs {
     initTaskbarIpcMain()
     initMprisIpcMain(win, mpris)
     initOtherIpcMain(win)
-    initStreaming()
+    initStreaming(navidrome)
   }
 }
 
@@ -483,9 +485,26 @@ async function initMprisIpcMain(win: BrowserWindow, mpris: MprisImpl): Promise<v
   })
 }
 
-function initStreaming() {
-  ipcMain.on('updateStreamingAccount', (event: IpcMainEvent, data: any) => {
-    const [key, value] = Object.entries(data)[0] as [string, any]
-    console.log('====== updateStreamingAccount ======', key, value)
+function initStreaming(navidrome: NavidromeImpl) {
+  ipcMain.handle('stream-login', async (event: IpcMainEvent, data: any) => {
+    const { platform } = data
+    if (platform === 'navidrome') {
+      const response = await navidrome.doLogin(data.baseURL, data.username, data.password)
+      return response
+    }
+  })
+
+  ipcMain.handle('get-stream-songs', async (event, data) => {
+    if (data.platform === 'navidrome') {
+      const response = await navidrome.getTracks()
+      return response
+    }
+  })
+
+  ipcMain.handle('get-stream-playlists', async (event, data) => {
+    if (data.platform === 'navidrome') {
+      const response = await navidrome.getPlaylists()
+      return response
+    }
   })
 }

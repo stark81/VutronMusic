@@ -4,13 +4,11 @@ import fs from 'fs'
 import Constants from './utils/Constants'
 import store from './store'
 import { createTray, YPMTray } from './tray'
-// import { createTray, YPMTray } from './testTray'
 import { createMenu } from './menu'
 import { createDockMenu } from './dock'
 import { createTouchBar } from './touchBar'
 import { createMpris, MprisImpl } from './mpris'
-// import { testEmby } from './test'
-// import { testNavidrome } from './navidrome'
+import { startNavidrome, NavidromeImpl } from './streaming/navidrome'
 import fastify, { FastifyInstance } from 'fastify'
 import fastifyCookie from '@fastify/cookie'
 import netease from './appServer/netease'
@@ -85,6 +83,7 @@ class BackGround {
   tray: YPMTray | null = null
   menu: Menu | null = null
   mpris: MprisImpl | null = null
+  navidrome: NavidromeImpl | null = null
   fastifyApp: FastifyInstance | null = null
   willQuitApp: boolean = !Constants.IS_MAC
 
@@ -581,6 +580,9 @@ class BackGround {
         const url = pathname.slice(1)
         const headers = request.headers
         return fetch(url, { headers })
+      } else if (host === 'get-navidrome-pic') {
+        const id = pathname.slice(1)
+        return fetch(this.navidrome.getPic(id))
       }
     })
   }
@@ -608,8 +610,7 @@ class BackGround {
         registerGlobalShortcuts(this.win)
       }
 
-      // testEmby()
-      // testNavidrome()
+      this.navidrome = startNavidrome()
 
       const lrc = {
         toggleOSDWindow: () => this.toggleOSDWindow(),
@@ -619,7 +620,7 @@ class BackGround {
         updateOSDPlayingState: (state: boolean) => this.updateOSDPlayingState(state),
         updateOsdHeight: (height: number) => this.updateOsdHeight(height)
       }
-      IPCs.initialize(this.win, this.tray, this.mpris, lrc)
+      IPCs.initialize(this.win, this.tray, this.mpris, lrc, this.navidrome)
       createMenu(this.win)
       createDockMenu(this.win)
     })
