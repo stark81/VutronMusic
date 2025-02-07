@@ -1,0 +1,76 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - v*
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+        with:
+          submodules: "recursive"
+
+      - name: Install Node.js, NPM and Yarn
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'yarn'
+
+      - name: Build/release Electron app
+        run:
+          yarn
+          yarn build:all
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VutronMusic-win-installer
+          path: release/*/VutronMusic*_x64.exe
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VutronMusic-win-portable
+          path: release/*/VutronMusic*_x64 Portable.exe
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VutronMusic-mac
+          path: release/*/VutronMusic*.dmg
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VutronMusic-linux-snap
+          path: release/*/VutronMusic*.snap
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VutronMusic-linux-AppImage
+          path: release/*/VutronMusic*.AppImage
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VutronMusic-linux-deb
+          path: release/*/VutronMusic*.deb
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VutronMusic-linux-rpm
+          path: release/*/VutronMusic*.rpm
+          if-no-files-found: ignore
