@@ -46,14 +46,17 @@ import { ref, computed, onMounted, watch } from 'vue'
 import TrackList from '../components/VirtualTrackList.vue'
 import { usePlayerStore } from '../store/player'
 import { useLocalMusicStore } from '../store/localMusic'
+import { useStreamMusicStore } from '../store/streamingMusic'
 import { storeToRefs } from 'pinia'
 import { getTrackDetail } from '../api/track'
 
 const playerStore = usePlayerStore()
 const localMusicStore = useLocalMusicStore()
+const streamMusicStore = useStreamMusicStore()
 const { currentTrack, shuffle, currentTrackIndex, list, _playNextList, playlistSource } =
   storeToRefs(playerStore)
 const { localTracks } = storeToRefs(localMusicStore)
+const { streamTracks } = storeToRefs(streamMusicStore)
 
 const { clearPlayNextList } = playerStore
 
@@ -77,9 +80,14 @@ const loadTracks = async () => {
   ]
   const loadedTrackIDs = tracks.value.map((t) => t.id)
   const localMusics = localTracks.value.filter((t) => trackIDs.includes(t.id))
-  let newTracks = localMusics.filter((t) => !loadedTrackIDs.includes(t.id))
+  const streamMusics = streamTracks.value.filter((t) => trackIDs.includes(t.id))
 
-  const onlineTrackIDs = trackIDs.filter((t) => !localMusics.map((s) => s.id).includes(t))
+  let newTracks = localMusics.filter((t) => !loadedTrackIDs.includes(t.id))
+  newTracks = streamMusics.filter((t) => !loadedTrackIDs.includes(t.id))
+
+  const onlineTrackIDs = trackIDs.filter(
+    (t) => !localMusics.map((s) => s.id).includes(t) && !streamMusics.map((s) => s.id).includes(t)
+  )
 
   if (onlineTrackIDs.length > 0) {
     await getTrackDetail(onlineTrackIDs.join(',')).then((data) => {

@@ -62,6 +62,11 @@ const routes = [
     component: StreamPage
   },
   {
+    path: '/streamPlaylist/:id',
+    name: 'streamPlaylist',
+    component: PlaylistPage
+  },
+  {
     path: '/library/liked-songs',
     name: 'likedSongs',
     component: PlaylistPage,

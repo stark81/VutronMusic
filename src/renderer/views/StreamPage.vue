@@ -1,5 +1,5 @@
 <template>
-  <div v-if="show" class="streaming-music">
+  <div class="streaming-music">
     <div class="section-one">
       <div class="left" style="width: 100%">
         <InfoBG />
@@ -8,7 +8,7 @@
           <div class="content-info">
             <div>
               <div class="subtitle">全部歌曲</div>
-              <div class="text">{{ tracks.length }}首</div>
+              <div class="text">{{ streamTracks.length }}首</div>
             </div>
             <div>
               <div class="subtitle">歌曲总时长</div>
@@ -25,14 +25,17 @@
           </div>
         </div>
       </div>
-      <div class="right-top">
+      <div class="right-top" @click="playThisTrack">
         <p>
-          <!-- <span v-for="(line, index) in pickedLyric" v-show="line !== ''" :key="`${line}${index}`"
+          <span
+            v-for="(line, index) in pickedLyricLines"
+            v-show="line !== ''"
+            :key="`${line}${index}`"
             >{{ line }}<br
-          /></span> -->
+          /></span>
         </p>
       </div>
-      <!-- <div class="right-bottom">{{ artist }} - {{ trackName }}</div> -->
+      <div class="right-bottom">{{ randomTrack?.artists[0].name }} - {{ randomTrack?.name }}</div>
     </div>
     <div class="section-two">
       <div
@@ -52,21 +55,36 @@
             <span class="text">{{ $t('streamMusic.track') }}</span>
             <span class="icon" @click.stop="openTabMenu"><svg-icon icon-class="dropdown" /></span>
           </div>
+          <div v-if="isBatchOp" class="tab" @click="selectAll">{{
+            $t('contextMenu.selectAll')
+          }}</div>
+          <div v-if="isBatchOp" class="tab" @click="addToPlaylist">{{
+            $t('streamMusic.playlist.addToPlaylist')
+          }}</div>
           <div
+            v-else
             class="tab"
             :class="{ active: currentTab === 'playlist' }"
             @click="currentTab = 'playlist'"
           >
-            {{ $t('streamMusic.playlist') }}
+            {{ $t('streamMusic.playlist.text') }}
           </div>
+          <div v-if="isBatchOp" class="tab" @click="addTracksToQueue">{{
+            $t('contextMenu.addToQueue')
+          }}</div>
           <div
+            v-else
             class="tab"
             :class="{ active: currentTab === 'album' }"
             @click="currentTab = 'album'"
           >
             {{ $t('streamMusic.album') }}
           </div>
+          <div v-if="isBatchOp" class="tab" @click="finishBatchOp">{{
+            $t('contextMenu.finish')
+          }}</div>
           <div
+            v-else
             class="tab"
             :class="{ active: currentTab === 'artist' }"
             @click="currentTab = 'artist'"
@@ -74,28 +92,39 @@
             {{ $t('streamMusic.artist') }}
           </div>
         </div>
-        <div v-if="currentTab !== 'playlist'" class="search-box">
+        <div v-show="currentTab !== 'playlist'" class="search-box">
           <SearchBox ref="streamSearchBoxRef" :placeholder="`搜索${placeHolderMap(currentTab)}`" />
         </div>
+        <button v-show="currentTab === 'playlist'" class="tab-button" @click="openAddPlaylistModal"
+          ><svg-icon icon-class="plus" />{{ $t('library.playlist.newPlaylist') }}</button
+        >
       </div>
       <div class="section-two-content" :style="tabStyle">
         <div v-show="currentTab === 'track'">
           <TrackList
-            :id="1"
+            :id="0"
+            ref="streamListRef"
             :items="sortedLocalTracks"
-            :type="'streamingPlaylist'"
+            :type="'streamPlaylist'"
             :colunm-number="1"
             :is-end="true"
+            :extra-context-menu-item="['addToStreamList']"
           />
         </div>
         <div v-show="currentTab === 'playlist'">
           <CoverRow
             :items="playlists"
-            type="streamingPlaylist"
+            type="streamPlaylist"
             sub-text="creator"
             :colunm-number="5"
             :is-end="true"
           />
+        </div>
+        <div v-show="currentTab === 'album'">
+          <AlbumList :tracks="sortedLocalTracks" />
+        </div>
+        <div v-show="currentTab === 'artist'">
+          <ArtistList :tracks="sortedLocalTracks" />
         </div>
       </div>
     </div>
@@ -105,44 +134,73 @@
       <div class="item" @click="stream.sortBy = 'byname'">{{ $t('contextMenu.sortByName') }}</div>
       <div class="item" @click="stream.sortBy = 'descend'">{{ $t('contextMenu.descendSort') }}</div>
       <div class="item" @click="stream.sortBy = 'ascend'">{{ $t('contextMenu.ascendSort') }}</div>
+      <hr v-show="!isBatchOp" />
+      <div v-show="!isBatchOp" class="item" @click="isBatchOp = true">{{
+        $t('contextMenu.batchOperation')
+      }}</div>
     </ContextMenu>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, inject, computed } from 'vue'
+import { ref, onMounted, inject, computed, onUnmounted, provide, watch, shallowRef } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useSettingsStore } from '../store/settings'
+import { useStreamMusicStore } from '../store/streamingMusic'
+import { useNormalStateStore } from '../store/state'
 import { useRouter } from 'vue-router'
 import InfoBG from '../components/InfoBG.vue'
 import SvgIcon from '../components/SvgIcon.vue'
 import SearchBox from '../components/SearchBox.vue'
 import TrackList from '../components/VirtualTrackList.vue'
+import AlbumList from '../components/AlbumList.vue'
+import ArtistList from '../components/ArtistList.vue'
 import CoverRow from '../components/VirtualCoverRow.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import { useI18n } from 'vue-i18n'
+import { randomNum } from '../utils'
+import { lyricParse, pickedLyric } from '../utils/lyric'
+import { Track } from '../store/localMusic'
+import { usePlayerStore } from '../store/player'
 
 const settingsStore = useSettingsStore()
 const { stream } = storeToRefs(settingsStore)
+
+const { newPlaylistModal, modalOpen } = storeToRefs(useNormalStateStore())
+
+const streamMusicStore = useStreamMusicStore()
+const { streamTracks, playlists } = storeToRefs(streamMusicStore)
+const { fetchStreamMusic } = streamMusicStore
+
+const { addTrackToPlayNext } = usePlayerStore()
+
 const router = useRouter()
 
-const show = ref(false)
 const hasCustomTitleBar = inject('hasCustomTitleBar', ref(true))
 const streamTabMenu = ref<InstanceType<typeof ContextMenu>>()
 const streamSearchBoxRef = ref<InstanceType<typeof SearchBox>>()
-const tracks = ref<any[]>([])
-const playlists = ref<any[]>([])
+const streamListRef = shallowRef<InstanceType<typeof TrackList>>()
+const tabsRowRef = ref()
+const isBatchOp = ref(false)
+
 const currentTab = ref('track')
+const randomTrack = ref<Track>()
+const randomLyric = ref<{ content: string }[]>([])
 
 const tabStyle = computed(() => {
   const marginTop = hasCustomTitleBar.value ? 20 : 0
   return { marginTop: `${marginTop}px` }
 })
 
+const pickedLyricLines = computed(() => {
+  const randomLines = pickedLyric(randomLyric.value)
+  return randomLines
+})
+
 const keyword = computed(() => streamSearchBoxRef.value?.keywords || '')
 
 const defaultTracks = computed(() => {
-  return tracks.value?.map((track, index) => ({ ...track, index }))
+  return streamTracks.value?.map((track, index) => ({ ...track, index }))
 })
 
 const filterStreamTracks = computed(() => {
@@ -174,7 +232,7 @@ const sortedLocalTracks = computed(() => {
 })
 
 const formatedTime = computed(() => {
-  const dt = tracks.value.map((track) => track.dt).reduce((acc, cur) => acc + cur, 0) / 1000
+  const dt = streamTracks.value.map((track) => track.dt).reduce((acc, cur) => acc + cur, 0) / 1000
   const hourse = Math.floor(dt / 3600)
   const minutes = Math.floor((dt % 3600) / 60)
   const seconds = Math.floor(dt % 60)
@@ -183,7 +241,9 @@ const formatedTime = computed(() => {
 
 const formatedMemory = computed(() => {
   const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
-  let memory = tracks.value.map((track) => track.size).reduce((acc, cur) => acc + cur, 0) as number
+  let memory = streamTracks.value
+    .map((track) => track.size)
+    .reduce((acc, cur) => acc + cur, 0) as number
   let i = 0
   while (memory >= 1024 && i < units.length - 1) {
     memory /= 1024
@@ -191,6 +251,23 @@ const formatedMemory = computed(() => {
   }
   return `${memory.toFixed(2)} ${units[i]}`
 })
+
+const selectAll = () => {
+  streamListRef.value?.selectAll()
+}
+
+const addToPlaylist = () => {
+  streamListRef.value?.addToSteamPlaylist()
+}
+
+const addTracksToQueue = () => {
+  streamListRef.value?.addToQueue()
+}
+
+const finishBatchOp = () => {
+  isBatchOp.value = false
+  streamListRef.value?.doFinish()
+}
 
 const openTabMenu = (e: MouseEvent): void => {
   streamTabMenu.value?.openMenu(e)
@@ -206,21 +283,108 @@ const placeHolderMap = (tab: string) => {
   return pMap[tab]
 }
 
+const playThisTrack = () => {
+  addTrackToPlayNext(randomTrack.value!.id, true, true)
+}
+
+const openAddPlaylistModal = () => {
+  newPlaylistModal.value = {
+    type: 'stream',
+    afterCreateAddTrackID: [],
+    show: true
+  }
+}
+
+const getRandomTrack = async () => {
+  const ids = defaultTracks.value.map((t) => t.id)
+  let i = 0
+  let data: any
+  let randomID: string | number
+  while (i < ids.length - 1) {
+    randomID = ids[randomNum(0, ids.length - 1)]
+    data = await fetch(`atom://get-stream-lyric/${randomID}`).then((res) => res.json())
+    if (data.lrc.lyric.length > 0) {
+      const { lyric } = lyricParse(data)
+      const isInstrumental = lyric.filter((l) => l.content?.includes('纯音乐，请欣赏'))
+      if (!isInstrumental.length) {
+        randomLyric.value = lyric
+        break
+      }
+    }
+    i++
+  }
+  randomTrack.value = streamTracks.value.find((t) => t.id === randomID)!
+}
+
+watch(modalOpen, (value) => {
+  if (!value) {
+    isBatchOp.value = false
+  }
+})
+
+provide('isBatchOp', isBatchOp)
+
+const navBarRef = inject('navBarRef', ref())
+// 这里需要进行调整
+// 1. 将滚动条组件变更为控制root元素滚动，而非main元素滚动
+// 2. root元素滚动应该和虚拟列表滚动互斥，即root元素滚动时虚拟列表不滚动，反之亦然
+const observeTab = new IntersectionObserver(
+  (entries) => {
+    entries.forEach((entry) => {
+      const intersectionRatio = entry.intersectionRatio
+      const maxPadding = 42
+      const maxPaddingRight = 42
+      if (intersectionRatio > 0) {
+        if (window.env?.isMac) {
+          const paddingLeft = maxPadding * (1 - intersectionRatio)
+          tabsRowRef.value.style.paddingLeft = `${paddingLeft}px`
+        }
+        const paddingRight = maxPaddingRight * (1 - intersectionRatio)
+        tabsRowRef.value.style.width = `calc(100% - ${paddingRight}px)`
+        if (navBarRef.value) navBarRef.value.searchBoxRef.$el.style.display = ''
+      } else {
+        if (window.env?.isMac) {
+          tabsRowRef.value.style.paddingLeft = `${maxPadding}px`
+        }
+        tabsRowRef.value.style.width = `calc(100% - ${maxPaddingRight}px)`
+        if (navBarRef.value) navBarRef.value.searchBoxRef.$el.style.display = 'none'
+      }
+    })
+  },
+  {
+    root: null,
+    rootMargin: `-${hasCustomTitleBar.value ? 84 : 64}px 0px 0px 0px`,
+    threshold: Array.from({ length: 101 }, (v, i) => i / 100)
+  }
+)
+
+const handleResize = () => {
+  observeTab.unobserve(tabsRowRef.value)
+  observeTab.disconnect()
+  if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
+}
+
 onMounted(() => {
   // stream.value.status = 'logout'
   if (stream.value.status === 'logout') {
     router.push('/streamLogin')
     return
   }
-  window.mainApi
-    .invoke('get-stream-songs', { platform: stream.value.select })
-    .then((songs: any[]) => {
-      tracks.value = songs
-      show.value = true
-    })
-  window.mainApi
-    .invoke('get-stream-playlists', { platform: stream.value.select })
-    .then((p: any[]) => (playlists.value = p))
+  window.addEventListener('resize', handleResize)
+  setTimeout(() => {
+    if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
+  }, 100)
+  fetchStreamMusic().catch(() => {
+    stream.value.status = 'logout'
+    router.push('/streamLogin')
+  })
+  getRandomTrack()
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+  navBarRef.value.searchBoxRef.$el.style.display = ''
+  observeTab.disconnect()
 })
 </script>
 

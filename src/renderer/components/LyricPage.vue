@@ -130,7 +130,7 @@ const setOffset = (offset: number) => {
   if (!currentTrack.value!.offset) {
     currentTrack.value!.offset = 0
   }
-  if (currentTrack.value!.isLocal) {
+  if (currentTrack.value!.type === 'local') {
     window.mainApi
       .invoke('updateLocalTrackInfo', currentTrack.value!.id, {
         offset: currentTrack.value!.offset + offset

@@ -87,7 +87,8 @@ const showTracks = computed(() => {
 const playThisList = (id: number) => {
   const IDs = showTracks.value.map((track) => track.id)
   const idx = showTracks.value.findIndex((item) => item.id === id)
-  replacePlaylist('localPlaylist', 0, IDs, idx)
+  const type = showTracks.value[0].type
+  replacePlaylist(type === 'local' ? 'localPlaylist' : 'streamPlaylist', 0, IDs, idx)
 }
 
 const updatePadding = inject('updatePadding') as (padding: number) => void

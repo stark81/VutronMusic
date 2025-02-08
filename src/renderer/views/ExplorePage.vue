@@ -348,7 +348,6 @@ const getNewAlbum = () => {
   if (albumType.value === '热门') {
     if (!newAlbumInfo.topAlbum.hasMore) return
     topAlbum({ area: albumMap[activeCategory.value] }).then((data) => {
-      // console.log('topAlbum', data)
       newAlbumInfo.topAlbum.hasMore = data.hasMore
       newAlbumInfo.topAlbum.weekData = data.weekData
       newAlbumInfo.topAlbum.monthData = data.monthData

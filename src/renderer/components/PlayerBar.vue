@@ -205,6 +205,7 @@ const artists = computed(() => {
 const source = computed(() => {
   const sourceMap = {
     localTrack: '本地音乐',
+    navidrome: 'navidrome',
     netease: '网易云音乐',
     qq: 'QQ音乐',
     kugou: '酷狗音乐',
@@ -252,7 +253,7 @@ const formatVolume = computed(() => {
 })
 
 const heartDisabled = computed(() => {
-  return currentTrack.value?.isLocal && !currentTrack.value?.matched
+  return currentTrack.value?.type !== 'online' && !currentTrack.value?.matched
 })
 
 watch(showLyrics, (value) => {

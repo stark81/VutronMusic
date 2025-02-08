@@ -250,8 +250,7 @@ const {
   color,
   color2,
   pic,
-  repeatMode,
-  playlistSource
+  repeatMode
 } = storeToRefs(playerStore)
 const { playPrev, playOrPause, _playNextTrack, switchRepeatMode, moveToFMTrash } = playerStore
 const { likeATrack } = useDataStore()
@@ -286,7 +285,7 @@ const background = computed(() => {
 })
 
 const heartDisabled = computed(() => {
-  return currentTrack.value?.isLocal && !currentTrack.value?.matched
+  return currentTrack.value?.type !== 'online' && !currentTrack.value?.matched
 })
 
 const artist = computed(() => {
@@ -296,6 +295,7 @@ const artist = computed(() => {
 const source = computed(() => {
   const sourceMap = {
     localTrack: '本地音乐',
+    navidrome: 'navidrome',
     netease: '网易云音乐',
     qq: 'QQ音乐',
     kugou: '酷狗音乐',
@@ -324,7 +324,7 @@ const addTrackToPlaylist = () => {
   addTrackToPlaylistModal.value = {
     show: true,
     selectedTrackID: [currentTrack.value.id],
-    isLocal: playlistSource.value.type.includes('local')
+    type: currentTrack.value.type!
   }
 }
 

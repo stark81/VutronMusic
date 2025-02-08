@@ -62,7 +62,11 @@
   "streamMusic": {
     "track": "全部歌曲",
     "song": "流媒体音乐",
-    "playlist": "流媒体歌单",
+    "playlist": {
+      "text": "流媒体歌单",
+      "addToPlaylist": "添加至流媒体歌单",
+      "newPlaylist": "新建流媒体歌单"
+    },
     "album": "专辑",
     "artist": "艺人"
   },
@@ -378,9 +382,10 @@
     }
   },
   "toast": {
-    "createLocalPlaylistSuccess": "成功创建本地歌单",
-    "createLocalPlaylistFailed": "创建本地歌单失败",
+    "createLocalPlaylistSuccess": "成功创建歌单",
+    "createLocalPlaylistFailed": "创建歌单失败",
     "savedToPlaylist": "已添加到歌单",
+    "saveFailed": "添加失败",
     "tracksAlreadyInPlaylist": "歌曲已在歌单中",
     "needToLogin": "此操作需要登录网易云帐号",
     "getColorFailed": "获取颜色失败",

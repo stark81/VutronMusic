@@ -20,12 +20,14 @@ export interface TypeElectronStore {
     [key: string]: any
   }
   accounts: {
+    selected: string
     navidrome: {
       url: string
       clientID: string
       anthorization: string
       token: string
       username: string
+      password: string
       salt: string
     }
   }
@@ -108,11 +110,13 @@ const store = new Store<TypeElectronStore>({
       ]
     },
     accounts: {
+      selected: 'navidrome',
       navidrome: {
         url: '',
         clientID: '',
         anthorization: '',
         username: '',
+        password: '',
         token: '',
         salt: ''
       }

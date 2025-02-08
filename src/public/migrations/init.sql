@@ -13,19 +13,13 @@ CREATE TABLE IF NOT EXISTS "AppData" (
 
 CREATE TABLE IF NOT EXISTS "Track" (
     "id" INTEGER NOT NULL,
-    "filePath" TEXT DEFAULT "",
-    "isLocal" INTEGER DEFAULT 0,
-    "deleted" INTEGER DEFAULT 0,
+    "type" TEXT DEFAULT '',
     "json" TEXT NOT NULL,
     "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id)
 );
 
-CREATE INDEX IF NOT EXISTS "filePath" ON "Track" ("filePath");
-
-CREATE INDEX IF NOT EXISTS "isLocal" ON "Track" ("isLocal");
-
-CREATE INDEX IF NOT EXISTS "deleted" ON "Track" ("deleted");
+CREATE INDEX IF NOT EXISTS "type" ON "Track" ("type");
 
 CREATE TABLE IF NOT EXISTS "Album" (
     "id" INTEGER NOT NULL,

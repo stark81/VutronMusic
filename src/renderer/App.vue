@@ -38,6 +38,7 @@ import newPlaylistModal from './components/NewPlaylistModal.vue'
 import PlayPage from './views/PlayPage.vue'
 import { useDataStore } from './store/data'
 import { useLocalMusicStore } from './store/localMusic'
+import { useStreamMusicStore } from './store/streamingMusic'
 import { useOsdLyricStore } from './store/osdLyric'
 import { usePlayerStore } from './store/player'
 import { useSettingsStore } from './store/settings'
@@ -49,6 +50,8 @@ import { useRoute } from 'vue-router'
 const localMusicStore = useLocalMusicStore()
 const { localTracks } = storeToRefs(localMusicStore)
 const { fetchLocalMusic, deleteLocalTracks } = localMusicStore
+
+const { fetchStreamMusic } = useStreamMusicStore()
 
 const playerStore = usePlayerStore()
 const { enabled } = storeToRefs(playerStore)
@@ -228,6 +231,7 @@ onMounted(async () => {
     theme.value.colors.find((c) => c.selected)?.color || 'rgba(51, 94, 234, 1)'
   )
   fetchData()
+  fetchStreamMusic()
   fetchLocalData()
   handleChanelEvent()
 })

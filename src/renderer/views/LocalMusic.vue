@@ -27,12 +27,15 @@
       </div>
       <div class="right-top" @click="playThisTrack">
         <p>
-          <span v-for="(line, index) in pickedLyric" v-show="line !== ''" :key="`${line}${index}`"
+          <span
+            v-for="(line, index) in pickedLyricLines"
+            v-show="line !== ''"
+            :key="`${line}${index}`"
             >{{ line }}<br
           /></span>
         </p>
       </div>
-      <div class="right-bottom">{{ artist }} - {{ trackName }}</div>
+      <div class="right-bottom">{{ randomTrack?.artists[0].name }} - {{ randomTrack?.name }}</div>
     </div>
     <div class="section-two">
       <div
@@ -152,7 +155,7 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
 import { useNormalStateStore } from '../store/state'
-import { useLocalMusicStore } from '../store/localMusic'
+import { Track, useLocalMusicStore } from '../store/localMusic'
 import { usePlayerStore } from '../store/player'
 import {
   computed,
@@ -161,7 +164,6 @@ import {
   provide,
   inject,
   onMounted,
-  onActivated,
   onUnmounted,
   watch,
   nextTick
@@ -176,7 +178,7 @@ import SearchBox from '../components/SearchBox.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import AccurateMatchModal from '../components/AccurateMatchModal.vue'
 import { randomNum } from '../utils/index'
-import { lyricParse } from '../utils/lyric'
+import { lyricParse, pickedLyric } from '../utils/lyric'
 import { useI18n } from 'vue-i18n'
 
 // load
@@ -194,9 +196,7 @@ const trackListRef = shallowRef<InstanceType<typeof TrackList>>()
 const tabsRowRef = ref()
 const randomID = ref<number>(1)
 const randomLyric = ref<{ content: string }[]>([])
-const artist = ref<string>('')
-const trackName = ref<string>('')
-const noLyricTracks = ref<number[]>([])
+const randomTrack = ref<Track>()
 const isBatchOp = ref(false)
 
 const hasCustomTitleBar = inject('hasCustomTitleBar', ref(true))
@@ -221,10 +221,9 @@ const artists = computed(() => {
   return [...new Map(ar.map((ar) => [ar.name, ar])).values()]
 })
 
-const localTrackIDs = computed(() => {
-  const ids = localTracks.value.map((track) => track.id)
-  const result = ids.filter((id) => !noLyricTracks.value.includes(id))
-  return result
+const pickedLyricLines = computed(() => {
+  const randomLines = pickedLyric(randomLyric.value)
+  return randomLines
 })
 
 watch(modalOpen, (value) => {
@@ -256,21 +255,6 @@ const addToPlaylist = () => {
 const addTracksToQueue = () => {
   trackListRef.value?.addToQueue()
 }
-
-// function
-const pickedLyric = computed(() => {
-  if (randomLyric.value.length === 0) return []
-  const filterWords =
-    /(作词|作曲|编曲|和声|混音|录音|OP|SP|MV|吉他|二胡|古筝|曲编|键盘|贝斯|鼓|弦乐|打击乐|混音|制作人|配唱|提琴|海报|特别鸣谢)/i
-  const lyricLines = randomLyric.value
-    .filter((l) => !filterWords.test(l.content))
-    .map((l) => l.content)
-  const lyricsToPick = Math.min(lyricLines.length, 3)
-  const randomUpperBound = lyricLines.length - lyricsToPick
-  const startLyricLineIndex = randomNum(0, randomUpperBound - 1)
-
-  return lyricLines.slice(startLyricLineIndex, startLyricLineIndex + lyricsToPick)
-})
 
 const keyword = computed(() => localSearchBoxRef.value?.keywords || '')
 
@@ -321,7 +305,7 @@ const openLocalTracksTabMenu = (e: MouseEvent): void => {
 
 const openAddPlaylistModal = () => {
   newPlaylistModal.value = {
-    isLocal: true,
+    type: 'local',
     afterCreateAddTrackID: [],
     show: true
   }
@@ -380,31 +364,25 @@ const handleResize = () => {
   if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
 }
 
-const getRandomTrack = async (id: number) => {
-  if (!id) return
-  const data = await fetch(`atom://get-lyric/${id}`)
-    .then((res) => res.json())
-    .catch(() => {
-      noLyricTracks.value.push(id)
-      return null
-    })
-  if (!data?.lrc?.lyric?.length) {
-    noLyricTracks.value.push(id)
-    randomID.value = localTrackIDs.value[randomNum(0, localTrackIDs.value.length - 1)]
-    getRandomTrack(randomID.value)
-    return
+const getRandomTrack = async () => {
+  const ids = defaultTracks.value.map((t) => t.id)
+  let i = 0
+  let data: any
+  let randomID: number
+  while (i < ids.length - 1) {
+    randomID = ids[randomNum(0, ids.length - 1)]
+    data = await fetch(`atom://get-lyric/${randomID}`).then((res) => res.json())
+    if (data.lrc.lyric.length > 0) {
+      const { lyric } = lyricParse(data)
+      const isInstrumental = lyric.filter((l) => l.content?.includes('纯音乐，请欣赏'))
+      if (!isInstrumental.length) {
+        randomLyric.value = lyric
+        break
+      }
+    }
+    i++
   }
-  const { lyric } = lyricParse(data)
-  const isInstrumental = lyric.filter((l) => l.content?.includes('纯音乐，请欣赏'))
-  if (isInstrumental.length > 0) {
-    randomID.value = localTrackIDs.value[randomNum(0, localTrackIDs.value.length - 1)]
-    getRandomTrack(randomID.value)
-    return
-  }
-  const track = localTracks.value.find((track) => track.id === id)
-  randomLyric.value = lyric
-  trackName.value = track!.name
-  artist.value = track!.artists[0].name
+  randomTrack.value = defaultTracks.value.find((t) => t.id === randomID)!
 }
 
 const updatePadding = inject('updatePadding') as (padding: number) => void
@@ -421,15 +399,7 @@ onMounted(() => {
     updatePadding(0)
     if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
   }, 100)
-  if (!localTrackIDs.value.length) return
-  randomID.value = localTrackIDs.value[randomNum(0, localTrackIDs.value.length - 1)]
-  getRandomTrack(randomID.value)
-})
-
-onActivated(() => {
-  if (!localTrackIDs.value.length) return
-  randomID.value = localTrackIDs.value[randomNum(0, localTrackIDs.value.length - 1)]
-  getRandomTrack(randomID.value)
+  getRandomTrack()
 })
 
 onUnmounted(() => {
@@ -437,14 +407,10 @@ onUnmounted(() => {
   updatePadding(96)
   navBarRef.value.searchBoxRef.$el.style.display = ''
   observeTab.disconnect()
-  // observeSectionOne.disconnect()
 })
 </script>
 
 <style scoped lang="scss">
-// .local-music {
-//   transition: all 0.4s;
-// }
 .section-one {
   margin: 20px 0 0 0;
   box-sizing: border-box;

@@ -67,6 +67,7 @@
     "pinia-plugin-persistedstate": "^3.2.1",
     "plyr": "^3.7.8",
     "qrcode": "^1.5.3",
+    "qs": "^6.14.0",
     "soundtouchjs": "^0.1.30",
     "trickling": "^1.14.0",
     "vite-plugin-multiple": "^0.2.0",

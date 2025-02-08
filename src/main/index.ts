@@ -19,13 +19,13 @@ import { parseFile, IAudioMetadata } from 'music-metadata'
 import mime from 'mime-types'
 import cache from './cache'
 import {
-  getReplayGainFromMetadata,
   getPic,
   getLyric,
   getPicColor,
   getTrackDetail,
   getAudioSource,
-  cacheOnlineTrack
+  cacheOnlineTrack,
+  getStreamLyric
 } from './utils/utils'
 import { CacheAPIs } from './utils/CacheApis'
 import { registerGlobalShortcuts } from './globalShortcut'
@@ -393,7 +393,7 @@ class BackGround {
         }
         let metadata = null
 
-        if (track.isLocal) {
+        if (track.type === 'local') {
           metadata = await parseFile(decodeURI(track.filePath))
         }
 
@@ -420,7 +420,7 @@ class BackGround {
           : 'https://p1.music.126.net/jWE3OEZUlwdz0ARvyQ9wWw==/109951165474121408.jpg?param=512y512'
 
         let metadata = null
-        if (track.isLocal) {
+        if (track.type === 'local') {
           metadata = await parseFile(decodeURI(track.filePath))
         }
 
@@ -474,7 +474,7 @@ class BackGround {
         let metadata: IAudioMetadata | null = null
 
         // const useInnerFirst = store.get('settings.innerFirst') as boolean
-        if (track.isLocal && !track.matched) {
+        if (track.type === 'local' && !track.matched) {
           metadata = await parseFile(decodeURI(track.filePath))
         }
 
@@ -488,8 +488,8 @@ class BackGround {
         // 获取颜色
         const { color, color2 } = await getPicColor(pic)
 
-        const gain = getReplayGainFromMetadata(metadata)
-        return new Response(JSON.stringify({ pic, format, color, color2, gain, lyrics }), {
+        // const gain = getReplayGainFromMetadata(metadata)
+        return new Response(JSON.stringify({ pic, format, color, color2, lyrics }), {
           headers: { 'content-type': 'application/json' }
         })
       } else if (host === 'get-track') {
@@ -499,7 +499,7 @@ class BackGround {
         if (res) {
           const track = res.songs[0]
           // 可能是本地歌曲，也有可能是缓存歌曲
-          if (track.isLocal) {
+          if (track.type === 'local') {
             if (!track.source) track.source = 'localTrack'
             track.cache = false
             return new Response(JSON.stringify(track), {
@@ -583,6 +583,39 @@ class BackGround {
       } else if (host === 'get-navidrome-pic') {
         const id = pathname.slice(1)
         return fetch(this.navidrome.getPic(id))
+      } else if (host === 'get-navidrome-music') {
+        const id = pathname.slice(1)
+        const headers = request.headers
+        return fetch(this.navidrome.getStream(id), { headers })
+      } else if (host === 'get-stream-track-info') {
+        const id = pathname.slice(1)
+        let pic: Buffer | null = null
+        let format: string = ''
+
+        // 获取图片
+        pic = await fetch(this.navidrome.getPic(id))
+          .then((res) => {
+            format = res.headers.get('Content-Type')
+            return res.arrayBuffer()
+          })
+          .then((res) => Buffer.from(res))
+
+        // 获取颜色
+        const { color, color2 } = await getPicColor(pic)
+
+        // 获取歌词
+        const url = this.navidrome.getLyricByID(id)
+        const lyrics = await getStreamLyric(url)
+        return new Response(JSON.stringify({ pic, format, color, color2, lyrics }), {
+          headers: { 'content-type': 'application/json' }
+        })
+      } else if (host === 'get-stream-lyric') {
+        const id = pathname.slice(1)
+        const url = this.navidrome.getLyricByID(id)
+        const lyrics = await getStreamLyric(url)
+        return new Response(JSON.stringify(lyrics), {
+          headers: { 'content-type': 'application/json' }
+        })
       }
     })
   }

@@ -3,6 +3,7 @@ import shuffleFn from 'lodash/shuffle'
 import { lyricParse } from '../utils/lyric'
 import { ref, computed, reactive, watch, watchEffect, onMounted, onBeforeUnmount, toRaw } from 'vue'
 import { Track, useLocalMusicStore } from './localMusic'
+import { useStreamMusicStore } from './streamingMusic'
 import { useSettingsStore } from './settings'
 import { useNormalStateStore } from './state'
 import { useDataStore } from './data'
@@ -56,6 +57,7 @@ export const usePlayerStore = defineStore(
     const currentLyricIndex = ref(-1)
     const wBywLyricIndex = ref(0)
     const localMusics = ref<Track[]>([])
+    const streamMusics = ref<Track[]>([])
     const isLiked = ref(false)
     const isLocalList = ref(false)
     const pic = ref<string>(
@@ -90,14 +92,13 @@ export const usePlayerStore = defineStore(
 
     let initAcx = false
     const localMusicStore = useLocalMusicStore()
+    const streamMusicStore = useStreamMusicStore()
     const { updateTrack } = localMusicStore
     const { likeATrack } = useDataStore()
     const { t } = useI18n()
 
     const settingsStore = useSettingsStore()
     const { showToast } = useNormalStateStore()
-    // const useReplayGain = computed(() => settingsStore.localMusic.replayGain)
-    // const useInnerInfoFirst = computed(() => settingsStore.localMusic.useInnerInfoFirst)
 
     const audio = new Audio()
     const audioContext = new AudioContext()
@@ -392,7 +393,7 @@ export const usePlayerStore = defineStore(
 
     const searchMatchForLocal = async (track: Track) => {
       let flag = false
-      if (track.isLocal && !track.matched) {
+      if (track.type === 'local' && !track.matched) {
         const params = {
           title: track.name,
           album: '',
@@ -449,7 +450,12 @@ export const usePlayerStore = defineStore(
     const getCurrentTrackInfo = async (track: Track) => {
       if (!track) return
       wBywLyricIndex.value = 0
-      const data = await fetch(`atom://get-track-info/${track.id}`).then((res) => res.json())
+      let data: any
+      if (track.type === 'stream') {
+        data = await fetch(`atom://get-stream-track-info/${track.id}`).then((res) => res.json())
+      } else {
+        data = await fetch(`atom://get-track-info/${track.id}`).then((res) => res.json())
+      }
       const buffer = new Uint8Array(data.pic.data)
       const blob = new Blob([buffer], { type: data.format })
       // if (pic.value) URL.revokeObjectURL(pic.value)
@@ -574,25 +580,33 @@ export const usePlayerStore = defineStore(
             return
           }
         }
-        fetch(`atom://get-track/${id}`).then((data) => {
-          if (data.status === 200) {
-            data.json().then((track: Track) => {
-              resolve(track)
-            })
-          } else if (data.status === 440) {
-            resolve(undefined)
-          }
-        })
+        if (playlistSource.value.type.includes('stream') && typeof id === 'string') {
+          streamMusics.value = streamMusicStore.streamTracks
+          const matchTrack = streamMusics.value?.find((track) => track.id === id)
+          resolve(matchTrack)
+        } else {
+          fetch(`atom://get-track/${id}`).then((data) => {
+            if (data.status === 200) {
+              data.json().then((track: Track) => {
+                resolve(track)
+              })
+            } else if (data.status === 440) {
+              resolve(undefined)
+            }
+          })
+        }
       })
     }
 
     const getTrackSource = (track: Track) => {
       return new Promise<string>((resolve) => {
-        if (!track.isLocal && !track.url) {
+        if (track.type === 'online' && !track.url) {
           resolve('')
         }
-        if (track.isLocal || track.cache) {
+        if (track.type === 'local' || track.cache) {
           resolve(`atom://get-music/${track.cache ? track.url : track.filePath}`)
+        } else if (track.type === 'stream') {
+          resolve(track.url)
         } else {
           resolve(`atom://get-online-music/${track.url}`)
         }
@@ -1018,22 +1032,28 @@ export const usePlayerStore = defineStore(
       playing.value = false
       title.value = 'VutronMusic'
       if (enabled.value) {
-        pic.value = `atom://get-pic/${currentTrack.value?.id}`
+        if (currentTrack.value?.type === 'stream') {
+          pic.value = `atom://get-navidrome-pic/${currentTrack.value?.id}`
+        } else {
+          pic.value = `atom://get-pic/${currentTrack.value?.id}`
+        }
         await setupAudioNode()
         seek.value = progress.value
-        replaceCurrentTrack(currentTrack.value!.id, false).then(() => {
-          window.mainApi.send('updatePlayerState', {
-            playing: playing.value,
-            isPersonalFM: isPersonalFM.value,
-            like: isLiked.value,
-            repeatMode: repeatMode.value,
-            shuffle: shuffle.value
+        setTimeout(() => {
+          replaceCurrentTrack(currentTrack.value!.id, false).then(() => {
+            window.mainApi.send('updatePlayerState', {
+              playing: playing.value,
+              isPersonalFM: isPersonalFM.value,
+              like: isLiked.value,
+              repeatMode: repeatMode.value,
+              shuffle: shuffle.value
+            })
+            getLyricIndex()
+            getWordByWordLyricIdx()
           })
-          getLyricIndex()
-          getWordByWordLyricIdx()
-        })
-        handleIpcRenderer()
-        initMediaSession()
+          handleIpcRenderer()
+          initMediaSession()
+        }, 1000)
       }
       if (
         _personalFMTrack.value.id === 0 ||

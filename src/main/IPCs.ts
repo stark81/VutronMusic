@@ -345,19 +345,16 @@ function initOtherIpcMain(win: BrowserWindow): void {
               name: common.title ?? '错误文件',
               dt: (format.duration ?? 0) * 1000,
               source: 'localTrack',
-              gain: 0,
+              gain: getReplayGainFromMetadata(metadata),
               peak: 1,
               br: format.bitrate ?? 320000,
               filePath,
-              show: true,
-              deleted: false,
-              isLocal: true,
+              type: 'local',
               matched: false,
               offset: 0,
               md5,
               createTime: birthDate,
               alias: [],
-              trackGain: getReplayGainFromMetadata(metadata),
               album,
               artists: arIDsResult,
               picUrl: 'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg'
@@ -398,7 +395,7 @@ function initOtherIpcMain(win: BrowserWindow): void {
   })
 
   ipcMain.handle('getCacheTracksInfo', (event) => {
-    const tracks = cache.get(CacheAPIs.LocalMusic, { sql: 'isLocal = 0' })
+    const tracks = cache.get(CacheAPIs.LocalMusic, { sql: "type = 'online'" })
     const size = tracks.songs
       .map((track: any) => track.size)
       .reduce((acc: string, cur: string) => Number(acc) + Number(cur), 0)
@@ -496,15 +493,37 @@ function initStreaming(navidrome: NavidromeImpl) {
 
   ipcMain.handle('get-stream-songs', async (event, data) => {
     if (data.platform === 'navidrome') {
-      const response = await navidrome.getTracks()
-      return response
+      const tracks = await navidrome.getTracks()
+      const playlists = await navidrome.getPlaylists()
+      return { tracks, playlists }
     }
   })
 
   ipcMain.handle('get-stream-playlists', async (event, data) => {
     if (data.platform === 'navidrome') {
-      const response = await navidrome.getPlaylists()
-      return response
+      const playlists = await navidrome.getPlaylists()
+      return { playlists }
+    }
+  })
+
+  ipcMain.handle('deleteStreamPlaylist', async (event, data) => {
+    if (data.platform === 'navidrome') {
+      const result = await navidrome.deletePlaylist(data.id)
+      return result
+    }
+  })
+
+  ipcMain.handle('createStreamPlaylist', async (event, data) => {
+    if (data.platform === 'navidrome') {
+      const result = await navidrome.createPlaylist(data.name)
+      return result
+    }
+  })
+
+  ipcMain.handle('updateStreamPlaylist', async (event, data) => {
+    if (data.platform === 'navidrome') {
+      const result = await navidrome.addTracksToPlaylist(data.op, data.playlistId, data.ids)
+      return result
     }
   })
 }

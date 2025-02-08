@@ -158,14 +158,15 @@ const track = computed(
 )
 
 const image = computed(() => {
-  let url = track.value.isLocal
-    ? localMusic.value.scanning && !track.value.matched
-      ? `atom://get-pic-path/${track.value.filePath}`
-      : `atom://get-pic/${track.value.id}`
-    : track.value.al?.picUrl ||
-      track.value.album?.picUrl ||
-      track.value.picUrl ||
-      `https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg`
+  let url =
+    track.value.type === 'local'
+      ? localMusic.value.scanning && !track.value.matched
+        ? `atom://get-pic-path/${track.value.filePath}`
+        : `atom://get-pic/${track.value.id}`
+      : track.value.al?.picUrl ||
+        track.value.album?.picUrl ||
+        track.value.picUrl ||
+        `https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg`
   if (url && url.startsWith('http')) {
     url = url.replace('http:', 'https:')
   }
@@ -322,7 +323,7 @@ const goToMv = () => {
 }
 
 const likeThisSong = () => {
-  if (track.value.isLocal && !track.value.matched) {
+  if (track.value.type !== 'online' && !track.value.matched) {
     showToast(t('player.noAllowCauseLocal'))
     return
   }

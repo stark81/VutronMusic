@@ -3,7 +3,7 @@ DROP INDEX IF EXISTS deleted;
 
 CREATE TABLE IF NOT EXISTS Track_new (
   "id" INTEGER NOT NULL,
-  "type" TEXT DEFAULT "",
+  "type" TEXT DEFAULT "local",
   "json" TEXT NOT NULL,
   "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id)
@@ -14,3 +14,7 @@ SELECT id, 'local', json_set(
   json_remove(json, '$.isLocal', '$.deleted', '$.show'),
   '$.type', 'local'
 ), updatedAt FROM Track;
+
+DROP TABLE Track;
+
+ALTER TABLE Track_new RENAME TO Track

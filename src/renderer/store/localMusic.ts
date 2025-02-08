@@ -2,6 +2,8 @@ import { defineStore } from 'pinia'
 import { ref, toRaw } from 'vue'
 import _ from 'lodash'
 
+type TrackType = 'online' | 'local' | 'stream'
+
 export interface Artist {
   id: number
   name: string
@@ -24,9 +26,7 @@ export interface Track {
   name: string
   dt: number
   filePath: string
-  show: boolean
-  delete: boolean
-  isLocal?: boolean
+  type?: TrackType
   matched?: boolean
   offset?: number
   md5?: string
@@ -36,6 +36,8 @@ export interface Track {
   artists: Artist[]
   picUrl: string
   source?: string
+  gain: number
+  peak: number
   [key: string]: any
 }
 
@@ -75,7 +77,7 @@ export const useLocalMusicStore = defineStore(
 
       _.merge(localTrack, track)
       localTrack.matched = true
-      localTrack.isLocal = true
+      localTrack.type = 'local'
       localTrack.album.matched = true
       localTrack.artists.forEach((a: any) => {
         a.matched = true

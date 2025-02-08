@@ -34,7 +34,7 @@ const tracks = ref<Track[]>(props.trackProp)
 // const pic = ref()
 
 const image = computed(() => {
-  return tracks.value[0].matched
+  return tracks.value[0].matched || tracks.value[0].type === 'stream'
     ? tracks.value[0].album.picUrl + '?param=64y64'
     : `atom://get-pic/${tracks.value[0].id}`
 })

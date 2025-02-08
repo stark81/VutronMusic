@@ -341,7 +341,7 @@ const mapTrackPlayableStatus = (tracks: any[], privileges: any[] = []) => {
     const result = isTrackPlayable(t)
     t.playable = result.playable
     t.reason = result.reason
-    t.isLocal = false
+    t.type = 'online'
     t.matched = true
     return t
   })
@@ -415,7 +415,7 @@ const getAudioSourceFromNetease = async (track: any): Promise<{ [key: string]: a
 }
 
 export const getAudioSource = async (track: any) => {
-  const enableUNM = store.get('settings.unblockNeteaseMusic.enable') as boolean
+  const enableUNM = (store.get('settings.unblockNeteaseMusic.enable') as boolean) || true
   let source = 'netease'
 
   // 缓存里没有，从网易云里获取
@@ -443,10 +443,10 @@ export const getAudioSourceFromUnblock = async (track: any) => {
   const match = require('@unblockneteasemusic/server')
 
   const sourceDefault = ['kuwo', 'kugou', 'qq', 'bilibili', 'pyncmd', 'migu']
-  const source = store.get('settings.unblockNeteaseMusic.source') as string
+  const source = (store.get('settings.unblockNeteaseMusic.source') as string) || ''
   const sourceList = source.split(',').map((s) => s.trim().toLowerCase())
 
-  const qqCookie = store.get('settings.unblockNeteaseMusic.qqCookie') as string
+  const qqCookie = (store.get('settings.unblockNeteaseMusic.qqCookie') as string) || ''
   const jooxCookie = store.get('settings.unblockNeteaseMusic.jooxCookie') as string
   const enableFlac = store.get('settings.unblockNeteaseMusic.enableFlac') as boolean
   const orderFirst = store.get('settings.unblockNeteaseMusic.orderFirst') as boolean
@@ -499,7 +499,7 @@ export const cacheOnlineTrack = async (track: any) => {
 }
 
 export const deleteExcessCache = (deleteAll = false) => {
-  const tracks = Cache.get(CacheAPIs.LocalMusic, { sql: 'isLocal = 0' })
+  const tracks = Cache.get(CacheAPIs.LocalMusic, { sql: "type = 'online'" })
   if (deleteAll) {
     try {
       const ids = tracks.songs.map((s: any) => s.id)
@@ -525,4 +525,64 @@ export const deleteExcessCache = (deleteAll = false) => {
       db.deleteMany(Tables.Track, [songs[0].id])
     })
   }
+}
+
+export const getStreamLyric = async (url: string) => {
+  const server = store.get('accounts.selected') || 'navidrome'
+  const result = {
+    lrc: { lyric: [] },
+    tlyric: { lyric: [] },
+    romalrc: { lyric: [] },
+    yrc: { lyric: [] },
+    ytlrc: { lyric: [] },
+    yromalrc: { lyric: [] }
+  }
+  if (server === 'navidrome') {
+    const lyricRaw: any[] = await fetch(url)
+      .then((res) => {
+        if (res.ok) {
+          return res.json()
+        }
+      })
+      .then((data) => {
+        const lyricArray = data['subsonic-response'].lyricsList.structuredLyrics
+        return lyricArray ? lyricArray[0].line : []
+      })
+
+    if (lyricRaw.length) {
+      const map = new Map()
+      lyricRaw.forEach(({ start, value }) => {
+        if (!map.has(start)) {
+          map.set(start, [])
+        }
+        map.get(start).push(value)
+      })
+
+      const sortedStarts = Array.from(map.keys()).sort((a, b) => a - b)
+      sortedStarts.forEach((start) => {
+        const values = map.get(start)
+        // 生成时间前缀
+        const timeStr = formatTime(start)
+        // 根据规则：第一个放 lrc，第二个放 tlyric，第三个放 rlyric
+        if (values[0]) result.lrc.lyric.push(`${timeStr}${values[0]}`)
+        if (values[1]) result.tlyric.lyric.push(`${timeStr}${values[1]}`)
+        if (values[2]) result.romalrc.lyric.push(`${timeStr}${values[2]}`)
+      })
+    }
+    return result
+  }
+}
+
+const formatTime = (ms: number) => {
+  const totalSeconds = ms / 1000 // 将毫秒转换为秒
+  const minutes = Math.floor(totalSeconds / 60) // 计算分钟
+  const seconds = totalSeconds - minutes * 60 // 计算剩余的秒数（含小数部分）
+  // 保留一位小数，并确保秒数部分总是两位（比如 "05.0"）
+  let secondsStr = seconds.toFixed(1)
+  if (seconds < 10 && secondsStr.length < 4) {
+    secondsStr = '0' + secondsStr
+  }
+  // 格式化分钟，确保两位
+  const minutesStr = String(minutes).padStart(2, '0')
+  return `[${minutesStr}:${secondsStr}]`
 }
