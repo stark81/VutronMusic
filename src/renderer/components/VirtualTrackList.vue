@@ -172,6 +172,8 @@ const rightClickedTrack = ref({
   name: '',
   matched: true,
   type: 'online',
+  source: '',
+  playlistItemId: null,
   mvid: 0,
   filePath: '',
   artists: [{ name: '' }],
@@ -201,6 +203,8 @@ const rightClickedTrackComputed = computed(() => {
         type: 'online',
         mvid: 0,
         filePath: '',
+        source: '',
+        playlistItemId: null,
         artists: [{ name: '' }],
         album: { picUrl: '' },
         al: { picUrl: '' }
@@ -255,6 +259,8 @@ const closeMenu = () => {
     name: '',
     matched: true,
     type: 'online',
+    source: '',
+    playlistItemId: null,
     mvid: 0,
     filePath: '',
     artists: [{ name: '' }],
@@ -313,14 +319,14 @@ const rmTrackFromPlaylist = () => {
     }
   } else if (typeType.value === 'stream') {
     if (confirm(`确定要从歌单删除 ${rightClickedTrackComputed.value.name}？`)) {
-      // const trackIDS = items.value.map((t) => t.id) as string[]
-      // const id = rightClickedTrackComputed.value.id as unknown as string
-      // const idx = trackIDS.indexOf(id)
       const idx = rightClickedTrackIndex.value
+      const playlistItemId = rightClickedTrackComputed.value.playlistItemId
       addOrRemoveTrackFromStreamPlaylist(
         'del',
         props.id as string,
-        [idx] as unknown as string[]
+        [
+          rightClickedTrackComputed.value.source === 'navidrome' ? idx : playlistItemId
+        ] as unknown as string[]
       ).then((res) => {
         if (res) {
           removeTrack(idx)
@@ -410,6 +416,8 @@ const closeComment = () => {
     name: '',
     matched: true,
     type: 'online',
+    source: '',
+    playlistItemId: null,
     mvid: 0,
     filePath: '',
     artists: [{ name: '' }],

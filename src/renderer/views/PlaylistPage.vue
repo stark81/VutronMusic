@@ -203,7 +203,6 @@ import {
   intelligencePlaylist,
   deletePlaylist
 } from '../api/playlist'
-import { useSettingsStore } from '../store/settings'
 
 const specialPlaylist = {
   2829816518: {
@@ -338,9 +337,6 @@ const { deleteLocalPlaylist } = useLocalMusicStore()
 const streamMusic = useStreamMusicStore()
 const { showToast } = useNormalStateStore()
 
-const settingsStore = useSettingsStore()
-const { stream } = storeToRefs(settingsStore)
-
 const playerStore = usePlayerStore()
 const { _shuffle } = storeToRefs(playerStore)
 const { replacePlaylist } = playerStore
@@ -394,9 +390,12 @@ const loadStreamData = (id: string) => {
     return
   }
   const trackIDs = playlist.value.trackIds
-  tracks.value = trackIDs.map(
-    (id) => streamMusic.streamTracks.find((item) => item.id === id) as Track
-  )
+  tracks.value = trackIDs
+    .map((id) => streamMusic.streamTracks.find((item) => item.id === id))
+    .map((track) => {
+      if (!playlist.value.trackItemIds) return track
+      return { ...track, playlistItemId: playlist.value.trackItemIds[track.id] }
+    })
   tricklingProgress.done()
   show.value = true
 }
@@ -507,7 +506,7 @@ const deleteAPlaylist = () => {
       })
     } else if (playlistType.value === 'stream') {
       window.mainApi
-        .invoke('deleteStreamPlaylist', { id: playlist.value.id, platform: stream.value.select })
+        .invoke('deleteStreamPlaylist', { id: playlist.value.id, platform: streamMusic.select })
         .then((result: boolean) => {
           if (result) {
             show.value = false
@@ -562,6 +561,9 @@ const closeComment = () => {
 
 const removeTrack = (idx: number) => {
   tracks.value.splice(idx, 1)
+  if (playlistType.value === 'stream') {
+    playlist.value.trackCount -= 1
+  }
 }
 
 provide('removeTrack', removeTrack)

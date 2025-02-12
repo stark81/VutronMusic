@@ -10,7 +10,7 @@
   </div>
 </template>
 <script setup lang="ts">
-import { PropType, ref, computed } from 'vue'
+import { PropType, computed } from 'vue'
 import { Track, Artist } from '../store/localMusic'
 
 const props = defineProps({
@@ -28,7 +28,7 @@ const props = defineProps({
   }
 })
 
-const artist = ref<Artist>(props.artistProp)
+const artist = computed(() => props.artistProp)
 
 const image = computed(() => {
   return artist.value.matched ? artist.value.img1v1Url : artist.value.picUrl

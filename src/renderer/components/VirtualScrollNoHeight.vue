@@ -74,10 +74,11 @@ const styleBefore = ref()
 const startOffset = ref(0)
 const position = ref<any[]>([])
 const windowHeight = ref(window.innerHeight)
+const scrollToIndex = ref(0)
 const { list, itemSize } = toRefs(props)
 
 const normalState = useNormalStateStore()
-const { enableScrolling } = storeToRefs(normalState)
+const { enableScrolling, virtualScrolling } = storeToRefs(normalState)
 
 const _listData = computed(() => {
   return list.value.reduce((init, cur, index) => {
@@ -126,6 +127,8 @@ const listStyles = computed(() => {
     transform: contentTransform.value
   }
 })
+
+const visibleMiddle = computed(() => (endRow.value + startRow.value) / 2)
 
 const hasCustomTitleBar = inject('hasCustomTitleBar', ref(true))
 
@@ -191,12 +194,34 @@ const setStartOffset = () => {
   }
 }
 
+watch(visibleMiddle, (value) => {
+  if (Math.abs(scrollToIndex.value - value) <= 100) {
+    virtualScrolling.value = false
+  }
+})
+
 let lastScrollTop = listRef.value?.scrollTop
 
+/**
+ * 一、向下滚动: index > startRow.value
+ *   1. 定位的元素小于窗口元素的一半时，此时虚拟列表不需要完全占据窗口，此时直接找到定位元素滚动到中间即可；
+ *   2. 定位的元素大于窗口元素的一半时，虚拟列表完全占据窗口：
+ *     1）、将虚拟列表滚动到占据整个窗口为止；
+ *     2）、将定位的元素滚动到列表中间；
+ * 二、向上滚动 index <= startRow.value
+ *   1.定位元素大于窗口元素的一半时，虚拟列表完全占据窗口。此时虚拟列表滚动前后都完全占据窗口，只需要滚动元素即可；
+ *   2. 定位元素大小窗口元素的一半时，说明虚拟列表由完全占据窗口滚动到部分占据窗口：
+ *     1）、先把虚拟列表内部滚动到顶部；
+ *     2）、然后找到定位元素滚动到页面中间；
+ */
 const scrollTocurrent = (index: number, behavior: ScrollBehavior = 'smooth') => {
+  scrollToIndex.value = index
   const idx = index / props.columnNumber - Math.floor(visibleCount.value / 2)
 
-  if (idx >= -1) {
+  if (Math.abs(index - visibleMiddle.value) > 100) {
+    virtualScrolling.value = true
+  }
+  if (idx > 0) {
     const elTop =
       listRef.value.getBoundingClientRect().top -
       document.documentElement.getBoundingClientRect().top
@@ -206,10 +231,10 @@ const scrollTocurrent = (index: number, behavior: ScrollBehavior = 'smooth') => 
       behavior
     })
   } else {
-    // 从上向下滚动
     const el = document.getElementById(index.toString())
     el?.scrollIntoView({ block: 'center', behavior })
   }
+
   let top: number
   if (visibleCount.value % 2 === 0) {
     top = position.value[idx * props.columnNumber + 1]?.top || 0
@@ -218,7 +243,7 @@ const scrollTocurrent = (index: number, behavior: ScrollBehavior = 'smooth') => 
   }
   listRef.value.scrollTo({ top, behavior })
 
-  if (idx < -1 && index < startRow.value) {
+  if (idx < 0 && index < startRow.value) {
     let isScrolling = true
     const checkScrolling = () => {
       const currentScrollTop = listRef.value?.scrollTop
@@ -241,7 +266,11 @@ const scrollTocurrent = (index: number, behavior: ScrollBehavior = 'smooth') => 
 }
 
 const scrollToTop = () => {
+  scrollToIndex.value = 0
   let isScrolling = true
+  if (Math.abs(visibleMiddle.value) > 100) {
+    virtualScrolling.value = true
+  }
   listRef.value?.scrollTo({ top: 0, behavior: 'smooth' })
   const checkScrolling = () => {
     const currentScrollTop = listRef.value?.scrollTop
@@ -260,11 +289,21 @@ const scrollToTop = () => {
   }, 30)
 }
 
+/**
+ * 为了防止虚拟列表滚动速度过快，导致频繁请求本地歌曲封面/流媒体音乐封面，我们可以对正处于
+ * 快速滚动的歌曲返回一张程序内的图片资源，以减轻资源占用问题。
+ * 快速滚动的判定条件为：
+ * 1. 虚拟列表处于滚动状态；
+ * 2. 计算目标位置与当前位置之间的关系，如果两者初始差距大于100,则认为它会发生快速滚动，
+ *    这里的100需要再次查证后进行调整（小于100则认为仅仅会发生慢速滚动，不会导致资源占用
+ *    问题）
+ * 当满足以上两个条件时，则认为虚拟列表正在快速滚动，此时这两个封面图片返回两张asset内的图片
+ */
+
 const getStartIndex = (scrollTop = 0) => {
   return binarySearch(scrollTop)
 }
 
-// 此处可能有bug
 const binarySearch = (value: any) => {
   let start = 0
   let end = Math.ceil(position.value.length / props.columnNumber) - 1
@@ -399,6 +438,7 @@ onActivated(() => {
 onDeactivated(() => {
   // startRow.value = 0
   observer.unobserve(listRef.value)
+  virtualScrolling.value = false
 })
 
 onMounted(() => {
@@ -419,6 +459,7 @@ onUpdated(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('resize', updateWindowHeight)
   observer.unobserve(listRef.value)
+  virtualScrolling.value = false
 })
 </script>
 

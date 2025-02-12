@@ -15,7 +15,7 @@
   </div>
 </template>
 <script setup lang="ts">
-import { PropType, ref, computed } from 'vue'
+import { PropType, computed } from 'vue'
 import ArtistsInLine from './ArtistsInLine.vue'
 import { Track } from '../store/localMusic'
 
@@ -30,7 +30,7 @@ const props = defineProps({
   }
 })
 
-const tracks = ref<Track[]>(props.trackProp)
+const tracks = computed(() => props.trackProp)
 // const pic = ref()
 
 const image = computed(() => {

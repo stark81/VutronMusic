@@ -1,7 +1,6 @@
 import { app, ipcMain, shell, IpcMainEvent, dialog, BrowserWindow, globalShortcut } from 'electron'
 import { YPMTray } from './tray'
 import { MprisImpl } from './mpris'
-import { NavidromeImpl } from './streaming/navidrome'
 // import { createDBus, signalNameEnum } from './dbusService'
 import { createDBus } from './dbusClient'
 import Constants from './utils/Constants'
@@ -10,6 +9,8 @@ import fs from 'fs'
 import path from 'path'
 import { parseFile } from 'music-metadata'
 import cache from './cache'
+import navidrome from './streaming/navidrome'
+import emby from './streaming/emby'
 import { db, Tables } from './db'
 import { CacheAPIs } from './utils/CacheApis'
 import { createMD5, deleteExcessCache, getReplayGainFromMetadata, splitArtist } from './utils/utils'
@@ -26,8 +27,7 @@ export default class IPCs {
     win: BrowserWindow,
     tray: YPMTray,
     mpris: MprisImpl,
-    lrc: Record<string, Function>,
-    navidrome: NavidromeImpl
+    lrc: Record<string, Function>
   ): void {
     initWindowIpcMain(win)
     initOSDWindowIpcMain(win, lrc)
@@ -35,7 +35,7 @@ export default class IPCs {
     initTaskbarIpcMain()
     initMprisIpcMain(win, mpris)
     initOtherIpcMain(win)
-    initStreaming(navidrome)
+    initStreaming()
   }
 }
 
@@ -482,33 +482,77 @@ async function initMprisIpcMain(win: BrowserWindow, mpris: MprisImpl): Promise<v
   })
 }
 
-function initStreaming(navidrome: NavidromeImpl) {
+function initStreaming() {
   ipcMain.handle('stream-login', async (event: IpcMainEvent, data: any) => {
     const { platform } = data
+    store.set('accounts.selected', platform)
+    store.set(`accounts.${data.platform}.url`, data.baseURL)
+    store.set(`accounts.${data.platform}.username`, data.username)
+    store.set(`accounts.${data.platform}.password`, data.password)
     if (platform === 'navidrome') {
       const response = await navidrome.doLogin(data.baseURL, data.username, data.password)
+      return response
+    } else if (platform === 'emby') {
+      const response = await emby.doLogin(data.baseURL, data.username, data.password)
       return response
     }
   })
 
   ipcMain.handle('get-stream-songs', async (event, data) => {
+    store.set('accounts.selected', data.platform)
     if (data.platform === 'navidrome') {
       const tracks = await navidrome.getTracks()
       const playlists = await navidrome.getPlaylists()
-      return { tracks, playlists }
+      return {
+        code: tracks.code,
+        message: tracks.message,
+        tracks: tracks.data,
+        playlists: playlists.data
+      }
+    } else if (data.platform === 'emby') {
+      const tracks = await emby.getTracks()
+      const playlists = await emby.getPlaylists()
+      return { code: tracks.code, message: '', tracks: tracks.data, playlists: playlists.data }
     }
+  })
+
+  ipcMain.handle('get-stream-account', (event, data) => {
+    const url = (store.get(`accounts.${data.platform}.url`) as string) || ''
+    const username = (store.get(`accounts.${data.platform}.username`) as string) || ''
+    const password = (store.get(`accounts.${data.platform}.password`) as string) || ''
+    return { url, username, password }
   })
 
   ipcMain.handle('get-stream-playlists', async (event, data) => {
     if (data.platform === 'navidrome') {
       const playlists = await navidrome.getPlaylists()
-      return { playlists }
+      return { code: playlists.code, playlists: playlists.data }
+    } else if (data.platform === 'emby') {
+      const playlists = await emby.getPlaylists()
+      return { code: playlists.code, playlists: playlists.data }
+    }
+  })
+
+  ipcMain.handle('logoutStreamMusic', (event, data) => {
+    if (data.platform === 'navidrome') {
+      store.set('accounts.navidrome.clientID', '')
+      store.set('accounts.navidrome.anthorization', '')
+      store.set('accounts.navidrome.token', '')
+      store.set('accounts.navidrome.salt', '')
+      return true
+    } else if (data.platform === 'emby') {
+      store.set('accounts.emby.userId', '')
+      store.set('accounts.emby.accessToken', '')
+      return true
     }
   })
 
   ipcMain.handle('deleteStreamPlaylist', async (event, data) => {
     if (data.platform === 'navidrome') {
       const result = await navidrome.deletePlaylist(data.id)
+      return result
+    } else if (data.platform === 'emby') {
+      const result = await emby.deletePlaylist(data.id)
       return result
     }
   })
@@ -517,6 +561,9 @@ function initStreaming(navidrome: NavidromeImpl) {
     if (data.platform === 'navidrome') {
       const result = await navidrome.createPlaylist(data.name)
       return result
+    } else if (data.platform === 'emby') {
+      const result = await emby.createPlaylist(data.name)
+      return result
     }
   })
 
@@ -524,6 +571,17 @@ function initStreaming(navidrome: NavidromeImpl) {
     if (data.platform === 'navidrome') {
       const result = await navidrome.addTracksToPlaylist(data.op, data.playlistId, data.ids)
       return result
+    } else if (data.platform === 'emby') {
+      const result = await emby.addTracksToPlaylist(data.op, data.playlistId, data.ids)
+      return result
+    }
+  })
+
+  ipcMain.on('scrobbleStreamMusic', (event, data) => {
+    if (data.platform === 'navidrome') {
+      navidrome.scrobble(data.id)
+    } else if (data.platform === 'emby') {
+      emby.scrobble(data.id)
     }
   })
 }

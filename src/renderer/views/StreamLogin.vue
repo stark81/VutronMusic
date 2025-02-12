@@ -2,7 +2,7 @@
   <div class="stream-container">
     <div class="icon-container">
       <div
-        v-for="platform in platforms"
+        v-for="platform in servers"
         :key="platform"
         ref="iconWrappers"
         class="icon-wrapper"
@@ -10,13 +10,13 @@
       >
         <img
           :src="getImagePath(platform)"
-          :class="{ selected: selectedPlatform === platform }"
+          :class="{ selected: select === platform }"
           alt="platform logo"
         />
       </div>
       <div class="indicator" :class="{ animated: isIndicatorReady }" :style="indicatorStyle"></div>
     </div>
-    <div class="title">{{ selectedPlatform }}</div>
+    <div class="title">{{ select }}</div>
     <div class="section-2">
       <div class="input-box">
         <div class="container" :class="{ active: inputFocus === 'web' }">
@@ -74,21 +74,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import SvgIcon from '../components/SvgIcon.vue'
-import { useSettingsStore } from '../store/settings'
+import { useStreamMusicStore, streamServer, servers } from '../store/streamingMusic'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 
-const platforms = ['navidrome', 'jellyfin', 'emby'] as const
-type Platform = (typeof platforms)[number]
-const selectedPlatform = ref<Platform>('navidrome')
 const iconWrappers = ref<HTMLElement[]>([])
 const indicatorStyle = ref({ width: '0px', left: '0px' })
 const isIndicatorReady = ref(false)
 
-const settingsStore = useSettingsStore()
-const { stream } = storeToRefs(settingsStore)
+const streamMusicStore = useStreamMusicStore()
+const { select, status } = storeToRefs(streamMusicStore)
+
 const router = useRouter()
 
 const inputFocus = ref('')
@@ -97,12 +95,12 @@ const user = ref('')
 const password = ref('')
 const error = ref<string | null>(null)
 
-const getImagePath = (platform: Platform) => {
-  return `../assets/images/${platform}.png`
+const getImagePath = (platform: streamServer) => {
+  return new URL(`../assets/images/${platform}.png`, import.meta.url).href
 }
 
 const updateIndicatorPosition = () => {
-  const index = platforms.indexOf(selectedPlatform.value)
+  const index = servers.indexOf(select.value)
   const wrapper = iconWrappers.value[index]
   const container = wrapper?.parentElement
 
@@ -117,30 +115,46 @@ const updateIndicatorPosition = () => {
   }
 }
 
-const selectPlatform = (platform: Platform) => {
-  selectedPlatform.value = platform
+const selectPlatform = (platform: streamServer) => {
+  select.value = platform
   nextTick(updateIndicatorPosition)
 }
 
 const login = () => {
   const params = {
-    platform: selectedPlatform.value,
+    platform: select.value,
     baseURL: url.value,
     username: user.value,
     password: password.value
   }
-  window.mainApi.invoke('stream-login', params).then((res: { code: number; massage: any }) => {
+  window.mainApi.invoke('stream-login', params).then((res: { code: number; message: any }) => {
     if (res.code === 200) {
-      stream.value.select = selectedPlatform.value
-      stream.value.status = 'login'
+      status.value[select.value] = 'login'
       router.push('/stream')
     } else {
-      error.value = res.massage
+      error.value = res.message
     }
   })
 }
 
+watch(select, (value) => {
+  if (status.value[value] !== 'logout') {
+    router.push('/stream')
+    return
+  }
+  window.mainApi.invoke('get-stream-account', { platform: value }).then((result) => {
+    url.value = result?.url || ''
+    user.value = result?.username || ''
+    password.value = result?.password || ''
+  })
+})
+
 onMounted(() => {
+  window.mainApi.invoke('get-stream-account', { platform: select.value }).then((result) => {
+    url.value = result?.url || ''
+    user.value = result?.username || ''
+    password.value = result?.password || ''
+  })
   window.addEventListener('resize', updateIndicatorPosition)
   nextTick(() => {
     updateIndicatorPosition()

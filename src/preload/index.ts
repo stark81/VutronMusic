@@ -37,7 +37,10 @@ const mainAvailChannels: string[] = [
   'get-stream-playlists',
   'deleteStreamPlaylist',
   'createStreamPlaylist',
-  'updateStreamPlaylist'
+  'updateStreamPlaylist',
+  'logoutStreamMusic',
+  'scrobbleStreamMusic',
+  'get-stream-account'
 ]
 const rendererAvailChannels: string[] = [
   'msgHandleScanLocalMusic',

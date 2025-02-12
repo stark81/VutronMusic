@@ -153,6 +153,7 @@
     "email": "邮箱",
     "password": "密码",
     "loginText": "登录网易云账号",
+    "countryCode": "国际区号",
     "usernameLogin": "用户名登录",
     "loginWithEmail": "邮箱登录",
     "loginWithPhone": "手机号登录",
@@ -378,7 +379,11 @@
       "minimize": "显示/隐藏播放器"
     },
     "stream": {
-      "enable": "启用流媒体音乐"
+      "enable": "启用流媒体音乐",
+      "service": "流媒体服务",
+      "login": "已登录",
+      "logout": "未登陆",
+      "offline": "服务器离线"
     }
   },
   "toast": {

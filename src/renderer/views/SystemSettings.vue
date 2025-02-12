@@ -125,7 +125,7 @@
               <div class="title">{{ $t('player.resetPlayer') }}</div>
             </div>
             <div class="right">
-              <button @click="resetPlayer">确定</button>
+              <button @click="resetPlayer()">确定</button>
             </div>
           </div>
           <div v-if="isElectron && isLinux" class="item">
@@ -614,6 +614,7 @@
                     id="inner-info"
                     v-model="useInnerInfoFirst"
                     type="checkbox"
+                    disabled
                     name="inner-info"
                   />
                   <label for="inner-info"></label>
@@ -631,7 +632,13 @@
               </div>
               <div class="right">
                 <div class="toggle">
-                  <input id="replay-gain" v-model="replayGain" type="checkbox" name="replay-gain" />
+                  <input
+                    id="replay-gain"
+                    v-model="replayGain"
+                    type="checkbox"
+                    name="replay-gain"
+                    disabled
+                  />
                   <label for="replay-gain"></label>
                 </div>
               </div>
@@ -644,8 +651,30 @@
               </div>
               <div class="right">
                 <div class="toggle">
-                  <input id="stream" v-model="stream.enable" type="checkbox" name="stream" />
+                  <input id="stream" v-model="enable" type="checkbox" name="stream" />
                   <label for="stream"></label>
+                </div>
+              </div>
+            </div>
+            <div class="item">
+              <div>{{ $t('settings.stream.service') }}：</div>
+              <div
+                v-for="service of servers"
+                :key="service"
+                :title="serviceTitle(service)"
+                class="stream-item"
+                :class="{ itemSelected: select === service }"
+                @click="select = service"
+                @click.right="loginOrlogout(service)"
+              >
+                <img :src="getImagePath(service)" />
+                <div class="service-name">
+                  <div
+                    class="service-status"
+                    :title="$t(`settings.stream.${status[service]}`)"
+                    :style="{ background: getStatusColor(service) }"
+                  ></div>
+                  <div>{{ service }}</div>
                 </div>
               </div>
             </div>
@@ -700,7 +729,7 @@
               </select>
             </div>
           </div>
-          <div class="item">
+          <!-- <div class="item">
             <div class="left">
               <div class="title">{{ $t('settings.unblock.source.text') }}</div>
               <div class="description">
@@ -726,7 +755,7 @@
                 @input="updateUnblockSource"
               />
             </div>
-          </div>
+          </div> -->
           <div class="item">
             <div class="left">
               <div class="title">{{ $t('settings.unblock.jooxCookie.text') }}</div>
@@ -857,6 +886,7 @@ import { usePlayerStore } from '../store/player'
 import { useLocalMusicStore } from '../store/localMusic'
 import { useNormalStateStore } from '../store/state'
 import { useOsdLyricStore } from '../store/osdLyric'
+import { useStreamMusicStore, servers, streamServer } from '../store/streamingMusic'
 import { useDataStore } from '../store/data'
 import { storeToRefs } from 'pinia'
 import { doLogout } from '../utils/auth'
@@ -864,6 +894,9 @@ import SvgIcon from '../components/SvgIcon.vue'
 import Utils from '../utils'
 // @ts-ignore
 import imageUrl from '../utils/settingImg.dataurl?raw'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
 
 const settingsStore = useSettingsStore()
 const {
@@ -871,7 +904,6 @@ const {
   general,
   tray,
   theme,
-  stream,
   shortcuts,
   autoCacheTrack,
   unblockNeteaseMusic,
@@ -886,6 +918,10 @@ const { appearance, colors } = toRefs(theme.value)
 const customizeColor = computed(() => colors.value[4])
 const { showLyric, showControl, lyricWidth, scrollRate, enableExtension } = toRefs(tray.value)
 const { nFontSize, isNWordByWord, nTranslationMode } = toRefs(normalLyric.value)
+
+const streamMusicStore = useStreamMusicStore()
+const { enable, status, select } = storeToRefs(streamMusicStore)
+const { handleStreamLogout } = streamMusicStore
 
 const stateStore = useNormalStateStore()
 const { extensionCheckResult } = toRefs(stateStore)
@@ -921,6 +957,10 @@ const { restoreDefaultShortcuts, updateShortcut } = useSettingsStore()
 
 const cacheTracksInfo = reactive({ length: 0, size: 0 })
 
+const getImagePath = (platform: streamServer) => {
+  return new URL(`../assets/images/${platform}.png`, import.meta.url).href
+}
+
 const isElectron = window.env?.isElectron || false
 const isMac = window.env?.isMac
 const isLinux = window.env?.isLinux
@@ -943,6 +983,26 @@ const cacheSize = computed(() => {
     return `${(size / 1024 / 1024 / 1024).toFixed(2)} GB`
   }
 })
+
+const serviceTitle = (platform: streamServer) => {
+  const statusType = status.value[platform]
+  const title = statusType === 'logout' ? '登陆' : '登出'
+  return `单击选择，右击选择并${title}`
+}
+
+const loginOrlogout = (platform: streamServer) => {
+  select.value = platform
+  const statusType = status.value[platform]
+  if (statusType === 'logout') {
+    router.push('/streamLogin')
+  } else {
+    if (confirm(`确定登出${platform}吗？`)) {
+      handleStreamLogout()
+      // status.value[platform] = 'logout'
+      // if ()
+    }
+  }
+}
 
 const typeOption = computed({
   get: () => type.value,
@@ -1122,13 +1182,13 @@ const inputFontSizeDebounce = () => {
   }, 500)
 }
 
-const unblockSource = ref(unblockNeteaseMusic.value.source)
-const updateUnblockSource = () => {
-  if (debounceTimeout) clearTimeout(debounceTimeout)
-  debounceTimeout = setTimeout(() => {
-    unblockNeteaseMusic.value.source = unblockSource.value
-  }, 500)
-}
+// const unblockSource = ref(unblockNeteaseMusic.value.source)
+// const updateUnblockSource = () => {
+//   if (debounceTimeout) clearTimeout(debounceTimeout)
+//   debounceTimeout = setTimeout(() => {
+//     unblockNeteaseMusic.value.source = unblockSource.value
+//   }, 500)
+// }
 
 const inputNFontSizeValue = ref<number>(nFontSize.value)
 const inputNValue = () => {
@@ -1136,6 +1196,15 @@ const inputNValue = () => {
   debounceTimeout = setTimeout(() => {
     nFontSize.value = inputNFontSizeValue.value
   }, 500)
+}
+
+const getStatusColor = (platform: streamServer) => {
+  const colorMap = {
+    login: 'green',
+    logout: 'red',
+    offline: 'orange'
+  }
+  return colorMap[status.value[platform]]
 }
 
 const deleteLocalMusic = () => {
@@ -1254,7 +1323,7 @@ const formatShortcut = (shortcut: string) => {
       .replace('Shift', '⇧')
       .replace('Control', '⌃')
   }
-  return shortcut.replace('CommandOrControl', 'Ctrl')
+  return shortcut.replace('CommandOrControl', 'Ctrl').replace('Control', 'Ctrl')
 }
 
 const changeColor = (color: { name: string }) => {
@@ -1547,6 +1616,36 @@ onBeforeUnmount(() => {
       border-radius: 50%;
       background-color: #dddddd;
     }
+  }
+  .stream-item {
+    height: 200px;
+    width: 140px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+
+    .service-name {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      .service-status {
+        height: 18px;
+        width: 18px;
+        margin-right: 6px;
+        border-radius: 50%;
+      }
+    }
+
+    img {
+      width: 100px;
+    }
+  }
+  .itemSelected {
+    border: 4px solid var(--color-primary);
   }
 }
 button {

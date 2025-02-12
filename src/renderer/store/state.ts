@@ -5,6 +5,7 @@ type TrackType = 'online' | 'local' | 'stream'
 
 export const useNormalStateStore = defineStore('state', () => {
   const enableScrolling = ref(true)
+  const virtualScrolling = ref(false)
   const showLyrics = ref(false)
   const searchTab = ref('track')
   const exploreTab = ref('playlist')
@@ -53,6 +54,7 @@ export const useNormalStateStore = defineStore('state', () => {
 
   return {
     enableScrolling,
+    virtualScrolling,
     showLyrics,
     searchTab,
     exploreTab,

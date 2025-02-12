@@ -8,7 +8,6 @@ import { createMenu } from './menu'
 import { createDockMenu } from './dock'
 import { createTouchBar } from './touchBar'
 import { createMpris, MprisImpl } from './mpris'
-import { startNavidrome, NavidromeImpl } from './streaming/navidrome'
 import fastify, { FastifyInstance } from 'fastify'
 import fastifyCookie from '@fastify/cookie'
 import netease from './appServer/netease'
@@ -25,7 +24,9 @@ import {
   getTrackDetail,
   getAudioSource,
   cacheOnlineTrack,
-  getStreamLyric
+  getStreamLyric,
+  getStreamPic,
+  getStreamMusic
 } from './utils/utils'
 import { CacheAPIs } from './utils/CacheApis'
 import { registerGlobalShortcuts } from './globalShortcut'
@@ -83,7 +84,6 @@ class BackGround {
   tray: YPMTray | null = null
   menu: Menu | null = null
   mpris: MprisImpl | null = null
-  navidrome: NavidromeImpl | null = null
   fastifyApp: FastifyInstance | null = null
   willQuitApp: boolean = !Constants.IS_MAC
 
@@ -541,10 +541,27 @@ class BackGround {
           headers: { 'content-type': 'application/json' }
         })
       } else if (host === 'get-color') {
-        const url = pathname.slice(1)
-        const { pic } = await getPic(url, true, null)
+        const urlString = pathname.slice(1)
+        const [url, savePic] = urlString.split('/save-pic=')
+        const { pic, format } = await getPic(url, true, null)
         const { color, color2 } = await getPicColor(pic)
-        return new Response(JSON.stringify({ color, color2 }), {
+        const jsonString = savePic
+          ? {
+              pic,
+              format,
+              color,
+              color2,
+              lyrics: {
+                lrc: { lyric: [] },
+                tlyric: { lyric: [] },
+                romalrc: { lyric: [] },
+                yrc: { lyric: [] },
+                ytlrc: { lyric: [] },
+                yromalrc: { lyric: [] }
+              }
+            }
+          : { color, color2 }
+        return new Response(JSON.stringify(jsonString), {
           headers: { 'content-type': 'application/json' }
         })
       } else if (host === 'get-music') {
@@ -580,20 +597,20 @@ class BackGround {
         const url = pathname.slice(1)
         const headers = request.headers
         return fetch(url, { headers })
-      } else if (host === 'get-navidrome-pic') {
-        const id = pathname.slice(1)
-        return fetch(this.navidrome.getPic(id))
-      } else if (host === 'get-navidrome-music') {
+      } else if (host === 'get-stream-pic') {
+        const url = pathname.slice(1)
+        return getStreamPic(url)
+      } else if (host === 'get-stream-music') {
         const id = pathname.slice(1)
         const headers = request.headers
-        return fetch(this.navidrome.getStream(id), { headers })
+        return getStreamMusic(id, headers)
       } else if (host === 'get-stream-track-info') {
         const id = pathname.slice(1)
         let pic: Buffer | null = null
         let format: string = ''
 
         // 获取图片
-        pic = await fetch(this.navidrome.getPic(id))
+        pic = await getStreamPic(id)
           .then((res) => {
             format = res.headers.get('Content-Type')
             return res.arrayBuffer()
@@ -604,15 +621,13 @@ class BackGround {
         const { color, color2 } = await getPicColor(pic)
 
         // 获取歌词
-        const url = this.navidrome.getLyricByID(id)
-        const lyrics = await getStreamLyric(url)
+        const lyrics = await getStreamLyric(id)
         return new Response(JSON.stringify({ pic, format, color, color2, lyrics }), {
           headers: { 'content-type': 'application/json' }
         })
       } else if (host === 'get-stream-lyric') {
         const id = pathname.slice(1)
-        const url = this.navidrome.getLyricByID(id)
-        const lyrics = await getStreamLyric(url)
+        const lyrics = await getStreamLyric(id)
         return new Response(JSON.stringify(lyrics), {
           headers: { 'content-type': 'application/json' }
         })
@@ -639,11 +654,9 @@ class BackGround {
         this.mpris = createMpris(this.win)
       }
 
-      if (store.get('settings.enableGlobalShortcut')) {
+      if (store.get('settings.enableGlobalShortcut') || false) {
         registerGlobalShortcuts(this.win)
       }
-
-      this.navidrome = startNavidrome()
 
       const lrc = {
         toggleOSDWindow: () => this.toggleOSDWindow(),
@@ -653,7 +666,7 @@ class BackGround {
         updateOSDPlayingState: (state: boolean) => this.updateOSDPlayingState(state),
         updateOsdHeight: (height: number) => this.updateOsdHeight(height)
       }
-      IPCs.initialize(this.win, this.tray, this.mpris, lrc, this.navidrome)
+      IPCs.initialize(this.win, this.tray, this.mpris, lrc)
       createMenu(this.win)
       createDockMenu(this.win)
     })

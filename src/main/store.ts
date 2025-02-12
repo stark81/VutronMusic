@@ -30,6 +30,13 @@ export interface TypeElectronStore {
       password: string
       salt: string
     }
+    emby: {
+      url: string
+      username: string
+      password: string
+      userId: string
+      accessToken: string
+    }
   }
 }
 
@@ -119,6 +126,13 @@ const store = new Store<TypeElectronStore>({
         password: '',
         token: '',
         salt: ''
+      },
+      emby: {
+        url: '',
+        username: '',
+        password: '',
+        userId: '',
+        accessToken: ''
       }
     }
   }

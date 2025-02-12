@@ -43,7 +43,6 @@ import { useDataStore } from '../store/data'
 import SvgIcon from './SvgIcon.vue'
 import { createPlaylist, addOrRemoveTrackFromPlaylist } from '../api/playlist'
 import { useI18n } from 'vue-i18n'
-import { useSettingsStore } from '../store/settings'
 
 const stateStore = useNormalStateStore()
 const { newPlaylistModal } = storeToRefs(stateStore)
@@ -53,10 +52,9 @@ const { t } = useI18n()
 const { createLocalPlaylist } = useLocalMusicStore()
 const { fetchLikedPlaylist } = useDataStore()
 
-const { fetchStreamPlaylist, addOrRemoveTrackFromStreamPlaylist } = useStreamMusicStore()
-
-const settingsStore = useSettingsStore()
-const { stream } = storeToRefs(settingsStore)
+const streamMusicStore = useStreamMusicStore()
+const { select } = storeToRefs(streamMusicStore)
+const { fetchStreamPlaylist, addOrRemoveTrackFromStreamPlaylist } = streamMusicStore
 
 const title = ref('')
 const isPrivate = ref(false)
@@ -122,7 +120,7 @@ const createAPlaylist = async () => {
     window.mainApi
       .invoke('createStreamPlaylist', {
         name: title.value,
-        platform: stream.value.select
+        platform: select.value
       })
       .then((res: { status: 'ok' | 'failed'; pid: string | undefined }) => {
         if (res.status === 'ok') {

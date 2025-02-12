@@ -250,6 +250,7 @@ const {
   color,
   color2,
   pic,
+  source,
   repeatMode
 } = storeToRefs(playerStore)
 const { playPrev, playOrPause, _playNextTrack, switchRepeatMode, moveToFMTrash } = playerStore
@@ -290,23 +291,6 @@ const heartDisabled = computed(() => {
 
 const artist = computed(() => {
   return currentTrack.value?.artists ? currentTrack.value.artists[0] : currentTrack.value?.ar[0]
-})
-
-const source = computed(() => {
-  const sourceMap = {
-    localTrack: '本地音乐',
-    navidrome: 'navidrome',
-    netease: '网易云音乐',
-    qq: 'QQ音乐',
-    kugou: '酷狗音乐',
-    kuwo: '酷我音乐',
-    bilibili: '哔哩哔哩',
-    pyncmd: '第三方网易云音乐',
-    migu: '咪咕音乐'
-  }
-  return currentTrack.value
-    ? `${currentTrack.value.name}, 音源：${sourceMap[currentTrack.value.source!]}`
-    : ''
 })
 
 const album = computed(() => {

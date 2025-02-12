@@ -83,17 +83,16 @@ const loadTracks = async () => {
   const streamMusics = streamTracks.value.filter((t) => trackIDs.includes(t.id))
 
   let newTracks = localMusics.filter((t) => !loadedTrackIDs.includes(t.id))
-  newTracks = streamMusics.filter((t) => !loadedTrackIDs.includes(t.id))
 
-  const onlineTrackIDs = trackIDs.filter(
-    (t) => !localMusics.map((s) => s.id).includes(t) && !streamMusics.map((s) => s.id).includes(t)
-  )
+  const onlineTrackIDs = trackIDs.filter((t) => !localMusics.map((s) => s.id).includes(t))
 
   if (onlineTrackIDs.length > 0) {
     await getTrackDetail(onlineTrackIDs.join(',')).then((data) => {
       newTracks.push(...data.songs)
     })
   }
+  const sMusic = streamMusics.filter((t) => !loadedTrackIDs.includes(t.id))
+  newTracks = [...newTracks, ...sMusic]
   newTracks = newTracks
     .filter((t) => trackIDs.includes(t.id))
     .sort((a, b) => trackIDs.indexOf(a.id) - trackIDs.indexOf(b.id))

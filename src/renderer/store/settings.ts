@@ -5,7 +5,7 @@ import { playlistCategories } from '../utils/common'
 import cloneDeep from 'lodash/cloneDeep'
 
 export type TranslationMode = 'none' | 'tlyric' | 'rlyric'
-export type StreamStatus = 'logout' | 'login'
+export type StreamStatus = 'logout' | 'login' | 'offline'
 
 export const useSettingsStore = defineStore(
   'settings',
@@ -37,14 +37,6 @@ export const useSettingsStore = defineStore(
       closeAppOption: 'ask',
       useCustomTitlebar: false,
       enabledPlaylistCategories
-    })
-
-    const stream = reactive({
-      enable: false,
-      select: null as string | null,
-      status: 'logout' as StreamStatus,
-      sortBy: 'default',
-      lyricService: null as string | null
     })
 
     const tray = reactive({
@@ -238,7 +230,6 @@ export const useSettingsStore = defineStore(
       general,
       localMusic,
       tray,
-      stream,
       enableGlobalShortcut,
       shortcuts,
       normalLyric,

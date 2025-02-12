@@ -10,6 +10,9 @@ export const registerGlobalShortcuts = (win: BrowserWindow) => {
     shortcuts = defaultShortcuts
   }
 
+  const enable = store.get('settings.enableGlobalShortcut') || false
+  if (!enable) return
+
   globalShortcut.register(shortcuts.find((s) => s.id === 'play').globalShortcut, () => {
     win.webContents.send('play')
   })

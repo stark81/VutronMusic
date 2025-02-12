@@ -26,6 +26,7 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePlayerStore } from '../store/player'
 import { useLocalMusicStore } from '../store/localMusic'
+import { useStreamMusicStore } from '../store/streamingMusic'
 import { storeToRefs } from 'pinia'
 import { getPlaylistDetail } from '../api/playlist'
 import { getArtist } from '../api/artist'
@@ -51,6 +52,7 @@ const playerStore = usePlayerStore()
 const { _shuffle } = storeToRefs(playerStore)
 const { replacePlaylist } = playerStore
 const localMusic = storeToRefs(useLocalMusicStore())
+const streamMusic = storeToRefs(useStreamMusicStore())
 
 const playButtonStyles = computed(() => {
   const styles = {
@@ -106,6 +108,11 @@ const play = () => {
     const trackIDs = playlist.trackIds
     const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : trackIDs.length - 1
     replacePlaylist('localPlaylist', props.id, trackIDs, idx)
+  } else if (props.type === 'streamPlaylist') {
+    const playlist = streamMusic.playlists.value.find((p) => p.id === props.id)!
+    const trackIDs = playlist.trackIds
+    const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : trackIDs.length - 1
+    replacePlaylist('streamPlaylist', props.id, trackIDs, idx)
   } else if (props.type === 'artist') {
     getArtist(props.id as number).then((data) => {
       const trackIDs = data.hotSongs.map((t) => t.id)

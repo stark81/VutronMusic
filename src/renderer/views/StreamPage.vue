@@ -4,7 +4,7 @@
       <div class="left" style="width: 100%">
         <InfoBG />
         <div class="content">
-          <h2 style="margin-bottom: 20px">流媒体歌曲 - {{ stream.select }}</h2>
+          <h2 style="margin-bottom: 20px">流媒体歌曲 - {{ select }}</h2>
           <div class="content-info">
             <div>
               <div class="subtitle">全部歌曲</div>
@@ -99,7 +99,8 @@
           ><svg-icon icon-class="plus" />{{ $t('library.playlist.newPlaylist') }}</button
         >
       </div>
-      <div class="section-two-content" :style="tabStyle">
+      <div v-if="status[select] === 'offline'" class="errorInfo">{{ streamMessage }}</div>
+      <div v-if="show" class="section-two-content" :style="tabStyle">
         <div v-show="currentTab === 'track'">
           <TrackList
             :id="0"
@@ -130,10 +131,10 @@
     </div>
 
     <ContextMenu ref="streamTabMenu">
-      <div class="item" @click="stream.sortBy = 'default'">{{ $t('contextMenu.defaultSort') }}</div>
-      <div class="item" @click="stream.sortBy = 'byname'">{{ $t('contextMenu.sortByName') }}</div>
-      <div class="item" @click="stream.sortBy = 'descend'">{{ $t('contextMenu.descendSort') }}</div>
-      <div class="item" @click="stream.sortBy = 'ascend'">{{ $t('contextMenu.ascendSort') }}</div>
+      <div class="item" @click="sortBy = 'default'">{{ $t('contextMenu.defaultSort') }}</div>
+      <div class="item" @click="sortBy = 'byname'">{{ $t('contextMenu.sortByName') }}</div>
+      <div class="item" @click="sortBy = 'descend'">{{ $t('contextMenu.descendSort') }}</div>
+      <div class="item" @click="sortBy = 'ascend'">{{ $t('contextMenu.ascendSort') }}</div>
       <hr v-show="!isBatchOp" />
       <div v-show="!isBatchOp" class="item" @click="isBatchOp = true">{{
         $t('contextMenu.batchOperation')
@@ -145,7 +146,6 @@
 <script setup lang="ts">
 import { ref, onMounted, inject, computed, onUnmounted, provide, watch, shallowRef } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useSettingsStore } from '../store/settings'
 import { useStreamMusicStore } from '../store/streamingMusic'
 import { useNormalStateStore } from '../store/state'
 import { useRouter } from 'vue-router'
@@ -163,13 +163,10 @@ import { lyricParse, pickedLyric } from '../utils/lyric'
 import { Track } from '../store/localMusic'
 import { usePlayerStore } from '../store/player'
 
-const settingsStore = useSettingsStore()
-const { stream } = storeToRefs(settingsStore)
-
 const { newPlaylistModal, modalOpen } = storeToRefs(useNormalStateStore())
 
 const streamMusicStore = useStreamMusicStore()
-const { streamTracks, playlists } = storeToRefs(streamMusicStore)
+const { select, status, sortBy, streamTracks, playlists, message } = storeToRefs(streamMusicStore)
 const { fetchStreamMusic } = streamMusicStore
 
 const { addTrackToPlayNext } = usePlayerStore()
@@ -182,6 +179,7 @@ const streamSearchBoxRef = ref<InstanceType<typeof SearchBox>>()
 const streamListRef = shallowRef<InstanceType<typeof TrackList>>()
 const tabsRowRef = ref()
 const isBatchOp = ref(false)
+const show = ref(false)
 
 const currentTab = ref('track')
 const randomTrack = ref<Track>()
@@ -190,6 +188,10 @@ const randomLyric = ref<{ content: string }[]>([])
 const tabStyle = computed(() => {
   const marginTop = hasCustomTitleBar.value ? 20 : 0
   return { marginTop: `${marginTop}px` }
+})
+
+const streamMessage = computed(() => {
+  return status.value[select.value] === 'offline' ? message.value : ''
 })
 
 const pickedLyricLines = computed(() => {
@@ -217,13 +219,13 @@ const filterStreamTracks = computed(() => {
 
 const sortedLocalTracks = computed(() => {
   return filterStreamTracks.value.slice().sort((a, b) => {
-    if (stream.value.sortBy === 'default') {
+    if (sortBy.value === 'default') {
       return a.index - b.index
-    } else if (stream.value.sortBy === 'ascend') {
+    } else if (sortBy.value === 'ascend') {
       const timeA = new Date(a.createTime).getTime()
       const timeB = new Date(b.createTime).getTime()
       return timeA - timeB
-    } else if (stream.value.sortBy === 'descend') {
+    } else if (sortBy.value === 'descend') {
       const timeA = new Date(a.createTime).getTime()
       const timeB = new Date(b.createTime).getTime()
       return timeB - timeA
@@ -284,10 +286,12 @@ const placeHolderMap = (tab: string) => {
 }
 
 const playThisTrack = () => {
-  addTrackToPlayNext(randomTrack.value!.id, true, true)
+  if (!randomTrack.value) return
+  addTrackToPlayNext(randomTrack.value.id, true, true)
 }
 
 const openAddPlaylistModal = () => {
+  if (status.value[select.value] !== 'login') return
   newPlaylistModal.value = {
     type: 'stream',
     afterCreateAddTrackID: [],
@@ -364,9 +368,29 @@ const handleResize = () => {
   if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
 }
 
-onMounted(() => {
-  // stream.value.status = 'logout'
-  if (stream.value.status === 'logout') {
+watch(
+  () => status.value[select.value],
+  (value) => {
+    if (value === 'logout') {
+      router.push('/streamLogin')
+    }
+  }
+)
+
+onMounted(async () => {
+  if (!streamTracks.value.length) {
+    await fetchStreamMusic().then(() => {
+      if (status.value[select.value] === 'login') {
+        show.value = true
+        getRandomTrack()
+      }
+    })
+  } else {
+    show.value = true
+    getRandomTrack()
+    fetchStreamMusic()
+  }
+  if (status.value[select.value] === 'logout') {
     router.push('/streamLogin')
     return
   }
@@ -374,11 +398,6 @@ onMounted(() => {
   setTimeout(() => {
     if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
   }, 100)
-  fetchStreamMusic().catch(() => {
-    stream.value.status = 'logout'
-    router.push('/streamLogin')
-  })
-  getRandomTrack()
 })
 
 onUnmounted(() => {
@@ -454,6 +473,13 @@ onUnmounted(() => {
     box-sizing: border-box;
     // z-index: 1;
   }
+}
+
+.errorInfo {
+  font-size: 20px;
+  font-weight: 600;
+  padding-top: 100px;
+  text-align: center;
 }
 
 .section-two {

@@ -22,7 +22,7 @@
       <svg-icon class="icon" icon-class="library" />
     </button-icon>
     <button-icon
-      v-if="stream.enable"
+      v-if="enable"
       :class="{ active: isCurrentRoute('/stream') }"
       @click="handleRoute('/stream')"
     >
@@ -58,10 +58,14 @@ import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSettingsStore } from '../store/settings'
+import { useStreamMusicStore } from '../store/streamingMusic'
 import { storeToRefs } from 'pinia'
 
 const settingsStore = useSettingsStore()
-const { localMusic, stream } = storeToRefs(settingsStore)
+const { localMusic } = storeToRefs(settingsStore)
+
+const streamStore = useStreamMusicStore()
+const { enable } = storeToRefs(streamStore)
 
 const router = useRouter()
 const route: any = useRoute()

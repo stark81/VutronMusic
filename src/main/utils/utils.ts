@@ -7,6 +7,9 @@ import request from '../appServer/request'
 import { CacheAPIs } from './CacheApis'
 import Cache from '../cache'
 import store from '../store'
+import navidrome from '../streaming/navidrome'
+import emby from '../streaming/emby'
+
 import { Readable } from 'stream'
 import { db, Tables } from '../db'
 
@@ -61,6 +64,33 @@ export const getLyricFromMetadata = (metadata: IAudioMetadata) => {
   return lyrics
 }
 
+export const parseLyricString = (lyrics: string) => {
+  const splitLines = (str: string) => {
+    if (str.includes('\r\n')) {
+      return str.split('\r\n')
+    } else if (str.includes('\r')) {
+      return str.split('\r')
+    } else {
+      return str.split('\n')
+    }
+  }
+  const lyricsLines = splitLines(lyrics)
+  const groupedResult: Array<string>[] = lyricsLines.reduce(
+    (acc: string[][], curr) => {
+      if (curr === '') {
+        acc.push([])
+        acc[acc.length - 1].push(curr)
+      } else {
+        acc[acc.length - 1].push(curr)
+      }
+      return acc
+    },
+    [[]]
+  )
+  const lyricArray = groupedResult.filter((item) => item.length > 1)
+  return lyricArray
+}
+
 export const getLyricFromLocalTrack = async (metadata: IAudioMetadata) => {
   let result = {
     lrc: { lyric: [] },
@@ -74,29 +104,7 @@ export const getLyricFromLocalTrack = async (metadata: IAudioMetadata) => {
   const lyrics = getLyricFromMetadata(metadata)
 
   if (lyrics) {
-    const splitLines = (str: string) => {
-      if (str.includes('\r\n')) {
-        return str.split('\r\n')
-      } else if (str.includes('\r')) {
-        return str.split('\r')
-      } else {
-        return str.split('\n')
-      }
-    }
-    const lyricsLines = splitLines(lyrics)
-    const groupedResult: Array<string>[] = lyricsLines.reduce(
-      (acc: string[][], curr) => {
-        if (curr === '') {
-          acc.push([])
-          acc[acc.length - 1].push(curr)
-        } else {
-          acc[acc.length - 1].push(curr)
-        }
-        return acc
-      },
-      [[]]
-    )
-    const lyricArray = groupedResult.filter((item) => item.length > 1)
+    const lyricArray = parseLyricString(lyrics)
 
     if (lyricArray.length) {
       result = {
@@ -527,8 +535,7 @@ export const deleteExcessCache = (deleteAll = false) => {
   }
 }
 
-export const getStreamLyric = async (url: string) => {
-  const server = store.get('accounts.selected') || 'navidrome'
+const getNavidromeLyric = async (url: string) => {
   const result = {
     lrc: { lyric: [] },
     tlyric: { lyric: [] },
@@ -537,40 +544,38 @@ export const getStreamLyric = async (url: string) => {
     ytlrc: { lyric: [] },
     yromalrc: { lyric: [] }
   }
-  if (server === 'navidrome') {
-    const lyricRaw: any[] = await fetch(url)
-      .then((res) => {
-        if (res.ok) {
-          return res.json()
-        }
-      })
-      .then((data) => {
-        const lyricArray = data['subsonic-response'].lyricsList.structuredLyrics
-        return lyricArray ? lyricArray[0].line : []
-      })
+  const lyricRaw: any[] = await fetch(url)
+    .then((res) => {
+      if (res.ok) {
+        return res.json()
+      }
+    })
+    .then((data) => {
+      const lyricArray = data['subsonic-response'].lyricsList.structuredLyrics
+      return lyricArray ? lyricArray[0].line : []
+    })
 
-    if (lyricRaw.length) {
-      const map = new Map()
-      lyricRaw.forEach(({ start, value }) => {
-        if (!map.has(start)) {
-          map.set(start, [])
-        }
-        map.get(start).push(value)
-      })
+  if (lyricRaw.length) {
+    const map = new Map()
+    lyricRaw.forEach(({ start, value }) => {
+      if (!map.has(start)) {
+        map.set(start, [])
+      }
+      map.get(start).push(value)
+    })
 
-      const sortedStarts = Array.from(map.keys()).sort((a, b) => a - b)
-      sortedStarts.forEach((start) => {
-        const values = map.get(start)
-        // 生成时间前缀
-        const timeStr = formatTime(start)
-        // 根据规则：第一个放 lrc，第二个放 tlyric，第三个放 rlyric
-        if (values[0]) result.lrc.lyric.push(`${timeStr}${values[0]}`)
-        if (values[1]) result.tlyric.lyric.push(`${timeStr}${values[1]}`)
-        if (values[2]) result.romalrc.lyric.push(`${timeStr}${values[2]}`)
-      })
-    }
-    return result
+    const sortedStarts = Array.from(map.keys()).sort((a, b) => a - b)
+    sortedStarts.forEach((start) => {
+      const values = map.get(start)
+      // 生成时间前缀
+      const timeStr = formatTime(start)
+      // 根据规则：第一个放 lrc，第二个放 tlyric，第三个放 rlyric
+      if (values[0]) result.lrc.lyric.push(`${timeStr}${values[0]}`)
+      if (values[1]) result.tlyric.lyric.push(`${timeStr}${values[1]}`)
+      if (values[2]) result.romalrc.lyric.push(`${timeStr}${values[2]}`)
+    })
   }
+  return result
 }
 
 const formatTime = (ms: number) => {
@@ -585,4 +590,43 @@ const formatTime = (ms: number) => {
   // 格式化分钟，确保两位
   const minutesStr = String(minutes).padStart(2, '0')
   return `[${minutesStr}:${secondsStr}]`
+}
+
+export const getStreamPic = (ids: string) => {
+  const service =
+    (store.get('accounts.selected') as ['navidrome', 'emby', 'jellyfin'][number]) || 'navidrome'
+  if (service === 'navidrome') {
+    const [id, size] = ids.split('/')
+    return fetch(navidrome.getPic(id, size ? Number(size) : null))
+  } else if (service === 'emby') {
+    const [id, primary, size] = ids.split('/')
+    const url = emby.getPic(Number(id), primary, Number(size))
+    return fetch(url)
+  }
+}
+
+export const getStreamMusic = (id: string, headers?: any) => {
+  const service =
+    (store.get('accounts.selected') as ['navidrome', 'emby', 'jellyfin'][number]) || 'navidrome'
+
+  if (service === 'navidrome') {
+    return fetch(navidrome.getStream(id), { headers })
+  } else if (service === 'emby') {
+    return fetch(emby.getStrem(id), { headers })
+  }
+}
+
+export const getStreamLyric = async (id: string) => {
+  const service =
+    (store.get('accounts.selected') as ['navidrome', 'emby', 'jellyfin'][number]) || 'navidrome'
+
+  if (service === 'navidrome') {
+    const url = navidrome.getLyricByID(id)
+    const lyrics = await getNavidromeLyric(url)
+    return lyrics
+  } else if (service === 'emby') {
+    const [idx, ,] = id.split('/')
+    const lyrics = await emby.getLyric(Number(idx))
+    return lyrics
+  }
 }
