@@ -10,11 +10,13 @@ CREATE TABLE IF NOT EXISTS Track_new (
 );
 
 INSERT OR REPLACE INTO Track_new (id, type, json, updatedAt)
-SELECT id, 'local', json_set(
-  json_remove(json, '$.isLocal', '$.deleted', '$.show'),
-  '$.type', 'local'
+SELECT id, "local", json_set(
+  json_remove(json, "$.isLocal", "$.deleted", "$.show"),
+  "$.type", "local"
 ), updatedAt FROM Track;
 
 DROP TABLE Track;
 
-ALTER TABLE Track_new RENAME TO Track
+ALTER TABLE Track_new RENAME TO Track;
+
+-- CREATE INDEX IF NOT EXISTS "type" ON "Track" ("type");
