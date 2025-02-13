@@ -24,7 +24,7 @@
         :id="`line${index}`"
         :key="index"
         class="line"
-        @click="seek = Number(line.time)"
+        @click="seek = Number(line.time) + offset"
       >
         <div v-if="line?.contents" class="content">
           <span

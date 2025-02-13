@@ -95,7 +95,7 @@
                 </div>
               </div>
               <div class="progress-bar">
-                <span>{{ formatTime(seek) || '0:00' }}</span>
+                <div class="time">{{ formatTime(seek) || '0:00' }}</div>
                 <div class="slider">
                   <vue-slider
                     v-model="seek"
@@ -113,7 +113,8 @@
                       height: '8px',
                       width: '8px',
                       transform: 'translateY(-2px)',
-                      backgroundColor: 'var(--color-primary)'
+                      backgroundColor: 'white',
+                      opacy: 0.8
                     }"
                     :rail-style="{ backgroundColor: 'rgba(128, 128, 128, 0.18)' }"
                     :process-style="{ backgroundColor: '#eee', opacity: 0.8 }"
@@ -123,7 +124,7 @@
                     :silent="true"
                   ></vue-slider>
                 </div>
-                <span>{{ formatTime(currentTrackDuration) }}</span>
+                <div class="time">{{ formatTime(currentTrackDuration) }}</div>
               </div>
               <div class="media-controls">
                 <button-icon
@@ -162,7 +163,9 @@
                 /></button-icon>
               </div>
               <div class="progress-bar">
-                <button-icon> <svg-icon icon-class="volume-half" /></button-icon>
+                <div class="time"
+                  ><button-icon> <svg-icon icon-class="volume-half" /></button-icon
+                ></div>
                 <div class="slider">
                   <VueSlider
                     v-model="volume"
@@ -186,7 +189,9 @@
                     :silent="true"
                   />
                 </div>
-                <button-icon> <svg-icon icon-class="volume" /></button-icon>
+                <div class="time">
+                  <button-icon> <svg-icon icon-class="volume" /></button-icon
+                ></div>
               </div>
             </div>
           </div>
@@ -479,16 +484,15 @@ provide('show', show)
     justify-content: space-between;
 
     .slider {
-      width: 100%;
-      flex-grow: grow;
+      flex: 1;
       padding: 0 10px;
     }
 
-    span {
+    .time {
       font-size: 15px;
       font-weight: 600;
       opacity: 0.58;
-      // min-width: 28px;
+      width: 34px;
     }
   }
   .media-controls {

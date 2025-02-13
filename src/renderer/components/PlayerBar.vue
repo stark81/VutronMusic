@@ -6,14 +6,6 @@
         :min="0"
         :max="currentTrackDuration"
         :interval="1"
-        :marks="marks"
-        :step-style="{
-          display: 'block',
-          height: '6px',
-          width: '6px',
-          transform: 'translateY(-2px)',
-          backgroundColor: 'var(--color-primary)'
-        }"
         :drag-on-click="false"
         :use-keyboard="false"
         :tooltip-formatter="formatTime"
@@ -42,7 +34,6 @@
             <span>{{ currentTrack?.name }}</span>
           </div>
           <div class="albumAndLyric">
-            <!-- <span>{{ currentTrack?.al?.name }}</span> -->
             <span v-for="(ar, index) in artists" :key="ar.id" class="artist">
               <span :class="{ ar: ar.matched !== false }" @click="goToArtist(ar)">
                 {{ ar.name }}
@@ -187,7 +178,6 @@ const {
   volume,
   isLiked,
   pic,
-  chorus,
   source
 } = storeToRefs(playerStore)
 
@@ -201,18 +191,11 @@ const dataStore = useDataStore()
 const { liked } = storeToRefs(dataStore)
 const { likeATrack } = dataStore
 
-const formatTime = computed(() => {
-  const minutes = Math.floor(seek.value / 60)
+const formatTime = (time: number) => {
+  const minutes = Math.floor(time / 60)
   const remainingSeconds = Math.ceil(seek.value % 60)
   return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
-})
-
-const marks = computed(() => {
-  const result: Record<string, any> = {}
-  if (chorus.value === 0) return result
-  result[chorus.value.toString()] = { labelStyle: { display: 'none' } }
-  return result
-})
+}
 
 const artists = computed(() => {
   return currentTrack.value?.artists ?? currentTrack.value?.ar
@@ -283,7 +266,6 @@ watch(
   margin-top: -6px !important;
   margin-bottom: -6px !important;
   width: 100%;
-  background-color: red;
 }
 
 .controls {
