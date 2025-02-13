@@ -105,8 +105,16 @@
                     :duration="0.5"
                     :dot-size="12"
                     :height="4"
+                    :marks="marks"
                     :use-keyboard="false"
                     :drag-on-click="false"
+                    :step-style="{
+                      display: 'block',
+                      height: '8px',
+                      width: '8px',
+                      transform: 'translateY(-2px)',
+                      backgroundColor: 'var(--color-primary)'
+                    }"
                     :rail-style="{ backgroundColor: 'rgba(128, 128, 128, 0.18)' }"
                     :process-style="{ backgroundColor: '#eee', opacity: 0.8 }"
                     :dot-style="{ display: 'none' }"
@@ -251,6 +259,7 @@ const {
   color2,
   pic,
   source,
+  chorus,
   repeatMode
 } = storeToRefs(playerStore)
 const { playPrev, playOrPause, _playNextTrack, switchRepeatMode, moveToFMTrash } = playerStore
@@ -295,6 +304,13 @@ const artist = computed(() => {
 
 const album = computed(() => {
   return currentTrack.value?.album ?? currentTrack.value?.al
+})
+
+const marks = computed(() => {
+  const result: Record<string, any> = {}
+  if (chorus.value === 0) return result
+  result[chorus.value.toString()] = { labelStyle: { display: 'none' } }
+  return result
 })
 
 watch(showLyrics, (value) => {

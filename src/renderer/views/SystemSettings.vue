@@ -1477,7 +1477,7 @@ onBeforeUnmount(() => {
   background-color: var(--color-primary);
 }
 .slideBar {
-  width: 100px;
+  max-width: 120px;
   position: absolute;
   left: 30px;
   top: 30px;

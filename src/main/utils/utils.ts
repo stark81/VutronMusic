@@ -514,7 +514,7 @@ export const deleteExcessCache = (deleteAll = false) => {
       if (ids.length > 0) db.deleteMany(Tables.Track, ids)
       const audioCachePath = app.getPath('userData') + '/audioCache'
       if (fs.existsSync(audioCachePath)) {
-        fs.rmdirSync(audioCachePath, { recursive: true })
+        fs.rmSync(audioCachePath, { recursive: true })
       }
       return true
     } catch {

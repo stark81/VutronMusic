@@ -7,7 +7,7 @@ import { useStreamMusicStore } from './streamingMusic'
 import { useSettingsStore } from './settings'
 import { useNormalStateStore } from './state'
 import { useDataStore } from './data'
-import { searchMatch, fmTrash, personalFM } from '../api/other'
+import { searchMatch, fmTrash, personalFM, songChorus } from '../api/other'
 import { useI18n } from 'vue-i18n'
 // import { scrobble } from '../api/track'
 
@@ -59,6 +59,7 @@ export const usePlayerStore = defineStore(
     const streamMusics = ref<Track[]>([])
     const isLiked = ref(false)
     const isLocalList = ref(false)
+    const chorus = ref(0)
     const pic = ref<string>(
       currentTrack.value?.album?.picUrl ||
         'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg'
@@ -460,6 +461,7 @@ export const usePlayerStore = defineStore(
     const getCurrentTrackInfo = async (track: Track) => {
       if (!track) return
       wBywLyricIndex.value = 0
+      chorus.value = 0
       let data: any
       if (track.type === 'stream') {
         if (track.source === 'navidrome') {
@@ -478,6 +480,13 @@ export const usePlayerStore = defineStore(
         }
       } else {
         data = await fetch(`atom://get-track-info/${track.id}`).then((res) => res.json())
+        if (track.matched) {
+          songChorus(track.id).then((res) => {
+            if (res.chorus.length) {
+              chorus.value = res.chorus[0].startTime / 1000
+            }
+          })
+        }
       }
       const buffer = new Uint8Array(data.pic.data)
       const blob = new Blob([buffer], { type: data.format })
@@ -1057,7 +1066,9 @@ export const usePlayerStore = defineStore(
       playing.value = false
       title.value = 'VutronMusic'
       if (enabled.value) {
+        pic.value = `atom://get-pic/${currentTrack.value?.id}`
         if (currentTrack.value?.type === 'stream') {
+          pic.value = currentTrack.value?.picUrl
           if (streamMusicStore.status[streamMusicStore.select] !== 'login') {
             resetPlayer(false)
             return
@@ -1101,6 +1112,7 @@ export const usePlayerStore = defineStore(
       enabled,
       progress,
       seek,
+      chorus,
       playbackRate,
       repeatMode,
       title,

@@ -136,7 +136,7 @@ class DB {
       const versionMatch = sqlFile.match(/^(\d+(\.\d+)*)(?=\.)/)
       const version = versionMatch ? versionMatch[0] : ''
       if (!validate(version)) return
-      if (compare(version, Constants.APP_VERSION, '>')) {
+      if (compare(version, appVersion.value, '>')) {
         const file = readSqlFile(sqlFile)
         this.sqlite.exec(file)
         this.sqlite.pragma('journal_mode=WAL')
