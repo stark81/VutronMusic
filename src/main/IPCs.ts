@@ -134,8 +134,6 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
         }
       } else if (key === 'shortcuts') {
         createMenu(win)
-        globalShortcut.unregisterAll()
-        registerGlobalShortcuts(win)
       }
     }
   })
