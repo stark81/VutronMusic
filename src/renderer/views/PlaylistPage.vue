@@ -22,7 +22,7 @@
           离线歌单 {{ user.nickname ? `by ${user.nickname}` : `` }}
         </div>
         <div v-else-if="playlistType === 'stream'" class="artist">
-          流媒体歌单 {{ playlist.creator.nickname }}
+          流媒体歌单 by {{ playlist.creator.nickname }}
         </div>
         <div v-else class="artist">
           歌单 by
