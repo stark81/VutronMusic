@@ -641,7 +641,7 @@ export const usePlayerStore = defineStore(
       return [list.value[next], next, false]
     }
 
-    const _playNextTrack = (isPersonal: any) => {
+    const _playNextTrack = (isPersonal: boolean) => {
       if (isPersonal) {
         playNextFMTrack()
       } else {
@@ -877,8 +877,11 @@ export const usePlayerStore = defineStore(
         }
         playOrPause()
       })
-      window.mainApi.on('previous', playPrev)
-      window.mainApi.on('next', playNext)
+      window.mainApi.on('previous', () => {
+        if (!isPersonalFM.value) playPrev()
+        else moveToFMTrash()
+      })
+      window.mainApi.on('next', () => _playNextTrack(isPersonalFM.value))
       window.mainApi.on('repeat', (_: any, value: string) => {
         repeatMode.value = value
       })
@@ -905,8 +908,13 @@ export const usePlayerStore = defineStore(
           pause()
           playing.value = false
         })
-        navigator.mediaSession.setActionHandler('previoustrack', playPrev)
-        navigator.mediaSession.setActionHandler('nexttrack', playNext)
+        navigator.mediaSession.setActionHandler('previoustrack', () => {
+          if (!isPersonalFM.value) playPrev()
+          else moveToFMTrash()
+        })
+        navigator.mediaSession.setActionHandler('nexttrack', () =>
+          _playNextTrack(isPersonalFM.value)
+        )
         navigator.mediaSession.setActionHandler('stop', () => {
           pause()
           playing.value = false
@@ -917,7 +925,6 @@ export const usePlayerStore = defineStore(
         navigator.mediaSession.setActionHandler('seekbackward', (event) => {
           seek.value -= event.seekOffset || 10
         })
-
         navigator.mediaSession.setActionHandler('seekforward', (event) => {
           seek.value += event.seekOffset || 10
         })
