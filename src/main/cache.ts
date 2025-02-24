@@ -11,9 +11,7 @@ class Cache {
         const { newTracks } = data
         const tracks = newTracks.map((t: any) => ({
           id: t.id,
-          filePath: t.filePath,
-          isLocal: Number(t.isLocal),
-          deleted: Number(t.deleted),
+          type: t.type,
           json: JSON.stringify(t),
           updatedAt: Date.now()
         }))
@@ -47,7 +45,7 @@ class Cache {
 
         _.merge(track, newTrack)
         track.matched = true
-        track.isLocal = true
+        track.type = 'local'
         track.album.matched = true
         track.artists.forEach((a: any) => {
           a.matched = true
@@ -55,9 +53,7 @@ class Cache {
 
         const result = {
           id: data.result.songs[0].id,
-          filePath: trackRaw.filePath,
-          isLocal: 1,
-          deleted: trackRaw.deleted,
+          type: 'local',
           json: JSON.stringify(track),
           updatedAt: Date.now()
         } as any
@@ -113,7 +109,8 @@ class Cache {
       case CacheAPIs.LocalMusic: {
         // 此项用于获取所有本地歌曲
         // 注：是全部本地歌曲，不可获取部分，仅在扫描本地歌曲与程序启动时使用
-        const data = db.findAll(Tables.Track, `isLocal = 1`)
+        const sql = params.sql ?? `type = 'local'`
+        const data = db.findAll(Tables.Track, sql)
         const tracks = data.map((t: any) => JSON.parse(t.json))
         return {
           code: 200,

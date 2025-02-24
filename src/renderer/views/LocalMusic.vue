@@ -1,37 +1,11 @@
 <template>
   <div class="local-music">
-    <div ref="sectionOneRef" class="section-one">
+    <div class="section-one">
       <div class="left" style="width: 100%">
-        <svg id="bgSvg" style="height: 100%; width: 100%">
-          <defs>
-            <linearGradient v-if="!isDarkMode" id="gradient" gradientTransform="rotate(30)">
-              <stop offset="0%" stop-color="#fdfbfb"></stop>
-              <stop offset="40%" stop-color="#ededed"></stop>
-              <stop offset="150%" stop-color="#fff"></stop>
-            </linearGradient>
-            <linearGradient v-else id="gradient" gradientTransform="rotate(30)">
-              <stop offset="0%" stop-color="#323232"></stop>
-              <stop offset="40%" stop-color="#3F3F3F"></stop>
-              <stop offset="150%" stop-color="#222"></stop>
-            </linearGradient>
-          </defs>
-          <path
-            fill-rule="evenodd"
-            clip-rule="evenodd"
-            d="M 408 240  L 0 240  L 0 119.676748582231  L 0 0  L 493.923 0  L 542 61.401  L 408 240  Z M 523.673 190  L 502.983 216.435  L 521.427 240  L 819.671 240  L 802.435 217.978  C 801.723 217.07  801.723 215.801  802.435 214.885  L 821.917 190  L 523.673 190  Z M 809.178 216.435  L 827.621 240  L 843.477 240  L 826.241 217.978  C 825.528 217.07  825.528 215.801  826.241 214.885  L 859.723 172  L 843.868 172  L 829.868 190  L 809.178 216.435  Z M 517.178 59.0216  L 486.421 19.7349  C 486.059 19.265  485.493 19  484.903 19  L 475.59 19  C 474.783 19  474.337 19.9276  474.831 20.5541  L 506.805 61.407  L 474.831 102.26  C 474.337 102.886  474.783 103.814  475.59 103.814  L 484.903 103.814  C 485.493 103.814  486.059 103.537  486.421 103.079  L 517.178 63.7803  C 517.71 63.1016  518 62.2638  518 61.401  C 518 60.5382  517.71 59.7004  517.178 59.0216  Z M 449.796 19.7349  C 449.435 19.265  448.869 19  448.278 19  L 438.966 19  C 438.159 19  437.713 19.9276  438.207 20.5541  L 470.181 61.407  L 438.207 102.26  C 437.713 102.886  438.159 103.814  438.966 103.814  L 448.278 103.814  C 448.869 103.814  449.435 103.537  449.796 103.079  L 480.554 63.7803  C 481.086 63.1016  481.376 62.2638  481.376 61.401  C 481.376 60.5382  481.086 59.7004  480.554 59.0216  L 449.796 19.7349  Z M 496.241 214.885  L 528.723 172  L 510.868 172  L 460.7 240  L 513.477 240  L 496.241 217.978  C 495.529 217.07  495.529 215.801  496.241 214.885  Z "
-            fill="url(#gradient)"
-          />
-        </svg>
+        <InfoBG />
         <div class="content">
           <h2 style="margin-bottom: 20px">本地歌曲</h2>
-          <div
-            style="
-              display: grid;
-              grid-template-columns: 1fr 1fr;
-              grid-gap: 20px 40px;
-              align-items: center;
-            "
-          >
+          <div class="content-info">
             <div>
               <div class="subtitle">全部歌曲</div>
               <div class="text">{{ localTracks.length }}首</div>
@@ -53,12 +27,15 @@
       </div>
       <div class="right-top" @click="playThisTrack">
         <p>
-          <span v-for="(line, index) in pickedLyric" v-show="line !== ''" :key="`${line}${index}`"
+          <span
+            v-for="(line, index) in pickedLyricLines"
+            v-show="line !== ''"
+            :key="`${line}${index}`"
             >{{ line }}<br
           /></span>
         </p>
       </div>
-      <div class="right-bottom">{{ artist }} - {{ trackName }}</div>
+      <div class="right-bottom">{{ randomTrack?.artists[0].name }} - {{ randomTrack?.name }}</div>
     </div>
     <div class="section-two">
       <div
@@ -146,7 +123,12 @@
         </div>
 
         <div v-show="currentTab === 'localPlaylist'">
-          <CoverRow :items="playlists" :type="currentTab" :style="{ paddingBottom: '96px' }" />
+          <CoverRow
+            v-if="playlists.length"
+            :items="playlists"
+            :type="currentTab"
+            :style="{ paddingBottom: '96px' }"
+          />
         </div>
         <div v-show="currentTab === 'album'">
           <AlbumList :tracks="sortedLocalTracks" />
@@ -178,9 +160,8 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
 import { useNormalStateStore } from '../store/state'
-import { useLocalMusicStore } from '../store/localMusic'
+import { Track, useLocalMusicStore } from '../store/localMusic'
 import { usePlayerStore } from '../store/player'
-import { useSettingsStore } from '../store/settings'
 import {
   computed,
   ref,
@@ -188,12 +169,12 @@ import {
   provide,
   inject,
   onMounted,
-  onActivated,
   onUnmounted,
   watch,
   nextTick
 } from 'vue'
 import TrackList from '../components/VirtualTrackList.vue'
+import InfoBG from '../components/InfoBG.vue'
 import AlbumList from '../components/AlbumList.vue'
 import ArtistList from '../components/ArtistList.vue'
 import CoverRow from '../components/CoverRow.vue'
@@ -202,7 +183,7 @@ import SearchBox from '../components/SearchBox.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import AccurateMatchModal from '../components/AccurateMatchModal.vue'
 import { randomNum } from '../utils/index'
-import { lyricParse } from '../utils/lyric'
+import { lyricParse, pickedLyric } from '../utils/lyric'
 import { useI18n } from 'vue-i18n'
 
 // load
@@ -212,29 +193,16 @@ const { localTracks, playlists, sortBy } = storeToRefs(localMusicStore)
 const { newPlaylistModal, modalOpen } = storeToRefs(useNormalStateStore())
 const { addTrackToPlayNext } = usePlayerStore()
 
-// const { general, theme } = storeToRefs(useSettingsStore())
-const { theme } = storeToRefs(useSettingsStore())
-
 // ref
 const currentTab = ref('localTracks')
-const isDarkMode = ref(false)
 const localSearchBoxRef = ref<InstanceType<typeof SearchBox>>()
 const playlistTabMenu = ref<InstanceType<typeof ContextMenu>>()
 const trackListRef = shallowRef<InstanceType<typeof TrackList>>()
 const tabsRowRef = ref()
 const randomID = ref<number>(1)
 const randomLyric = ref<{ content: string }[]>([])
-const artist = ref<string>('')
-const trackName = ref<string>('')
-const noLyricTracks = ref<number[]>([])
+const randomTrack = ref<Track>()
 const isBatchOp = ref(false)
-
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-  isDarkMode.value =
-    theme.value.appearance === 'auto'
-      ? window.matchMedia('(prefers-color-scheme: dark)').matches
-      : theme.value.appearance === 'dark'
-})
 
 const hasCustomTitleBar = inject('hasCustomTitleBar', ref(true))
 
@@ -258,10 +226,9 @@ const artists = computed(() => {
   return [...new Map(ar.map((ar) => [ar.name, ar])).values()]
 })
 
-const localTrackIDs = computed(() => {
-  const ids = localTracks.value.map((track) => track.id)
-  const result = ids.filter((id) => !noLyricTracks.value.includes(id))
-  return result
+const pickedLyricLines = computed(() => {
+  const randomLines = pickedLyric(randomLyric.value)
+  return randomLines
 })
 
 watch(modalOpen, (value) => {
@@ -294,21 +261,6 @@ const addTracksToQueue = () => {
   trackListRef.value?.addToQueue()
 }
 
-// function
-const pickedLyric = computed(() => {
-  if (randomLyric.value.length === 0) return []
-  const filterWords =
-    /(作词|作曲|编曲|和声|混音|录音|OP|SP|MV|吉他|二胡|古筝|曲编|键盘|贝斯|鼓|弦乐|打击乐|混音|制作人|配唱|提琴|海报|特别鸣谢)/i
-  const lyricLines = randomLyric.value
-    .filter((l) => !filterWords.test(l.content))
-    .map((l) => l.content)
-  const lyricsToPick = Math.min(lyricLines.length, 3)
-  const randomUpperBound = lyricLines.length - lyricsToPick
-  const startLyricLineIndex = randomNum(0, randomUpperBound - 1)
-
-  return lyricLines.slice(startLyricLineIndex, startLyricLineIndex + lyricsToPick)
-})
-
 const keyword = computed(() => localSearchBoxRef.value?.keywords || '')
 
 const sortedLocalTracks = computed(() => {
@@ -338,6 +290,7 @@ const filterLocalTracks = computed(() => {
   return defaultTracks.value.filter(
     (track) =>
       (track.name && track.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
+      track.alias.find((al) => al.toLowerCase().includes(keyword.value?.toLowerCase())) ||
       (track.album?.name &&
         track.album.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
       track.artists.find(
@@ -358,7 +311,7 @@ const openLocalTracksTabMenu = (e: MouseEvent): void => {
 
 const openAddPlaylistModal = () => {
   newPlaylistModal.value = {
-    isLocal: true,
+    type: 'local',
     afterCreateAddTrackID: [],
     show: true
   }
@@ -417,31 +370,25 @@ const handleResize = () => {
   if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
 }
 
-const getRandomTrack = async (id: number) => {
-  if (!id) return
-  const data = await fetch(`atom://get-lyric/${id}`)
-    .then((res) => res.json())
-    .catch(() => {
-      noLyricTracks.value.push(id)
-      return null
-    })
-  if (!data?.lrc?.lyric?.length) {
-    noLyricTracks.value.push(id)
-    randomID.value = localTrackIDs.value[randomNum(0, localTrackIDs.value.length - 1)]
-    getRandomTrack(randomID.value)
-    return
+const getRandomTrack = async () => {
+  const ids = defaultTracks.value.map((t) => t.id)
+  let i = 0
+  let data: any
+  let randomID: number
+  while (i < ids.length - 1) {
+    randomID = ids[randomNum(0, ids.length - 1)]
+    data = await fetch(`atom://get-lyric/${randomID}`).then((res) => res.json())
+    if (data.lrc.lyric.length > 0) {
+      const { lyric } = lyricParse(data)
+      const isInstrumental = lyric.filter((l) => l.content?.includes('纯音乐，请欣赏'))
+      if (!isInstrumental.length) {
+        randomLyric.value = lyric
+        break
+      }
+    }
+    i++
   }
-  const { lyric } = lyricParse(data)
-  const isInstrumental = lyric.filter((l) => l.content?.includes('纯音乐，请欣赏'))
-  if (isInstrumental.length > 0) {
-    randomID.value = localTrackIDs.value[randomNum(0, localTrackIDs.value.length - 1)]
-    getRandomTrack(randomID.value)
-    return
-  }
-  const track = localTracks.value.find((track) => track.id === id)
-  randomLyric.value = lyric
-  trackName.value = track!.name
-  artist.value = track!.artists[0].name
+  randomTrack.value = defaultTracks.value.find((t) => t.id === randomID)!
 }
 
 const updatePadding = inject('updatePadding') as (padding: number) => void
@@ -454,23 +401,11 @@ watch(currentTab, () => {
 
 onMounted(() => {
   window.addEventListener('resize', handleResize)
-  isDarkMode.value =
-    theme.value.appearance === 'auto'
-      ? window.matchMedia('(prefers-color-scheme: dark)').matches
-      : theme.value.appearance === 'dark'
   setTimeout(() => {
     updatePadding(0)
     if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
   }, 100)
-  if (!localTrackIDs.value.length) return
-  randomID.value = localTrackIDs.value[randomNum(0, localTrackIDs.value.length - 1)]
-  getRandomTrack(randomID.value)
-})
-
-onActivated(() => {
-  if (!localTrackIDs.value.length) return
-  randomID.value = localTrackIDs.value[randomNum(0, localTrackIDs.value.length - 1)]
-  getRandomTrack(randomID.value)
+  getRandomTrack()
 })
 
 onUnmounted(() => {
@@ -478,14 +413,10 @@ onUnmounted(() => {
   updatePadding(96)
   navBarRef.value.searchBoxRef.$el.style.display = ''
   observeTab.disconnect()
-  // observeSectionOne.disconnect()
 })
 </script>
 
 <style scoped lang="scss">
-// .local-music {
-//   transition: all 0.4s;
-// }
 .section-one {
   margin: 20px 0 0 0;
   box-sizing: border-box;
@@ -507,6 +438,12 @@ onUnmounted(() => {
       height: 100%;
       padding: 30px 100px;
       box-sizing: border-box;
+      .content-info {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-gap: 20px 40px;
+        align-items: center;
+      }
       .subtitle {
         font-size: 14px;
       }

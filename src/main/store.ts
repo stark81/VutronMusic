@@ -19,6 +19,25 @@ export interface TypeElectronStore {
   settings: {
     [key: string]: any
   }
+  accounts: {
+    selected: string
+    navidrome: {
+      url: string
+      clientID: string
+      anthorization: string
+      token: string
+      username: string
+      password: string
+      salt: string
+    }
+    emby: {
+      url: string
+      username: string
+      password: string
+      userId: string
+      accessToken: string
+    }
+  }
 }
 
 const store = new Store<TypeElectronStore>({
@@ -40,6 +59,18 @@ const store = new Store<TypeElectronStore>({
       useCustomTitlebar: false,
       showTray: true,
       enableGlobalShortcut: false,
+      unblockNeteaseMusic: {
+        enable: true,
+        source: '',
+        enableFlac: true,
+        orderFirst: true,
+        jooxCookie: '',
+        qqCookie: ''
+      },
+      autoCacheTrack: {
+        enable: false,
+        sizeLimit: 512 as boolean | number
+      },
       shortcuts: [
         {
           id: 'play',
@@ -84,6 +115,25 @@ const store = new Store<TypeElectronStore>({
           globalShortcut: 'Alt+CommandOrControl+M'
         }
       ]
+    },
+    accounts: {
+      selected: 'navidrome',
+      navidrome: {
+        url: '',
+        clientID: '',
+        anthorization: '',
+        username: '',
+        password: '',
+        token: '',
+        salt: ''
+      },
+      emby: {
+        url: '',
+        username: '',
+        password: '',
+        userId: '',
+        accessToken: ''
+      }
     }
   }
 })

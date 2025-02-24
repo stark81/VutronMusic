@@ -26,13 +26,14 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePlayerStore } from '../store/player'
 import { useLocalMusicStore } from '../store/localMusic'
+import { useStreamMusicStore } from '../store/streamingMusic'
 import { storeToRefs } from 'pinia'
 import { getPlaylistDetail } from '../api/playlist'
 import { getArtist } from '../api/artist'
 import { getAlbum } from '../api/album'
 
 const props = defineProps({
-  id: { type: Number, required: true },
+  id: { type: [Number, String], required: true },
   type: { type: String, required: true },
   imageUrl: { type: String, required: true },
   fixedSize: { type: Number, default: 0 },
@@ -51,6 +52,7 @@ const playerStore = usePlayerStore()
 const { _shuffle } = storeToRefs(playerStore)
 const { replacePlaylist } = playerStore
 const localMusic = storeToRefs(useLocalMusicStore())
+const streamMusic = storeToRefs(useStreamMusicStore())
 
 const playButtonStyles = computed(() => {
   const styles = {
@@ -96,7 +98,7 @@ const doHover = (isHover: boolean) => {
 
 const play = () => {
   if (props.type === 'playlist') {
-    getPlaylistDetail(props.id, false).then((data) => {
+    getPlaylistDetail(props.id as number, false).then((data) => {
       const trackIDs = data.playlist.trackIds.map((t: any) => t.id)
       const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
       replacePlaylist(props.type, props.id, trackIDs, idx)
@@ -106,8 +108,13 @@ const play = () => {
     const trackIDs = playlist.trackIds
     const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : trackIDs.length - 1
     replacePlaylist('localPlaylist', props.id, trackIDs, idx)
+  } else if (props.type === 'streamPlaylist') {
+    const playlist = streamMusic.playlists.value.find((p) => p.id === props.id)!
+    const trackIDs = playlist.trackIds
+    const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : trackIDs.length - 1
+    replacePlaylist('streamPlaylist', props.id, trackIDs, idx)
   } else if (props.type === 'artist') {
-    getArtist(props.id).then((data) => {
+    getArtist(props.id as number).then((data) => {
       const trackIDs = data.hotSongs.map((t) => t.id)
       const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
       replacePlaylist(props.type, props.id, trackIDs, idx)

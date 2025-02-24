@@ -9,14 +9,15 @@ import fs from 'fs'
 import path from 'path'
 import { parseFile } from 'music-metadata'
 import cache from './cache'
+import navidrome from './streaming/navidrome'
+import emby from './streaming/emby'
 import { db, Tables } from './db'
 import { CacheAPIs } from './utils/CacheApis'
-import { createMD5, getReplayGainFromMetadata, splitArtist } from './utils/utils'
+import { createMD5, deleteExcessCache, getReplayGainFromMetadata, splitArtist } from './utils/utils'
 import { registerGlobalShortcuts } from './globalShortcut'
 import { createMenu } from './menu'
 
 let isLock = store.get('osdWindow.isLock') as boolean
-let isPlaying = false
 /*
  * IPC Communications
  * */
@@ -25,7 +26,7 @@ export default class IPCs {
     win: BrowserWindow,
     tray: YPMTray,
     mpris: MprisImpl,
-    lrc: { [key: string]: Function }
+    lrc: Record<string, Function>
   ): void {
     initWindowIpcMain(win)
     initOSDWindowIpcMain(win, lrc)
@@ -33,6 +34,7 @@ export default class IPCs {
     initTaskbarIpcMain()
     initMprisIpcMain(win, mpris)
     initOtherIpcMain(win)
+    initStreaming()
   }
 }
 
@@ -106,7 +108,6 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
   ipcMain.on('updatePlayerState', (event: IpcMainEvent, data: any) => {
     for (const [key, value] of Object.entries(data) as [string, any]) {
       if (key === 'playing') {
-        isPlaying = value
         tray.setPlayState(value)
       } else if (key === 'repeatMode') {
         tray.setRepeatMode(value)
@@ -180,7 +181,6 @@ function initOSDWindowIpcMain(win: BrowserWindow, lrc: { [key: string]: Function
   ipcMain.on('osd-resize', (event, height) => {
     lrc.updateOsdHeight(height)
   })
-  ipcMain.handle('get-playing-status', (event) => isPlaying)
   ipcMain.on('updatePlayerState', (event: IpcMainEvent, data: any) => {
     for (const [key, value] of Object.entries(data) as [string, any]) {
       if (key === 'playing') {
@@ -195,6 +195,12 @@ function initOSDWindowIpcMain(win: BrowserWindow, lrc: { [key: string]: Function
   ipcMain.on('mouseleave', () => {
     store.set('osdWin.isLock', isLock)
     lrc.toggleMouseIgnore()
+  })
+  ipcMain.on('window-drag', (event, data: any) => {
+    lrc.dragOsdWindow(data)
+  })
+  ipcMain.on('windowMouseleave', () => {
+    lrc.windowMouseleave()
   })
 }
 
@@ -327,9 +333,9 @@ function initOtherIpcMain(win: BrowserWindow): void {
             if (!album) {
               album = {
                 id: albums.length + newAlbums.length + 1,
-                name: common.album ?? '位置专辑',
+                name: common.album ?? '未知专辑',
                 matched: false,
-                picUrl: 'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg'
+                picUrl: 'atom://get-default-pic'
               }
               newAlbums.push(album)
             }
@@ -337,21 +343,22 @@ function initOtherIpcMain(win: BrowserWindow): void {
             // 获取音乐信息
             const track = {
               id: songs.length + newTracks.length + 1,
-              name: common.title ?? '错误文件',
+              name: common.title ?? getFileName(filePath) ?? '错误文件',
               dt: (format.duration ?? 0) * 1000,
+              source: 'localTrack',
+              gain: getReplayGainFromMetadata(metadata),
+              peak: 1,
+              br: format.bitrate ?? 320000,
               filePath,
-              show: true,
-              deleted: false,
-              isLocal: true,
+              type: 'local',
               matched: false,
               offset: 0,
               md5,
               createTime: birthDate,
               alias: [],
-              trackGain: getReplayGainFromMetadata(metadata),
               album,
               artists: arIDsResult,
-              picUrl: 'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg'
+              picUrl: 'atom://get-default-pic'
             }
             // const currentArtists = [...artists, ...newArtists].filter((artist) => arIDsResult.includes(artist.id))
             win.webContents.send('msgHandleScanLocalMusic', { track })
@@ -373,7 +380,7 @@ function initOtherIpcMain(win: BrowserWindow): void {
   })
 
   ipcMain.on('deleteLocalMusicDB', (event) => {
-    const trackIDs = cache.get(CacheAPIs.LocalMusic)?.songs.map((track) => track.id)
+    const trackIDs = cache.get(CacheAPIs.LocalMusic)?.songs.map((track: any) => track.id)
     if (!trackIDs.length) return
     db.deleteMany(Tables.Track, trackIDs)
 
@@ -381,6 +388,19 @@ function initOtherIpcMain(win: BrowserWindow): void {
     if (!playlistIDs.length) return
     db.deleteMany(Tables.Playlist, playlistIDs)
     // db.vacuum()
+  })
+
+  ipcMain.handle('clearCacheTracks', (event) => {
+    const result = deleteExcessCache(true)
+    return result
+  })
+
+  ipcMain.handle('getCacheTracksInfo', (event) => {
+    const tracks = cache.get(CacheAPIs.LocalMusic, { sql: "type = 'online'" })
+    const size = tracks.songs
+      .map((track: any) => track.size)
+      .reduce((acc: string, cur: string) => Number(acc) + Number(cur), 0)
+    return { length: tracks.songs.length, size }
   })
 
   ipcMain.handle('accurateMatch', (event, track, id) => {
@@ -461,4 +481,115 @@ async function initMprisIpcMain(win: BrowserWindow, mpris: MprisImpl): Promise<v
   ipcMain.on('playerCurrentTrackTime', (event: IpcMainEvent, progress: number) => {
     mpris?.setPosition(progress)
   })
+}
+
+function initStreaming() {
+  ipcMain.handle('stream-login', async (event: IpcMainEvent, data: any) => {
+    const { platform } = data
+    store.set('accounts.selected', platform)
+    store.set(`accounts.${data.platform}.url`, data.baseURL)
+    store.set(`accounts.${data.platform}.username`, data.username)
+    store.set(`accounts.${data.platform}.password`, data.password)
+    if (platform === 'navidrome') {
+      const response = await navidrome.doLogin(data.baseURL, data.username, data.password)
+      return response
+    } else if (platform === 'emby') {
+      const response = await emby.doLogin(data.baseURL, data.username, data.password)
+      return response
+    }
+  })
+
+  ipcMain.handle('get-stream-songs', async (event, data) => {
+    store.set('accounts.selected', data.platform)
+    if (data.platform === 'navidrome') {
+      const tracks = await navidrome.getTracks()
+      const playlists = await navidrome.getPlaylists()
+      return {
+        code: tracks.code,
+        message: tracks.message,
+        tracks: tracks.data,
+        playlists: playlists.data
+      }
+    } else if (data.platform === 'emby') {
+      const tracks = await emby.getTracks()
+      const playlists = await emby.getPlaylists()
+      return { code: tracks.code, message: '', tracks: tracks.data, playlists: playlists.data }
+    }
+  })
+
+  ipcMain.handle('get-stream-account', (event, data) => {
+    const url = (store.get(`accounts.${data.platform}.url`) as string) || ''
+    const username = (store.get(`accounts.${data.platform}.username`) as string) || ''
+    const password = (store.get(`accounts.${data.platform}.password`) as string) || ''
+    return { url, username, password }
+  })
+
+  ipcMain.handle('get-stream-playlists', async (event, data) => {
+    if (data.platform === 'navidrome') {
+      const playlists = await navidrome.getPlaylists()
+      return { code: playlists.code, playlists: playlists.data }
+    } else if (data.platform === 'emby') {
+      const playlists = await emby.getPlaylists()
+      return { code: playlists.code, playlists: playlists.data }
+    }
+  })
+
+  ipcMain.handle('logoutStreamMusic', (event, data) => {
+    if (data.platform === 'navidrome') {
+      store.set('accounts.navidrome.clientID', '')
+      store.set('accounts.navidrome.anthorization', '')
+      store.set('accounts.navidrome.token', '')
+      store.set('accounts.navidrome.salt', '')
+      return true
+    } else if (data.platform === 'emby') {
+      store.set('accounts.emby.userId', '')
+      store.set('accounts.emby.accessToken', '')
+      return true
+    }
+  })
+
+  ipcMain.handle('deleteStreamPlaylist', async (event, data) => {
+    if (data.platform === 'navidrome') {
+      const result = await navidrome.deletePlaylist(data.id)
+      return result
+    } else if (data.platform === 'emby') {
+      const result = await emby.deletePlaylist(data.id)
+      return result
+    }
+  })
+
+  ipcMain.handle('createStreamPlaylist', async (event, data) => {
+    if (data.platform === 'navidrome') {
+      const result = await navidrome.createPlaylist(data.name)
+      return result
+    } else if (data.platform === 'emby') {
+      const result = await emby.createPlaylist(data.name)
+      return result
+    }
+  })
+
+  ipcMain.handle('updateStreamPlaylist', async (event, data) => {
+    if (data.platform === 'navidrome') {
+      const result = await navidrome.addTracksToPlaylist(data.op, data.playlistId, data.ids)
+      return result
+    } else if (data.platform === 'emby') {
+      const result = await emby.addTracksToPlaylist(data.op, data.playlistId, data.ids)
+      return result
+    }
+  })
+
+  ipcMain.on('scrobbleStreamMusic', (event, data) => {
+    if (data.platform === 'navidrome') {
+      navidrome.scrobble(data.id)
+    } else if (data.platform === 'emby') {
+      emby.scrobble(data.id)
+    }
+  })
+}
+
+function getFileName(filePath: string) {
+  const fileExt = path.extname(filePath)
+  const fileNameWithExt = path.basename(filePath)
+  const fileName = fileNameWithExt.replace(fileExt, '')
+  return fileName
 }

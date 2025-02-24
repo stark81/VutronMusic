@@ -1,8 +1,11 @@
 import { defineStore } from 'pinia'
 import { reactive, ref, watch } from 'vue'
 
+type TrackType = 'online' | 'local' | 'stream'
+
 export const useNormalStateStore = defineStore('state', () => {
   const enableScrolling = ref(true)
+  const virtualScrolling = ref(false)
   const showLyrics = ref(false)
   const searchTab = ref('track')
   const exploreTab = ref('playlist')
@@ -12,13 +15,13 @@ export const useNormalStateStore = defineStore('state', () => {
   const modalOpen = ref(false)
   const addTrackToPlaylistModal = ref({
     show: false,
-    selectedTrackID: [0],
-    isLocal: false
+    selectedTrackID: [0] as (number | string)[],
+    type: 'online' as TrackType
   })
   const newPlaylistModal = ref({
     show: false,
-    isLocal: false,
-    afterCreateAddTrackID: [0]
+    type: 'online' as TrackType,
+    afterCreateAddTrackID: [0] as (number | string)[]
   })
   const accurateMatchModal = ref({
     show: false,
@@ -51,6 +54,7 @@ export const useNormalStateStore = defineStore('state', () => {
 
   return {
     enableScrolling,
+    virtualScrolling,
     showLyrics,
     searchTab,
     exploreTab,

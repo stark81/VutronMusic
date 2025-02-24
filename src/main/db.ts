@@ -10,6 +10,7 @@ import { compare, validate } from 'compare-versions'
 
 export const enum Tables {
   Track = 'Track',
+  TrackNew = 'Track_new',
   Album = 'Album',
   Artist = 'Artist',
   Playlist = 'Playlist',
@@ -29,6 +30,7 @@ interface CommonTableStructure {
   id: number
   filePath?: string
   isLocal?: boolean
+  type?: string
   deleted?: boolean
   json: string
   updatedAt: number
@@ -36,6 +38,7 @@ interface CommonTableStructure {
 
 export interface TablesStructures {
   [Tables.Track]: CommonTableStructure
+  [Tables.TrackNew]: CommonTableStructure
   [Tables.Album]: CommonTableStructure
   [Tables.Unblock]: CommonTableStructure
   [Tables.Artist]: CommonTableStructure
@@ -130,11 +133,13 @@ class DB {
     }
     const sqlFiles = fs.readdirSync(migrationsDir)
     sqlFiles.forEach((sqlFile: string) => {
-      const version = sqlFile.split('.').shift() || ''
+      const versionMatch = sqlFile.match(/^(\d+(\.\d+)*)(?=\.)/)
+      const version = versionMatch ? versionMatch[0] : ''
       if (!validate(version)) return
-      if (compare(version, Constants.APP_VERSION, '>')) {
+      if (compare(version, appVersion.value, '>')) {
         const file = readSqlFile(sqlFile)
         this.sqlite.exec(file)
+        this.sqlite.pragma('journal_mode=WAL')
       }
     })
     updateAppVersionInDB()

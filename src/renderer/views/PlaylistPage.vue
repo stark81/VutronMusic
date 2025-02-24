@@ -18,8 +18,11 @@
             ><svg-icon icon-class="lock" /></span
           >{{ playlist?.name }}</div
         >
-        <div v-if="isLocal" class="artist">
+        <div v-if="playlistType === 'local'" class="artist">
           离线歌单 {{ user.nickname ? `by ${user.nickname}` : `` }}
+        </div>
+        <div v-else-if="playlistType === 'stream'" class="artist">
+          流媒体歌单 {{ playlist.creator.nickname }}
         </div>
         <div v-else class="artist">
           歌单 by
@@ -46,11 +49,15 @@
           <ButtonTwoTone icon-class="play" @click="play">
             {{ $t('common.play') }}
           </ButtonTwoTone>
-          <ButtonTwoTone v-if="!isLocal" icon-class="floor-comment" @click="openComment">
+          <ButtonTwoTone
+            v-if="playlistType === 'online'"
+            icon-class="floor-comment"
+            @click="openComment"
+          >
             {{ '评论' }}
           </ButtonTwoTone>
           <ButtonTwoTone
-            v-if="!isLocal && playlist?.creator?.userId !== user.userId"
+            v-if="playlistType === 'online' && playlist?.creator?.userId !== user.userId"
             :icon-class="playlist.subscribed ? 'heart-solid' : 'heart'"
             :icon-button="true"
             :horizontal-padding="0"
@@ -61,7 +68,7 @@
           >
           </ButtonTwoTone>
           <ButtonTwoTone
-            v-if="isLocal || playlist?.creator?.userId === user.userId"
+            v-if="playlistType !== 'online' || playlist?.creator?.userId === user.userId"
             icon-class="more"
             :icon-button="true"
             :horizontal-padding="0"
@@ -126,7 +133,7 @@
       <TrackList
         :id="playlist?.id"
         :items="filterTracks"
-        :type="isLocal ? 'localPlaylist' : 'playlist'"
+        :type="typeMap[playlistType]"
         :colunm-number="1"
         :show-position="true"
         :load-more="loadMore"
@@ -147,13 +154,15 @@
 
     <ContextMenu ref="playlistMenu">
       <div
-        v-if="isLocal || playlist?.creator?.userId === user.userId"
+        v-if="playlistType !== 'online' || playlist?.creator?.userId === user.userId"
         class="item"
         @click="deleteAPlaylist"
         >{{ $t('contextMenu.deletePlaylist') }}</div
       >
-      <div v-if="!isLocal" class="item" @click="copyUrl">{{ $t('contextMenu.copyURL') }}</div>
-      <div v-if="!isLocal" class="item" @click="openOnBrowser">{{
+      <div v-if="playlistType === 'online'" class="item" @click="copyUrl">{{
+        $t('contextMenu.copyURL')
+      }}</div>
+      <div v-if="playlistType === 'online'" class="item" @click="openOnBrowser">{{
         $t('contextMenu.openOnBrowser')
       }}</div>
     </ContextMenu>
@@ -170,6 +179,7 @@
 import { computed, ref, provide, onMounted } from 'vue'
 import { useDataStore } from '../store/data'
 import { Playlist, useLocalMusicStore, Track } from '../store/localMusic'
+import { useStreamMusicStore, StreamPlaylist } from '../store/streamingMusic'
 import { useNormalStateStore } from '../store/state'
 import { usePlayerStore } from '../store/player'
 import { storeToRefs } from 'pinia'
@@ -324,6 +334,7 @@ const filterTracks = computed(() => {
 const { playlists, localTracks } = storeToRefs(useLocalMusicStore())
 const { deleteLocalPlaylist } = useLocalMusicStore()
 
+const streamMusic = useStreamMusicStore()
 const { showToast } = useNormalStateStore()
 
 const playerStore = usePlayerStore()
@@ -332,12 +343,27 @@ const { replacePlaylist } = playerStore
 
 const { t } = useI18n()
 
-const isLocal = computed(() => route.name === 'localPlaylist')
+const playlistType = computed(() => {
+  if (route.name === 'localPlaylist') {
+    return 'local'
+  } else if (route.name === 'streamPlaylist') {
+    return 'stream'
+  } else {
+    return 'online'
+  }
+})
+
+const typeMap = {
+  local: 'localPlaylist',
+  stream: 'streamPlaylist',
+  online: 'playlist'
+}
+
 const isLikedSongsPage = computed(() => route.name === 'likedSongs')
 
 const isUserOwnPlaylist = computed(() => {
   return (
-    isLocal.value ||
+    playlistType.value !== 'online' ||
     (playlist.value?.creator?.userId === user.value?.userId &&
       playlist.value?.id !== likedSongPlaylistID.value)
   )
@@ -353,6 +379,23 @@ const loadLocalData = (id: number) => {
   tracks.value = trackIDs
     .map((id) => localTracks.value.find((item) => item.id === id) as Track)
     .reverse()
+  tricklingProgress.done()
+  show.value = true
+}
+
+const loadStreamData = (id: string) => {
+  playlist.value = streamMusic.playlists.find((p) => p.id === id) as StreamPlaylist
+  if (!playlist.value) {
+    router.go(-1)
+    return
+  }
+  const trackIDs = playlist.value.trackIds
+  tracks.value = trackIDs
+    .map((id) => streamMusic.streamTracks.find((item) => item.id === id))
+    .map((track) => {
+      if (!playlist.value.trackItemIds) return track
+      return { ...track, playlistItemId: playlist.value.trackItemIds[track.id] }
+    })
   tricklingProgress.done()
   show.value = true
 }
@@ -413,12 +456,7 @@ const likePlaylist = (toast = false) => {
 const play = () => {
   const trackIDs = tracks.value.map((t) => t.id)
   const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
-  replacePlaylist(
-    isLocal.value ? 'localPlaylist' : 'playlist',
-    playlist.value.id || 0,
-    trackIDs,
-    idx
-  )
+  replacePlaylist(typeMap[playlistType.value], playlist.value.id || 0, trackIDs, idx)
 }
 
 const playIntelligenceList = () => {
@@ -440,13 +478,13 @@ const openMenu = (e: MouseEvent) => {
 }
 
 const deleteAPlaylist = () => {
-  if (!isLocal.value && !isAccountLoggedIn()) {
+  if (playlistType.value === 'online' && !isAccountLoggedIn()) {
     showToast(t('toast.needToLogin'))
     return
   }
 
   if (confirm(`确定要删除歌单 ${playlist.value.name}？`)) {
-    if (isLocal.value) {
+    if (playlistType.value === 'local') {
       deleteLocalPlaylist(playlist.value.id).then((result) => {
         if (result) {
           show.value = false
@@ -466,6 +504,28 @@ const deleteAPlaylist = () => {
           showToast(t('toast.deleteFailed'))
         }
       })
+    } else if (playlistType.value === 'stream') {
+      window.mainApi
+        .invoke('deleteStreamPlaylist', { id: playlist.value.id, platform: streamMusic.select })
+        .then((result: boolean) => {
+          if (result) {
+            show.value = false
+            playlist.value = {
+              id: 0,
+              name: '',
+              description: '',
+              updateTime: 0,
+              trackCount: 0,
+              creator: { userId: '' },
+              coverImgUrl: '',
+              trackIds: []
+            }
+            showToast(t('toast.deleteSuccess'))
+            router.go(-1)
+          } else {
+            showToast(t('toast.deleteFailed'))
+          }
+        })
     } else {
       deletePlaylist(playlist.value.id).then((result) => {
         if (result.code === 200) {
@@ -499,15 +559,20 @@ const closeComment = () => {
   showComment.value = false
 }
 
-const removeTrack = (trackID: number) => {
-  tracks.value = tracks.value.filter((track) => track.id !== trackID)
+const removeTrack = (idx: number) => {
+  tracks.value.splice(idx, 1)
+  if (playlistType.value === 'stream') {
+    playlist.value.trackCount -= 1
+  }
 }
 
 provide('removeTrack', removeTrack)
 
 onMounted(() => {
-  if (isLocal.value) {
+  if (playlistType.value === 'local') {
     loadLocalData(Number(route.params.id))
+  } else if (playlistType.value === 'stream') {
+    loadStreamData(route.params.id as string)
   } else if (route.name === 'likedSongs') {
     loadData(likedSongPlaylistID.value)
   } else {

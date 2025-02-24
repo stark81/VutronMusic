@@ -2,14 +2,14 @@
   <BaseModal
     class="add-track-to-playlist-modal"
     :show="show"
-    :title="isLocal ? $t('localMusic.playlist.addToPlaylist') : $t('player.addToPlaylist')"
+    :title="modelTitle"
     :show-footer="false"
     :close-fn="closeFn"
     width="25vw"
   >
     <template #default>
       <div class="new-playlist-button" @click="newPlaylist"
-        ><svg-icon icon-class="plus" />新建歌单</div
+        ><svg-icon icon-class="plus" />{{ $t('library.playlist.newPlaylist') }}</div
       >
       <div
         v-for="playlist in ownPlaylists"
@@ -32,6 +32,7 @@ import BaseModal from './BaseModal.vue'
 import SvgIcon from './SvgIcon.vue'
 import { useNormalStateStore } from '../store/state'
 import { useLocalMusicStore, Playlist } from '../store/localMusic'
+import { useStreamMusicStore } from '../store/streamingMusic'
 import { useDataStore } from '../store/data'
 import { storeToRefs } from 'pinia'
 import { computed, toRaw, watch } from 'vue'
@@ -48,6 +49,9 @@ const localMusicStore = useLocalMusicStore()
 const { sortPlaylistsIDs, playlists } = storeToRefs(localMusicStore)
 const { addTrackToLocalPlaylist } = localMusicStore
 
+const streamMusicStore = useStreamMusicStore()
+const { addOrRemoveTrackFromStreamPlaylist } = useStreamMusicStore()
+
 const { liked, user, likedSongPlaylistID } = storeToRefs(useDataStore())
 
 const show = computed({
@@ -56,10 +60,10 @@ const show = computed({
     addTrackToPlaylistModal.value.show = value
   }
 })
-const isLocal = computed({
-  get: () => addTrackToPlaylistModal.value.isLocal,
+const type = computed({
+  get: () => addTrackToPlaylistModal.value.type,
   set: (value) => {
-    addTrackToPlaylistModal.value.isLocal = value
+    addTrackToPlaylistModal.value.type = value
   }
 })
 
@@ -71,10 +75,12 @@ const ids = computed({
 })
 
 const ownPlaylists = computed(() => {
-  if (isLocal.value) {
+  if (type.value === 'local') {
     return sortPlaylistsIDs.value.map(
       (id: number) => playlists.value.find((playlist) => playlist.id === id) as Playlist
     )
+  } else if (type.value === 'stream') {
+    return streamMusicStore.playlists
   } else {
     return liked.value.playlists.filter(
       (playlist) =>
@@ -83,12 +89,21 @@ const ownPlaylists = computed(() => {
   }
 })
 
+const modelTitle = computed(() => {
+  if (type.value === 'local') {
+    return t('localMusic.playlist.addToPlaylist')
+  } else if (type.value === 'stream') {
+    return t('streamMusic.playlist.addToPlaylist')
+  }
+  return t('player.addToPlaylist')
+})
+
 watch(show, (value) => {
   modalOpen.value = value
 })
 
 const close = () => {
-  isLocal.value = false
+  type.value = 'online'
   show.value = false
   ids.value = []
 }
@@ -100,15 +115,15 @@ const closeFn = () => {
 const newPlaylist = () => {
   show.value = false
   newPlaylistModal.value = {
-    isLocal: isLocal.value,
-    afterCreateAddTrackID: ids.value,
+    type: type.value,
+    afterCreateAddTrackID: ids.value as number[],
     show: true
   }
 }
 
-const addTrackToPlaylist = (playlistId: number) => {
-  if (isLocal.value) {
-    addTrackToLocalPlaylist(playlistId, ids.value).then((result) => {
+const addTrackToPlaylist = (playlistId: number | string) => {
+  if (type.value === 'local') {
+    addTrackToLocalPlaylist(playlistId as number, ids.value as number[]).then((result) => {
       close()
       if (result) {
         showToast(t('toast.savedToPlaylist'))
@@ -116,6 +131,17 @@ const addTrackToPlaylist = (playlistId: number) => {
         showToast(t('toast.tracksAlreadyInPlaylist'))
       }
     })
+  } else if (type.value === 'stream') {
+    addOrRemoveTrackFromStreamPlaylist('add', playlistId as string, ids.value as string[]).then(
+      (res) => {
+        show.value = false
+        if (res) {
+          showToast(t('toast.savedToPlaylist'))
+        } else {
+          showToast(t('toast.tracksAlreadyInPlaylist'))
+        }
+      }
+    )
   } else {
     const id = ids.value.join(',')
     addOrRemoveTrackFromPlaylist({

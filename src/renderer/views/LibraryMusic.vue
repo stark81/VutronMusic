@@ -7,7 +7,10 @@
         >
         <div class="top">
           <p>
-            <span v-for="(line, index) in pickedLyric" v-show="line !== ''" :key="`${line}${index}`"
+            <span
+              v-for="(line, index) in pickedLyricLines"
+              v-show="line !== ''"
+              :key="`${line}${index}`"
               >{{ line }}<br
             /></span>
           </p>
@@ -18,9 +21,6 @@
               `${randomtrack?.ar[0].name} -- ${randomtrack?.name}`
             }}</div>
           </div>
-          <!-- <button @click.stop="openPlayModeTabMenu">
-            <svg-icon icon-class="play" />
-          </button> -->
         </div>
       </div>
       <div class="songs">
@@ -214,7 +214,7 @@ import {
 import { dailyTask, randomNum } from '../utils'
 import { tricklingProgress } from '../utils/tricklingProgress'
 import { getTrackDetail } from '../api/track'
-import { lyricParse } from '../utils/lyric'
+import { lyricParse, pickedLyric } from '../utils/lyric'
 import SvgIcon from '../components/SvgIcon.vue'
 import TrackList from '../components/VirtualTrackList.vue'
 import CoverRow from '../components/VirtualCoverRow.vue'
@@ -239,20 +239,6 @@ const currentTab = ref('playlist')
 const playlistTabMenu = ref<InstanceType<typeof ContextMenu>>()
 const tabsRowRef = ref()
 
-const pickedLyric = computed(() => {
-  if (lyric.value.length === 0) return []
-  const filterWords =
-    /(作词|作曲|编曲|和声|混音|录音|OP|SP|MV|吉他|二胡|古筝|曲编|键盘|贝斯|鼓|弦乐|打击乐|混音|制作人|配唱|提琴|海报|特别鸣谢)/i
-  const lyricLines = lyric.value.filter((l) => !filterWords.test(l.content)).map((l) => l.content)
-  const lyricsToPick = Math.min(lyricLines.length, 3)
-  const randomUpperBound = lyricLines.length - lyricsToPick
-  const startLyricLineIndex = randomNum(0, randomUpperBound - 1)
-
-  const result = lyricLines.slice(startLyricLineIndex, startLyricLineIndex + lyricsToPick)
-
-  return result
-})
-
 const hasCustomTitleBar = inject('hasCustomTitleBar', ref(true))
 
 const isMac = computed(() => window.env?.isMac)
@@ -262,6 +248,11 @@ const tabStyle = computed(() => {
   return {
     marginTop: `${marginTop}px`
   }
+})
+
+const pickedLyricLines = computed(() => {
+  const randomLines = pickedLyric(lyric.value)
+  return randomLines
 })
 
 const winHeight = ref(window.innerHeight)
@@ -360,7 +351,7 @@ const updatePadding = inject('updatePadding') as (padding: number) => void
 
 const openAddPlaylistModal = () => {
   newPlaylistModal.value = {
-    isLocal: false,
+    type: 'online',
     afterCreateAddTrackID: [],
     show: true
   }
@@ -498,6 +489,8 @@ onUnmounted(() => {
       flex-wrap: wrap;
       font-size: 16px;
       opacity: 0.88;
+      height: 94px;
+      overflow: hidden;
       color: var(--color-primary);
       p {
         margin-top: 2px;

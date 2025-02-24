@@ -3,11 +3,13 @@ import shuffleFn from 'lodash/shuffle'
 import { lyricParse } from '../utils/lyric'
 import { ref, computed, reactive, watch, watchEffect, onMounted, onBeforeUnmount, toRaw } from 'vue'
 import { Track, useLocalMusicStore } from './localMusic'
+import { useStreamMusicStore } from './streamingMusic'
 import { useSettingsStore } from './settings'
 import { useNormalStateStore } from './state'
 import { useDataStore } from './data'
-import { searchMatch, fmTrash, personalFM } from '../api/other'
+import { searchMatch, fmTrash, personalFM, songChorus } from '../api/other'
 import { useI18n } from 'vue-i18n'
+import eventBus from '../utils/eventBus'
 // import { scrobble } from '../api/track'
 
 interface biquadType {
@@ -51,13 +53,12 @@ export const usePlayerStore = defineStore(
     const outputDevice = ref('default')
     const backRate = ref(1.0)
     let setIntervalTimer: any
-    let setLyricIntervalTimer: any
-    let wBywIntervalTimer: any
+    let lastUpdate = 0
     const currentLyricIndex = ref(-1)
-    const wBywLyricIndex = ref(0)
-    const localMusics = ref<Track[]>([])
+    const streamMusics = ref<Track[]>([])
     const isLiked = ref(false)
     const isLocalList = ref(false)
+    const chorus = ref(0)
     const pic = ref<string>(
       currentTrack.value?.album?.picUrl ||
         'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg'
@@ -90,14 +91,14 @@ export const usePlayerStore = defineStore(
 
     let initAcx = false
     const localMusicStore = useLocalMusicStore()
-    const { updateTrack } = localMusicStore
+    const streamMusicStore = useStreamMusicStore()
+    const { updateTrack, fetchLocalMusic } = localMusicStore
+    const { scrobble, fetchStreamMusic } = streamMusicStore
     const { likeATrack } = useDataStore()
     const { t } = useI18n()
 
     const settingsStore = useSettingsStore()
     const { showToast } = useNormalStateStore()
-    // const useReplayGain = computed(() => settingsStore.localMusic.replayGain)
-    // const useInnerInfoFirst = computed(() => settingsStore.localMusic.useInnerInfoFirst)
 
     const audio = new Audio()
     const audioContext = new AudioContext()
@@ -172,8 +173,26 @@ export const usePlayerStore = defineStore(
       set(value) {
         audio.currentTime = value
         getLyricIndex()
-        getWordByWordLyricIdx()
+        eventBus.emit('update-process', value)
       }
+    })
+
+    const source = computed(() => {
+      const sourceMap = {
+        localTrack: '本地音乐',
+        navidrome: 'navidrome',
+        emby: 'emby',
+        netease: '网易云音乐',
+        qq: 'QQ音乐',
+        kugou: '酷狗音乐',
+        kuwo: '酷我音乐',
+        bilibili: '哔哩哔哩',
+        pyncmd: '第三方网易云音乐',
+        migu: '咪咕音乐'
+      }
+      return currentTrack.value
+        ? `${currentTrack.value.name}, 音源：${sourceMap[currentTrack.value.source!]}`
+        : ''
     })
 
     const volume = computed({
@@ -234,20 +253,10 @@ export const usePlayerStore = defineStore(
       }
     })
 
-    // watch(currentLyricIndex, (value) => {
-    //   window.mainApi.send('updateLyricInfo', { currentLyricIndex: value })
-    // })
-
-    // watch(wBywLyricIndex, (value) => {
-    //   window.mainApi.send('updateLyricInfo', { wBywLyricIndex: value })
-    // })
-
-    watch(
-      () => [currentLyricIndex.value, wBywLyricIndex.value],
-      (value) => {
-        window.mainApi.send('updateLyricInfo', { lrcIdx: value })
-      }
-    )
+    watch(currentLyricIndex, (value) => {
+      window.mainApi.send('updateLyricInfo', { lrcIdx: [value, audio.currentTime] })
+      eventBus.emit('update-process', audio.currentTime || 0)
+    })
 
     watch(
       () => settingsStore.tray.enableExtension,
@@ -319,46 +328,22 @@ export const usePlayerStore = defineStore(
       })
     }
 
-    const getWordByWordLyricIdx = () => {
-      const progress = audio.currentTime + lyricOffset.value
-      const lyricCurrent = lyrics.lyric[currentLyricIndex.value]
-      const nextLine = lyrics.lyric[currentLyricIndex.value + 1]
-      if (!lyricCurrent?.contentTimes?.length) {
-        wBywLyricIndex.value = 0
-      } else {
-        wBywLyricIndex.value = lyricCurrent?.contentTimes?.findIndex(
-          (timeArray: number[], index: number) => {
-            const nextWord = lyricCurrent.contentTimes[index + 1]
-            const start = timeArray[0] / 1000
-            const end = nextWord
-              ? nextWord[0] / 1000
-              : nextLine
-                ? nextLine.time
-                : currentTrackDuration.value
-            return progress >= start && progress < end
-          }
-        )
-        if (wBywLyricIndex.value === -1) {
-          currentLyricIndex.value += 1
-        }
+    const update = () => {
+      getLyricIndex()
+      const now = performance.now()
+      if (now - lastUpdate >= 500) {
+        if (!audio) return
+        progress.value = audio.currentTime
+        lastUpdate = now
       }
     }
 
     watch(playing, (value) => {
       window.mainApi.send('updatePlayerState', { playing: value })
       if (value) {
-        setLyricIntervalTimer = setInterval(getLyricIndex, 50)
-        setIntervalTimer = setInterval(() => {
-          if (audio === null) return
-          progress.value = audio.currentTime
-        }, 500)
-
-        // 当存在逐字歌词时，获取当前进度对应的单字歌词index
-        wBywIntervalTimer = setInterval(getWordByWordLyricIdx, 20)
+        setIntervalTimer = setInterval(update, 50)
       } else {
-        clearInterval(setLyricIntervalTimer)
         clearInterval(setIntervalTimer)
-        clearInterval(wBywIntervalTimer)
       }
     })
 
@@ -390,9 +375,13 @@ export const usePlayerStore = defineStore(
       return currentTrack.value?.offset ?? 0
     })
 
+    watch(lyricOffset, (value) => {
+      window.mainApi.send('updateLyricInfo', { lyricOffset: value })
+    })
+
     const searchMatchForLocal = async (track: Track) => {
       let flag = false
-      if (track.isLocal && !track.matched) {
+      if (track.type === 'local' && !track.matched) {
         const params = {
           title: track.name,
           album: '',
@@ -448,8 +437,33 @@ export const usePlayerStore = defineStore(
 
     const getCurrentTrackInfo = async (track: Track) => {
       if (!track) return
-      wBywLyricIndex.value = 0
-      const data = await fetch(`atom://get-track-info/${track.id}`).then((res) => res.json())
+      chorus.value = 0
+      let data: any
+      if (track.type === 'stream') {
+        if (track.source === 'navidrome') {
+          data = await fetch(`atom://get-stream-track-info/${track.id}`).then((res) => res.json())
+        } else if (track.source === 'emby') {
+          const match = track.picUrl.match(/get-stream-pic\/(.*)/)
+          if (match) {
+            const idString = match[1]
+            const id = idString.replace('/64', '/512')
+            data = await fetch(`atom://get-stream-track-info/${id}`).then((res) => res.json())
+          } else {
+            data = await fetch(`atom://get-color/${track.picUrl}/save-pic=1?param=512y512`).then(
+              (res) => res.json()
+            )
+          }
+        }
+      } else {
+        data = await fetch(`atom://get-track-info/${track.id}`).then((res) => res.json())
+        if (track.matched) {
+          songChorus(track.id).then((res) => {
+            if (res.chorus.length) {
+              chorus.value = res.chorus[0].startTime / 1000
+            }
+          })
+        }
+      }
       const buffer = new Uint8Array(data.pic.data)
       const blob = new Blob([buffer], { type: data.format })
       // if (pic.value) URL.revokeObjectURL(pic.value)
@@ -526,16 +540,14 @@ export const usePlayerStore = defineStore(
       enabled.value = true
     }
 
-    const replaceCurrentTrack = async (trackID: number, autoPlay = true) => {
-      if (autoPlay && currentTrack.value?.name && currentTrack.value?.matched !== false) {
-        // _scrobble(currentTrack.value, seek.value)
-      }
-      return getLocalMusic(trackID)
+    const replaceCurrentTrack = async (trackID: number | string, autoPlay = true) => {
+      return getLocalMusic(trackID as number)
         .then((data: Track | undefined) => {
           return data ?? null
         })
         .then((track) => {
           currentTrack.value = track
+          eventBus.emit('update-process', 0)
           // updateMediaSessionMetaData(track!)
           getTrackSource(track!).then((source) => {
             if (source) {
@@ -545,6 +557,11 @@ export const usePlayerStore = defineStore(
             } else {
               showToast(track?.reason)
               _playNextTrack(isPersonalFM.value)
+            }
+            if (autoPlay && currentTrack.value?.name && currentTrack.value?.matched !== false) {
+              // _scrobble(currentTrack.value, seek.value)
+            } else if (autoPlay && currentTrack.value?.type === 'stream') {
+              scrobble(trackID as string)
             }
           })
         })
@@ -562,17 +579,20 @@ export const usePlayerStore = defineStore(
 
     const getLocalMusic = (id: number) => {
       return new Promise<Track | undefined>((resolve) => {
-        localMusics.value = localMusicStore.localTracks
-        if (localMusics.value.length) {
-          const matchTrack = localMusics.value?.find((track: Track) => track.id === id)
-          if (matchTrack) {
-            if (!isLocalList.value) {
-              showToast(`使用本地文件播放`)
-            }
-            matchTrack.source = 'localTrack'
-            resolve(matchTrack)
-            return
+        let matchTrack = localMusicStore.localTracks.find((track: Track) => track.id === id)
+        if (matchTrack) {
+          if (!isLocalList.value) {
+            showToast(`使用本地文件播放`)
           }
+          matchTrack.source = 'localTrack'
+          resolve(matchTrack)
+          return
+        }
+        streamMusics.value = streamMusicStore.streamTracks
+        matchTrack = streamMusics.value?.find((track) => track.id === id)
+        if (matchTrack) {
+          resolve(matchTrack)
+          return
         }
         fetch(`atom://get-track/${id}`).then((data) => {
           if (data.status === 200) {
@@ -588,11 +608,13 @@ export const usePlayerStore = defineStore(
 
     const getTrackSource = (track: Track) => {
       return new Promise<string>((resolve) => {
-        if (!track.isLocal && !track.url) {
+        if (track.type === 'online' && !track.url) {
           resolve('')
         }
-        if (track.isLocal) {
-          resolve(`atom://get-music/${track.filePath}`)
+        if (track.type === 'local' || track.cache) {
+          resolve(`atom://get-music/${track.cache ? track.url : track.filePath}`)
+        } else if (track.type === 'stream') {
+          resolve(track.url)
         } else {
           resolve(`atom://get-online-music/${track.url}`)
         }
@@ -841,29 +863,31 @@ export const usePlayerStore = defineStore(
       }
     }
 
-    const resetPlayer = () => {
+    const resetPlayer = (resetBiq = true) => {
       list.value = []
       enabled.value = false
       currentTrackIndex.value = 0
       currentTrack.value = null
       progress.value = 0
-      volume.value = 1
-      _shuffle.value = false
       _shuffleList.value = []
       _list.value = []
       isPersonalFM.value = false
-      repeatMode.value = 'off'
       lyrics.lyric = []
       lyrics.tlyric = []
       lyrics.rlyric = []
       currentLyricIndex.value = -1
       if (pic.value) {
-        // URL.revokeObjectURL(pic.value)
+        URL.revokeObjectURL(pic.value)
         pic.value = 'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg'
       }
 
-      for (const key in biquadParams) {
-        biquadParams[key] = 0
+      if (resetBiq) {
+        volume.value = 1
+        _shuffle.value = false
+        repeatMode.value = 'off'
+        for (const key in biquadParams) {
+          biquadParams[key] = 0
+        }
       }
     }
 
@@ -1022,10 +1046,18 @@ export const usePlayerStore = defineStore(
     }
 
     onMounted(async () => {
+      await Promise.all([fetchLocalMusic(), fetchStreamMusic()])
       playing.value = false
       title.value = 'VutronMusic'
       if (enabled.value) {
         pic.value = `atom://get-pic/${currentTrack.value?.id}`
+        if (currentTrack.value?.type === 'stream') {
+          pic.value = currentTrack.value?.picUrl
+          if (streamMusicStore.status[streamMusicStore.select] !== 'login') {
+            resetPlayer(false)
+            return
+          }
+        }
         await setupAudioNode()
         seek.value = progress.value
         replaceCurrentTrack(currentTrack.value!.id, false).then(() => {
@@ -1037,7 +1069,6 @@ export const usePlayerStore = defineStore(
             shuffle: shuffle.value
           })
           getLyricIndex()
-          getWordByWordLyricIdx()
         })
         handleIpcRenderer()
         initMediaSession()
@@ -1055,8 +1086,8 @@ export const usePlayerStore = defineStore(
     })
 
     onBeforeUnmount(() => {
+      if (pic.value) URL.revokeObjectURL(pic.value)
       clearInterval(setIntervalTimer)
-      clearInterval(setLyricIntervalTimer)
     })
 
     return {
@@ -1064,6 +1095,7 @@ export const usePlayerStore = defineStore(
       enabled,
       progress,
       seek,
+      chorus,
       playbackRate,
       repeatMode,
       title,
@@ -1078,6 +1110,7 @@ export const usePlayerStore = defineStore(
       list,
       currentTrack,
       isPersonalFM,
+      source,
       currentTrackIndex,
       currentTrackDuration,
       outputDevice,
@@ -1088,7 +1121,6 @@ export const usePlayerStore = defineStore(
       isLiked,
       isLocalList,
       lyrics,
-      wBywLyricIndex,
       noLyric,
       personalFMTrack,
       personalFMNextTrack,

@@ -23,12 +23,24 @@ const mainAvailChannels: string[] = [
   'logout',
   'accurateMatch',
   'updateLocalTrackInfo',
+  'updateStreamingAccount',
+  'clearCacheTracks',
+  'getCacheTracksInfo',
   'updateLyricInfo',
   'clearDeletedMusic',
   'minimize',
   'maximizeOrUnmaximize',
   'close',
-  'askExtensionStatus'
+  'askExtensionStatus',
+  'stream-login',
+  'get-stream-songs',
+  'get-stream-playlists',
+  'deleteStreamPlaylist',
+  'createStreamPlaylist',
+  'updateStreamPlaylist',
+  'logoutStreamMusic',
+  'scrobbleStreamMusic',
+  'get-stream-account'
 ]
 const rendererAvailChannels: string[] = [
   'msgHandleScanLocalMusic',

@@ -15,6 +15,8 @@ import UserPage from './UserPage.vue'
 import MvPage from './MvPage.vue'
 import ArtistMv from './ArtistMv.vue'
 import NextUp from './NextUp.vue'
+import StreamLogin from './StreamLogin.vue'
+import StreamPage from './StreamPage.vue'
 
 export {
   ErrorScreen,
@@ -33,5 +35,7 @@ export {
   UserPage,
   MvPage,
   ArtistMv,
-  NextUp
+  NextUp,
+  StreamLogin,
+  StreamPage
 }

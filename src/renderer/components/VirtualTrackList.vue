@@ -66,17 +66,20 @@
       >{{ $t('contextMenu.accurateMatch') }}</div
     >
     <hr v-show="type !== 'cloudDisk' && type !== 'localTracks'" />
-    <div v-if="!type.includes('local')" class="item" @click="copyId">{{
+    <div v-if="!type.includes('local') && !type.includes('stream')" class="item" @click="copyId">{{
       $t('contextMenu.copyId')
     }}</div>
-    <!-- <div v-if="extraContextMenuItem.includes('copyId')" class="item" @click="copyId">{{
-      $t('contextMenu.copyId')
-    }}</div> -->
     <div
       v-show="type !== 'cloudDisk' && rightClickedTrack.matched"
       class="item"
       @click="addTrackToPlaylist"
       >{{ $t('player.addToPlaylist') }}</div
+    >
+    <div
+      v-show="extraContextMenuItem.includes('addToStreamList')"
+      class="item"
+      @click="addToSteamPlaylist([rightClickedTrackComputed.id])"
+      >{{ $t('streamMusic.playlist.addToPlaylist') }}</div
     >
     <div
       v-if="extraContextMenuItem.includes('removeTrackFromPlaylist')"
@@ -121,6 +124,7 @@ import { useI18n } from 'vue-i18n'
 import { addOrRemoveTrackFromPlaylist } from '../api/playlist'
 import _ from 'lodash'
 import { isAccountLoggedIn } from '../utils/auth'
+import { useStreamMusicStore } from '../store/streamingMusic'
 
 const props = defineProps({
   items: {
@@ -167,7 +171,9 @@ const rightClickedTrack = ref({
   id: 0,
   name: '',
   matched: true,
-  isLocal: false,
+  type: 'online',
+  source: '',
+  playlistItemId: null,
   mvid: 0,
   filePath: '',
   artists: [{ name: '' }],
@@ -183,6 +189,8 @@ const stateStore = useNormalStateStore()
 const { showToast } = stateStore
 const { addTrackToPlaylistModal, accurateMatchModal } = storeToRefs(stateStore)
 
+const { addOrRemoveTrackFromStreamPlaylist } = useStreamMusicStore()
+
 const isSelectAll = computed(() => {
   return selectedList.value.length === items.value.length
 })
@@ -192,9 +200,11 @@ const rightClickedTrackComputed = computed(() => {
         id: 0,
         name: '',
         matched: true,
-        isLocal: false,
+        type: 'online',
         mvid: 0,
         filePath: '',
+        source: '',
+        playlistItemId: null,
         artists: [{ name: '' }],
         album: { picUrl: '' },
         al: { picUrl: '' }
@@ -205,7 +215,8 @@ const image = computed(() => {
   const alPic = rightClickedTrackComputed.value.al.picUrl
   const albumPic = rightClickedTrackComputed.value.album.picUrl
 
-  return rightClickedTrackComputed.value.matched !== false
+  return rightClickedTrackComputed.value.matched !== false ||
+    rightClickedTrackComputed.value.type === 'stream'
     ? ((alPic !== '' && alPic) ||
         (albumPic !== '' && albumPic) ||
         'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg') + '?param=56y56'
@@ -213,12 +224,19 @@ const image = computed(() => {
       ? `atom://get-pic/${rightClickedTrackComputed.value.id}`
       : ''
 })
-const isLocal = computed(() => props.type.includes('local'))
+const typeType = computed(() => {
+  if (props.type.includes('local')) return 'local'
+  else if (props.type.includes('stream')) return 'stream'
+  return 'online'
+})
 const showScrollTo = computed(() => {
   return (
     currentTrack.value &&
     ((playlistSource.value.type === props.type && playlistSource.value.id === props.id) ||
       (playlistSource.value.type === 'localPlaylist' &&
+        playlistSource.value.type === props.type &&
+        props.id === 0) ||
+      (playlistSource.value.type === 'streamPlaylist' &&
         playlistSource.value.type === props.type &&
         props.id === 0))
   )
@@ -240,7 +258,9 @@ const closeMenu = () => {
     id: 0,
     name: '',
     matched: true,
-    isLocal: false,
+    type: 'online',
+    source: '',
+    playlistItemId: null,
     mvid: 0,
     filePath: '',
     artists: [{ name: '' }],
@@ -278,23 +298,41 @@ const showInFolder = () => {
 
 const openMenu = (e: MouseEvent, track: { [key: string]: any }, index: number) => {
   _.merge(rightClickedTrack.value, track)
-  rightClickedTrack.value.matched = !isLocal.value || track.matched || false
+  rightClickedTrack.value.matched = typeType.value === 'online' || track.matched || false
   rightClickedTrackIndex.value = index
   trackListMenuRef.value?.openMenu(e)
 }
 
 const { removeTrackFromPlaylist } = useLocalMusicStore()
 const rmTrackFromPlaylist = () => {
-  if (isLocal.value) {
+  if (typeType.value === 'local') {
     if (confirm(`确定要从歌单删除 ${rightClickedTrack.value.name}？`)) {
+      const idx = rightClickedTrackIndex.value
       removeTrackFromPlaylist(props.id as number, rightClickedTrackComputed.value.id).then(
         (result) => {
           if (result) {
-            items.value.splice(rightClickedTrackIndex.value, 1)
+            removeTrack(idx)
             showToast(t('toast.removedFromPlaylist'))
           }
         }
       )
+    }
+  } else if (typeType.value === 'stream') {
+    if (confirm(`确定要从歌单删除 ${rightClickedTrackComputed.value.name}？`)) {
+      const idx = rightClickedTrackIndex.value
+      const playlistItemId = rightClickedTrackComputed.value.playlistItemId
+      addOrRemoveTrackFromStreamPlaylist(
+        'del',
+        props.id as string,
+        [
+          rightClickedTrackComputed.value.source === 'navidrome' ? idx : playlistItemId
+        ] as unknown as string[]
+      ).then((res) => {
+        if (res) {
+          removeTrack(idx)
+          showToast(t('toast.removedFromPlaylist'))
+        }
+      })
     }
   } else {
     if (!isAccountLoggedIn()) {
@@ -302,6 +340,7 @@ const rmTrackFromPlaylist = () => {
       return
     }
     if (confirm(`确定要从歌单删除 ${rightClickedTrackComputed.value.name}？`)) {
+      const idx = rightClickedTrackIndex.value
       addOrRemoveTrackFromPlaylist({
         op: 'del',
         pid: props.id,
@@ -309,7 +348,7 @@ const rmTrackFromPlaylist = () => {
       }).then((result) => {
         if (result.body.code === 200) {
           showToast(t('toast.removedFromPlaylist'))
-          removeTrack(rightClickedTrackComputed.value.id)
+          removeTrack(idx)
         } else {
           showToast(result.body.message)
         }
@@ -327,7 +366,20 @@ const addToLocalPlaylist = (trackIDs: number[] = []) => {
     addTrackToPlaylistModal.value = {
       show: true,
       selectedTrackID: trackIDs,
-      isLocal: true
+      type: 'local'
+    }
+  })
+}
+
+const addToSteamPlaylist = (trackIDs: number[] = []) => {
+  if (!trackIDs.length) {
+    trackIDs = selectedList.value
+  }
+  setTimeout(() => {
+    addTrackToPlaylistModal.value = {
+      show: true,
+      selectedTrackID: trackIDs,
+      type: 'stream'
     }
   })
 }
@@ -348,7 +400,7 @@ const addTrackToPlaylist = () => {
     addTrackToPlaylistModal.value = {
       show: true,
       selectedTrackID: trackIDs,
-      isLocal: false
+      type: 'online'
     }
   })
 }
@@ -363,7 +415,9 @@ const closeComment = () => {
     id: 0,
     name: '',
     matched: true,
-    isLocal: false,
+    type: 'online',
+    source: '',
+    playlistItemId: null,
     mvid: 0,
     filePath: '',
     artists: [{ name: '' }],
@@ -380,12 +434,12 @@ const addToQueue = (ids: number | number[] | null = null) => {
   addTrackToPlayNext(ids)
 }
 const updatePadding = inject('updatePadding') as (padding: number) => void
-const removeTrack = inject('removeTrack', (id: number) => {})
+const removeTrack = inject('removeTrack', (id: number | string) => {})
 
 provide('playThisList', playThisList)
 provide('selectedList', selectedList)
 provide('rightClickedTrack', rightClickedTrack)
-defineExpose({ selectAll, doFinish, addToLocalPlaylist, addToQueue })
+defineExpose({ selectAll, doFinish, addToLocalPlaylist, addToSteamPlaylist, addToQueue })
 
 onActivated(() => {
   if (props.isEnd) updatePadding(0)

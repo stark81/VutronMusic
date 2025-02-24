@@ -21,12 +21,6 @@ CREATE TABLE IF NOT EXISTS "Track" (
     PRIMARY KEY (id)
 );
 
-CREATE INDEX IF NOT EXISTS "filePath" ON "Track" ("filePath");
-
-CREATE INDEX IF NOT EXISTS "isLocal" ON "Track" ("isLocal");
-
-CREATE INDEX IF NOT EXISTS "deleted" ON "Track" ("deleted");
-
 CREATE TABLE IF NOT EXISTS "Album" (
     "id" INTEGER NOT NULL,
     "matched" INTEGER DEFAULT 0,

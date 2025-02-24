@@ -132,6 +132,7 @@
           :show-play-button="false"
           :show-play-count="false"
           :show-position="true"
+          :padding-bottom="0"
           :colunm-number="5"
           :is-end="true"
         />
@@ -148,6 +149,7 @@
           :show-play-button="false"
           :show-play-count="false"
           :show-position="true"
+          :padding-bottom="0"
           :is-end="true"
           :colunm-number="5"
           :load-more="loadMore"
@@ -162,6 +164,7 @@
         :sub-text="subText"
         :show-play-button="true"
         :show-position="true"
+        :padding-bottom="0"
         :is-end="true"
         :show-play-count="activeCategory !== '排行榜' && exploreTab !== 'artist' ? true : false"
         :item-height="exploreTab === 'artist' ? 224 : 270"
@@ -345,7 +348,6 @@ const getNewAlbum = () => {
   if (albumType.value === '热门') {
     if (!newAlbumInfo.topAlbum.hasMore) return
     topAlbum({ area: albumMap[activeCategory.value] }).then((data) => {
-      // console.log('topAlbum', data)
       newAlbumInfo.topAlbum.hasMore = data.hasMore
       newAlbumInfo.topAlbum.weekData = data.weekData
       newAlbumInfo.topAlbum.monthData = data.monthData

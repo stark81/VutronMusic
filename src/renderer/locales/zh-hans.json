@@ -1,22 +1,9 @@
 {
-  "desc": {
-    "welcome-title": "你好武特龙！ 一切都准备好了。",
-    "welcome-desc": "您现在可以编写跨平台的 Web 应用程序。 实时查看更改并使用一个命令构建到多个平台。 如果您还不熟悉它，可以从下面的文档页面获得帮助，或者运行一些预先编写的示例代码。",
-    "second-desc": "您已移至第二个屏幕！ 这里什么都没有！",
-    "selected-file": "选定的文件：{filePath}."
-  },
-  "menu": {
-    "change-theme": "更改主题",
-    "change-language": "更改语言",
-    "increase-count": "计数 + 1",
-    "documentation": "文档",
-    "github": "源代码",
-    "open-file": "打开一个text文件"
-  },
   "nav": {
     "home": "首页",
     "search": "搜索",
     "library": "音乐库",
+    "stream": "流媒体",
     "localMusic": "本地音乐",
     "settings": "设置",
     "github": "GitHub仓库",
@@ -72,6 +59,17 @@
     "charts": "排行榜",
     "seeMore": "查看全部"
   },
+  "streamMusic": {
+    "track": "全部歌曲",
+    "song": "流媒体音乐",
+    "playlist": {
+      "text": "流媒体歌单",
+      "addToPlaylist": "添加至流媒体歌单",
+      "newPlaylist": "新建流媒体歌单"
+    },
+    "album": "专辑",
+    "artist": "艺人"
+  },
   "localMusic": {
     "latedAdd": "最近添加",
     "songs": "本地歌曲",
@@ -85,6 +83,7 @@
     "placeholder": "搜索本地歌曲",
     "scrollToTop": "回到顶部",
     "localMusicFolderPath": "本地音乐文件夹路径",
+    "enableLocalMusic": "启用本地音乐",
     "clearLocalMusic": {
       "text": "清空本地歌曲信息",
       "desc": "此操作仅会清除此程序内的本地歌曲匹配信息，不会删除本地歌曲文件"
@@ -154,6 +153,7 @@
     "email": "邮箱",
     "password": "密码",
     "loginText": "登录网易云账号",
+    "countryCode": "国际区号",
     "usernameLogin": "用户名登录",
     "loginWithEmail": "邮箱登录",
     "loginWithPhone": "手机号登录",
@@ -232,6 +232,11 @@
       "osdLyric": "桌面歌词",
       "trayLyric": "状态栏歌词",
       "localMusic": "本地歌曲",
+      "music": "音乐设置",
+      "netease": "线上音乐",
+      "stream": "流媒体音乐",
+      "local": "本地音乐",
+      "unblock": "音源设置",
       "shortcut": "快捷键设置"
     },
     "general": {
@@ -256,6 +261,13 @@
         "minimizeToTray": "最小化至托盘",
         "exit": "直接退出",
         "ask": "询问"
+      },
+      "musicQuality": {
+        "text": "音质选择",
+        "low": "普通",
+        "medium": "较高",
+        "high": "极高",
+        "lossless": "无损"
       },
       "logout": "登出"
     },
@@ -315,6 +327,43 @@
         "desc": "锁定后，鼠标停留该时长后（毫秒）降低窗体透明度，Linux系统下无效"
       }
     },
+    "unblock": {
+      "enable": "启用音源替换",
+      "source": {
+        "text": "备选音源",
+        "desc1": "音源的具体代号,",
+        "desc2": "多个音源请用 , 逗号分隔.",
+        "desc3": "留空则使用 UNM 内置的默认值。",
+        "linkText": "可以点此到 UNM 的说明页面查询。"
+      },
+      "enableFlac": {
+        "text": "启用FLAC",
+        "desc": "启用后需要清除歌曲缓存才能生效"
+      },
+      "sourceSearchMode": {
+        "text": "音源搜索模式",
+        "orderFirst": "顺序优先",
+        "speedFirst": "速度优先"
+      },
+      "qqCookie": {
+        "text": "QQ 引擎的 Cookie",
+        "desc1": "设置说明请参见此处",
+        "desc2": "留空则不进行相关设置"
+      },
+      "jooxCookie": {
+        "text": "JOOX 引擎的 Cookie"
+      },
+      "miguCookie": {
+        "text": "咪咕引擎的 Cookie"
+      }
+    },
+    "autoCacheTrack": {
+      "enable": "启用自动缓存歌曲",
+      "sizeLimit": "歌曲缓存上限",
+      "noLimit": "无限制",
+      "sizeCached": "已缓存歌曲 { song } 首",
+      "clearCache": "清除歌曲缓存"
+    },
     "shortcut": {
       "enableGlobalShortcut": "启用全局快捷键",
       "function": "功能",
@@ -328,12 +377,20 @@
       "decreaseVolume": "降低音量",
       "like": "喜欢",
       "minimize": "显示/隐藏播放器"
+    },
+    "stream": {
+      "enable": "启用流媒体音乐",
+      "service": "流媒体服务",
+      "login": "已登录",
+      "logout": "未登陆",
+      "offline": "服务器离线"
     }
   },
   "toast": {
-    "createLocalPlaylistSuccess": "成功创建本地歌单",
-    "createLocalPlaylistFailed": "创建本地歌单失败",
+    "createLocalPlaylistSuccess": "成功创建歌单",
+    "createLocalPlaylistFailed": "创建歌单失败",
     "savedToPlaylist": "已添加到歌单",
+    "saveFailed": "添加失败",
     "tracksAlreadyInPlaylist": "歌曲已在歌单中",
     "needToLogin": "此操作需要登录网易云帐号",
     "getColorFailed": "获取颜色失败",
