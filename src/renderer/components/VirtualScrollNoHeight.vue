@@ -8,7 +8,7 @@
     <div class="infinite-list-phantom" :style="{ height: listHeight + 'px' }"></div>
     <div v-if="showPosition" class="position">
       <slot name="position" :scroll-to-current="scrollTocurrent"></slot>
-      <div @click="scrollToTop">{{ $t('localMusic.scrollToTop') }}</div>
+      <div @click="scrollToTop"><svg-icon icon-class="arrow-up-alt"></svg-icon></div>
     </div>
     <div :style="listStyles" class="infinite-list">
       <div
@@ -46,6 +46,7 @@ import {
   onDeactivated,
   inject
 } from 'vue'
+import SvgIcon from './SvgIcon.vue'
 
 type ScrollBehavior = 'auto' | 'instant' | 'smooth'
 
@@ -496,20 +497,23 @@ onBeforeUnmount(() => {
 }
 .position {
   position: fixed;
-  width: 100px;
-  line-height: 40px;
-  padding: 10px 0;
-  border-radius: 10px;
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 9999px;
   box-shadow: 0 8px 12px -6px rgba(0, 0, 0, 0.1);
-  text-align: center;
   background: var(--color-secondary-bg);
   border: 1px solid rgba(60, 60, 60, 0.08);
   opacity: 0.75;
-  top: 50%;
-  right: 30px;
+  bottom: 52px;
+  right: 24px;
   transform: translate(0, -50%);
   transition: opacity 0.3s ease;
   z-index: 15;
+}
+.position > * {
+  display: flex;
 }
 .position:hover {
   opacity: 0.9;
