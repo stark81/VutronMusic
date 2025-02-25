@@ -14,9 +14,9 @@
     :pid="id"
   >
     <template #position="{ scrollToCurrent }">
-      <div v-show="showScrollTo" @click="scrollToCurrent(currentIndex)">{{
-        $t('localMusic.positionTrack')
-      }}</div>
+      <div v-show="showScrollTo" @click="scrollToCurrent(currentIndex)"
+        ><svg-icon icon-class="target"></svg-icon
+      ></div>
     </template>
     <template #default="{ item, index }">
       <div class="track-item">
@@ -125,6 +125,7 @@ import { addOrRemoveTrackFromPlaylist } from '../api/playlist'
 import _ from 'lodash'
 import { isAccountLoggedIn } from '../utils/auth'
 import { useStreamMusicStore } from '../store/streamingMusic'
+import SvgIcon from './SvgIcon.vue'
 
 const props = defineProps({
   items: {
