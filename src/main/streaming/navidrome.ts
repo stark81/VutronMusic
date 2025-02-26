@@ -78,8 +78,6 @@ const ApiRequest = async (endpoint: string, params?: Record<string, string>) => 
 const getRestUrl = (endpoint: string, params?: Record<string, any>) => {
   const baseURL = (store.get('accounts.navidrome.url') as string) || ''
   const username = (store.get('accounts.navidrome.username') as string) || ''
-  // const token = (store.get('accounts.navidrome.token') as string) || ''
-  // const salt = (store.get('accounts.navidrome.salt') as string) || ''
   const password = (store.get('accounts.navidrome.password') as string) || ''
   const salt = crypto.randomBytes(6).toString('hex')
   const token = generateToken(password, salt)
@@ -111,6 +109,7 @@ interface NavidromeImpl {
   deletePlaylist: (id: string) => Promise<boolean>
   addTracksToPlaylist: (op: string, playlistId: string, ids: string[]) => Promise<boolean>
   scrobble: (id: string) => void
+  likeATrack: (operation: 'unstar' | 'star', id: string) => Promise<boolean>
 }
 
 class Navidrome implements NavidromeImpl {
@@ -120,9 +119,6 @@ class Navidrome implements NavidromeImpl {
 
   async getTracks() {
     const response = await ApiRequest('song')
-    // if (response && response.code === 401) {
-    //   return response
-    // }
     if (response.code && response.code === 200) {
       const tracks =
         response?.data.map((song: any) => {
@@ -130,6 +126,7 @@ class Navidrome implements NavidromeImpl {
             id: song.id,
             name: song.title,
             dt: song.duration * 1000,
+            starred: song.starred,
             size: song.size,
             source: 'navidrome',
             url: `atom://get-stream-music/${song.id}`,
@@ -202,6 +199,14 @@ class Navidrome implements NavidromeImpl {
       return { code: 200, massage: 'ok', data: playlists }
     }
     return response
+  }
+
+  async likeATrack(op: 'star' | 'unstar', id: string) {
+    const url = getRestUrl(op, { id })
+    const result = await fetch(url)
+      .then((res) => res.json())
+      .then((res) => res['subsonic-response'].status === 'ok')
+    return result
   }
 
   getPic(id: string, size?: number) {

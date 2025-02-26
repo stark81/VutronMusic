@@ -371,7 +371,6 @@ function initOtherIpcMain(win: BrowserWindow): void {
     }
     await walk(filePath)
     if (newTracks.length > 0) cache.set(CacheAPIs.LocalMusic, { newTracks })
-    // @ts-ignore
     win.webContents.send('scanLocalMusicDone')
   })
 
@@ -583,6 +582,16 @@ function initStreaming() {
       navidrome.scrobble(data.id)
     } else if (data.platform === 'emby') {
       emby.scrobble(data.id)
+    }
+  })
+
+  ipcMain.handle('likeAStreamTrack', async (event, data) => {
+    if (data.platform === 'navidrome') {
+      const result = await navidrome.likeATrack(data.operation, data.id)
+      return result
+    } else if (data.platform === 'emby') {
+      const result = await emby.likeATrack(data.operation, data.id)
+      return result
     }
   })
 }

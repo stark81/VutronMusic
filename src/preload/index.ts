@@ -40,6 +40,7 @@ const mainAvailChannels: string[] = [
   'updateStreamPlaylist',
   'logoutStreamMusic',
   'scrobbleStreamMusic',
+  'likeAStreamTrack',
   'get-stream-account'
 ]
 const rendererAvailChannels: string[] = [

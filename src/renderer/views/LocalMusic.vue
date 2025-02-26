@@ -374,21 +374,22 @@ const getRandomTrack = async () => {
   const ids = defaultTracks.value.map((t) => t.id)
   let i = 0
   let data: any
-  let randomID: number
+  let randomId: number
   while (i < ids.length - 1) {
-    randomID = ids[randomNum(0, ids.length - 1)]
-    data = await fetch(`atom://get-lyric/${randomID}`).then((res) => res.json())
+    randomId = ids[randomNum(0, ids.length - 1)]
+    data = await fetch(`atom://get-lyric/${randomId}`).then((res) => res.json())
     if (data.lrc.lyric.length > 0) {
       const { lyric } = lyricParse(data)
       const isInstrumental = lyric.filter((l) => l.content?.includes('纯音乐，请欣赏'))
       if (!isInstrumental.length) {
         randomLyric.value = lyric
+        randomID.value = randomId
         break
       }
     }
     i++
   }
-  randomTrack.value = defaultTracks.value.find((t) => t.id === randomID)!
+  randomTrack.value = defaultTracks.value.find((t) => t.id === randomId)!
 }
 
 const updatePadding = inject('updatePadding') as (padding: number) => void

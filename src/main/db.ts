@@ -128,6 +128,11 @@ class DB {
       this.upsert(Tables.AppData, { id: key, value: Constants.APP_VERSION })
     }
     if (!appVersion?.value) {
+      if (compare(Constants.APP_VERSION, '1.5.0', '>=')) {
+        const file = readSqlFile('1.5.0.sql')
+        this.sqlite.exec(file)
+        this.sqlite.pragma('journal_mode=WAL')
+      }
       updateAppVersionInDB()
       return
     }
@@ -143,7 +148,6 @@ class DB {
       }
     })
     updateAppVersionInDB()
-    // log.info('[db] Database migration completed.')
   }
 
   find<T extends TableNames>(

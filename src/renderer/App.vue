@@ -1,5 +1,6 @@
 <template>
-  <div id="app">
+  <div id="app" :class="{ 'user-select-none': userSelectNone }">
+    <ScrollBar v-show="!showLyrics" />
     <SideNav />
     <NavBar ref="navBarRef" />
     <div id="main" ref="mainRef" :style="mainStyle">
@@ -28,7 +29,7 @@
 
 <script setup lang="tsx">
 import { onMounted, ref, provide, toRefs, watch, computed } from 'vue'
-// import ScrollBar from './components/ScrollBar.vue'
+import ScrollBar from './components/ScrollBar.vue'
 import PlayerBar from './components/PlayerBar.vue'
 import NavBar from './components/NavBar.vue'
 import SideNav from './components/SideNav.vue'
@@ -57,8 +58,7 @@ const osdLyricStore = useOsdLyricStore()
 const { show, type, isLock } = storeToRefs(osdLyricStore)
 
 const stateStore = useNormalStateStore()
-const { enableScrolling, extensionCheckResult } = storeToRefs(stateStore)
-// const { showLyrics, enableScrolling, extensionCheckResult } = storeToRefs(stateStore)
+const { enableScrolling, extensionCheckResult, showLyrics } = storeToRefs(stateStore)
 const { showToast } = stateStore
 
 const {
@@ -86,6 +86,7 @@ const fetchLocalData = () => {
 }
 
 const padding = ref(96)
+const userSelectNone = ref(true)
 const settingsStore = useSettingsStore()
 const { theme, localMusic, general } = storeToRefs(settingsStore)
 const appearance = ref(theme.value.appearance)
@@ -127,10 +128,6 @@ const restorePosition = () => {
   scrollBarRef.value.restorePosition()
 }
 
-const scrollTo = (top: number) => {
-  mainRef.value.scrollTo({ top, behavior: 'smooth' })
-}
-
 const watchOsdEvent = () => {
   watch(show, (value) => {
     window.mainApi.send('updateOsdState', { show: value })
@@ -147,9 +144,7 @@ const mainRef = ref()
 const navBarRef = ref()
 
 provide('restorePosition', restorePosition)
-
-provide('scrollTo', scrollTo)
-
+provide('updateUserSelect', userSelectNone)
 provide('mainRef', mainRef)
 provide('navBarRef', navBarRef)
 
@@ -237,6 +232,10 @@ onMounted(async () => {
   width: 100%;
   color: var(--color-text);
   transition: all 0.4s;
+}
+
+.user-select-none {
+  user-select: none;
 }
 
 #main {

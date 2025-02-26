@@ -173,6 +173,7 @@ export const usePlayerStore = defineStore(
       set(value) {
         audio.currentTime = value
         getLyricIndex()
+        window.mainApi.send('updateLyricInfo', { progress: value })
         eventBus.emit('update-process', value)
       }
     })
@@ -191,7 +192,7 @@ export const usePlayerStore = defineStore(
         migu: '咪咕音乐'
       }
       return currentTrack.value
-        ? `${currentTrack.value.name}, 音源：${sourceMap[currentTrack.value.source!]}`
+        ? `${currentTrack.value.name}, 音源：${sourceMap[currentTrack.value.source!] ?? currentTrack.value.source}`
         : ''
     })
 

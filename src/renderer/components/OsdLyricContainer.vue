@@ -16,7 +16,8 @@
         isPlaying: lyricArray.index === currentLyricIndex,
         unplay: lyricArray.index > currentLyricIndex,
         haswByw,
-        notWordByWord: !haswByw
+        notWordByWord: !haswByw,
+        mini: type === 'small'
       }"
       :style="lineStyle(lyricArray.index)"
     >
@@ -74,7 +75,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useOsdLyricStore } from '../store/osdLyric'
 import { storeToRefs } from 'pinia'
 
@@ -206,11 +207,9 @@ const lineStyle = (index: number) => {
   let align = 'center'
   let margin = '10px 0'
   if (type.value === 'small') {
-    // result.display = 'inline-block'
-    // result.whiteSpace = 'nowrap'
     if (lyricForShow.value?.length === 2) {
       align = index % 2 === 0 ? 'start' : 'end'
-      margin = '6px 0'
+      margin = '4px 0'
     }
   }
   result.textAlign = align
@@ -221,7 +220,51 @@ const lineStyle = (index: number) => {
 const animate = () => {
   if (!lyrics.value.lyric.length || !haswByw.value || !isPlaying.value) return
   progress.value = performance.now() - startTime.value + lyricOffset.value
+
+  if (currentLyricIndex.value !== -1 && type.value === 'small') {
+    const line = lyricWithTranslation.value.find((l) => l.index === currentLyricIndex.value)
+    const container = document.getElementById(`line${currentLyricIndex.value}`)
+    const lyricContainer = container?.querySelector('.lyric')! as HTMLElement
+    const containerWidth = container?.offsetWidth || 0
+
+    const currentWordIndex = line?.lyric?.findIndex(
+      (l) => progress.value >= l.start && progress.value < l.end
+    )
+
+    const word = line.lyric[currentWordIndex]
+    const width = (progress.value - word?.start) / (word?.end - word?.start)
+    const percent = (currentWordIndex + width) / line?.lyric?.length
+    const targetScrollPosition = lyricContainer?.scrollWidth * percent - containerWidth / 2
+    const maxScrollPosition = lyricContainer?.scrollWidth - containerWidth
+
+    const position = Math.max(0, Math.min(targetScrollPosition, maxScrollPosition))
+    if (lyricContainer) lyricContainer.style.transform = `translateX(${-position}px)`
+  }
+
   animationFrameId = requestAnimationFrame(animate)
+}
+
+const adjustScorllPosition = (index: number) => {
+  if (haswByw.value) return
+  const container = document.getElementById(`line${index}`)
+  const lyricContainer = container?.querySelector('.lyric')! as HTMLElement
+  const containerWidth = container?.offsetWidth || 0
+  const scrollWidth = Math.max(0, lyricContainer.scrollWidth - containerWidth)
+  if (!scrollWidth) return
+
+  const style = document.createElement('style')
+  style.textContent = `
+    @keyframes scroll {
+      from { transform: translateX(0); }
+      to { transform: translateX(${-scrollWidth}px); }
+    }
+  `
+  document.head.appendChild(style)
+  const line = lyricWithTranslation.value.find((l) => l.index === index)
+  const nextLine = lyricWithTranslation.value.find((l) => l.index === index + 1)
+  const endTime = nextLine?.start ?? line.start + 10 * 1000
+  const time = (endTime - line.start) / 1000
+  lyricContainer.style.animation = `scroll ${time * 0.8}s linear forwards`
 }
 
 window.mainApi.on('updateLyricInfo', (event: Event, data: Record<string, any>[]) => {
@@ -244,6 +287,12 @@ window.mainApi.on('updateLyricInfo', (event: Event, data: Record<string, any>[])
       const el = document.getElementById(`line${value[0]}`)
       el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }, 50)
+  } else if (key === 'progress') {
+    progress.value = value * 1000
+    startTime.value = performance.now() - progress.value
+    if (currentLyricIndex.value !== -1) {
+      adjustScorllPosition(currentLyricIndex.value)
+    }
   } else if (key === 'lyricOffset') {
     lyricOffset.value = value * 1000
   }
@@ -300,6 +349,13 @@ watch(isPlaying, (value) => {
   }
 })
 
+watch(currentLyricIndex, (value) => {
+  if (type.value === 'normal' || value === -1) return
+  nextTick(() => {
+    adjustScorllPosition(value)
+  })
+})
+
 onMounted(() => {
   const player = JSON.parse(localStorage.getItem('player') || '{}')
   isPlaying.value = player?.playing || false
@@ -351,6 +407,14 @@ onBeforeUnmount(() => {
     span {
       font-size: v-bind('`${fontSize - 4}px`');
     }
+  }
+}
+
+.line.mini {
+  overflow: hidden;
+  .lyric {
+    padding-top: 4px;
+    white-space: nowrap;
   }
 }
 

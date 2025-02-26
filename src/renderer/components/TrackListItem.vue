@@ -96,6 +96,7 @@ import ExplicitSymbol from './ExplicitSymbol.vue'
 import { PropType, computed, ref, toRefs, inject } from 'vue'
 import { useNormalStateStore } from '../store/state'
 import { useSettingsStore } from '../store/settings'
+import { useStreamMusicStore } from '../store/streamingMusic'
 import { useDataStore } from '../store/data'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
@@ -136,6 +137,9 @@ const props = defineProps({
 const settingsStore = useSettingsStore()
 const { general, localMusic } = storeToRefs(settingsStore)
 const { subTitleDefault, showTrackTimeOrID } = toRefs(general.value)
+
+const streamingMusicStore = useStreamMusicStore()
+const { likeAStreamTrack } = streamingMusicStore
 
 const playerStore = usePlayerStore()
 const { currentTrack, enabled } = storeToRefs(playerStore)
@@ -236,7 +240,7 @@ const showLikeButton = computed(() => {
 })
 
 const isLiked = computed(() => {
-  return liked.value.songs.includes(track.value.id)
+  return liked.value.songs.includes(track.value.id) || track.value.starred
 })
 
 const isSubTitle = computed(() => {
@@ -324,11 +328,14 @@ const goToMv = () => {
 }
 
 const likeThisSong = () => {
-  if (track.value.type !== 'online' && !track.value.matched) {
+  if (track.value.type === 'local' && !track.value.matched) {
     showToast(t('player.noAllowCauseLocal'))
-    return
+  } else if (track.value.type === 'stream') {
+    const op = track.value.starred ? 'unstar' : 'star'
+    likeAStreamTrack(op, track.value.id)
+  } else {
+    likeATrack(track.value.id)
   }
-  likeATrack(track.value.id)
 }
 
 const isBatchOp = inject('isBatchOp', ref(false))

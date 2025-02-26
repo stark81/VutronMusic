@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { Track, Album, Artist, Playlist } from './localMusic'
 import _ from 'lodash'
 
@@ -28,6 +28,10 @@ export const useStreamMusicStore = defineStore(
     const playlists = ref<StreamPlaylist[]>([])
     const sortBy = ref('default')
     const message = ref('')
+
+    const streamLikedTracks = computed(() => {
+      return streamTracks.value.filter((track) => track.starred)
+    })
 
     const fetchStreamMusic = async () => {
       if (status[select.value] === 'logout') return
@@ -90,10 +94,19 @@ export const useStreamMusicStore = defineStore(
     }
 
     const handleStreamLogout = () => {
+      window.mainApi.invoke('logoutStreamMusic', { platform: select.value }).then(() => {
+        status[select.value] = 'logout'
+      })
+    }
+
+    const likeAStreamTrack = (op: 'unstar' | 'star', id: string | number) => {
       window.mainApi
-        .invoke('logoutStreamMusic', { platform: select.value })
+        .invoke('likeAStreamTrack', { platform: select.value, operation: op, id })
         .then((res: boolean) => {
-          status[select.value] = 'logout'
+          if (res) {
+            const track = streamTracks.value.find((track) => track.id === id)
+            if (track) track.starred = !track.starred
+          }
         })
     }
 
@@ -110,12 +123,14 @@ export const useStreamMusicStore = defineStore(
       select,
       status,
       streamTracks,
+      streamLikedTracks,
       albums,
       artists,
       playlists,
       sortBy,
       message,
       scrobble,
+      likeAStreamTrack,
       handleStreamLogout,
       fetchStreamMusic,
       fetchStreamPlaylist,

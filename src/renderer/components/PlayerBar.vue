@@ -157,6 +157,7 @@ import { useDataStore } from '../store/data'
 import { useOsdLyricStore } from '../store/osdLyric'
 import { useNormalStateStore } from '../store/state'
 import { hasListSource, getListSourcePath } from '../utils/playlist'
+import { useStreamMusicStore } from '../store/streamingMusic'
 import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
 import { computed, watch } from 'vue'
@@ -191,6 +192,10 @@ const dataStore = useDataStore()
 const { liked } = storeToRefs(dataStore)
 const { likeATrack } = dataStore
 
+const streamMusicStore = useStreamMusicStore()
+const { streamLikedTracks } = storeToRefs(streamMusicStore)
+const { likeAStreamTrack } = streamMusicStore
+
 const formatTime = (time: number) => {
   const minutes = Math.floor(time / 60)
   const remainingSeconds = Math.ceil(seek.value % 60)
@@ -202,7 +207,10 @@ const artists = computed(() => {
 })
 
 const likeTrack = () => {
-  if (currentTrack.value?.matched) {
+  if (currentTrack.value?.type === 'stream') {
+    const op = currentTrack.value.starred ? 'unstar' : 'star'
+    likeAStreamTrack(op, currentTrack.value.id)
+  } else if (currentTrack.value?.matched) {
     likeATrack(currentTrack.value.id)
   }
 }
@@ -235,12 +243,25 @@ const formatVolume = computed(() => {
 })
 
 const heartDisabled = computed(() => {
-  return currentTrack.value?.type !== 'online' && !currentTrack.value?.matched
+  return currentTrack.value?.type === 'local' && !currentTrack.value?.matched
 })
 
 watch(showLyrics, (value) => {
   enableScrolling.value = !value
 })
+
+watch(
+  streamLikedTracks,
+  (value) => {
+    const currentPlaying = value.find((track) => track.id === currentTrack.value?.id)
+    if (currentPlaying) {
+      isLiked.value = true
+    } else {
+      isLiked.value = false
+    }
+  },
+  { immediate: true }
+)
 
 watch(
   () => liked.value.songs.includes(currentTrack.value?.id),

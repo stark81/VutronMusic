@@ -75,6 +75,11 @@ const routes = [
     }
   },
   {
+    path: '/stream-liked-songs',
+    name: 'streamLikedSongs',
+    component: PlaylistPage
+  },
+  {
     path: '/localMusic',
     name: 'localMusic',
     component: LocalMusicScreen,

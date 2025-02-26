@@ -25,7 +25,11 @@
           </div>
         </div>
       </div>
-      <div class="right-top" @click="playThisTrack">
+      <div class="right-top" @click="goToLikedSongsList">
+        <div class="title"
+          >{{ $t('library.likedSongs') }} - {{ streamLikedTracks.length
+          }}{{ $t('common.songs') }}</div
+        >
         <p>
           <span
             v-for="(line, index) in pickedLyricLines"
@@ -161,15 +165,13 @@ import { useI18n } from 'vue-i18n'
 import { randomNum } from '../utils'
 import { lyricParse, pickedLyric } from '../utils/lyric'
 import { Track } from '../store/localMusic'
-import { usePlayerStore } from '../store/player'
 
 const { newPlaylistModal, modalOpen } = storeToRefs(useNormalStateStore())
 
 const streamMusicStore = useStreamMusicStore()
-const { select, status, sortBy, streamTracks, playlists, message } = storeToRefs(streamMusicStore)
+const { select, status, sortBy, streamTracks, playlists, message, streamLikedTracks } =
+  storeToRefs(streamMusicStore)
 const { fetchStreamMusic } = streamMusicStore
-
-const { addTrackToPlayNext } = usePlayerStore()
 
 const router = useRouter()
 
@@ -285,9 +287,8 @@ const placeHolderMap = (tab: string) => {
   return pMap[tab]
 }
 
-const playThisTrack = () => {
-  if (!randomTrack.value) return
-  addTrackToPlayNext(randomTrack.value.id, true, true)
+const goToLikedSongsList = () => {
+  router.push({ path: '/stream-liked-songs' })
 }
 
 const openAddPlaylistModal = () => {
@@ -300,7 +301,7 @@ const openAddPlaylistModal = () => {
 }
 
 const getRandomTrack = async () => {
-  const ids = defaultTracks.value.map((t) => t.id)
+  const ids = streamLikedTracks.value.map((t) => t.id)
   let i = 0
   let data: any
   let randomID: string | number
@@ -443,6 +444,12 @@ onUnmounted(() => {
         font-size: 18px;
       }
     }
+  }
+  .title {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 10px 0 10px 0;
+    color: var(--color-primary);
   }
   .right-top {
     position: absolute;

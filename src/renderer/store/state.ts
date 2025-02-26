@@ -3,6 +3,12 @@ import { reactive, ref, watch } from 'vue'
 
 type TrackType = 'online' | 'local' | 'stream'
 
+type ScrollState = {
+  scrollTop: number
+  containerHeight: number
+  listHeight: number
+}
+
 export const useNormalStateStore = defineStore('state', () => {
   const enableScrolling = ref(true)
   const virtualScrolling = ref(false)
@@ -34,6 +40,37 @@ export const useNormalStateStore = defineStore('state', () => {
     timer: null as any
   })
   const dailyTracks = ref<any[]>([])
+
+  const scrollbar = reactive({
+    instances: {} as Record<string, ScrollState>,
+    active: null as string | null
+  })
+
+  const registerInstance = (tabId: string) => {
+    if (!scrollbar.instances[tabId]) {
+      scrollbar.instances[tabId] = {
+        scrollTop: 0,
+        containerHeight: 0,
+        listHeight: 0
+      }
+    }
+    scrollbar.active = tabId
+  }
+
+  const unregisterInstance = (tabId: string) => {
+    if (scrollbar.active === tabId) {
+      scrollbar.active = null
+    }
+    if (Object.prototype.hasOwnProperty.call(scrollbar.instances, tabId)) {
+      delete scrollbar.instances[tabId]
+    }
+  }
+
+  const updateScroll = (tabId: string, payload: Partial<ScrollState>) => {
+    if (scrollbar.instances[tabId]) {
+      scrollbar.instances[tabId] = { ...scrollbar.instances[tabId], ...payload }
+    }
+  }
 
   const showToast = (text: string) => {
     if (toast.timer !== null) {
@@ -67,6 +104,10 @@ export const useNormalStateStore = defineStore('state', () => {
     dailyTracks,
     toast,
     modalOpen,
-    showToast
+    scrollbar,
+    showToast,
+    registerInstance,
+    unregisterInstance,
+    updateScroll
   }
 })

@@ -199,23 +199,6 @@ export const useSettingsStore = defineStore(
     }
 
     onMounted(() => {
-      if (
-        // 检测旧版数据格式
-        theme.colors &&
-        typeof theme.colors === 'object' &&
-        !Array.isArray(theme.colors) &&
-        Object.keys(theme.colors).length === 0
-      ) {
-        // 覆盖为预设数组
-        theme.colors = [
-          { name: 'blue', color: 'rgba(51, 94, 234, 1)', selected: true },
-          { name: 'purple', color: 'rgba(136, 84, 208, 1)', selected: false },
-          { name: 'orange', color: 'rgba(234, 136, 51, 1)', selected: false },
-          { name: 'cyan', color: 'rgba(29, 185, 181, 1)', selected: false },
-          { name: 'Customize', color: 'rgba(0, 0, 0, 0)', selected: false }
-        ]
-      }
-
       const trayMenu = !(tray.showControl || tray.showLyric)
       window.mainApi.send('setStoreSettings', {
         lang: general.language,

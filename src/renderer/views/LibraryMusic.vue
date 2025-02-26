@@ -347,8 +347,6 @@ const goToLikedSongsList = () => {
 
 const updatePadding = inject('updatePadding') as (padding: number) => void
 
-// const openPlayModeTabMenu = () => {}
-
 const openAddPlaylistModal = () => {
   newPlaylistModal.value = {
     type: 'online',

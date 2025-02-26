@@ -135,6 +135,7 @@ const props = defineProps({
   type: { type: String, required: true },
   isLyric: { type: Boolean, default: false },
   showPosition: { type: Boolean, default: true },
+  showTrackPosition: { type: Boolean, default: true },
   colunmNumber: { type: Number, required: true },
   gap: { type: Number, default: 20 },
   extraContextMenuItem: {
@@ -233,6 +234,7 @@ const typeType = computed(() => {
 const showScrollTo = computed(() => {
   return (
     currentTrack.value &&
+    props.showTrackPosition &&
     ((playlistSource.value.type === props.type && playlistSource.value.id === props.id) ||
       (playlistSource.value.type === 'localPlaylist' &&
         playlistSource.value.type === props.type &&

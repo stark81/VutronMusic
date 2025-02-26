@@ -61,9 +61,15 @@
                       >
                     </div>
                     <button-icon
-                      :title="heartDisabled ? $t('player.noAllowCauseLocal') : $t('player.like')"
+                      :title="
+                        currentTrack?.type === 'local' && currentTrack?.matched === false
+                          ? $t('player.noAllowCauseLocal')
+                          : $t('player.like')
+                      "
                       class="button"
-                      :class="{ disabled: currentTrack?.matched === false }"
+                      :class="{
+                        disabled: currentTrack?.type === 'local' && currentTrack?.matched === false
+                      }"
                       @click="likeTrack"
                     >
                       <SvgIcon :icon-class="isLiked ? 'heart-solid' : 'heart'" />
@@ -235,6 +241,7 @@ import { useDataStore } from '../store/data'
 import { storeToRefs } from 'pinia'
 import { ref, computed, watch, provide, toRefs } from 'vue'
 import { useRouter } from 'vue-router'
+import { useStreamMusicStore } from '../store/streamingMusic'
 
 const router = useRouter()
 const playPageContextMenu = ref<InstanceType<typeof ContextMenu>>()
@@ -270,6 +277,8 @@ const {
 const { playPrev, playOrPause, _playNextTrack, switchRepeatMode, moveToFMTrash } = playerStore
 const { likeATrack } = useDataStore()
 
+const { likeAStreamTrack } = useStreamMusicStore()
+
 const tags = computed(() => {
   const lst = ['none']
   if (lyrics.value.tlyric.length) {
@@ -284,6 +293,10 @@ const tags = computed(() => {
 const idx = ref(tags.value.indexOf(nTranslationMode.value))
 
 const likeTrack = () => {
+  if (currentTrack.value?.type === 'stream') {
+    const op = currentTrack.value.starred ? 'unstar' : 'star'
+    likeAStreamTrack(op, currentTrack.value.id)
+  }
   if (currentTrack.value?.matched) {
     likeATrack(currentTrack.value.id)
   }

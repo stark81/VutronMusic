@@ -228,8 +228,8 @@ class BackGround {
         type === 'small'
           ? ((store.get('osdWin.height') || 140) as number)
           : ((store.get('osdWin.height2') || 600) as number),
-      minHeight: type === 'small' ? 140 : 400,
-      maxHeight: type === 'small' ? 200 : undefined,
+      minHeight: type === 'small' ? 110 : 400,
+      maxHeight: type === 'small' ? 140 : undefined,
       minWidth: type === 'small' ? 700 : 400,
       maxWidth: type === 'small' ? undefined : undefined,
       useContentSize: true,

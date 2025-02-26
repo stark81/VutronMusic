@@ -47,6 +47,7 @@ import {
   inject
 } from 'vue'
 import SvgIcon from './SvgIcon.vue'
+import eventBus from '../utils/eventBus'
 
 type ScrollBehavior = 'auto' | 'instant' | 'smooth'
 
@@ -76,10 +77,12 @@ const startOffset = ref(0)
 const position = ref<any[]>([])
 const windowHeight = ref(window.innerHeight)
 const scrollToIndex = ref(0)
+const instanceId = ref('')
 const { list, itemSize } = toRefs(props)
 
 const normalState = useNormalStateStore()
 const { enableScrolling, virtualScrolling } = storeToRefs(normalState)
+const { registerInstance, unregisterInstance, updateScroll } = normalState
 
 const _listData = computed(() => {
   return list.value.reduce((init, cur, index) => {
@@ -345,6 +348,13 @@ const onScrollToBottom = () => {
   const containerHeight = listRef.value.clientHeight
   const contentHeight = listRef.value.scrollHeight
 
+  registerInstance(instanceId.value)
+  updateScroll(instanceId.value, {
+    scrollTop,
+    containerHeight,
+    listHeight: listHeight.value
+  })
+
   if (scrollTop + containerHeight >= contentHeight) {
     props.loadMore()
   }
@@ -427,6 +437,24 @@ watch(_listData, (newList, oldList) => {
 
 initPosition()
 
+let updateScrollStart = 0
+
+eventBus.on('update-start', () => {
+  updateScrollStart = listRef.value?.scrollTop
+})
+
+// @ts-ignore
+eventBus.on('update-scroll-bar', (data: any) => {
+  if (data.active !== instanceId.value) return
+  if (updateScrollStart === 0) updateScrollStart = listRef.value?.scrollTop
+  const top = Math.min(listRef.value?.scrollHeight, Math.max(updateScrollStart + data.offset, 0))
+  listRef.value.scrollTo({ top, behavior: 'instant' })
+})
+
+eventBus.on('update-done', () => {
+  updateScrollStart = listRef.value?.scrollTop || 0
+})
+
 onActivated(() => {
   observer.observe(listRef.value)
   setTimeout(() => {
@@ -441,12 +469,15 @@ onActivated(() => {
 
 onDeactivated(() => {
   // startRow.value = 0
+  unregisterInstance(instanceId.value)
   observer.unobserve(listRef.value)
   virtualScrolling.value = false
 })
 
 onMounted(() => {
   // startRow.value = 0
+  instanceId.value = Math.random().toString(36).substring(2, 9)
+  registerInstance(instanceId.value)
   window.addEventListener('resize', updateWindowHeight)
   observer.observe(listRef.value)
   setTimeout(() => {
@@ -461,6 +492,7 @@ onUpdated(() => {
   })
 })
 onBeforeUnmount(() => {
+  unregisterInstance(instanceId.value)
   window.removeEventListener('resize', updateWindowHeight)
   observer.unobserve(listRef.value)
   virtualScrolling.value = false

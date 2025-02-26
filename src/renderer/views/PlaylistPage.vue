@@ -110,19 +110,28 @@
     </div>
 
     <div v-if="isLikedSongsPage" class="special-playlist">
-      <div class="title gradient-green">我喜欢的音乐</div>
+      <div v-show="$route.name === 'likedSongs'" class="title gradient-green">我喜欢的音乐</div>
+      <div v-show="$route.name === 'streamLikedSongs'" class="title gradient-sky-blue"
+        >我收藏的流媒体</div
+      >
       <div class="buttons">
         <ButtonTwoTone class="play-button" icon-class="play" color="grey" @click="play">
           {{ $t('common.play') }}
         </ButtonTwoTone>
         <ButtonTwoTone
+          v-if="$route.name === 'likedSongs'"
           class="play-button"
           icon-class="play"
           color="grey"
           @click="playIntelligenceList"
           >心动模式</ButtonTwoTone
         >
-        <ButtonTwoTone color="grey" icon-class="floor-comment" @click="openComment">
+        <ButtonTwoTone
+          v-if="$route.name === 'likedSongs'"
+          color="grey"
+          icon-class="floor-comment"
+          @click="openComment"
+        >
           {{ '评论' }}
         </ButtonTwoTone>
         <SearchBox ref="pSearchBoxRef" :placeholder="$t('playlist.search')" />
@@ -348,6 +357,8 @@ const playlistType = computed(() => {
     return 'local'
   } else if (route.name === 'streamPlaylist') {
     return 'stream'
+  } else if (route.name === 'streamLikedSongs') {
+    return 'streamLiked'
   } else {
     return 'online'
   }
@@ -356,10 +367,13 @@ const playlistType = computed(() => {
 const typeMap = {
   local: 'localPlaylist',
   stream: 'streamPlaylist',
+  streamLiked: 'streamLiked',
   online: 'playlist'
 }
 
-const isLikedSongsPage = computed(() => route.name === 'likedSongs')
+const isLikedSongsPage = computed(
+  () => route.name === 'likedSongs' || route.name === 'streamLikedSongs'
+)
 
 const isUserOwnPlaylist = computed(() => {
   return (
@@ -396,6 +410,12 @@ const loadStreamData = (id: string) => {
       if (!playlist.value.trackItemIds) return track
       return { ...track, playlistItemId: playlist.value.trackItemIds[track.id] }
     })
+  tricklingProgress.done()
+  show.value = true
+}
+
+const loadStreamLiked = () => {
+  tracks.value = streamMusic.streamLikedTracks
   tricklingProgress.done()
   show.value = true
 }
@@ -573,6 +593,8 @@ onMounted(() => {
     loadLocalData(Number(route.params.id))
   } else if (playlistType.value === 'stream') {
     loadStreamData(route.params.id as string)
+  } else if (route.name === 'streamLikedSongs') {
+    loadStreamLiked()
   } else if (route.name === 'likedSongs') {
     loadData(likedSongPlaylistID.value)
   } else {

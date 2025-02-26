@@ -47,6 +47,7 @@ export interface EmbyImpl {
   deletePlaylist: (id: number) => Promise<boolean>
   scrobble: (id: number) => void
   addTracksToPlaylist: (op: string, playlistId: number, ids: number[]) => Promise<boolean>
+  likeATrack: (operation: 'unstar' | 'star', id: number) => void
 }
 
 class Emby implements EmbyImpl {
@@ -76,7 +77,7 @@ class Emby implements EmbyImpl {
     const endpoint = 'Items'
     const params = {
       IncludeItemTypes: 'Audio',
-      Fields: 'DateCreated, Size, Bitrate',
+      Fields: 'DateCreated, Size, Bitrate, IsFavorite',
       Recursive: true
     }
     const [response, response2] = await Promise.all([
@@ -104,6 +105,7 @@ class Emby implements EmbyImpl {
           id: song.Id,
           name: song.Name,
           dt: song.RunTimeTicks / 10000,
+          starred: song.UserData.IsFavorite,
           size: song.Size,
           source: 'emby',
           url: `atom://get-stream-music/${song.Id}`,
@@ -217,6 +219,16 @@ class Emby implements EmbyImpl {
       return err
     })
     return (response?.data?.Items as any[]) ?? []
+  }
+
+  async likeATrack(op: 'star' | 'unstar', id: number) {
+    const userId = store.get('accounts.emby.userId') as string
+    const accessToken = store.get('accounts.emby.accessToken') as string
+    const baseUrl = store.get('accounts.emby.url') as string
+
+    const url = `${baseUrl}/emby/Users/${userId}/FavoriteItems/${id}${op === 'unstar' ? '/Delete' : ''}?api_key=${accessToken}`
+    const result = await axios({ method: 'POST', url }).then((res) => res.status === 200)
+    return result
   }
 
   scrobble(id: number) {
