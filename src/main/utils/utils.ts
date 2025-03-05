@@ -444,24 +444,24 @@ export const getTrackDetail = (ids: string) => {
 }
 
 export const getAudioSourceFromUnblock = async (track: any) => {
-  const match = require('@unblockneteasemusic/server')
-
-  const sourceDefault = ['kuwo', 'kugou', 'qq', 'bilibili', 'pyncmd', 'migu']
   const source = (store.get('settings.unblockNeteaseMusic.source') as string) || ''
-  const sourceList = source.split(',').map((s) => s.trim().toLowerCase())
+  const sourceList = source
+    ? source.split(',').map((s) => s.trim().toLowerCase())
+    : ['kuwo', 'kugou', 'ytdlp', 'qq', 'bilibili', 'pyncmd', 'migu']
 
   const qqCookie = (store.get('settings.unblockNeteaseMusic.qqCookie') as string) || ''
   const jooxCookie = store.get('settings.unblockNeteaseMusic.jooxCookie') as string
   const enableFlac = store.get('settings.unblockNeteaseMusic.enableFlac') as boolean
   const orderFirst = store.get('settings.unblockNeteaseMusic.orderFirst') as boolean
 
+  process.env.ENABLE_LOCAL_VIP = 'true'
   process.env.QQ_COOKIE = qqCookie || ''
   process.env.JOOX_COOKIE = jooxCookie || ''
   process.env.ENABLE_FLAC = enableFlac ? 'true' : 'false'
   process.env.FOLLOW_SOURCE_ORDER = orderFirst ? 'true' : 'false'
-  process.env.ENABLE_LOCAL_VIP = 'true'
 
-  return match(track.id, source !== '' ? sourceList : sourceDefault)
+  const match = require('@unblockneteasemusic/server')
+  return match(track.id, sourceList)
 }
 
 export const cacheOnlineTrack = async (track: any) => {

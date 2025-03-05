@@ -157,7 +157,7 @@
     "usernameLogin": "使用者名稱登入",
     "loginWithEmail": "電子郵件登入",
     "loginWithPhone": "手機號碼登入",
-    "noticeElectron": "你的密碼會在本地進行MD5加密後傳輸到網易雲API。YesPlayMusic 不會傳輸你的帳號資料到任何非網易雲音樂官方的伺服器。"
+    "noticeElectron": "你的密碼會在本地進行MD5加密後傳輸到網易雲API。VutronMusic 不會傳輸你的帳號資料到任何非網易雲音樂官方的伺服器。"
   },
   "player": {
     "play": "播放",

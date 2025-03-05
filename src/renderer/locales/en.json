@@ -156,7 +156,7 @@
     "usernameLogin": "Username Login",
     "loginWithEmail": "Login with Email",
     "loginWithPhone": "Login with Phone",
-    "noticeElectron": "Your password is hashed with MD5 locally before transmission to NetEase API. YesPlayMusic does not transmit your account data to any non-official servers."
+    "noticeElectron": "Your password is hashed with MD5 locally before transmission to NetEase API. VutronMusic does not transmit your account data to any non-official servers."
   },
   "player": {
     "play": "Play",

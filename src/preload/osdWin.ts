@@ -91,6 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const onMouseMove = throttle((e: MouseEvent) => {
       if (!isDragging) return
+      titleBar.style.cursor = 'move'
       const dx = e.clientX - startX
       const dy = e.clientY - startY
       ipcRenderer.send('window-drag', { dx, dy })
@@ -98,6 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const onMouseUp = () => {
       isDragging = false
+      titleBar.style.cursor = 'unset'
       document.removeEventListener('mousemove', onMouseMove)
       document.removeEventListener('mouseup', onMouseUp)
     }

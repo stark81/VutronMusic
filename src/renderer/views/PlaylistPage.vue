@@ -332,6 +332,9 @@ const filterTracks = computed(() => {
   return tracks.value.filter(
     (track) =>
       (track.name && track.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
+      (track.alia || track.alias)?.find((al) =>
+        al.toLowerCase().includes(keyword.value?.toLowerCase())
+      ) ||
       (track.album?.name &&
         track.album.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
       (track.artists || track.ar).find(

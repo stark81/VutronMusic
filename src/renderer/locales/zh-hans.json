@@ -157,7 +157,7 @@
     "usernameLogin": "用户名登录",
     "loginWithEmail": "邮箱登录",
     "loginWithPhone": "手机号登录",
-    "noticeElectron": "你的密码会在本地进行MD5加密后再传输到网易云API。YesPlayMusic 不会传输你的账号数据到任何非网易云音乐官方的服务器。"
+    "noticeElectron": "你的密码会在本地进行MD5加密后再传输到网易云API。VutronMusic 不会传输你的账号数据到任何非网易云音乐官方的服务器。"
   },
   "player": {
     "play": "播放",

@@ -1,7 +1,7 @@
 {
   "name": "VutronMusic",
   "packageManager": "yarn@1.22.22",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "homepage": "https://github.com/stark81",
   "author": "stark81 <qq2995734001@gmail.com>",
   "license": "MIT",
@@ -35,8 +35,7 @@
     "test:linux": "npm run build:pre && xvfb-run --auto-servernum --server-args='-screen 0, 1280x960x24' -- playwright test"
   },
   "engines": {
-    "node": ">=18.0.0",
-    "python": "3.9"
+    "node": ">=18"
   },
   "dependencies": {
     "@electron/rebuild": "^3.7.0",

@@ -85,8 +85,9 @@ const loadTracks = async () => {
 
   let newTracks = localMusics.filter((t) => !loadedTrackIDs.includes(t.id))
 
-  const onlineTrackIDs = trackIDs.filter((t) => !localMusics.map((s) => s.id).includes(t))
-
+  const onlineTrackIDs = trackIDs.filter(
+    (t) => !(localMusics.map((s) => s.id).includes(t) || streamMusics.map((s) => s.id).includes(t))
+  )
   if (onlineTrackIDs.length > 0) {
     await getTrackDetail(onlineTrackIDs.join(',')).then((data) => {
       newTracks.push(...data.songs)
