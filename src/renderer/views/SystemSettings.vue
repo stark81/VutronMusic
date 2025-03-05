@@ -1421,8 +1421,8 @@ onBeforeUnmount(() => {
       }
       &:hover {
         opacity: 1;
-        background: #eaeffd;
-        color: #335eea;
+        background: color-mix(in oklab, var(--color-primary) var(--bg-alpha), white);
+        color: var(--color-primary);
       }
       &:active {
         opacity: 1;

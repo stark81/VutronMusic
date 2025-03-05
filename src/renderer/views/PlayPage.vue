@@ -104,7 +104,7 @@
                 <div class="time">{{ formatTime(seek) || '0:00' }}</div>
                 <div class="slider">
                   <vue-slider
-                    v-model="seek"
+                    v-model="position"
                     :min="0"
                     :max="currentTrackDuration"
                     :interval="1"
@@ -290,6 +290,23 @@ const tags = computed(() => {
   return lst as TranslationMode[]
 })
 
+const position = computed({
+  get() {
+    return seek.value
+  },
+  set(value) {
+    const line = lyrics.value.lyric.find((l, index) => {
+      const nextLine = lyrics.value.lyric[index + 1]
+      if (nextLine) {
+        return nextLine.time > value && l.time <= value
+      } else {
+        return value >= l.time && value < l.time + 10
+      }
+    })
+    seek.value = line?.time ?? value
+  }
+})
+
 const idx = ref(tags.value.indexOf(nTranslationMode.value))
 
 const likeTrack = () => {
@@ -402,147 +419,151 @@ provide('show', show)
   transition: all 0.5s;
   z-index: 10;
 
-  img {
-    height: 36vw;
-    width: 36vw;
-    user-select: none;
-    object-fit: cover;
-    border-radius: 0.75rem;
+  .cover {
+    position: relative;
+    img {
+      height: 54vh;
+      width: 54vh;
+      user-select: none;
+      object-fit: cover;
+      border-radius: 0.75rem;
+    }
   }
+
   .controls {
     color: var(--color-text);
+    max-width: 54vh;
     margin-top: 20px;
     position: relative;
-  }
-  .top-part {
-    // width: 54vh;
-    width: 36vw;
-    display: flex;
-    justify-content: space-between;
 
-    .title {
-      // margin-top: 8px;
-      font-size: 20px;
-      font-weight: 600;
-      opacity: 0.88;
-      display: -webkit-box;
-      -webkit-box-orient: vertical;
-      -webkit-line-clamp: 1;
-      line-clamp: 1;
-      overflow: hidden;
-    }
-    .haslist {
-      cursor: pointer;
-      &:hover {
-        text-decoration: underline;
+    .top-part {
+      display: flex;
+      justify-content: space-between;
+
+      .title {
+        // margin-top: 8px;
+        font-size: 20px;
+        font-weight: 600;
+        opacity: 0.88;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 1;
+        line-clamp: 1;
+        overflow: hidden;
+      }
+      .haslist {
+        cursor: pointer;
+        &:hover {
+          text-decoration: underline;
+        }
+      }
+      .subtitle {
+        // margin-top: 4px;
+        font-size: 14px;
+        opacity: 0.7;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 1;
+        line-clamp: 1;
+        overflow: hidden;
+      }
+
+      .top-right {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+
+        .buttons {
+          height: 34px;
+          display: flex;
+          justify-content: space-between;
+          button {
+            margin: 0 0 0 4px;
+          }
+          .svg-icon {
+            height: 18px;
+            width: 18px;
+          }
+          .comment {
+            height: 22px;
+            width: 22px;
+          }
+        }
+
+        .transPro {
+          cursor: pointer;
+          line-height: 34px;
+          padding: 0 6px;
+          margin: 0 2px;
+          display: flex;
+
+          label {
+            cursor: pointer;
+            opacity: 0.5;
+          }
+          .active {
+            opacity: 0.95;
+          }
+          .m-label {
+            margin: 0 2px;
+          }
+        }
       }
     }
-    .subtitle {
-      // margin-top: 4px;
-      font-size: 14px;
-      opacity: 0.7;
-      display: -webkit-box;
-      -webkit-box-orient: vertical;
-      -webkit-line-clamp: 1;
-      line-clamp: 1;
-      overflow: hidden;
-    }
-
-    .top-right {
+    .progress-bar {
+      margin-top: 18px;
       display: flex;
       align-items: center;
       justify-content: space-between;
 
-      .buttons {
-        height: 34px;
+      .slider {
+        flex: 1;
+        padding: 0 10px;
+      }
+
+      .time {
+        font-size: 15px;
+        font-weight: 600;
+        opacity: 0.58;
+        width: 34px;
+      }
+    }
+    .media-controls {
+      display: flex;
+      justify-content: center;
+      margin-top: 18px;
+      align-items: center;
+
+      .svg-icon {
+        opacity: 0.38;
+        height: 14px;
+        width: 14px;
+      }
+
+      .active .svg-icon {
+        opacity: 0.88;
+      }
+
+      .middle {
+        padding: 0 16px;
         display: flex;
-        justify-content: space-between;
+        align-items: center;
+
         button {
-          margin: 0 0 0 4px;
+          margin: 0 8px;
         }
+
+        button#play .svg-icon {
+          height: 28px;
+          width: 28px;
+          padding: 2px;
+        }
+
         .svg-icon {
-          height: 18px;
-          width: 18px;
-        }
-        .comment {
+          opacity: 0.88;
           height: 22px;
           width: 22px;
         }
-      }
-
-      .transPro {
-        cursor: pointer;
-        line-height: 34px;
-        padding: 0 6px;
-        margin: 0 2px;
-        display: flex;
-
-        label {
-          cursor: pointer;
-          opacity: 0.5;
-        }
-        .active {
-          opacity: 0.95;
-        }
-        .m-label {
-          margin: 0 2px;
-        }
-      }
-    }
-  }
-  .progress-bar {
-    margin-top: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-
-    .slider {
-      flex: 1;
-      padding: 0 10px;
-    }
-
-    .time {
-      font-size: 15px;
-      font-weight: 600;
-      opacity: 0.58;
-      width: 34px;
-    }
-  }
-  .media-controls {
-    display: flex;
-    justify-content: center;
-    margin-top: 18px;
-    align-items: center;
-
-    .svg-icon {
-      opacity: 0.38;
-      height: 14px;
-      width: 14px;
-    }
-
-    .active .svg-icon {
-      opacity: 0.88;
-    }
-
-    .middle {
-      padding: 0 16px;
-      display: flex;
-      align-items: center;
-
-      button {
-        margin: 0 8px;
-      }
-
-      button#play .svg-icon {
-        height: 28px;
-        width: 28px;
-        padding: 2px;
-      }
-
-      .svg-icon {
-        opacity: 0.88;
-        height: 22px;
-        width: 22px;
       }
     }
   }

@@ -222,6 +222,8 @@ const scrollTocurrent = (index: number, behavior: ScrollBehavior = 'smooth') => 
   scrollToIndex.value = index
   const idx = index / props.columnNumber - Math.floor(visibleCount.value / 2)
 
+  // 当定位元素和当前元素差距大于100时，会触发元素内的“快速”滚动，在一些流媒体音乐中可能会导致
+  // 短时间内大量加载图片，导致响应错误。因此设置一个标志位，处于快速滚动时请求本地图片；
   if (Math.abs(index - visibleMiddle.value) > 100) {
     virtualScrolling.value = true
   }

@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, reactive, ref, watch } from 'vue'
-import { Track, Album, Artist, Playlist } from './localMusic'
+import { Track, Playlist } from './localMusic'
 import _ from 'lodash'
 
 export interface StreamPlaylist extends Omit<Playlist, 'id'> {
@@ -23,8 +23,6 @@ export const useStreamMusicStore = defineStore(
       emby: 'logout'
     })
     const streamTracks = ref<Track[]>([])
-    const albums = ref<Album[]>([])
-    const artists = ref<Artist[]>([])
     const playlists = ref<StreamPlaylist[]>([])
     const sortBy = ref('default')
     const message = ref('')
@@ -34,7 +32,7 @@ export const useStreamMusicStore = defineStore(
     })
 
     const fetchStreamMusic = async () => {
-      if (status[select.value] === 'logout') return
+      if (status[select.value] === 'logout' || !enable.value) return
       await window.mainApi
         .invoke('get-stream-songs', { platform: select.value })
         .then((data: { code: number; message: string; tracks: any; playlists: any }) => {
@@ -124,8 +122,6 @@ export const useStreamMusicStore = defineStore(
       status,
       streamTracks,
       streamLikedTracks,
-      albums,
-      artists,
       playlists,
       sortBy,
       message,

@@ -86,7 +86,7 @@ const fetchLocalData = () => {
 }
 
 const padding = ref(96)
-const userSelectNone = ref(true)
+const userSelectNone = ref(false)
 const settingsStore = useSettingsStore()
 const { theme, localMusic, general } = storeToRefs(settingsStore)
 const appearance = ref(theme.value.appearance)

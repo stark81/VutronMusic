@@ -1,26 +1,34 @@
 <template>
   <div class="player">
-    <div class="progress-bar">
+    <div class="progress-bar" @mouseenter="setHover" @mousemove="getPosition" @mouseleave="blur">
       <vue-slider
-        v-model="seek"
+        ref="playerBarRef"
+        v-model="position"
         :min="0"
+        :contained="false"
+        tooltip="none"
         :max="currentTrackDuration"
         :interval="1"
         :drag-on-click="false"
         :use-keyboard="false"
-        :tooltip-formatter="formatTime"
-        :tooltip-style="{
-          backgroundColor: 'var(--color-primary)',
-          borderColor: 'var(--color-primary)'
-        }"
+        :marks="marks"
         :rail-style="{ backgroundColor: 'rgba(128, 128, 128, 0.18)' }"
         :process-style="{ background: 'var(--color-primary)' }"
+        :step-style="{
+          display: 'block',
+          height: '6px',
+          width: '6px',
+          transform: 'translateY(-2px)',
+          backgroundColor: 'var(--color-primary)',
+          opacy: 0.8
+        }"
         :dot-style="{ display: 'none' }"
         :height="2"
         :dot-size="10"
         :lazy="false"
         :silent="true"
       />
+      <div v-show="hover" class="progress-tooltip" :data-tip="hoverText"></div>
     </div>
     <div class="controls">
       <div class="left">
@@ -160,7 +168,7 @@ import { hasListSource, getListSourcePath } from '../utils/playlist'
 import { useStreamMusicStore } from '../store/streamingMusic'
 import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 
 const router = useRouter()
@@ -178,9 +186,18 @@ const {
   seek,
   volume,
   isLiked,
+  lyrics,
+  chorus,
   pic,
   source
 } = storeToRefs(playerStore)
+
+const playerBarRef = ref()
+const hover = ref(false)
+const hoverValue = ref(0)
+const hoverX = ref('0')
+const hoverText = ref<string>()
+let hoverTimeout
 
 const osdLyric = useOsdLyricStore()
 const { show } = storeToRefs(osdLyric)
@@ -193,17 +210,40 @@ const { liked } = storeToRefs(dataStore)
 const { likeATrack } = dataStore
 
 const streamMusicStore = useStreamMusicStore()
-const { streamLikedTracks } = storeToRefs(streamMusicStore)
 const { likeAStreamTrack } = streamMusicStore
 
 const formatTime = (time: number) => {
   const minutes = Math.floor(time / 60)
-  const remainingSeconds = Math.ceil(seek.value % 60)
+  const remainingSeconds = Math.ceil(time % 60)
   return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
 }
 
 const artists = computed(() => {
   return currentTrack.value?.artists ?? currentTrack.value?.ar
+})
+
+const position = computed({
+  get() {
+    return seek.value
+  },
+  set(value) {
+    const line = lyrics.value.lyric.find((l, index) => {
+      const nextLine = lyrics.value.lyric[index + 1]
+      if (nextLine) {
+        return nextLine.time > value && l.time <= value
+      } else {
+        return value >= l.time && value < l.time + 10
+      }
+    })
+    seek.value = line?.time ?? value
+  }
+})
+
+const marks = computed(() => {
+  const result: Record<string, any> = {}
+  if (chorus.value === 0) return result
+  result[chorus.value.toString()] = { labelStyle: { display: 'none' } }
+  return result
 })
 
 const likeTrack = () => {
@@ -233,6 +273,41 @@ const goToList = () => {
   router.push(path)
 }
 
+const setHover = (e: MouseEvent) => {
+  hoverTimeout = setTimeout(() => {
+    hover.value = true
+    hoverX.value = e.clientX + 'px'
+    clearTimeout(hoverTimeout)
+  }, 100)
+}
+
+const getPosition = (e: MouseEvent) => {
+  if (!hover.value) return
+  hoverX.value = e.clientX + 'px'
+  const percent = e.clientX / playerBarRef.value?.$el?.clientWidth
+  hoverValue.value = currentTrackDuration.value * percent
+  const time = formatTime(hoverValue.value)
+  if (!lyrics.value.lyric?.length) {
+    hoverText.value = time
+    return
+  }
+  const hoverLyric = lyrics.value.lyric?.find((l, index) => {
+    const nextLine = lyrics.value.lyric[index + 1]
+    if (nextLine) {
+      return nextLine.time > hoverValue.value && l.time <= hoverValue.value
+    } else {
+      return hoverValue.value >= l.time && hoverValue.value < currentTrackDuration.value
+    }
+  })
+  hoverText.value = hoverLyric ? `[${time}] ${hoverLyric?.content}` : time
+}
+
+const blur = () => {
+  if (hoverTimeout) clearTimeout(hoverTimeout)
+  hover.value = false
+  hoverValue.value = 0
+}
+
 const goToNextTracksPage = () => {
   if (isPersonalFM.value) return
   route.name === 'next' ? router.go(-1) : router.push({ name: 'next' })
@@ -251,20 +326,7 @@ watch(showLyrics, (value) => {
 })
 
 watch(
-  streamLikedTracks,
-  (value) => {
-    const currentPlaying = value.find((track) => track.id === currentTrack.value?.id)
-    if (currentPlaying) {
-      isLiked.value = true
-    } else {
-      isLiked.value = false
-    }
-  },
-  { immediate: true }
-)
-
-watch(
-  () => liked.value.songs.includes(currentTrack.value?.id),
+  () => liked.value.songs.includes(currentTrack.value?.id) || currentTrack.value?.starred,
   (value) => {
     isLiked.value = value
   }
@@ -281,12 +343,40 @@ watch(
   border-top: 1px solid var(--color-border);
   backdrop-filter: saturate(180%) blur(30px);
   background-color: var(--color-navbar-bg);
-  z-index: 2;
+  z-index: 20;
 }
 .progress-bar {
   margin-top: -6px !important;
   margin-bottom: -6px !important;
   width: 100%;
+  position: relative;
+
+  .progress-tooltip {
+    position: absolute;
+    top: 0;
+    font-size: 14px;
+    left: v-bind(hoverX);
+    color: white;
+  }
+
+  .progress-tooltip::before {
+    content: attr(data-tip);
+    background-color: rgb(from var(--color-primary) r g b / 90%);
+    position: absolute;
+    border-radius: 5px;
+    top: -40px;
+    padding: 3px 8px;
+    white-space: nowrap;
+    transform: translate(-50%, 0);
+  }
+
+  .progress-tooltip::after {
+    content: '';
+    position: absolute;
+    border: 8px solid transparent;
+    border-top-color: rgb(from var(--color-primary) r g b / 90%);
+    transform: translate(-50%, -81%);
+  }
 }
 
 .controls {
