@@ -362,7 +362,7 @@ onMounted(() => {
   if (!player.lyrics) return
   lyrics.value = player.lyrics
   currentLyricIndex.value = player.currentLyricIndex
-  lyricOffset.value = player.currentTrack?.offset || 0
+  lyricOffset.value = (player.currentTrack?.offset || 0) * 1000
   progress.value = (player.progress ?? 0) * 1000
   startTime.value = performance.now() - progress.value
 
