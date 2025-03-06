@@ -235,7 +235,7 @@ const position = computed({
         return value >= l.time && value < l.time + 10
       }
     })
-    seek.value = line?.time ?? value
+    seek.value = (line?.time ?? value) - (currentTrack.value?.offset || 0)
   }
 })
 

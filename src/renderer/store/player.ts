@@ -460,7 +460,7 @@ export const usePlayerStore = defineStore(
         if (track.matched) {
           songChorus(track.id).then((res) => {
             if (res.chorus.length) {
-              chorus.value = res.chorus[0].startTime / 1000
+              chorus.value = res.chorus[0].startTime / 1000 - (currentTrack.value?.offset || 0)
             }
           })
         }
