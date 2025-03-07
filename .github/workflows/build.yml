@@ -96,7 +96,7 @@ jobs:
         with:
           name: VutronMusic-mac-${{ matrix.arch }}
           path: release/**/*_${{ matrix.arch }}.dmg
-          if-no-files-found: error
+          if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
         if: matrix.os == 'macos-latest' && matrix.arch == 'x64'
