@@ -78,7 +78,7 @@ jobs:
         run: |
           yarn build:linux || yarn build:linux
       - name: Debug file paths
-        run: ls -la release
+        run: ls -R release
 
       - uses: actions/upload-artifact@v4
         with:
@@ -95,7 +95,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: VutronMusic-mac-${{ matrix.arch }}
-          path: release/*.dmg
+          path: release/**/*_${{ matrix.arch }}.dmg
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v4
