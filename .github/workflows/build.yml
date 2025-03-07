@@ -97,7 +97,7 @@ jobs:
       # 修复macOS Artifacts上传 - 使用更灵活的路径模式
       - uses: actions/upload-artifact@v4
         with:
-          name: VutronMusic-mac-${{ matrix.arch }}
+          name: VutronMusic-mac
           path: |
             release/*/VutronMusic*.dmg
           if-no-files-found: warn
