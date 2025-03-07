@@ -99,34 +99,33 @@ jobs:
         with:
           name: VutronMusic-mac-${{ matrix.arch }}
           path: |
-            release/*/VutronMusic*_${{ matrix.arch }}.dmg
-            release/**/VutronMusic*_${{ matrix.arch }}.dmg
+            release/*/VutronMusic*.dmg
           if-no-files-found: warn
 
       # 仅当Linux构建可能成功时上传Linux相关Artifacts
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'macos-latest' && matrix.arch == 'x64'
+        if: matrix.os == 'macos-latest'
         with:
           name: VutronMusic-linux-snap
           path: release/*/VutronMusic*.snap
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'macos-latest' && matrix.arch == 'x64'
+        if: matrix.os == 'macos-latest'
         with:
           name: VutronMusic-linux-AppImage
           path: release/*/VutronMusic*.AppImage
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'macos-latest' && matrix.arch == 'x64'
+        if: matrix.os == 'macos-latest'
         with:
           name: VutronMusic-linux-deb
           path: release/*/VutronMusic*.deb
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'macos-latest' && matrix.arch == 'x64'
+        if: matrix.os == 'macos-latest'
         with:
           name: VutronMusic-linux-rpm
           path: release/*/VutronMusic*.rpm
