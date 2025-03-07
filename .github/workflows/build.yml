@@ -68,7 +68,7 @@ jobs:
           GH_TOKEN: ${{ secrets.github_token }}
           ARCH: ${{ matrix.arch }}
         run: |
-          yarn build:mac --arch=${{ matrix.arch }} || yarn build:mac --arch=${{ matrix.arch }}
+          yarn build:mac --${{ matrix.arch }} || yarn build:mac --${{ matrix.arch }}
 
       - name: Build/release Electron app (Linux)
         if: matrix.os == 'macos-latest' && matrix.arch == 'x64'
