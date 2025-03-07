@@ -9,7 +9,7 @@
         :click-cover-to-play="true"
         :fixed-size="288"
         type="album"
-        :cover-hover="false"
+        :cover-hover="true"
         :play-button-size="18"
       />
       <div class="info">

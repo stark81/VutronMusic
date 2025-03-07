@@ -21,7 +21,7 @@ const baseConfig = {
     target: [
       {
         target: 'dmg',
-        arch: ['x64']
+        arch: ['x64', 'arm64']
         // arch: ['x64', 'arm64', 'universal']
       }
     ]

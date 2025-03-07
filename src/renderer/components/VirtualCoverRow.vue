@@ -82,7 +82,7 @@ const getImageUrl = (item: any) => {
     }
   }
   const img = item.img1v1Url || item.picUrl || item.coverImgUrl || item.avatarUrl
-  return `${img?.replace('http://', 'https://')}?param=512y512`
+  return `${img?.replace('thumbnail=140y140&', 'thumbnail=512y512&').replace('http://', 'https://')}?param=512y512`
 }
 
 const isExplicit = (item: any) => {
