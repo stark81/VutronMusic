@@ -72,7 +72,7 @@ jobs:
 
       # 尝试构建Linux包但允许失败 - 添加--no-sandbox参数尝试解决沙盒问题
       - name: Build/release Electron app (Linux)
-        if: matrix.os == 'macos-latest' && matrix.arch == 'x64'
+        if: matrix.os == 'macos-latest'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.github_token }}
