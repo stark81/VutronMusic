@@ -2746,10 +2746,15 @@ copy-descriptor@^0.1.0:
   resolved "https://registry.npmmirror.com/copy-descriptor/-/copy-descriptor-0.1.1.tgz#676f6eb3c39997c2ee1ac3a924fd6124748f578d"
   integrity sha512-XgZ0pFcakEUlbwQEVNg3+QAis1FyTL3Qel9FYy8pSkQqoG3PNoT0bOCQtOXcOkur21r2Eq2kI+IE+gsmAEVlYw==
 
-core-js@^3.26.1, core-js@^3.6.5:
+core-js@^3.26.1:
   version "3.39.0"
   resolved "https://registry.npmmirror.com/core-js/-/core-js-3.39.0.tgz#57f7647f4d2d030c32a72ea23a0555b2eaa30f83"
   integrity sha512-raM0ew0/jJUqkJ0E6e8UDtl+y/7ktFivgWvqw8dNSQeNWoSDLvQ1H/RN3aPXB9tBd4/FhyR4RDPGhsNIMsAn7g==
+
+core-js@^3.6.5:
+  version "3.41.0"
+  resolved "https://mirrors.cloud.tencent.com/npm/core-js/-/core-js-3.41.0.tgz#57714dafb8c751a6095d028a7428f1fb5834a776"
+  integrity sha512-SJ4/EHwS36QMJd6h/Rg+GyR4A5xE0FSI3eZ+iBVpfqf1x0eTSg1smWLHrA+2jQThZSh97fmSgFSU8B61nxosxA==
 
 core-util-is@1.0.2:
   version "1.0.2"
@@ -8380,7 +8385,7 @@ vscode-uri@^3.0.8:
 
 vue-3-slider-component@^0.1.4:
   version "0.1.5"
-  resolved "https://registry.npmmirror.com/vue-3-slider-component/-/vue-3-slider-component-0.1.5.tgz#dacbc078b242b15472ccf5d679c749e735ec52a5"
+  resolved "https://mirrors.cloud.tencent.com/npm/vue-3-slider-component/-/vue-3-slider-component-0.1.5.tgz#dacbc078b242b15472ccf5d679c749e735ec52a5"
   integrity sha512-R7yMtORkN+Jaa1t9Porkgw2N4YHfPzGrkXbV+SpuYSr0bBv9j7z4Yd0TfA7ABxZnxQe9Hr8VfM5Gs2Kxs07BNw==
   dependencies:
     core-js "^3.6.5"

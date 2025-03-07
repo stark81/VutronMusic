@@ -124,7 +124,7 @@
               :max="1"
               :interval="0.01"
               direction="btt"
-              :use-keyboard="false"
+              :use-keyboard="true"
               :drag-on-click="false"
               :tooltip-formatter="formatVolume"
               :tooltip-style="{
@@ -462,20 +462,22 @@ watch(
     .volume {
       position: relative;
       .volume-slider {
-        display: none;
+        opacity: 0;
+        height: 0;
         position: absolute;
         border-radius: 6px;
         bottom: 40px;
         left: 50%;
         transform: translateX(-50%);
         background-color: var(--color-secondary-bg);
-        transition: all 0.3s;
         z-index: 10;
         font-size: 10px;
         padding: 12px 10px;
       }
       &:hover .volume-slider {
-        display: block;
+        opacity: 1;
+        height: 150px;
+        transform: translateX(-50%);
       }
     }
 

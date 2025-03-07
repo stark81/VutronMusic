@@ -66,7 +66,7 @@ onMounted(() => {
 <style lang="scss" scoped>
 .header {
   display: flex;
-  height: 44px;
+  height: 43px;
   justify-content: center;
   align-items: center;
   position: relative;

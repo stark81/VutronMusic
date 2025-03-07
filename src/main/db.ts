@@ -97,19 +97,15 @@ class DB {
     try {
       createFileIfNotExist(this.dbFilePath)
       const root = path.join(__dirname, '../../')
-      // log.info('[db] Initializing database...')
-      // @ts-ignore
-      // log.info(path.join(root, import.meta.env.VITE_BETTER_SQLITE3_BINDING))
+      // const VITE_BETTER_SQLITE3_BINDING = process.env[`VITE_BETTER_SQLITE3_BINDING_${process.arch}`]
       this.sqlite = new SQLite3(this.dbFilePath, {
-        // @ts-ignore
-        nativeBinding: path.join(root, import.meta.env.VITE_BETTER_SQLITE3_BINDING)
+        nativeBinding: path.join(root, 'dist-native', `better_sqlite3-${process.arch}.node`)
       })
       this.sqlite.pragma('auto_vacuum = FULL')
       this.initTables()
       this.migrate()
     } catch (e) {
       console.log('111111111111111111112222, init error = ', e)
-      // log.error('[db] Database initialization failed.')
       // log.error(e)
     }
   }

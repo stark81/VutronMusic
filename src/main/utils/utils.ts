@@ -491,6 +491,7 @@ export const cacheOnlineTrack = async (track: any) => {
       const writeStream = fs.createWriteStream(filePath)
       const readableStream = response.body
 
+      // @ts-ignore
       const nodeReadable = Readable.fromWeb(readableStream)
       nodeReadable.pipe(writeStream)
 

@@ -79,6 +79,7 @@ window.mainApi?.on('mouseleave-completely', () => {
 
 .header {
   transition: opacity 0.3s;
+  margin-top: 1px;
 
   .lock {
     opacity: 0 !important;
@@ -86,8 +87,9 @@ window.mainApi?.on('mouseleave-completely', () => {
 }
 
 .control-lock {
+  margin-top: 1px;
   width: 100%;
-  height: 44px;
+  height: 43px;
   z-index: 1;
   display: flex;
   justify-content: center;

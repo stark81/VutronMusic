@@ -143,13 +143,13 @@ async function build(arch) {
         projectDir,
         `./node_modules/better-sqlite3/build/Release/better_sqlite3.node`
       )
-      const to = resolve(binDir, `./better_sqlite3.node`)
+      const to = resolve(binDir, `./better_sqlite3-${arch}.node`)
       console.info(`copy ${from} to ${to}`)
       fs.copyFileSync(from, to)
       const BETTER_SQLITE3_BINDING = to.replace(resolvedRoot + '/', '')
       fs.writeFileSync(
         join(resolvedRoot, '.env'),
-        `VITE_BETTER_SQLITE3_BINDING=${BETTER_SQLITE3_BINDING}`
+        `VITE_BETTER_SQLITE3_BINDING_${arch}=${BETTER_SQLITE3_BINDING}`
       )
       console.log(pc.green('Build succeeded'))
     })
@@ -175,6 +175,7 @@ async function main() {
       await build('arm64')
     }
   }
+  process.exit(0)
 }
 
 main()

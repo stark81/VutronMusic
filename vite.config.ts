@@ -109,6 +109,7 @@ export default defineConfig(({ mode }) => {
       }
     },
     plugins: [
+      bindingSqlite3(),
       Vue(),
       createSvgIconsPlugin({
         iconDirs: [resolve(process.cwd(), 'src/renderer/assets/icons')],
@@ -126,7 +127,6 @@ export default defineConfig(({ mode }) => {
       EslintPlugin(),
       // Docs: https://github.com/electron-vite/vite-plugin-electron
       ElectronPlugin(electronPluginConfigs),
-      bindingSqlite3(),
       RendererPlugin()
     ],
     server: {
@@ -157,6 +157,8 @@ function bindingSqlite3(
   return {
     name: 'vite-plugin-binding-sqlite3',
     config(config) {
+      const destination = `better_sqlite3-${process.arch}.node`
+
       const resolvedRoot = normalizePath(process.cwd())
       const output = normalizePath(resolve(resolvedRoot, options.output as string))
       const betterSqlite3 = normalizePath(require.resolve('better-sqlite3'))
@@ -167,24 +169,25 @@ function bindingSqlite3(
       const betterSqlite3Node = normalizePath(
         posix.join(betterSqlite3Root, 'build/Release', options.better_sqlite3_node as string)
       )
-      const betterSqlite3Copy = normalizePath(
-        posix.join(output, options.better_sqlite3_node as string)
-      )
+      const betterSqlite3Copy = normalizePath(posix.join(output, destination))
 
       if (!fs.existsSync(betterSqlite3Node)) {
         throw new Error(`${TAG} Can not found "${betterSqlite3Node}".`)
       }
-      if (!fs.existsSync(output)) {
-        fs.mkdirSync(output, { recursive: true })
+
+      if (!fs.existsSync(betterSqlite3Copy)) {
+        if (!fs.existsSync(output)) {
+          fs.mkdirSync(output, { recursive: true })
+        }
+        fs.copyFileSync(betterSqlite3Node, betterSqlite3Copy)
       }
-      fs.copyFileSync(betterSqlite3Node, betterSqlite3Copy)
 
       // 使用 path.join 而不是 posix.join，这样会使用系统默认的路径分隔符
-      const BETTER_SQLITE3_BINDING = join(options.output, options.better_sqlite3_node)
+      const BETTER_SQLITE3_BINDING = join(options.output, destination)
 
       fs.writeFileSync(
         join(resolvedRoot, '.env'),
-        `VITE_BETTER_SQLITE3_BINDING=${BETTER_SQLITE3_BINDING}`
+        `VITE_BETTER_SQLITE3_BINDING_${process.arch}=${BETTER_SQLITE3_BINDING}`
       )
       console.log(TAG, `binding to ${BETTER_SQLITE3_BINDING}`)
     }
