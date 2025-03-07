@@ -77,6 +77,8 @@ jobs:
           GH_TOKEN: ${{ secrets.github_token }}
         run: |
           yarn build:linux || yarn build:linux
+      - name: Debug file paths
+        run: ls -la release
 
       - uses: actions/upload-artifact@v4
         with:
@@ -93,8 +95,8 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: VutronMusic-mac-${{ matrix.arch }}
-          path: release/*/VutronMusic*-${{ matrix.arch }}.dmg
-          if-no-files-found: ignore
+          path: release/*.dmg
+          if-no-files-found: error
 
       - uses: actions/upload-artifact@v4
         if: matrix.os == 'macos-latest' && matrix.arch == 'x64'
