@@ -9,5 +9,5 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true
   },
-  "include": ["src/main", "src/preload", "package.json", "vite.config.ts", "buildAssets/builder"]
+  "include": ["src/main", "src/preload", "package.json", "vite.config.mts", "buildAssets/builder"]
 }

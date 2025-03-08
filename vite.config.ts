@@ -180,7 +180,10 @@ function bindingSqlite3(
       fs.copyFileSync(betterSqlite3Node, betterSqlite3Copy)
 
       // 使用 path.join 而不是 posix.join，这样会使用系统默认的路径分隔符
-      const BETTER_SQLITE3_BINDING = join(options.output, options.better_sqlite3_node)
+      const BETTER_SQLITE3_BINDING = join(
+        options.output as string,
+        options.better_sqlite3_node as string
+      )
 
       fs.writeFileSync(
         join(resolvedRoot, '.env'),

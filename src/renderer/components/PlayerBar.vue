@@ -124,7 +124,7 @@
               :max="1"
               :interval="0.01"
               direction="btt"
-              :use-keyboard="false"
+              :use-keyboard="true"
               :drag-on-click="false"
               :tooltip-formatter="formatVolume"
               :tooltip-style="{
