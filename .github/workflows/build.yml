@@ -84,7 +84,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.github_token }}
         run: |
-          yarn build:linux || yarn build:linux
+          yarn build:linux --no-sandbox || yarn build:linux --no-sandbox
 
       - name: Debug file paths
         run: ls -R release
