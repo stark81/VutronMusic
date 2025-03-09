@@ -1,4 +1,6 @@
 name: Release
+env:
+  YARN_INSTALL_NOPT: yarn add --ignore-platform --ignore-optional
 on:
   push:
     branches:
@@ -13,14 +15,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        os: [macos-latest, windows-latest, ubuntu-22.04]
         include:
           - os: macos-latest
             arch: x64
           - os: macos-latest
             arch: arm64
-          - os: ubuntu-latest
-            arch: x64
     steps:
       - name: Check out Git repository
         uses: actions/checkout@v4
@@ -40,13 +40,8 @@ jobs:
           pip install setuptools
           npm install -g node-gyp
 
-      # - name: Install build essentials (macOS)
-      #   if: matrix.os == 'macos-latest'
-      #   run: |
-      #     brew install rpm
-
       - name: Install build essentials (Linux)
-        if: matrix.os == 'ubuntu-latest'
+        if: startsWith(matrix.os, 'ubuntu')
         run: |
           sudo apt-get update
           sudo apt-get install -y rpm libarchive-tools
@@ -79,7 +74,7 @@ jobs:
           yarn build:mac --${{ matrix.arch }} || yarn build:mac --${{ matrix.arch }}
 
       - name: Build/release Electron app (Linux)
-        if: matrix.os == 'ubuntu-latest'
+        if: startsWith(matrix.os, 'ubuntu')
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.github_token }}
@@ -87,7 +82,7 @@ jobs:
           yarn build:linux --no-sandbox || yarn build:linux --no-sandbox
 
       - name: Debug file paths
-        run: ls -R release
+        run: ls -alt release
 
       - uses: actions/upload-artifact@v4
         with:
@@ -118,28 +113,28 @@ jobs:
 
       # Linux构建的Artifacts上传
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'ubuntu-latest'
+        if: startsWith(matrix.os, 'ubuntu')
         with:
           name: VutronMusic-linux-snap
           path: release/*/VutronMusic*.snap
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'ubuntu-latest'
+        if: startsWith(matrix.os, 'ubuntu')
         with:
           name: VutronMusic-linux-AppImage
           path: release/*/VutronMusic*.AppImage
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'ubuntu-latest'
+        if: startsWith(matrix.os, 'ubuntu')
         with:
           name: VutronMusic-linux-deb
           path: release/*/VutronMusic*.deb
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'ubuntu-latest'
+        if: startsWith(matrix.os, 'ubuntu')
         with:
           name: VutronMusic-linux-rpm
           path: release/*/VutronMusic*.rpm
