@@ -112,36 +112,36 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: VutronMusic-mac
+          name: VutronMusic-mac-x64
           path: release/*/VutronMusic*_x64.dmg
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
         with:
-          name: VutronMusic-mac
+          name: VutronMusic-mac-arm64
           path: release/*/VutronMusic*_arm64.dmg
           if-no-files-found: ignore
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: VutronMusic-linux-snap
-          path: release/*/VutronMusic*.snap
-          if-no-files-found: ignore
+      # - uses: actions/upload-artifact@v4
+      #   with:
+      #     name: VutronMusic-linux-snap
+      #     path: release/*/VutronMusic*.snap
+      #     if-no-files-found: ignore
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: VutronMusic-linux-AppImage
-          path: release/*/VutronMusic*.AppImage
-          if-no-files-found: ignore
+      # - uses: actions/upload-artifact@v4
+      #   with:
+      #     name: VutronMusic-linux-AppImage
+      #     path: release/*/VutronMusic*.AppImage
+      #     if-no-files-found: ignore
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: VutronMusic-linux-deb
-          path: release/*/VutronMusic*.deb
-          if-no-files-found: ignore
+      # - uses: actions/upload-artifact@v4
+      #   with:
+      #     name: VutronMusic-linux-deb
+      #     path: release/*/VutronMusic*.deb
+      #     if-no-files-found: ignore
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: VutronMusic-linux-rpm
-          path: release/*/VutronMusic*.rpm
-          if-no-files-found: ignore
+      # - uses: actions/upload-artifact@v4
+      #   with:
+      #     name: VutronMusic-linux-rpm
+      #     path: release/*/VutronMusic*.rpm
+      #     if-no-files-found: ignore

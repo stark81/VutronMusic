@@ -2,7 +2,7 @@
 import SQLite3 from 'better-sqlite3'
 import fs from 'fs'
 import path from 'path'
-import log from './log'
+// import log from './log'
 import { app } from 'electron'
 import { createFileIfNotExist } from './utils/utils'
 import Constants from './utils/Constants'
@@ -106,7 +106,7 @@ class DB {
       this.migrate()
     } catch (e) {
       console.log('111111111111111111112222, init error = ', e)
-      log.error(e)
+      // log.error(e)
     }
   }
 
