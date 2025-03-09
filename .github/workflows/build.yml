@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest] #, ubuntu-latest]
+        os: [macos-latest] #, ubuntu-latest]
         include:
           - os: macos-latest
             arch: x64
@@ -52,13 +52,13 @@ jobs:
         run: |-
           yarn
 
-      - name: Build/release Electron app (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.github_token }}
-        run: |-
-          yarn build:win || yarn build:win
+      # - name: Build/release Electron app (Windows)
+      #   if: matrix.os == 'windows-latest'
+      #   shell: bash
+      #   env:
+      #     GH_TOKEN: ${{ secrets.github_token }}
+      #   run: |-
+      #     yarn build:win || yarn build:win
 
       # - name: Build/release Electron app (Linux)
       #   if: matrix.os == 'macos-latest'
@@ -68,20 +68,20 @@ jobs:
       #   run: |-
       #     yarn build:linux || yarn build:linux
 
-      - name: Rebuild native dependencies for current architecture
-        if: matrix.os == 'macos-latest'
-        run: |
-          npm rebuild --target_arch=x64
-          ./node_modules/.bin/electron-rebuild --arch=x64
+      # - name: Rebuild native dependencies for current architecture
+      #   if: matrix.os == 'macos-latest'
+      #   run: |
+      #     npm rebuild --target_arch=x64
+      #     ./node_modules/.bin/electron-rebuild --arch=x64
 
-      - name: Build/release Electron app (macOS-x64)
-        if: matrix.os == 'macos-latest'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.github_token }}
-          ARCH: x64
-        run: |
-          yarn build:mac --x64 || yarn build:mac --x64
+      # - name: Build/release Electron app (macOS-x64)
+      #   if: matrix.os == 'macos-latest'
+      #   shell: bash
+      #   env:
+      #     GH_TOKEN: ${{ secrets.github_token }}
+      #     ARCH: x64
+      #   run: |
+      #     yarn build:mac --x64 || yarn build:mac --x64
 
       - name: Rebuild native dependencies for current architecture
         if: matrix.os == 'macos-latest'
@@ -98,23 +98,23 @@ jobs:
         run: |
           yarn build:mac --arm64 || yarn build:mac --arm64
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: VutronMusic-win-installer
-          path: release/*/VutronMusic*_x64.exe
-          if-no-files-found: ignore
+      # - uses: actions/upload-artifact@v4
+      #   with:
+      #     name: VutronMusic-win-installer
+      #     path: release/*/VutronMusic*_x64.exe
+      #     if-no-files-found: ignore
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: VutronMusic-win-portable
-          path: release/*/VutronMusic*_x64 Portable.exe
-          if-no-files-found: ignore
+      # - uses: actions/upload-artifact@v4
+      #   with:
+      #     name: VutronMusic-win-portable
+      #     path: release/*/VutronMusic*_x64 Portable.exe
+      #     if-no-files-found: ignore
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: VutronMusic-mac-x64
-          path: release/*/VutronMusic*_x64.dmg
-          if-no-files-found: ignore
+      # - uses: actions/upload-artifact@v4
+      #   with:
+      #     name: VutronMusic-mac-x64
+      #     path: release/*/VutronMusic*_x64.dmg
+      #     if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
         with:
