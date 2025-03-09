@@ -25,7 +25,7 @@
     "build:mac": "npm run build:pre && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --config=buildAssets/builder/config.js --mac",
     "build:linux": "npm run build:pre && electron-builder --config=buildAssets/builder/config.js --linux",
     "build:win": "npm run build:pre && electron-builder --config=buildAssets/builder/config.js --windows",
-    "rebuild": "electron rebuild.js",
+    "rebuild": "electron build.sqlite3.js",
     "postinstall": "npm run rebuild",
     "lint": "eslint --ext .js,.ts,.vue -f ./node_modules/eslint-friendly-formatter src",
     "lint:fix": "eslint --ext .js,.ts,.vue -f ./node_modules/eslint-friendly-formatter --fix src",

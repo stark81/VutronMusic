@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest] #, ubuntu-latest]
+        os: [macos-latest, windows-latest, ubuntu-latest]
         include:
           - os: macos-latest
             arch: x64
@@ -31,15 +31,15 @@ jobs:
           node-version: 22
           cache: 'yarn'
 
-      - name: Setup node-gyp requirements
-        if: matrix.os == 'macos-latest'
-        run: |
-          python -m pip install --upgrade pip
-          pip install setuptools
-          npm install -g node-gyp
+      # - name: Setup node-gyp requirements
+      #   if: matrix.os == 'macos-latest'
+      #   run: |
+      #     python -m pip install --upgrade pip
+      #     pip install setuptools
+      #     npm install -g node-gyp
 
       - name: Install build essentials (macOS)
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'ubuntu-latest'
         run: |
           brew install rpm
 
@@ -72,7 +72,7 @@ jobs:
 
       # 尝试构建Linux包但允许失败 - 添加--no-sandbox参数尝试解决沙盒问题
       - name: Build/release Electron app (Linux)
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'ubuntu-latest'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.github_token }}
@@ -97,35 +97,38 @@ jobs:
       # 修复macOS Artifacts上传 - 使用更灵活的路径模式
       - uses: actions/upload-artifact@v4
         with:
-          name: VutronMusic-mac
+          name: VutronMusic-mac-x64
           path: |
-            release/*/VutronMusic*.dmg
+            release/*/VutronMusic*_x64.dmg
+          if-no-files-found: warn
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VutronMusic-mac-arm64
+          path: |
+            release/*/VutronMusic*_arm64.dmg
           if-no-files-found: warn
 
       # 仅当Linux构建可能成功时上传Linux相关Artifacts
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'macos-latest'
         with:
           name: VutronMusic-linux-snap
           path: release/*/VutronMusic*.snap
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'macos-latest'
         with:
           name: VutronMusic-linux-AppImage
           path: release/*/VutronMusic*.AppImage
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'macos-latest'
         with:
           name: VutronMusic-linux-deb
           path: release/*/VutronMusic*.deb
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'macos-latest'
         with:
           name: VutronMusic-linux-rpm
           path: release/*/VutronMusic*.rpm

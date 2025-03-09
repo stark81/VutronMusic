@@ -97,9 +97,9 @@ class DB {
     try {
       createFileIfNotExist(this.dbFilePath)
       const root = path.join(__dirname, '../../')
-      const VITE_BETTER_SQLITE3_BINDING = process.env[`VITE_BETTER_SQLITE3_BINDING_${process.arch}`]
+      // const VITE_BETTER_SQLITE3_BINDING = process.env[`VITE_BETTER_SQLITE3_BINDING_${process.arch}`]
       this.sqlite = new SQLite3(this.dbFilePath, {
-        nativeBinding: path.join(root, VITE_BETTER_SQLITE3_BINDING)
+        nativeBinding: path.join(root, 'dist-native', `better_sqlite3-${process.arch}.node`)
       })
       this.sqlite.pragma('auto_vacuum = FULL')
       this.initTables()
