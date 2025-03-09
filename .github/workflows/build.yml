@@ -60,13 +60,13 @@ jobs:
         run: |-
           yarn build:win || yarn build:win
 
-      # - name: Build/release Electron app (Linux)
-      #   if: matrix.os == 'macos-latest'
-      #   shell: bash
-      #   env:
-      #     GH_TOKEN: ${{ secrets.github_token }}
-      #   run: |-
-      #     yarn build:linux || yarn build:linux
+      - name: Build/release Electron app (Linux)
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.github_token }}
+        run: |-
+          yarn build:linux || yarn build:linux
 
       - name: Rebuild native dependencies for current architecture
         if: matrix.os == 'macos-latest'
@@ -113,29 +113,35 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: VutronMusic-mac
-          path: release/*/VutronMusic*.dmg
+          path: release/*/VutronMusic*_x64.dmg
           if-no-files-found: ignore
 
-      # - uses: actions/upload-artifact@v4
-      #   with:
-      #     name: VutronMusic-linux-snap
-      #     path: release/*/VutronMusic*.snap
-      #     if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VutronMusic-mac
+          path: release/*/VutronMusic*_arm64.dmg
+          if-no-files-found: ignore
 
-      # - uses: actions/upload-artifact@v4
-      #   with:
-      #     name: VutronMusic-linux-AppImage
-      #     path: release/*/VutronMusic*.AppImage
-      #     if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VutronMusic-linux-snap
+          path: release/*/VutronMusic*.snap
+          if-no-files-found: ignore
 
-      # - uses: actions/upload-artifact@v4
-      #   with:
-      #     name: VutronMusic-linux-deb
-      #     path: release/*/VutronMusic*.deb
-      #     if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VutronMusic-linux-AppImage
+          path: release/*/VutronMusic*.AppImage
+          if-no-files-found: ignore
 
-      # - uses: actions/upload-artifact@v4
-      #   with:
-      #     name: VutronMusic-linux-rpm
-      #     path: release/*/VutronMusic*.rpm
-      #     if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VutronMusic-linux-deb
+          path: release/*/VutronMusic*.deb
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VutronMusic-linux-rpm
+          path: release/*/VutronMusic*.rpm
+          if-no-files-found: ignore
