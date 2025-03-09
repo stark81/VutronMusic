@@ -11,7 +11,7 @@ on:
 permissions: write-all
 
 jobs:
-  release:
+  linux:
     runs-on: ${{ matrix.os }}
 
     strategy:
