@@ -1,4 +1,4 @@
-name: Release
+name: Mac build
 
 on:
   push:
@@ -11,7 +11,7 @@ on:
 permissions: write-all
 
 jobs:
-  macos:
+  mac:
     runs-on: ${{ matrix.os }}
 
     strategy:
