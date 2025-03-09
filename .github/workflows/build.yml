@@ -60,13 +60,13 @@ jobs:
         run: |-
           yarn build:win || yarn build:win
 
-      - name: Build/release Electron app (Linux)
-        if: matrix.os == 'macos-latest'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.github_token }}
-        run: |-
-          yarn build:linux || yarn build:linux
+      # - name: Build/release Electron app (Linux)
+      #   if: matrix.os == 'macos-latest'
+      #   shell: bash
+      #   env:
+      #     GH_TOKEN: ${{ secrets.github_token }}
+      #   run: |-
+      #     yarn build:linux || yarn build:linux
 
       - name: Rebuild native dependencies for current architecture
         if: matrix.os == 'macos-latest'

@@ -152,7 +152,6 @@ async function build(arch) {
         `VITE_BETTER_SQLITE3_BINDING_${arch}=${BETTER_SQLITE3_BINDING}`
       )
       console.log(pc.green('Build succeeded'))
-      process.exit(0)
     })
     .catch((e) => {
       console.error(pc.red('Build failed!'))
@@ -176,6 +175,7 @@ async function main() {
       await build('arm64')
     }
   }
+  process.exit(0)
 }
 
 main()
