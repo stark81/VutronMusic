@@ -58,8 +58,14 @@ class Cache {
           updatedAt: Date.now()
         } as any
 
-        db.update(Tables.Track, trackRaw.id, result)
-        return true
+        try {
+          db.update(Tables.Track, trackRaw.id, result)
+          return true
+        } catch (error) {
+          db.update(Tables.Track, result.id, result)
+          db.delete(Tables.Track, trackRaw.id)
+          return true
+        }
       }
       case CacheAPIs.LocalPlaylist: {
         const playlist = {
