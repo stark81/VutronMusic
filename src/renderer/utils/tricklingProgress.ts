@@ -3,5 +3,6 @@ import { createTrickling } from 'trickling'
 
 export const tricklingProgress = createTrickling({
   showSpinner: false,
-  color: '#335eea'
+  color: 'var(--primary-color)'
+  // color: '#335eea'
 })

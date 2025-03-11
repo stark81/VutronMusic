@@ -614,7 +614,7 @@ provide('show', show)
 
 .slide-up-enter-active,
 .slide-up-leave-active {
-  transition: all 0.4s;
+  transition: all 0.4s ease-out;
 }
 
 .slide-up-enter-from,
