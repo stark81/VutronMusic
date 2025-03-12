@@ -227,15 +227,10 @@ const position = computed({
     return seek.value
   },
   set(value) {
-    const line = lyrics.value.lyric.find((l, index) => {
-      const nextLine = lyrics.value.lyric[index + 1]
-      if (nextLine) {
-        return nextLine.time > value && l.time <= value
-      } else {
-        return value >= l.time && value < l.time + 10
-      }
+    const line = lyrics.value.find((l, index) => {
+      return value >= l.startTime / 1000 && value < l.endTime / 1000
     })
-    seek.value = line ? line?.time - (currentTrack.value?.offset || 0) : value
+    seek.value = line ? line?.startTime / 1000 - (currentTrack.value?.offset || 0) : value
   }
 })
 
@@ -287,19 +282,14 @@ const getPosition = (e: MouseEvent) => {
   const percent = e.clientX / playerBarRef.value?.$el?.clientWidth
   hoverValue.value = currentTrackDuration.value * percent
   const time = formatTime(hoverValue.value)
-  if (!lyrics.value.lyric?.length) {
+  if (!lyrics.value?.length) {
     hoverText.value = time
     return
   }
-  const hoverLyric = lyrics.value.lyric?.find((l, index) => {
-    const nextLine = lyrics.value.lyric[index + 1]
-    if (nextLine) {
-      return nextLine.time > hoverValue.value && l.time <= hoverValue.value
-    } else {
-      return hoverValue.value >= l.time && hoverValue.value < currentTrackDuration.value
-    }
+  const hoverLyric = lyrics.value.find((l) => {
+    return hoverValue.value >= l.startTime / 1000 && hoverValue.value < l.endTime / 1000
   })
-  hoverText.value = hoverLyric ? `[${time}] ${hoverLyric?.content}` : time
+  hoverText.value = hoverLyric ? `[${time}] ${hoverLyric.words.map((w) => w.word).join('')}` : time
 }
 
 const blur = () => {

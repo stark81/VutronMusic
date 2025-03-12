@@ -84,17 +84,18 @@ export const parseLyricString = (lyrics: string) => {
     [[]]
   )
   const lyricArray = groupedResult.filter((item) => item.length > 1)
-  return lyricArray
+  const newLyric = lyricArray.map((lrcList) => lrcList.join('\n'))
+  return newLyric
 }
 
 export const getLyricFromLocalTrack = async (metadata: IAudioMetadata) => {
   let result = {
-    lrc: { lyric: [] },
-    tlyric: { lyric: [] },
-    romalrc: { lyric: [] },
-    yrc: { lyric: [] },
-    ytlrc: { lyric: [] },
-    yromalrc: { lyric: [] }
+    lrc: { lyric: '' },
+    tlyric: { lyric: '' },
+    romalrc: { lyric: '' },
+    yrc: { lyric: '' },
+    ytlrc: { lyric: '' },
+    yromalrc: { lyric: '' }
   }
 
   const lyrics = getLyricFromMetadata(metadata)
@@ -104,12 +105,12 @@ export const getLyricFromLocalTrack = async (metadata: IAudioMetadata) => {
 
     if (lyricArray.length) {
       result = {
-        lrc: { lyric: lyricArray[0] || [] },
-        tlyric: { lyric: lyricArray[1] || [] },
-        romalrc: { lyric: lyricArray[2] || [] },
-        yrc: { lyric: [] },
-        ytlrc: { lyric: [] },
-        yromalrc: { lyric: [] }
+        lrc: { lyric: lyricArray[0] || '' },
+        tlyric: { lyric: lyricArray[1] || '' },
+        romalrc: { lyric: lyricArray[2] || '' },
+        yrc: { lyric: '' },
+        ytlrc: { lyric: '' },
+        yromalrc: { lyric: '' }
       }
     }
   }

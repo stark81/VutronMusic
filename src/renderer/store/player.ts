@@ -70,15 +70,7 @@ export const usePlayerStore = defineStore(
 
     const color = ref<string>()
     const color2 = ref<string>()
-    const lyrics = reactive<{
-      lyric: any[]
-      tlyric: any[]
-      rlyric: any[]
-    }>({
-      lyric: [],
-      tlyric: [],
-      rlyric: []
-    })
+    const lyrics = ref<any[]>([])
     const _personalFMLoading = ref(false)
     const _personalFMTrack = ref<{
       id: number
@@ -214,7 +206,15 @@ export const usePlayerStore = defineStore(
       }
     })
 
-    const noLyric = computed(() => lyrics.lyric.length === 0)
+    const noLyric = computed(() => lyrics.value.length === 0)
+
+    const hasTranslation = computed(() => {
+      return lyrics.value.filter((l) => l.translatedLyric).length > 0
+    })
+
+    const hasRoman = computed(() => {
+      return lyrics.value.filter((l) => l.romanLyric).length > 0
+    })
 
     watch(currentTrack, async (value) => {
       if (!value) return
@@ -227,12 +227,14 @@ export const usePlayerStore = defineStore(
 
     const currentLyric = computed(() => {
       let result: { content: string; time: number }
-      if (currentLyricIndex.value < lyrics.lyric.length) {
-        const lyric = lyrics.lyric[currentLyricIndex.value]
-        const nextLyric = lyrics.lyric[currentLyricIndex.value + 1]
-        const diff = nextLyric?.time - lyric?.time || 10
+      if (currentLyricIndex.value < lyrics.value.length) {
+        const lyric = lyrics.value[currentLyricIndex.value]
+        const diff = (lyric?.endTime - lyric?.startTime) / 1000 || 10
         result = {
-          content: lyric?.content || currentTrack.value?.name || '听你想听的音乐',
+          content:
+            lyric?.words.map((w) => w.word).join('') ||
+            currentTrack.value?.name ||
+            '听你想听的音乐',
           time: diff
         }
       } else {
@@ -322,10 +324,15 @@ export const usePlayerStore = defineStore(
 
     const getLyricIndex = () => {
       const progress = audio.currentTime + lyricOffset.value
-      currentLyricIndex.value = lyrics.lyric.findIndex((l, index) => {
-        const nextLyric = lyrics.lyric[index + 1]
-        const nextLyricTime = nextLyric ? nextLyric.time : currentTrackDuration.value
-        return progress >= l.time && progress < nextLyricTime
+      currentLyricIndex.value = lyrics.value.findIndex((l, index) => {
+        let endTime
+        const nextLine = lyrics.value[index + 1]
+        if (nextLine) {
+          endTime = nextLine.startTime / 1000
+        } else {
+          endTime = currentTrackDuration.value
+        }
+        return progress >= l.startTime / 1000 && progress < endTime
       })
     }
 
@@ -477,27 +484,7 @@ export const usePlayerStore = defineStore(
       }
       const lyricData = data.lyrics
 
-      let { lyric, tlyric, rlyric } = lyricParse(lyricData)
-      lyric = lyric.filter((l) => !/^作(词|曲)\s*(:|：)\s*无$/.exec(l.content))
-      const includeAM = lyric.length <= 10 && lyric.map((l) => l.content).includes('纯音乐，请欣赏')
-      if (includeAM) {
-        const reg = /^作(词|曲)\s*(:|：)\s*/
-        const artists = currentTrack.value!.artists ?? currentTrack.value!.ar
-        const author = artists[0]?.name
-        lyric = lyric.filter((l) => {
-          const regExpArr = l.content.match(reg)
-          return !regExpArr || l.content.replace(regExpArr[0], '') !== author
-        })
-      }
-      if (lyric.length === 1 && includeAM) {
-        lyrics.lyric = []
-        lyrics.tlyric = []
-        lyrics.rlyric = []
-      } else {
-        lyrics.lyric = lyric
-        lyrics.tlyric = tlyric
-        lyrics.rlyric = rlyric
-      }
+      lyrics.value = lyricParse(lyricData)
     }
 
     /**
@@ -873,9 +860,7 @@ export const usePlayerStore = defineStore(
       _shuffleList.value = []
       _list.value = []
       isPersonalFM.value = false
-      lyrics.lyric = []
-      lyrics.tlyric = []
-      lyrics.rlyric = []
+      lyrics.value = []
       currentLyricIndex.value = -1
       if (pic.value) {
         URL.revokeObjectURL(pic.value)
@@ -1123,6 +1108,8 @@ export const usePlayerStore = defineStore(
       isLocalList,
       lyrics,
       noLyric,
+      hasTranslation,
+      hasRoman,
       personalFMTrack,
       personalFMNextTrack,
       currentLyricIndex,
