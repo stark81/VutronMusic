@@ -1,4 +1,6 @@
 import { BrowserWindow } from 'electron'
+import type { DBusClient } from '@httptoolkit/dbus-native'
+import type { DBusNativeImport } from './dbus'
 
 export interface Iface {
   UpdateLyric: (lrcObj: string) => void
@@ -6,17 +8,17 @@ export interface Iface {
 }
 
 class ServiceMonitor {
-  private sessionBus: any
+  private sessionBus: DBusClient
   private interfaceName: string = 'org.freedesktop.DBus'
   private objectPath: string = '/org/freedesktop/DBus'
-  private dbus = require('@jellybrick/dbus-next')
+  private dbus: DBusNativeImport = require('@httptoolkit/dbus-native')
   private win: BrowserWindow
   serviceName: string
   iface: Iface | null
   status: boolean
 
   constructor(serviceName: string, win: BrowserWindow) {
-    this.sessionBus = this.dbus.sessionBus()
+    this.sessionBus = this.dbus.sessionBus({})
     this.serviceName = serviceName
     this.status = false
     this.win = win
@@ -28,16 +30,9 @@ class ServiceMonitor {
   // 监听 NameOwnerChanged 信号
   private watchName() {
     // 创建代理接口监听 org.freedesktop.DBus
-    this.sessionBus.getInterface(
-      this.interfaceName,
-      this.objectPath,
-      this.interfaceName,
-      (err, iface) => {
-        if (err) {
-          console.error('Failed to get D-Bus interface:', err)
-          return
-        }
-
+    this.sessionBus
+      .getInterface(this.interfaceName, this.objectPath, this.interfaceName)
+      .then((iface) => {
         // 监听 NameOwnerChanged 信号
         iface.on('NameOwnerChanged', (name: string, oldOwner: string, newOwner: string) => {
           if (name === this.serviceName) {
@@ -60,24 +55,26 @@ class ServiceMonitor {
             this.onOwnerName(owner)
           }
         })
-      }
-    )
+      })
+      .catch((err) => {
+        console.error('Failed to get D-Bus interface:', err)
+      })
   }
 
   private onOwnerName(owner: string) {
     const path = `/${this.serviceName.replace(/\./g, '/')}`
     this.sessionBus
       .getService(this.serviceName)
-      .getInterface(path, this.serviceName, (err: any, iface: any) => {
-        if (err) {
-          console.error('Failed to get D-Bus interface:', err)
-          this.status = false
-          this.win.webContents.send('msgExtensionCheckResult', false)
-          return
-        }
+      .getInterface(path, this.serviceName)
+      .then((iface: any) => {
         this.iface = iface
         this.status = true
         this.win.webContents.send('msgExtensionCheckResult', true)
+      })
+      .catch((err) => {
+        console.error('Failed to get D-Bus interface:', err)
+        this.status = false
+        this.win.webContents.send('msgExtensionCheckResult', false)
       })
   }
 
