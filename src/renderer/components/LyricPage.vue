@@ -16,40 +16,93 @@
         <svg-icon icon-class="forward5s" />
       </button-icon>
     </div>
-    {{ lyrics }}
-    <!-- <BackgroundRender :album="pic" />
-    <LyricPlayer :lyric-lines="lyrics" :current-time="seek" /> -->
+    <div ref="lyricsRef"></div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, toRefs } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
 import { useNormalStateStore } from '../store/state'
-// import { useSettingsStore } from '../store/settings'
+import { useSettingsStore } from '../store/settings'
 import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
-// import eventBus from '../utils/eventBus'
-// import { LyricPlayer, BackgroundRender } from '@applemusic-like-lyrics/vue'
+import { initPlayer, updateLyric, updateLyricIndex, lyricPlay } from '../utils/lyricLine'
 
 const playerStore = usePlayerStore()
-const { noLyric, currentTrack, currentLyricIndex, lyrics, seek, playing } = storeToRefs(playerStore)
+const {
+  noLyric,
+  currentTrack,
+  currentLyricIndex,
+  lyrics,
+  hasTranslation,
+  hasRoman,
+  seek,
+  playing
+} = storeToRefs(playerStore)
 
 const stateStore = useNormalStateStore()
 const { showLyrics } = storeToRefs(stateStore)
 const { showToast } = stateStore
 
-// const settingsStore = useSettingsStore()
-// const { normalLyric } = storeToRefs(settingsStore)
-// const { isNWordByWord } = toRefs(normalLyric.value)
+const settingsStore = useSettingsStore()
+const { normalLyric } = storeToRefs(settingsStore)
+const { isNWordByWord, nTranslationMode, nFontSize } = toRefs(normalLyric.value)
 
 const hover = ref(false)
-const startTime = ref(0)
-const progress = ref(0)
-// const width = ref(0)
-// const tWidth = ref(0)
-let animationFrameId: number | null = null
+const lyricsRef = ref<HTMLDivElement>()
+
+const haswByw = computed(() => {
+  let result = false
+  lyrics.value.forEach((line) => {
+    if (line.words.length > 1) {
+      result = true
+    }
+  })
+  return isNWordByWord.value && result
+})
+
+const showTlyric = computed(() => hasTranslation.value && nTranslationMode.value === 'tlyric')
+const showRlyric = computed(() => hasRoman.value && nTranslationMode.value === 'rlyric')
+
+const lyricWithTranslation = computed(() => {
+  const ret: any[] = []
+  lyrics.value.forEach((line, index) => {
+    const { translatedLyric, romanLyric, ...lineInfo } = line
+
+    const lineItem = { index, ...lineInfo }
+    if (showTlyric.value) {
+      const tWordText = haswByw.value ? translatedLyric.split('') : [translatedLyric]
+      const startTime = line.words[0].startTime
+      const endTime = line.words[line.words.length - 1].endTime
+      const tWords = tWordText.map((t: string, i: number) => {
+        const interval = (endTime - startTime) / tWordText.length
+        return {
+          startTime: Math.round(startTime + interval * i),
+          endTime: Math.round(startTime + interval * (i + 1)),
+          word: t
+        }
+      })
+      lineItem.translation = tWords
+    } else if (showRlyric.value) {
+      const rWordText = haswByw.value ? romanLyric.split('') : [romanLyric]
+      const startTime = line.words[0].startTime
+      const endTime = line.words[line.words.length - 1].endTime
+      const tWords = rWordText.map((t: string, i: number) => {
+        const interval = (endTime - startTime) / rWordText.length
+        return {
+          startTime: Math.round(startTime + interval * i),
+          endTime: Math.round(startTime + interval * (i + 1)),
+          word: t
+        }
+      })
+      lineItem.translation = tWords
+    }
+    ret.push(lineItem)
+  })
+  return ret
+})
 
 const offset = computed(() => {
   const lrcOffset = currentTrack.value!.offset || 0
@@ -85,31 +138,23 @@ const setOffset = (offset: number) => {
   )
 }
 
-// const lyricOffset = computed(() => currentTrack.value?.offset || 0)
+watch(lyricWithTranslation, (value) => {
+  updateLyric(value)
+})
 
-// const animate = () => {
-//   if (!lyrics.value.lyric?.length) return
-//   progress.value = performance.now() - startTime.value + lyricOffset.value * 1000
-//   animationFrameId = requestAnimationFrame(animate)
-// }
+watch(playing, (value) => {
+  if (value) {
+    lyricPlay(seek.value)
+  }
+})
 
 watch(currentLyricIndex, (value) => {
+  updateLyricIndex(value)
   const el = document.getElementById(`line${value}`)
   if (el) {
     el.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 })
-
-// watch(playing, (value) => {
-//   if (animationFrameId) {
-//     cancelAnimationFrame(animationFrameId)
-//     animationFrameId = null
-//   }
-//   if (value) {
-//     startTime.value = performance.now() - progress.value
-//     animate()
-//   }
-// })
 
 watch(showLyrics, (value) => {
   if (value)
@@ -121,81 +166,27 @@ watch(showLyrics, (value) => {
     })
 })
 
-// watch(progress, (value) => {
-//   if (!lyricWithTranslation.value.length) {
-//     if (animationFrameId) {
-//       cancelAnimationFrame(animationFrameId)
-//       animationFrameId = null
-//     }
-//     return
-//   }
-//   const line = lyricWithTranslation.value[currentLyricIndex.value]
-//   if (!line?.lyric) {
-//     if (animationFrameId) {
-//       cancelAnimationFrame(animationFrameId)
-//       animationFrameId = null
-//     }
-//     return
-//   }
-
-//   for (const word of line.lyric) {
-//     if (value >= word.start && value < word.end) {
-//       width.value = Math.round(((value - word.start) / (word.end - word.start)) * 100)
-//     }
-//   }
-//   if (line.tlyric) {
-//     for (const word of line.tlyric) {
-//       if (value >= word.start && value < word.end) {
-//         tWidth.value = Math.round(((value - word.start) / (word.end - word.start)) * 100)
-//       }
-//     }
-//   } else if (line.rlyric) {
-//     for (const word of line.rlyric) {
-//       if (value >= word.start && value < word.end) {
-//         tWidth.value = Math.round(((value - word.start) / (word.end - word.start)) * 100)
-//       }
-//     }
-//   }
-// })
-
-// @ts-ignore
-// eventBus.on('update-process', (value: number) => {
-//   if (animationFrameId) {
-//     cancelAnimationFrame(animationFrameId)
-//     animationFrameId = null
-//   }
-//   progress.value = value * 1000
-//   startTime.value = performance.now() - progress.value
-//   if (playing.value) {
-//     animate()
-//   }
-// })
-
 onMounted(() => {
   if (!currentTrack.value) return
-  // console.log('===1===', lyrics.value)
+  lyricsRef.value?.appendChild(
+    initPlayer({
+      lyrics: lyricWithTranslation.value,
+      currentTime: seek.value,
+      currentLyricIndex: currentLyricIndex.value,
+      mode: haswByw.value ? 'word-mode' : 'line-mode',
+      type: 'lyric'
+    })
+  )
   nextTick(() => {
     const el = document.getElementById(`line${currentLyricIndex.value}`)
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
-    progress.value = (seek.value ?? 0) * 1000
-    startTime.value = performance.now() - progress.value
-    if (playing.value) {
-      // animate()
-    }
   })
-})
-
-onBeforeUnmount(() => {
-  if (animationFrameId) {
-    cancelAnimationFrame(animationFrameId)
-    animationFrameId = null
-  }
 })
 </script>
 
-<style scoped lang="scss">
+<style lang="scss">
 .lyric-container {
   height: 100vh;
   display: flex;
@@ -225,5 +216,42 @@ onBeforeUnmount(() => {
       margin: 10px 0;
     }
   }
+}
+
+.line-content {
+  border-radius: 12px;
+  margin: 2px 0;
+  user-select: none;
+  padding: 12px;
+  font-weight: 550;
+
+  &:hover {
+    background-color: var(--color-secondary-bg-for-transparent);
+  }
+
+  &:first-child {
+    margin-top: 40vh;
+  }
+  &:last-child {
+    margin-bottom: 40vh;
+  }
+}
+
+.line {
+  font-size: v-bind('`${nFontSize}px`');
+  opacity: 0.28;
+}
+
+.translation {
+  font-size: v-bind('`${nFontSize - 4}px`');
+  opacity: 0.28;
+}
+
+.line-mode.active > .line {
+  opacity: 0.8;
+}
+
+.word-mode.active > .line {
+  // opacity: 0.8;
 }
 </style>

@@ -151,7 +151,9 @@ export const pickedLyric = (lyric: any[], number = 3) => {
 
   const filterWords =
     /(作词|作曲|编曲|和声|混音|录音|词：|曲：|统筹：|OP|SP|MV|吉他|二胡|古筝|曲编|键盘|贝斯|鼓|弦乐|打击乐|混音|制作人|配唱|提琴|海报|特别鸣谢)/i
-  const lyricLines = lyric.filter((l) => !filterWords.test(l.content)).map((l) => l.content)
+  const lyricLines = lyric
+    .filter((l) => !filterWords.test(l.words.map((w) => w.word).join('')))
+    .map((l) => l.words.map((w) => w.word).join(''))
 
   const lyricsToPick = Math.min(lyricLines.length, number)
   const randomUpperBound = lyricLines.length - lyricsToPick
@@ -160,5 +162,3 @@ export const pickedLyric = (lyric: any[], number = 3) => {
 
   return lyricLines.slice(startLyricLineIndex, startLyricLineIndex + lyricsToPick)
 }
-
-// export const

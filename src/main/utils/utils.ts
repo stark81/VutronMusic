@@ -59,18 +59,8 @@ export const getLyricFromMetadata = (metadata: IAudioMetadata) => {
   return lyrics
 }
 
-const splitLines = (str: string) => {
-  if (str.includes('\r\n')) {
-    return str.split('\r\n')
-  } else if (str.includes('\r')) {
-    return str.split('\r')
-  } else {
-    return str.split('\n')
-  }
-}
-
 export const parseLyricString = (lyrics: string) => {
-  const lyricsLines = splitLines(lyrics)
+  const lyricsLines = lyrics.split(/\r\n|\r|\n/)
   const groupedResult: Array<string>[] = lyricsLines.reduce(
     (acc: string[][], curr) => {
       if (curr === '') {

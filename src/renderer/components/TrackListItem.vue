@@ -278,7 +278,7 @@ const subTitle = computed(() => {
 })
 
 const lyrics = computed(() => {
-  const lyrics = track.value.lyrics?.txt.split('\n')
+  const lyrics = track.value.lyrics?.txt.split(/\r\n|\r|\n/)
   const start = track.value.lyrics?.range[0].first
   const end = track.value.lyrics?.range[0].second
   const selectedLyric = track.value.lyrics?.txt.slice(start, end)

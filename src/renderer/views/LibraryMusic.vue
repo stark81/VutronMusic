@@ -322,23 +322,34 @@ const loadData = async () => {
   fetchCloudDisk()
 }
 
-const getRandomLyric = () => {
-  if (liked.value.songs.length === 0) return
-  const id = liked.value.songs[randomNum(0, liked.value.songs.length - 1)]
-  fetch(`atom://get-lyric/${id}`)
-    .then((res) => res.json())
-    .then((data) => {
-      if (data?.lrc?.lyric?.length) {
-        const lyricObj = lyricParse(data)
-        const isInstrumental = lyricObj.lyric.filter((l) => l.content?.includes('纯音乐，请欣赏'))
-        if (isInstrumental.length === 0) {
-          lyric.value = lyricObj.lyric
-          getTrackDetail(id).then((data) => {
-            randomtrack.value = data.songs[0]
-          })
-        }
+const getRandomLyric = async () => {
+  if (!liked.value.songs.length) return
+  const ids = liked.value.songs
+  let i = ids.length - 1
+  let data: any
+  let randomId: number
+  while (i > 0) {
+    randomId = ids[randomNum(0, ids.length - 1)]
+    data = await fetch(`atom://get-lyric/${randomId}`).then((res) => res.json())
+    if (data.lrc.lyric.length > 0) {
+      const result = lyricParse(data)
+      const isInstrumental = result.filter((l) =>
+        l.words
+          .map((w) => w.word)
+          .join('')
+          .includes('纯音乐，请欣赏')
+      )
+      if (!isInstrumental.length) {
+        lyric.value = result
+        getTrackDetail(randomId.toString()).then((data) => {
+          randomtrack.value = data.songs[0]
+        })
+        break
       }
-    })
+    }
+    ids.splice(ids.indexOf(randomId), 1)
+    i--
+  }
 }
 
 const goToLikedSongsList = () => {

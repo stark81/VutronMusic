@@ -22,13 +22,6 @@
   dependencies:
     bezier-easing "^2.1.0"
 
-"@applemusic-like-lyrics/vue@^0.1.5":
-  version "0.1.5"
-  resolved "https://mirrors.cloud.tencent.com/npm/@applemusic-like-lyrics/vue/-/vue-0.1.5.tgz#bf46e5051b9877b66e1e30f53810650ded4469b9"
-  integrity sha512-FE8XtfoScmSwg61XFdNjdYBBQ8RvT10V01hFv38sMsOPUxLQn7rVUafx3NCwUDwGbAYPrC4Azn5wUpeZPdKFOg==
-  dependencies:
-    "@applemusic-like-lyrics/core" "^0.1.3"
-
 "@babel/code-frame@^7.24.7", "@babel/code-frame@^7.25.9", "@babel/code-frame@^7.26.0", "@babel/code-frame@^7.26.2":
   version "7.26.2"
   resolved "https://registry.npmmirror.com/@babel/code-frame/-/code-frame-7.26.2.tgz#4b5fab97d33338eff916235055f0ebc21e573a85"

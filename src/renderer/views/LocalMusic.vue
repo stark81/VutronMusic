@@ -372,22 +372,28 @@ const handleResize = () => {
 
 const getRandomTrack = async () => {
   const ids = defaultTracks.value.map((t) => t.id)
-  let i = 0
+  let i = ids.length - 1
   let data: any
   let randomId: number
-  while (i < ids.length - 1) {
+  while (i > 0) {
     randomId = ids[randomNum(0, ids.length - 1)]
     data = await fetch(`atom://get-lyric/${randomId}`).then((res) => res.json())
     if (data.lrc.lyric.length > 0) {
-      const { lyric } = lyricParse(data)
-      const isInstrumental = lyric.filter((l) => l.content?.includes('纯音乐，请欣赏'))
+      const result = lyricParse(data)
+      const isInstrumental = result.filter((l) =>
+        l.words
+          .map((w) => w.word)
+          .join('')
+          .includes('纯音乐，请欣赏')
+      )
       if (!isInstrumental.length) {
-        randomLyric.value = lyric
+        randomLyric.value = result
         randomID.value = randomId
         break
       }
     }
-    i++
+    ids.splice(ids.indexOf(randomId), 1)
+    i--
   }
   randomTrack.value = defaultTracks.value.find((t) => t.id === randomId)!
 }

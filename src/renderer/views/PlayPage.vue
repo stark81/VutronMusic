@@ -294,9 +294,9 @@ const position = computed({
   },
   set(value) {
     const line = lyrics.value.find((l, index) => {
-      return value >= l.startTime && value < l.endTime
+      return value >= l.startTime / 1000 && value < l.endTime / 1000
     })
-    seek.value = line?.startTime ?? value
+    seek.value = line ? line?.startTime / 1000 - (currentTrack.value?.offset || 0) : value
   }
 })
 
@@ -607,7 +607,7 @@ provide('show', show)
 
 .slide-up-enter-active,
 .slide-up-leave-active {
-  transition: all 0.4s ease-out;
+  transition: all 0.4s ease-in-out;
 }
 
 .slide-up-enter-from,
