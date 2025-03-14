@@ -1,21 +1,19 @@
 {
-    "workbench.settings.useSplitJSON": true,
-    "eslint.codeActionsOnSave.rules": null,
-    "editor.codeActionsOnSave": {
-      "source.fixAll.eslint": "explicit"
-    },
-    "eslint.validate": [
-        "javascript"
-    ],
-    "eslint.workingDirectories": [
-      {
-        "mode": "auto"
-      }
-    ],
-    "emmet.syntaxProfiles": {},
-    "files.autoSave": "off",
-    "editor.wordWrap": "on",
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
-    "editor.formatOnSave": true,
-    "editor.tabSize": 2
+  "[ignore]": {
+    "editor.defaultFormatter": "foxundermoon.shell-format"
+  },
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  // "editor.formatOnSave": true,
+  "editor.tabSize": 2,
+  "editor.wordWrap": "on",
+  "emmet.syntaxProfiles": {},
+  "eslint.codeActionsOnSave.rules": null,
+  "eslint.validate": ["javascript", "typescript"],
+  "eslint.workingDirectories": [{ "mode": "auto" }],
+  // "files.autoSave": "off",
+  "i18n-ally.localesPaths": ["src/renderer/locales"],
+  "workbench.settings.useSplitJSON": true
 }

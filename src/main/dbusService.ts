@@ -21,7 +21,7 @@ const serviceName = 'org.vutronmusic.Lyric'
 const objectPath = `/${serviceName.replace(/\./g, '/')}`
 
 class DBus implements DBusImpl {
-  private dbus = require('dbus-native')
+  private dbus = require('@jellybrick/dbus-next')
   private sessionBus: any
   private win: BrowserWindow
   iface: interFace

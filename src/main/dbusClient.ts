@@ -9,7 +9,7 @@ class ServiceMonitor {
   private sessionBus: any
   private interfaceName: string = 'org.freedesktop.DBus'
   private objectPath: string = '/org/freedesktop/DBus'
-  private dbus = require('dbus-native')
+  private dbus = require('@jellybrick/dbus-next')
   private win: BrowserWindow
   serviceName: string
   iface: Iface | null
