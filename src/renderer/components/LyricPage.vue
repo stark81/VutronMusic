@@ -28,7 +28,13 @@ import { useNormalStateStore } from '../store/state'
 import { useSettingsStore } from '../store/settings'
 import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
-import { initPlayer, updateLyric, updateLyricIndex, lyricPlay } from '../utils/lyricLine'
+import {
+  initPlayer,
+  updateLyric,
+  updateLyricIndex,
+  lyricPlay,
+  lyricPause
+} from '../utils/lyricLine'
 
 const playerStore = usePlayerStore()
 const {
@@ -79,8 +85,8 @@ const lyricWithTranslation = computed(() => {
       const tWords = tWordText.map((t: string, i: number) => {
         const interval = (endTime - startTime) / tWordText.length
         return {
-          startTime: Math.round(startTime + interval * i),
-          endTime: Math.round(startTime + interval * (i + 1)),
+          startTime: Math.floor(startTime + interval * i),
+          endTime: Math.floor(startTime + interval * (i + 1)),
           word: t
         }
       })
@@ -92,8 +98,8 @@ const lyricWithTranslation = computed(() => {
       const tWords = rWordText.map((t: string, i: number) => {
         const interval = (endTime - startTime) / rWordText.length
         return {
-          startTime: Math.round(startTime + interval * i),
-          endTime: Math.round(startTime + interval * (i + 1)),
+          startTime: Math.floor(startTime + interval * i),
+          endTime: Math.floor(startTime + interval * (i + 1)),
           word: t
         }
       })
@@ -145,6 +151,8 @@ watch(lyricWithTranslation, (value) => {
 watch(playing, (value) => {
   if (value) {
     lyricPlay(seek.value)
+  } else {
+    lyricPause()
   }
 })
 

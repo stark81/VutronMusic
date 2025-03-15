@@ -1,4 +1,4 @@
-export const createAnimation = (dom: HTMLElement, duration: number) => {
+const createAnimation = (dom: HTMLElement, duration: number) => {
   const effect = new KeyframeEffect(
     dom,
     [{ backgroundSize: '0 100%' }, { backgroundSize: '100% 100%' }],
@@ -18,6 +18,7 @@ export class LyricPlayer {
   type: 'lyric' | 'desktopLyric'
   fonts: { word: Record<string, any>[]; tWord: Record<string, any>[] } = { word: [], tWord: [] }
   curFontNum: number
+  timeoutId: any
 
   constructor(data: Record<string, any>) {
     this.lyrics = data.lyrics
@@ -27,17 +28,21 @@ export class LyricPlayer {
     this.curFontNum = 0
     this.mode = data.mode as 'line-mode' | 'word-mode'
     this.type = data.type as 'lyric' | 'desktopLyric'
+    this.timeoutId = null
+
     this.buildHTML()
     this.updateCurrentLyricIndex(this.currentLyricIndex)
   }
 
   setLyric(lyrics: any[]) {
+    clearTimeout(this.timeoutId)
     this.lyrics = lyrics
     this.buildHTML()
   }
 
   buildHTML() {
     this.dom.textContent = ''
+    this.fonts = { word: [], tWord: [] }
     this.lyrics.forEach((lyric) => {
       const lineContent = document.createElement('div')
       // @ts-ignore
@@ -68,7 +73,7 @@ export class LyricPlayer {
       })
       line.appendChild(lrcContent)
 
-      if (lyric.translation) {
+      if (lyric.translation && lyric.translation.length > 0) {
         const translation = document.createElement('div')
         translation.style = 'position: relative; display: inline-block;'
         translation.className = 'translation'
@@ -83,6 +88,9 @@ export class LyricPlayer {
       }
       this.dom.appendChild(lineContent)
     })
+    if (this.playing) {
+      this.play(this.currentTime)
+    }
   }
 
   updateCurrentLyricIndex(index: number) {
@@ -99,7 +107,7 @@ export class LyricPlayer {
   findcurFontNum(type: 'word' | 'tWord', curTime: number, startIndex = 0) {
     const length = this.fonts[type].length
     for (let index = startIndex; index < length; index++) {
-      if (curTime < this.fonts[type][index].startTime) return Math.max(0, index - 1)
+      if (curTime < this.fonts[type][index].startTime) return index - 1
     }
     return length - 1
   }
@@ -135,7 +143,8 @@ export class LyricPlayer {
       const delay = nextFont.startTime - curFont.startTime - driftTime
       if (delay > 0) {
         if (this.playing) {
-          setTimeout(() => {
+          this.timeoutId = setTimeout(() => {
+            clearTimeout(this.timeoutId)
             if (!this.playing) return
             this._refresh()
           }, delay)
@@ -153,20 +162,27 @@ export class LyricPlayer {
     } else if (this.curFontNum === 0) {
       this.curFontNum--
       if (this.playing) {
-        setTimeout(() => {
+        this.timeoutId = setTimeout(() => {
+          clearTimeout(this.timeoutId)
           if (!this.playing) return
           this._refresh()
         }, -driftTime)
-        return
       }
+      return
     }
 
-    this.curFontNum = this.findcurFontNum('word', currentTime, this.curFontNum) - 1
+    // this.curFontNum = this.findcurFontNum('word', currentTime, this.curFontNum) - 1
+    clearTimeout(this.timeoutId)
+    this.curFontNum--
     for (let i = 0; i <= this.curFontNum; i++) this._handlePlayFont(this.fonts.word[i], 0, true)
     this._refresh()
   }
 
   play(curTime: number) {
+    if (this.mode === 'line-mode') {
+      this.pause()
+      return
+    }
     this._performanceTime = performance.now()
     this.currentTime = curTime * 1000
     if (!this.fonts.word.length) return
@@ -189,6 +205,17 @@ export class LyricPlayer {
   pause() {
     if (!this.playing) return
     this.playing = false
+
+    clearTimeout(this.timeoutId)
+    const font = this.fonts.word[this.curFontNum]
+    font.animation.cancel()
+
+    const currentTime = performance.now() - this._performanceTime + this.currentTime
+    const curFontNum = this.findcurFontNum('word', currentTime)
+    if (this.curFontNum === curFontNum) return
+    for (let i = 0; i < this.curFontNum; i++) {
+      this._handlePlayFont(this.fonts.word[i], 0, true)
+    }
   }
 
   getHTMLElement() {
@@ -204,14 +231,26 @@ export const initPlayer = (data: Record<string, any>) => {
 }
 
 export const updateLyric = (lyrics: any[], mode: 'word-mode' | 'line-mode') => {
-  if (lrc) lrc.mode = mode
+  if (lrc) {
+    lrc.mode = mode
+    lrc.curFontNum = 0
+    lrc.currentTime = 0
+  }
   lrc?.setLyric(lyrics)
 }
 
 export const updateLyricIndex = (index: number) => {
   lrc!.updateCurrentLyricIndex(index)
+  if (index <= 0) {
+    lrc!.currentTime = 0
+    lrc!.curFontNum = 0
+  }
 }
 
 export const lyricPlay = (curTime: number) => {
   lrc?.play(curTime)
+}
+
+export const lyricPause = () => {
+  lrc?.pause()
 }
