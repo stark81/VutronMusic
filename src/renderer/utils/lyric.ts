@@ -22,7 +22,7 @@ const trimContent = (content: string) => {
 }
 
 const parseLyricString = (lyric: string) => {
-  if (!lyric || !lyric.trim()) return
+  if (!lyric || lyric === '') return
   const parsedLyrics: any[] = []
   const extractLrcRegex = /^(?<lyricTimestamps>(?:\[.+?\])+)(?!\[)(?<content>.+)$/gm
   const extractTimestampRegex = /\[(?<min>\d+):(?<sec>\d+)(?:\.|:)*(?<ms>\d+)*\]/g
@@ -83,7 +83,7 @@ const parseLyricString = (lyric: string) => {
 }
 
 const parseyrc = (lyric: string) => {
-  if (!lyric || !lyric.trim()) return
+  if (!lyric || lyric === '') return
 
   const extractLrcRegex = /^(?<lyricTimestamps>(?:\[.+?\])+)(?!\[)(?<content>.+)$/gm
   const extractTimestampRegex = /\((\d+),(\d+),\d+\)([^(]+)/g

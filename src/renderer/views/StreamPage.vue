@@ -309,10 +309,15 @@ const getRandomTrack = async () => {
     randomID = ids[randomNum(0, ids.length - 1)]
     data = await fetch(`atom://get-stream-lyric/${randomID}`).then((res) => res.json())
     if (data.lrc.lyric.length > 0) {
-      const { lyric } = lyricParse(data)
-      const isInstrumental = lyric.filter((l) => l.content?.includes('纯音乐，请欣赏'))
+      const result = lyricParse(data)
+      const isInstrumental = result.filter((l) =>
+        l.words
+          .map((w) => w.word)
+          .join('')
+          .includes('纯音乐，请欣赏')
+      )
       if (!isInstrumental.length) {
-        randomLyric.value = lyric
+        randomLyric.value = result
         break
       }
     }

@@ -484,7 +484,18 @@ export const usePlayerStore = defineStore(
       }
       const lyricData = data.lyrics
 
-      lyrics.value = lyricParse(lyricData)
+      const lyric = lyricParse(lyricData)
+      const includeAM = lyric.filter((l) =>
+        l.words
+          .map((w) => w.word)
+          .join('')
+          .includes('纯音乐，请欣赏')
+      )
+      if (includeAM.length) {
+        lyrics.value = []
+      } else {
+        lyrics.value = lyric
+      }
     }
 
     /**

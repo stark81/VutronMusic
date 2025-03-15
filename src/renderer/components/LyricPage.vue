@@ -139,7 +139,7 @@ const setOffset = (offset: number) => {
 }
 
 watch(lyricWithTranslation, (value) => {
-  updateLyric(value)
+  updateLyric(value, haswByw.value ? 'word-mode' : 'line-mode')
 })
 
 watch(playing, (value) => {
@@ -239,7 +239,9 @@ onMounted(() => {
 
 .line {
   font-size: v-bind('`${nFontSize}px`');
-  opacity: 0.28;
+  .font-content span {
+    opacity: 0.28;
+  }
 }
 
 .translation {
@@ -247,11 +249,29 @@ onMounted(() => {
   opacity: 0.28;
 }
 
-.line-mode.active > .line {
-  opacity: 0.8;
+.line-mode.active {
+  .line > .font-content > span {
+    opacity: 0.8;
+  }
+  .translation span {
+    opacity: 0.65;
+  }
 }
 
 .word-mode.active > .line {
-  // opacity: 0.8;
+  .font-content > span {
+    opacity: unset;
+    transition: font-size 0.4s ease;
+    background-repeat: no-repeat;
+    background-color: rgba(255, 255, 255, 0.28);
+    background-image: -webkit-linear-gradient(
+      top,
+      rgba(255, 255, 255, 0.75),
+      rgba(255, 255, 255, 0.75)
+    );
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    background-size: 0 100%;
+  }
 }
 </style>

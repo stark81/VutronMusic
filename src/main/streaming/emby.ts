@@ -259,12 +259,12 @@ class Emby implements EmbyImpl {
 
   async getLyric(id: number) {
     let result = {
-      lrc: { lyric: [] },
-      tlyric: { lyric: [] },
-      romalrc: { lyric: [] },
-      yrc: { lyric: [] },
-      ytlrc: { lyric: [] },
-      yromalrc: { lyric: [] }
+      lrc: { lyric: '' },
+      tlyric: { lyric: '' },
+      romalrc: { lyric: '' },
+      yrc: { lyric: '' },
+      ytlrc: { lyric: '' },
+      yromalrc: { lyric: '' }
     }
     const userId = store.get('accounts.emby.userId') as string
     const accessToken = store.get('accounts.emby.accessToken') as string
@@ -276,12 +276,12 @@ class Emby implements EmbyImpl {
     if (!lrc) return result
     const lyrics = parseLyricString(lrc)
     result = {
-      lrc: { lyric: lyrics[0] || [] },
-      tlyric: { lyric: lyrics[1] || [] },
-      romalrc: { lyric: lyrics[2] || [] },
-      yrc: { lyric: [] },
-      ytlrc: { lyric: [] },
-      yromalrc: { lyric: [] }
+      lrc: { lyric: lyrics[0] },
+      tlyric: { lyric: lyrics[1] },
+      romalrc: { lyric: lyrics[2] },
+      yrc: { lyric: '' },
+      ytlrc: { lyric: '' },
+      yromalrc: { lyric: '' }
     }
     return result
   }

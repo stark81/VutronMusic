@@ -525,12 +525,12 @@ export const deleteExcessCache = (deleteAll = false) => {
 
 const getNavidromeLyric = async (url: string) => {
   const result = {
-    lrc: { lyric: [] },
-    tlyric: { lyric: [] },
-    romalrc: { lyric: [] },
-    yrc: { lyric: [] },
-    ytlrc: { lyric: [] },
-    yromalrc: { lyric: [] }
+    lrc: { lyric: '' },
+    tlyric: { lyric: '' },
+    romalrc: { lyric: '' },
+    yrc: { lyric: '' },
+    ytlrc: { lyric: '' },
+    yromalrc: { lyric: '' }
   }
   const lyricRaw: any[] = await fetch(url)
     .then((res) => {
@@ -558,9 +558,9 @@ const getNavidromeLyric = async (url: string) => {
       // 生成时间前缀
       const timeStr = formatTime(start)
       // 根据规则：第一个放 lrc，第二个放 tlyric，第三个放 rlyric
-      if (values[0]) result.lrc.lyric.push(`${timeStr}${values[0]}`)
-      if (values[1]) result.tlyric.lyric.push(`${timeStr}${values[1]}`)
-      if (values[2]) result.romalrc.lyric.push(`${timeStr}${values[2]}`)
+      if (values[0]) result.lrc.lyric += `${timeStr}${values[0]}\n`
+      if (values[1]) result.tlyric.lyric += `${timeStr}${values[1]}\n`
+      if (values[2]) result.romalrc.lyric += `${timeStr}${values[2]}\n`
     })
   }
   return result
