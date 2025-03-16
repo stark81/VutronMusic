@@ -55,7 +55,7 @@ const accurateMatchTrack = () => {
     const track = data.songs[0]
     track.album = track.al
     track.artists = track.ar
-    const result = await window.mainApi.invoke('accurateMatch', track, selectedTrack.value.id)
+    const result = await window.mainApi?.invoke('accurateMatch', track, selectedTrack.value.id)
     if (result) {
       updateTrack(filePath, track)
       close()

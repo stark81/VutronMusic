@@ -1,101 +1,42 @@
 <template>
-  <div class="container" :style="containerStyle">
-    <div
-      v-if="type === 'normal'"
-      id="line-1"
-      class="line"
-      :style="{ paddingTop: type === 'normal' ? '45vh' : '0px' }"
-    ></div>
-    <div
-      v-for="lyricArray in lyricForShow"
-      :id="`line${lyricArray.index}`"
-      :key="lyricArray.index"
-      class="line"
-      :class="{
-        played: lyricArray.index < currentLyricIndex,
-        isPlaying: lyricArray.index === currentLyricIndex,
-        unplay: lyricArray.index > currentLyricIndex,
-        haswByw,
-        notWordByWord: !haswByw,
-        mini: type === 'small'
-      }"
-      :style="lineStyle(lyricArray.index)"
-    >
-      <div v-if="lyricArray.lyric?.length" class="lyric">
-        <span
-          v-for="(lyric, idx) in lyricArray.lyric"
-          :key="idx"
-          :class="{
-            wordPlayed: progress >= lyric.end,
-            wordPlaying: progress >= lyric.start && progress < lyric.end,
-            wordUnplay: progress < lyric.start
-          }"
-          >{{ lyric.word }}</span
-        ></div
-      >
-      <div v-if="translationMode === 'tlyric' && lyricArray?.tlyric" class="translation">
-        <span
-          v-for="(tlyric, idx) in lyricArray.tlyric"
-          :key="idx"
-          :class="{
-            wordPlayed: progress > tlyric.end,
-            wordPlaying:
-              lyricArray.index === currentLyricIndex &&
-              progress > tlyric.start &&
-              progress < tlyric.end,
-            wordUnplay: progress < tlyric.start
-          }"
-        >
-          {{ tlyric.word }}</span
-        >
-      </div>
-      <div v-if="translationMode === 'romalrc' && lyricArray?.rlyric" class="translation">
-        <span
-          v-for="(rlyric, idx) in lyricArray.rlyric"
-          :key="idx"
-          :class="{
-            wordPlayed: progress > rlyric.end,
-            wordPlaying:
-              lyricArray.index === currentLyricIndex &&
-              progress > rlyric.start &&
-              progress < rlyric.end,
-            wordUnplay: progress < rlyric.start
-          }"
-        >
-          {{ rlyric.word }}</span
-        >
-      </div>
-    </div>
-    <div
-      v-if="type === 'normal'"
-      class="line"
-      :style="{ paddingBottom: type === 'normal' ? '45vh' : '6px' }"
-    ></div>
-  </div>
+  <div ref="lyricContainer" class="container" :style="containerStyle"> </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch, computed, reactive } from 'vue'
 import { useOsdLyricStore } from '../store/osdLyric'
 import { storeToRefs } from 'pinia'
+import {
+  initLyric,
+  setLyrics,
+  updatePlayStatus,
+  destroyController,
+  updateLineIndex,
+  updateFontIndex,
+  updateTFontIndex,
+  updateMode,
+  updateLineMode,
+  updateWordByWord
+} from '../utils/lyricController'
 
 const osdLyricStore = useOsdLyricStore()
-const { isWordByWord, type, playedLrcColor, unplayLrcColor, fontSize, translationMode, mode } =
+const { isWordByWord, translationMode, type, fontSize, playedLrcColor, unplayLrcColor, mode } =
   storeToRefs(osdLyricStore)
 
-const startTime = ref(0)
+const lyricContainer = ref<HTMLElement>()
+const playing = ref(false)
 const progress = ref(0)
-const lyricOffset = ref(0)
-const isPlaying = ref(false)
-const width = ref(0)
-const tWidth = ref(0)
-const currentLyricIndex = ref(-1)
-const lyrics = ref<{ lyric: any[]; tlyric: any[]; rlyric: any[] }>({
-  lyric: [{ content: '暂无歌词', time: 0, contentInfo: null }],
-  rlyric: [],
-  tlyric: []
+const lyrics = ref({
+  lyric: [] as any[],
+  tlyric: [] as any[],
+  rlyric: [] as any[]
 })
-let animationFrameId: number | null = null
+const lyricOffset = ref(0)
+const indexs = reactive({
+  line: -1,
+  font: -1,
+  tfont: -1
+})
 
 const containerStyle = computed(() => {
   const result: Record<string, any> = {}
@@ -104,283 +45,105 @@ const containerStyle = computed(() => {
   return result
 })
 
-const haswByw = computed(() => {
-  let result = false
-  for (const item of lyrics.value.lyric) {
-    if (item.contentInfo) {
-      result = true
-      break
-    }
-  }
-  return isWordByWord.value && result
-})
-
-const lyricWithTranslation = computed(() => {
-  const ret = [] as any[]
-  const lyricFiltered = lyrics.value.lyric.filter(({ content }) => Boolean(content))
-  if (lyricFiltered.length) {
-    lyricFiltered.forEach((l, index) => {
-      const lineItem = {
-        index,
-        start: l.time * 1000,
-        end: l.end * 1000,
-        lyric: null as any,
-        tlyric: null as any,
-        rlyric: null as any
-      }
-      let content: any[]
-      if (haswByw.value) {
-        content = l.contentInfo
-        lineItem.lyric = content
-        lineItem.start = Math.min(...(content.map((w) => w.start) as number[]))
-        lineItem.end = Math.max(...(content.map((w) => w.end) as number[]))
-
-        const sameTimeTLyric = lyrics.value?.tlyric.find((t) => t.time === l.time)
-        if (sameTimeTLyric) {
-          const words = sameTimeTLyric.content.split('')
-          const tContent = words.map((item: string, index: number) => {
-            const interval = (l.end - l.time) / words.length
-            return {
-              word: item,
-              start: Math.floor((l.time + interval * index) * 1000),
-              end: Math.floor((l.time + interval * index + interval) * 1000)
-            }
-          })
-          lineItem.tlyric = tContent
-        }
-
-        const sameTimeRLyric = lyrics.value?.rlyric.find((t) => t.time === l.time)
-        if (sameTimeRLyric) {
-          const words = sameTimeRLyric.content.split('')
-          const rContent = words.map((item: string, index: number) => {
-            const interval = (l.end - l.time) / words.length
-            return {
-              word: item,
-              start: Math.floor((l.time + interval * index) * 1000),
-              end: Math.floor((l.time + interval * index + interval) * 1000)
-            }
-          })
-          lineItem.rlyric = rContent
-        }
-        ret.push(lineItem)
-      } else {
-        lineItem.lyric = [{ start: l.time * 1000, end: l.time * 1000, word: l.content }]
-        const sameTimeTLyric = lyrics.value?.tlyric.find((t) => t.time === l.time)
-        if (sameTimeTLyric) {
-          lineItem.tlyric = [
-            { start: l.time * 1000, end: l.time * 1000, word: sameTimeTLyric.content }
-          ]
-        }
-        const sameTimeRLyric = lyrics.value?.rlyric.find((t) => t.time === l.time)
-        if (sameTimeRLyric) {
-          lineItem.rlyric = [
-            { start: l.time * 1000, end: l.time * 1000, word: sameTimeRLyric.content }
-          ]
-        }
-        ret.push(lineItem)
-      }
-    })
-  }
-  return ret
-})
-
-const miniModeLyric = computed(() => {
-  const idx = Math.max(currentLyricIndex.value, 0)
-  if (mode.value === 'oneLine') {
-    return lyricWithTranslation.value?.slice(idx, idx + 1)
+watch(lyrics, (value) => {
+  if (value.lyric.length) {
+    setLyrics(value)
   } else {
-    const hasTranslation =
-      (translationMode.value === 'tlyric' && lyricWithTranslation.value[idx]?.tlyric) ||
-      (translationMode.value === 'romalrc' && lyricWithTranslation.value[idx]?.rlyric)
-    const index = hasTranslation ? idx : idx + (idx % 2 === 0 ? 0 : -1) || 0
-    return lyricWithTranslation.value.slice(index, index + (hasTranslation ? 1 : 2))
+    destroyController()
   }
 })
 
-const lyricForShow = computed(() => {
-  if (type.value === 'normal') return lyricWithTranslation.value
-  return miniModeLyric.value
+watch(
+  () => indexs.font,
+  (value) => {
+    updateFontIndex(value)
+  }
+)
+
+watch(
+  () => indexs.tfont,
+  (value) => {
+    updateTFontIndex(value)
+  }
+)
+
+watch(playing, (value) => {
+  updatePlayStatus(value)
 })
 
-const lineStyle = (index: number) => {
-  const result: Record<string, string> = {}
-  let align = 'center'
-  let margin = '10px 0'
-  if (type.value === 'small') {
-    if (lyricForShow.value?.length === 2) {
-      align = index % 2 === 0 ? 'start' : 'end'
-      margin = '4px 0'
-    }
-  }
-  result.textAlign = align
-  result.margin = margin
-  return result
-}
-
-const animate = () => {
-  if (!lyrics.value.lyric.length || !haswByw.value || !isPlaying.value) return
-  progress.value = performance.now() - startTime.value + lyricOffset.value
-
-  if (currentLyricIndex.value !== -1 && type.value === 'small') {
-    const line = lyricWithTranslation.value.find((l) => l.index === currentLyricIndex.value)
-    const container = document.getElementById(`line${currentLyricIndex.value}`)
-    const lyricContainer = container?.querySelector('.lyric')! as HTMLElement
-    const containerWidth = container?.offsetWidth || 0
-
-    const currentWordIndex = line?.lyric?.findIndex(
-      (l) => progress.value >= l.start && progress.value < l.end
-    )
-
-    const word = line.lyric[currentWordIndex]
-    const width = (progress.value - word?.start) / (word?.end - word?.start)
-    const percent = (currentWordIndex + width) / line?.lyric?.length
-    const targetScrollPosition = lyricContainer?.scrollWidth * percent - containerWidth / 2
-    const maxScrollPosition = lyricContainer?.scrollWidth - containerWidth
-
-    const position = Math.max(0, Math.min(targetScrollPosition, maxScrollPosition))
-    if (lyricContainer) lyricContainer.style.transform = `translateX(${-position}px)`
-  }
-
-  animationFrameId = requestAnimationFrame(animate)
-}
-
-const adjustScorllPosition = (index: number) => {
-  if (haswByw.value) return
-  const container = document.getElementById(`line${index}`)
-  const lyricContainer = container?.querySelector('.lyric')! as HTMLElement
-  const containerWidth = container?.offsetWidth || 0
-  const scrollWidth = Math.max(0, lyricContainer.scrollWidth - containerWidth)
-  if (!scrollWidth) return
-
-  const style = document.createElement('style')
-  style.textContent = `
-    @keyframes scroll {
-      from { transform: translateX(0); }
-      to { transform: translateX(${-scrollWidth}px); }
-    }
-  `
-  document.head.appendChild(style)
-  const line = lyricWithTranslation.value.find((l) => l.index === index)
-  const nextLine = lyricWithTranslation.value.find((l) => l.index === index + 1)
-  const endTime = nextLine?.start ?? line.start + 10 * 1000
-  const time = (endTime - line.start) / 1000
-  lyricContainer.style.animation = `scroll ${time * 0.8}s linear forwards`
-}
-
-window.mainApi.on('updateLyricInfo', (event: Event, data: Record<string, any>[]) => {
-  const [key, value] = Object.entries(data)[0] as [string, any]
-  if (key === 'lyrics') {
-    lyrics.value = value.lyric.length ? value : { lyric: [], rlyric: [], tlyric: [] }
-    progress.value = 0
-    startTime.value = performance.now() - progress.value
-  } else if (key === 'lrcIdx') {
-    if (animationFrameId) {
-      cancelAnimationFrame(animationFrameId)
-      animationFrameId = null
-    }
-    currentLyricIndex.value = value[0]
-    progress.value = value[1] * 1000
-    startTime.value = performance.now() - progress.value
-    animate()
-
-    setTimeout(() => {
-      const el = document.getElementById(`line${value[0]}`)
-      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    }, 50)
-  } else if (key === 'progress') {
-    progress.value = value * 1000
-    startTime.value = performance.now() - progress.value
-    if (currentLyricIndex.value !== -1) {
-      adjustScorllPosition(currentLyricIndex.value)
-    }
-  } else if (key === 'lyricOffset') {
-    lyricOffset.value = value * 1000
-  }
+watch(isWordByWord, (value) => {
+  updateWordByWord(value)
 })
 
-window.mainApi?.on('update-osd-playing-status', (event: any, res: boolean) => {
-  isPlaying.value = res
-})
-
-watch(progress, (value) => {
-  if (!lyricWithTranslation.value.length) {
-    if (animationFrameId) {
-      cancelAnimationFrame(animationFrameId)
-      animationFrameId = null
-    }
-    return
-  }
-  const line = lyricWithTranslation.value[currentLyricIndex.value]
-  if (!line?.lyric) {
-    if (animationFrameId) {
-      cancelAnimationFrame(animationFrameId)
-      animationFrameId = null
-    }
-    return
-  }
-  for (const word of line.lyric) {
-    if (value >= word.start && value < word.end) {
-      width.value = Math.round(((value - word.start) / (word.end - word.start)) * 100)
-    }
-  }
-  if (line?.tlyric) {
-    for (const word of line.tlyric) {
-      if (value >= word.start && value < word.end) {
-        tWidth.value = Math.round(((value - word.start) / (word.end - word.start)) * 100)
-      }
-    }
-  } else if (line?.rlyric) {
-    for (const word of line.rlyric) {
-      if (value >= word.start && value < word.end) {
-        tWidth.value = Math.round(((value - word.start) / (word.end - word.start)) * 100)
-      }
-    }
-  }
-})
-
-watch(isPlaying, (value) => {
-  if (animationFrameId) {
-    cancelAnimationFrame(animationFrameId)
-    animationFrameId = null
-  }
-  if (value) {
-    startTime.value = performance.now() - progress.value
-    animate()
-  }
-})
-
-watch(currentLyricIndex, (value) => {
-  if (type.value === 'normal' || value === -1) return
-  nextTick(() => {
-    adjustScorllPosition(value)
+watch(translationMode, (value) => {
+  updateMode({
+    mode: value,
+    line: indexs.line,
+    fontIndex: indexs.font,
+    tFontIndex: indexs.tfont,
+    currentTime: progress.value
   })
+})
+
+watch(mode, (value) => {
+  updateLineMode(value === 'oneLine')
+})
+
+window.addEventListener('message', (event: MessageEvent) => {
+  if (event.data.type === 'update-osd-status') {
+    for (const [key, value] of Object.entries(event.data.data) as [string, any]) {
+      if (key === 'lyrics') {
+        lyrics.value = value
+      } else if (key === 'playing') {
+        playing.value = value
+      } else if (key === 'progress') {
+        progress.value = value * 1000
+      } else if (key === 'line') {
+        indexs.line = value
+        updateLineIndex(value)
+      } else if (key === 'font') {
+        indexs.font = value
+      } else if (key === 'tfont') {
+        indexs.tfont = value
+      }
+    }
+  }
 })
 
 onMounted(() => {
   const player = JSON.parse(localStorage.getItem('player') || '{}')
-  isPlaying.value = player?.playing || false
+  playing.value = player?.playing || false
   if (!player.lyrics) return
   lyrics.value = player.lyrics
-  currentLyricIndex.value = player.currentLyricIndex
+  if (!lyrics.value.lyric.length) {
+    lyrics.value.lyric[0] = {
+      start: 0,
+      content: `${player.currentTrack?.artists[0]?.name} - ${player.currentTrack?.name}`
+    }
+  }
   lyricOffset.value = (player.currentTrack?.offset || 0) * 1000
   progress.value = (player.progress ?? 0) * 1000
-  startTime.value = performance.now() - progress.value
 
-  setTimeout(() => {
-    const el = document.getElementById(`line${currentLyricIndex.value}`)
-    el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }, 50)
+  initLyric({
+    container: lyricContainer.value!,
+    playing: playing.value,
+    mode: translationMode.value,
+    wByw: isWordByWord.value,
+    line: indexs.line,
+    fontIdx: indexs.font,
+    tFontIdx: indexs.tfont,
+    currentTime: progress.value,
+    isMini: type.value === 'small',
+    isOneLine: mode.value === 'oneLine'
+  })
 })
 
 onBeforeUnmount(() => {
-  if (animationFrameId) {
-    cancelAnimationFrame(animationFrameId)
-    animationFrameId = null
-  }
+  destroyController()
 })
 </script>
 
-<style scoped lang="scss">
+<style lang="scss">
 .container {
   user-select: none;
   padding: 0 20px;
@@ -391,110 +154,105 @@ onBeforeUnmount(() => {
 }
 
 .line {
-  font-size: v-bind('`${fontSize}px`');
+  border-radius: 12px;
+  margin: 2px 0;
   user-select: none;
-  font-weight: 650;
-  transition:
-    font-size 0.3s ease-in,
-    color 0.3s ease-in;
+  padding: 2px 0;
+  font-weight: 600;
+}
 
-  .lyric {
-    line-height: 100%;
+.normal {
+  text-align: center;
+  &:first-child {
+    margin-top: 40vh;
   }
-  .translation {
-    line-height: 100%;
-    margin-top: 2px;
-    span {
-      font-size: v-bind('`${fontSize - 4}px`');
-    }
+
+  &:last-child {
+    margin-bottom: 40vh;
   }
 }
 
-.line.mini {
+.mini {
+  white-space: nowrap;
   overflow: hidden;
-  .lyric {
-    padding-top: 4px;
-    white-space: nowrap;
+}
+.one-line {
+  text-align: center;
+}
+
+.two-line {
+  &:first-child {
+    text-align: left;
+  }
+  &:last-child {
+    text-align: right;
   }
 }
 
-.line.notWordByWord {
-  color: v-bind('unplayLrcColor');
-  transition:
-    font-size 0.3s ease-in,
-    color 0.3s ease-in;
-}
-
-.line.notWordByWord.isPlaying {
-  color: v-bind('playedLrcColor');
-}
-
-.line.haswByw {
-  color: transparent;
-  opacity: 0.85;
-  background: v-bind(
-    '`linear-gradient(to right, ${playedLrcColor} 0%, ${unplayLrcColor} 0%) text`'
-  );
-}
-
-.line.haswByw.played {
-  .lyric .wordPlayed {
-    background: v-bind(
-      '`linear-gradient(to right, ${playedLrcColor} 100%, ${unplayLrcColor} 100%) text`'
-    );
+.line {
+  .lyric-line span {
+    font-size: v-bind('`${fontSize}px`');
+    transition:
+      font-size 0.4s ease,
+      background-color 0.2s ease;
+    background-repeat: no-repeat;
+    background-color: v-bind('`${unplayLrcColor}`');
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    background-size: 0 100%;
+    overflow-wrap: break-word;
+    -webkit-text-stroke: 0.05px rgba(46, 46, 46, 0.3); /* 描边宽度和颜色 */
   }
-  .translation .wordPlayed {
-    background-color: var(--translation-color-played);
-    background: v-bind(
-      '`linear-gradient(to right, ${playedLrcColor} 100%, ${unplayLrcColor} 100%) text`'
-    );
+  .translation span {
+    font-size: v-bind('`${fontSize - 4}px`');
+    transition:
+      font-size 0.4s ease,
+      background-color 0.4s ease;
+    background-repeat: no-repeat;
+    background-color: v-bind('`${unplayLrcColor}`');
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    background-size: 0 100%;
+    overflow-wrap: break-word;
+    -webkit-text-stroke: 0.05px rgba(46, 46, 46, 0.3); /* 描边宽度和颜色 */
   }
 }
 
-.line.haswByw.isPlaying {
-  .lyric .wordPlayed {
-    background: v-bind(
-      '`linear-gradient(to right, ${playedLrcColor} 100%, ${unplayLrcColor} 100%) text`'
-    );
+.line-mode.active {
+  .lyric-line span {
+    background-color: v-bind('`${playedLrcColor}`');
   }
-
-  .translation .wordPlayed {
-    background: v-bind(
-      '`linear-gradient(to right, ${playedLrcColor} 100%, ${unplayLrcColor} 100%) text`'
-    );
-  }
-  .lyric .wordPlaying {
-    background: v-bind(
-      '`linear-gradient(to right, ${playedLrcColor} ${width}%, ${unplayLrcColor}  ${width}%) text`'
-    );
-  }
-  .translation .wordPlaying {
-    background: v-bind(
-      '`linear-gradient(to right, ${playedLrcColor} ${tWidth}%, ${unplayLrcColor}  ${tWidth}%) text`'
-    );
-  }
-  .lyric .wordUnplay {
-    background: v-bind(
-      '`linear-gradient(to right, ${playedLrcColor} 0%, ${unplayLrcColor} 0%) text`'
-    );
-  }
-  .translation .wordUnplay {
-    background: v-bind(
-      '`linear-gradient(to right, ${playedLrcColor} 0%, ${unplayLrcColor} 0%) text`'
-    );
+  .translation span {
+    background-color: v-bind('`${playedLrcColor}`');
   }
 }
 
-.line.haswByw.unplay {
-  .lyric span {
-    background: v-bind(
-      '`linear-gradient(to right, ${playedLrcColor} 0%, ${unplayLrcColor} 0%) text`'
+.word-mode {
+  .lyric-line span {
+    background-size: 100% 100%;
+    background-image: -webkit-linear-gradient(
+      top,
+      v-bind('`${playedLrcColor}`'),
+      v-bind('`${playedLrcColor}`')
     );
   }
   .translation span {
-    background: v-bind(
-      '`linear-gradient(to right, ${playedLrcColor} 0%, ${unplayLrcColor} 0%) text`'
+    background-size: 100% 100%;
+    background-image: -webkit-linear-gradient(
+      top,
+      v-bind('`${playedLrcColor}`'),
+      v-bind('`${playedLrcColor}`')
     );
+  }
+}
+
+.played,
+.active {
+  .lyric-line span {
+    background-size: 100% 100%;
+  }
+  .translation span {
+    background-size: 100% 100%;
   }
 }
 </style>

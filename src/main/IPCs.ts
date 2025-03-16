@@ -296,76 +296,82 @@ function initOtherIpcMain(win: BrowserWindow): void {
     const newArtists = []
 
     const walk = async (dir: string) => {
-      const files = fs.readdirSync(dir)
+      const files = await fs.promises.readdir(dir)
       for (const file of files) {
         const filePath = path.join(dir, file)
-        const stat = fs.statSync(filePath)
+        try {
+          const stat = fs.statSync(filePath)
 
-        if (stat.isFile() && musicFileExtensions.test(filePath)) {
-          const foundtrack = songs.find((track) => track.filePath === filePath)
-          if (!foundtrack) {
-            const md5 = createMD5(filePath)
-            const metadata = await parseFile(filePath)
-            const birthDate = new Date(stat.birthtime).getTime()
-            const { common, format } = metadata
+          if (stat.isFile() && musicFileExtensions.test(filePath)) {
+            const foundtrack = songs.find((track) => track.filePath === filePath)
+            if (!foundtrack) {
+              const md5 = createMD5(filePath)
+              const metadata = await parseFile(filePath)
+              const birthDate = new Date(stat.birthtime).getTime()
+              const { common, format } = metadata
 
-            // 获取艺术家信息
-            const arIDsResult: any[] = []
-            const arts = splitArtist(common.albumartist ?? common.artist)
-            for (const art of arts) {
-              const foundArtist = [...artists, ...newArtists].find((artist) => artist.name === art)
-              if (foundArtist) {
-                arIDsResult.push(foundArtist)
-              } else {
-                const artist = {
-                  id: artists.length + newArtists.length + 1,
-                  name: art,
-                  matched: false,
-                  picUrl: 'https://p1.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg'
+              // 获取艺术家信息
+              const arIDsResult: any[] = []
+              const arts = splitArtist(common.albumartist ?? common.artist)
+              for (const art of arts) {
+                const foundArtist = [...artists, ...newArtists].find(
+                  (artist) => artist.name === art
+                )
+                if (foundArtist) {
+                  arIDsResult.push(foundArtist)
+                } else {
+                  const artist = {
+                    id: artists.length + newArtists.length + 1,
+                    name: art,
+                    matched: false,
+                    picUrl:
+                      'https://p1.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg'
+                  }
+                  arIDsResult.push(artist)
+                  newArtists.push(artist)
                 }
-                arIDsResult.push(artist)
-                newArtists.push(artist)
               }
-            }
 
-            // 获取专辑信息
-            let album = [...albums, ...newAlbums].find((album) => album.name === common.album)
-            if (!album) {
-              album = {
-                id: albums.length + newAlbums.length + 1,
-                name: common.album ?? '未知专辑',
+              // 获取专辑信息
+              let album = [...albums, ...newAlbums].find((album) => album.name === common.album)
+              if (!album) {
+                album = {
+                  id: albums.length + newAlbums.length + 1,
+                  name: common.album ?? '未知专辑',
+                  matched: false,
+                  picUrl: 'atom://get-default-pic'
+                }
+                newAlbums.push(album)
+              }
+
+              // 获取音乐信息
+              const track = {
+                id: songs.length + newTracks.length + 1,
+                name: common.title ?? getFileName(filePath) ?? '错误文件',
+                dt: (format.duration ?? 0) * 1000,
+                source: 'localTrack',
+                gain: getReplayGainFromMetadata(metadata),
+                peak: 1,
+                br: format.bitrate ?? 320000,
+                filePath,
+                type: 'local',
                 matched: false,
+                offset: 0,
+                md5,
+                createTime: birthDate,
+                alias: [],
+                album,
+                artists: arIDsResult,
                 picUrl: 'atom://get-default-pic'
               }
-              newAlbums.push(album)
+              win.webContents.send('msgHandleScanLocalMusic', { track })
+              newTracks.push(track)
             }
-
-            // 获取音乐信息
-            const track = {
-              id: songs.length + newTracks.length + 1,
-              name: common.title ?? getFileName(filePath) ?? '错误文件',
-              dt: (format.duration ?? 0) * 1000,
-              source: 'localTrack',
-              gain: getReplayGainFromMetadata(metadata),
-              peak: 1,
-              br: format.bitrate ?? 320000,
-              filePath,
-              type: 'local',
-              matched: false,
-              offset: 0,
-              md5,
-              createTime: birthDate,
-              alias: [],
-              album,
-              artists: arIDsResult,
-              picUrl: 'atom://get-default-pic'
-            }
-            // const currentArtists = [...artists, ...newArtists].filter((artist) => arIDsResult.includes(artist.id))
-            win.webContents.send('msgHandleScanLocalMusic', { track })
-            newTracks.push(track)
+          } else if (stat.isDirectory()) {
+            await walk(filePath)
           }
-        } else if (stat.isDirectory()) {
-          await walk(filePath)
+        } catch (err) {
+          win.webContents.send('msgHandleScanLocalMusicError', { err, filePath })
         }
       }
     }

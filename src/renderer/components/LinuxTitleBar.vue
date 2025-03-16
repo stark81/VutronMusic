@@ -31,15 +31,15 @@ const playerStore = usePlayerStore()
 const { title } = storeToRefs(playerStore)
 
 const windowMinimize = () => {
-  window.mainApi.send('minimize')
+  window.mainApi?.send('minimize')
 }
 const windowMaxRestore = () => {
-  window.mainApi.invoke('maximizeOrUnmaximize').then((res: boolean) => {
+  window.mainApi?.invoke('maximizeOrUnmaximize').then((res: boolean) => {
     isMaximized.value = res
   })
 }
 const windowClose = () => {
-  window.mainApi.send('close')
+  window.mainApi?.send('close')
 }
 </script>
 

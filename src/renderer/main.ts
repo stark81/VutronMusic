@@ -15,7 +15,15 @@ import { dailyTask } from './utils'
 declare global {
   // eslint-disable-next-line no-unused-vars
   interface Window {
-    mainApi?: any
+    mainApi?: {
+      send: (channel: string, ...data: any[]) => void
+      on: (channel: string, func: (...data: any[]) => void) => void
+      once: (channel: string, func: (...data: any[]) => void) => void
+      off: (channel: string, func: (...data: any[]) => void) => void
+      invoke: (channel: string, ...data: any[]) => Promise<any>
+      sendMessage: (message: Record<string, any>) => void
+      closeMessagePort: () => void
+    }
     env?: {
       isElectron: boolean
       isEnableTitlebar: boolean

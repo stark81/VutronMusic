@@ -45,7 +45,7 @@ export function isLooseLoggedIn() {
 export function doLogout() {
   const { resetUserInfo, resetLiked } = useDataStore()
   const { user } = storeToRefs(useDataStore())
-  window.mainApi.invoke('logout', user.value.userId).then((res: boolean) => {
+  window.mainApi?.invoke('logout', user.value.userId).then((res: boolean) => {
     if (res) {
       logout()
       removeCookie('MUSIC_U')

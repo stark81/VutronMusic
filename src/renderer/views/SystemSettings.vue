@@ -309,7 +309,7 @@
                   <option value="tlyric">{{
                     $t('settings.osdLyric.translationMode.tlyric')
                   }}</option>
-                  <option value="romalrc">{{
+                  <option value="rlyric">{{
                     $t('settings.osdLyric.translationMode.romalrc')
                   }}</option>
                 </select>
@@ -602,46 +602,16 @@
                 <button @click="deleteLocalMusic">确定</button>
               </div>
             </div>
-            <div class="item">
+            <div class="item no-flex">
               <div class="left">
-                <div class="title">
-                  {{ $t('localMusic.embeddedInformation') }}
-                </div>
+                <div class="title">{{ $t('localMusic.trackInfoOrder.text') }}</div>
+                <div class="description">{{ $t('localMusic.trackInfoOrder.desc') }}</div>
               </div>
-              <div class="right">
-                <div class="toggle">
-                  <input
-                    id="inner-info"
-                    v-model="useInnerInfoFirst"
-                    type="checkbox"
-                    disabled
-                    name="inner-info"
-                  />
-                  <label for="inner-info"></label>
-                </div>
-              </div>
-            </div>
-            <div class="item">
-              <div class="left">
-                <div class="title">
-                  {{ $t('localMusic.replayGain.text') }}
-                </div>
-                <div class="description">
-                  {{ $t('localMusic.replayGain.desc') }}
-                </div>
-              </div>
-              <div class="right">
-                <div class="toggle">
-                  <input
-                    id="replay-gain"
-                    v-model="replayGain"
-                    type="checkbox"
-                    name="replay-gain"
-                    disabled
-                  />
-                  <label for="replay-gain"></label>
-                </div>
-              </div>
+              <VueDraggable v-model="trackInfoOrder">
+                <div v-for="(item, index) in trackInfoOrder" :key="item" class="info-order">{{
+                  (index + 1).toString() + ' - ' + $t(`localMusic.trackInfoOrder.${item}`)
+                }}</div>
+              </VueDraggable>
             </div>
           </div>
           <div v-show="musicTab === 'stream'">
@@ -729,33 +699,6 @@
               </select>
             </div>
           </div>
-          <!-- <div class="item">
-            <div class="left">
-              <div class="title">{{ $t('settings.unblock.source.text') }}</div>
-              <div class="description">
-                <label>{{ $t('settings.unblock.source.desc1') }}</label>
-                <a
-                  @click="
-                    openOnBrowser(
-                      'https://github.com/UnblockNeteaseMusic/server#%E9%9F%B3%E6%BA%90%E6%B8%85%E5%8D%95'
-                    )
-                  "
-                >
-                  {{ $t('settings.unblock.source.linkText') }}</a
-                ><br />
-                {{ $t('settings.unblock.source.desc2') }}<br />
-                {{ $t('settings.unblock.source.desc3') }}
-              </div>
-            </div>
-            <div class="right">
-              <input
-                v-model="unblockSource"
-                class="text-input margin-right-0"
-                placeholder="例 bilibili, kuwo"
-                @input="updateUnblockSource"
-              />
-            </div>
-          </div> -->
           <div class="item">
             <div class="left">
               <div class="title">{{ $t('settings.unblock.jooxCookie.text') }}</div>
@@ -892,6 +835,7 @@ import { storeToRefs } from 'pinia'
 import { doLogout } from '../utils/auth'
 import SvgIcon from '../components/SvgIcon.vue'
 import Utils from '../utils'
+import { VueDraggable } from 'vue-draggable-plus'
 // @ts-ignore
 import imageUrl from '../utils/settingImg.dataurl?raw'
 import { useRouter } from 'vue-router'
@@ -910,7 +854,7 @@ const {
   enableGlobalShortcut,
   normalLyric
 } = storeToRefs(settingsStore)
-const { scanDir, replayGain, useInnerInfoFirst, enble } = toRefs(localMusic.value)
+const { scanDir, enble, trackInfoOrder } = toRefs(localMusic.value)
 const { showTrackTimeOrID, useCustomTitlebar, language, musicQuality, closeAppOption } = toRefs(
   general.value
 )
@@ -932,7 +876,6 @@ const { user } = storeToRefs(dataStore)
 
 const osdLyric = useOsdLyricStore()
 const {
-  // alwaysOnTop,
   isLock,
   type,
   mode,
@@ -1117,7 +1060,7 @@ const updateTab = (index: number) => {
 const slideTop = ref(0)
 
 const getCacheTracksInfo = () => {
-  window.mainApi.invoke('getCacheTracksInfo').then((res) => {
+  window.mainApi?.invoke('getCacheTracksInfo').then((res) => {
     cacheTracksInfo.length = res.length
     cacheTracksInfo.size = res.size
   })
@@ -1128,7 +1071,7 @@ watch(currentTrack, () => {
 })
 
 const chooseDir = () => {
-  window.mainApi.invoke('selecteFolder').then((folderPath: string | null) => {
+  window.mainApi?.invoke('selecteFolder').then((folderPath: string | null) => {
     if (folderPath) scanDir.value = folderPath
   })
 }
@@ -1143,7 +1086,7 @@ const getVersion = () => {
 }
 
 const deleteCacheTracks = () => {
-  window.mainApi.invoke('clearCacheTracks').then((res: boolean) => {
+  window.mainApi?.invoke('clearCacheTracks').then((res: boolean) => {
     if (res) {
       showToast('清除缓存成功')
       getCacheTracksInfo()
@@ -1211,7 +1154,7 @@ const deleteLocalMusic = () => {
   resetPlayer()
   resetLocalMusic()
   scanDir.value = ''
-  window.mainApi.send('deleteLocalMusicDB')
+  window.mainApi?.send('deleteLocalMusicDB')
 }
 
 const openOnBrowser = (url: string) => {
@@ -1563,6 +1506,9 @@ onBeforeUnmount(() => {
     outline: none;
   }
 }
+.item.no-flex {
+  display: unset;
+}
 .item {
   margin-bottom: 6px;
   display: flex;
@@ -1572,6 +1518,19 @@ onBeforeUnmount(() => {
   padding-bottom: 10px;
   .left {
     padding-right: 6vw;
+  }
+  .info-order {
+    margin-top: 12px;
+    display: inline-block;
+    margin-right: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 2px var(--color-primary) solid;
+    cursor: move;
+
+    &:last-child {
+      margin-right: unset;
+    }
   }
   .title {
     font-size: 16px;

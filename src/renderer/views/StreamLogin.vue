@@ -127,7 +127,7 @@ const login = () => {
     username: user.value,
     password: password.value
   }
-  window.mainApi.invoke('stream-login', params).then((res: { code: number; message: any }) => {
+  window.mainApi?.invoke('stream-login', params).then((res: { code: number; message: any }) => {
     if (res.code === 200) {
       status.value[select.value] = 'login'
       router.push('/stream')
@@ -142,7 +142,7 @@ watch(select, (value) => {
     router.push('/stream')
     return
   }
-  window.mainApi.invoke('get-stream-account', { platform: value }).then((result) => {
+  window.mainApi?.invoke('get-stream-account', { platform: value }).then((result) => {
     url.value = result?.url || ''
     user.value = result?.username || ''
     password.value = result?.password || ''
@@ -150,7 +150,7 @@ watch(select, (value) => {
 })
 
 onMounted(() => {
-  window.mainApi.invoke('get-stream-account', { platform: select.value }).then((result) => {
+  window.mainApi?.invoke('get-stream-account', { platform: select.value }).then((result) => {
     url.value = result?.url || ''
     user.value = result?.username || ''
     password.value = result?.password || ''

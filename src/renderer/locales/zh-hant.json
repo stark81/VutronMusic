@@ -93,6 +93,13 @@
       "desc": "此功能僅會讀取本地歌曲元資料中的音量平衡資訊，無法掃描計算結果"
     },
     "embeddedInformation": "優先使用歌曲內嵌資訊",
+    "trackInfoOrder": {
+      "text": "歌曲資訊獲取順序設定",
+      "desc": "此功能用於設定歌曲資訊（歌詞、封面）的獲取順序，可拖拽調整順序",
+      "path": "從歌曲目錄下獲取",
+      "online": "從線上獲取",
+      "embedded": "從歌曲內嵌資訊中獲取"
+    },
     "positionTrack": "定位歌曲"
   },
   "artist": {

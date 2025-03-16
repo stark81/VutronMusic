@@ -176,17 +176,7 @@
 </template>
 
 <script setup lang="ts">
-import {
-  ref,
-  onActivated,
-  onDeactivated,
-  computed,
-  onBeforeUnmount,
-  reactive,
-  watch,
-  nextTick,
-  inject
-} from 'vue'
+import { ref, onMounted, computed, onBeforeUnmount, reactive, watch, nextTick, inject } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useNormalStateStore } from '../store/state'
 import { useSettingsStore } from '../store/settings'
@@ -445,16 +435,11 @@ onBeforeRouteUpdate((to, from, next) => {
   next()
 })
 
-onActivated(() => {
+onMounted(() => {
   updatePadding(0)
   showList.value = []
   activeCategory.value = (route.query.category as string) || saveCategory.value
   loadData()
-})
-
-onDeactivated(() => {
-  updatePadding(96)
-  saveCategory.value = activeCategory.value
 })
 
 onBeforeUnmount(() => {

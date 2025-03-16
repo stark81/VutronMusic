@@ -5,6 +5,7 @@ import { useDataStore } from '../store/data'
 import { Lyric, Control, Canvas } from './canvas'
 import { watch } from 'vue'
 import eventBus from './eventBus'
+// import { currentLyric, updateEnable } from './lyricUtils'
 
 const previous = new URL('../assets/tray/skip_previous.png', import.meta.url).href
 const play = new URL('../assets/tray/play_arrow.png', import.meta.url).href
@@ -17,7 +18,7 @@ const trayIcon = new URL('../assets/tray/menu_white.png', import.meta.url).href
 
 const playerStore = usePlayerStore()
 const { playPrev, _playNextTrack, moveToFMTrash, playOrPause } = playerStore
-const { isPersonalFM, playing, currentTrack, currentLyric, isLiked } = storeToRefs(playerStore)
+const { isPersonalFM, playing, currentTrack, isLiked, currentLyric } = storeToRefs(playerStore)
 
 const settingsStore = useSettingsStore()
 const { tray } = storeToRefs(settingsStore)
@@ -73,18 +74,18 @@ class TrayLyric {
 
     let x = 0
     if (tray.value.showLyric) {
-      this._tray?.ctx.drawImage(this._lyric?.canvas, x, 0)
+      this._tray?.ctx.drawImage(this._lyric?.canvas!, x, 0)
       x += this._lyric!.canvas.width
     }
 
     if (tray.value.showControl) {
-      this._tray?.ctx.drawImage(this._control?.canvas, x, 0)
+      this._tray?.ctx.drawImage(this._control?.canvas!, x, 0)
       x += this._control!.canvas.width
     }
 
-    this._tray?.ctx.drawImage(this._icon?.canvas, x, 0)
+    this._tray?.ctx.drawImage(this._icon?.canvas!, x, 0)
 
-    window.mainApi.send('updateTray', {
+    window.mainApi?.send('updateTray', {
       img: this._tray?.canvas.toDataURL(),
       width: this._tray!.canvas.width / this._tray!.devicePixelRatio,
       height: this._tray!.canvas.height / this._tray!.devicePixelRatio
@@ -117,7 +118,7 @@ class TrayLyric {
           }
           break
         case 4:
-          window.mainApi.send('showWindow')
+          window.mainApi?.send('showWindow')
           break
       }
     }
@@ -130,6 +131,7 @@ class TrayLyric {
       this.buildTray()
     })
     watch(currentLyric, (value) => {
+      if (!tray.value.showLyric) return
       this._lyric!.lyric = {
         text: value.content,
         width: 0,
@@ -184,14 +186,14 @@ class TrayLyric {
     eventBus.on('lyric-draw', () => {
       this.buildTray()
     })
-    window.mainApi.on('handleTrayClick', (event: any, { position }) => {
+    window.mainApi?.on('handleTrayClick', (event: any, { position }) => {
       if (tray.value.showControl) {
         this.handleClick(position)
       } else if (tray.value.showLyric) {
         const x = position.x - 8 - this._lyric!.canvas.width / this._lyric!.devicePixelRatio
-        if (x > 0) window.mainApi.send('showWindow')
+        if (x > 0) window.mainApi?.send('showWindow')
       } else {
-        window.mainApi.send('showWindow')
+        window.mainApi?.send('showWindow')
       }
     })
   }
@@ -217,7 +219,7 @@ class TouchBarLyric {
     const height = this._touchBar.canvas.height
     this._touchBar.ctx.clearRect(0, 0, width, height)
     this._touchBar.ctx.drawImage(this._lyric.canvas, 0, 0)
-    window.mainApi.send('updateTouchBarLyric', {
+    window.mainApi?.send('updateTouchBarLyric', {
       img: this._touchBar.canvas.toDataURL(),
       width: this._touchBar.canvas.width / this._touchBar.devicePixelRatio,
       height: this._touchBar.canvas.height / this._touchBar.devicePixelRatio
@@ -252,7 +254,4 @@ export const buildTouchBars = () => {
   const touchBar = new TouchBarLyric()
   touchBar.buildTouchBar()
   touchBar.handleEvent()
-  // setTimeout(() => {
-  //   touchBar._updateLyric(currentLyricIndex.value)
-  // }, 500)
 }

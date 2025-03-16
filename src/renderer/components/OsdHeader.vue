@@ -36,17 +36,17 @@ const osdLyricStore = useOsdLyricStore()
 const { isLock, type, show, unplayLrcColor } = storeToRefs(osdLyricStore)
 
 const showMain = () => {
-  window.mainApi.send('from-osd', 'showMainWin')
+  window.mainApi?.send('from-osd', 'showMainWin')
 }
 const playPrev = () => {
-  window.mainApi.send('from-osd', 'playPrev')
+  window.mainApi?.send('from-osd', 'playPrev')
 }
 const playOrPause = () => {
   isPlaying.value = !isPlaying.value
-  window.mainApi.send('from-osd', 'playOrPause')
+  window.mainApi?.send('from-osd', 'playOrPause')
 }
 const playNext = () => {
-  window.mainApi.send('from-osd', 'playNext')
+  window.mainApi?.send('from-osd', 'playNext')
 }
 
 const switchMode = () => {

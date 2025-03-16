@@ -5,7 +5,7 @@ export class Canvas {
   h: number
   devicePixelRatio: number
   canvas: HTMLCanvasElement
-  ctx: any
+  ctx: CanvasRenderingContext2D
   constructor({ width = 195, height = 22, devicePixelRatio = 1 }) {
     this.w = width
     this.h = height
@@ -13,7 +13,7 @@ export class Canvas {
     this.canvas = document.createElement('canvas')
     this.canvas.width = this.w * this.devicePixelRatio
     this.canvas.height = this.h * this.devicePixelRatio
-    this.ctx = this.canvas.getContext('2d')
+    this.ctx = this.canvas.getContext('2d') as CanvasRenderingContext2D
   }
 }
 
@@ -60,7 +60,20 @@ export class Lyric extends Canvas {
   lyric: { text: any; width: number; time: number }
   x: number
   timer: any
+  moveTimer: any
+  timeoutTimer: any
   frame: number
+
+  private animationFrameId: number = 0
+  private timeoutId: any = 0
+
+  private offscreenCanvas: HTMLCanvasElement
+  private offscreenCtx: CanvasRenderingContext2D
+  private scrollPixelsPerMS: number = 0
+  private lastDrawTime: number = 0
+  private dynamicFrameInterval: number = 33
+  private lastRenderX: number = Infinity
+
   constructor({ width = 195, height = 22, fontSize = 14 } = {}) {
     super({ width, height, devicePixelRatio: 2 })
     this.fontSize = fontSize
@@ -69,19 +82,26 @@ export class Lyric extends Canvas {
       width: 0,
       time: 0 // 单句歌词的播放时间
     }
-    this.x = 0 // 移动的距离
-    // this.timerId = null
+    this.x = 0
     this.timer = null
-    this.frame = 34 // 歌词滚动的帧率
+    this.frame = 34
     this.ctx.font = `${
       this.fontSize * this.devicePixelRatio
     }px "pingfang sc", "microsoft yahei", sans-serif`
     this.ctx.textBaseline = 'middle'
+
+    this.offscreenCanvas = document.createElement('canvas')
+    this.offscreenCanvas.width = this.canvas.width
+    this.offscreenCanvas.height = this.canvas.height
+    this.offscreenCtx = this.offscreenCanvas.getContext('2d')!
+    this.offscreenCtx.font = this.ctx.font
+    this.offscreenCtx.textBaseline = 'middle'
   }
 
   updateLyric(arg = this.lyric) {
-    clearInterval(this.timer)
+    this.clearAllTimes()
     this.x = 0
+    this.lastDrawTime = 0
     const measureText = this.ctx.measureText(arg.text)
     this.lyric = {
       text: arg.text,
@@ -89,57 +109,100 @@ export class Lyric extends Canvas {
       time: arg.time
     }
     if (this.lyric.width > this.canvas.width) {
-      // 计算第一屏文字占总文字长度的比率
       const rate = this.canvas.width / this.lyric.width
-      // 根据比率计算出第一屏文字静止的时间
       const staticTime = Math.min(rate * this.lyric.time, 2000)
-      // 渲染第一屏文字
-      this.draw()
-      // 延时move
-      setTimeout(() => {
-        // 开始移动
-        this.timer = setInterval(() => {
-          this.move()
-          this.draw()
-        }, 1000 / this.frame)
-      }, staticTime)
-      // 取消
-      setTimeout(() => {
-        clearInterval(this.timer)
-      }, this.lyric.time)
+
+      const more = this.lyric.width - this.canvas.width
+      this.scrollPixelsPerMS = more / Math.max(this.lyric.time - 2000, rate * this.lyric.time)
+
+      this.startAnimation(staticTime)
     } else {
       this.draw()
     }
   }
 
-  move() {
-    // 计算文字超出canvas的部分
-    const more = this.lyric.width - this.canvas.width
-    // 文字右侧没有到canvas右侧
-    if (-this.x < more) {
-      // 计算超出文字占总文字长度的比率
-      const rate = more / this.lyric.width
-      // 根据比率 计算出超出文字滚动需要的时间
-      const scrollTime = rate * this.lyric.time
-      // 根据时间 计算出每帧需要移动的距离
-      const distance = (more / Math.max(this.lyric.time - 2000, scrollTime)) * this.frame
-      this.x -= distance * this.devicePixelRatio
-    } else {
-      clearInterval(this.timer)
+  private startAnimation(staticTime: number) {
+    this.draw()
+
+    this.moveTimer = setTimeout(() => {
+      this.startTimeoutLoop()
+    }, staticTime)
+
+    this.timeoutTimer = setTimeout(() => {
+      this.clearAllTimes()
+    }, this.lyric.time)
+  }
+
+  private startTimeoutLoop() {
+    let lastTime = performance.now()
+    let accumulatedTime = 0
+
+    const animate = () => {
+      const currentTime = performance.now()
+      const delta = currentTime - lastTime
+      lastTime = currentTime
+      accumulatedTime += delta
+
+      const hasMovement = this.calculatePosition(accumulatedTime)
+      if (hasMovement) {
+        this.dynamicFrameInterval = Math.min(33, this.dynamicFrameInterval + 2)
+        accumulatedTime = 0
+        this.draw()
+      } else {
+        this.dynamicFrameInterval = Math.max(50, this.dynamicFrameInterval - 5)
+      }
+      const nextInterval = this.calculateOptimalInterval()
+      this.timeoutId = setTimeout(animate, nextInterval)
     }
+    this.timeoutId = setTimeout(animate, this.dynamicFrameInterval)
+  }
+
+  private calculatePosition(delta: number): boolean {
+    const prevX = this.x
+    if (-this.x < this.lyric.width - this.canvas.width) {
+      this.x -= this.scrollPixelsPerMS * delta * this.devicePixelRatio
+      return Math.abs(prevX - this.x) > 1
+    }
+    this.clearAllTimes()
+    return false
+  }
+
+  private calculateOptimalInterval(): number {
+    const speed = Math.abs(this.scrollPixelsPerMS)
+    if (speed < 0.05) return 50
+    if (speed < 0.1) return 33
+    return 16
+  }
+
+  private clearAllTimes() {
+    cancelAnimationFrame(this.animationFrameId)
+    clearTimeout(this.timeoutTimer)
+    clearTimeout(this.moveTimer)
+    clearTimeout(this.timer)
+    clearTimeout(this.timeoutId)
   }
 
   draw() {
+    if (Math.abs(this.x - this.lastRenderX) < 1) return
+
+    const now = performance.now()
+    if (now - this.lastDrawTime < this.dynamicFrameInterval) return
+
     let x: number
     if (this.lyric.width <= this.canvas.width) {
       x = this.canvas.width / 2
-      this.ctx.textAlign = 'center'
+      this.offscreenCtx.textAlign = 'center'
     } else {
       x = this.x
-      this.ctx.textAlign = 'left'
+      this.offscreenCtx.textAlign = 'left'
     }
+
+    this.offscreenCtx.clearRect(0, 0, this.canvas.width, this.canvas.height)
+    this.offscreenCtx.fillText(this.lyric.text, x, this.canvas.height / 2 + 1)
+
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
-    this.ctx.fillText(this.lyric.text, x, this.canvas.height / 2 + 1)
+    this.ctx.drawImage(this.offscreenCanvas, 0, 0)
     eventBus.emit('lyric-draw')
+    this.lastDrawTime = now
   }
 }

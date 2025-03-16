@@ -14,11 +14,11 @@ export default class Utils {
   }
 
   static async openExternal(url: string): Promise<void> {
-    await window.mainApi.send('msgOpenExternalLink', url)
+    await window.mainApi?.send('msgOpenExternalLink', url)
   }
 
   static async openFile(type: string): Promise<any> {
-    return window.mainApi.invoke('msgOpenFile', type)
+    return window.mainApi?.invoke('msgOpenFile', type)
   }
 
   static changeAppearance(appearance: string): void {

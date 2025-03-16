@@ -6,11 +6,11 @@ import { Track, useLocalMusicStore } from './localMusic'
 import { useStreamMusicStore } from './streamingMusic'
 import { useSettingsStore } from './settings'
 import { useNormalStateStore } from './state'
+import { useOsdLyricStore } from './osdLyric'
 import { useDataStore } from './data'
 import { searchMatch, fmTrash, personalFM, songChorus } from '../api/other'
 import { useI18n } from 'vue-i18n'
-import eventBus from '../utils/eventBus'
-// import { scrobble } from '../api/track'
+import { cloneDeep } from 'lodash'
 
 interface biquadType {
   31: number
@@ -43,6 +43,7 @@ export const usePlayerStore = defineStore(
     const playingNext = ref(false)
     const enabled = ref(false)
     const progress = ref(0)
+    const _progress = ref(0)
     const repeatMode = ref('off')
     const _shuffle = ref(false)
     const _volume = ref(1)
@@ -52,12 +53,10 @@ export const usePlayerStore = defineStore(
     const title = ref<string | null>('VutronMusic')
     const outputDevice = ref('default')
     const backRate = ref(1.0)
-    let setIntervalTimer: any
-    let lastUpdate = 0
-    const currentLyricIndex = ref(-1)
     const streamMusics = ref<Track[]>([])
     const isLiked = ref(false)
     const isLocalList = ref(false)
+    const isHidden = ref(document.hidden)
     const chorus = ref(0)
     const pic = ref<string>(
       currentTrack.value?.album?.picUrl ||
@@ -90,6 +89,8 @@ export const usePlayerStore = defineStore(
     }>({ id: 0 })
 
     let initAcx = false
+    let lastUpdateTime = 0
+
     const localMusicStore = useLocalMusicStore()
     const streamMusicStore = useStreamMusicStore()
     const { updateTrack, fetchLocalMusic } = localMusicStore
@@ -98,7 +99,10 @@ export const usePlayerStore = defineStore(
     const { t } = useI18n()
 
     const settingsStore = useSettingsStore()
-    const { showToast } = useNormalStateStore()
+    const stateStore = useNormalStateStore()
+    const { showToast } = stateStore
+
+    const osdLyricStore = useOsdLyricStore()
 
     const audio = new Audio()
     const audioContext = new AudioContext()
@@ -108,6 +112,18 @@ export const usePlayerStore = defineStore(
     const _list = ref<number[]>([])
     const _playNextList = ref<number[]>([])
     const currentTrackIndex = ref(0)
+    const currentLyricIndex = ref(-1)
+
+    const currentIndex = reactive({
+      list: -1,
+      tList: -1
+    })
+
+    const timer = reactive<{ line: any; list: any; tList: any }>({
+      line: null,
+      list: null,
+      tList: null
+    })
 
     const biquadParams = reactive<biquadType>({
       31: 0,
@@ -168,13 +184,21 @@ export const usePlayerStore = defineStore(
 
     const seek = computed({
       get() {
-        return progress.value
+        return _progress.value
       },
       set(value) {
         audio.currentTime = value
-        getLyricIndex()
-        window.mainApi.send('updateLyricInfo', { progress: value })
-        eventBus.emit('update-process', value)
+        _progress.value = value
+        progress.value = value
+        lastUpdateTime = value
+        currentLyricIndex.value = getLyricIndex(lyrics.lyric, 0, 1)
+        currentIndex.list = getLyricIndex(fontList.value.list, 0, 1000)
+        currentIndex.tList = getLyricIndex(fontList.value.tList, 0, 1000)
+        clearTimeout(timer.line)
+        clearTimeout(timer.list)
+        clearTimeout(timer.tList)
+        updateIndex()
+        window.mainApi?.send('updateLyricInfo', { progress: value })
       }
     })
 
@@ -214,62 +238,130 @@ export const usePlayerStore = defineStore(
       }
     })
 
+    const isWordByWord = computed(() => {
+      let flag = false
+      for (const l of lyrics.lyric) {
+        if (l.contentInfo) {
+          flag = true
+          break
+        }
+      }
+      return settingsStore.normalLyric.isNWordByWord && flag
+    })
+
+    const fontList = computed(() => {
+      const list = [] as { start: number; end: number; word: string }[]
+      const tList = [] as { start: number; end: number; word: string }[]
+      const rList = [] as { start: number; end: number; word: string }[]
+      if (isWordByWord.value) {
+        lyrics.lyric.forEach((l) => {
+          if (l.contentInfo) {
+            l.contentInfo.forEach((c) => {
+              list.push(c)
+            })
+            const sameTlyric = lyrics.tlyric.find((t) => t.start === l.start)
+            if (sameTlyric && settingsStore.normalLyric.nTranslationMode === 'tlyric') {
+              const words = sameTlyric.content.split('') as string[]
+              words.forEach((w, i) => {
+                const interval = (l.end - l.start) / words.length
+                tList.push({
+                  start: Math.floor((l.start + i * interval) * 1000),
+                  end: Math.floor((l.start + (i + 1) * interval) * 1000),
+                  word: w
+                })
+              })
+            }
+
+            const sameRlyric = lyrics.rlyric.find((r) => r.start === l.start)
+            if (sameRlyric && settingsStore.normalLyric.nTranslationMode === 'rlyric') {
+              const words = sameRlyric.content.split(' ') as string[]
+              l.contentInfo.forEach((c, i) => {
+                rList.push({
+                  start: c.start,
+                  end: c.end,
+                  word: words[i] ?? ''
+                })
+              })
+            }
+          }
+        })
+      }
+      return { list, tList, rList }
+    })
+
     const noLyric = computed(() => lyrics.lyric.length === 0)
+
+    const shouldGetLrcIndex = computed(() => {
+      return (
+        stateStore.showLyrics ||
+        osdLyricStore.show ||
+        (window.env?.isMac && settingsStore.tray.showLyric) ||
+        (window.env?.isLinux && settingsStore.tray.enableExtension)
+      )
+    })
+
+    window.addEventListener('visibilitychange', () => {
+      isHidden.value = document.hidden
+    })
+
+    const shouldGetFontIndex = computed(() => {
+      return osdLyricStore.show || (stateStore.showLyrics && !isHidden.value)
+    })
+
+    const getLyricIndex = (
+      lst: { start: number; end: number }[],
+      start = 0,
+      rate: 1 | 1000 = 1
+    ) => {
+      if (!lst.length) return -1
+      start = Math.max(start, 0)
+      for (let i = start; i < lst.length; i++) {
+        if ((lst[i].start || lst[i].start) / rate > audio.currentTime + lyricOffset.value) {
+          return i - 1
+        }
+      }
+
+      if (audio.currentTime + lyricOffset.value > lst[lst.length - 1].end / rate) {
+        return lst.length
+      } else {
+        return lst.length - 1
+      }
+    }
+
+    watch(shouldGetLrcIndex, (value) => {
+      if (value) {
+        updateIndex()
+      } else {
+        clearTimeout(timer.line)
+        clearTimeout(timer.list)
+        clearTimeout(timer.tList)
+      }
+    })
+
+    watch(shouldGetFontIndex, (value) => {
+      if (value) {
+        updateIndex()
+      } else {
+        clearTimeout(timer.list)
+        clearTimeout(timer.tList)
+      }
+    })
 
     watch(currentTrack, async (value) => {
       if (!value) return
-      currentLyricIndex.value = -1
       const flag = await searchMatchForLocal(value)
       if (flag) return
       await getCurrentTrackInfo(value)
       updateMediaSessionMetaData(value)
     })
 
-    const currentLyric = computed(() => {
-      let result: { content: string; time: number }
-      if (currentLyricIndex.value < lyrics.lyric.length) {
-        const lyric = lyrics.lyric[currentLyricIndex.value]
-        const nextLyric = lyrics.lyric[currentLyricIndex.value + 1]
-        const diff = nextLyric?.time - lyric?.time || 10
-        result = {
-          content: lyric?.content || currentTrack.value?.name || '听你想听的音乐',
-          time: diff
-        }
-      } else {
-        result = {
-          content: currentTrack.value?.name || '听你想听的音乐',
-          time: 10
-        }
-      }
-      return result
-    })
-
     watch(lyrics, (value) => {
-      window.mainApi.send('updateLyricInfo', { lyrics: toRaw(value) })
+      clearTimeout(timer.line)
+      clearTimeout(timer.list)
+      clearTimeout(timer.tList)
+      updateIndex()
+      window.mainApi?.send('updateLyricInfo', { lyrics: toRaw(value) })
     })
-
-    watch(currentLyric, (value) => {
-      if (window.env?.isLinux && settingsStore.tray.enableExtension) {
-        window.mainApi.send('updateLyricInfo', { currentLyric: value })
-      }
-    })
-
-    watch(currentLyricIndex, (value) => {
-      window.mainApi.send('updateLyricInfo', { lrcIdx: [value, audio.currentTime] })
-      eventBus.emit('update-process', audio.currentTime || 0)
-    })
-
-    watch(
-      () => settingsStore.tray.enableExtension,
-      (value) => {
-        if (!value) {
-          const lrc = { content: '', time: 10 }
-          window.mainApi.send('updateLyricInfo', { currentLyric: lrc })
-        } else {
-          window.mainApi.send('updateLyricInfo', { currentLyric: currentLyric.value })
-        }
-      }
-    )
 
     watch(
       () => convolverParams.buffer,
@@ -320,48 +412,116 @@ export const usePlayerStore = defineStore(
       }
     )
 
-    const getLyricIndex = () => {
-      const progress = audio.currentTime + lyricOffset.value
-      currentLyricIndex.value = lyrics.lyric.findIndex((l, index) => {
-        const nextLyric = lyrics.lyric[index + 1]
-        const nextLyricTime = nextLyric ? nextLyric.time : currentTrackDuration.value
-        return progress >= l.time && progress < nextLyricTime
-      })
-    }
+    const _refreshLineIdx = () => {
+      if (!lyrics.lyric.length || !shouldGetLrcIndex.value) return
+      currentLyricIndex.value = getLyricIndex(lyrics.lyric, 0, 1)
+      const nextLine = lyrics.lyric[currentLyricIndex.value + 1]
 
-    const update = () => {
-      getLyricIndex()
-      const now = performance.now()
-      if (now - lastUpdate >= 500) {
-        if (!audio) return
-        progress.value = audio.currentTime
-        lastUpdate = now
+      if (nextLine) {
+        const driftTime = nextLine.start - (audio.currentTime + lyricOffset.value) * 1000
+        if (playing.value) {
+          timer.line = setTimeout(() => {
+            clearTimeout(timer.line)
+            if (!playing.value) return
+            _refreshLineIdx()
+          }, driftTime)
+        }
       }
     }
 
-    watch(playing, (value) => {
-      window.mainApi.send('updatePlayerState', { playing: value })
+    const _refreshFontIdx = (type: 'list' | 'tList' = 'list') => {
+      if (!fontList.value[type].length || !shouldGetFontIndex.value) return
+      const index = getLyricIndex(fontList.value[type], currentIndex[type], 1000)
+
+      currentIndex[type] = index
+      const nextFont = fontList.value[type][index + 1]
+      if (nextFont) {
+        const driftTime = nextFont.start - (audio.currentTime + lyricOffset.value) * 1000
+        if (playing.value) {
+          timer[type] = setTimeout(() => {
+            clearTimeout(timer[type])
+            if (!playing.value) return
+            _refreshFontIdx(type)
+          }, driftTime)
+        }
+      }
+    }
+
+    const updateIndex = () => {
+      if (!lyrics.lyric.length || !shouldGetLrcIndex.value) return
+      currentLyricIndex.value = getLyricIndex(lyrics.lyric, 0, 1)
+      if (!shouldGetLrcIndex.value) return
+      if (fontList.value.list.length) {
+        currentIndex.list = getLyricIndex(fontList.value.list, 0, 1000)
+      }
+      if (fontList.value.tList.length) {
+        currentIndex.tList = getLyricIndex(fontList.value.tList, 0, 1000)
+      }
+      if (!playing.value) return
+      _refreshLineIdx()
+      _refreshFontIdx('list')
+      _refreshFontIdx('tList')
+    }
+
+    const currentLyric = computed(() => {
+      const line = lyrics.lyric[currentLyricIndex.value]
+      if (!line) return { content: currentTrack.value?.name || '听你想听的音乐', time: 0 }
+      const nextLine = lyrics.lyric[currentLyricIndex.value + 1]
+      const diff = nextLine ? nextLine.start - line?.start : 10
+      return { content: line?.content, time: diff }
+    })
+
+    watch(shouldGetFontIndex, (value) => {
       if (value) {
-        setIntervalTimer = setInterval(update, 50)
+        _refreshLineIdx()
+        _refreshFontIdx('list')
+        _refreshFontIdx('tList')
       } else {
-        clearInterval(setIntervalTimer)
+        clearTimeout(timer.list)
+        clearTimeout(timer.tList)
       }
     })
 
+    watch(playing, (value) => {
+      window.mainApi?.send('updatePlayerState', { playing: value })
+      if (value) {
+        progress.value = audio.currentTime
+        _progress.value = audio.currentTime
+        updateIndex()
+        window.mainApi?.send('updateLyricInfo', { progress: audio.currentTime })
+      } else {
+        progress.value = audio.currentTime
+        _progress.value = audio.currentTime
+        clearTimeout(timer.line)
+        clearTimeout(timer.list)
+        clearTimeout(timer.tList)
+        timer.line = null
+        timer.list = null
+        timer.tList = null
+      }
+    })
+
+    watch(
+      () => fontList.value.tList,
+      (value) => {
+        if (value.length) _refreshFontIdx('tList')
+      }
+    )
+
     watch(isLiked, (value) => {
-      window.mainApi.send('updatePlayerState', { like: value })
+      window.mainApi?.send('updatePlayerState', { like: value })
     })
 
     watch(repeatMode, (value) => {
-      window.mainApi.send('updatePlayerState', { repeatMode: value })
+      window.mainApi?.send('updatePlayerState', { repeatMode: value })
     })
 
     watch(isPersonalFM, (value) => {
-      window.mainApi.send('updatePlayerState', { isPersonalFM: value })
+      window.mainApi?.send('updatePlayerState', { isPersonalFM: value })
     })
 
     watch(shuffle, (value) => {
-      window.mainApi.send('updatePlayerState', { shuffle: value })
+      window.mainApi?.send('updatePlayerState', { shuffle: value })
     })
 
     watchEffect(() => {
@@ -377,7 +537,11 @@ export const usePlayerStore = defineStore(
     })
 
     watch(lyricOffset, (value) => {
-      window.mainApi.send('updateLyricInfo', { lyricOffset: value })
+      window.mainApi?.send('updateLyricInfo', { lyricOffset: value })
+      clearTimeout(timer.line)
+      clearTimeout(timer.list)
+      clearTimeout(timer.tList)
+      updateIndex()
     })
 
     const searchMatchForLocal = async (track: Track) => {
@@ -467,7 +631,7 @@ export const usePlayerStore = defineStore(
       }
       const buffer = new Uint8Array(data.pic.data)
       const blob = new Blob([buffer], { type: data.format })
-      // if (pic.value) URL.revokeObjectURL(pic.value)
+      if (pic.value.startsWith('blob:')) URL.revokeObjectURL(pic.value)
       pic.value = URL.createObjectURL(blob)
       if (data.color) {
         color.value = data.color
@@ -494,8 +658,28 @@ export const usePlayerStore = defineStore(
         lyrics.tlyric = []
         lyrics.rlyric = []
       } else {
-        lyrics.lyric = lyric
+        lyric = lyric.filter(({ content }) => Boolean(content))
+        lyrics.lyric = lyric.map((l, index) => {
+          const end = lyric[index + 1]
+            ? (l.end ?? lyric[index + 1]?.start)
+            : currentTrackDuration.value
+          return { ...l, end }
+        })
+        tlyric = tlyric.filter(({ content }) => Boolean(content))
+        lyrics.tlyric = tlyric.map((l, index) => {
+          const end = tlyric[index + 1]
+            ? (l.end ?? tlyric[index + 1]?.start)
+            : currentTrackDuration.value
+          return { ...l, end }
+        })
         lyrics.tlyric = tlyric
+        rlyric = rlyric.filter(({ content }) => Boolean(content))
+        lyrics.rlyric = rlyric.map((l, index) => {
+          const end = rlyric[index + 1]
+            ? (l.end ?? rlyric[index + 1]?.start)
+            : currentTrackDuration.value
+          return { ...l, end }
+        })
         lyrics.rlyric = rlyric
       }
     }
@@ -548,8 +732,6 @@ export const usePlayerStore = defineStore(
         })
         .then((track) => {
           currentTrack.value = track
-          eventBus.emit('update-process', 0)
-          // updateMediaSessionMetaData(track!)
           getTrackSource(track!).then((source) => {
             if (source) {
               if (track!.id === currentTrack.value?.id) {
@@ -686,23 +868,13 @@ export const usePlayerStore = defineStore(
     }
 
     const nextTrackCallback = () => {
-      if (currentTrack.value?.matched !== false) {
-        // _scrobble(currentTrack.value, 0, true)
-      }
+      seek.value = 0
       if (!isPersonalFM.value && repeatMode.value === 'one') {
         replaceCurrentTrack(currentTrack.value!.id)
       } else {
         _playNextTrack(isPersonalFM.value)
       }
     }
-
-    // const _scrobble = (track: any, time: number, completed = false) => {
-    //   const trackDuration = ~~(track.dt / 1000)
-    //   time = completed ? trackDuration : ~~time
-    //   const sourceID =
-    //     playlistSource.value.id === 0 ? track.al?.id || track.album?.id : playlistSource.value.id
-    //   scrobble({ id: track.id, sourceid: sourceID, time })
-    // }
 
     const stop = async () => {
       seek.value = 0
@@ -786,6 +958,12 @@ export const usePlayerStore = defineStore(
 
     const setupAudioNode = async () => {
       audio.addEventListener('ended', nextTrackCallback)
+      audio.addEventListener('timeupdate', () => {
+        if (Math.abs(audio.currentTime - lastUpdateTime) >= 1) {
+          _progress.value = audio.currentTime
+          lastUpdateTime = audio.currentTime
+        }
+      })
       await audioContext.suspend()
 
       setConvolver({
@@ -855,12 +1033,13 @@ export const usePlayerStore = defineStore(
         trackId: track.id,
         url: '/trackid/' + track.id
       }
+      navigator.mediaSession.metadata = null
       navigator.mediaSession.metadata = new MediaMetadata(metadata)
       if (window.env?.isLinux) {
         metadata.artwork.map((art) => {
           art.src = (currentTrack.value?.album?.picUrl || currentTrack.value?.al?.picUrl)!
         })
-        window.mainApi.send('metadata', metadata)
+        window.mainApi?.send('metadata', metadata)
       }
     }
 
@@ -877,7 +1056,7 @@ export const usePlayerStore = defineStore(
       lyrics.tlyric = []
       lyrics.rlyric = []
       currentLyricIndex.value = -1
-      if (pic.value) {
+      if (pic.value.startsWith('blob:')) {
         URL.revokeObjectURL(pic.value)
         pic.value = 'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg'
       }
@@ -893,7 +1072,71 @@ export const usePlayerStore = defineStore(
     }
 
     const handleIpcRenderer = () => {
-      window.mainApi.on('play', () => {
+      window.addEventListener('message', (event) => {
+        if (event.data.type === 'init-from-osd') {
+          window.mainApi?.sendMessage({
+            type: 'update-osd-status',
+            data: {
+              line: currentLyricIndex.value,
+              font: currentIndex.list,
+              tfont: currentIndex.tList,
+              playing: playing.value,
+              progress: audio.currentTime
+            }
+          })
+        }
+      })
+
+      watch(currentLyricIndex, (value) => {
+        if (osdLyricStore.show)
+          window.mainApi?.sendMessage({ type: 'update-osd-status', data: { line: value } })
+      })
+
+      watch(
+        () => currentIndex.list,
+        (value) => {
+          if (osdLyricStore.show)
+            window.mainApi?.sendMessage({ type: 'update-osd-status', data: { font: value } })
+        }
+      )
+
+      watch(
+        () => currentIndex.tList,
+        (value) => {
+          if (osdLyricStore.show)
+            window.mainApi?.sendMessage({ type: 'update-osd-status', data: { tfont: value } })
+        }
+      )
+
+      watch(lyrics, (value) => {
+        if (osdLyricStore.show) {
+          const newLyric = cloneDeep(value)
+          if (!newLyric.lyric.length) {
+            newLyric.lyric[0] = {
+              start: 0,
+              content: `${currentTrack.value?.artists[0].name} - ${currentTrack.value?.name}`
+            }
+          }
+          window.mainApi?.sendMessage({
+            type: 'update-osd-status',
+            data: { lyrics: toRaw(newLyric) }
+          })
+        }
+      })
+
+      watch(playing, (value) => {
+        if (osdLyricStore.show)
+          window.mainApi?.sendMessage({ type: 'update-osd-status', data: { playing: value } })
+      })
+
+      watch(
+        () => osdLyricStore.show,
+        (value) => {
+          if (!value) window.mainApi?.closeMessagePort()
+        }
+      )
+
+      window.mainApi?.on('play', () => {
         if (
           document.activeElement?.tagName === 'INPUT' ||
           document.activeElement?.classList?.contains('comment-input')
@@ -902,23 +1145,23 @@ export const usePlayerStore = defineStore(
         }
         playOrPause()
       })
-      window.mainApi.on('previous', () => {
+      window.mainApi?.on('previous', () => {
         if (!isPersonalFM.value) playPrev()
         else moveToFMTrash()
       })
-      window.mainApi.on('next', () => _playNextTrack(isPersonalFM.value))
-      window.mainApi.on('repeat', (_: any, value: string) => {
+      window.mainApi?.on('next', () => _playNextTrack(isPersonalFM.value))
+      window.mainApi?.on('repeat', (_: any, value: string) => {
         repeatMode.value = value
       })
-      window.mainApi.on('repeat-shuffle', (_: any, value: boolean) => {
+      window.mainApi?.on('repeat-shuffle', (_: any, value: boolean) => {
         shuffle.value = value
       })
-      window.mainApi.on('like', () => {
+      window.mainApi?.on('like', () => {
         if (currentTrack.value && currentTrack.value.matched !== false) {
           likeATrack(currentTrack.value.id)
         }
       })
-      window.mainApi.on('fm-trash', () => {
+      window.mainApi?.on('fm-trash', () => {
         moveToFMTrash()
       })
     }
@@ -1060,16 +1303,16 @@ export const usePlayerStore = defineStore(
           }
         }
         await setupAudioNode()
+        updateIndex()
         seek.value = progress.value
         replaceCurrentTrack(currentTrack.value!.id, false).then(() => {
-          window.mainApi.send('updatePlayerState', {
+          window.mainApi?.send('updatePlayerState', {
             playing: playing.value,
             isPersonalFM: isPersonalFM.value,
             like: isLiked.value,
             repeatMode: repeatMode.value,
             shuffle: shuffle.value
           })
-          getLyricIndex()
         })
         handleIpcRenderer()
         initMediaSession()
@@ -1087,8 +1330,8 @@ export const usePlayerStore = defineStore(
     })
 
     onBeforeUnmount(() => {
-      if (pic.value) URL.revokeObjectURL(pic.value)
-      clearInterval(setIntervalTimer)
+      progress.value = audio.currentTime
+      if (pic.value.startsWith('blob:')) URL.revokeObjectURL(pic.value)
     })
 
     return {
@@ -1101,6 +1344,7 @@ export const usePlayerStore = defineStore(
       repeatMode,
       title,
       shuffle,
+      lyricOffset,
       volume,
       _volume,
       volumeBeforeMuted,
@@ -1113,6 +1357,9 @@ export const usePlayerStore = defineStore(
       isPersonalFM,
       source,
       currentTrackIndex,
+      currentLyricIndex,
+      currentIndex,
+      currentLyric,
       currentTrackDuration,
       outputDevice,
       biquadParams,
@@ -1125,8 +1372,6 @@ export const usePlayerStore = defineStore(
       noLyric,
       personalFMTrack,
       personalFMNextTrack,
-      currentLyricIndex,
-      currentLyric,
       color,
       color2,
       playlistSource,
@@ -1146,6 +1391,8 @@ export const usePlayerStore = defineStore(
     }
   },
   {
-    persist: true
+    persist: {
+      omit: ['currentIndex', 'pic', 'title', 'currentLyricIndex']
+    }
   }
 )

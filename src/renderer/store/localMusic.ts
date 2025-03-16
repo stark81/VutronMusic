@@ -94,7 +94,7 @@ export const useLocalMusicStore = defineStore(
         trackCount: params.trackCount as number,
         trackIds: params.trackIds as number[]
       }
-      const result = await window.mainApi.invoke('upsertLocalPlaylist', playlist)
+      const result = await window.mainApi?.invoke('upsertLocalPlaylist', playlist)
       if (result) {
         playlists.value.push(playlist)
         sortPlaylistsIDs.value.unshift(playlist.id)
@@ -114,7 +114,7 @@ export const useLocalMusicStore = defineStore(
         playlist.coverImgUrl = `atom://get-playlist-pic/${imgID}`
         playlist.trackIds = [...playlist.trackIds, ...newIDs]
         playlist.trackCount = playlist.trackIds.length
-        window.mainApi.invoke('upsertLocalPlaylist', toRaw(playlist))
+        window.mainApi?.invoke('upsertLocalPlaylist', toRaw(playlist))
         resolve(true)
       })
     }
@@ -141,13 +141,13 @@ export const useLocalMusicStore = defineStore(
             ? `atom://get-playlist-pic/${playlist.trackIds[idx]}`
             : 'https://p1.music.126.net/jWE3OEZUlwdz0ARvyQ9wWw==/109951165474121408.jpg?param=512y512'
         playlist.trackCount = playlist.trackIds.length
-        window.mainApi.invoke('upsertLocalPlaylist', toRaw(playlist))
+        window.mainApi?.invoke('upsertLocalPlaylist', toRaw(playlist))
         resolve(true)
       })
     }
 
     const deleteLocalPlaylist = async (playlistId: number) => {
-      const result = (await window.mainApi.invoke('deleteLocalPlaylist', playlistId)) as boolean
+      const result = (await window.mainApi?.invoke('deleteLocalPlaylist', playlistId)) as boolean
       if (result) {
         playlists.value = playlists.value.filter((p) => p.id !== playlistId)
         sortPlaylistsIDs.value = sortPlaylistsIDs.value.filter((id) => id !== playlistId)
@@ -194,7 +194,7 @@ export const useLocalMusicStore = defineStore(
   },
   {
     persist: {
-      paths: ['sortBy', 'sortPlaylistsIDs']
+      pick: ['sortBy', 'sortPlaylistsIDs']
     }
   }
 )

@@ -232,7 +232,7 @@ export const useDataStore = defineStore(
   },
   {
     persist: {
-      paths: ['user', 'likedSongPlaylistID', 'lastRefreshCookieDate', 'loginMode']
+      pick: ['user', 'likedSongPlaylistID', 'lastRefreshCookieDate', 'loginMode']
     }
   }
 )

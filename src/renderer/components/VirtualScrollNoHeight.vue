@@ -498,6 +498,9 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', updateWindowHeight)
   observer.unobserve(listRef.value)
   virtualScrolling.value = false
+  eventBus.off('update-start')
+  eventBus.off('update-scroll-bar')
+  eventBus.off('update-done')
 })
 </script>
 

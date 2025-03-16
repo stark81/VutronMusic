@@ -101,11 +101,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import SvgIcon from '../components/SvgIcon.vue'
 import { loginQrCodeKey, loginQrCodeCheck, getLoginStatus } from '../api/auth'
 import qrCode from 'qrcode'
 import { useDataStore } from '../store/data'
+import { useSettingsStore } from '../store/settings'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 import { setCookies } from '../utils/auth'
@@ -113,6 +114,7 @@ import _ from 'lodash'
 
 const router = useRouter()
 const route = useRoute()
+const { theme } = storeToRefs(useSettingsStore())
 
 const mode = ref('qrCode')
 const processing = ref(false)
@@ -127,9 +129,23 @@ const qrCodeCheckInterval = ref<any>(null)
 const qrCodeInformation = ref('打开网易云音乐APP扫码登录')
 
 const dataStore = useDataStore()
-// const likedStore = useLikedStore()
 const { user } = storeToRefs(dataStore)
-// const { playlists } = storeToRefs(likedStore)
+
+const selectedColor = computed(() => {
+  const color = theme.value.colors.find((c) => c.selected)?.color || 'rgba(51, 94, 234, 1)'
+  const parts = color.startsWith('rgba')
+    ? color.slice(5, -1).split(',')
+    : color.slice(4, -1).split(',')
+  const r = parseInt(parts[0].trim(), 10)
+  const g = parseInt(parts[1].trim(), 10)
+  const b = parseInt(parts[2].trim(), 10)
+
+  const red = Math.min(255, Math.max(0, r)).toString(16).padStart(2, '0')
+  const green = Math.min(255, Math.max(0, g)).toString(16).padStart(2, '0')
+  const blue = Math.min(255, Math.max(0, b)).toString(16).padStart(2, '0')
+
+  return `#${red}${green}${blue}`
+})
 
 const login = () => {}
 
@@ -188,7 +204,7 @@ const getQrCodeKey = () => {
           width: 192,
           margin: 0,
           color: {
-            dark: '#335eea',
+            dark: selectedColor.value,
             light: '#00000000'
           },
           type: 'svg'

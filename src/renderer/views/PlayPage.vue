@@ -101,7 +101,7 @@
                 </div>
               </div>
               <div class="progress-bar">
-                <div class="time">{{ formatTime(seek) || '0:00' }}</div>
+                <div class="time">{{ formatTime(position) || '0:00' }}</div>
                 <div class="slider">
                   <vue-slider
                     v-model="position"
@@ -239,7 +239,7 @@ import { useSettingsStore, TranslationMode } from '../store/settings'
 import { usePlayerStore } from '../store/player'
 import { useDataStore } from '../store/data'
 import { storeToRefs } from 'pinia'
-import { ref, computed, watch, provide, toRefs } from 'vue'
+import { ref, computed, watch, provide, toRefs, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStreamMusicStore } from '../store/streamingMusic'
 
@@ -298,12 +298,12 @@ const position = computed({
     const line = lyrics.value.lyric.find((l, index) => {
       const nextLine = lyrics.value.lyric[index + 1]
       if (nextLine) {
-        return nextLine.time > value && l.time <= value
+        return nextLine.start > value && l.start <= value
       } else {
-        return value >= l.time && value < l.time + 10
+        return value >= l.start && value < l.start + 10
       }
     })
-    seek.value = line?.time ?? value
+    seek.value = line?.start ?? value
   }
 })
 
@@ -320,6 +320,7 @@ const likeTrack = () => {
 }
 
 const formatTime = (time: number) => {
+  time = Math.round(time)
   const minutes = Math.floor(time / 60)
   const remainingSeconds = Math.ceil(time % 60)
   return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
@@ -350,7 +351,18 @@ const marks = computed(() => {
 
 watch(showLyrics, (value) => {
   if (!value) {
+    // clearTimeout(timer)
+    // updateCurrentTime()
+  } else {
     show.value = 'lyric'
+  }
+})
+
+watch(playing, (value) => {
+  if (value) {
+    // updateCurrentTime()
+  } else {
+    // clearTimeout(timer)
   }
 })
 
@@ -386,6 +398,11 @@ const switchRightPage = (name: string) => {
 }
 
 provide('show', show)
+
+onBeforeUnmount(() => {
+  // clearTimeout(timer)
+  // if (rOnTimeupdate) rOnTimeupdate()
+})
 </script>
 
 <style scoped lang="scss">
@@ -397,7 +414,7 @@ provide('show', show)
   right: 0;
   z-index: 100;
   color: var(--color-text);
-  overflow-y: hidden;
+  overflow: hidden;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
 }
@@ -413,7 +430,7 @@ provide('show', show)
 .left-side {
   display: flex;
   justify-content: flex-end;
-  padding-right: 8vh;
+  padding-right: 4rem;
   width: 50vw;
   align-items: center;
   transition: all 0.5s;
@@ -422,8 +439,8 @@ provide('show', show)
   .cover {
     position: relative;
     img {
-      height: 54vh;
-      width: 54vh;
+      height: min(50vh, 33.33vw);
+      width: min(50vh, 33.33vw);
       user-select: none;
       object-fit: cover;
       border-radius: 0.75rem;
@@ -432,7 +449,7 @@ provide('show', show)
 
   .controls {
     color: var(--color-text);
-    max-width: 54vh;
+    max-width: min(50vh, 33.33vw);
     margin-top: 20px;
     position: relative;
 

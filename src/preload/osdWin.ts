@@ -1,5 +1,4 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
-// import store from '../main/store'
 
 const mainAvailChannels: string[] = ['mouseleave', 'from-osd', 'osd-resize', 'windowMouseleave']
 
@@ -9,6 +8,26 @@ const rendererAvailChannels: string[] = [
   'updateLyricInfo',
   'mouseleave-completely'
 ]
+
+let messagePort: MessagePort | null = null
+
+ipcRenderer.on('port-connect', (event: any) => {
+  if (messagePort) {
+    messagePort.close()
+  }
+  messagePort = event.ports[0]
+  messagePort.start()
+
+  messagePort.onmessage = (event) => {
+    window.postMessage(event.data, '*')
+  }
+})
+
+window.addEventListener('unload', () => {
+  if (messagePort) {
+    messagePort.close()
+  }
+})
 
 contextBridge.exposeInMainWorld('mainApi', {
   send: (channel: string, ...data: any[]): void => {
@@ -46,6 +65,19 @@ contextBridge.exposeInMainWorld('mainApi', {
     }
 
     throw new Error(`Unknown ipc channel name: ${channel}`)
+  },
+  sendMessage: (message: any) => {
+    if (messagePort) {
+      messagePort.postMessage(message)
+    } else {
+      throw new Error('Message port is not available')
+    }
+  },
+  closeMessagePort: () => {
+    if (messagePort) {
+      messagePort.close()
+      messagePort = null
+    }
   }
 })
 

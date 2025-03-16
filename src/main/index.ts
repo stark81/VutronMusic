@@ -1,5 +1,16 @@
-import { app, BrowserWindow, dialog, globalShortcut, Menu, net, protocol, screen } from 'electron'
-import { release } from 'os'
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  globalShortcut,
+  Menu,
+  net,
+  protocol,
+  screen,
+  MessageChannelMain,
+  powerMonitor,
+  MessagePortMain
+} from 'electron'
 import fs from 'fs'
 import Constants from './utils/Constants'
 import store from './store'
@@ -14,12 +25,13 @@ import netease from './appServer/netease'
 import IPCs from './IPCs'
 import fastifyStatic from '@fastify/static'
 import path from 'path'
-import { parseFile, IAudioMetadata } from 'music-metadata'
 import mime from 'mime-types'
 import cache from './cache'
 import {
   getPic,
+  getPicFromApi,
   getLyric,
+  getLyricFromApi,
   getPicColor,
   getTrackDetail,
   getAudioSource,
@@ -30,9 +42,6 @@ import {
 } from './utils/utils'
 import { CacheAPIs } from './utils/CacheApis'
 import { registerGlobalShortcuts } from './globalShortcut'
-// import { Readable } from 'stream'
-
-const cacheTracks = new Map<string, any>()
 
 const closeOnLinux = (e: any, win: BrowserWindow) => {
   const closeOpt = store.get('settings.closeAppOption') || 'ask'
@@ -92,9 +101,11 @@ class BackGround {
   willQuitApp: boolean = !Constants.IS_MAC
   checkInterval: any = null
   lastKnownMousePosition = { x: 0, y: 0 }
+  port1: MessagePortMain | null = null
+  port2: MessagePortMain | null = null
 
   async init() {
-    if (release().startsWith('6.1')) app.disableHardwareAcceleration()
+    // if (release().startsWith('6.1')) app.disableHardwareAcceleration()
     if (process.platform === 'win32') app.setAppUserModelId(app.getName())
     if (!app.requestSingleInstanceLock()) {
       app.quit()
@@ -118,6 +129,10 @@ class BackGround {
     // create fastify app
     this.fastifyApp = await this.createFastifyApp()
 
+    const { port1, port2 } = new MessageChannelMain()
+    this.port1 = port1
+    this.port2 = port2
+
     this.handleAppEvents()
   }
 
@@ -125,9 +140,6 @@ class BackGround {
     const server = fastify({
       ignoreTrailingSlash: true
     })
-    // server.register(fastifyCors, {
-    //   origin: '*'
-    // })
     server.register(fastifyCookie)
     server.register(fastifyStatic, {
       root: path.join(__dirname, '../')
@@ -218,8 +230,6 @@ class BackGround {
     const option = {
       title: '桌面歌词',
       show: false,
-      // width: store.get('osdWin.type') === 'small' ? 700 : 400,
-      // height: store.get('osdWin.type') === 'small' ? 140 : 700,
       width:
         type === 'small'
           ? ((store.get('osdWin.width') || 700) as number)
@@ -367,6 +377,9 @@ class BackGround {
       this.lyricWin.showInactive()
       if (!Constants.IS_LINUX) this.toggleMouseIgnore()
     })
+    this.lyricWin.webContents.on('did-finish-load', () => {
+      this.initMessageChannel()
+    })
     this.lyricWin.on('will-resize', () => {
       this.checkOsdMouseLeave(1000)
     })
@@ -399,10 +412,18 @@ class BackGround {
   }
 
   showOSDWindow(type = 'small') {
-    if (!this.lyricWin) {
+    const osdLyric = (store.get('osdWin.show') as boolean) || false
+    if (!this.lyricWin && osdLyric) {
       this.createOSDWindow(type)
       this.handleOSDWindowEvents()
     }
+  }
+
+  initMessageChannel() {
+    if (!this.lyricWin) return
+    const { port1, port2 } = new MessageChannelMain()
+    this.win.webContents.postMessage('port-connect', null, [port1])
+    this.lyricWin.webContents.postMessage('port-connect', null, [port2])
   }
 
   initOSDWindow() {
@@ -430,19 +451,14 @@ class BackGround {
           track = res.songs[0]
         }
         let url = track.album?.picUrl || track.al?.picUrl
-        if (url === 'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg') {
-          url = 'atom://get-default-pic'
-        } else if (url.startsWith('http://')) {
-          url = url.replace('http://', 'https://')
-          url = `${url}?param=64y64`
-        }
-        let metadata = null
-
-        if (track.type === 'local') {
-          metadata = await parseFile(decodeURI(track.filePath))
+        url = `${url}?param=64y64`
+        if (track.album) {
+          track.album.picture = url
+        } else if (track.al) {
+          track.al.picUrl = url
         }
 
-        const result = await getPic(url, track.matched, metadata)
+        const result = await getPic(track)
 
         const pic = result.pic
         const format = result.format
@@ -453,10 +469,11 @@ class BackGround {
         return new Response(pic)
       } else if (host === 'get-pic-path') {
         const filePath = pathname.slice(1)
-        const url = 'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg'
-        const metadata = await parseFile(decodeURI(filePath))
+        // const url = 'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg'
+        // const metadata = await parseFile(decodeURI(filePath))
+        const track = { matched: false, filePath }
 
-        const result = await getPic(url, false, metadata)
+        const result = await getPic(track)
         return new Response(result.pic, { headers: { 'Content-Type': result.format } })
       } else if (host === 'get-playlist-pic') {
         const ids = pathname.slice(1)
@@ -467,12 +484,13 @@ class BackGround {
           ? track.album.picUrl + '?param=512y512'
           : 'https://p1.music.126.net/jWE3OEZUlwdz0ARvyQ9wWw==/109951165474121408.jpg?param=512y512'
 
-        let metadata = null
-        if (track.type === 'local') {
-          metadata = await parseFile(decodeURI(track.filePath))
+        if (track.album) {
+          track.album.picUrl = url
+        } else if (track.al) {
+          track.al.picUrl = url
         }
 
-        const result = await getPic(url, track.matched, metadata)
+        const result = await getPic(track)
         return new Response(result.pic, { headers: { 'Content-Type': result.format } })
       } else if (host === 'get-lyric') {
         const ids = pathname.slice(1)
@@ -488,10 +506,9 @@ class BackGround {
 
         if (res?.songs?.length > 0) {
           const track = res.songs[0]
-
-          lyrics = await getLyric(track.id, track.matched, track.filePath)
+          lyrics = await getLyric(track)
         } else {
-          lyrics = await getLyric(Number(ids), true, null)
+          lyrics = await getLyricFromApi(Number(ids))
         }
 
         return new Response(JSON.stringify(lyrics), {
@@ -504,36 +521,25 @@ class BackGround {
         if (res?.songs?.length > 0) {
           track = res.songs[0]
         } else {
-          track = cacheTracks.get(ids)
-          if (track) {
-            cacheTracks.delete(ids)
-          } else {
-            const res = await getTrackDetail(ids)
-            track = res.songs[0]
-          }
+          const res = await getTrackDetail(ids)
+          track = res.songs[0]
           track.matched = true
         }
 
         let url = track.album?.picUrl || track.al?.picUrl
-        if (url === 'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg') {
-          url = 'atom://get-default-pic'
-        } else if (url.startsWith('http://')) {
-          url = url.replace('http://', 'https://')
-        }
         url = `${url}?param=512y512`
-        let metadata: IAudioMetadata | null = null
 
-        // const useInnerFirst = store.get('settings.innerFirst') as boolean
-        if (track.type === 'local' && !track.matched) {
-          metadata = await parseFile(decodeURI(track.filePath))
+        if (track.album) {
+          track.album.picture = url
+        } else if (track.al) {
+          track.al.picUrl = url
         }
 
         // 获取歌词信息
-        const paramForLocal = metadata ?? track.filePath ?? null
-        const lyrics = await getLyric(track.id, track.matched, paramForLocal)
+        const lyrics = await getLyric(track)
 
         // 获取封面
-        const { pic, format } = await getPic(url, track.matched, metadata)
+        const { pic, format } = await getPic(track)
 
         // 获取颜色
         const { color, color2 } = await getPicColor(pic)
@@ -583,8 +589,6 @@ class BackGround {
             track.insertTime = Date.now()
             cache.set(CacheAPIs.LocalMusic, { newTracks: [track] })
           })
-        } else {
-          cacheTracks.set(ids, track)
         }
 
         return new Response(JSON.stringify(track), {
@@ -593,7 +597,7 @@ class BackGround {
       } else if (host === 'get-color') {
         const urlString = pathname.slice(1)
         const [url, savePic] = urlString.split('/save-pic=')
-        const { pic, format } = await getPic(url, true, null)
+        const { pic, format } = await getPicFromApi(url)
         const { color, color2 } = await getPicColor(pic)
         const jsonString = savePic
           ? {
@@ -693,7 +697,7 @@ class BackGround {
 
       // create window
       this.createMainWindow()
-      this.initOSDWindow()
+      // this.initOSDWindow()
 
       // window events
       this.handleWindowEvents()
@@ -741,6 +745,10 @@ class BackGround {
 
     app.on('quit', () => {
       this.fastifyApp?.close()
+    })
+
+    powerMonitor.on('resume', () => {
+      setTimeout(() => this.initMessageChannel(), 1000)
     })
 
     app.on('will-quit', () => {

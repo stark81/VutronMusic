@@ -5,16 +5,7 @@
     <NavBar ref="navBarRef" />
     <div id="main" ref="mainRef" :style="mainStyle">
       <router-view v-slot="{ Component }">
-        <keep-alive
-          :include="[
-            'HomePage',
-            'ExplorePage',
-            'LibraryMusic',
-            'SearchPage',
-            'ArtistPage'
-            // 'LocalMusic'
-          ]"
-        >
+        <keep-alive :include="['HomePage', 'LibraryMusic']">
           <component :is="Component"></component>
         </keep-alive>
       </router-view>
@@ -81,7 +72,7 @@ const fetchData = () => {
   fetchCloudDisk()
 }
 const fetchLocalData = () => {
-  window.mainApi.send('clearDeletedMusic')
+  window.mainApi?.send('clearDeletedMusic')
   scanLocalMusic()
 }
 
@@ -129,14 +120,18 @@ const restorePosition = () => {
 }
 
 const watchOsdEvent = () => {
-  watch(show, (value) => {
-    window.mainApi.send('updateOsdState', { show: value })
-  })
+  watch(
+    show,
+    (value) => {
+      window.mainApi?.send('updateOsdState', { show: value })
+    },
+    { immediate: true }
+  )
   watch(type, (value) => {
-    window.mainApi.send('updateOsdState', { type: value })
+    window.mainApi?.send('updateOsdState', { type: value })
   })
   watch(isLock, (value) => {
-    window.mainApi.send('updateOsdState', { isLock: value })
+    window.mainApi?.send('updateOsdState', { isLock: value })
   })
 }
 
@@ -159,32 +154,39 @@ const scanLocalMusic = async () => {
   const filePath = scanDir.value
 
   if (!filePath) return
-  const isExist = await window.mainApi.invoke('msgCheckFileExist', filePath)
+  const isExist = await window.mainApi?.invoke('msgCheckFileExist', filePath)
   if (!isExist) return
   scanning.value = true
-  window.mainApi.send('msgScanLocalMusic', filePath)
+  window.mainApi?.send('msgScanLocalMusic', filePath)
 }
 
 provide('scanLocalMusic', scanLocalMusic)
 
 const handleChanelEvent = () => {
-  window.mainApi.send('updateOsdState', { show: show.value })
-  window.mainApi.on('msgHandleScanLocalMusic', (_: any, data: { track: any }) => {
+  window.mainApi?.send('updateOsdState', { show: show.value })
+  window.mainApi?.on('msgHandleScanLocalMusic', (_: any, data: { track: any }) => {
     localTracks.value.push(data.track)
   })
-  window.mainApi.on('scanLocalMusicDone', (_: any) => {
+  window.mainApi?.on(
+    'msgHandleScanLocalMusicError',
+    (_: any, data: { err: any; filePath: string }) => {
+      console.log(`扫描本地歌曲 ${data.filePath} 出错： ${data.err}`)
+      showToast(`扫描本地歌曲出错, 详情见：开发者工具-控制台`)
+    }
+  )
+  window.mainApi?.on('scanLocalMusicDone', (_: any) => {
     scanning.value = false
   })
-  window.mainApi.on('msgDeletedTracks', (_: any, trackIDs: number[]) => {
+  window.mainApi?.on('msgDeletedTracks', (_: any, trackIDs: number[]) => {
     deleteLocalTracks(trackIDs)
   })
-  window.mainApi.on('rememberCloseAppOption', (_: any, result: string) => {
+  window.mainApi?.on('rememberCloseAppOption', (_: any, result: string) => {
     general.value.closeAppOption = result
   })
-  window.mainApi.on('msgExtensionCheckResult', (_: any, result: boolean) => {
+  window.mainApi?.on('msgExtensionCheckResult', (_: any, result: boolean) => {
     extensionCheckResult.value = result
   })
-  window.mainApi.on('updateOSDSetting', (_: any, data: { [key: string]: any }) => {
+  window.mainApi?.on('updateOSDSetting', (_: any, data: { [key: string]: any }) => {
     const [key, value] = Object.entries(data)[0] as [string, any]
     if (key === 'show') {
       show.value = value
@@ -213,7 +215,7 @@ onMounted(async () => {
     })
   }
   if (isLinux.value) {
-    window.mainApi.invoke('askExtensionStatus').then((result: boolean) => {
+    window.mainApi?.invoke('askExtensionStatus').then((result: boolean) => {
       extensionCheckResult.value = result
     })
   }

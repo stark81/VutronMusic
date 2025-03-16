@@ -3,7 +3,7 @@ import { ref } from 'vue'
 
 export type Type = 'small' | 'normal'
 export type Mode = 'oneLine' | 'twoLines'
-export type TranslationMode = 'none' | 'tlyric' | 'romalrc'
+export type TranslationMode = 'none' | 'tlyric' | 'rlyric'
 
 export const useOsdLyricStore = defineStore(
   'osdLyric',
@@ -43,7 +43,7 @@ export const useOsdLyricStore = defineStore(
     })
 
     // onMounted(() => {
-    //   window.mainApi.send('updateOsdState', { show: show.value })
+    //   window.mainApi?.send('updateOsdState', { show: show.value })
     // })
 
     return {

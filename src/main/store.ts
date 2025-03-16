@@ -1,5 +1,7 @@
 import Store from 'electron-store'
 
+export type TrackInfoOrder = 'path' | 'online' | 'embedded'
+
 export interface TypeElectronStore {
   window: {
     width: number
@@ -67,6 +69,7 @@ const store = new Store<TypeElectronStore>({
         jooxCookie: '',
         qqCookie: ''
       },
+      trackInfoOrder: ['path', 'online', 'embedded'] as TrackInfoOrder[],
       autoCacheTrack: {
         enable: false,
         sizeLimit: 512 as boolean | number

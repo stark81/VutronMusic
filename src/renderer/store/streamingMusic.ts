@@ -34,7 +34,7 @@ export const useStreamMusicStore = defineStore(
     const fetchStreamMusic = async () => {
       if (status[select.value] === 'logout' || !enable.value) return
       await window.mainApi
-        .invoke('get-stream-songs', { platform: select.value })
+        ?.invoke('get-stream-songs', { platform: select.value })
         .then((data: { code: number; message: string; tracks: any; playlists: any }) => {
           if (data.code === 200) {
             status[select.value] = 'login'
@@ -55,7 +55,7 @@ export const useStreamMusicStore = defineStore(
 
     const fetchStreamPlaylist = async () => {
       window.mainApi
-        .invoke('get-stream-playlists', { platform: select.value })
+        ?.invoke('get-stream-playlists', { platform: select.value })
         .then((data: { code: number; playlists: StreamPlaylist[] }) => {
           if (data.code === 200) {
             playlists.value = data.playlists
@@ -75,7 +75,7 @@ export const useStreamMusicStore = defineStore(
         if (!newIDs.length) return false
       }
 
-      const status: boolean = await window.mainApi.invoke('updateStreamPlaylist', {
+      const status: boolean = await window.mainApi?.invoke('updateStreamPlaylist', {
         op,
         platform: select.value,
         playlistId,
@@ -88,18 +88,18 @@ export const useStreamMusicStore = defineStore(
     }
 
     const scrobble = (id: string) => {
-      window.mainApi.send('scrobbleStreamMusic', { platform: select.value, id })
+      window.mainApi?.send('scrobbleStreamMusic', { platform: select.value, id })
     }
 
     const handleStreamLogout = () => {
-      window.mainApi.invoke('logoutStreamMusic', { platform: select.value }).then(() => {
+      window.mainApi?.invoke('logoutStreamMusic', { platform: select.value }).then(() => {
         status[select.value] = 'logout'
       })
     }
 
     const likeAStreamTrack = (op: 'unstar' | 'star', id: string | number) => {
       window.mainApi
-        .invoke('likeAStreamTrack', { platform: select.value, operation: op, id })
+        ?.invoke('likeAStreamTrack', { platform: select.value, operation: op, id })
         .then((res: boolean) => {
           if (res) {
             const track = streamTracks.value.find((track) => track.id === id)
@@ -135,7 +135,7 @@ export const useStreamMusicStore = defineStore(
   },
   {
     persist: {
-      paths: ['sortBy', 'enable', 'status', 'select']
+      pick: ['sortBy', 'enable', 'status', 'select']
     }
   }
 )

@@ -112,7 +112,7 @@ const createAPlaylist = async () => {
     }
   } else if (type.value === 'stream') {
     window.mainApi
-      .invoke('createStreamPlaylist', {
+      ?.invoke('createStreamPlaylist', {
         name: title.value,
         platform: select.value
       })

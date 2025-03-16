@@ -17,7 +17,6 @@
       ></div
     >
     <LyricContainer />
-    <!-- <TestLyric /> -->
   </div>
 </template>
 
@@ -25,7 +24,6 @@
 import { storeToRefs } from 'pinia'
 import Header from '../components/OsdHeader.vue'
 import LyricContainer from '../components/OsdLyricContainer.vue'
-// import TestLyric from '../components/TestLyric.vue'
 import SvgIcon from '../components/SvgIcon.vue'
 import { useOsdLyricStore } from '../store/osdLyric'
 import { ref, computed } from 'vue'
@@ -60,7 +58,7 @@ const handleLock = () => {
 }
 
 document.addEventListener('mouseleave', () => {
-  window.mainApi.send('windowMouseleave')
+  window.mainApi?.send('windowMouseleave')
 })
 
 window.mainApi?.on('mouseleave-completely', () => {

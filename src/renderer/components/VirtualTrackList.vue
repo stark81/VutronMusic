@@ -296,7 +296,7 @@ const play = () => {
 }
 
 const showInFolder = () => {
-  window.mainApi.send('msgShowInFolder', rightClickedTrackComputed.value.filePath)
+  window.mainApi?.send('msgShowInFolder', rightClickedTrackComputed.value.filePath)
 }
 
 const openMenu = (e: MouseEvent, track: { [key: string]: any }, index: number) => {

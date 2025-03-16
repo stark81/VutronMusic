@@ -30,20 +30,20 @@
       />
       <div v-show="hover" class="progress-tooltip" :data-tip="hoverText"></div>
     </div>
-    <div class="controls">
+    <div class="controls" @click="showLyrics = !showLyrics">
       <div class="left">
-        <img :src="pic" loading="lazy" @click="goToAlbum" />
+        <img :src="pic" loading="lazy" @click.stop="goToAlbum" />
         <div class="track-info">
           <div
             :class="['title', { haslist: hasListSource() }]"
             :title="source"
-            @click="hasListSource() && goToList()"
+            @click.stop="hasListSource() && goToList()"
           >
             <span>{{ currentTrack?.name }}</span>
           </div>
           <div class="albumAndLyric">
             <span v-for="(ar, index) in artists" :key="ar.id" class="artist">
-              <span :class="{ ar: ar.matched !== false }" @click="goToArtist(ar)">
+              <span :class="{ ar: ar.matched !== false }" @click.stop="goToArtist(ar)">
                 {{ ar.name }}
               </span>
               <span v-if="index !== artists.length! - 1">, </span>
@@ -57,33 +57,33 @@
           <button-icon
             :class="{ active: isLiked, disabled: heartDisabled }"
             :title="heartDisabled ? $t('player.noAllowCauseLocal') : $t('player.like')"
-            @click="likeTrack"
+            @click.stop="likeTrack"
           >
             <svg-icon icon-class="heart-solid"></svg-icon>
           </button-icon>
-          <button-icon v-show="!isPersonalFM" :title="$t('player.previous')" @click="playPrev"
+          <button-icon v-show="!isPersonalFM" :title="$t('player.previous')" @click.stop="playPrev"
             ><svg-icon icon-class="previous"
           /></button-icon>
           <button-icon
             v-show="isPersonalFM"
             :title="$t('player.moveToFMTrash')"
-            @click="moveToFMTrash"
+            @click.stop="moveToFMTrash"
             ><svg-icon icon-class="thumbs-down"
           /></button-icon>
           <button-icon
             class="play"
             :title="playing ? $t('player.pause') : $t('player.play')"
-            @click="playOrPause"
+            @click.stop="playOrPause"
           >
             <svg-icon :icon-class="playing ? 'pause' : 'play'"
           /></button-icon>
-          <button-icon :title="$t('player.next')" @click="_playNextTrack(isPersonalFM)"
+          <button-icon :title="$t('player.next')" @click.stop="_playNextTrack(isPersonalFM)"
             ><svg-icon icon-class="next"
           /></button-icon>
           <button-icon
             :title="$t('player.osdLyrics')"
             :class="{ active: show }"
-            @click="show = !show"
+            @click.stop="show = !show"
             ><svg-icon icon-class="osd-lyrics"
           /></button-icon>
         </div>
@@ -96,7 +96,7 @@
             active: route.name === 'next',
             disabled: isPersonalFM
           }"
-          @click="goToNextTracksPage"
+          @click.stop="goToNextTracksPage"
           ><svg-icon icon-class="list"
         /></button-icon>
         <button-icon
@@ -105,7 +105,7 @@
             disabled: isPersonalFM
           }"
           :title="repeatMode === 'one' ? $t('player.repeatTrack') : $t('player.repeat')"
-          @click="switchRepeatMode"
+          @click.stop="switchRepeatMode"
         >
           <svg-icon v-show="repeatMode !== 'one'" icon-class="repeat" />
           <svg-icon v-show="repeatMode === 'one'" icon-class="repeat-1" />
@@ -113,11 +113,11 @@
         <button-icon
           :class="{ active: shuffle, disabled: isPersonalFM }"
           :title="$t('player.shuffle')"
-          @click="shuffle = !shuffle"
+          @click.stop="shuffle = !shuffle"
           ><svg-icon icon-class="shuffle"
         /></button-icon>
         <div class="volume">
-          <div class="volume-slider">
+          <div class="volume-slider" @click.stop>
             <vue-slider
               v-model="volume"
               :min="0"
@@ -149,7 +149,7 @@
           class="lyrics-button"
           title="歌词"
           style="margin-left: 12px"
-          @click="showLyrics = !showLyrics"
+          @click.stop="showLyrics = !showLyrics"
           ><svg-icon icon-class="arrow-up"
         /></button-icon>
       </div>
@@ -230,12 +230,12 @@ const position = computed({
     const line = lyrics.value.lyric.find((l, index) => {
       const nextLine = lyrics.value.lyric[index + 1]
       if (nextLine) {
-        return nextLine.time > value && l.time <= value
+        return nextLine.start > value && l.start <= value
       } else {
-        return value >= l.time && value < l.time + 10
+        return value >= l.start && value < l.start + 10
       }
     })
-    seek.value = line ? line?.time - (currentTrack.value?.offset || 0) : value
+    seek.value = line ? line?.start - (currentTrack.value?.offset || 0) : value
   }
 })
 
@@ -294,9 +294,9 @@ const getPosition = (e: MouseEvent) => {
   const hoverLyric = lyrics.value.lyric?.find((l, index) => {
     const nextLine = lyrics.value.lyric[index + 1]
     if (nextLine) {
-      return nextLine.time > hoverValue.value && l.time <= hoverValue.value
+      return nextLine.start > hoverValue.value && l.start <= hoverValue.value
     } else {
-      return hoverValue.value >= l.time && hoverValue.value < currentTrackDuration.value
+      return hoverValue.value >= l.start && hoverValue.value < currentTrackDuration.value
     }
   })
   hoverText.value = hoverLyric ? `[${time}] ${hoverLyric?.content}` : time
