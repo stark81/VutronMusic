@@ -234,6 +234,11 @@ watch(playing, (value) => {
   if (value) {
     startTime.value = performance.now() - progress.value
     animate()
+  } else {
+    if (animationFrameId) {
+      cancelAnimationFrame(animationFrameId)
+      animationFrameId = null
+    }
   }
 })
 
