@@ -19,8 +19,8 @@ class Mpris implements MprisImpl {
   private _win: BrowserWindow
   private Player: any
   constructor(win: BrowserWindow) {
-    this.Player = require('mpris-service')
-    this._player = this.Player({
+    this.Player = require('@jellybrick/mpris-service')
+    this._player = new this.Player({
       name: 'VutronMusic',
       identity: 'VutronMusic'
     })

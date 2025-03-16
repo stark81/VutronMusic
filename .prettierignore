@@ -3,10 +3,11 @@
 
 # IDEs
 .idea/
-.vscode/
+# .vscode/
 
 # Project files
-.github/
+.github/*
+!.github/workflows/
 buildAssets/icons/
 dist/
 release/

@@ -12,23 +12,24 @@ permissions: write-all
 
 jobs:
   Release:
-    runs-on: ${{ matrix.os }}
-
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest] #, ubuntu-latest]
+        os: [windows-latest, macos-latest, ubuntu-latest]
+        arch: [x64]
         include:
           - os: macos-latest
-            arch: x64
-          - os: macos-latest
             arch: arm64
+
+    runs-on: ${{ matrix.os }}
+    env:
+      XVFB_PFX: ${{ (matrix.os == 'ubuntu-latest' && 'xvfb-run --auto-servernum -- ') || '' }}
 
     steps:
       - name: Check out Git repository
         uses: actions/checkout@v4
         with:
-          submodules: "recursive"
+          submodules: 'recursive'
 
       - name: Install Node.js, NPM and Yarn
         uses: actions/setup-node@v4
@@ -36,124 +37,77 @@ jobs:
           node-version: 22
           cache: 'yarn'
 
-      - name: Setup node-gyp requirements
-        if: matrix.os == 'macos-latest'
-        run: |
-          python -m pip install --upgrade pip
-          pip install setuptools
-          npm install -g node-gyp
-
       - name: Install build essentials (macOS)
         if: matrix.os == 'macos-latest'
-        run: |-
-          brew install rpm
+        run: brew install rpm
+
+      # - name: Install build essentials (macOS & Linux)
+      #   if: matrix.os != 'windows-latest'
+      #   run: |
+      #     python -m pip install --upgrade pip
+      #     pip install setuptools
+      #     npm install -g node-gyp
 
       - name: Install deps
-        run: |-
-          yarn
-
-      - name: Build/release Electron app (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.github_token }}
-        run: |-
-          yarn build:win || yarn build:win
-
-      # - name: Build/release Electron app (Linux)
-      #   if: matrix.os == 'macos-latest'
-      #   shell: bash
-      #   env:
-      #     GH_TOKEN: ${{ secrets.github_token }}
-      #   run: |-
-      #     yarn build:linux || yarn build:linux
-
-      # - name: Rebuild native dependencies for current architecture
-      #   if: matrix.os == 'macos-latest'
-      #   run: |
-      #     npm rebuild --target_arch=x64
-      #     ./node_modules/.bin/electron-rebuild --arch=x64
-
-      # - name: Build/release Electron app (macOS-x64)
-      #   if: matrix.os == 'macos-latest'
-      #   shell: bash
-      #   env:
-      #     GH_TOKEN: ${{ secrets.github_token }}
-      #     ARCH: x64
-      #   run: |
-      #     yarn build:mac --x64 || yarn build:mac --x64
+        run: ${{ env.XVFB_PFX }}yarn
 
       - name: Rebuild native dependencies for current architecture
-        if: matrix.os == 'macos-latest'
         run: |
-          npm rebuild --target_arch=arm64
-          ./node_modules/.bin/electron-rebuild --arch=arm64
+          ${{ env.XVFB_PFX }}npm rebuild --target_arch=${{ matrix.arch }}
+          ${{ env.XVFB_PFX }}./node_modules/.bin/electron-rebuild --arch=${{ matrix.arch }}
 
-      - name: Build/release Electron app (macOS-arm64)
-        if: matrix.os == 'macos-latest'
+      - name: Build/release Electron app
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.github_token }}
-          ARCH: arm64
-        run: |
-          yarn build:mac --arm64 || yarn build:mac --arm64
+          ARCH: ${{ matrix.arch }}
+        run: yarn build --${{ matrix.arch }} || yarn build --${{ matrix.arch }}
 
       - uses: actions/upload-artifact@v4
+        if: matrix.os == 'windows-latest'
         with:
-          name: VutronMusic-win-installer
-          path: release/*/VutronMusic*_x64.exe
+          name: VutronMusic-win-installer-${{ matrix.arch }}
+          path: release/*/VutronMusic*_${{ matrix.arch }}.exe
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
+        if: matrix.os == 'windows-latest'
         with:
-          name: VutronMusic-win-portable
-          path: release/*/VutronMusic*_x64 Portable.exe
+          name: VutronMusic-win-portable-${{ matrix.arch }}
+          path: release/*/VutronMusic*_${{ matrix.arch }} Portable.exe
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
+        if: matrix.os == 'macos-latest'
         with:
-          name: VutronMusic-windows-yml
-          path: release/*/latest.yml
-          if-no-files-found: ignore
-
-      # - uses: actions/upload-artifact@v4
-      #   with:
-      #     name: VutronMusic-mac-x64
-      #     path: release/*/VutronMusic*_x64.dmg
-      #     if-no-files-found: ignore
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: VutronMusic-mac-arm64
-          path: release/*/VutronMusic*_arm64.dmg
+          name: VutronMusic-mac-${{ matrix.arch }}
+          path: release/*/VutronMusic*_${{ matrix.arch }}.dmg
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
+        if: matrix.os == 'ubuntu-latest'
         with:
-          name: VutronMusic-mac-arm64-yml
-          path: release/*/latest-mac.yml
+          name: VutronMusic-linux-snap-${{ matrix.arch }}
+          path: release/*/VutronMusic*.snap
           if-no-files-found: ignore
 
-      # - uses: actions/upload-artifact@v4
-      #   with:
-      #     name: VutronMusic-linux-snap
-      #     path: release/*/VutronMusic*.snap
-      #     if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: VutronMusic-linux-AppImage-${{ matrix.arch }}
+          path: release/*/VutronMusic*.AppImage
+          if-no-files-found: ignore
 
-      # - uses: actions/upload-artifact@v4
-      #   with:
-      #     name: VutronMusic-linux-AppImage
-      #     path: release/*/VutronMusic*.AppImage
-      #     if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: VutronMusic-linux-deb-${{ matrix.arch }}
+          path: release/*/VutronMusic*.deb
+          if-no-files-found: ignore
 
-      # - uses: actions/upload-artifact@v4
-      #   with:
-      #     name: VutronMusic-linux-deb
-      #     path: release/*/VutronMusic*.deb
-      #     if-no-files-found: ignore
-
-      # - uses: actions/upload-artifact@v4
-      #   with:
-      #     name: VutronMusic-linux-rpm
-      #     path: release/*/VutronMusic*.rpm
-      #     if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: VutronMusic-linux-rpm-${{ matrix.arch }}
+          path: release/*/VutronMusic*.rpm
+          if-no-files-found: ignore
