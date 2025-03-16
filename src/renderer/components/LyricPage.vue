@@ -16,17 +16,17 @@
         <svg-icon icon-class="forward5s" />
       </button-icon>
     </div>
-    <div id="line-1" class="line"></div>
+    <div>
+      <div id="line-1" class="line"></div>
     <div
       v-for="line in lyricWithTranslation"
       :id="`line${line.index}`"
       :key="line.index"
       class="line"
       :class="{
-        haswByw,
-        notWordByWord: !haswByw,
-        highlight: line.index === currentLyricIndex,
-        normal: line.index !== currentLyricIndex
+        'word-mode': haswByw,
+        'line-mode': !haswByw,
+        active: line.index === currentLyricIndex
       }"
       @click="seek = Number(line.start) / 1000 - (currentTrack?.offset || 0)"
     >
@@ -68,6 +68,8 @@
         >
       </div>
     </div>
+    </div>
+
   </div>
 </template>
 
@@ -112,7 +114,6 @@ const haswByw = computed(() => {
 
 const lyricWithTranslation = computed(() => {
   const ret = [] as any[]
-  // console.log('=====11=====', lyrics.value)
   const lyricFiltered = lyrics.value.lyric.filter(({ content }) => Boolean(content))
   if (lyricFiltered.length) {
     lyricFiltered.forEach((l, index) => {
@@ -230,10 +231,6 @@ watch(currentLyricIndex, (value) => {
 })
 
 watch(playing, (value) => {
-  if (animationFrameId) {
-    cancelAnimationFrame(animationFrameId)
-    animationFrameId = null
-  }
   if (value) {
     startTime.value = performance.now() - progress.value
     animate()
@@ -358,10 +355,10 @@ onBeforeUnmount(() => {
 .line {
   border-radius: 12px;
   margin: 2px 0;
-  transition: font-size 0.3s ease-in;
   user-select: none;
   padding: 12px;
-  will-change: background;
+  font-weight: 550;
+  will-change: background-size;
 
   &:hover {
     background: var(--color-secondary-bg-for-transparent);
@@ -370,96 +367,52 @@ onBeforeUnmount(() => {
   &:first-child {
     margin-top: 40vh;
   }
-}
 
-.line#line-1 {
-  margin-top: 40vh;
-}
-
-.line:last-child {
-  margin-bottom: calc(50vh - 128px);
-}
-
-.lyric-line {
-  font-size: v-bind('`${nFontSize}px`');
-  font-weight: 650;
-}
-
-.traslation {
-  font-size: v-bind('`${nFontSize - 4}px`');
-  font-weight: 650;
-}
-
-.line.haswByw {
-  .lyric-line,
-  .traslation {
-    color: transparent;
-    background: v-bind(
-      '`linear-gradient(to right, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.18) 0%) text`'
-    );
+  &:last-child {
+    margin-bottom: 40vh;
   }
 }
 
-.line.haswByw.highlight {
-  .lyric-line .wordPlayed {
-    background: v-bind(
-      '`linear-gradient(to right, rgba(255, 255, 255, 0.92) 100%, rgba(255, 255, 255, 0.18) 100%) text`'
-    );
-  }
-  .traslation .wordPlayed {
-    background: v-bind(
-      '`linear-gradient(to right, rgba(255, 255, 255, 0.65) 100%, rgba(255, 255, 255, 0.18) 100%) text`'
-    );
-  }
-
-  .lyric-line .wordPlaying {
-    background: v-bind(
-      '`linear-gradient(to right, rgba(255, 255, 255, 0.92) ${width}%, rgba(255, 255, 255, 0.18) ${width}%) text`'
-    );
-  }
-  .traslation .wordPlaying {
-    background: v-bind(
-      '`linear-gradient(to right, rgba(255, 255, 255, 0.65) ${tWidth}%, rgba(255, 255, 255, 0.18) ${tWidth}%) text`'
-    );
-  }
-
-  .lyric-line .wordUnplay {
-    background: v-bind(
-      '`linear-gradient(to right, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.18) 0%) text`'
-    );
-  }
-  .traslation .wordUnplay {
-    background: v-bind(
-      '`linear-gradient(to right, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.18) 0%) text`'
-    );
-  }
-}
-
-.line.haswByw.normal {
+.line {
   .lyric-line span {
-    background: v-bind(
-      '`linear-gradient(to right, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.18) 0%) text`'
-    );
+    font-size: v-bind('`${nFontSize}px`');
+    opacity: 0.28;
   }
   .traslation span {
-    background: v-bind(
-      '`linear-gradient(to right, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.18) 0%) text`'
-    );
+    font-size: v-bind('`${nFontSize - 4}px`');
+    opacity: 0.28;
   }
 }
 
-.line.notWordByWord {
-  opacity: 0.28;
-  transition: opacity 0s;
+.line-mode.active {
+  .lyric-line span {
+    opacity: 0.95;
+  }
+  .traslation span {
+    opacity: 0.75;
+  }
 }
 
-.line.notWordByWord.highlight {
-  opacity: unset;
+.word-mode.active {
   .lyric-line {
-    opacity: 0.85;
-  }
-  .traslation {
-    opacity: 0.65;
+    span {
+      opacity: unset;
+      transition: font-size 0.4s ease;
+      background-repeat: no-repeat;
+      background-color: rgba(255,255,255, 0.28);
+      background-image: -webkit-linear-gradient(top, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.95));
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      background-size: 0 100%;
+      will-change: background-size;
+    }
+    .wordPlayed {
+      background-size: 100% 100%;
+    }
+
+    .wordPlaying {
+      background-size: v-bind('`${width}%`') 100%;
+    }
   }
 }
 </style>
