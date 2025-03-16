@@ -63,6 +63,7 @@ export class LyricPlayer {
         wordElement.className = 'word'
         wordElement.textContent = w.word
         const animation = createAnimation(wordElement, w.endTime - w.startTime)
+        animation.pause()
         this.fonts.word.push({
           dom: wordElement,
           animation,
@@ -137,7 +138,6 @@ export class LyricPlayer {
     const currentTime = performance.now() - this._performanceTime + this.currentTime
 
     const driftTime = currentTime - curFont.startTime
-
     if (driftTime > 0 || this.curFontNum === 0) {
       const nextFont = this.fonts.word[this.curFontNum + 1]
       const delay = nextFont.startTime - curFont.startTime - driftTime
@@ -208,7 +208,7 @@ export class LyricPlayer {
 
     clearTimeout(this.timeoutId)
     const font = this.fonts.word[this.curFontNum]
-    font.animation.cancel()
+    font.animation.pause()
 
     const currentTime = performance.now() - this._performanceTime + this.currentTime
     const curFontNum = this.findcurFontNum('word', currentTime)
@@ -235,15 +235,19 @@ export const updateLyric = (lyrics: any[], mode: 'word-mode' | 'line-mode') => {
     lrc.mode = mode
     lrc.curFontNum = 0
     lrc.currentTime = 0
+    lrc.fonts.word = []
+    lrc.currentLyricIndex = -1
   }
   lrc?.setLyric(lyrics)
+  if (lrc?.playing) {
+    lrc.play(10)
+  }
 }
 
 export const updateLyricIndex = (index: number) => {
   lrc!.updateCurrentLyricIndex(index)
-  if (index <= 0) {
-    lrc!.currentTime = 0
-    lrc!.curFontNum = 0
+  if (index <= 0 && lrc?.playing) {
+    lrc.play(10)
   }
 }
 

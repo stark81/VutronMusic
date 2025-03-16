@@ -181,6 +181,7 @@ onMounted(() => {
       lyrics: lyricWithTranslation.value,
       currentTime: seek.value,
       currentLyricIndex: currentLyricIndex.value,
+      playing: playing.value,
       mode: haswByw.value ? 'word-mode' : 'line-mode',
       type: 'lyric'
     })
