@@ -34,11 +34,9 @@
         <span
           v-for="(lyric, idx) in line.lyric"
           :key="idx"
-          :class="{
-            wordPlayed: progress >= lyric.end,
-            wordPlaying: progress >= lyric.start && progress < lyric.end,
-            wordUnplay: progress < lyric.start
-          }"
+          ref="lyricLineSpan"
+          :data-start="lyric.start"
+          :data-end="lyric.end"
         >
           {{ lyric.word }}</span
         >
@@ -47,11 +45,6 @@
         <span
           v-for="(lyric, idx) in line.tlyric"
           :key="idx"
-          :class="{
-            wordPlayed: progress > lyric.end,
-            wordPlaying: progress > lyric.start && progress < lyric.end,
-            wordUnplay: progress < lyric.start
-          }"
           >{{ lyric.word }}</span
         >
       </div>
@@ -59,11 +52,6 @@
         <span
           v-for="(lyric, idx) in line.rlyric"
           :key="idx"
-          :class="{
-            wordPlayed: progress > lyric.end,
-            wordPlaying: progress > lyric.start && progress < lyric.end,
-            wordUnplay: progress < lyric.start
-          }"
           >{{ lyric.word }}</span
         >
       </div>
@@ -74,17 +62,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted, toRefs, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, toRefs } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
 import { useNormalStateStore } from '../store/state'
 import { useSettingsStore } from '../store/settings'
 import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
-import eventBus from '../utils/eventBus'
+import { LyricController } from '../utils/lyricController'
 
 const playerStore = usePlayerStore()
-const { noLyric, currentTrack, currentLyricIndex, lyrics, seek, playing } = storeToRefs(playerStore)
+const { noLyric, currentTrack, currentLyricIndex, lyrics, seek, playing, currentTrackDuration } = storeToRefs(playerStore)
 
 const stateStore = useNormalStateStore()
 const { showLyrics } = storeToRefs(stateStore)
@@ -95,11 +83,8 @@ const { normalLyric } = storeToRefs(settingsStore)
 const { nFontSize, nTranslationMode, isNWordByWord } = toRefs(normalLyric.value)
 
 const hover = ref(false)
-const startTime = ref(0)
-const progress = ref(0)
-const width = ref(0)
-const tWidth = ref(0)
-let animationFrameId: number | null = null
+const lyricLineSpan = ref<HTMLElement[]>()
+let lyricController : LyricController | null = null
 
 const haswByw = computed(() => {
   let result = false
@@ -120,7 +105,7 @@ const lyricWithTranslation = computed(() => {
       const lineItem = {
         index,
         start: l.time * 1000,
-        end: l.end * 1000,
+        end: (l.end ?? l.time) * 1000,
         lyric: null as any,
         tlyric: null as any,
         rlyric: null as any
@@ -177,6 +162,7 @@ const lyricWithTranslation = computed(() => {
         ret.push(lineItem)
       }
     })
+    ret[ret.length - 1].end = haswByw.value ? ret[ret.length - 1].end : currentTrackDuration.value * 1000
   }
   return ret
 })
@@ -215,12 +201,13 @@ const setOffset = (offset: number) => {
   )
 }
 
-const lyricOffset = computed(() => currentTrack.value?.offset || 0)
-
-const animate = () => {
-  if (!lyrics.value.lyric?.length) return
-  progress.value = performance.now() - startTime.value + lyricOffset.value * 1000
-  animationFrameId = requestAnimationFrame(animate)
+const createLyricController = () => {
+  if (haswByw.value && lyricLineSpan.value) {
+    const data = { elements: lyricLineSpan.value, currentTime: seek.value * 1000, isPlaying: playing.value, index: currentLyricIndex.value }
+    lyricController = new LyricController(data)
+  } else {
+    lyricController = null
+  }
 }
 
 watch(currentLyricIndex, (value) => {
@@ -230,15 +217,15 @@ watch(currentLyricIndex, (value) => {
   }
 })
 
+watch(() => haswByw.value && lyricWithTranslation.value && lyricLineSpan.value, () =>{
+  createLyricController()
+}, { immediate: true })
+
 watch(playing, (value) => {
   if (value) {
-    startTime.value = performance.now() - progress.value
-    animate()
+    lyricController?.play(seek.value * 1000)
   } else {
-    if (animationFrameId) {
-      cancelAnimationFrame(animationFrameId)
-      animationFrameId = null
-    }
+    lyricController?.pause()
   }
 })
 
@@ -252,56 +239,6 @@ watch(showLyrics, (value) => {
     })
 })
 
-watch(progress, (value) => {
-  if (!lyricWithTranslation.value.length) {
-    if (animationFrameId) {
-      cancelAnimationFrame(animationFrameId)
-      animationFrameId = null
-    }
-    return
-  }
-  const line = lyricWithTranslation.value[currentLyricIndex.value]
-  if (!line?.lyric) {
-    if (animationFrameId) {
-      cancelAnimationFrame(animationFrameId)
-      animationFrameId = null
-    }
-    return
-  }
-
-  for (const word of line.lyric) {
-    if (value >= word.start && value < word.end) {
-      width.value = Math.round(((value - word.start) / (word.end - word.start)) * 100)
-    }
-  }
-  if (line.tlyric) {
-    for (const word of line.tlyric) {
-      if (value >= word.start && value < word.end) {
-        tWidth.value = Math.round(((value - word.start) / (word.end - word.start)) * 100)
-      }
-    }
-  } else if (line.rlyric) {
-    for (const word of line.rlyric) {
-      if (value >= word.start && value < word.end) {
-        tWidth.value = Math.round(((value - word.start) / (word.end - word.start)) * 100)
-      }
-    }
-  }
-})
-
-// @ts-ignore
-eventBus.on('update-process', (value: number) => {
-  if (animationFrameId) {
-    cancelAnimationFrame(animationFrameId)
-    animationFrameId = null
-  }
-  progress.value = value * 1000
-  startTime.value = performance.now() - progress.value
-  if (playing.value) {
-    animate()
-  }
-})
-
 onMounted(() => {
   if (!currentTrack.value) return
   nextTick(() => {
@@ -309,19 +246,7 @@ onMounted(() => {
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
-    progress.value = (seek.value ?? 0) * 1000
-    startTime.value = performance.now() - progress.value
-    if (playing.value) {
-      animate()
-    }
   })
-})
-
-onBeforeUnmount(() => {
-  if (animationFrameId) {
-    cancelAnimationFrame(animationFrameId)
-    animationFrameId = null
-  }
 })
 </script>
 
@@ -381,7 +306,13 @@ onBeforeUnmount(() => {
 .line {
   .lyric-line span {
     font-size: v-bind('`${nFontSize}px`');
-    opacity: 0.28;
+    will-change: background-size;
+    transition: font-size 0.4s ease;
+    background-repeat: no-repeat;
+    background-color: rgba(255,255,255, 0.28);
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    background-size: 0 100%;
   }
   .traslation span {
     font-size: v-bind('`${nFontSize - 4}px`');
@@ -391,33 +322,25 @@ onBeforeUnmount(() => {
 
 .line-mode.active {
   .lyric-line span {
-    opacity: 0.95;
+    background-color: rgba(255,255,255, 0.95);
   }
   .traslation span {
-    opacity: 0.75;
+    background-color: rgba(255,255,255, 0.75);
   }
 }
 
 .word-mode.active {
   .lyric-line {
     span {
-      opacity: unset;
-      transition: font-size 0.4s ease;
-      background-repeat: no-repeat;
-      background-color: rgba(255,255,255, 0.28);
       background-image: -webkit-linear-gradient(top, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.95));
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      background-size: 0 100%;
-      will-change: background-size;
     }
     .wordPlayed {
       background-size: 100% 100%;
     }
 
-    .wordPlaying {
-      background-size: v-bind('`${width}%`') 100%;
-    }
+    // .wordPlaying {
+    //   background-size: v-bind('`${width}%`') 100%;
+    // }
   }
 }
 </style>
