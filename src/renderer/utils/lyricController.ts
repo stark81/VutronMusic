@@ -1,153 +1,160 @@
-const createAnimation = (dom: HTMLElement, duration: number) => {
-  const effect = new KeyframeEffect(dom, [{ backgroundSize: '0 100%'}, { backgroundSize: '100% 100%' }], { duration, easing: 'linear' })
-  return new Animation(effect, document.timeline)
+import { TranslationMode } from "../store/settings"
+
+interface word { start: number, end: number, word: string }
+
+interface lyrics {
+  lyric: { time: number, end: number, content: string, contentInfo?: word[] }[]
+  tlyric: { time: number, content: string }[]
+  rlyric: { time: number, content: string }[]
 }
 
-export class LyricController {
-  isPlaying: boolean
-  currentIndex: number
-  animations: { dom: HTMLElement, animation: Animation, start: number, duration: number }[]
-  start: number = 0 // 歌词的初始时间
-  currentTime: number = 0 // 歌词的当前时间
-  private _timeout: any | null
+interface params { container: HTMLElement, playing: boolean, startStamp: number, mode: TranslationMode, wByw: boolean, offset?: number }
 
-  constructor(data: { elements: HTMLElement[], currentTime: number, isPlaying: boolean, index:number}) {
-    this.isPlaying = data.isPlaying
-    this.currentIndex = data.index
-    this.start = performance.now()
-    this.currentTime = data.currentTime
-    this.animations = []
-    this._timeout = null
+export class LyricManager {
+  container: HTMLElement
+  currentAnimations: Set<Animation>
+  lyricElements: any
+  _playing: boolean
+  _startTime: number
+  _offset: number
+  _mode: TranslationMode
+  _wByW: boolean
 
-    this._initLines(data.elements)
-
-    if (this.isPlaying) {
-      setTimeout(() => {
-        const currentTime = performance.now() - this.start + this.currentTime
-      this.play(currentTime)
-      }, 100)
-    }
+  constructor(data: params) {
+    this.container = data.container
+    this._playing = data.playing
+    this._startTime = data.startStamp
+    this._offset = data.offset ?? 0
+    this._mode = data.mode
+    this._wByW = data.wByw
+    this.currentAnimations = new Set()
+    this.container.addEventListener('click', this.handleLyricClick.bind(this))
   }
 
-  _initLines(elements:  HTMLElement[]) {
-    elements.forEach((element) => {
-      const start = Number(element.dataset.start)
-      const end = Number(element.dataset.end)
-      const duration = end - start
-      const animation = createAnimation(element, duration)
-      this.animations.push({ dom: element, animation, start, duration })
-    })
-  }
+  // 创建歌词 DOM 结构（使用文档片段优化批量插入
+  createLyricsDom(lyrics: lyrics) {
+    this.clearLyrics()
+    const lyricFiltered = lyrics.lyric.filter(({ content }) => Boolean(content))
+    if (!lyricFiltered.length) return
 
-  _findCurFont(curTime: number, startIndex = 0) {
-    if (curTime < this.animations[0].start) return -1
-    const length = this.animations.length
-    for (let index = startIndex; index < length; index++) {
-      if (curTime < this.animations[index].start) return index - 1
-    }
-    return length - 1
-  }
+    const fragment = document.createDocumentFragment()
 
-  _handlePlayedFont(font: { dom: HTMLElement, animation: Animation }, currentTime: number, toFinish: boolean) {
-    switch (font.animation.playState) {
-      case 'finished':
-        break
-      case 'idle':
-        font.dom.style.backgroundSize = '100% 100%'
-        if (!toFinish) font.animation.play()
-        break
-      default:
-        if (toFinish) {
-          font.animation.cancel()
-        } else {
-          font.animation.currentTime = currentTime
-          font.animation.play()
-        }
-        break
-    }
-  }
+    lyricFiltered.forEach((l, index) => {
+      const element = document.createElement('div')
+      element.classList.add('line')
+      element.classList.add(l.contentInfo ? 'word-mode' : 'line-mode')
+      element.dataset.index = index.toString()
 
-  _refresh() {
-    this.currentIndex++
-    const font = this.animations[this.currentIndex]
-    if (!font) return
-    const currentTime = performance.now() - this.start
-    const driftTime = currentTime - font.start
+      // 创建歌词行
+      const lyricLine = document.createElement('div')
+      lyricLine.classList.add('lyric-line')
 
-    // driftTime>=0，说明当前播放进度大于当前歌词的位置
-    if (driftTime >= 0) {
-      const nextFont = this.animations[this.currentIndex+1]
-      const delay = nextFont ? (nextFont.start - font.start - driftTime) : (font.duration - driftTime)
-      // delay > 0 说明当前播放进度正处于这个歌词之内，触发当前歌词的播放动画，并设置下一个歌词的播放延迟
-      if (delay > 0 || this.currentIndex === 0) {
-        if (this.isPlaying) {
-          this._timeout = setTimeout(() => {
-            clearTimeout(this._timeout)
-            if (!this.isPlaying) return
-            this._refresh()
-          }, delay)
-        }
-        this._handlePlayedFont(font, driftTime, false)
-      } else {  // delay <= 0, 说明当前播放进度大于此歌词，需要重新查找播放的歌词
-        const newCurFont = this._findCurFont(currentTime, 0)
-        this.currentIndex = newCurFont - 1
-        for (let i = 0; i <= this.currentIndex; i++) {
-          this._handlePlayedFont(this.animations[i], 0, true)
-        }
-        this._refresh()
-      }
-    } else { // driftTime < 0,说明当前播放进度小于当前歌词位置
-      if (this.currentIndex === 0) { // 说明当前还没有播放任何一个歌词，找到当前时间与第一个歌词之间的差值，设置延迟播放第0个歌词
-        this.currentIndex--
-        if (this.isPlaying) {
-          this._timeout = setTimeout(() => {
-            clearTimeout(this._timeout)
-            if (!this.isPlaying) return
-            this._refresh()
-          }, -driftTime)
-        }
+      // 创建翻译行
+      let translation: HTMLDivElement | null = null
+
+      // console.log('==1==', l.contentInfo)
+      if (l.contentInfo && this._wByW) {
+        l.contentInfo.forEach((w) => {
+          const span = document.createElement('span')
+          span.textContent = w.word
+          lyricLine.appendChild(span)
+        })
       } else {
-        const newCurFont = this._findCurFont(currentTime, 0)
-        this.currentIndex = newCurFont - 1
-        for (let i = 0; i <= this.currentIndex; i++) {
-          this._handlePlayedFont(this.animations[i], 0, true)
-        }
-        this._refresh()
+        const span = document.createElement('span')
+        span.textContent = l.content
+        lyricLine.appendChild(span)
       }
+
+      element.appendChild(lyricLine)
+      const sameTlyric = lyrics.tlyric.find((t) => t.time === l.time)
+        if (this._mode === 'tlyric' && sameTlyric) {
+          translation = document.createElement('div')
+          translation.classList.add('traslation')
+
+          const span = document.createElement('span')
+          span.textContent = sameTlyric.content
+          translation!.appendChild(span)
+        }
+      if (translation) element.appendChild(translation)
+      return fragment.appendChild(element)
+    })
+
+    this.container.appendChild(fragment)
+  }
+
+  // 更新播放进度（示例逻辑）
+  updatePlayback(time) {
+    const activeIndex = this.findActiveLineIndex(time)
+    this.highlightActiveLine(activeIndex)
+  }
+
+  // 清除所有歌词元素和动画
+  clearLyrics() {
+    // 取消所有进行中的动画
+    this.currentAnimations.forEach(animation => animation.cancel())
+    this.currentAnimations.clear()
+
+    // 高效清空容器
+    while (this.container.firstChild) {
+      this.container.removeChild(this.container.firstChild)
+    }
+
+    // 解除可能的内存引用
+    this.lyricElements = null
+  }
+
+  // 事件处理（委托模式）
+  handleLyricClick(event) {
+    const target = event.target.closest('.line')
+    if (!target) return
+
+    const index = parseInt(target.dataset.index, 10)
+    this.onLineClick(index)
+  }
+
+  // 高亮当前播放行（使用 Web Animations API 实现高性能动画）
+  highlightActiveLine(index) {
+    if (!this.lyricElements) return
+
+    // 移除旧的高亮
+    this.currentAnimations.forEach(animation => animation.cancel())
+    this.currentAnimations.clear()
+
+    // 应用新动画
+    const element = this.lyricElements[index]
+    if (element) {
+      const animation = element.animate([
+        { opacity: 0.5, transform: 'scale(1)' },
+        { opacity: 1, transform: 'scale(1.1)' }
+      ], {
+        duration: 500,
+        fill: 'forwards'
+      })
+      this.currentAnimations.add(animation)
     }
   }
 
-  play(curTime: number) {
-    this.start = performance.now() - curTime
-    this.currentTime = curTime
-    this.pause()
-    this.isPlaying = true
-    const idx = Math.max(0, this._findCurFont(curTime))
-
-    for (let i = idx; i> -1; i--) {
-      this._handlePlayedFont(this.animations[i], 0, true)
-    }
-
-    for (let i = idx; i < this.animations.length; i++) {
-      const font = this.animations[i]
-      font.animation.cancel()
-      font.dom.style.backgroundSize = '0 100%'
-    }
-
-    this.currentIndex = idx - 1
-    this._refresh()
+  // 示例回调
+  onLineClick(index) {
+    console.log('Line clicked:', index)
+    // 实现跳转逻辑
   }
 
-  pause() {
-    if (!this.isPlaying) return
-    this.isPlaying = false
-    this.animations[this.currentIndex]?.animation.pause()
-    for (let i = 0; i < this.currentIndex; i++) {
-      this._handlePlayedFont(this.animations[i], 0, true)
-    }
+  // 辅助方法：根据时间查找对应歌词行
+  findActiveLineIndex(time) {
+    // 需要实现具体查找逻辑
+    return Math.floor(time / 5)
   }
+}
 
-  updateIndex(idx: number) {
-    this.currentIndex = idx
-  }
+// 使用示例
+let manager: LyricManager
+
+export const initLyric = (data: params) => {
+  manager = new LyricManager(data)
+}
+
+export const setLyrics = (lyrics: any) => {
+  if (!manager) return
+  manager.createLyricsDom(lyrics)
 }

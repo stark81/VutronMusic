@@ -360,6 +360,7 @@ onMounted(() => {
   const player = JSON.parse(localStorage.getItem('player') || '{}')
   isPlaying.value = player?.playing || false
   if (!player.lyrics) return
+  console.log(player.lyrics)
   lyrics.value = player.lyrics
   currentLyricIndex.value = player.currentLyricIndex
   lyricOffset.value = (player.currentTrack?.offset || 0) * 1000

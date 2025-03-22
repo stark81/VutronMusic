@@ -6,76 +6,75 @@
     @mouseleave="hover = false"
   >
     <div v-show="hover" class="offset">
-      <button-icon title="后退0.5s" @click="setOffset(-0.5)">
+      <button-icon title="提前0.5s" @click="setOffset(0.5)">
         <svg-icon icon-class="back5s" />
       </button-icon>
       <button-icon class="recovery" :title="offset" @click="setOffset(0)">
         <svg-icon icon-class="recovery" />
       </button-icon>
-      <button-icon title="提前0.5s" @click="setOffset(0.5)">
+      <button-icon title="后退0.5s" @click="setOffset(-0.5)">
         <svg-icon icon-class="forward5s" />
       </button-icon>
     </div>
-    <div>
-      <div id="line-1" class="line"></div>
-    <div
-      v-for="line in lyricWithTranslation"
-      :id="`line${line.index}`"
-      :key="line.index"
-      class="line"
-      :class="{
-        'word-mode': haswByw,
-        'line-mode': !haswByw,
-        active: line.index === currentLyricIndex
-      }"
-      @click="seek = Number(line.start) / 1000 - (currentTrack?.offset || 0)"
-    >
-      <div v-if="line.lyric?.length" class="lyric-line">
-        <span
-          v-for="(lyric, idx) in line.lyric"
-          :key="idx"
-          ref="lyricLineSpan"
-          :data-start="lyric.start"
-          :data-end="lyric.end"
-        >
-          {{ lyric.word }}</span
-        >
-      </div>
-      <div v-if="nTranslationMode === 'tlyric' && line.tlyric" class="traslation">
-        <span
-          v-for="(lyric, idx) in line.tlyric"
-          :key="idx"
-          >{{ lyric.word }}</span
-        >
-      </div>
-      <div v-if="nTranslationMode === 'rlyric' && line.rlyric" class="traslation">
-        <span
-          v-for="(lyric, idx) in line.rlyric"
-          :key="idx"
-          >{{ lyric.word }}</span
-        >
-      </div>
-    </div>
+    <div ref="lyricContainer">
+      <!-- <div id="line-1" class="line"></div>
+      <div
+        v-for="line in lyricWithTranslation"
+        :id="`line${line.index}`"
+        :key="line.index"
+        class="line"
+        :class="{
+          'word-mode': haswByw,
+          'line-mode': !haswByw,
+          active: line.index === currentLyricIndex
+        }"
+        @click="seek = Number(line.start) / 1000 + (currentTrack?.offset || 0)"
+      >
+        <div v-if="line.lyric?.length" class="lyric-line">
+          <span
+            v-for="(lyric, idx) in line.lyric"
+            :key="idx"
+            ref="lyricLineSpan"
+            :data-start="lyric.start"
+            :data-end="lyric.end"
+          >
+            {{ lyric.word }}</span
+          >
+        </div>
+        <div v-if="nTranslationMode === 'tlyric' && line.tlyric" class="traslation">
+          <span
+            v-for="(lyric, idx) in line.tlyric"
+            :key="idx"
+            >{{ lyric.word }}</span
+          >
+        </div>
+        <div v-if="nTranslationMode === 'rlyric' && line.rlyric" class="traslation">
+          <span
+            v-for="(lyric, idx) in line.rlyric"
+            :key="idx"
+            >{{ lyric.word }}</span
+          >
+        </div>
+      </div> -->
     </div>
 
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted, toRefs } from 'vue'
+import { ref, computed, watch, onMounted, toRefs, onBeforeUnmount } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
 import { useNormalStateStore } from '../store/state'
 import { useSettingsStore } from '../store/settings'
 import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
-import { LyricController } from '../utils/lyricController'
+import { initLyric, setLyrics } from '../utils/lyricController'
 
 const playerStore = usePlayerStore()
-const { noLyric, currentTrack, currentLyricIndex, lyrics, seek, playing, currentTrackDuration } = storeToRefs(playerStore)
+const { noLyric, currentTrack, lyrics, seek, playing, lyricOffset, startStamp } = storeToRefs(playerStore)
 
 const stateStore = useNormalStateStore()
-const { showLyrics } = storeToRefs(stateStore)
 const { showToast } = stateStore
 
 const settingsStore = useSettingsStore()
@@ -83,89 +82,7 @@ const { normalLyric } = storeToRefs(settingsStore)
 const { nFontSize, nTranslationMode, isNWordByWord } = toRefs(normalLyric.value)
 
 const hover = ref(false)
-const lyricLineSpan = ref<HTMLElement[]>()
-let lyricController : LyricController | null = null
-
-const haswByw = computed(() => {
-  let result = false
-  for (const item of lyrics.value.lyric) {
-    if (item.contentInfo) {
-      result = true
-      break
-    }
-  }
-  return isNWordByWord.value && result
-})
-
-const lyricWithTranslation = computed(() => {
-  const ret = [] as any[]
-  const lyricFiltered = lyrics.value.lyric.filter(({ content }) => Boolean(content))
-  if (lyricFiltered.length) {
-    lyricFiltered.forEach((l, index) => {
-      const lineItem = {
-        index,
-        start: l.time * 1000,
-        end: (l.end ?? l.time) * 1000,
-        lyric: null as any,
-        tlyric: null as any,
-        rlyric: null as any
-      }
-      let content: any[]
-      if (haswByw.value) {
-        content = l.contentInfo
-        lineItem.lyric = content
-        lineItem.start = Math.min(...(content.map((w) => w.start) as number[]))
-        lineItem.end = Math.max(...(content.map((w) => w.end) as number[]))
-
-        const sameTimeTLyric = lyrics.value.tlyric.find((t) => t.time === l.time)
-        if (sameTimeTLyric) {
-          const words = sameTimeTLyric.content.split('')
-          const tContent = words.map((item: string, index: number) => {
-            const interval = (l.end - l.time) / words.length
-            return {
-              word: item,
-              start: Math.floor((l.time + interval * index) * 1000),
-              end: Math.floor((l.time + interval * index + interval) * 1000)
-            }
-          })
-          lineItem.tlyric = tContent
-        }
-
-        const sameTimeRLyric = lyrics.value.rlyric.find((t) => t.time === l.time)
-        if (sameTimeRLyric) {
-          const words = sameTimeRLyric.content.split('')
-          const rContent = words.map((item: string, index: number) => {
-            const interval = (l.end - l.time) / words.length
-            return {
-              word: item,
-              start: Math.floor((l.time + interval * index) * 1000),
-              end: Math.floor((l.time + interval * index + interval) * 1000)
-            }
-          })
-          lineItem.rlyric = rContent
-        }
-        ret.push(lineItem)
-      } else {
-        lineItem.lyric = [{ start: l.time * 1000, end: l.time * 1000, word: l.content }]
-        const sameTimeTLyric = lyrics.value.tlyric.find((t) => t.time === l.time)
-        if (sameTimeTLyric) {
-          lineItem.tlyric = [
-            { start: l.time * 1000, end: l.time * 1000, word: sameTimeTLyric.content }
-          ]
-        }
-        const sameTimeRLyric = lyrics.value.rlyric.find((t) => t.time === l.time)
-        if (sameTimeRLyric) {
-          lineItem.rlyric = [
-            { start: l.time * 1000, end: l.time * 1000, word: sameTimeRLyric.content }
-          ]
-        }
-        ret.push(lineItem)
-      }
-    })
-    ret[ret.length - 1].end = haswByw.value ? ret[ret.length - 1].end : currentTrackDuration.value * 1000
-  }
-  return ret
-})
+const lyricContainer = ref<HTMLElement>()
 
 const offset = computed(() => {
   const lrcOffset = currentTrack.value!.offset || 0
@@ -201,56 +118,30 @@ const setOffset = (offset: number) => {
   )
 }
 
-const createLyricController = () => {
-  if (haswByw.value && lyricLineSpan.value) {
-    const data = { elements: lyricLineSpan.value, currentTime: seek.value * 1000, isPlaying: playing.value, index: currentLyricIndex.value }
-    lyricController = new LyricController(data)
-  } else {
-    lyricController = null
-  }
-}
-
-watch(currentLyricIndex, (value) => {
-  const el = document.getElementById(`line${value}`)
-  if (el) {
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }
-})
-
-watch(() => haswByw.value && lyricWithTranslation.value && lyricLineSpan.value, () =>{
-  createLyricController()
+watch(() => lyrics.value.lyric.length, (value) => {
+  if (!value) return
+  setTimeout(() => {
+    setLyrics(lyrics.value)
+  }, 100)
 }, { immediate: true })
-
-watch(playing, (value) => {
-  if (value) {
-    lyricController?.play(seek.value * 1000)
-  } else {
-    lyricController?.pause()
-  }
-})
-
-watch(showLyrics, (value) => {
-  if (value)
-    nextTick(() => {
-      const el = document.getElementById(`line${currentLyricIndex.value}`)
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      }
-    })
-})
 
 onMounted(() => {
   if (!currentTrack.value) return
-  nextTick(() => {
-    const el = document.getElementById(`line${currentLyricIndex.value}`)
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    }
-  })
+
+  const _startStamp = playing.value ? startStamp.value : (performance.now() - seek.value * 1000)
+  if (lyricContainer.value) {
+    initLyric({
+      container: lyricContainer.value, playing: playing.value,
+      startStamp: _startStamp, offset: lyricOffset.value,
+      mode: nTranslationMode.value, wByw: isNWordByWord.value
+    })
+  }
 })
+
+onBeforeUnmount(() => {})
 </script>
 
-<style scoped lang="scss">
+<style lang="scss">
 .lyric-container {
   height: 100vh;
   display: flex;
@@ -313,9 +204,10 @@ onMounted(() => {
     -webkit-text-fill-color: transparent;
     background-clip: text;
     background-size: 0 100%;
+    overflow-wrap: break-word;
   }
   .traslation span {
-    font-size: v-bind('`${nFontSize - 4}px`');
+    font-size: v-bind('`${nFontSize - 2}px`');
     opacity: 0.28;
   }
 }

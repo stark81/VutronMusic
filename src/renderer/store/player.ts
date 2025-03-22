@@ -10,7 +10,6 @@ import { useDataStore } from './data'
 import { searchMatch, fmTrash, personalFM, songChorus } from '../api/other'
 import { useI18n } from 'vue-i18n'
 import eventBus from '../utils/eventBus'
-// import { scrobble } from '../api/track'
 
 interface biquadType {
   31: number
@@ -43,6 +42,7 @@ export const usePlayerStore = defineStore(
     const playingNext = ref(false)
     const enabled = ref(false)
     const progress = ref(0)
+    const startStamp = ref(performance.now())
     const repeatMode = ref('off')
     const _shuffle = ref(false)
     const _volume = ref(1)
@@ -52,9 +52,6 @@ export const usePlayerStore = defineStore(
     const title = ref<string | null>('VutronMusic')
     const outputDevice = ref('default')
     const backRate = ref(1.0)
-    let setIntervalTimer: any
-    let lastUpdate = 0
-    const currentLyricIndex = ref(-1)
     const streamMusics = ref<Track[]>([])
     const isLiked = ref(false)
     const isLocalList = ref(false)
@@ -172,9 +169,10 @@ export const usePlayerStore = defineStore(
       },
       set(value) {
         audio.currentTime = value
-        getLyricIndex()
+        progress.value = value
+        startStamp.value = performance.now() - value * 1000
         window.mainApi.send('updateLyricInfo', { progress: value })
-        eventBus.emit('update-process', value)
+        eventBus.emit('update-process', { progress: value, manual: true })
       }
     })
 
@@ -218,58 +216,15 @@ export const usePlayerStore = defineStore(
 
     watch(currentTrack, async (value) => {
       if (!value) return
-      currentLyricIndex.value = -1
       const flag = await searchMatchForLocal(value)
       if (flag) return
       await getCurrentTrackInfo(value)
       updateMediaSessionMetaData(value)
     })
 
-    const currentLyric = computed(() => {
-      let result: { content: string; time: number }
-      if (currentLyricIndex.value < lyrics.lyric.length) {
-        const lyric = lyrics.lyric[currentLyricIndex.value]
-        const nextLyric = lyrics.lyric[currentLyricIndex.value + 1]
-        const diff = nextLyric?.time - lyric?.time || 10
-        result = {
-          content: lyric?.content || currentTrack.value?.name || '听你想听的音乐',
-          time: diff
-        }
-      } else {
-        result = {
-          content: currentTrack.value?.name || '听你想听的音乐',
-          time: 10
-        }
-      }
-      return result
-    })
-
     watch(lyrics, (value) => {
       window.mainApi.send('updateLyricInfo', { lyrics: toRaw(value) })
     })
-
-    watch(currentLyric, (value) => {
-      if (window.env?.isLinux && settingsStore.tray.enableExtension) {
-        window.mainApi.send('updateLyricInfo', { currentLyric: value })
-      }
-    })
-
-    watch(currentLyricIndex, (value) => {
-      window.mainApi.send('updateLyricInfo', { lrcIdx: [value, audio.currentTime] })
-      eventBus.emit('update-process', audio.currentTime || 0)
-    })
-
-    watch(
-      () => settingsStore.tray.enableExtension,
-      (value) => {
-        if (!value) {
-          const lrc = { content: '', time: 10 }
-          window.mainApi.send('updateLyricInfo', { currentLyric: lrc })
-        } else {
-          window.mainApi.send('updateLyricInfo', { currentLyric: currentLyric.value })
-        }
-      }
-    )
 
     watch(
       () => convolverParams.buffer,
@@ -320,31 +275,15 @@ export const usePlayerStore = defineStore(
       }
     )
 
-    const getLyricIndex = () => {
-      const progress = audio.currentTime + lyricOffset.value
-      currentLyricIndex.value = lyrics.lyric.findIndex((l, index) => {
-        const nextLyric = lyrics.lyric[index + 1]
-        const nextLyricTime = nextLyric ? nextLyric.time : currentTrackDuration.value
-        return progress >= l.time && progress < nextLyricTime
-      })
-    }
-
-    const update = () => {
-      getLyricIndex()
-      const now = performance.now()
-      if (now - lastUpdate >= 500) {
-        if (!audio) return
-        progress.value = audio.currentTime
-        lastUpdate = now
-      }
-    }
-
     watch(playing, (value) => {
       window.mainApi.send('updatePlayerState', { playing: value })
       if (value) {
-        setIntervalTimer = setInterval(update, 50)
+        progress.value = audio.currentTime
+        startStamp.value = performance.now() - audio.currentTime * 1000
+        window.mainApi.send('updateLyricInfo', { progress: audio.currentTime })
+        eventBus.emit('update-process', { progress: audio.currentTime, manual: false })
       } else {
-        clearInterval(setIntervalTimer)
+        progress.value = audio.currentTime
       }
     })
 
@@ -467,7 +406,7 @@ export const usePlayerStore = defineStore(
       }
       const buffer = new Uint8Array(data.pic.data)
       const blob = new Blob([buffer], { type: data.format })
-      // if (pic.value) URL.revokeObjectURL(pic.value)
+      if (pic.value) URL.revokeObjectURL(pic.value)
       pic.value = URL.createObjectURL(blob)
       if (data.color) {
         color.value = data.color
@@ -548,7 +487,7 @@ export const usePlayerStore = defineStore(
         })
         .then((track) => {
           currentTrack.value = track
-          eventBus.emit('update-process', 0)
+          // eventBus.emit('update-process', { progress: 0, manual: true })
           // updateMediaSessionMetaData(track!)
           getTrackSource(track!).then((source) => {
             if (source) {
@@ -876,7 +815,7 @@ export const usePlayerStore = defineStore(
       lyrics.lyric = []
       lyrics.tlyric = []
       lyrics.rlyric = []
-      currentLyricIndex.value = -1
+      // currentLyricIndex.value = -1
       if (pic.value) {
         URL.revokeObjectURL(pic.value)
         pic.value = 'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg'
@@ -1069,7 +1008,7 @@ export const usePlayerStore = defineStore(
             repeatMode: repeatMode.value,
             shuffle: shuffle.value
           })
-          getLyricIndex()
+          // getLyricIndex()
         })
         handleIpcRenderer()
         initMediaSession()
@@ -1087,20 +1026,22 @@ export const usePlayerStore = defineStore(
     })
 
     onBeforeUnmount(() => {
+      progress.value = audio.currentTime
       if (pic.value) URL.revokeObjectURL(pic.value)
-      clearInterval(setIntervalTimer)
     })
 
     return {
       playing,
       enabled,
       progress,
+      startStamp,
       seek,
       chorus,
       playbackRate,
       repeatMode,
       title,
       shuffle,
+      lyricOffset,
       volume,
       _volume,
       volumeBeforeMuted,
@@ -1125,8 +1066,6 @@ export const usePlayerStore = defineStore(
       noLyric,
       personalFMTrack,
       personalFMNextTrack,
-      currentLyricIndex,
-      currentLyric,
       color,
       color2,
       playlistSource,

@@ -5,16 +5,7 @@
     <NavBar ref="navBarRef" />
     <div id="main" ref="mainRef" :style="mainStyle">
       <router-view v-slot="{ Component }">
-        <keep-alive
-          :include="[
-            'HomePage',
-            'ExplorePage',
-            'LibraryMusic',
-            'SearchPage',
-            'ArtistPage'
-            // 'LocalMusic'
-          ]"
-        >
+        <keep-alive :include="['HomePage', 'LibraryMusic' ]">
           <component :is="Component"></component>
         </keep-alive>
       </router-view>

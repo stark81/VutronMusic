@@ -178,8 +178,7 @@
 <script setup lang="ts">
 import {
   ref,
-  onActivated,
-  onDeactivated,
+  onMounted,
   computed,
   onBeforeUnmount,
   reactive,
@@ -445,16 +444,11 @@ onBeforeRouteUpdate((to, from, next) => {
   next()
 })
 
-onActivated(() => {
+onMounted(() => {
   updatePadding(0)
   showList.value = []
   activeCategory.value = (route.query.category as string) || saveCategory.value
   loadData()
-})
-
-onDeactivated(() => {
-  updatePadding(96)
-  saveCategory.value = activeCategory.value
 })
 
 onBeforeUnmount(() => {

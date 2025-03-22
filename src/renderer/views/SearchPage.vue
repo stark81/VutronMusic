@@ -39,7 +39,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onActivated, onDeactivated, reactive, watch, inject, nextTick } from 'vue'
+import { ref, onMounted, reactive, watch, inject, nextTick, onBeforeUnmount } from 'vue'
 import { search } from '../api/other'
 import { getTrackDetail } from '../api/track'
 import { useNormalStateStore } from '../store/state'
@@ -174,7 +174,7 @@ onBeforeRouteUpdate((to, from, next) => {
   next()
 })
 
-onActivated(() => {
+onMounted(() => {
   updatePadding(0)
   const newWord = route.query.keywords as string
   if (!newWord || newWord === keywords.value) return
@@ -193,7 +193,7 @@ onActivated(() => {
   loadData(keywords.value, searchTab.value)
 })
 
-onDeactivated(() => {
+onBeforeUnmount(() => {
   updatePadding(96)
 })
 </script>
