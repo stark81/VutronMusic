@@ -52,6 +52,7 @@ export const usePlayerStore = defineStore(
     const title = ref<string | null>('VutronMusic')
     const outputDevice = ref('default')
     const backRate = ref(1.0)
+    let progressTimeout: any
     const streamMusics = ref<Track[]>([])
     const isLiked = ref(false)
     const isLocalList = ref(false)
@@ -172,7 +173,7 @@ export const usePlayerStore = defineStore(
         progress.value = value
         startStamp.value = performance.now() - value * 1000
         window.mainApi.send('updateLyricInfo', { progress: value })
-        eventBus.emit('update-process', { progress: value, manual: true })
+        eventBus.emit('update-process', value)
       }
     })
 
@@ -275,15 +276,25 @@ export const usePlayerStore = defineStore(
       }
     )
 
+    const updateProgress = () => {
+      progress.value = audio.currentTime
+      progressTimeout = setTimeout(() => {
+        clearTimeout(progressTimeout)
+        if (!playing.value) return
+        updateProgress()
+      }, 1000)
+    }
+
     watch(playing, (value) => {
       window.mainApi.send('updatePlayerState', { playing: value })
       if (value) {
-        progress.value = audio.currentTime
+        updateProgress()
         startStamp.value = performance.now() - audio.currentTime * 1000
         window.mainApi.send('updateLyricInfo', { progress: audio.currentTime })
-        eventBus.emit('update-process', { progress: audio.currentTime, manual: false })
+        eventBus.emit('update-process', audio.currentTime)
       } else {
         progress.value = audio.currentTime
+        clearTimeout(progressTimeout)
       }
     })
 
@@ -379,6 +390,7 @@ export const usePlayerStore = defineStore(
       if (!track) return
       chorus.value = 0
       let data: any
+      if (pic.value) URL.revokeObjectURL(pic.value)
       if (track.type === 'stream') {
         if (track.source === 'navidrome') {
           data = await fetch(`atom://get-stream-track-info/${track.id}`).then((res) => res.json())
@@ -406,7 +418,6 @@ export const usePlayerStore = defineStore(
       }
       const buffer = new Uint8Array(data.pic.data)
       const blob = new Blob([buffer], { type: data.format })
-      if (pic.value) URL.revokeObjectURL(pic.value)
       pic.value = URL.createObjectURL(blob)
       if (data.color) {
         color.value = data.color
@@ -487,8 +498,7 @@ export const usePlayerStore = defineStore(
         })
         .then((track) => {
           currentTrack.value = track
-          // eventBus.emit('update-process', { progress: 0, manual: true })
-          // updateMediaSessionMetaData(track!)
+          startStamp.value = performance.now()
           getTrackSource(track!).then((source) => {
             if (source) {
               if (track!.id === currentTrack.value?.id) {
@@ -625,9 +635,7 @@ export const usePlayerStore = defineStore(
     }
 
     const nextTrackCallback = () => {
-      if (currentTrack.value?.matched !== false) {
-        // _scrobble(currentTrack.value, 0, true)
-      }
+      seek.value = 0
       if (!isPersonalFM.value && repeatMode.value === 'one') {
         replaceCurrentTrack(currentTrack.value!.id)
       } else {
@@ -832,6 +840,10 @@ export const usePlayerStore = defineStore(
     }
 
     const handleIpcRenderer = () => {
+      // @ts-ignore
+      eventBus.on('updateSeek', (value: number) => {
+        seek.value = value
+      })
       window.mainApi.on('play', () => {
         if (
           document.activeElement?.tagName === 'INPUT' ||
@@ -1008,7 +1020,6 @@ export const usePlayerStore = defineStore(
             repeatMode: repeatMode.value,
             shuffle: shuffle.value
           })
-          // getLyricIndex()
         })
         handleIpcRenderer()
         initMediaSession()
@@ -1026,6 +1037,7 @@ export const usePlayerStore = defineStore(
     })
 
     onBeforeUnmount(() => {
+      clearTimeout(progressTimeout)
       progress.value = audio.currentTime
       if (pic.value) URL.revokeObjectURL(pic.value)
     })

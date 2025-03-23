@@ -2,9 +2,9 @@ import { randomNum } from '.'
 
 export const lyricParse = (lrc: any) => {
   return {
-    lyric:  parseyrc(lrc.yrc?.lyric) ??  parseLyric(lrc.lrc?.lyric),
-    tlyric: parseLyric(lrc.ytlrc?.lyric) ?? parseLyric(lrc.tlyric?.lyric),
-    rlyric:  parseLyric(lrc.yromalrc?.lyric) ?? parseLyric(lrc.romalrc?.lyric)
+    lyric:  parseyrc(lrc.yrc?.lyric) ??  parseLyric(lrc.lrc?.lyric) ?? [],
+    tlyric: parseLyric(lrc.ytlrc?.lyric) ?? parseLyric(lrc.tlyric?.lyric) ?? [],
+    rlyric:  parseLyric(lrc.yromalrc?.lyric) ?? parseLyric(lrc.romalrc?.lyric) ?? []
   }
 }
 
@@ -14,7 +14,7 @@ const trimContent = (content: string) => {
 }
 
 const parseLyric = (lyric: string | string[]) => {
-  if (!lyric) return []
+  if (!lyric) return
   lyric = typeof lyric === 'string' ? lyric : lyric?.join('\n')
 
   const parsedLyrics: any[] = []
