@@ -101,7 +101,7 @@
                 </div>
               </div>
               <div class="progress-bar">
-                <div class="time">{{ formatTime(seek) || '0:00' }}</div>
+                <div class="time">{{ formatTime(position) || '0:00' }}</div>
                 <div class="slider">
                   <vue-slider
                     v-model="position"
@@ -239,7 +239,7 @@ import { useSettingsStore, TranslationMode } from '../store/settings'
 import { usePlayerStore } from '../store/player'
 import { useDataStore } from '../store/data'
 import { storeToRefs } from 'pinia'
-import { ref, computed, watch, provide, toRefs } from 'vue'
+import { ref, computed, watch, provide, toRefs, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStreamMusicStore } from '../store/streamingMusic'
 
@@ -272,12 +272,21 @@ const {
   pic,
   source,
   chorus,
-  repeatMode
+  repeatMode,
+  // startStamp
 } = storeToRefs(playerStore)
 const { playPrev, playOrPause, _playNextTrack, switchRepeatMode, moveToFMTrash } = playerStore
 const { likeATrack } = useDataStore()
 
 const { likeAStreamTrack } = useStreamMusicStore()
+
+// let timer: any
+// let lastUpdate = 0
+
+// const startTime = computed(() => {
+//   return playing.value ? startStamp.value : performance.now() - seek.value * 1000
+// })
+// const currentTime = ref(0)
 
 const tags = computed(() => {
   const lst = ['none']
@@ -319,7 +328,17 @@ const likeTrack = () => {
   }
 }
 
+// const getCurrentTime = () => {
+//   const now = performance.now() - startTime.value
+//   currentTime.value = now / 1000
+//   if (now - lastUpdate >= 1000) {
+//     lastUpdate = now
+//   }
+//   timer = requestAnimationFrame(getCurrentTime)
+// }
+
 const formatTime = (time: number) => {
+  time = Math.round(time)
   const minutes = Math.floor(time / 60)
   const remainingSeconds = Math.ceil(time % 60)
   return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
@@ -347,6 +366,28 @@ const marks = computed(() => {
   result[chorus.value.toString()] = { labelStyle: { display: 'none' } }
   return result
 })
+
+// getCurrentTime()
+
+watch(playing, (value) => {
+  if (value) {
+    // getCurrentTime()
+  } else {
+    // cancelAnimationFrame(timer)
+  }
+})
+
+watch(
+  seek,
+  () => {
+    // lastUpdate = 0
+    // cancelAnimationFrame(timer)
+    if (playing.value) {
+      // getCurrentTime()
+    }
+  },
+  { immediate: true }
+)
 
 watch(showLyrics, (value) => {
   if (!value) {
@@ -386,6 +427,10 @@ const switchRightPage = (name: string) => {
 }
 
 provide('show', show)
+
+onBeforeUnmount(() => {
+  // cancelAnimationFrame(timer)
+})
 </script>
 
 <style scoped lang="scss">
@@ -422,8 +467,8 @@ provide('show', show)
   .cover {
     position: relative;
     img {
-      height: 54vh;
-      width: 54vh;
+      height: 50vh;
+      width: 50vh;
       user-select: none;
       object-fit: cover;
       border-radius: 0.75rem;

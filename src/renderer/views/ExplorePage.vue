@@ -176,16 +176,7 @@
 </template>
 
 <script setup lang="ts">
-import {
-  ref,
-  onMounted,
-  computed,
-  onBeforeUnmount,
-  reactive,
-  watch,
-  nextTick,
-  inject
-} from 'vue'
+import { ref, onMounted, computed, onBeforeUnmount, reactive, watch, nextTick, inject } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useNormalStateStore } from '../store/state'
 import { useSettingsStore } from '../store/settings'

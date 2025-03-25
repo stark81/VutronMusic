@@ -1,23 +1,42 @@
-import { TranslationMode } from "../store/settings"
-import eventBus from "./eventBus"
+import { TranslationMode } from '../store/settings'
+import eventBus from './eventBus'
 
-interface word { start: number, end: number, word: string }
-
-interface lyrics {
-  lyric: { time: number, end: number, content: string, contentInfo?: word[] }[]
-  tlyric: { time: number, content: string }[]
-  rlyric: { time: number, content: string }[]
+interface word {
+  start: number
+  end: number
+  word: string
 }
 
-interface params { container: HTMLElement, playing: boolean, startStamp: number, mode: TranslationMode, wByw: boolean, offset?: number }
+interface lyrics {
+  lyric: { time: number; end: number; content: string; contentInfo?: word[] }[]
+  tlyric: { time: number; content: string }[]
+  rlyric: { time: number; content: string }[]
+}
 
-interface animation { dom: HTMLElement, start: number, end: number, animation: Animation }
-interface line { dom: HTMLElement, start: number }
+interface params {
+  container: HTMLElement
+  playing: boolean
+  startStamp: number
+  mode: TranslationMode
+  wByw: boolean
+  offset?: number
+}
+
+interface animation {
+  dom: HTMLElement
+  start: number
+  end: number
+  animation: Animation
+}
+interface line {
+  dom: HTMLElement
+  start: number
+}
 
 const createAnimation = (dom: HTMLElement, duration: number) => {
   const effect = new KeyframeEffect(
     dom,
-    [ { backgroundSize: '0 100%' }, { backgroundSize: '100% 100%' } ],
+    [{ backgroundSize: '0 100%' }, { backgroundSize: '100% 100%' }],
     { duration, easing: 'linear', fill: 'forwards' }
   )
   return new Animation(effect, document.timeline)
@@ -26,7 +45,7 @@ const createAnimation = (dom: HTMLElement, duration: number) => {
 export class LyricManager {
   container: HTMLElement
   lyricElements: line[] = []
-  animations: { lyric: animation[], translation: animation[] } = { lyric:[], translation:[] }
+  animations: { lyric: animation[]; translation: animation[] } = { lyric: [], translation: [] }
   _playing: boolean
   _startTime: number
   _offset: number
@@ -60,14 +79,13 @@ export class LyricManager {
     this.lyricElements = lyricFiltered.map((l, index) => {
       const element = document.createElement('div')
       element.classList.add('line')
-      element.classList.add(l.contentInfo ? 'word-mode' : 'line-mode')
+      element.classList.add(l.contentInfo && this._wByW ? 'word-mode' : 'line-mode')
       element.dataset.index = index.toString()
       const start = l.time * 1000
       const end = l.end * 1000
 
       const lyricLine = document.createElement('div')
       lyricLine.classList.add('lyric-line')
-
 
       if (l.contentInfo && this._wByW) {
         if (!this._hasWordByWord) this._hasWordByWord = true
@@ -97,7 +115,12 @@ export class LyricManager {
               translation.appendChild(span)
 
               const animation = createAnimation(span, interval)
-              this.animations.translation.push({ dom: span, animation, start: start + interval * index, end: start + interval * index + interval })
+              this.animations.translation.push({
+                dom: span,
+                animation,
+                start: start + interval * index,
+                end: start + interval * index + interval
+              })
             })
             element.append(translation)
           }
@@ -115,12 +138,16 @@ export class LyricManager {
               translation.appendChild(span)
 
               const animation = createAnimation(span, interval)
-              this.animations.translation.push({ dom: span, animation, start: start + interval * index, end: start + interval * index + interval })
+              this.animations.translation.push({
+                dom: span,
+                animation,
+                start: start + interval * index,
+                end: start + interval * index + interval
+              })
             })
             element.append(translation)
           }
         }
-
       } else {
         const span = document.createElement('span')
         span.textContent = l.content
@@ -167,7 +194,10 @@ export class LyricManager {
     if (this._lineIndex === -1) {
       this.lyricElements[0].dom.scrollIntoView({ behavior: 'smooth', block: 'center' })
     } else {
-      this.lyricElements[this._lineIndex].dom.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      this.lyricElements[this._lineIndex].dom.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+      })
     }
 
     const idx = this._lineIndex + 1
@@ -251,26 +281,34 @@ export class LyricManager {
     if (!this._hasWordByWord) return
 
     this._fontIdx = this.findIndex(this.animations.lyric, currentTime)
-    for (let i = this._fontIdx - 1; i > -1; i--) {
-      const font = this.animations.lyric[i]
-      font.dom.style.backgroundSize = '100% 100%'
-      font.animation.cancel()
-    }
+    this.animations.lyric.forEach((an, index) => {
+      if (index < this._fontIdx) {
+        an.dom.style.backgroundSize = '100% 100%'
+        an.animation.finish()
+      } else if (index > this._fontIdx) {
+        an.dom.style.backgroundSize = '0% 100%'
+        an.animation.cancel()
+      }
+    })
 
     this._tFontIdx = this.findIndex(this.animations.translation, currentTime)
-    for (let i = this._tFontIdx - 1; i > -1; i--) {
-      const font = this.animations.translation[i]
-      font.dom.style.backgroundSize = '100% 100%'
-      font.animation.cancel()
-    }
+    this.animations.translation.forEach((an, index) => {
+      if (index < this._tFontIdx) {
+        an.dom.style.backgroundSize = '100% 100%'
+        an.animation.finish()
+      } else if (index > this._fontIdx) {
+        an.dom.style.backgroundSize = '0% 100%'
+        an.animation.cancel()
+      }
+    })
 
     this.updateFontIndex('lyric')
     this.updateFontIndex('translation')
   }
 
   pause() {
-    this.animations.lyric.forEach((an) => (an.animation.pause()))
-    this.animations.translation.forEach((an) => (an.animation.pause()))
+    this.animations.lyric.forEach((an) => an.animation.pause())
+    this.animations.translation.forEach((an) => an.animation.pause())
     clearTimeout(this._lineIdxTimeout)
     clearTimeout(this._fontIdxTimeout)
     clearTimeout(this._tFontIdxTimeout)
@@ -309,7 +347,8 @@ export class LyricManager {
   }
 
   findIndex(lst: { start: number }[], time: number, index = 0) {
-    for (let i = 0; i < lst.length; i++) {
+    index = Math.max(0, index)
+    for (let i = index; i < lst.length; i++) {
       if (lst[i].start > time) return i - 1
     }
     return lst.length - 1
@@ -331,7 +370,7 @@ export const setLyrics = (lyrics: lyrics, startTime: number) => {
 export const updatePlayStatus = (playing: boolean) => {
   manager._playing = playing
   if (playing) {
-    manager.lyricElements.forEach((line) => (line.dom.classList.remove('active')))
+    manager.lyricElements.forEach((line) => line.dom.classList.remove('active'))
     manager.refresh()
   } else {
     manager.pause()
@@ -351,7 +390,7 @@ export const updateStartTime = (startTime: number) => {
     an.animation.cancel()
     an.animation.currentTime = 0
   })
-  manager.lyricElements.forEach((line) => (line.dom.classList.remove('active')))
+  manager.lyricElements.forEach((line) => line.dom.classList.remove('active'))
   manager.refresh()
 }
 
@@ -372,6 +411,6 @@ export const updateOffset = (offset: number) => {
     an.animation.cancel()
     an.animation.currentTime = 0
   })
-  manager.lyricElements.forEach((line) => (line.dom.classList.remove('active')))
+  manager.lyricElements.forEach((line) => line.dom.classList.remove('active'))
   manager.refresh()
 }

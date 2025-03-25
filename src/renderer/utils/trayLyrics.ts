@@ -5,6 +5,7 @@ import { useDataStore } from '../store/data'
 import { Lyric, Control, Canvas } from './canvas'
 import { watch } from 'vue'
 import eventBus from './eventBus'
+import { currentLyric, updateEnable } from './lyricUtils'
 
 const previous = new URL('../assets/tray/skip_previous.png', import.meta.url).href
 const play = new URL('../assets/tray/play_arrow.png', import.meta.url).href
@@ -17,12 +18,20 @@ const trayIcon = new URL('../assets/tray/menu_white.png', import.meta.url).href
 
 const playerStore = usePlayerStore()
 const { playPrev, _playNextTrack, moveToFMTrash, playOrPause } = playerStore
-const { isPersonalFM, playing, currentTrack, currentLyric, isLiked } = storeToRefs(playerStore)
+const { isPersonalFM, playing, currentTrack, isLiked } = storeToRefs(playerStore)
 
 const settingsStore = useSettingsStore()
 const { tray } = storeToRefs(settingsStore)
 
 const { likeATrack } = useDataStore()
+
+watch(
+  () => tray.value.showLyric,
+  (value) => {
+    updateEnable(value)
+  },
+  { immediate: true }
+)
 
 class TrayLyric {
   _icon: Control | null
@@ -252,7 +261,4 @@ export const buildTouchBars = () => {
   const touchBar = new TouchBarLyric()
   touchBar.buildTouchBar()
   touchBar.handleEvent()
-  // setTimeout(() => {
-  //   touchBar._updateLyric(currentLyricIndex.value)
-  // }, 500)
 }

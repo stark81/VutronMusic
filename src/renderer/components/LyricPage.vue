@@ -17,7 +17,6 @@
       </button-icon>
     </div>
     <div ref="lyricContainer"></div>
-
   </div>
 </template>
 
@@ -30,10 +29,18 @@ import { useSettingsStore } from '../store/settings'
 import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
 import eventBus from '../utils/eventBus'
-import { initLyric, setLyrics, updatePlayStatus, destroyController, updateStartTime, updateOffset } from '../utils/lyricController'
+import {
+  initLyric,
+  setLyrics,
+  updatePlayStatus,
+  destroyController,
+  updateStartTime,
+  updateOffset
+} from '../utils/lyricController'
 
 const playerStore = usePlayerStore()
-const { noLyric, currentTrack, lyrics, seek, playing, lyricOffset, startStamp } = storeToRefs(playerStore)
+const { noLyric, currentTrack, lyrics, seek, playing, lyricOffset, startStamp } =
+  storeToRefs(playerStore)
 
 const stateStore = useNormalStateStore()
 const { showToast } = stateStore
@@ -79,13 +86,17 @@ const setOffset = (offset: number) => {
   )
 }
 
-watch(lyrics, (value) => {
-  if (!value.lyric.length) return
-  setTimeout(() => {
-    const _startStamp = playing.value ? startStamp.value : (performance.now() - seek.value * 1000)
-    setLyrics(lyrics.value, _startStamp)
-  }, 50)
-}, { immediate: true, deep: true })
+watch(
+  lyrics,
+  (value) => {
+    if (!value.lyric.length) return
+    setTimeout(() => {
+      const _startStamp = playing.value ? startStamp.value : performance.now() - seek.value * 1000
+      setLyrics(lyrics.value, _startStamp)
+    }, 50)
+  },
+  { immediate: true, deep: true }
+)
 
 watch(playing, (value) => {
   updatePlayStatus(value)
@@ -104,12 +115,15 @@ eventBus.on('update-process', (time: number) => {
 onMounted(() => {
   if (!currentTrack.value) return
 
-  const _startStamp = playing.value ? startStamp.value : (performance.now() - seek.value * 1000)
+  const _startStamp = playing.value ? startStamp.value : performance.now() - seek.value * 1000
   if (lyricContainer.value) {
     initLyric({
-      container: lyricContainer.value, playing: playing.value,
-      startStamp: _startStamp, offset: lyricOffset.value,
-      mode: nTranslationMode.value, wByw: isNWordByWord.value
+      container: lyricContainer.value,
+      playing: playing.value,
+      startStamp: _startStamp,
+      offset: lyricOffset.value,
+      mode: nTranslationMode.value,
+      wByw: isNWordByWord.value
     })
   }
 })
@@ -175,10 +189,12 @@ onBeforeUnmount(() => {
 .line {
   .lyric-line span {
     font-size: v-bind('`${nFontSize}px`');
-    will-change: background-size;
-    transition: font-size 0.4s ease, background-color 0.4s ease;
+    will-change: background-size, background-color, font-size;
+    transition:
+      font-size 0.4s ease,
+      background-color 0.4s ease;
     background-repeat: no-repeat;
-    background-color: rgba(255,255,255, 0.28);
+    background-color: rgba(255, 255, 255, 0.28);
     -webkit-text-fill-color: transparent;
     background-clip: text;
     background-size: 0 100%;
@@ -186,10 +202,12 @@ onBeforeUnmount(() => {
   }
   .translation span {
     font-size: v-bind('`${nFontSize - 2}px`');
-    will-change: background-size;
-    transition: font-size 0.4s ease, background-color 0.4s ease;
+    will-change: background-size, background-color, font-size;
+    transition:
+      font-size 0.4s ease,
+      background-color 0.4s ease;
     background-repeat: no-repeat;
-    background-color: rgba(255,255,255, 0.28);
+    background-color: rgba(255, 255, 255, 0.28);
     -webkit-text-fill-color: transparent;
     background-clip: text;
     background-size: 0 100%;
@@ -199,19 +217,27 @@ onBeforeUnmount(() => {
 
 .line-mode.active {
   .lyric-line span {
-    background-color: rgba(255,255,255, 0.95);
+    background-color: rgba(255, 255, 255, 0.95);
   }
   .translation span {
-    background-color: rgba(255,255,255, 0.75);
+    background-color: rgba(255, 255, 255, 0.75);
   }
 }
 
 .word-mode.active {
   .lyric-line span {
-    background-image: -webkit-linear-gradient(top, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.95));
+    background-image: -webkit-linear-gradient(
+      top,
+      rgba(255, 255, 255, 0.95),
+      rgba(255, 255, 255, 0.95)
+    );
   }
   .translation span {
-    background-image: -webkit-linear-gradient(top, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.75));
+    background-image: -webkit-linear-gradient(
+      top,
+      rgba(255, 255, 255, 0.75),
+      rgba(255, 255, 255, 0.75)
+    );
   }
 }
 </style>

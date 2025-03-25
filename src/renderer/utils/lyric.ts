@@ -2,9 +2,9 @@ import { randomNum } from '.'
 
 export const lyricParse = (lrc: any) => {
   return {
-    lyric:  parseyrc(lrc.yrc?.lyric) ??  parseLyric(lrc.lrc?.lyric) ?? [],
+    lyric: parseyrc(lrc.yrc?.lyric) ?? parseLyric(lrc.lrc?.lyric) ?? [],
     tlyric: parseLyric(lrc.ytlrc?.lyric) ?? parseLyric(lrc.tlyric?.lyric) ?? [],
-    rlyric:  parseLyric(lrc.yromalrc?.lyric) ?? parseLyric(lrc.romalrc?.lyric) ?? []
+    rlyric: parseLyric(lrc.yromalrc?.lyric) ?? parseLyric(lrc.romalrc?.lyric) ?? []
   }
 }
 

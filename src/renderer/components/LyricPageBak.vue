@@ -42,22 +42,13 @@
           >
         </div>
         <div v-if="nTranslationMode === 'tlyric' && line.tlyric" class="traslation">
-          <span
-            v-for="(lyric, idx) in line.tlyric"
-            :key="idx"
-            >{{ lyric.word }}</span
-          >
+          <span v-for="(lyric, idx) in line.tlyric" :key="idx">{{ lyric.word }}</span>
         </div>
         <div v-if="nTranslationMode === 'rlyric' && line.rlyric" class="traslation">
-          <span
-            v-for="(lyric, idx) in line.rlyric"
-            :key="idx"
-            >{{ lyric.word }}</span
-          >
+          <span v-for="(lyric, idx) in line.rlyric" :key="idx">{{ lyric.word }}</span>
         </div>
       </div>
     </div>
-
   </div>
 </template>
 
@@ -72,7 +63,8 @@ import SvgIcon from './SvgIcon.vue'
 import eventBus from '../utils/eventBus'
 
 const playerStore = usePlayerStore()
-const { noLyric, currentTrack, lyrics, seek, playing, currentTrackDuration, lyricOffset } = storeToRefs(playerStore)
+const { noLyric, currentTrack, lyrics, seek, playing, currentTrackDuration, lyricOffset } =
+  storeToRefs(playerStore)
 
 const stateStore = useNormalStateStore()
 const { showLyrics } = storeToRefs(stateStore)
@@ -82,8 +74,18 @@ const settingsStore = useSettingsStore()
 const { normalLyric } = storeToRefs(settingsStore)
 const { nFontSize, nTranslationMode, isNWordByWord } = toRefs(normalLyric.value)
 
-interface word { start: number, end: number, word: string }
-interface animation { index: number, start: number, end: number, dom: HTMLElement, animation: Animation }
+interface word {
+  start: number
+  end: number
+  word: string
+}
+interface animation {
+  index: number
+  start: number
+  end: number
+  dom: HTMLElement
+  animation: Animation
+}
 
 const hover = ref(false)
 const currentLyricIndex = ref(-1)
@@ -107,7 +109,14 @@ const haswByw = computed(() => {
 })
 
 const lyricWithTranslation = computed(() => {
-  const ret = [] as { index: number, start: number, end: number, lyric: word[], tlyric: word[], rlyric: word[] }[]
+  const ret = [] as {
+    index: number
+    start: number
+    end: number
+    lyric: word[]
+    tlyric: word[]
+    rlyric: word[]
+  }[]
   const lyricFiltered = lyrics.value.lyric.filter(({ content }) => Boolean(content))
   if (lyricFiltered.length) {
     lyricFiltered.forEach((l, index) => {
@@ -171,7 +180,9 @@ const lyricWithTranslation = computed(() => {
         ret.push(lineItem)
       }
     })
-    ret[ret.length - 1].end = haswByw.value ? ret[ret.length - 1].end : currentTrackDuration.value * 1000
+    ret[ret.length - 1].end = haswByw.value
+      ? ret[ret.length - 1].end
+      : currentTrackDuration.value * 1000
   }
   return ret
 })
@@ -202,7 +213,9 @@ const getCurrentLineIndex = () => {
     const driftTime = performance.now() - _performance.value - curLine.start
 
     const nextLine = lyricWithTranslation.value[line + 1]
-    const delay = nextLine ? (nextLine.start - curLine.start - driftTime) : (currentTrackDuration.value * 1000 - curLine.start - driftTime)
+    const delay = nextLine
+      ? nextLine.start - curLine.start - driftTime
+      : currentTrackDuration.value * 1000 - curLine.start - driftTime
     if (playing.value) {
       timeoutId = setTimeout(() => {
         clearTimeout(timeoutId)
@@ -210,7 +223,6 @@ const getCurrentLineIndex = () => {
         getCurrentLineIndex()
       }, delay)
     }
-
   }
 }
 
@@ -239,7 +251,7 @@ const _refresh = () => {
   }
   curFontNum.value = _findCurIndex(fontList.value as word[])
   if (curFontNum.value === -1) {
-    const driftTime = animations.value[0].start - - (performance.now() - _performance.value)
+    const driftTime = animations.value[0].start - -(performance.now() - _performance.value)
     fontTimeoutId = setTimeout(() => {
       clearTimeout(fontTimeoutId)
       if (!playing.value) return
@@ -251,7 +263,8 @@ const _refresh = () => {
   const nextFont = animations.value[curFontNum.value + 1]
 
   if (nextFont) {
-    const driftTime = (nextFont ? nextFont.start : animation.end) - (performance.now() - _performance.value)
+    const driftTime =
+      (nextFont ? nextFont.start : animation.end) - (performance.now() - _performance.value)
     fontTimeoutId = setTimeout(() => {
       clearTimeout(fontTimeoutId)
       if (!playing.value) return
@@ -320,7 +333,9 @@ const setOffset = (offset: number) => {
 
 const createAnimation = () => {
   // 这里的lyricLineSpan.value在切歌时会出现乱序，所以需要进行排序
-  const spans = lyricLineSpan.value?.slice().sort((a, b) => Number(a.dataset.start) - Number(b.dataset.start))!
+  const spans = lyricLineSpan.value
+    ?.slice()
+    .sort((a, b) => Number(a.dataset.start) - Number(b.dataset.start))!
 
   spans.forEach((span, index) => {
     const start = Number(span.dataset.start)
@@ -328,7 +343,7 @@ const createAnimation = () => {
     const duration = end - start
     const effect = new KeyframeEffect(
       span,
-      [{ backgroundSize: '0 100%'}, { backgroundSize: '100% 100%' }],
+      [{ backgroundSize: '0 100%' }, { backgroundSize: '100% 100%' }],
       { duration, easing: 'linear', fill: 'forwards' }
     )
     const animation = new Animation(effect, document.timeline)
@@ -353,7 +368,7 @@ const createAnimation = () => {
   }
 }
 
-const _findCurIndex = (fontList: { start: number, end: number }[], startIndex = 0) => {
+const _findCurIndex = (fontList: { start: number; end: number }[], startIndex = 0) => {
   if (!fontList.length) return -1
   if (performance.now() - _performance.value < fontList[0].start) return -1
   for (let index = startIndex; index < fontList.length; index++) {
@@ -362,14 +377,17 @@ const _findCurIndex = (fontList: { start: number, end: number }[], startIndex = 
   return fontList.length - 1
 }
 
-watch(() => lyricLineSpan.value?.length, (value) => {
-  clearTimeout(fontTimeoutId)
-  animations.value.forEach((item) => (item.animation.pause()))
-  animations.value = []
-  if (value && haswByw.value) {
-    createAnimation()
+watch(
+  () => lyricLineSpan.value?.length,
+  (value) => {
+    clearTimeout(fontTimeoutId)
+    animations.value.forEach((item) => item.animation.pause())
+    animations.value = []
+    if (value && haswByw.value) {
+      createAnimation()
+    }
   }
-})
+)
 
 watch(currentLyricIndex, (value) => {
   nextTick(() => {
@@ -411,7 +429,7 @@ watch(lyricOffset, (value) => {
 })
 
 // @ts-ignore
-eventBus.on('update-process', (data: { progress: number, manual: boolean }) => {
+eventBus.on('update-process', (data: { progress: number; manual: boolean }) => {
   clearTimeout(timeoutId)
   _performance.value = performance.now() - data.progress * 1000 + lyricOffset.value * 1000
   currentLyricIndex.value = _findCurIndex(lyricWithTranslation.value)
@@ -427,19 +445,18 @@ eventBus.on('update-process', (data: { progress: number, manual: boolean }) => {
 })
 
 watch(showLyrics, (value) => {
-  if (value)
-    clearTimeout(timeoutId)
-    clearTimeout(fontTimeoutId)
-    _performance.value = performance.now() - seek.value * 1000 + lyricOffset.value * 1000
-    currentLyricIndex.value = _findCurIndex(lyricWithTranslation.value)
-    getCurrentLineIndex()
-    playFontAnimate()
-    nextTick(() => {
-      const el = document.getElementById(`line${currentLyricIndex.value}`)
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      }
-    })
+  if (value) clearTimeout(timeoutId)
+  clearTimeout(fontTimeoutId)
+  _performance.value = performance.now() - seek.value * 1000 + lyricOffset.value * 1000
+  currentLyricIndex.value = _findCurIndex(lyricWithTranslation.value)
+  getCurrentLineIndex()
+  playFontAnimate()
+  nextTick(() => {
+    const el = document.getElementById(`line${currentLyricIndex.value}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  })
 })
 
 onMounted(() => {
@@ -527,7 +544,7 @@ onBeforeUnmount(() => {
     will-change: background-size;
     transition: font-size 0.4s ease;
     background-repeat: no-repeat;
-    background-color: rgba(255,255,255, 0.28);
+    background-color: rgba(255, 255, 255, 0.28);
     -webkit-text-fill-color: transparent;
     background-clip: text;
     background-size: 0 100%;
@@ -541,17 +558,21 @@ onBeforeUnmount(() => {
 
 .line-mode.active {
   .lyric-line span {
-    background-color: rgba(255,255,255, 0.95);
+    background-color: rgba(255, 255, 255, 0.95);
   }
   .traslation span {
-    background-color: rgba(255,255,255, 0.75);
+    background-color: rgba(255, 255, 255, 0.75);
   }
 }
 
 .word-mode.active {
   .lyric-line {
     span {
-      background-image: -webkit-linear-gradient(top, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.95));
+      background-image: -webkit-linear-gradient(
+        top,
+        rgba(255, 255, 255, 0.95),
+        rgba(255, 255, 255, 0.95)
+      );
     }
     .wordPlayed {
       background-size: 100% 100%;

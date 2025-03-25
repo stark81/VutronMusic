@@ -52,7 +52,6 @@ export const usePlayerStore = defineStore(
     const title = ref<string | null>('VutronMusic')
     const outputDevice = ref('default')
     const backRate = ref(1.0)
-    let progressTimeout: any
     const streamMusics = ref<Track[]>([])
     const isLiked = ref(false)
     const isLocalList = ref(false)
@@ -88,6 +87,8 @@ export const usePlayerStore = defineStore(
     }>({ id: 0 })
 
     let initAcx = false
+    let lineTimeout: any
+
     const localMusicStore = useLocalMusicStore()
     const streamMusicStore = useStreamMusicStore()
     const { updateTrack, fetchLocalMusic } = localMusicStore
@@ -96,7 +97,8 @@ export const usePlayerStore = defineStore(
     const { t } = useI18n()
 
     const settingsStore = useSettingsStore()
-    const { showToast } = useNormalStateStore()
+    const stateStore = useNormalStateStore()
+    const { showToast } = stateStore
 
     const audio = new Audio()
     const audioContext = new AudioContext()
@@ -106,6 +108,8 @@ export const usePlayerStore = defineStore(
     const _list = ref<number[]>([])
     const _playNextList = ref<number[]>([])
     const currentTrackIndex = ref(0)
+    const currentLyricIndex = ref(-1)
+    const currentFontIndex = ref(-1)
 
     const biquadParams = reactive<biquadType>({
       31: 0,
@@ -215,6 +219,26 @@ export const usePlayerStore = defineStore(
 
     const noLyric = computed(() => lyrics.lyric.length === 0)
 
+    const shouldGetLrcIndex = computed(() => {
+      return stateStore.showLyrics || (window.env?.isMac && settingsStore.tray.showLyric) || (window.env?.isLinux && settingsStore.tray.enableExtension)
+    })
+
+    const getLyricIndex = () => {
+      const lyricFiltered = lyrics.lyric.filter(({ content }) => Boolean(content))
+      for (let i = 0; i < lyricFiltered.length; i++) {
+        if (lyricFiltered[i].time >= audio.currentTime + lyricOffset.value) {
+          return i - 1
+        }
+      }
+      return lyricFiltered.length - 1
+    }
+
+    watch(shouldGetLrcIndex, (value) => {
+      if (value) {
+        updateIndex()
+      }
+    })
+
     watch(currentTrack, async (value) => {
       if (!value) return
       const flag = await searchMatchForLocal(value)
@@ -276,25 +300,47 @@ export const usePlayerStore = defineStore(
       }
     )
 
-    const updateProgress = () => {
-      progress.value = audio.currentTime
-      progressTimeout = setTimeout(() => {
-        clearTimeout(progressTimeout)
-        if (!playing.value) return
-        updateProgress()
-      }, 1000)
+    const _refreshIdx = () => {
+      const index = Math.max(currentLyricIndex.value, 0)
+
+      const nextLyric = lyrics.lyric[index + 1]
+      const driftTime = (nextLyric ? nextLyric.time : currentTrackDuration.value ) - audio.currentTime - lyricOffset.value
+
+      if (playing.value) {
+        lineTimeout = setTimeout(() => {
+          clearTimeout(lineTimeout)
+          if (!playing.value) return
+          if (nextLyric) {
+            currentLyricIndex.value = index + 1
+          } else {
+            currentLyricIndex.value = -1
+            console.log('end')
+          }
+          _refreshIdx()
+        }, driftTime * 1000)
+      }
+    }
+
+    const updateIndex = () => {
+      if (!lyrics.lyric.length) return
+      currentLyricIndex.value = getLyricIndex()
+
+      if (!playing.value) return
+      _refreshIdx()
     }
 
     watch(playing, (value) => {
       window.mainApi.send('updatePlayerState', { playing: value })
       if (value) {
-        updateProgress()
+        progress.value = audio.currentTime
         startStamp.value = performance.now() - audio.currentTime * 1000
+        updateIndex()
         window.mainApi.send('updateLyricInfo', { progress: audio.currentTime })
         eventBus.emit('update-process', audio.currentTime)
       } else {
         progress.value = audio.currentTime
-        clearTimeout(progressTimeout)
+        clearTimeout(lineTimeout)
+        lineTimeout = null
       }
     })
 
@@ -390,7 +436,6 @@ export const usePlayerStore = defineStore(
       if (!track) return
       chorus.value = 0
       let data: any
-      if (pic.value) URL.revokeObjectURL(pic.value)
       if (track.type === 'stream') {
         if (track.source === 'navidrome') {
           data = await fetch(`atom://get-stream-track-info/${track.id}`).then((res) => res.json())
@@ -418,6 +463,7 @@ export const usePlayerStore = defineStore(
       }
       const buffer = new Uint8Array(data.pic.data)
       const blob = new Blob([buffer], { type: data.format })
+      if (pic.value.startsWith('blob:')) URL.revokeObjectURL(pic.value)
       pic.value = URL.createObjectURL(blob)
       if (data.color) {
         color.value = data.color
@@ -643,14 +689,6 @@ export const usePlayerStore = defineStore(
       }
     }
 
-    // const _scrobble = (track: any, time: number, completed = false) => {
-    //   const trackDuration = ~~(track.dt / 1000)
-    //   time = completed ? trackDuration : ~~time
-    //   const sourceID =
-    //     playlistSource.value.id === 0 ? track.al?.id || track.album?.id : playlistSource.value.id
-    //   scrobble({ id: track.id, sourceid: sourceID, time })
-    // }
-
     const stop = async () => {
       seek.value = 0
       if (playingNext.value) {
@@ -824,7 +862,7 @@ export const usePlayerStore = defineStore(
       lyrics.tlyric = []
       lyrics.rlyric = []
       // currentLyricIndex.value = -1
-      if (pic.value) {
+      if (pic.value.startsWith('blob:')) {
         URL.revokeObjectURL(pic.value)
         pic.value = 'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg'
       }
@@ -1037,9 +1075,8 @@ export const usePlayerStore = defineStore(
     })
 
     onBeforeUnmount(() => {
-      clearTimeout(progressTimeout)
       progress.value = audio.currentTime
-      if (pic.value) URL.revokeObjectURL(pic.value)
+      if (pic.value.startsWith('blob:')) URL.revokeObjectURL(pic.value)
     })
 
     return {
@@ -1066,6 +1103,8 @@ export const usePlayerStore = defineStore(
       isPersonalFM,
       source,
       currentTrackIndex,
+      currentLyricIndex,
+      currentFontIndex,
       currentTrackDuration,
       outputDevice,
       biquadParams,
