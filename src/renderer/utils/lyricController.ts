@@ -606,11 +606,10 @@ export const destroyController = () => {
 export const updateLineMode = (isOneLine: boolean) => {
   if (!manager) return
   manager.isOneLine = isOneLine
-  if (manager?.isMini) {
-    manager?.createLyricsDom(manager.groupIndex)
-  } else {
-    manager?.createLyricsDom()
-  }
+  setLyrics(manager.lyrics!)
+  updateLineIndex(manager.lineIdx)
+  updateFontIndex(manager.fontIdx)
+  updateTFontIndex(manager.tFontIdx)
 }
 
 export const updateWordByWord = (wByw: boolean) => {

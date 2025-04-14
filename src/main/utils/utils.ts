@@ -221,11 +221,9 @@ export const getPic = async (track: any): Promise<{ pic: Buffer; format: string 
   let res: { pic: Buffer<ArrayBufferLike>; format: string }
 
   for (const order of trackInfoOrder) {
-    if (order === 'online') {
-      if (track.matched) {
-        res = await getPicFromApi(track.album?.picUrl || track.al?.picUrl)
-      }
-    } else if (order === 'path') {
+    if (order === 'online' && track.matched) {
+      res = await getPicFromApi(track.album?.picUrl || track.al?.picUrl)
+    } else if (order === 'path' && track.filePath) {
       const prefixs = ['.jpg', '.png', '.jpeg', '.webp']
       for (const prefix of prefixs) {
         const filePath = track.filePath.replace(/\.[^/.]+$/, prefix)
@@ -239,7 +237,7 @@ export const getPic = async (track: any): Promise<{ pic: Buffer; format: string 
           })
         if (res?.pic) break
       }
-    } else if (order === 'embedded') {
+    } else if (order === 'embedded' && track.filePath) {
       res = await getPicFromEmbedded(track.filePath)
     }
     if (res?.pic) return res
