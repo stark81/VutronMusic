@@ -513,6 +513,8 @@ export class LyricManager {
       () => {
         this.isWheeling = false
         clearTimeout(this.scrollingTimer)
+        const line = this.lyricElements[this.lineIdx]
+        if (!line) return
         line.dom.scrollIntoView({ behavior: 'smooth', block: 'center' })
       },
       Math.min(1000, (line.end - line.start) * 0.4)

@@ -150,9 +150,6 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
 }
 
 function initOSDWindowIpcMain(win: BrowserWindow, lrc: { [key: string]: Function }): void {
-  ipcMain.on('updateLyricInfo', (event, data) => {
-    lrc.updateLyricInfo(data)
-  })
   ipcMain.on('updateOsdState', (event, data) => {
     const [key, value] = Object.entries(data)[0] as [string, any]
     store.set(`osdWin.${key}`, value)

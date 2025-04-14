@@ -198,7 +198,6 @@ export const usePlayerStore = defineStore(
         clearTimeout(timer.list)
         clearTimeout(timer.tList)
         updateIndex()
-        window.mainApi?.send('updateLyricInfo', { progress: value })
       }
     })
 
@@ -360,7 +359,6 @@ export const usePlayerStore = defineStore(
       clearTimeout(timer.list)
       clearTimeout(timer.tList)
       updateIndex()
-      window.mainApi?.send('updateLyricInfo', { lyrics: toRaw(value) })
     })
 
     watch(
@@ -471,6 +469,23 @@ export const usePlayerStore = defineStore(
       return { content: line?.content, time: diff }
     })
 
+    watch(currentLyric, (value) => {
+      if (window.env?.isLinux && settingsStore.tray.enableExtension) {
+        window.mainApi?.send('updateLyricInfo', { currentLyric: toRaw(value) })
+      }
+    })
+
+    watch(
+      () => window.env?.isLinux && settingsStore.tray.enableExtension,
+      (value) => {
+        if (value) {
+          window.mainApi?.send('updateLyricInfo', { currentLyric: toRaw(currentLyric.value) })
+        } else {
+          window.mainApi?.send('updateLyricInfo', { currentLyric: { content: '', time: 10 } })
+        }
+      }
+    )
+
     watch(shouldGetFontIndex, (value) => {
       if (value) {
         _refreshLineIdx()
@@ -488,7 +503,6 @@ export const usePlayerStore = defineStore(
         progress.value = audio.currentTime
         _progress.value = audio.currentTime
         updateIndex()
-        window.mainApi?.send('updateLyricInfo', { progress: audio.currentTime })
       } else {
         progress.value = audio.currentTime
         _progress.value = audio.currentTime
@@ -536,8 +550,7 @@ export const usePlayerStore = defineStore(
       return currentTrack.value?.offset ?? 0
     })
 
-    watch(lyricOffset, (value) => {
-      window.mainApi?.send('updateLyricInfo', { lyricOffset: value })
+    watch(lyricOffset, () => {
       clearTimeout(timer.line)
       clearTimeout(timer.list)
       clearTimeout(timer.tList)
