@@ -42,6 +42,7 @@ import {
 } from './utils/utils'
 import { CacheAPIs } from './utils/CacheApis'
 import { registerGlobalShortcuts } from './globalShortcut'
+import { checkUpdate } from './checkUpdate'
 
 const closeOnLinux = (e: any, win: BrowserWindow) => {
   const closeOpt = store.get('settings.closeAppOption') || 'ask'
@@ -773,6 +774,7 @@ class BackGround {
     this.win.once('ready-to-show', () => {
       this.win.show()
       this.win.focus()
+      checkUpdate(this.win)
     })
 
     this.win.on('close', (e) => {

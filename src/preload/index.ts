@@ -61,7 +61,9 @@ const rendererAvailChannels: string[] = [
   'rememberCloseAppOption',
   'msgDeletedTracks',
   'msgExtensionCheckResult',
-  'resume'
+  'resume',
+  'update-not-available',
+  'update-error'
 ]
 
 let messagePort: MessagePort | null = null

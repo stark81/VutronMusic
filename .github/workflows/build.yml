@@ -18,6 +18,8 @@ jobs:
         include:
           - os: macos-latest
             arch: arm64
+          - os: ubuntu-latest
+            arch: arm64
 
     runs-on: ${{ matrix.os }}
     env:
@@ -80,6 +82,13 @@ jobs:
         with:
           name: VutronMusic-mac-${{ matrix.arch }}
           path: release/*/VutronMusic*_${{ matrix.arch }}.dmg
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'macos-latest'
+        with:
+          name: VutronMusic-mac-zip-${{ matrix.arch }}
+          path: release/*/VutronMusic*_${{ matrix.arch }}.zip
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4

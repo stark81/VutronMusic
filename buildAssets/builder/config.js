@@ -19,11 +19,8 @@ const baseConfig = {
     icon: 'buildAssets/icons/icon.icns',
     type: 'distribution',
     target: [
-      {
-        target: 'dmg',
-        arch: ['x64', 'arm64']
-        // arch: ['x64', 'arm64', 'universal']
-      }
+      { target: 'dmg', arch: ['x64', 'arm64'] },
+      { target: 'zip', arch: ['x64', 'arm64'] }
     ]
   },
   dmg: {
