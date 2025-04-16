@@ -201,16 +201,7 @@
 import { storeToRefs } from 'pinia'
 import { useDataStore } from '../store/data'
 import { useNormalStateStore } from '../store/state'
-import {
-  onActivated,
-  onDeactivated,
-  ref,
-  computed,
-  onMounted,
-  onUnmounted,
-  inject,
-  nextTick
-} from 'vue'
+import { ref, computed, onMounted, onUnmounted, inject, nextTick } from 'vue'
 import { dailyTask, randomNum } from '../utils'
 import { tricklingProgress } from '../utils/tricklingProgress'
 import { getTrackDetail } from '../api/track'
@@ -362,15 +353,12 @@ const updateCurrentTab = (tab: string) => {
   })
 }
 
-// const scrollTo = inject('scrollTo') as (top: number) => void
-
 const openPlaylistTabMenu = (e: MouseEvent) => {
   playlistTabMenu.value?.openMenu(e)
 }
 
 const changePlaylistFilter = (type: string) => {
   libraryPlaylistFilter.value = type
-  // scrollTo(300)
 }
 
 const observeTab = new IntersectionObserver(
@@ -408,7 +396,14 @@ const handleResize = () => {
   if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
 }
 
-onActivated(() => {
+// onActivated(() => {
+
+// })
+// onDeactivated(() => {
+//   updatePadding(96)
+// })
+onMounted(() => {
+  window.addEventListener('resize', handleResize)
   setTimeout(() => {
     if (!show.value) tricklingProgress.start()
   }, 1000)
@@ -417,12 +412,6 @@ onActivated(() => {
   setTimeout(() => {
     updatePadding(0)
   }, 100)
-})
-onDeactivated(() => {
-  updatePadding(96)
-})
-onMounted(() => {
-  window.addEventListener('resize', handleResize)
   if (tabsRowRef.value) {
     observeTab.observe(tabsRowRef.value)
   }
@@ -430,7 +419,7 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
   observeTab.disconnect()
-  // observeSectionOne.disconnect()
+  updatePadding(96)
 })
 </script>
 

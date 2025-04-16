@@ -156,7 +156,9 @@ const { likeATrack } = dataStore
 const type = ref(props.typeProp)
 const track = computed(
   () =>
-    (type.value === 'cloudDisk' ? props.trackProp.simpleSong : props.trackProp) as {
+    (type.value === 'cloudDisk'
+      ? props.trackProp.simpleSong || props.trackProp
+      : props.trackProp) as {
       [key: string]: any
     }
 )

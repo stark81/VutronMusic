@@ -749,6 +749,7 @@ class BackGround {
 
     powerMonitor.on('resume', () => {
       setTimeout(() => this.initMessageChannel(), 1000)
+      this.win.webContents.send('resume')
     })
 
     app.on('will-quit', () => {

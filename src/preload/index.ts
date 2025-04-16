@@ -60,7 +60,8 @@ const rendererAvailChannels: string[] = [
   'updateOSDSetting',
   'rememberCloseAppOption',
   'msgDeletedTracks',
-  'msgExtensionCheckResult'
+  'msgExtensionCheckResult',
+  'resume'
 ]
 
 let messagePort: MessagePort | null = null

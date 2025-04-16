@@ -352,9 +352,15 @@ export const usePlayerStore = defineStore(
       if (flag) return
       await getCurrentTrackInfo(value)
       updateMediaSessionMetaData(value)
+      if (osdLyricStore.show) {
+        window.mainApi?.sendMessage({
+          type: 'update-osd-status',
+          data: { title: `${(value.artists || value.ar)[0]?.name} - ${value.name}` }
+        })
+      }
     })
 
-    watch(lyrics, (value) => {
+    watch(lyrics, () => {
       clearTimeout(timer.line)
       clearTimeout(timer.list)
       clearTimeout(timer.tList)
@@ -745,10 +751,12 @@ export const usePlayerStore = defineStore(
         })
         .then((track) => {
           currentTrack.value = track
-          getTrackSource(track!).then((source) => {
+          return getTrackSource(track!).then((source) => {
+            let replaced = false
             if (source) {
               if (track!.id === currentTrack.value?.id) {
                 playAudioSource(source, autoPlay)
+                replaced = true
               }
             } else {
               showToast(track?.reason)
@@ -759,6 +767,7 @@ export const usePlayerStore = defineStore(
             } else if (autoPlay && currentTrack.value?.type === 'stream') {
               scrobble(trackID as string)
             }
+            return replaced
           })
         })
     }
@@ -1094,7 +1103,8 @@ export const usePlayerStore = defineStore(
               font: currentIndex.list,
               tfont: currentIndex.tList,
               playing: playing.value,
-              progress: audio.currentTime
+              progress: audio.currentTime,
+              title: `${(currentTrack.value?.artists || currentTrack.value?.ar)[0]?.name} - ${currentTrack.value?.name}`
             }
           })
         }
@@ -1148,6 +1158,14 @@ export const usePlayerStore = defineStore(
           if (!value) window.mainApi?.closeMessagePort()
         }
       )
+
+      window.mainApi?.on('resume', () => {
+        if (!currentTrack.value) return
+        const t = _progress.value
+        replaceCurrentTrack(currentTrack.value.id, false).then((res) => {
+          if (res) seek.value = t
+        })
+      })
 
       window.mainApi?.on('play', () => {
         if (

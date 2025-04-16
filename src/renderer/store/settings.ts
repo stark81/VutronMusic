@@ -209,6 +209,13 @@ export const useSettingsStore = defineStore(
       window.mainApi?.send('setStoreSettings', { shortcuts: cloneDeep(toRaw(shortcuts.value)) })
     }
 
+    window.mainApi?.on('resume', () => {
+      const trayMenu = !(tray.showControl || tray.showLyric)
+      window.mainApi?.send('setStoreSettings', {
+        enableTrayMenu: trayMenu
+      })
+    })
+
     onMounted(() => {
       const trayMenu = !(tray.showControl || tray.showLyric)
       window.mainApi?.send('setStoreSettings', {
