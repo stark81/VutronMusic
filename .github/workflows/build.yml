@@ -70,6 +70,9 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     name: Build Linux x64
+    env:
+      XVFB_PFX: ${{ 'xvfb-run --auto-servernum -- ' }}
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -80,15 +83,13 @@ jobs:
           node-version: 22
           cache: yarn
 
-      - run: yarn
+      - run: ${{ env.XVFB_PFX }}yarn
 
       - name: Build Linux
         run: |
-          sudo apt-get install -y xvfb
-          xvfb-run --auto-servernum -- npm rebuild
-          xvfb-run --auto-servernum -- npx electron-rebuild
-          xvfb-run --auto-servernum -- yarn build:pre
-          xvfb-run --auto-servernum -- yarn electron-builder --linux -p never
+          ${{ env.XVFB_PFX }}npm rebuild
+          ${{ env.XVFB_PFX }}./node_modules/.bin/electron-rebuild
+          yarn build --linux -p never || yarn build --linux -p never
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
@@ -99,6 +100,9 @@ jobs:
   build-linux-arm64:
     runs-on: ubuntu-latest
     name: Build Linux arm64
+    env:
+      XVFB_PFX: ${{ 'xvfb-run --auto-servernum -- ' }}
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -113,7 +117,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-          yarn
+          ${{ env.XVFB_PFX }}yarn
 
       - name: Build for Linux arm64
         run: |
@@ -121,10 +125,9 @@ jobs:
           export CXXFLAGS="--target=aarch64-linux-gnu"
           export npm_config_arch=arm64
           export npm_config_target_arch=arm64
-          xvfb-run --auto-servernum -- npm rebuild --arch=arm64
-          xvfb-run --auto-servernum -- npx electron-rebuild --arch=arm64
-          xvfb-run --auto-servernum -- yarn build:pre
-          xvfb-run --auto-servernum -- yarn electron-builder --linux --arm64 -p never
+          ${{ env.XVFB_PFX }}npm rebuild --arch=arm64
+          ${{ env.XVFB_PFX }}./node_modules/.bin/electron-rebuild --arch=arm64
+          yarn build --linux --arm64 -p never || yarn build --linux --arm64 -p never
 
       - name: Upload Linux arm64 artifact
         uses: actions/upload-artifact@v4
