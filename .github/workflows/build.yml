@@ -9,184 +9,204 @@ on:
 permissions: write-all
 
 jobs:
-  build-mac-x64:
-    runs-on: macos-latest
-    name: Build macOS x64
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+  Release:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+        arch: [x64]
+        include:
+          - os: macos-latest
+            arch: arm64
 
-      - uses: actions/setup-node@v4
+    runs-on: ${{ matrix.os }}
+    env:
+      XVFB_PFX: ${{ (matrix.os == 'ubuntu-latest' && 'xvfb-run --auto-servernum -- ') || '' }}
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Install Node.js, NPM and Yarn
+        uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: yarn
+          cache: 'yarn'
 
-      - run: yarn
+      - name: Install build essentials (macOS)
+        if: matrix.os == 'macos-latest'
+        run: brew install rpm
 
-      - name: Build x64
+      - name: Install deps
+        run: ${{ env.XVFB_PFX }}yarn
+
+      - name: Rebuild native dependencies for current architecture
         run: |
-          npm rebuild --arch=x64
-          npx electron-rebuild --arch=x64
-          yarn build:pre
-          yarn electron-builder --mac --x64 -p never
+          ${{ env.XVFB_PFX }}npm rebuild --arch=${{ matrix.arch }}
+          ${{ env.XVFB_PFX }}./node_modules/.bin/electron-rebuild --arch=${{ matrix.arch }}
 
-      - name: Upload mac-x64 artifacts
-        uses: actions/upload-artifact@v4
+      - name: Build Electron app (without auto-publish)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.github_token }}
+          ARCH: ${{ matrix.arch }}
+        run: yarn build --${{ matrix.arch }} -p never
+
+      # Windows artifacts
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'windows-latest'
         with:
-          name: mac-x64
-          path: release/**/*mac_x64.*
-
-  build-mac-arm64:
-    runs-on: macos-latest
-    name: Build macOS arm64
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: yarn
-
-      - run: |
-          brew install rpm
-          yarn
-
-      - name: Build arm64
-        run: |
-          npm rebuild --arch=arm64
-          npx electron-rebuild --arch=arm64
-          yarn build:pre
-          yarn electron-builder --mac --arm64 -p never
-
-      - name: Upload mac-arm64 artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: mac-arm64
-          path: release/**/*mac_arm64.*
-
-  build-linux:
-    runs-on: ubuntu-latest
-    name: Build Linux x64
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: yarn
-
-      - run: yarn
-
-      - name: Build Linux
-        run: |
-          sudo apt-get install -y xvfb
-          xvfb-run --auto-servernum -- npm rebuild
-          xvfb-run --auto-servernum -- npx electron-rebuild
-          xvfb-run --auto-servernum -- yarn build:pre
-          xvfb-run --auto-servernum -- yarn electron-builder --linux -p never
-
-      - name: Upload Linux artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-x64
-          path: release/**/*linux_x64.*
-
-  build-linux-arm64:
-    runs-on: ubuntu-latest
-    name: Build Linux arm64
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: yarn
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-          yarn
-
-      - name: Build for Linux arm64
-        run: |
-          export CFLAGS="--target=aarch64-linux-gnu"
-          export CXXFLAGS="--target=aarch64-linux-gnu"
-          export npm_config_arch=arm64
-          export npm_config_target_arch=arm64
-          xvfb-run --auto-servernum -- npm rebuild --arch=arm64
-          xvfb-run --auto-servernum -- npx electron-rebuild --arch=arm64
-          xvfb-run --auto-servernum -- yarn build:pre
-          xvfb-run --auto-servernum -- yarn electron-builder --linux --arm64 -p never
-
-      - name: Upload Linux arm64 artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-arm64
-          path: release/**/*linux_arm64.*
+          name: VutronMusic-win-installer-${{ matrix.arch }}
+          path: release/*/VutronMusic*_${{ matrix.arch }}.exe
           if-no-files-found: ignore
 
-  build-win:
-    runs-on: windows-latest
-    name: Build Windows x64
-    steps:
-      - uses: actions/checkout@v4
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'windows-latest'
         with:
-          submodules: recursive
+          name: VutronMusic-win-portable-${{ matrix.arch }}
+          path: release/*/VutronMusic*_${{ matrix.arch }} Portable.exe
+          if-no-files-found: ignore
 
-      - uses: actions/setup-node@v4
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'windows-latest'
         with:
-          node-version: 22
-          cache: yarn
+          name: VutronMusic-win-blockmap-${{ matrix.arch }}
+          path: release/*/VutronMusic*.blockmap
+          if-no-files-found: ignore
 
-      - run: yarn
-
-      - name: Build Windows
-        run: |
-          npm rebuild
-          npx electron-rebuild
-          yarn build:pre
-          yarn electron-builder --win -p never
-
-      - name: Upload Windows artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'windows-latest'
         with:
-          name: win-x64
-          path: release/**/*win_x64.*
+          name: VutronMusic-win-latest-${{ matrix.arch }}
+          path: release/*/latest*.yml
+          if-no-files-found: ignore
 
-  upload-release:
+      # macOS artifacts
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'macos-latest'
+        with:
+          name: VutronMusic-mac-dmg-${{ matrix.arch }}
+          path: release/*/VutronMusic*_${{ matrix.arch }}.dmg
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'macos-latest'
+        with:
+          name: VutronMusic-mac-zip-${{ matrix.arch }}
+          path: release/*/VutronMusic*_${{ matrix.arch }}.zip
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'macos-latest'
+        with:
+          name: VutronMusic-mac-blockmap-${{ matrix.arch }}
+          path: release/*/VutronMusic*.blockmap
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'macos-latest'
+        with:
+          name: VutronMusic-mac-latest-${{ matrix.arch }}
+          path: release/*/latest*.yml
+          if-no-files-found: ignore
+
+      # Linux artifacts
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: VutronMusic-linux-snap-${{ matrix.arch }}
+          path: release/*/VutronMusic*.snap
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: VutronMusic-linux-AppImage-${{ matrix.arch }}
+          path: release/*/VutronMusic*.AppImage
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: VutronMusic-linux-deb-${{ matrix.arch }}
+          path: release/*/VutronMusic*.deb
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: VutronMusic-linux-rpm-${{ matrix.arch }}
+          path: release/*/VutronMusic*.rpm
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: VutronMusic-linux-zip-${{ matrix.arch }}
+          path: release/*/VutronMusic*.zip
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: VutronMusic-linux-blockmap-${{ matrix.arch }}
+          path: release/*/VutronMusic*.blockmap
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: VutronMusic-linux-latest-${{ matrix.arch }}
+          path: release/*/latest*.yml
+          if-no-files-found: ignore
+
+  # 添加新的发布作业，等所有构建完成后统一上传到 GitHub Release
+  publish-release:
+    needs: [Release]
     runs-on: ubuntu-latest
-    needs:
-      - build-mac-x64
-      - build-mac-arm64
-      - build-linux
-      - build-linux-arm64
-      - build-win
     name: Upload to GitHub Release
-    steps:
-      - uses: actions/checkout@v4
 
-      - name: Install GitHub CLI
-        run: sudo apt install gh -y
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: all-artifacts
 
-      - name: List all artifacts (for debug)
+      - name: Display structure of downloaded files
         run: ls -R all-artifacts
 
-      - name: Upload all files to GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.github_token }}
+      - name: Flatten all artifacts into upload folder
         run: |
-          TAG_NAME=${GITHUB_REF##*/}
-          gh release upload "$TAG_NAME" all-artifacts/**/* --clobber
+          mkdir -p upload
+          find all-artifacts -type f -exec cp {} upload/ \;
+
+      - name: Create release tag if triggered by workflow_dispatch
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          DATE_TAG=$(date +'%Y%m%d%H%M')
+          echo "RELEASE_TAG=v-draft-${DATE_TAG}" >> $GITHUB_ENV
+
+      - name: Set tag from git tag if available
+        if: github.event_name == 'push'
+        run: |
+          echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - name: Create source code archive
+        run: |
+          git archive --format=zip --output=upload/source-code.zip HEAD
+          git archive --format=tar.gz --output=upload/source-code.tar.gz HEAD
+
+      - name: Upload all files to GitHub Release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.github_token }}
+        with:
+          files: upload/*
+          draft: true
+          prerelease: false
+          tag_name: ${{ env.RELEASE_TAG }}
