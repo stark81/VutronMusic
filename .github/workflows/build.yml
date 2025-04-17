@@ -95,43 +95,6 @@ jobs:
           name: linux-x64
           path: release/**/*linux_x64.*
 
-  build-linux-arm64:
-    runs-on: ubuntu-latest
-    name: Build Linux arm64
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: yarn
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-          yarn
-
-      - name: Build for Linux arm64
-        run: |
-          export CFLAGS="--target=aarch64-linux-gnu"
-          export CXXFLAGS="--target=aarch64-linux-gnu"
-          export npm_config_arch=arm64
-          export npm_config_target_arch=arm64
-          npm rebuild --arch=arm64
-          npx electron-rebuild --arch=arm64
-          yarn build:pre
-          yarn electron-builder --linux --arm64 -p never
-
-      - name: Upload Linux arm64 artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-arm64
-          path: release/**/*linux_arm64.*
-          if-no-files-found: ignore
-
   build-win:
     runs-on: windows-latest
     name: Build Windows x64
@@ -166,7 +129,6 @@ jobs:
       - build-mac-x64
       - build-mac-arm64
       - build-linux
-      - build-linux-arm64
       - build-win
     name: Upload to GitHub Release
     steps:
