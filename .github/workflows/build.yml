@@ -381,8 +381,15 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: matrix.os == 'macos-latest'
         with:
-          name: VutronMusic-mac-${{ matrix.arch }}
+          name: VutronMusic-mac-dmg-${{ matrix.arch }}
           path: release/*/VutronMusic*_${{ matrix.arch }}.dmg
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'macos-latest'
+        with:
+          name: VutronMusic-mac-zip-${{ matrix.arch }}
+          path: release/*/VutronMusic*_${{ matrix.arch }}.zip*
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
@@ -418,6 +425,9 @@ jobs:
     needs: Release
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -426,11 +436,24 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R all-artifacts
 
+      - name: Create release tag if triggered by workflow_dispatch
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          # 获取当前日期和时间作为版本号的一部分
+          DATE_TAG=$(date +'%Y%m%d%H%M')
+          echo "RELEASE_TAG=v-draft-${DATE_TAG}" >> $GITHUB_ENV
+
+      - name: Set tag from git tag if available
+        if: github.event_name == 'push'
+        run: |
+          echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
       - name: Publish to GitHub Release
         uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.github_token }}
         with:
           files: all-artifacts/**/*
-          draft: false
+          draft: true
           prerelease: false
+          tag_name: ${{ env.RELEASE_TAG }}
