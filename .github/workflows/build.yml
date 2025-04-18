@@ -196,11 +196,6 @@ jobs:
         run: |
           echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
-      - name: Create source code archive
-        run: |
-          git archive --format=zip --output=upload/source-code.zip HEAD
-          git archive --format=tar.gz --output=upload/source-code.tar.gz HEAD
-
       - name: Upload all files to GitHub Release
         uses: softprops/action-gh-release@v1
         env:
