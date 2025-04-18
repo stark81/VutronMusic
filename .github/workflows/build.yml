@@ -159,6 +159,8 @@ jobs:
   publish-release:
     needs: [Release]
     runs-on: ubuntu-latest
+    name: Upload to GitHub Release
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -171,10 +173,14 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R all-artifacts
 
+      - name: Flatten all artifacts into upload folder
+        run: |
+          mkdir -p upload
+          find all-artifacts -type f -exec cp {} upload/ \;
+
       - name: Create release tag if triggered by workflow_dispatch
         if: github.event_name == 'workflow_dispatch'
         run: |
-          # 获取当前日期和时间作为版本号的一部分
           DATE_TAG=$(date +'%Y%m%d%H%M')
           echo "RELEASE_TAG=v-draft-${DATE_TAG}" >> $GITHUB_ENV
 
@@ -183,12 +189,12 @@ jobs:
         run: |
           echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
-      - name: Publish to GitHub Release
+      - name: Upload all files to GitHub Release
         uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.github_token }}
         with:
-          files: all-artifacts/**/*
+          files: upload/*
           draft: true
           prerelease: false
           tag_name: ${{ env.RELEASE_TAG }}
