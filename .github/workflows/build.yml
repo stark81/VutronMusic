@@ -144,6 +144,13 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: matrix.os == 'ubuntu-latest'
         with:
+          name: VutronMusic-linux-zip-${{ matrix.arch }}
+          path: release/*/VutronMusic*.zip
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'ubuntu-latest'
+        with:
           name: VutronMusic-linux-blockmap-${{ matrix.arch }}
           path: release/*/VutronMusic*.blockmap
           if-no-files-found: ignore
@@ -198,3 +205,4 @@ jobs:
           draft: true
           prerelease: false
           tag_name: ${{ env.RELEASE_TAG }}
+          generate_release_notes: true
