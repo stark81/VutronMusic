@@ -155,78 +155,9 @@ jobs:
           path: release/*/latest*.yml
           if-no-files-found: ignore
 
-  # 单独的 Linux ARM64 构建作业
-  build-linux-arm64:
-    runs-on: ubuntu-latest
-    name: Build Linux arm64
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: yarn
-
-      # 修改 fix-sandbox.js 脚本以跳过 sudo 命令
-      - name: Modify sandbox script
-        run: |
-          if [ -f fix-sandbox.js ]; then
-            cp fix-sandbox.js fix-sandbox.js.bak
-            cat > fix-sandbox.js << 'EOL'
-            console.log('Skipping Chrome sandbox setup in CI environment');
-            EOL
-          fi
-
-      # 使用经过验证的交叉编译方法
-      - name: Install cross-compilation dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libsecret-1-dev libx11-dev libxkbfile-dev
-
-      - name: Install deps
-        run: yarn
-
-      - name: Build for ARM64
-        env:
-          npm_config_arch: arm64
-          npm_config_target_arch: arm64
-        run: |
-          # 确保特定模块使用正确的交叉编译器
-          export CC="aarch64-linux-gnu-gcc"
-          export CXX="aarch64-linux-gnu-g++"
-          export AR="aarch64-linux-gnu-ar"
-          export RANLIB="aarch64-linux-gnu-ranlib"
-          export LINK="aarch64-linux-gnu-g++"
-
-          # 跳过沙箱设置
-          export ELECTRON_SKIP_SANDBOX_SETUP=1
-
-          # 重建依赖
-          npm rebuild --arch=arm64
-          ./node_modules/.bin/electron-rebuild --arch=arm64
-
-          # 构建应用
-          yarn build:pre
-          yarn electron-builder --linux --arm64 -p never
-
-      # Linux arm64 artifacts
-      - uses: actions/upload-artifact@v4
-        with:
-          name: VutronMusic-linux-arm64-outputs
-          path: |
-            release/**/*arm64*.AppImage
-            release/**/*arm64*.deb
-            release/**/*arm64*.rpm
-            release/**/latest-linux-arm64.yml
-            release/**/*arm64*.blockmap
-          if-no-files-found: warn
-
   # 添加新的发布作业，等所有构建完成后统一上传到 GitHub Release
   publish-release:
-    needs: [Release, build-linux-arm64]
+    needs: [Release]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
