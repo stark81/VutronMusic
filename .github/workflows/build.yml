@@ -159,8 +159,6 @@ jobs:
   build-linux-arm64:
     runs-on: ubuntu-latest
     name: Build Linux arm64
-    env:
-      XVFB_PFX: xvfb-run --auto-servernum --
 
     steps:
       - uses: actions/checkout@v4
@@ -172,65 +170,59 @@ jobs:
           node-version: 22
           cache: yarn
 
-      # 使用 QEMU 进行 ARM64 构建
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
-
-      # 使用带有特定依赖项的 Docker 镜像
-      - name: Build in Docker
+      # 修改 fix-sandbox.js 脚本以跳过 sudo 命令
+      - name: Modify sandbox script
         run: |
-          docker run --rm --platform linux/arm64 \
-            -v ${{ github.workspace }}:/project \
-            -w /project \
-            node:22-bullseye \
-            /bin/bash -c "apt-get update && \
-                          apt-get install -y rpm libx11-dev libxkbfile-dev libsecret-1-dev xvfb && \
-                          yarn && \
-                          export npm_config_arch=arm64 && \
-                          export npm_config_target_arch=arm64 && \
-                          npm rebuild && \
-                          ./node_modules/.bin/electron-rebuild && \
-                          yarn build:pre && \
-                          yarn electron-builder --linux --arm64 -p never"
+          if [ -f fix-sandbox.js ]; then
+            cp fix-sandbox.js fix-sandbox.js.bak
+            cat > fix-sandbox.js << 'EOL'
+            console.log('Skipping Chrome sandbox setup in CI environment');
+            EOL
+          fi
+
+      # 使用经过验证的交叉编译方法
+      - name: Install cross-compilation dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libsecret-1-dev libx11-dev libxkbfile-dev
+
+      - name: Install deps
+        run: yarn
+
+      - name: Build for ARM64
+        env:
+          npm_config_arch: arm64
+          npm_config_target_arch: arm64
+        run: |
+          # 确保特定模块使用正确的交叉编译器
+          export CC="aarch64-linux-gnu-gcc"
+          export CXX="aarch64-linux-gnu-g++"
+          export AR="aarch64-linux-gnu-ar"
+          export RANLIB="aarch64-linux-gnu-ranlib"
+          export LINK="aarch64-linux-gnu-g++"
+
+          # 跳过沙箱设置
+          export ELECTRON_SKIP_SANDBOX_SETUP=1
+
+          # 重建依赖
+          npm rebuild --arch=arm64
+          ./node_modules/.bin/electron-rebuild --arch=arm64
+
+          # 构建应用
+          yarn build:pre
+          yarn electron-builder --linux --arm64 -p never
 
       # Linux arm64 artifacts
       - uses: actions/upload-artifact@v4
         with:
-          name: VutronMusic-linux-snap-arm64
-          path: release/*/VutronMusic*arm64*.snap
-          if-no-files-found: ignore
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: VutronMusic-linux-AppImage-arm64
-          path: release/*/VutronMusic*arm64*.AppImage
-          if-no-files-found: ignore
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: VutronMusic-linux-deb-arm64
-          path: release/*/VutronMusic*arm64*.deb
-          if-no-files-found: ignore
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: VutronMusic-linux-rpm-arm64
-          path: release/*/VutronMusic*arm64*.rpm
-          if-no-files-found: ignore
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: VutronMusic-linux-blockmap-arm64
-          path: release/*/VutronMusic*arm64*.blockmap
-          if-no-files-found: ignore
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: VutronMusic-linux-latest-arm64
-          path: release/*/latest-linux-arm64.yml
-          if-no-files-found: ignore
+          name: VutronMusic-linux-arm64-outputs
+          path: |
+            release/**/*arm64*.AppImage
+            release/**/*arm64*.deb
+            release/**/*arm64*.rpm
+            release/**/latest-linux-arm64.yml
+            release/**/*arm64*.blockmap
+          if-no-files-found: warn
 
   # 添加新的发布作业，等所有构建完成后统一上传到 GitHub Release
   publish-release:
