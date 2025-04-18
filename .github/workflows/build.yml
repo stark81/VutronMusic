@@ -210,4 +210,3 @@ jobs:
           draft: true
           prerelease: false
           tag_name: ${{ env.RELEASE_TAG }}
-          generate_release_notes: true
