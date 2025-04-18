@@ -318,54 +318,54 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: VutronMusic-win-installer-x64
-          path: release/*/VutronMusic*_x64.exe
+          path: 'release/**/*win_x64.exe'
           if-no-files-found: ignore
 
       - name: Upload Windows portable
         uses: actions/upload-artifact@v4
         with:
           name: VutronMusic-win-portable-x64
-          path: release/*/VutronMusic*_x64 Portable.exe
+          path: 'release/**/*win_x64 Portable.exe'
           if-no-files-found: ignore
 
       - name: Upload macOS x64 dmg
         uses: actions/upload-artifact@v4
         with:
           name: VutronMusic-mac-x64
-          path: release/*/VutronMusic*_x64.dmg
+          path: 'release/**/*mac_x64.dmg'
           if-no-files-found: ignore
 
       - name: Upload macOS arm64 dmg
         uses: actions/upload-artifact@v4
         with:
           name: VutronMusic-mac-arm64
-          path: release/*/VutronMusic*_arm64.dmg
+          path: 'release/**/*mac_arm64.dmg'
           if-no-files-found: ignore
 
       - name: Upload Linux snap
         uses: actions/upload-artifact@v4
         with:
           name: VutronMusic-linux-snap-x64
-          path: release/*/VutronMusic*.snap
+          path: 'release/**/*linux_x64.snap'
           if-no-files-found: ignore
 
       - name: Upload Linux AppImage
         uses: actions/upload-artifact@v4
         with:
           name: VutronMusic-linux-AppImage-x64
-          path: release/*/VutronMusic*.AppImage
+          path: 'release/**/*linux_x64.AppImage'
           if-no-files-found: ignore
 
       - name: Upload Linux deb
         uses: actions/upload-artifact@v4
         with:
           name: VutronMusic-linux-deb-x64
-          path: release/*/VutronMusic*.deb
+          path: 'release/**/*linux_x64.deb'
           if-no-files-found: ignore
 
       - name: Upload Linux rpm
         uses: actions/upload-artifact@v4
         with:
           name: VutronMusic-linux-rpm-x64
-          path: release/*/VutronMusic*.rpm
+          path: 'release/**/*linux_x64.rpm'
           if-no-files-found: ignore
