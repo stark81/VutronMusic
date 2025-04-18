@@ -257,7 +257,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.github_token }}
           ARCH: ${{ matrix.arch }}
-        run: yarn build --${{ matrix.arch }} || yarn build --${{ matrix.arch }}
+        run: yarn build --${{ matrix.arch }} -p always
 
       # - uses: actions/upload-artifact@v4
       #   if: matrix.os == 'windows-latest'
