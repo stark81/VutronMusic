@@ -202,6 +202,7 @@ export const usePlayerStore = defineStore(
     })
 
     const source = computed(() => {
+      if (!currentTrack.value) return ''
       const sourceMap = {
         localTrack: '本地音乐',
         navidrome: 'navidrome',
@@ -212,11 +213,17 @@ export const usePlayerStore = defineStore(
         kuwo: '酷我音乐',
         bilibili: '哔哩哔哩',
         pyncmd: '第三方网易云音乐',
-        migu: '咪咕音乐'
+        migu: '咪咕音乐',
+        cache: '缓存'
       }
-      return currentTrack.value
-        ? `${currentTrack.value.name}, 音源：${sourceMap[currentTrack.value.source!] ?? currentTrack.value.source}`
-        : ''
+      const sources = currentTrack.value.source!.split('-')
+      let source = ''
+      if (sources.length === 1) {
+        source = sourceMap[sources[0]]
+      } else {
+        source = `${sourceMap[sources[0]]}-${sourceMap[sources[1]]}`
+      }
+      return `${currentTrack.value.name}, 音源：${source ?? currentTrack.value.source}`
     })
 
     const volume = computed({
@@ -259,7 +266,11 @@ export const usePlayerStore = defineStore(
               list.push(c)
             })
             const sameTlyric = lyrics.tlyric.find((t) => t.start === l.start)
-            if (sameTlyric && settingsStore.normalLyric.nTranslationMode === 'tlyric') {
+            if (
+              sameTlyric &&
+              (settingsStore.normalLyric.nTranslationMode === 'tlyric' ||
+                osdLyricStore.translationMode === 'tlyric')
+            ) {
               const words = sameTlyric.content.split('') as string[]
               words.forEach((w, i) => {
                 const interval = (l.end - l.start) / words.length
@@ -272,7 +283,10 @@ export const usePlayerStore = defineStore(
             }
 
             const sameRlyric = lyrics.rlyric.find((r) => r.start === l.start)
-            if (sameRlyric && settingsStore.normalLyric.nTranslationMode === 'rlyric') {
+            if (
+              (sameRlyric && settingsStore.normalLyric.nTranslationMode === 'rlyric') ||
+              osdLyricStore.translationMode === 'rlyric'
+            ) {
               const words = sameRlyric.content.split(' ') as string[]
               l.contentInfo.forEach((c, i) => {
                 rList.push({
@@ -509,6 +523,9 @@ export const usePlayerStore = defineStore(
         progress.value = audio.currentTime
         _progress.value = audio.currentTime
         updateIndex()
+        if (settingsStore.general.preventSuspension) {
+          window.mainApi?.send('update-powersave', true)
+        }
       } else {
         progress.value = audio.currentTime
         _progress.value = audio.currentTime
@@ -518,6 +535,9 @@ export const usePlayerStore = defineStore(
         timer.line = null
         timer.list = null
         timer.tList = null
+        if (settingsStore.general.preventSuspension) {
+          window.mainApi?.send('update-powersave', false)
+        }
       }
     })
 
@@ -1137,7 +1157,7 @@ export const usePlayerStore = defineStore(
           if (!newLyric.lyric.length) {
             newLyric.lyric[0] = {
               start: 0,
-              content: `${currentTrack.value?.artists[0].name} - ${currentTrack.value?.name}`
+              content: `${(currentTrack.value?.artists || currentTrack.value?.ar)[0].name} - ${currentTrack.value?.name}`
             }
           }
           window.mainApi?.sendMessage({
@@ -1423,7 +1443,7 @@ export const usePlayerStore = defineStore(
   },
   {
     persist: {
-      omit: ['currentIndex', 'pic', 'title', 'currentLyricIndex']
+      omit: ['currentIndex', 'pic', 'title', 'currentLyricIndex', 'outputDevice']
     }
   }
 )

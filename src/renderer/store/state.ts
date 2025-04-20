@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { reactive, ref, watch } from 'vue'
+import { type UpdateCheckResult } from 'electron-updater'
 
 type TrackType = 'online' | 'local' | 'stream'
 
@@ -46,6 +47,10 @@ export const useNormalStateStore = defineStore('state', () => {
     active: null as string | null
   })
 
+  const updateStatus = ref(false)
+  const isDownloading = ref(false)
+  const latestVersion = ref<UpdateCheckResult | null>(null)
+
   const registerInstance = (tabId: string) => {
     if (!scrollbar.instances[tabId]) {
       scrollbar.instances[tabId] = {
@@ -85,6 +90,14 @@ export const useNormalStateStore = defineStore('state', () => {
     }, 3200)
   }
 
+  const checkUpdate = () => {
+    updateStatus.value = true
+    window.mainApi?.invoke('check-update').then((result: UpdateCheckResult | null) => {
+      if (result) latestVersion.value = result
+      updateStatus.value = false
+    })
+  }
+
   watch(enableScrolling, (value) => {
     document.documentElement.style.overflowY = value ? 'auto' : 'hidden'
   })
@@ -105,9 +118,13 @@ export const useNormalStateStore = defineStore('state', () => {
     toast,
     modalOpen,
     scrollbar,
+    updateStatus,
+    latestVersion,
+    isDownloading,
     showToast,
     registerInstance,
     unregisterInstance,
-    updateScroll
+    updateScroll,
+    checkUpdate
   }
 })

@@ -12,6 +12,7 @@
 
 - 本项目为本人个人项目，仅用于个人学习研究，请勿用于商业用途。
 - 本项目大部份界面和功能参考 [YesPlayMusic](https://github.com/qier222/YesPlayMusic)，侧边导航栏设计参考"方格音乐"，本地音乐top部分的信息统计参考 [NSMusicS](https://github.com/Super-Badmen-Viper/NSMusicS)。
+- 本地歌曲的内嵌歌词以及外挂lrc歌词支持从[LDDC](https://github.com/chenmozhijin/LDDC)下载的逐字歌词歌词格式。
 
 ## 特点
 

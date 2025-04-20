@@ -1,6 +1,16 @@
-import { app, ipcMain, shell, IpcMainEvent, dialog, BrowserWindow, globalShortcut } from 'electron'
+import {
+  app,
+  ipcMain,
+  shell,
+  IpcMainEvent,
+  dialog,
+  BrowserWindow,
+  globalShortcut,
+  powerSaveBlocker
+} from 'electron'
 import { YPMTray } from './tray'
 import { MprisImpl } from './mpris'
+import { checkUpdate, downloadUpdate } from './checkUpdate'
 // import { createDBus, signalNameEnum } from './dbusService'
 import { createDBus } from './dbusClient'
 import Constants from './utils/Constants'
@@ -18,6 +28,7 @@ import { registerGlobalShortcuts } from './globalShortcut'
 import { createMenu } from './menu'
 
 let isLock = store.get('osdWindow.isLock') as boolean
+let blockerId: number | null = null
 /*
  * IPC Communications
  * */
@@ -431,6 +442,25 @@ function initOtherIpcMain(win: BrowserWindow): void {
       return true
     } catch (error) {
       return false
+    }
+  })
+
+  ipcMain.handle('check-update', async (event) => {
+    const info = await checkUpdate()
+    return info
+  })
+  ipcMain.on('downloadUpdate', (event) => {
+    downloadUpdate()
+  })
+
+  ipcMain.on('update-powersave', (event, enable: boolean) => {
+    if (enable) {
+      blockerId = powerSaveBlocker.start('prevent-app-suspension')
+    } else {
+      if (powerSaveBlocker.isStarted(blockerId)) {
+        powerSaveBlocker.stop(blockerId)
+        blockerId = null
+      }
     }
   })
 }

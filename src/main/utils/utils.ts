@@ -538,7 +538,8 @@ export const cacheOnlineTrack = async (track: any) => {
         fs.mkdirSync(audioCachePath)
       }
 
-      const filePath = `${audioCachePath}/${track.id}-${track.br}-${track.name}.${typeMap[contentType!] || 'mp3'}`
+      const name = track.name.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
+      const filePath = `${audioCachePath}/${track.id}-${track.br}-${name}.${typeMap[contentType!] || 'mp3'}`
       resolve({ filePath, size })
 
       const writeStream = fs.createWriteStream(filePath)
@@ -607,6 +608,7 @@ const getNavidromeLyric = async (url: string) => {
 
   if (lyricRaw.length) {
     const map = new Map()
+    const chineseRegex = /[\u4E00-\u9FFF]/
     lyricRaw.forEach(({ start, value }) => {
       if (!map.has(start)) {
         map.set(start, [])
@@ -615,15 +617,21 @@ const getNavidromeLyric = async (url: string) => {
     })
 
     const sortedStarts = Array.from(map.keys()).sort((a, b) => a - b)
-    sortedStarts.forEach((start) => {
+    for (const start of sortedStarts) {
       const values = map.get(start)
-      // 生成时间前缀
       const timeStr = formatTime(start)
-      // 根据规则：第一个放 lrc，第二个放 tlyric，第三个放 rlyric
-      if (values[0]) result.lrc.lyric.push(`${timeStr}${values[0]}`)
-      if (values[1]) result.tlyric.lyric.push(`${timeStr}${values[1]}`)
-      if (values[2]) result.romalrc.lyric.push(`${timeStr}${values[2]}`)
-    })
+      for (let i = 0; i < values.length; i++) {
+        if (i === 0) {
+          result.lrc.lyric.push(`${timeStr}${values[0]}`)
+        } else {
+          if (chineseRegex.test(values[i])) {
+            result.tlyric.lyric.push(`${timeStr}${values[i]}`)
+          } else {
+            result.romalrc.lyric.push(`${timeStr}${values[i]}`)
+          }
+        }
+      }
+    }
   }
   return result
 }

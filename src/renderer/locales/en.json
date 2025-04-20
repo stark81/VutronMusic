@@ -95,7 +95,7 @@
     "embeddedInformation": "Prioritize Embedded Track Info",
     "trackInfoOrder": {
       "text": "Song Information Retrieval Order",
-      "desc": "This setting determines the order in which song information (lyrics, cover art) is retrieved. Drag and drop to adjust the priority.",
+      "desc": "This setting determines the order in which local songs information (lyrics, cover art) is retrieved. Drag and drop to adjust the priority.",
       "path": "From song directory",
       "online": "From online sources",
       "embedded": "From embedded information"
@@ -160,6 +160,7 @@
     "email": "Email",
     "password": "Password",
     "loginText": "Login with NetEase Account",
+    "countryCode": "Country Code",
     "usernameLogin": "Username Login",
     "loginWithEmail": "Login with Email",
     "loginWithPhone": "Login with Phone",
@@ -243,7 +244,8 @@
       "stream": "Stream Music",
       "local": "Local Music",
       "unblock": "Unblock",
-      "shortcut": "Shortcuts"
+      "shortcut": "Shortcuts",
+      "update": "Update"
     },
     "general": {
       "language": {
@@ -275,7 +277,8 @@
         "high": "High",
         "lossless": "Lossless"
       },
-      "logout": "Logout"
+      "logout": "Logout",
+      "perventSuspend": "Prevent system sleep during playback"
     },
     "theme": {
       "auto": "Auto",
@@ -390,6 +393,18 @@
       "login": "Logged in",
       "logout": "Logged out",
       "offline": "Offline"
+    },
+    "update": {
+      "currentVersion": "Current Version",
+      "updateCheck": "Check For Update",
+      "downloadUpdate": "Download Update",
+      "cancelDownload": "Cancel Download",
+      "goToDownload": "Go To Download",
+      "updateChecking": "Checking For Update",
+      "latestVersion": "Latest Version",
+      "changelog": "Change Log",
+      "updateAvailable": "UpdateAvailable",
+      "updating": "Updating"
     }
   },
   "toast": {

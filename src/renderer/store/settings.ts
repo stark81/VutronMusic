@@ -38,6 +38,7 @@ export const useSettingsStore = defineStore(
       musicLanguage: 'all',
       closeAppOption: 'ask',
       useCustomTitlebar: false,
+      preventSuspension: false,
       enabledPlaylistCategories
     })
 
@@ -162,6 +163,15 @@ export const useSettingsStore = defineStore(
       () => general.language,
       (newValue) => {
         window.mainApi?.send('setStoreSettings', { lang: newValue })
+      }
+    )
+
+    watch(
+      () => general.preventSuspension,
+      (value) => {
+        if (!value) {
+          window.mainApi?.send('update-powersave', false)
+        }
       }
     )
 

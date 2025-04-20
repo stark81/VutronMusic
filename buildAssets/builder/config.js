@@ -18,10 +18,7 @@ const baseConfig = {
     notarize: false,
     icon: 'buildAssets/icons/icon.icns',
     type: 'distribution',
-    target: [
-      { target: 'dmg', arch: ['x64', 'arm64'] },
-      { target: 'zip', arch: ['x64', 'arm64'] }
-    ]
+    target: [{ target: 'dmg', arch: ['x64', 'arm64'] }]
   },
   dmg: {
     contents: [
@@ -61,7 +58,7 @@ const baseConfig = {
     ]
   },
   portable: {
-    artifactName: '${productName} ${version}_${arch} Portable.${ext}'
+    artifactName: '${productName}-${version}_${os}_${arch}-Portable.${ext}'
   },
   nsis: {
     oneClick: false,

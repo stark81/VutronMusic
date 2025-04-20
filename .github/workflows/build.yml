@@ -94,13 +94,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: matrix.os == 'macos-latest'
         with:
-          name: VutronMusic-mac-zip-${{ matrix.arch }}
-          path: release/*/VutronMusic*_${{ matrix.arch }}.zip
-          if-no-files-found: ignore
-
-      - uses: actions/upload-artifact@v4
-        if: matrix.os == 'macos-latest'
-        with:
           name: VutronMusic-mac-blockmap-${{ matrix.arch }}
           path: release/*/VutronMusic*.blockmap
           if-no-files-found: ignore
@@ -139,13 +132,6 @@ jobs:
         with:
           name: VutronMusic-linux-rpm-${{ matrix.arch }}
           path: release/*/VutronMusic*.rpm
-          if-no-files-found: ignore
-
-      - uses: actions/upload-artifact@v4
-        if: matrix.os == 'ubuntu-latest'
-        with:
-          name: VutronMusic-linux-zip-${{ matrix.arch }}
-          path: release/*/VutronMusic*.zip
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4

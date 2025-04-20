@@ -42,6 +42,9 @@
         <div class="tab" :class="{ active: tab === 'shortcut' }" @click="updateTab(5)">{{
           $t('settings.nav.shortcut')
         }}</div>
+        <div class="tab" :class="{ active: tab === 'update' }" @click="updateTab(6)">{{
+          $t('settings.nav.update')
+        }}</div>
       </div>
     </div>
     <div class="main-container">
@@ -56,26 +59,6 @@
                 <option value="zh">{{ $t('settings.general.language.zhHans') }}</option>
                 <option value="zht">{{ $t('settings.general.language.zhHant') }}</option>
                 <option value="en">{{ $t('settings.general.language.en') }}</option>
-              </select>
-            </div>
-          </div>
-          <div class="item">
-            <div class="left">{{ $t('settings.general.musicQuality.text') }}</div>
-            <div class="right">
-              <select v-model="musicQuality">
-                <option value="128000"
-                  >{{ $t('settings.general.musicQuality.low') }} - 128Kbps</option
-                >
-                <option value="192000"
-                  >{{ $t('settings.general.musicQuality.medium') }} - 192Kbps</option
-                >
-                <option value="320000"
-                  >{{ $t('settings.general.musicQuality.high') }} - 320Kbps</option
-                >
-                <option value="flac"
-                  >{{ $t('settings.general.musicQuality.lossless') }} - FLAC</option
-                >
-                <option value="999000">Hi-Res</option>
               </select>
             </div>
           </div>
@@ -144,12 +127,21 @@
               </div>
             </div>
           </div>
-          <div class="version-info">
-            <p class="author">
-              MADE BY
-              <a href="https://github.com/stark81" target="_blank">stark81</a>
-            </p>
-            <p class="version">{{ appVersion }}</p>
+          <div v-if="isElectron" class="item">
+            <div class="left">
+              <div class="title">{{ $t('settings.general.perventSuspend') }}</div>
+            </div>
+            <div class="right">
+              <div class="toggle">
+                <input
+                  id="pervent-suspend"
+                  v-model="general.preventSuspension"
+                  type="checkbox"
+                  name="pervent-suspend"
+                />
+                <label for="pervent-suspend"></label>
+              </div>
+            </div>
           </div>
         </div>
         <div v-show="tab === 'appearance'" key="appearance">
@@ -558,6 +550,26 @@
               </div>
             </div>
             <div class="item">
+              <div class="left">{{ $t('settings.general.musicQuality.text') }}</div>
+              <div class="right">
+                <select v-model="musicQuality">
+                  <option value="128000"
+                    >{{ $t('settings.general.musicQuality.low') }} - 128Kbps</option
+                  >
+                  <option value="192000"
+                    >{{ $t('settings.general.musicQuality.medium') }} - 192Kbps</option
+                  >
+                  <option value="320000"
+                    >{{ $t('settings.general.musicQuality.high') }} - 320Kbps</option
+                  >
+                  <option value="flac"
+                    >{{ $t('settings.general.musicQuality.lossless') }} - FLAC</option
+                  >
+                  <option value="999000">Hi-Res</option>
+                </select>
+              </div>
+            </div>
+            <div class="item">
               <div class="left">
                 <div class="title"
                   >{{
@@ -815,6 +827,56 @@
             $t('settings.shortcut.resetShortcut')
           }}</button>
         </div>
+        <div v-if="isElectron" v-show="tab === 'update'" key="update">
+          <div class="item">
+            <div class="left">
+              <div class="title"
+                >{{ $t('settings.update.currentVersion') + '：' + appVersion }}
+                <label v-if="latestVersion?.isUpdateAvailable" class="update-ext">{{
+                  $t(isDownloading ? 'settings.update.updating' : 'settings.update.updateAvailable')
+                }}</label>
+              </div>
+            </div>
+            <div class="right">
+              <button
+                :class="{ loading: updateStatus, disabled: isDownloading }"
+                @click="handleUpdate"
+                >{{
+                  latestVersion?.isUpdateAvailable
+                    ? $t(isMac ? 'settings.update.goToDownload' : 'settings.update.downloadUpdate')
+                    : $t(
+                        updateStatus
+                          ? 'settings.update.updateChecking'
+                          : 'settings.update.updateCheck'
+                      )
+                }}</button
+              >
+            </div>
+          </div>
+          <div class="item">
+            <div class="left">
+              <div class="title">{{
+                $t('settings.update.latestVersion') +
+                '：' +
+                (latestVersion?.updateInfo?.version || 'unknown')
+              }}</div>
+            </div>
+            <div class="right">
+              {{
+                Utils.formatDate(
+                  latestVersion?.updateInfo?.releaseDate || '',
+                  'YYYY-MM-DD HH:mm:ss'
+                )
+              }}
+            </div>
+          </div>
+          <div class="item">
+            <div class="left">
+              <div class="title">{{ $t('settings.update.changelog') }}：</div>
+            </div>
+          </div>
+          <LatestVersion />
+        </div>
       </div>
     </div>
   </div>
@@ -834,6 +896,7 @@ import { useDataStore } from '../store/data'
 import { storeToRefs } from 'pinia'
 import { doLogout } from '../utils/auth'
 import SvgIcon from '../components/SvgIcon.vue'
+import LatestVersion from '../components/LatestVersion.vue'
 import Utils from '../utils'
 import { VueDraggable } from 'vue-draggable-plus'
 // @ts-ignore
@@ -868,8 +931,8 @@ const { enable, status, select } = storeToRefs(streamMusicStore)
 const { handleStreamLogout } = streamMusicStore
 
 const stateStore = useNormalStateStore()
-const { extensionCheckResult } = toRefs(stateStore)
-const { showToast } = stateStore
+const { extensionCheckResult, updateStatus, latestVersion, isDownloading } = toRefs(stateStore)
+const { showToast, checkUpdate } = stateStore
 
 const dataStore = useDataStore()
 const { user } = storeToRefs(dataStore)
@@ -931,6 +994,20 @@ const serviceTitle = (platform: streamServer) => {
   const statusType = status.value[platform]
   const title = statusType === 'logout' ? '登陆' : '登出'
   return `单击选择，右击选择并${title}`
+}
+
+const handleUpdate = () => {
+  if (isDownloading.value) return
+  if (latestVersion.value?.isUpdateAvailable) {
+    if (isMac) {
+      const url = `https://github.com/stark81/VutronMusic/releases/tag/${latestVersion.value!.updateInfo.releaseName}`
+      openOnBrowser(url)
+    } else {
+      window.mainApi?.send('downloadUpdate')
+    }
+  } else {
+    checkUpdate()
+  }
 }
 
 const loginOrlogout = (platform: streamServer) => {
@@ -1027,7 +1104,12 @@ const selectedOutputDevice = computed({
     const isValidDevice = allOutputDevices.value.find(
       (device) => device.deviceId === outputDevice.value
     )
-    if (outputDevice.value === undefined || isValidDevice === undefined) return ''
+    if (
+      outputDevice.value === undefined ||
+      outputDevice.value === 'default' ||
+      isValidDevice === undefined
+    )
+      return allOutputDevices.value[0]?.deviceId
     return outputDevice.value
   },
   set: (deviceId) => {
@@ -1036,11 +1118,11 @@ const selectedOutputDevice = computed({
   }
 })
 
-const allOutputDevices = ref<any[]>([])
+const allOutputDevices = ref<MediaDeviceInfo[]>([])
 const getAllOutputDevices = () => {
-  navigator.mediaDevices.enumerateDevices().then((devices: any[]) => {
+  navigator.mediaDevices.enumerateDevices().then((devices: MediaDeviceInfo[]) => {
     allOutputDevices.value = devices.filter(
-      (device: any) => device.kind === 'audiooutput' && device.deviceId !== 'default'
+      (device: MediaDeviceInfo) => device.kind === 'audiooutput' && device.deviceId !== 'default'
     )
     if (allOutputDevices.value.length === 0 || allOutputDevices.value[0].label === '') {
       allOutputDevices.value = []
@@ -1052,7 +1134,7 @@ const tab = ref('general')
 const lyricTab = ref(isWindows ? 'lyric' : 'trayLyric')
 const musicTab = ref('netease')
 const updateTab = (index: number) => {
-  const tabs = ['general', 'appearance', 'lyric', 'music', 'unblock', 'shortcut'] // 'unblock'
+  const tabs = ['general', 'appearance', 'lyric', 'music', 'unblock', 'shortcut', 'update']
   const tabName = tabs[index]
   tab.value = tabName
   slideTop.value = index * 40
@@ -1536,6 +1618,12 @@ onBeforeUnmount(() => {
     font-size: 16px;
     font-weight: 500;
     opacity: 0.78;
+
+    .update-ext {
+      margin-left: 20px;
+      font-size: 14px;
+      color: red;
+    }
   }
   .description {
     font-size: 14px;
@@ -1608,12 +1696,13 @@ onBeforeUnmount(() => {
   }
 }
 button {
+  position: relative;
   color: var(--color-text);
   background: var(--color-secondary-bg);
   padding: 8px 12px 8px 12px;
   font-weight: 600;
   border-radius: 8px;
-  transition: 0.2;
+  transition: 0.2s;
 }
 button.lyric-button {
   color: var(--color-text);
@@ -1636,6 +1725,25 @@ button.lyric-button--selected {
   background: var(--color-secondary-bg);
   opacity: 1;
   font-weight: 700;
+}
+button.loading {
+  padding-left: 42px;
+}
+button.disabled {
+  cursor: not-allowed;
+}
+button.loading::before {
+  content: '';
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  border: 2px solid transparent;
+  border-top-color: var(--color-text);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
 }
 select {
   font-weight: 600;
@@ -1738,6 +1846,15 @@ input.text-input {
   .version {
     font-size: 0.88rem;
     opacity: 0.58;
+  }
+}
+
+@keyframes spin {
+  0% {
+    transform: translateY(-50%) rotate(0deg);
+  }
+  100% {
+    transform: translateY(-50%) rotate(360deg);
   }
 }
 </style>

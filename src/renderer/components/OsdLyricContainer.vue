@@ -118,7 +118,7 @@ onMounted(() => {
   if (!lyrics.value.lyric.length) {
     lyrics.value.lyric[0] = {
       start: 0,
-      content: `${player.currentTrack?.artists[0]?.name} - ${player.currentTrack?.name}`
+      content: `${(player.currentTrack?.artists || player.currentTrack?.ar)[0]?.name} - ${player.currentTrack?.name}`
     }
   }
   lyricOffset.value = (player.currentTrack?.offset || 0) * 1000

@@ -37,6 +37,8 @@ import { useNormalStateStore } from './store/state'
 import { storeToRefs } from 'pinia'
 import Utils from './utils'
 import { useRoute } from 'vue-router'
+import { type ProgressInfo } from 'electron-updater'
+import router from './router'
 
 const localMusicStore = useLocalMusicStore()
 const { localTracks } = storeToRefs(localMusicStore)
@@ -49,8 +51,8 @@ const osdLyricStore = useOsdLyricStore()
 const { show, type, isLock } = storeToRefs(osdLyricStore)
 
 const stateStore = useNormalStateStore()
-const { enableScrolling, extensionCheckResult, showLyrics } = storeToRefs(stateStore)
-const { showToast } = stateStore
+const { enableScrolling, extensionCheckResult, showLyrics, isDownloading } = storeToRefs(stateStore)
+const { showToast, checkUpdate } = stateStore
 
 const {
   fetchLikedPlaylist,
@@ -198,6 +200,18 @@ const handleChanelEvent = () => {
       isLock.value = value
     }
   })
+  window.mainApi?.on('download-progress', (_: any, data: ProgressInfo) => {
+    if (!isDownloading.value) isDownloading.value = true
+    showToast(`下载更新：${parseFloat(data.percent.toFixed(2))}%`)
+    if (data.percent === 100) isDownloading.value = false
+  })
+  window.mainApi?.on('update-error', (_: any) => {
+    isDownloading.value = false
+    showToast('下载错误')
+  })
+  window.mainApi?.on('changeRouteTo', (_: any, route: string) => {
+    router.push(route)
+  })
 }
 
 watchOsdEvent()
@@ -226,6 +240,7 @@ onMounted(async () => {
   fetchData()
   fetchLocalData()
   handleChanelEvent()
+  checkUpdate()
 })
 </script>
 
@@ -246,6 +261,7 @@ onMounted(async () => {
   scrollbar-width: none;
   color: var(--color-text);
   overflow: auto;
+  min-height: 720px;
 }
 
 main::-webkit-scrollbar {
@@ -264,4 +280,3 @@ main::-webkit-scrollbar {
   width: 0;
 }
 </style>
-./store/player_bak ./store/player_audio

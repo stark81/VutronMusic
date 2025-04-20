@@ -42,7 +42,7 @@ import {
 } from './utils/utils'
 import { CacheAPIs } from './utils/CacheApis'
 import { registerGlobalShortcuts } from './globalShortcut'
-import { checkUpdate } from './checkUpdate'
+import { initAutoUpdater } from './checkUpdate'
 
 const closeOnLinux = (e: any, win: BrowserWindow) => {
   const closeOpt = store.get('settings.closeAppOption') || 'ask'
@@ -562,11 +562,8 @@ class BackGround {
             return new Response(JSON.stringify(track), {
               headers: { 'content-type': 'application/json' }
             })
-          } else if (
-            store.get('settings.autoCacheTrack.enable') &&
-            track.url &&
-            fs.existsSync(track.url)
-          ) {
+          } else if (track.url && fs.existsSync(track.url)) {
+            track.source = `cache-${track.source}`
             return new Response(JSON.stringify(track), {
               headers: { 'content-type': 'application/json' }
             })
@@ -693,9 +690,6 @@ class BackGround {
   handleAppEvents() {
     this.handleProtocol()
     app.whenReady().then(() => {
-      // handle protocol
-      // this.handleProtocol()
-
       // create window
       this.createMainWindow()
       // this.initOSDWindow()
@@ -771,10 +765,10 @@ class BackGround {
   }
 
   handleWindowEvents() {
+    initAutoUpdater(this.win)
     this.win.once('ready-to-show', () => {
       this.win.show()
       this.win.focus()
-      checkUpdate(this.win)
     })
 
     this.win.on('close', (e) => {

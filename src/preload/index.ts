@@ -41,7 +41,10 @@ const mainAvailChannels: string[] = [
   'logoutStreamMusic',
   'scrobbleStreamMusic',
   'likeAStreamTrack',
-  'get-stream-account'
+  'get-stream-account',
+  'check-update',
+  'downloadUpdate',
+  'update-powersave'
 ]
 const rendererAvailChannels: string[] = [
   'msgHandleScanLocalMusic',
@@ -63,7 +66,9 @@ const rendererAvailChannels: string[] = [
   'msgExtensionCheckResult',
   'resume',
   'update-not-available',
-  'update-error'
+  'update-error',
+  'download-progress',
+  'changeRouteTo'
 ]
 
 let messagePort: MessagePort | null = null

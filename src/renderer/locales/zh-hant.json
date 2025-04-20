@@ -95,7 +95,7 @@
     "embeddedInformation": "優先使用歌曲內嵌資訊",
     "trackInfoOrder": {
       "text": "歌曲資訊獲取順序設定",
-      "desc": "此功能用於設定歌曲資訊（歌詞、封面）的獲取順序，可拖拽調整順序",
+      "desc": "此功能用於設定本地歌曲資訊（歌詞、封面）的獲取順序，可拖拽調整順序",
       "path": "從歌曲目錄下獲取",
       "online": "從線上獲取",
       "embedded": "從歌曲內嵌資訊中獲取"
@@ -244,7 +244,8 @@
       "stream": "串流媒體音樂",
       "local": "本地音樂",
       "unblock": "音源設定",
-      "shortcut": "快捷鍵設定"
+      "shortcut": "快捷鍵設定",
+      "update": "軟體更新"
     },
     "general": {
       "language": {
@@ -276,7 +277,8 @@
         "high": "極高",
         "lossless": "無損"
       },
-      "logout": "登出"
+      "logout": "登出",
+      "perventSuspend": "播放時防止系統休眠"
     },
     "theme": {
       "auto": "跟隨系統",
@@ -391,6 +393,18 @@
       "login": "已登入",
       "logout": "未登入",
       "offline": "伺服器離線"
+    },
+    "update": {
+      "currentVersion": "目前版本",
+      "updateCheck": "檢查更新",
+      "downloadUpdate": "下載更新",
+      "cancelDownload": "取消下載",
+      "goToDownload": "前往下載頁面",
+      "updateChecking": "正在檢查更新",
+      "latestVersion": "最新版本",
+      "changelog": "版本更新內容",
+      "updateAvailable": "有可用更新",
+      "updating": "更新進行中"
     }
   },
   "toast": {

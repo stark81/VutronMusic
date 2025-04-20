@@ -95,7 +95,7 @@
     "embeddedInformation": "优先使用歌曲内嵌信息",
     "trackInfoOrder": {
       "text": "歌曲信息获取顺序设置",
-      "desc": "此功能用于设置歌曲信息（歌词、封面）的获取顺序，可拖拽调整顺序",
+      "desc": "此功能用于设置本地歌曲信息（歌词、封面）的获取顺序，可拖拽调整顺序",
       "path": "从歌曲目录下获取",
       "online": "从线上获取",
       "embedded": "从歌曲内嵌信息中获取"
@@ -244,7 +244,8 @@
       "stream": "流媒体音乐",
       "local": "本地音乐",
       "unblock": "音源设置",
-      "shortcut": "快捷键设置"
+      "shortcut": "快捷键设置",
+      "update": "软件更新"
     },
     "general": {
       "language": {
@@ -276,7 +277,8 @@
         "high": "极高",
         "lossless": "无损"
       },
-      "logout": "登出"
+      "logout": "登出",
+      "perventSuspend": "播放时防止系统休眠"
     },
     "theme": {
       "auto": "跟随系统",
@@ -391,6 +393,18 @@
       "login": "已登录",
       "logout": "未登陆",
       "offline": "服务器离线"
+    },
+    "update": {
+      "currentVersion": "当前版本",
+      "updateCheck": "检查更新",
+      "downloadUpdate": "下载更新",
+      "cancelDownload": "取消下载",
+      "goToDownload": "前往下载",
+      "updateChecking": "检查更新中",
+      "latestVersion": "最新版本",
+      "changelog": "版本变化",
+      "updateAvailable": "可更新",
+      "updating": "更新中"
     }
   },
   "toast": {
