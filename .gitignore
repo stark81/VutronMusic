@@ -9,7 +9,7 @@ yarn.lock
 *.log
 
 # dotenv environment variables file
-# .env
+.env
 
 # JetBrains IDEs
 .idea/

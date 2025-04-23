@@ -75,7 +75,7 @@ export const useSettingsStore = defineStore(
 
     const unblockNeteaseMusic = reactive({
       enable: true,
-      source: '',
+      source: 'kuwo, kugou, ytdlp, qq, bilibili, pyncmd, migu',
       enableFlac: true,
       orderFirst: true,
       jooxCookie: '',

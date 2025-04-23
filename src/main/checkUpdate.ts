@@ -28,7 +28,7 @@ const handleUpdateAvailable = (win: BrowserWindow, info: any) => {
       type: 'info',
       title: '发现新版本',
       message: `发现新版本 ${info.version} \n是否立即下载？`,
-      detail: plainNode,
+      detail: isMac ? '' : plainNode,
       buttons: [isMac ? '前往下载' : '立即下载', '稍后下载']
     })
     .then((result) => {

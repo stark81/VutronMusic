@@ -1,26 +1,13 @@
-import {
-  app,
-  ipcMain,
-  shell,
-  IpcMainEvent,
-  dialog,
-  BrowserWindow,
-  globalShortcut,
-  powerSaveBlocker
-} from 'electron'
+import { app, ipcMain, IpcMainEvent, BrowserWindow } from 'electron'
 import { YPMTray } from './tray'
 import { MprisImpl } from './mpris'
 import { checkUpdate, downloadUpdate } from './checkUpdate'
-// import { createDBus, signalNameEnum } from './dbusService'
-import { createDBus } from './dbusClient'
 import Constants from './utils/Constants'
 import store from './store'
 import fs from 'fs'
 import path from 'path'
 import { parseFile } from 'music-metadata'
 import cache from './cache'
-import navidrome from './streaming/navidrome'
-import emby from './streaming/emby'
 import { db, Tables } from './db'
 import { CacheAPIs } from './utils/CacheApis'
 import { createMD5, deleteExcessCache, getReplayGainFromMetadata, splitArtist } from './utils/utils'
@@ -50,6 +37,7 @@ export default class IPCs {
 }
 
 function exitAsk(event: IpcMainEvent, win: BrowserWindow) {
+  const { dialog } = require('electron')
   event.preventDefault()
   dialog
     .showMessageBox({
@@ -139,6 +127,7 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
         const showMenu = Constants.IS_MAC ? (store.get('settings.enableTrayMenu') as boolean) : true
         tray.setContextMenu(showMenu)
       } else if (key === 'enableGlobalShortcut') {
+        const { globalShortcut } = require('electron')
         if (value) {
           registerGlobalShortcuts(win)
         } else {
@@ -222,11 +211,13 @@ function initOtherIpcMain(win: BrowserWindow): void {
 
   // Open url via web browser
   ipcMain.on('msgOpenExternalLink', async (event: IpcMainEvent, url: string) => {
+    const { shell } = require('electron')
     await shell.openExternal(url)
   })
 
   // Open file
   ipcMain.handle('msgOpenFile', async (event, filter: string) => {
+    const { dialog } = require('electron')
     const filters = []
     if (filter === 'text') {
       filters.push({ name: 'Text', extensions: ['txt', 'json'] })
@@ -250,6 +241,7 @@ function initOtherIpcMain(win: BrowserWindow): void {
   })
 
   ipcMain.handle('selecteFolder', async (event) => {
+    const { dialog } = require('electron')
     const result = await dialog.showOpenDialog({
       properties: ['openDirectory']
     })
@@ -389,6 +381,7 @@ function initOtherIpcMain(win: BrowserWindow): void {
   })
 
   ipcMain.on('msgShowInFolder', (event, path: string) => {
+    const { shell } = require('electron')
     shell.showItemInFolder(path)
   })
 
@@ -403,7 +396,7 @@ function initOtherIpcMain(win: BrowserWindow): void {
     // db.vacuum()
   })
 
-  ipcMain.handle('clearCacheTracks', (event) => {
+  ipcMain.handle('clearCacheTracks', async (event) => {
     const result = deleteExcessCache(true)
     return result
   })
@@ -454,6 +447,7 @@ function initOtherIpcMain(win: BrowserWindow): void {
   })
 
   ipcMain.on('update-powersave', (event, enable: boolean) => {
+    const { powerSaveBlocker } = require('electron')
     if (enable) {
       blockerId = powerSaveBlocker.start('prevent-app-suspension')
     } else {
@@ -475,6 +469,8 @@ async function initMprisIpcMain(win: BrowserWindow, mpris: MprisImpl): Promise<v
   // ipcMain.on('updateCurrentLyric', (event, data) => {
   //   dbus.iface?.emit(signalNameEnum.currentLrc, data)
   // })
+
+  const createDBus = await import('./dbusClient').then((m) => m.createDBus)
 
   const busName = 'org.gnome.Shell.TrayLyric'
   const dbus = createDBus(busName, win)
@@ -515,7 +511,9 @@ async function initMprisIpcMain(win: BrowserWindow, mpris: MprisImpl): Promise<v
   })
 }
 
-function initStreaming() {
+async function initStreaming() {
+  const navidrome = (await import('./streaming/navidrome')).default
+  const emby = (await import('./streaming/emby')).default
   ipcMain.handle('stream-login', async (event: IpcMainEvent, data: any) => {
     const { platform } = data
     store.set('accounts.selected', platform)

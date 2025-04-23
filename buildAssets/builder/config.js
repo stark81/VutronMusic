@@ -39,22 +39,9 @@ const baseConfig = {
   win: {
     icon: 'buildAssets/icons/icon.ico',
     target: [
-      {
-        target: 'appx',
-        arch: 'x64'
-      },
-      {
-        target: 'zip',
-        arch: 'x64'
-      },
-      {
-        target: 'portable',
-        arch: 'x64'
-      },
-      {
-        target: 'nsis',
-        arch: 'x64'
-      }
+      { target: 'zip', arch: 'x64' },
+      { target: 'portable', arch: 'x64' },
+      { target: 'nsis', arch: 'x64' }
     ]
   },
   portable: {

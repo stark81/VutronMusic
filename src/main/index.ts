@@ -18,14 +18,14 @@ import { createTray, YPMTray } from './tray'
 import { createMenu } from './menu'
 import { createDockMenu } from './dock'
 import { createTouchBar } from './touchBar'
-import { createMpris, MprisImpl } from './mpris'
+import { MprisImpl } from './mpris'
 import fastify, { FastifyInstance } from 'fastify'
 import fastifyCookie from '@fastify/cookie'
 import netease from './appServer/netease'
 import IPCs from './IPCs'
 import fastifyStatic from '@fastify/static'
 import path from 'path'
-import mime from 'mime-types'
+// import mime from 'mime-types'
 import cache from './cache'
 import {
   getPic,
@@ -617,6 +617,7 @@ class BackGround {
           headers: { 'content-type': 'application/json' }
         })
       } else if (host === 'get-music') {
+        const mime = require('mime-types')
         const filePath = decodeURI(pathname.slice(1))
         if (!fs.existsSync(filePath)) {
           return new Response('Not Found', { status: 404 })
@@ -689,10 +690,9 @@ class BackGround {
 
   handleAppEvents() {
     this.handleProtocol()
-    app.whenReady().then(() => {
+    app.whenReady().then(async () => {
       // create window
       this.createMainWindow()
-      // this.initOSDWindow()
 
       // window events
       this.handleWindowEvents()
@@ -700,6 +700,7 @@ class BackGround {
       this.tray = createTray(this.win)
       createTouchBar(this.win)
       if (Constants.IS_LINUX) {
+        const createMpris = await import('./mpris').then((m) => m.createMpris)
         this.mpris = createMpris(this.win)
       }
 

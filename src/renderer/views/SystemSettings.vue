@@ -713,6 +713,33 @@
           </div>
           <div class="item">
             <div class="left">
+              <div class="title">{{ $t('settings.unblock.source.text') }}</div>
+              <div class="description">
+                <label>{{ $t('settings.unblock.source.desc1') }}</label>
+                <a
+                  @click="
+                    openOnBrowser(
+                      'https://github.com/UnblockNeteaseMusic/server#%E9%9F%B3%E6%BA%90%E6%B8%85%E5%8D%95'
+                    )
+                  "
+                >
+                  {{ $t('settings.unblock.source.linkText') }}</a
+                ><br />
+                {{ $t('settings.unblock.source.desc2') }}<br />
+                {{ $t('settings.unblock.source.desc3') }}
+              </div>
+            </div>
+            <div class="right">
+              <input
+                v-model="unblockSource"
+                class="text-input margin-right-0"
+                placeholder="例 bilibili, kuwo"
+                @input="updateUnblockSource"
+              />
+            </div>
+          </div>
+          <div class="item">
+            <div class="left">
               <div class="title">{{ $t('settings.unblock.jooxCookie.text') }}</div>
               <div class="description">
                 <a
@@ -1207,13 +1234,13 @@ const inputFontSizeDebounce = () => {
   }, 500)
 }
 
-// const unblockSource = ref(unblockNeteaseMusic.value.source)
-// const updateUnblockSource = () => {
-//   if (debounceTimeout) clearTimeout(debounceTimeout)
-//   debounceTimeout = setTimeout(() => {
-//     unblockNeteaseMusic.value.source = unblockSource.value
-//   }, 500)
-// }
+const unblockSource = ref(unblockNeteaseMusic.value.source)
+const updateUnblockSource = () => {
+  if (debounceTimeout) clearTimeout(debounceTimeout)
+  debounceTimeout = setTimeout(() => {
+    unblockNeteaseMusic.value.source = unblockSource.value
+  }, 500)
+}
 
 const inputNFontSizeValue = ref<number>(nFontSize.value)
 const inputNValue = () => {
