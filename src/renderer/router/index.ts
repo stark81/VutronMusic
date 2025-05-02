@@ -18,7 +18,7 @@ import {
   StreamLogin,
   StreamPage
 } from '../views'
-import { createRouter, createWebHashHistory } from 'vue-router'
+import { createRouter, createWebHashHistory, createWebHistory } from 'vue-router'
 import { isAccountLoggedIn } from '../utils/auth'
 
 const routes = [
@@ -182,7 +182,7 @@ const routes = [
 ]
 
 const router = createRouter({
-  history: createWebHashHistory(),
+  history: window.env?.isElectron ? createWebHashHistory() : createWebHistory(),
   routes
 })
 

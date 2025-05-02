@@ -159,7 +159,7 @@ const logout = () => {
 const data = storeToRefs(useDataStore())
 
 const avatarUrl = computed(() => {
-  return `atom://online-pic/${data.user.value.avatarUrl}`
+  return `${data.user.value.avatarUrl}`
 })
 
 const userProfileMenu = ref<InstanceType<typeof ContextMenu>>()

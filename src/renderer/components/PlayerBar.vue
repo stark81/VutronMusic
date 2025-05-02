@@ -175,7 +175,8 @@ const router = useRouter()
 const route = useRoute()
 
 const playerStore = usePlayerStore()
-const { _playNextTrack, moveToFMTrash, playPrev, playOrPause, switchRepeatMode } = playerStore
+const { _playNextTrack, moveToFMTrash, playPrev, playOrPause, switchRepeatMode, getPic } =
+  playerStore
 const {
   currentTrackDuration,
   currentTrack,
@@ -188,10 +189,10 @@ const {
   isLiked,
   lyrics,
   chorus,
-  pic,
   source
 } = storeToRefs(playerStore)
 
+const pic = ref('')
 const playerBarRef = ref()
 const hover = ref(false)
 const hoverValue = ref(0)
@@ -320,6 +321,16 @@ const formatVolume = computed(() => {
 const heartDisabled = computed(() => {
   return currentTrack.value?.type === 'local' && !currentTrack.value?.matched
 })
+
+watch(
+  currentTrack,
+  (value) => {
+    getPic(value!).then((res) => {
+      pic.value = value?.matched ? res + '?param=64y64' : res
+    })
+  },
+  { immediate: true }
+)
 
 watch(showLyrics, (value) => {
   enableScrolling.value = !value

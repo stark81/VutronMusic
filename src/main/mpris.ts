@@ -10,7 +10,7 @@ export interface MprisImpl {
   setRepeatMode: (repeat: string) => void
   setShuffleMode: (isShuffle: boolean) => void
   setMetadata: (metadata: any) => void
-  setPosition: (position: number) => void
+  setPosition: (data: { seeked: boolean; progress: number }) => void
   setPersonalFM: (value: boolean) => void
 }
 
@@ -89,8 +89,10 @@ class Mpris implements MprisImpl {
     isPersonalFM = value
   }
 
-  setPosition(position: number) {
-    this._player.getPosition = () => position * 1000 * 1000
+  setPosition(data: { seeked: boolean; progress: number }) {
+    if (data.seeked) this._player.seeked(data.progress * 1000 * 1000)
+    this._player.getPosition = () => data.progress * 1000 * 1000
+    this._player.position = data.progress * 1000 * 1000
   }
 }
 

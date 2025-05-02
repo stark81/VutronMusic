@@ -7,7 +7,14 @@ export function getLyric(id: number) {
     params: {
       id
     }
-  })
+  }) as Promise<{
+    lrc: { lyric: any[] }
+    tlyric: { lyric: any[] }
+    romalrc: { lyric: any[] }
+    yrc: { lyric: any[] }
+    ytlrc: { lyric: any[] }
+    yromalrc: { lyric: any[] }
+  }>
 }
 
 /**
