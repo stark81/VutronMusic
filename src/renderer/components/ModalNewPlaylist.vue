@@ -47,7 +47,7 @@ const { createLocalPlaylist } = useLocalMusicStore()
 const { fetchLikedPlaylist } = useDataStore()
 
 const streamMusicStore = useStreamMusicStore()
-const { select } = storeToRefs(streamMusicStore)
+const { currentService } = storeToRefs(streamMusicStore)
 const { fetchStreamPlaylist, addOrRemoveTrackFromStreamPlaylist } = streamMusicStore
 
 const title = ref('')
@@ -114,7 +114,7 @@ const createAPlaylist = async () => {
     window.mainApi
       ?.invoke('createStreamPlaylist', {
         name: title.value,
-        platform: select.value
+        platform: currentService.value.name
       })
       .then((res: { status: 'ok' | 'failed'; pid: string | undefined }) => {
         if (res.status === 'ok') {

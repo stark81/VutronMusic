@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        os: [windows-latest, macos-latest, ubuntu-22.04]
         arch: [x64]
         include:
           - os: macos-latest
@@ -21,7 +21,7 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     env:
-      XVFB_PFX: ${{ (matrix.os == 'ubuntu-latest' && 'xvfb-run --auto-servernum -- ') || '' }}
+      XVFB_PFX: ${{ (matrix.os == 'ubuntu-22.04' && 'xvfb-run --auto-servernum -- ') || '' }}
 
     steps:
       - name: Check out Git repository
@@ -107,42 +107,42 @@ jobs:
 
       # Linux artifacts
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-22.04'
         with:
           name: VutronMusic-linux-snap-${{ matrix.arch }}
           path: release/*/VutronMusic*.snap
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-22.04'
         with:
           name: VutronMusic-linux-AppImage-${{ matrix.arch }}
           path: release/*/VutronMusic*.AppImage
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-22.04'
         with:
           name: VutronMusic-linux-deb-${{ matrix.arch }}
           path: release/*/VutronMusic*.deb
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-22.04'
         with:
           name: VutronMusic-linux-rpm-${{ matrix.arch }}
           path: release/*/VutronMusic*.rpm
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-22.04'
         with:
           name: VutronMusic-linux-blockmap-${{ matrix.arch }}
           path: release/*/VutronMusic*.blockmap
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-22.04'
         with:
           name: VutronMusic-linux-latest-${{ matrix.arch }}
           path: release/*/latest*.yml
@@ -151,7 +151,7 @@ jobs:
   # 添加新的发布作业，等所有构建完成后统一上传到 GitHub Release
   publish-release:
     needs: [Release]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     name: Upload to GitHub Release
 
     steps:

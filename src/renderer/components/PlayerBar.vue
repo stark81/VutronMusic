@@ -184,11 +184,11 @@ const {
   repeatMode,
   shuffle,
   seek,
+  pic,
   volume,
   isLiked,
   lyrics,
   chorus,
-  pic,
   source
 } = storeToRefs(playerStore)
 
@@ -320,6 +320,16 @@ const formatVolume = computed(() => {
 const heartDisabled = computed(() => {
   return currentTrack.value?.type === 'local' && !currentTrack.value?.matched
 })
+
+// watch(
+//   currentTrack,
+//   (value) => {
+//     getPic(value!).then((res) => {
+//       pic.value = value?.matched ? res + '?param=64y64' : res
+//     })
+//   },
+//   { immediate: true }
+// )
 
 watch(showLyrics, (value) => {
   enableScrolling.value = !value

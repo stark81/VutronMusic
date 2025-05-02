@@ -25,6 +25,7 @@ interface params {
   currentTime: number
   isMini?: boolean
   isOneLine?: boolean
+  rate?: number
 }
 
 interface animation {
@@ -66,6 +67,7 @@ export class LyricManager {
   lineIdx: number
   currentTime: number // 毫秒
   lyrics: lyrics | null = null
+  rate: number
   _behavior: 'smooth' | 'instant' = 'smooth'
   isMini: boolean = false
   isOneLine: boolean = false
@@ -85,6 +87,7 @@ export class LyricManager {
     this.currentTime = data.currentTime
     this.isMini = data.isMini || false
     this.isOneLine = data.isOneLine || false
+    this.rate = data.rate || 1
     this.container.addEventListener('click', this.handleLyricClick.bind(this))
     window.addEventListener('resize', this.createLineAnimation.bind(this))
   }
@@ -215,7 +218,7 @@ export class LyricManager {
           lyricLine.appendChild(span)
           fontIndex++
 
-          const animation = createAnimation(span, w.end - w.start)
+          const animation = createAnimation(span, (w.end - w.start) / this.rate)
           this.animations.lyric.push({ dom: span, animation, start: w.start, end: w.end })
         })
         element.appendChild(lyricLine)
@@ -226,7 +229,7 @@ export class LyricManager {
             const translation = document.createElement('div')
             translation.classList.add('translation')
             const words = sameTlyric.content.split('')
-            const interval = (end - start) / words.length
+            const interval = (end - start) / words.length / this.rate
             words.forEach((w, index) => {
               const span = document.createElement('span')
               span.textContent = w
@@ -255,7 +258,7 @@ export class LyricManager {
               span.style.backgroundSize = '0 100%'
               translation.appendChild(span)
 
-              const animation = createAnimation(span, w.end - w.start)
+              const animation = createAnimation(span, (w.end - w.start) / this.rate)
               this.animations.translation.push({
                 dom: span,
                 animation,
@@ -301,7 +304,7 @@ export class LyricManager {
     if (this.isMini) {
       this.buildMiniMode()
     } else {
-      this.container.addEventListener('wheel', this.handleWheel.bind(this))
+      this.container.addEventListener('wheel', this.handleWheel.bind(this), { passive: true })
     }
   }
 
@@ -622,4 +625,10 @@ export const updateWordByWord = (wByw: boolean) => {
   } else {
     manager?.createLyricsDom()
   }
+}
+
+export const updateRate = (rate: number) => {
+  if (!manager) return
+  manager.rate = rate
+  setLyrics(manager.lyrics || { lyric: [], tlyric: [], rlyric: [] })
 }

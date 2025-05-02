@@ -44,7 +44,11 @@ const mainAvailChannels: string[] = [
   'get-stream-account',
   'check-update',
   'downloadUpdate',
-  'update-powersave'
+  'playerCurrentTrackTime',
+  'update-powersave',
+  'openLogFile',
+  'updateTooltip',
+  'updateRate'
 ]
 const rendererAvailChannels: string[] = [
   'msgHandleScanLocalMusic',
@@ -68,6 +72,7 @@ const rendererAvailChannels: string[] = [
   'update-not-available',
   'update-error',
   'download-progress',
+  'setPosition',
   'changeRouteTo'
 ]
 

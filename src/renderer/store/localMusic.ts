@@ -55,9 +55,8 @@ export interface Playlist {
 export const useLocalMusicStore = defineStore(
   'localMusic',
   () => {
+    const enable = ref(true)
     const localTracks = ref<Track[]>([])
-    const albums = ref<Album[]>([])
-    const artists = ref<any[]>([])
     const playlists = ref<Playlist[]>([])
     const sortBy = ref('default')
     const sortPlaylistsIDs = ref<number[]>([])
@@ -167,23 +166,50 @@ export const useLocalMusicStore = defineStore(
       })
     }
 
+    const getLocalLyric = async (id: number) => {
+      const res = await fetch(`atom://get-lyric/${id}`)
+      return (await res.json()) as {
+        lrc: { lyric: any[] }
+        tlyric: { lyric: any[] }
+        romalrc: { lyric: any[] }
+        yrc: { lyric: any[] }
+        ytlrc: { lyric: any[] }
+        yromalrc: { lyric: any[] }
+      }
+    }
+
+    const getALocalTrack = (query: Partial<Track>) => {
+      return localTracks.value.find((track) =>
+        Object.entries(query).every(([key, value]) => track[key as keyof Track] === value)
+      )
+    }
+
+    const getLocalPic = async (id: number) => {
+      const pic = new URL(`../assets/images/default.jpg`, import.meta.url).href
+      const result = await fetch(`atom://get-pic/${id}`)
+        .then((res) => res.blob())
+        .then((res) => URL.createObjectURL(res))
+        .catch(() => null)
+      return result ?? pic
+    }
+
     const resetLocalMusic = () => {
       localTracks.value = []
-      albums.value = []
-      artists.value = []
       playlists.value = []
       sortBy.value = 'default'
     }
 
     return {
+      enable,
       localTracks,
-      albums,
-      artists,
       playlists,
       sortPlaylistsIDs,
       sortBy,
       updateTrack,
       fetchLocalMusic,
+      getLocalLyric,
+      getLocalPic,
+      getALocalTrack,
       resetLocalMusic,
       createLocalPlaylist,
       addTrackToLocalPlaylist,

@@ -1,4 +1,4 @@
-import { defineStore, storeToRefs } from 'pinia'
+import { defineStore } from 'pinia'
 import shuffleFn from 'lodash/shuffle'
 import { lyricParse } from '../utils/lyric'
 import { ref, computed, reactive, watch, watchEffect, onMounted, onBeforeUnmount, toRaw } from 'vue'
@@ -9,6 +9,7 @@ import { useNormalStateStore } from './state'
 import { useOsdLyricStore } from './osdLyric'
 import { useDataStore } from './data'
 import { searchMatch, fmTrash, personalFM, songChorus } from '../api/other'
+import { getLyric as getApiLyric, getTrackDetail } from '../api/track'
 import { useI18n } from 'vue-i18n'
 import { cloneDeep } from 'lodash'
 
@@ -53,7 +54,7 @@ export const usePlayerStore = defineStore(
     const title = ref<string | null>('VutronMusic')
     const outputDevice = ref('default')
     const backRate = ref(1.0)
-    const streamMusics = ref<Track[]>([])
+    const _pitch = ref(1.0)
     const isLiked = ref(false)
     const isLocalList = ref(false)
     const isHidden = ref(document.hidden)
@@ -67,8 +68,8 @@ export const usePlayerStore = defineStore(
       id: number | string
     }>({ type: 'album', id: 0 })
 
-    const color = ref<string>()
-    const color2 = ref<string>()
+    // const color = ref<string>()
+    // const color2 = ref<string>()
     const lyrics = reactive<{
       lyric: any[]
       tlyric: any[]
@@ -88,13 +89,20 @@ export const usePlayerStore = defineStore(
       [key: string]: any
     }>({ id: 0 })
 
-    let initAcx = false
     let lastUpdateTime = 0
+    let intervalTimer
 
     const localMusicStore = useLocalMusicStore()
     const streamMusicStore = useStreamMusicStore()
-    const { updateTrack, fetchLocalMusic } = localMusicStore
-    const { scrobble, fetchStreamMusic } = streamMusicStore
+    const { updateTrack, fetchLocalMusic, getALocalTrack, getLocalLyric, getLocalPic } =
+      localMusicStore
+    const {
+      scrobble: scrobbleStream,
+      fetchStreamMusic,
+      getStreamLyric,
+      getStreamPic,
+      getAStreamTrack
+    } = streamMusicStore
     const { likeATrack } = useDataStore()
     const { t } = useI18n()
 
@@ -104,19 +112,21 @@ export const usePlayerStore = defineStore(
 
     const osdLyricStore = useOsdLyricStore()
 
-    const audio = new Audio()
-    const audioContext = new AudioContext()
-    const audioSource = audioContext.createMediaElementSource(audio)
+    // const audio = new Audio()
+    // audio.crossOrigin = 'anonymous'
+    // audio.preservesPitch = true
+    // const audioContext = new AudioContext()
+    // const audioSource = audioContext.createMediaElementSource(audio)
 
     const _shuffleList = ref<number[]>([])
     const _list = ref<number[]>([])
     const _playNextList = ref<number[]>([])
     const currentTrackIndex = ref(0)
-    const currentLyricIndex = ref(-1)
 
     const currentIndex = reactive({
-      list: -1,
-      tList: -1
+      line: -1,
+      word: -1,
+      tWord: -1
     })
 
     const timer = reactive<{ line: any; list: any; tList: any }>({
@@ -152,13 +162,17 @@ export const usePlayerStore = defineStore(
       sendGain: 0
     })
 
-    const howler = {
-      audioSource,
+    const audioNodes = {
+      audio: null as HTMLAudioElement | null,
+      audioContext: null as AudioContext | null,
+      audioSource: null as MediaElementAudioSourceNode | null,
+      soundtouch: null as null | AudioWorkletNode,
       biquads: new Map<string, BiquadFilterNode>(),
-      convolverSourceGain: audioContext.createGain(),
-      convolverOutputGain: audioContext.createGain(),
-      convolver: audioContext.createConvolver(),
-      masterGain: audioContext.createGain()
+      dynamics: null as DynamicsCompressorNode | null,
+      convolverSourceGain: null as GainNode | null,
+      convolverOutputGain: null as GainNode | null,
+      convolver: null as ConvolverNode | null,
+      masterGain: null as GainNode | null
     }
 
     const currentTrackDuration = computed(() => {
@@ -182,18 +196,39 @@ export const usePlayerStore = defineStore(
       }
     })
 
+    const pitch = computed({
+      get() {
+        return _pitch.value
+      },
+      set(value) {
+        _pitch.value = value
+        if (!audioNodes.soundtouch) return
+        // @ts-ignore
+        audioNodes.soundtouch.parameters.get('pitch').value = value
+      }
+    })
+
     const seek = computed({
       get() {
         return _progress.value
       },
       set(value) {
-        audio.currentTime = value
+        if (!audioNodes.audio) return
+        audioNodes.audio.currentTime = value
         _progress.value = value
         progress.value = value
         lastUpdateTime = value
-        currentLyricIndex.value = getLyricIndex(lyrics.lyric, 0, 1)
-        currentIndex.list = getLyricIndex(fontList.value.list, 0, 1000)
-        currentIndex.tList = getLyricIndex(fontList.value.tList, 0, 1000)
+        currentIndex.line = getLyricIndex(lyrics.lyric, 0, 1)
+        currentIndex.word = getLyricIndex(fontList.value.word, 0, 1000)
+        currentIndex.tWord = getLyricIndex(fontList.value.tWord, 0, 1000)
+        if (window.env?.isLinux) {
+          window.mainApi?.send('playerCurrentTrackTime', { seeked: true, progress: value })
+        }
+        navigator.mediaSession.setPositionState({
+          duration: currentTrackDuration.value,
+          playbackRate: playbackRate.value,
+          position: value
+        })
         clearTimeout(timer.line)
         clearTimeout(timer.list)
         clearTimeout(timer.tList)
@@ -216,7 +251,8 @@ export const usePlayerStore = defineStore(
         migu: '咪咕音乐',
         cache: '缓存'
       }
-      const sources = currentTrack.value.source!.split('-')
+      const sources = currentTrack.value.source?.split('-')
+      if (!sources) return sourceMap.netease
       let source = ''
       if (sources.length === 1) {
         source = sourceMap[sources[0]]
@@ -232,7 +268,10 @@ export const usePlayerStore = defineStore(
       },
       set(value) {
         _volume.value = value
-        howler.masterGain.gain.linearRampToValueAtTime(value, audioContext.currentTime + 0.2)
+        audioNodes.masterGain?.gain.linearRampToValueAtTime(
+          value,
+          audioNodes.audioContext?.currentTime || 0 + 0.2
+        )
       }
     })
 
@@ -240,7 +279,20 @@ export const usePlayerStore = defineStore(
       get: () => backRate.value,
       set: (value) => {
         backRate.value = value
-        audio.playbackRate = value
+        audioNodes.audio!.playbackRate = value
+        window.mainApi?.send('updateRate', value)
+        currentIndex.line = getLyricIndex(lyrics.lyric, 0, 1)
+        currentIndex.word = getLyricIndex(fontList.value.word, 0, 1000)
+        currentIndex.tWord = getLyricIndex(fontList.value.tWord, 0, 1000)
+        clearTimeout(timer.line)
+        clearTimeout(timer.list)
+        clearTimeout(timer.tList)
+        updateIndex()
+        navigator.mediaSession.setPositionState({
+          duration: currentTrackDuration.value,
+          playbackRate: value,
+          position: seek.value
+        })
       }
     })
 
@@ -256,14 +308,14 @@ export const usePlayerStore = defineStore(
     })
 
     const fontList = computed(() => {
-      const list = [] as { start: number; end: number; word: string }[]
-      const tList = [] as { start: number; end: number; word: string }[]
-      const rList = [] as { start: number; end: number; word: string }[]
+      const word = [] as { start: number; end: number; word: string }[]
+      const tWord = [] as { start: number; end: number; word: string }[]
+      const rWord = [] as { start: number; end: number; word: string }[]
       if (isWordByWord.value) {
         lyrics.lyric.forEach((l) => {
           if (l.contentInfo) {
             l.contentInfo.forEach((c) => {
-              list.push(c)
+              word.push(c)
             })
             const sameTlyric = lyrics.tlyric.find((t) => t.start === l.start)
             if (
@@ -274,7 +326,7 @@ export const usePlayerStore = defineStore(
               const words = sameTlyric.content.split('') as string[]
               words.forEach((w, i) => {
                 const interval = (l.end - l.start) / words.length
-                tList.push({
+                tWord.push({
                   start: Math.floor((l.start + i * interval) * 1000),
                   end: Math.floor((l.start + (i + 1) * interval) * 1000),
                   word: w
@@ -289,7 +341,7 @@ export const usePlayerStore = defineStore(
             ) {
               const words = sameRlyric.content.split(' ') as string[]
               l.contentInfo.forEach((c, i) => {
-                rList.push({
+                rWord.push({
                   start: c.start,
                   end: c.end,
                   word: words[i] ?? ''
@@ -299,7 +351,7 @@ export const usePlayerStore = defineStore(
           }
         })
       }
-      return { list, tList, rList }
+      return { word, tWord, rWord }
     })
 
     const noLyric = computed(() => lyrics.lyric.length === 0)
@@ -326,15 +378,18 @@ export const usePlayerStore = defineStore(
       start = 0,
       rate: 1 | 1000 = 1
     ) => {
-      if (!lst.length) return -1
+      if (!lst.length || !audioNodes.audio) return -1
       start = Math.max(start, 0)
       for (let i = start; i < lst.length; i++) {
-        if ((lst[i].start || lst[i].start) / rate > audio.currentTime + lyricOffset.value) {
+        if (
+          (lst[i].start || lst[i].start) / rate >
+          audioNodes.audio.currentTime + lyricOffset.value
+        ) {
           return i - 1
         }
       }
 
-      if (audio.currentTime + lyricOffset.value > lst[lst.length - 1].end / rate) {
+      if (audioNodes.audio.currentTime + lyricOffset.value > lst[lst.length - 1].end / rate) {
         return lst.length
       } else {
         return lst.length - 1
@@ -360,19 +415,10 @@ export const usePlayerStore = defineStore(
       }
     })
 
-    watch(currentTrack, async (value) => {
-      if (!value) return
-      const flag = await searchMatchForLocal(value)
-      if (flag) return
-      await getCurrentTrackInfo(value)
-      updateMediaSessionMetaData(value)
-      if (osdLyricStore.show) {
-        window.mainApi?.sendMessage({
-          type: 'update-osd-status',
-          data: { title: `${(value.artists || value.ar)[0]?.name} - ${value.name}` }
-        })
-      }
-    })
+    // watch(currentTrack, async (value) => {
+    //   if (!value) return
+    //   searchMatchForLocal(value)
+    // })
 
     watch(lyrics, () => {
       clearTimeout(timer.line)
@@ -384,25 +430,26 @@ export const usePlayerStore = defineStore(
     watch(
       () => convolverParams.buffer,
       (value) => {
+        if (!audioNodes.audioContext) return
         if (value instanceof AudioBuffer) {
-          howler.convolver.buffer = value
-          howler.convolverSourceGain.gain.setValueAtTime(
+          audioNodes.convolver!.buffer = value
+          audioNodes.convolverSourceGain!.gain.setValueAtTime(
             convolverParams.mainGain,
-            audioContext.currentTime
+            audioNodes.audioContext.currentTime
           )
-          howler.convolverOutputGain.gain.setValueAtTime(
+          audioNodes.convolverOutputGain!.gain.setValueAtTime(
             convolverParams.sendGain,
-            audioContext.currentTime
+            audioNodes.audioContext.currentTime
           )
         } else {
-          howler.convolver.buffer = null
-          howler.convolverSourceGain.gain.setValueAtTime(
+          audioNodes.convolver!.buffer = null
+          audioNodes.convolverSourceGain!.gain.setValueAtTime(
             convolverParams.mainGain,
-            audioContext.currentTime
+            audioNodes.audioContext.currentTime
           )
-          howler.convolverOutputGain.gain.setValueAtTime(
+          audioNodes.convolverOutputGain!.gain.setValueAtTime(
             convolverParams.sendGain,
-            audioContext.currentTime
+            audioNodes.audioContext.currentTime
           )
         }
       }
@@ -415,8 +462,11 @@ export const usePlayerStore = defineStore(
     watch(
       () => convolverParams.mainGain,
       (value) => {
-        if (convolverParams.buffer) {
-          howler.convolverSourceGain.gain.setValueAtTime(value, audioContext.currentTime)
+        if (convolverParams.buffer && audioNodes.convolverSourceGain) {
+          audioNodes.convolverSourceGain.gain.setValueAtTime(
+            value,
+            audioNodes.audioContext?.currentTime || 0
+          )
         }
       }
     )
@@ -424,19 +474,24 @@ export const usePlayerStore = defineStore(
     watch(
       () => convolverParams.sendGain,
       (value) => {
-        if (convolverParams.buffer) {
-          howler.convolverOutputGain.gain.setValueAtTime(value, audioContext.currentTime)
+        if (convolverParams.buffer && audioNodes.convolverOutputGain) {
+          audioNodes.convolverOutputGain.gain.setValueAtTime(
+            value,
+            audioNodes.audioContext?.currentTime || 0
+          )
         }
       }
     )
 
     const _refreshLineIdx = () => {
       if (!lyrics.lyric.length || !shouldGetLrcIndex.value) return
-      currentLyricIndex.value = getLyricIndex(lyrics.lyric, 0, 1)
-      const nextLine = lyrics.lyric[currentLyricIndex.value + 1]
+      currentIndex.line = getLyricIndex(lyrics.lyric, 0, 1)
+      const nextLine = lyrics.lyric[currentIndex.line + 1]
 
       if (nextLine) {
-        const driftTime = nextLine.start - (audio.currentTime + lyricOffset.value) * 1000
+        const driftTime =
+          nextLine.start -
+          ((audioNodes.audio?.currentTime || 0) / playbackRate.value + lyricOffset.value) * 1000
         if (playing.value) {
           timer.line = setTimeout(() => {
             clearTimeout(timer.line)
@@ -447,14 +502,16 @@ export const usePlayerStore = defineStore(
       }
     }
 
-    const _refreshFontIdx = (type: 'list' | 'tList' = 'list') => {
+    const _refreshFontIdx = (type: 'word' | 'tWord' = 'word') => {
       if (!fontList.value[type].length || !shouldGetFontIndex.value) return
       const index = getLyricIndex(fontList.value[type], currentIndex[type], 1000)
 
       currentIndex[type] = index
       const nextFont = fontList.value[type][index + 1]
       if (nextFont) {
-        const driftTime = nextFont.start - (audio.currentTime + lyricOffset.value) * 1000
+        const driftTime =
+          nextFont.start -
+          ((audioNodes.audio?.currentTime || 0) / playbackRate.value + lyricOffset.value) * 1000
         if (playing.value) {
           timer[type] = setTimeout(() => {
             clearTimeout(timer[type])
@@ -467,30 +524,34 @@ export const usePlayerStore = defineStore(
 
     const updateIndex = () => {
       if (!lyrics.lyric.length || !shouldGetLrcIndex.value) return
-      currentLyricIndex.value = getLyricIndex(lyrics.lyric, 0, 1)
+      currentIndex.line = getLyricIndex(lyrics.lyric, 0, 1)
       if (!shouldGetLrcIndex.value) return
-      if (fontList.value.list.length) {
-        currentIndex.list = getLyricIndex(fontList.value.list, 0, 1000)
+      if (fontList.value.word.length) {
+        currentIndex.word = getLyricIndex(fontList.value.word, 0, 1000)
       }
-      if (fontList.value.tList.length) {
-        currentIndex.tList = getLyricIndex(fontList.value.tList, 0, 1000)
+      if (fontList.value.tWord.length) {
+        currentIndex.tWord = getLyricIndex(fontList.value.tWord, 0, 1000)
       }
       if (!playing.value) return
       _refreshLineIdx()
-      _refreshFontIdx('list')
-      _refreshFontIdx('tList')
+      _refreshFontIdx('word')
+      _refreshFontIdx('tWord')
     }
 
     const currentLyric = computed(() => {
-      const line = lyrics.lyric[currentLyricIndex.value]
+      const line = lyrics.lyric[currentIndex.line]
       if (!line) return { content: currentTrack.value?.name || '听你想听的音乐', time: 0 }
-      const nextLine = lyrics.lyric[currentLyricIndex.value + 1]
+      const nextLine = lyrics.lyric[currentIndex.line + 1]
       const diff = nextLine ? nextLine.start - line?.start : 10
       return { content: line?.content, time: diff }
     })
 
     watch(currentLyric, (value) => {
-      if (window.env?.isLinux && settingsStore.tray.enableExtension) {
+      if (
+        window.env?.isLinux &&
+        settingsStore.tray.enableExtension &&
+        stateStore.extensionCheckResult
+      ) {
         window.mainApi?.send('updateLyricInfo', { currentLyric: toRaw(value) })
       }
     })
@@ -498,6 +559,7 @@ export const usePlayerStore = defineStore(
     watch(
       () => window.env?.isLinux && settingsStore.tray.enableExtension,
       (value) => {
+        if (!stateStore.extensionCheckResult) return
         if (value) {
           window.mainApi?.send('updateLyricInfo', { currentLyric: toRaw(currentLyric.value) })
         } else {
@@ -509,8 +571,8 @@ export const usePlayerStore = defineStore(
     watch(shouldGetFontIndex, (value) => {
       if (value) {
         _refreshLineIdx()
-        _refreshFontIdx('list')
-        _refreshFontIdx('tList')
+        _refreshFontIdx('word')
+        _refreshFontIdx('tWord')
       } else {
         clearTimeout(timer.list)
         clearTimeout(timer.tList)
@@ -519,16 +581,20 @@ export const usePlayerStore = defineStore(
 
     watch(playing, (value) => {
       window.mainApi?.send('updatePlayerState', { playing: value })
+      navigator.mediaSession.setPositionState({
+        duration: currentTrackDuration.value,
+        playbackRate: playbackRate.value,
+        position: seek.value
+      })
+      progress.value = audioNodes.audio?.currentTime || 0
+      _progress.value = audioNodes.audio?.currentTime || 0
       if (value) {
-        progress.value = audio.currentTime
-        _progress.value = audio.currentTime
         updateIndex()
+        updateMprisProgress()
         if (settingsStore.general.preventSuspension) {
           window.mainApi?.send('update-powersave', true)
         }
       } else {
-        progress.value = audio.currentTime
-        _progress.value = audio.currentTime
         clearTimeout(timer.line)
         clearTimeout(timer.list)
         clearTimeout(timer.tList)
@@ -538,13 +604,17 @@ export const usePlayerStore = defineStore(
         if (settingsStore.general.preventSuspension) {
           window.mainApi?.send('update-powersave', false)
         }
+        if (intervalTimer) {
+          clearInterval(intervalTimer)
+          intervalTimer = null
+        }
       }
     })
 
     watch(
-      () => fontList.value.tList,
+      () => fontList.value.tWord,
       (value) => {
-        if (value.length) _refreshFontIdx('tList')
+        if (value.length) _refreshFontIdx('tWord')
       }
     )
 
@@ -567,7 +637,7 @@ export const usePlayerStore = defineStore(
     watchEffect(() => {
       for (const biquad of biquadParamsKeys) {
         const value = biquadParams[biquad]
-        const biquadNode = howler.biquads.get(`hz${biquad}`)
+        const biquadNode = audioNodes.biquads.get(`hz${biquad}`)
         if (biquadNode) biquadNode.gain.value = value
       }
     })
@@ -584,7 +654,6 @@ export const usePlayerStore = defineStore(
     })
 
     const searchMatchForLocal = async (track: Track) => {
-      let flag = false
       if (track.type === 'local' && !track.matched) {
         const params = {
           title: track.name,
@@ -594,23 +663,43 @@ export const usePlayerStore = defineStore(
           md5: track.md5,
           localID: track.id
         }
-        await searchMatch(params)
-          .then(async (res: any) => {
+        const result = await searchMatch(params)
+          .then((res: any) => {
             if (res.result.songs.length > 0) {
               const newTrack = res.result.songs[0]
               updateTrack(track.filePath, newTrack)
               _list.value[currentTrackIndex.value] = newTrack.id
-              const newSong = localMusicStore.localTracks.find((t) => t.filePath === track.filePath)
-              await getCurrentTrackInfo(newSong!)
-              await updateMediaSessionMetaData(newSong!)
-              flag = true
+              return getALocalTrack({ filePath: track.filePath })
             }
           })
           .catch((err) => {
             showToast(err)
+            return null
           })
+        if (result) track = result
       }
-      return flag
+      await getCurrentTrackInfo(track)
+      await updateMediaSessionMetaData(track)
+      if (osdLyricStore.show) {
+        window.mainApi?.sendMessage({
+          type: 'update-osd-status',
+          data: { title: `${(track.artists || track.ar)[0]?.name} - ${track.name}` }
+        })
+      }
+    }
+
+    const updateMprisProgress = () => {
+      if (!window.env?.isLinux) return
+      window.mainApi?.send('playerCurrentTrackTime', {
+        seeked: true,
+        progress: audioNodes.audio!.currentTime
+      })
+      intervalTimer = setInterval(() => {
+        window.mainApi?.send('playerCurrentTrackTime', {
+          seeked: true,
+          progress: audioNodes.audio!.currentTime
+        })
+      }, 5 * 1000)
     }
 
     const setConvolver = (data: {
@@ -630,7 +719,7 @@ export const usePlayerStore = defineStore(
       const path = new URL(`../assets/medias/${data.source}`, import.meta.url).href
       fetch(path)
         .then((res) => res.arrayBuffer())
-        .then((arrayBuffer) => audioContext.decodeAudioData(arrayBuffer))
+        .then((arrayBuffer) => audioNodes.audioContext!.decodeAudioData(arrayBuffer))
         .then((buffer) => {
           if (buffer) convolverParams.buffer = buffer
         })
@@ -642,45 +731,41 @@ export const usePlayerStore = defineStore(
     const getCurrentTrackInfo = async (track: Track) => {
       if (!track) return
       chorus.value = 0
-      let data: any
-      if (track.type === 'stream') {
-        if (track.source === 'navidrome') {
-          data = await fetch(`atom://get-stream-track-info/${track.id}`).then((res) => res.json())
-        } else if (track.source === 'emby') {
-          const match = track.picUrl.match(/get-stream-pic\/(.*)/)
-          if (match) {
-            const idString = match[1]
-            const id = idString.replace('/64', '/512')
-            data = await fetch(`atom://get-stream-track-info/${id}`).then((res) => res.json())
-          } else {
-            data = await fetch(`atom://get-color/${track.picUrl}/save-pic=1?param=512y512`).then(
-              (res) => res.json()
-            )
+      // let data: any
+      if (track.matched) {
+        songChorus(track.id).then((res) => {
+          if (res.chorus.length) {
+            chorus.value = res.chorus[0].startTime / 1000 - (currentTrack.value?.offset || 0)
           }
-        }
-      } else {
-        data = await fetch(`atom://get-track-info/${track.id}`).then((res) => res.json())
-        if (track.matched) {
-          songChorus(track.id).then((res) => {
-            if (res.chorus.length) {
-              chorus.value = res.chorus[0].startTime / 1000 - (currentTrack.value?.offset || 0)
-            }
-          })
-        }
+        })
       }
-      const buffer = new Uint8Array(data.pic.data)
-      const blob = new Blob([buffer], { type: data.format })
-      if (pic.value.startsWith('blob:')) URL.revokeObjectURL(pic.value)
-      pic.value = URL.createObjectURL(blob)
-      if (data.color) {
-        color.value = data.color
-        color2.value = data.color2
-      } else {
-        showToast(t('toast.getColorFailed'))
-      }
-      const lyricData = data.lyrics
+      getLyric(track)
+    }
 
-      let { lyric, tlyric, rlyric } = lyricParse(lyricData)
+    const getLyric = async (track: Track) => {
+      let data = {
+        lrc: { lyric: [] as any[] },
+        tlyric: { lyric: [] as any[] },
+        romalrc: { lyric: [] as any[] },
+        yrc: { lyric: [] as any[] },
+        ytlrc: { lyric: [] as any[] },
+        yromalrc: { lyric: [] as any[] }
+      }
+      switch (track.type!) {
+        case 'stream':
+          data = (await getStreamLyric(track.id))!
+          break
+        case 'online':
+          data = await getApiLyric(track.id)
+          break
+        case 'local':
+          data = await _getLocalLyric(track)
+          break
+        default:
+          break
+      }
+
+      let { lyric, tlyric, rlyric } = lyricParse(data)
       lyric = lyric.filter((l) => !/^作(词|曲)\s*(:|：)\s*无$/.exec(l.content))
       const includeAM = lyric.length <= 10 && lyric.map((l) => l.content).includes('纯音乐，请欣赏')
       if (includeAM) {
@@ -723,6 +808,30 @@ export const usePlayerStore = defineStore(
       }
     }
 
+    const _getLocalLyric = async (track: Track) => {
+      let data = {
+        lrc: { lyric: [] as any[] },
+        tlyric: { lyric: [] as any[] },
+        romalrc: { lyric: [] as any[] },
+        yrc: { lyric: [] as any[] },
+        ytlrc: { lyric: [] as any[] },
+        yromalrc: { lyric: [] as any[] }
+      }
+      const trackInfoOrder = settingsStore.localMusic.trackInfoOrder
+      for (const order of trackInfoOrder) {
+        switch (order) {
+          case 'online':
+            if (track.matched) data = await getApiLyric(track.id)
+            break
+          default:
+            data = await getLocalLyric(track.id)
+            break
+        }
+        if (data.lrc.lyric.length) return data
+      }
+      return data
+    }
+
     /**
      * 替换播放列表，前两个参数的目的是为了实现网易云听歌记录的功能，同时为了实现优先本地歌曲时的提示功能
      * @param playlistSourceType 播放列表类型
@@ -736,13 +845,9 @@ export const usePlayerStore = defineStore(
       trackIDS: number[],
       autoPlayTrackID = 0
     ) => {
-      const { localMusic } = storeToRefs(settingsStore)
-      if (playlistSourceType.includes('local') && localMusic.value.scanning) {
+      if (playlistSourceType.includes('local') && settingsStore.localMusic.scanning) {
         showToast(t('toast.scanning'))
         return
-      }
-      if (!initAcx) {
-        await setupAudioNode()
       }
       isPersonalFM.value = false
       _list.value = trackIDS
@@ -765,37 +870,48 @@ export const usePlayerStore = defineStore(
     }
 
     const replaceCurrentTrack = async (trackID: number | string, autoPlay = true) => {
-      return getLocalMusic(trackID as number)
-        .then((data: Track | undefined) => {
-          return data ?? null
-        })
-        .then((track) => {
-          currentTrack.value = track
-          return getTrackSource(track!).then((source) => {
-            let replaced = false
-            if (source) {
-              if (track!.id === currentTrack.value?.id) {
-                playAudioSource(source, autoPlay)
-                replaced = true
-              }
-            } else {
-              showToast(track?.reason)
-              _playNextTrack(isPersonalFM.value)
-            }
-            if (autoPlay && currentTrack.value?.name && currentTrack.value?.matched !== false) {
-              // _scrobble(currentTrack.value, seek.value)
-            } else if (autoPlay && currentTrack.value?.type === 'stream') {
-              scrobble(trackID as string)
-            }
-            return replaced
-          })
-        })
+      // audioNodes.audio!.volume = 0
+      // audioNodes.masterGain!.gain.setValueAtTime(0, audioNodes.audioContext!.currentTime)
+      return getLocalMusic(trackID as number).then(async (track) => {
+        if (!track) {
+          nextTrackCallback()
+          return
+        }
+        currentTrack.value = track
+        await searchMatchForLocal(track!)
+        const source = await getTrackSource(track!)
+        let replaced = false
+        if (source) {
+          if (track!.id === currentTrack.value?.id) {
+            playAudioSource(source, autoPlay)
+            replaced = true
+          }
+        } else {
+          showToast(track?.reason)
+          _playNextTrack(isPersonalFM.value)
+        }
+        if (autoPlay && currentTrack.value?.name && currentTrack.value?.matched !== false) {
+          // _scrobble(currentTrack.value, seek.value)
+        } else if (autoPlay && currentTrack.value?.type === 'stream') {
+          scrobbleStream(trackID as string)
+        }
+        return replaced
+      })
     }
 
-    const playAudioSource = (source: string, autoPlay = true) => {
-      // await stop()
-      audio.src = source
-      audio.load()
+    // const _scrobble = (track: any, time: number, completed = false) => {
+    //   const trackDuration = ~~(track.dt / 1000)
+    //   time = completed ? trackDuration : ~~time
+    //   const sourceID =
+    //     playlistSource.value.id === 0 ? track.al?.id || track.album?.id : playlistSource.value.id
+    //   scrobble({ id: track.id, sourceid: sourceID, time })
+    // }
+
+    const playAudioSource = async (source: string, autoPlay = true) => {
+      await destroAudioNode()
+      await setupAudioNode(autoPlay)
+      audioNodes.audio!.src = source
+      audioNodes.audio!.load()
       if (autoPlay) {
         play()
         playing.value = true
@@ -804,7 +920,7 @@ export const usePlayerStore = defineStore(
 
     const getLocalMusic = (id: number) => {
       return new Promise<Track | undefined>((resolve) => {
-        let matchTrack = localMusicStore.localTracks.find((track: Track) => track.id === id)
+        let matchTrack = getALocalTrack({ id })
         if (matchTrack) {
           if (!isLocalList.value) {
             showToast(`使用本地文件播放`)
@@ -813,21 +929,30 @@ export const usePlayerStore = defineStore(
           resolve(matchTrack)
           return
         }
-        streamMusics.value = streamMusicStore.streamTracks
-        matchTrack = streamMusics.value?.find((track) => track.id === id)
+        matchTrack = getAStreamTrack(id)
         if (matchTrack) {
           resolve(matchTrack)
           return
         }
-        fetch(`atom://get-track/${id}`).then((data) => {
-          if (data.status === 200) {
-            data.json().then((track: Track) => {
-              resolve(track)
-            })
-          } else if (data.status === 440) {
-            resolve(undefined)
-          }
-        })
+        if (window.env?.isElectron) {
+          fetch(`atom://get-track/${id}`).then((data) => {
+            if (data.status === 200) {
+              data.json().then((track: Track) => {
+                resolve(track)
+              })
+            } else if (data.status === 404) {
+              resolve(undefined)
+            }
+          })
+        } else {
+          getTrackDetail(id.toString()).then((data) => {
+            if (data.code === 200) {
+              resolve(data.songs[0])
+            } else {
+              resolve(undefined)
+            }
+          })
+        }
       })
     }
 
@@ -841,7 +966,8 @@ export const usePlayerStore = defineStore(
         } else if (track.type === 'stream') {
           resolve(track.url)
         } else {
-          resolve(`atom://get-online-music/${track.url}`)
+          const url = track.url.replace('http:', 'https:')
+          resolve(window.env?.isElectron ? `atom://get-online-music/${track.url}` : url)
         }
       })
     }
@@ -861,7 +987,6 @@ export const usePlayerStore = defineStore(
     }
 
     const playPrev = async () => {
-      stop()
       const [trackID, index] = getPrevTrack()
       if (!trackID) {
         playing.value = false
@@ -889,6 +1014,7 @@ export const usePlayerStore = defineStore(
     }
 
     const _playNextTrack = (isPersonal: boolean) => {
+      pause()
       if (isPersonal) {
         playNextFMTrack()
       } else {
@@ -897,7 +1023,6 @@ export const usePlayerStore = defineStore(
     }
 
     const playNext = async () => {
-      stop()
       const [trackID, index, isPlayingNext] = getNextTrack()
       playingNext.value = isPlayingNext
       if (!trackID) {
@@ -906,10 +1031,10 @@ export const usePlayerStore = defineStore(
       }
       currentTrackIndex.value = index
       await replaceCurrentTrack(trackID, true)
-      return true
     }
 
     const nextTrackCallback = () => {
+      pause()
       seek.value = 0
       if (!isPersonalFM.value && repeatMode.value === 'one') {
         replaceCurrentTrack(currentTrack.value!.id)
@@ -918,40 +1043,51 @@ export const usePlayerStore = defineStore(
       }
     }
 
-    const stop = async () => {
-      seek.value = 0
-      if (playingNext.value) {
-        if (_shuffle.value) {
-          _shuffleList.value.splice(currentTrackIndex.value + 1, 0, currentTrack.value!.id)
-          currentTrackIndex.value += 1
-        } else {
-          _list.value.splice(currentTrackIndex.value + 1, 0, currentTrack.value!.id)
-          currentTrackIndex.value += 1
-        }
-      }
-      howler.masterGain.gain.setValueAtTime(0, audioContext.currentTime)
-      await pause()
-      audio.src =
-        'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA'
-      audio.load()
-    }
+    // const stop = async () => {
+    //   if (playingNext.value) {
+    //     if (_shuffle.value) {
+    //       _shuffleList.value.splice(currentTrackIndex.value + 1, 0, currentTrack.value!.id)
+    //       currentTrackIndex.value += 1
+    //     } else {
+    //       _list.value.splice(currentTrackIndex.value + 1, 0, currentTrack.value!.id)
+    //       currentTrackIndex.value += 1
+    //     }
+    //   }
+    //   pause()
+    // }
 
-    const play = () => {
+    const play = async () => {
+      if (!audioNodes.audio) return
       const arts = currentTrack.value?.artists ?? currentTrack.value?.ar
-      audioContext.resume().then(() => {
-        audio.play()
-        title.value = `${currentTrack.value?.name} · ${arts[0].name} - VutronMusic`
-        document.title = title.value
-        howler.masterGain.gain.linearRampToValueAtTime(volume.value, audioContext.currentTime + 0.2)
-      })
+      audioNodes.audio.playbackRate = playbackRate.value
+      await audioNodes.audio.play()
+      title.value = `${currentTrack.value?.name} · ${arts[0].name} - VutronMusic`
+      if (!window.env?.isMac) {
+        window.mainApi?.send('updateTooltip', title.value)
+      }
+      document.title = title.value
+      audioNodes.masterGain!.gain.setValueAtTime(0, audioNodes.audioContext!.currentTime)
+      audioNodes.masterGain!.gain.linearRampToValueAtTime(
+        volume.value,
+        audioNodes.audioContext!.currentTime + 0.2
+      )
+      setTimeout(() => {
+        audioNodes.audio!.volume = volume.value
+      }, 200)
     }
 
-    const pause = async () => {
-      howler.masterGain.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.2)
-      audio.pause()
+    const pause = () => {
+      if (!audioNodes.audio) return
+      audioNodes.masterGain!.gain.linearRampToValueAtTime(
+        0,
+        audioNodes.audioContext!.currentTime + 0.2
+      )
+      audioNodes.audio.pause()
       title.value = 'VutronMusic'
+      if (!window.env?.isMac) {
+        window.mainApi?.send('updateTooltip', title.value)
+      }
       document.title = title.value
-      await audioContext.suspend()
     }
 
     const playOrPause = async () => {
@@ -967,7 +1103,7 @@ export const usePlayerStore = defineStore(
     const setDevice = (device: string) => {
       if ('setSinkId' in AudioContext.prototype) {
         // @ts-ignore
-        audioContext.setSinkId(device)
+        audioNodes.audioContext?.setSinkId(device)
       }
     }
 
@@ -998,15 +1134,72 @@ export const usePlayerStore = defineStore(
       if (playNow) playNext()
     }
 
-    const setupAudioNode = async () => {
-      audio.addEventListener('ended', nextTrackCallback)
-      audio.addEventListener('timeupdate', () => {
-        if (Math.abs(audio.currentTime - lastUpdateTime) >= 1) {
-          _progress.value = audio.currentTime
-          lastUpdateTime = audio.currentTime
-        }
-      })
-      await audioContext.suspend()
+    const _handleTimeUpdate = () => {
+      if (!audioNodes.audio) return
+      if (Math.abs(audioNodes.audio.currentTime - lastUpdateTime) >= 1) {
+        _progress.value = audioNodes.audio.currentTime
+        lastUpdateTime = audioNodes.audio.currentTime
+      }
+      if (audioNodes.audio.currentTime >= audioNodes.audio.duration - 0.5) {
+        nextTrackCallback()
+      }
+    }
+
+    const destroAudioNode = async () => {
+      if (audioNodes.audio) {
+        audioNodes.audio.removeEventListener('timeupdate', _handleTimeUpdate)
+        audioNodes.audio.pause()
+
+        audioNodes.audioSource?.disconnect()
+        audioNodes.biquads.forEach((filter) => {
+          filter.disconnect()
+        })
+        audioNodes.soundtouch?.disconnect()
+        audioNodes.dynamics?.disconnect()
+        audioNodes.convolver?.disconnect()
+        audioNodes.convolverOutputGain?.disconnect()
+        audioNodes.convolverSourceGain?.disconnect()
+        audioNodes.masterGain?.disconnect()
+
+        audioNodes.audio = null
+        audioNodes.audioSource = null
+        audioNodes.soundtouch = null
+        audioNodes.biquads.clear()
+        audioNodes.dynamics = null
+        if (audioNodes.convolver) audioNodes.convolver.buffer = null
+        audioNodes.convolver = null
+        audioNodes.convolverOutputGain = null
+        audioNodes.convolverSourceGain = null
+        audioNodes.masterGain = null
+        await audioNodes.audioContext?.close()
+        audioNodes.audioContext = null
+      }
+    }
+
+    const setupAudioNode = async (autoPlay: boolean = false) => {
+      const audio = new Audio()
+      audio.crossOrigin = 'anonymous'
+      audio.preservesPitch = true
+      audio.volume = 0
+      audio.onended = null
+      audioNodes.audio = audio
+      seek.value = autoPlay ? 0 : progress.value
+
+      audioNodes.audio.addEventListener('timeupdate', _handleTimeUpdate)
+
+      audioNodes.audioContext = new AudioContext()
+      audioNodes.audioSource = audioNodes.audioContext.createMediaElementSource(audioNodes.audio)
+      await audioNodes.audioContext.resume()
+
+      await audioNodes.audioContext.audioWorklet.addModule(
+        new URL('../utils/soundtouch-worklet.js', import.meta.url)
+      )
+      const soundtouch = new AudioWorkletNode(audioNodes.audioContext, 'soundtouch-processor')
+      audioNodes.soundtouch = soundtouch
+      audioNodes.audioSource.connect(audioNodes.soundtouch)
+
+      playbackRate.value = backRate.value
+      pitch.value = _pitch.value
 
       setConvolver({
         name: '',
@@ -1016,8 +1209,8 @@ export const usePlayerStore = defineStore(
       })
 
       for (const [key, value] of Object.entries(biquadParams)) {
-        const filter = audioContext.createBiquadFilter()
-        howler.biquads.set(`hz${key}`, filter)
+        const filter = audioNodes.audioContext.createBiquadFilter()
+        audioNodes.biquads.set(`hz${key}`, filter)
         filter.type = 'peaking'
         filter.frequency.value = Number(key)
         filter.Q.value = 1.4
@@ -1026,33 +1219,52 @@ export const usePlayerStore = defineStore(
       for (let i = 1; i < biquadParamsKeys.length; i++) {
         const prev = biquadParamsKeys[i - 1]
         const curr = biquadParamsKeys[i]
-        howler.biquads.get(`hz${prev}`)!.connect(howler.biquads.get(`hz${curr}`)!)
+        audioNodes.biquads.get(`hz${prev}`)!.connect(audioNodes.biquads.get(`hz${curr}`)!)
       }
 
-      howler.audioSource.connect(howler.biquads.get(`hz${biquadParamsKeys[0]}`)!)
+      audioNodes.soundtouch.connect(audioNodes.biquads.get(`hz${biquadParamsKeys[0]}`)!)
 
-      const dynamics = audioContext.createDynamicsCompressor()
-      howler.convolver.connect(howler.convolverOutputGain)
-      howler.convolverSourceGain.connect(dynamics)
-      howler.convolverOutputGain.connect(dynamics)
-      howler.convolver.buffer =
+      audioNodes.dynamics = audioNodes.audioContext.createDynamicsCompressor()
+      audioNodes.convolver = audioNodes.audioContext.createConvolver()
+      audioNodes.convolverOutputGain = audioNodes.audioContext.createGain()
+      audioNodes.convolverSourceGain = audioNodes.audioContext.createGain()
+      audioNodes.masterGain = audioNodes.audioContext.createGain()
+
+      audioNodes.convolver.connect(audioNodes.convolverOutputGain)
+      audioNodes.convolverSourceGain.connect(audioNodes.dynamics)
+      audioNodes.convolverOutputGain.connect(audioNodes.dynamics)
+      audioNodes.convolver.buffer =
         convolverParams.buffer instanceof ArrayBuffer ? convolverParams.buffer : null
-      howler.convolverSourceGain.gain.value = convolverParams.mainGain
-      howler.convolverOutputGain.gain.value = convolverParams.sendGain
+      audioNodes.convolverSourceGain.gain.value = convolverParams.mainGain
+      audioNodes.convolverOutputGain.gain.value = convolverParams.sendGain
 
-      howler.masterGain.gain.setValueAtTime(volume.value, audioContext.currentTime)
+      audioNodes.masterGain.gain.setValueAtTime(volume.value, audioNodes.audioContext.currentTime)
       const key = biquadParamsKeys[biquadParamsKeys.length - 1]
-      const lastBiquadFilter = howler.biquads.get(`hz${key}`)!
-      lastBiquadFilter.connect(howler.convolverSourceGain)
-      lastBiquadFilter.connect(howler.convolver)
-      dynamics.connect(howler.masterGain)
-      howler.masterGain.connect(audioContext.destination)
+      const lastBiquadFilter = audioNodes.biquads.get(`hz${key}`)!
+      lastBiquadFilter.connect(audioNodes.convolverSourceGain)
+      lastBiquadFilter.connect(audioNodes.convolver)
+      audioNodes.dynamics.connect(audioNodes.masterGain)
+      audioNodes.masterGain.connect(audioNodes.audioContext.destination)
+    }
 
-      initAcx = true
+    const getPic = async (track: Track, size: number = 128) => {
+      if (track.type === 'local' && !track.matched) {
+        return await getLocalPic(track.id)
+      } else if (track.type === 'stream') {
+        return (await getStreamPic(track, size))!
+      } else {
+        return (track.album || track.al).picUrl
+      }
     }
 
     const updateMediaSessionMetaData = async (track: Track) => {
       if ('mediaSession' in navigator === false) return
+
+      if (pic.value?.startsWith('blob:')) {
+        URL.revokeObjectURL(pic.value)
+      }
+      pic.value = await getPic(track, 512)
+
       const arts = track.artists ?? track.ar
       const artists = arts.map((a) => a.name)
       const metadata = {
@@ -1061,14 +1273,16 @@ export const usePlayerStore = defineStore(
         album: track.album?.name ?? track.al?.name,
         artwork: [
           {
-            src: pic.value!,
-            type: 'image/jpg',
-            sizes: '112x112'
-          },
-          {
-            src: pic.value!,
+            src:
+              track.type === 'online' || track.matched ? pic.value + '?param=224y224' : pic.value,
             type: 'image/jpg',
             sizes: '224x224'
+          },
+          {
+            src:
+              track.type === 'online' || track.matched ? pic.value + '?param=512y512' : pic.value,
+            type: 'image/jpg',
+            sizes: '512x512'
           }
         ],
         length: currentTrackDuration.value,
@@ -1077,10 +1291,28 @@ export const usePlayerStore = defineStore(
       }
       navigator.mediaSession.metadata = null
       navigator.mediaSession.metadata = new MediaMetadata(metadata)
+      if (pic.value.startsWith('http')) pic.value += '?param=512y512'
       if (window.env?.isLinux) {
         metadata.artwork.map((art) => {
           art.src = (currentTrack.value?.album?.picUrl || currentTrack.value?.al?.picUrl)!
         })
+        let pic1: string = new URL(`../assets/images/default.jpg`, import.meta.url).href
+        let pic2: string = new URL(`../assets/images/default.jpg`, import.meta.url).href
+        if (track.type === 'stream') {
+          if (track.source === 'navidrome') {
+            pic1 = track.picUrl.replace('size=64', 'size=224')
+            pic2 = track.picUrl.replace('size=64', 'size=512')
+          } else if (track.source === 'emby') {
+            pic1 = track.picUrl
+              .replace('maxHeight=64', 'maxHeight=224')
+              .replace('maxWidth=64', 'maxWidth=224')
+            pic1 = track.picUrl
+              .replace('maxHeight=64', 'maxHeight=512')
+              .replace('maxWidth=64', 'maxWidth=512')
+          }
+          metadata.artwork[0].src = pic1
+          metadata.artwork[1].src = pic2
+        }
         window.mainApi?.send('metadata', metadata)
       }
     }
@@ -1097,10 +1329,9 @@ export const usePlayerStore = defineStore(
       lyrics.lyric = []
       lyrics.tlyric = []
       lyrics.rlyric = []
-      currentLyricIndex.value = -1
       if (pic.value.startsWith('blob:')) {
         URL.revokeObjectURL(pic.value)
-        pic.value = 'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg'
+        pic.value = new URL(`../assets/images/default.jpg`, import.meta.url).href
       }
 
       if (resetBiq) {
@@ -1119,24 +1350,27 @@ export const usePlayerStore = defineStore(
           window.mainApi?.sendMessage({
             type: 'update-osd-status',
             data: {
-              line: currentLyricIndex.value,
-              font: currentIndex.list,
-              tfont: currentIndex.tList,
+              line: currentIndex.line,
+              font: currentIndex.word,
+              tfont: currentIndex.tWord,
               playing: playing.value,
-              progress: audio.currentTime,
+              progress: audioNodes.audio?.currentTime || 0,
               title: `${(currentTrack.value?.artists || currentTrack.value?.ar)[0]?.name} - ${currentTrack.value?.name}`
             }
           })
         }
       })
 
-      watch(currentLyricIndex, (value) => {
-        if (osdLyricStore.show)
-          window.mainApi?.sendMessage({ type: 'update-osd-status', data: { line: value } })
-      })
+      watch(
+        () => currentIndex.line,
+        (value) => {
+          if (osdLyricStore.show)
+            window.mainApi?.sendMessage({ type: 'update-osd-status', data: { line: value } })
+        }
+      )
 
       watch(
-        () => currentIndex.list,
+        () => currentIndex.word,
         (value) => {
           if (osdLyricStore.show)
             window.mainApi?.sendMessage({ type: 'update-osd-status', data: { font: value } })
@@ -1144,7 +1378,7 @@ export const usePlayerStore = defineStore(
       )
 
       watch(
-        () => currentIndex.tList,
+        () => currentIndex.tWord,
         (value) => {
           if (osdLyricStore.show)
             window.mainApi?.sendMessage({ type: 'update-osd-status', data: { tfont: value } })
@@ -1168,6 +1402,9 @@ export const usePlayerStore = defineStore(
       })
 
       watch(playing, (value) => {
+        if ('mediaSession' in navigator) {
+          navigator.mediaSession.playbackState = value ? 'playing' : 'paused'
+        }
         if (osdLyricStore.show)
           window.mainApi?.sendMessage({ type: 'update-osd-status', data: { playing: value } })
       })
@@ -1215,6 +1452,9 @@ export const usePlayerStore = defineStore(
       window.mainApi?.on('fm-trash', () => {
         moveToFMTrash()
       })
+      window.mainApi?.on('setPosition', (_: any, value: number) => {
+        seek.value = value
+      })
     }
 
     const initMediaSession = () => {
@@ -1246,6 +1486,11 @@ export const usePlayerStore = defineStore(
         })
         navigator.mediaSession.setActionHandler('seekforward', (event) => {
           seek.value += event.seekOffset || 10
+        })
+        navigator.mediaSession.setPositionState({
+          duration: currentTrackDuration.value,
+          playbackRate: playbackRate.value,
+          position: seek.value
         })
       }
     }
@@ -1345,17 +1590,12 @@ export const usePlayerStore = defineStore(
       playing.value = false
       title.value = 'VutronMusic'
       if (enabled.value) {
-        pic.value = `atom://get-pic/${currentTrack.value?.id}`
         if (currentTrack.value?.type === 'stream') {
-          pic.value = currentTrack.value?.picUrl
-          if (streamMusicStore.status[streamMusicStore.select] !== 'login') {
+          if (streamMusicStore.currentService.status !== 'login') {
             resetPlayer(false)
             return
           }
         }
-        await setupAudioNode()
-        updateIndex()
-        seek.value = progress.value
         replaceCurrentTrack(currentTrack.value!.id, false).then(() => {
           window.mainApi?.send('updatePlayerState', {
             playing: playing.value,
@@ -1381,7 +1621,7 @@ export const usePlayerStore = defineStore(
     })
 
     onBeforeUnmount(() => {
-      progress.value = audio.currentTime
+      progress.value = audioNodes.audio?.currentTime || 0
       if (pic.value.startsWith('blob:')) URL.revokeObjectURL(pic.value)
     })
 
@@ -1390,14 +1630,18 @@ export const usePlayerStore = defineStore(
       enabled,
       progress,
       seek,
+      pic,
       chorus,
+      backRate,
       playbackRate,
+      pitch,
       repeatMode,
       title,
       shuffle,
       lyricOffset,
       volume,
       _volume,
+      _pitch,
       volumeBeforeMuted,
       _list,
       _shuffleList,
@@ -1408,7 +1652,6 @@ export const usePlayerStore = defineStore(
       isPersonalFM,
       source,
       currentTrackIndex,
-      currentLyricIndex,
       currentIndex,
       currentLyric,
       currentTrackDuration,
@@ -1416,16 +1659,14 @@ export const usePlayerStore = defineStore(
       biquadParams,
       biquadUser,
       convolverParams,
-      pic,
       isLiked,
       isLocalList,
       lyrics,
       noLyric,
       personalFMTrack,
       personalFMNextTrack,
-      color,
-      color2,
       playlistSource,
+      getPic,
       setConvolver,
       replacePlaylist,
       playPrev,
@@ -1443,7 +1684,14 @@ export const usePlayerStore = defineStore(
   },
   {
     persist: {
-      omit: ['currentIndex', 'pic', 'title', 'currentLyricIndex', 'outputDevice']
+      omit: [
+        'currentIndex.tWord',
+        'currentIndex.word',
+        'pic',
+        'title',
+        'currentLyricIndex',
+        'outputDevice'
+      ]
     }
   }
 )

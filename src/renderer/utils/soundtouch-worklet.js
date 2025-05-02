@@ -1,17 +1,14 @@
-/* eslint-disable no-labels */
 /* eslint-disable prefer-const */
-/* eslint-disable no-new-func */
+/* eslint-disable no-labels */
 /* eslint-disable no-void */
 /* eslint-disable no-proto */
-/* eslint-disable no-unused-expressions */
-/* eslint-disable no-sequences */
-/* eslint-disable no-unsafe-finally */
-/* eslint-disable no-constant-condition */
 /* eslint-disable no-func-assign */
-/* eslint-disable no-unused-vars */
-/* eslint-disable no-undef */
+/* eslint-disable no-var */
+/* eslint-disable no-unused-expressions */
+/* eslint-disable no-return-assign */
+/* eslint-disable no-sequences */
 /*
- * SoundTouch Audio Worklet v0.1.17 AudioWorklet using the
+ * SoundTouch Audio Worklet v0.2.1 AudioWorklet using the
  * SoundTouch audio processing library
  *
  * Copyright (c) Olli Parviainen
@@ -36,781 +33,175 @@
 
 'use strict'
 
-function _iterableToArrayLimit(r, l) {
-  let t =
-    r == null ? null : (typeof Symbol !== 'undefined' && r[Symbol.iterator]) || r['@@iterator']
-  if (t != null) {
-    let e
-    let n
-    let i
-    let u
-    const a = []
-    let f = !0
-    let o = !1
-    try {
-      if (((i = (t = t.call(r)).next), l === 0)) {
-        if (Object(t) !== t) return
-        f = !1
-      } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0);
-    } catch (r) {
-      ;(o = !0), (n = r)
-    } finally {
-      try {
-        if (!f && t.return != null && ((u = t.return()), Object(u) !== u)) return
-      } finally {
-        if (o) throw n
-      }
-    }
-    return a
+function _assertThisInitialized(e) {
+  if (void 0 === e)
+    throw new ReferenceError("this hasn't been initialised - super() hasn't been called")
+  return e
+}
+function _callSuper(t, o, e) {
+  return (
+    (o = _getPrototypeOf(o)),
+    _possibleConstructorReturn(
+      t,
+      _isNativeReflectConstruct()
+        ? Reflect.construct(o, e || [], _getPrototypeOf(t).constructor)
+        : o.apply(t, e)
+    )
+  )
+}
+function _classCallCheck(a, n) {
+  if (!(a instanceof n)) throw new TypeError('Cannot call a class as a function')
+}
+function _construct(t, e, r) {
+  if (_isNativeReflectConstruct()) return Reflect.construct.apply(null, arguments)
+  const o = [null]
+  o.push.apply(o, e)
+  const p = new (t.bind.apply(t, o))()
+  return r && _setPrototypeOf(p, r.prototype), p
+}
+function _defineProperties(e, r) {
+  for (let t = 0; t < r.length; t++) {
+    const o = r[t]
+    ;(o.enumerable = o.enumerable || false),
+      (o.configurable = true),
+      'value' in o && (o.writable = true),
+      Object.defineProperty(e, _toPropertyKey(o.key), o)
   }
+}
+function _createClass(e, r, t) {
+  return (
+    r && _defineProperties(e.prototype, r),
+    t && _defineProperties(e, t),
+    Object.defineProperty(e, 'prototype', {
+      writable: false
+    }),
+    e
+  )
+}
+function _get() {
+  return (
+    (_get =
+      typeof Reflect !== 'undefined' && Reflect.get
+        ? Reflect.get.bind()
+        : function (e, t, r) {
+            const p = _superPropBase(e, t)
+            if (p) {
+              const n = Object.getOwnPropertyDescriptor(p, t)
+              return n.get ? n.get.call(arguments.length < 3 ? e : r) : n.value
+            }
+          }),
+    _get.apply(null, arguments)
+  )
+}
+function _getPrototypeOf(t) {
+  return (
+    (_getPrototypeOf = Object.setPrototypeOf
+      ? Object.getPrototypeOf.bind()
+      : function (t) {
+          return t.__proto__ || Object.getPrototypeOf(t)
+        }),
+    _getPrototypeOf(t)
+  )
+}
+function _inherits(t, e) {
+  if (typeof e !== 'function' && e !== null)
+    throw new TypeError('Super expression must either be null or a function')
+  ;(t.prototype = Object.create(e && e.prototype, {
+    constructor: {
+      value: t,
+      writable: true,
+      configurable: true
+    }
+  })),
+    Object.defineProperty(t, 'prototype', {
+      writable: false
+    }),
+    e && _setPrototypeOf(t, e)
+}
+function _isNativeFunction(t) {
+  try {
+    return Function.toString.call(t).indexOf('[native code]') !== -1
+  } catch (n) {
+    return typeof t === 'function'
+  }
+}
+function _isNativeReflectConstruct() {
+  try {
+    var t = !Boolean.prototype.valueOf.call(Reflect.construct(Boolean, [], function () {}))
+  } catch (t) {}
+  return (_isNativeReflectConstruct = function () {
+    return !!t
+  })()
+}
+function _possibleConstructorReturn(t, e) {
+  if (e && (typeof e === 'object' || typeof e === 'function')) return e
+  if (void 0 !== e) throw new TypeError('Derived constructors may only return object or undefined')
+  return _assertThisInitialized(t)
+}
+function _setPrototypeOf(t, e) {
+  return (
+    (_setPrototypeOf = Object.setPrototypeOf
+      ? Object.setPrototypeOf.bind()
+      : function (t, e) {
+          return (t.__proto__ = e), t
+        }),
+    _setPrototypeOf(t, e)
+  )
+}
+function _superPropBase(t, o) {
+  for (; !{}.hasOwnProperty.call(t, o) && (t = _getPrototypeOf(t)) !== null; );
+  return t
+}
+function _superPropGet(t, o, e, r) {
+  const p = _get(_getPrototypeOf(t.prototype), o, e)
+  return typeof p === 'function'
+    ? function (t) {
+        return p.apply(e, t)
+      }
+    : p
 }
 function _toPrimitive(t, r) {
   if (typeof t !== 'object' || !t) return t
   const e = t[Symbol.toPrimitive]
   if (void 0 !== e) {
-    const i = e.call(t, r || 'default')
+    const i = e.call(t, r)
     if (typeof i !== 'object') return i
     throw new TypeError('@@toPrimitive must return a primitive value.')
   }
-  return (r === 'string' ? String : Number)(t)
+  return String(t)
 }
 function _toPropertyKey(t) {
   const i = _toPrimitive(t, 'string')
-  return typeof i === 'symbol' ? i : String(i)
+  return typeof i === 'symbol' ? i : i + ''
 }
-function _typeof(o) {
-  '@babel/helpers - typeof'
-
+function _wrapNativeSuper(t) {
+  const r = typeof Map === 'function' ? new Map() : void 0
   return (
-    (_typeof =
-      typeof Symbol === 'function' && typeof Symbol.iterator === 'symbol'
-        ? function (o) {
-            return typeof o
+    (_wrapNativeSuper = function (t) {
+      if (t === null || !_isNativeFunction(t)) return t
+      if (typeof t !== 'function')
+        throw new TypeError('Super expression must either be null or a function')
+      if (void 0 !== r) {
+        if (r.has(t)) return r.get(t)
+        r.set(t, Wrapper)
+      }
+      function Wrapper() {
+        return _construct(t, arguments, _getPrototypeOf(this).constructor)
+      }
+      return (
+        (Wrapper.prototype = Object.create(t.prototype, {
+          constructor: {
+            value: Wrapper,
+            enumerable: false,
+            writable: true,
+            configurable: true
           }
-        : function (o) {
-            return o &&
-              typeof Symbol === 'function' &&
-              o.constructor === Symbol &&
-              o !== Symbol.prototype
-              ? 'symbol'
-              : typeof o
-          }),
-    _typeof(o)
+        })),
+        _setPrototypeOf(Wrapper, t)
+      )
+    }),
+    _wrapNativeSuper(t)
   )
-}
-function _classCallCheck(instance, Constructor) {
-  if (!(instance instanceof Constructor)) {
-    throw new TypeError('Cannot call a class as a function')
-  }
-}
-function _defineProperties(target, props) {
-  for (let i = 0; i < props.length; i++) {
-    const descriptor = props[i]
-    descriptor.enumerable = descriptor.enumerable || false
-    descriptor.configurable = true
-    if ('value' in descriptor) descriptor.writable = true
-    Object.defineProperty(target, _toPropertyKey(descriptor.key), descriptor)
-  }
-}
-function _createClass(Constructor, protoProps, staticProps) {
-  if (protoProps) _defineProperties(Constructor.prototype, protoProps)
-  if (staticProps) _defineProperties(Constructor, staticProps)
-  Object.defineProperty(Constructor, 'prototype', {
-    writable: false
-  })
-  return Constructor
-}
-function _inherits(subClass, superClass) {
-  if (typeof superClass !== 'function' && superClass !== null) {
-    throw new TypeError('Super expression must either be null or a function')
-  }
-  subClass.prototype = Object.create(superClass && superClass.prototype, {
-    constructor: {
-      value: subClass,
-      writable: true,
-      configurable: true
-    }
-  })
-  Object.defineProperty(subClass, 'prototype', {
-    writable: false
-  })
-  if (superClass) _setPrototypeOf(subClass, superClass)
-}
-function _getPrototypeOf(o) {
-  _getPrototypeOf = Object.setPrototypeOf
-    ? Object.getPrototypeOf.bind()
-    : function _getPrototypeOf(o) {
-        return o.__proto__ || Object.getPrototypeOf(o)
-      }
-  return _getPrototypeOf(o)
-}
-function _setPrototypeOf(o, p) {
-  _setPrototypeOf = Object.setPrototypeOf
-    ? Object.setPrototypeOf.bind()
-    : function _setPrototypeOf(o, p) {
-        o.__proto__ = p
-        return o
-      }
-  return _setPrototypeOf(o, p)
-}
-function _isNativeReflectConstruct() {
-  if (typeof Reflect === 'undefined' || !Reflect.construct) return false
-  if (Reflect.construct.sham) return false
-  if (typeof Proxy === 'function') return true
-  try {
-    Boolean.prototype.valueOf.call(Reflect.construct(Boolean, [], function () {}))
-    return true
-  } catch (e) {
-    return false
-  }
-}
-function _construct(Parent, args, Class) {
-  if (_isNativeReflectConstruct()) {
-    _construct = Reflect.construct.bind()
-  } else {
-    _construct = function _construct(Parent, args, Class) {
-      const a = [null]
-      a.push.apply(a, args)
-      const Constructor = Function.bind.apply(Parent, a)
-      const instance = new Constructor()
-      if (Class) _setPrototypeOf(instance, Class.prototype)
-      return instance
-    }
-  }
-  return _construct.apply(null, arguments)
-}
-function _isNativeFunction(fn) {
-  try {
-    return Function.toString.call(fn).indexOf('[native code]') !== -1
-  } catch (e) {
-    return typeof fn === 'function'
-  }
-}
-function _wrapNativeSuper(Class) {
-  const _cache = typeof Map === 'function' ? new Map() : undefined
-  _wrapNativeSuper = function _wrapNativeSuper(Class) {
-    if (Class === null || !_isNativeFunction(Class)) return Class
-    if (typeof Class !== 'function') {
-      throw new TypeError('Super expression must either be null or a function')
-    }
-    if (typeof _cache !== 'undefined') {
-      if (_cache.has(Class)) return _cache.get(Class)
-      _cache.set(Class, Wrapper)
-    }
-    function Wrapper() {
-      return _construct(Class, arguments, _getPrototypeOf(this).constructor)
-    }
-    Wrapper.prototype = Object.create(Class.prototype, {
-      constructor: {
-        value: Wrapper,
-        enumerable: false,
-        writable: true,
-        configurable: true
-      }
-    })
-    return _setPrototypeOf(Wrapper, Class)
-  }
-  return _wrapNativeSuper(Class)
-}
-function _assertThisInitialized(self) {
-  if (self === void 0) {
-    throw new ReferenceError("this hasn't been initialised - super() hasn't been called")
-  }
-  return self
-}
-function _possibleConstructorReturn(self, call) {
-  if (call && (typeof call === 'object' || typeof call === 'function')) {
-    return call
-  } else if (call !== void 0) {
-    throw new TypeError('Derived constructors may only return object or undefined')
-  }
-  return _assertThisInitialized(self)
-}
-function _createSuper(Derived) {
-  const hasNativeReflectConstruct = _isNativeReflectConstruct()
-  return function _createSuperInternal() {
-    const Super = _getPrototypeOf(Derived)
-    let result
-    if (hasNativeReflectConstruct) {
-      const NewTarget = _getPrototypeOf(this).constructor
-      result = Reflect.construct(Super, arguments, NewTarget)
-    } else {
-      result = Super.apply(this, arguments)
-    }
-    return _possibleConstructorReturn(this, result)
-  }
-}
-function _superPropBase(object, property) {
-  while (!Object.prototype.hasOwnProperty.call(object, property)) {
-    object = _getPrototypeOf(object)
-    if (object === null) break
-  }
-  return object
-}
-function _get() {
-  if (typeof Reflect !== 'undefined' && Reflect.get) {
-    _get = Reflect.get.bind()
-  } else {
-    _get = function _get(target, property, receiver) {
-      const base = _superPropBase(target, property)
-      if (!base) return
-      const desc = Object.getOwnPropertyDescriptor(base, property)
-      if (desc.get) {
-        return desc.get.call(arguments.length < 3 ? target : receiver)
-      }
-      return desc.value
-    }
-  }
-  return _get.apply(this, arguments)
-}
-function _slicedToArray(arr, i) {
-  return (
-    _arrayWithHoles(arr) ||
-    _iterableToArrayLimit(arr, i) ||
-    _unsupportedIterableToArray(arr, i) ||
-    _nonIterableRest()
-  )
-}
-function _arrayWithHoles(arr) {
-  if (Array.isArray(arr)) return arr
-}
-function _unsupportedIterableToArray(o, minLen) {
-  if (!o) return
-  if (typeof o === 'string') return _arrayLikeToArray(o, minLen)
-  let n = Object.prototype.toString.call(o).slice(8, -1)
-  if (n === 'Object' && o.constructor) n = o.constructor.name
-  if (n === 'Map' || n === 'Set') return Array.from(o)
-  if (n === 'Arguments' || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n))
-    return _arrayLikeToArray(o, minLen)
-}
-function _arrayLikeToArray(arr, len) {
-  if (len == null || len > arr.length) len = arr.length
-  for (let i = 0, arr2 = new Array(len); i < len; i++) arr2[i] = arr[i]
-  return arr2
-}
-function _nonIterableRest() {
-  throw new TypeError(
-    'Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.'
-  )
-}
-
-const runtime = (function (exports) {
-  const Op = Object.prototype
-  const hasOwn = Op.hasOwnProperty
-  let undefined$1
-  const $Symbol = typeof Symbol === 'function' ? Symbol : {}
-  const iteratorSymbol = $Symbol.iterator || '@@iterator'
-  const asyncIteratorSymbol = $Symbol.asyncIterator || '@@asyncIterator'
-  const toStringTagSymbol = $Symbol.toStringTag || '@@toStringTag'
-  function define(obj, key, value) {
-    Object.defineProperty(obj, key, {
-      value,
-      enumerable: true,
-      configurable: true,
-      writable: true
-    })
-    return obj[key]
-  }
-  try {
-    define({}, '')
-  } catch (err) {
-    define = function define(obj, key, value) {
-      return (obj[key] = value)
-    }
-  }
-  function wrap(innerFn, outerFn, self, tryLocsList) {
-    const protoGenerator = outerFn && outerFn.prototype instanceof Generator ? outerFn : Generator
-    const generator = Object.create(protoGenerator.prototype)
-    const context = new Context(tryLocsList || [])
-    generator._invoke = makeInvokeMethod(innerFn, self, context)
-    return generator
-  }
-  exports.wrap = wrap
-  function tryCatch(fn, obj, arg) {
-    try {
-      return {
-        type: 'normal',
-        arg: fn.call(obj, arg)
-      }
-    } catch (err) {
-      return {
-        type: 'throw',
-        arg: err
-      }
-    }
-  }
-  const GenStateSuspendedStart = 'suspendedStart'
-  const GenStateSuspendedYield = 'suspendedYield'
-  const GenStateExecuting = 'executing'
-  const GenStateCompleted = 'completed'
-  const ContinueSentinel = {}
-  function Generator() {}
-  function GeneratorFunction() {}
-  function GeneratorFunctionPrototype() {}
-  let IteratorPrototype = {}
-  define(IteratorPrototype, iteratorSymbol, function () {
-    return this
-  })
-  const getProto = Object.getPrototypeOf
-  const NativeIteratorPrototype = getProto && getProto(getProto(values([])))
-  if (
-    NativeIteratorPrototype &&
-    NativeIteratorPrototype !== Op &&
-    hasOwn.call(NativeIteratorPrototype, iteratorSymbol)
-  ) {
-    IteratorPrototype = NativeIteratorPrototype
-  }
-  const Gp =
-    (GeneratorFunctionPrototype.prototype =
-    Generator.prototype =
-      Object.create(IteratorPrototype))
-  GeneratorFunction.prototype = GeneratorFunctionPrototype
-  define(Gp, 'constructor', GeneratorFunctionPrototype)
-  define(GeneratorFunctionPrototype, 'constructor', GeneratorFunction)
-  GeneratorFunction.displayName = define(
-    GeneratorFunctionPrototype,
-    toStringTagSymbol,
-    'GeneratorFunction'
-  )
-  function defineIteratorMethods(prototype) {
-    ;['next', 'throw', 'return'].forEach(function (method) {
-      define(prototype, method, function (arg) {
-        return this._invoke(method, arg)
-      })
-    })
-  }
-  exports.isGeneratorFunction = function (genFun) {
-    const ctor = typeof genFun === 'function' && genFun.constructor
-    return ctor
-      ? ctor === GeneratorFunction || (ctor.displayName || ctor.name) === 'GeneratorFunction'
-      : false
-  }
-  exports.mark = function (genFun) {
-    if (Object.setPrototypeOf) {
-      Object.setPrototypeOf(genFun, GeneratorFunctionPrototype)
-    } else {
-      genFun.__proto__ = GeneratorFunctionPrototype
-      define(genFun, toStringTagSymbol, 'GeneratorFunction')
-    }
-    genFun.prototype = Object.create(Gp)
-    return genFun
-  }
-  exports.awrap = function (arg) {
-    return {
-      __await: arg
-    }
-  }
-  function AsyncIterator(generator, PromiseImpl) {
-    function invoke(method, arg, resolve, reject) {
-      const record = tryCatch(generator[method], generator, arg)
-      if (record.type === 'throw') {
-        reject(record.arg)
-      } else {
-        const result = record.arg
-        const value = result.value
-        if (value && _typeof(value) === 'object' && hasOwn.call(value, '__await')) {
-          return PromiseImpl.resolve(value.__await).then(
-            function (value) {
-              invoke('next', value, resolve, reject)
-            },
-            function (err) {
-              invoke('throw', err, resolve, reject)
-            }
-          )
-        }
-        return PromiseImpl.resolve(value).then(
-          function (unwrapped) {
-            result.value = unwrapped
-            resolve(result)
-          },
-          function (error) {
-            return invoke('throw', error, resolve, reject)
-          }
-        )
-      }
-    }
-    let previousPromise
-    function enqueue(method, arg) {
-      function callInvokeWithMethodAndArg() {
-        return new PromiseImpl(function (resolve, reject) {
-          invoke(method, arg, resolve, reject)
-        })
-      }
-      return (previousPromise = previousPromise
-        ? previousPromise.then(callInvokeWithMethodAndArg, callInvokeWithMethodAndArg)
-        : callInvokeWithMethodAndArg())
-    }
-    this._invoke = enqueue
-  }
-  defineIteratorMethods(AsyncIterator.prototype)
-  define(AsyncIterator.prototype, asyncIteratorSymbol, function () {
-    return this
-  })
-  exports.AsyncIterator = AsyncIterator
-  exports.async = function (innerFn, outerFn, self, tryLocsList, PromiseImpl) {
-    if (PromiseImpl === void 0) PromiseImpl = Promise
-    const iter = new AsyncIterator(wrap(innerFn, outerFn, self, tryLocsList), PromiseImpl)
-    return exports.isGeneratorFunction(outerFn)
-      ? iter
-      : iter.next().then(function (result) {
-          return result.done ? result.value : iter.next()
-        })
-  }
-  function makeInvokeMethod(innerFn, self, context) {
-    let state = GenStateSuspendedStart
-    return function invoke(method, arg) {
-      if (state === GenStateExecuting) {
-        throw new Error('Generator is already running')
-      }
-      if (state === GenStateCompleted) {
-        if (method === 'throw') {
-          throw arg
-        }
-        return doneResult()
-      }
-      context.method = method
-      context.arg = arg
-      while (true) {
-        const delegate = context.delegate
-        if (delegate) {
-          const delegateResult = maybeInvokeDelegate(delegate, context)
-          if (delegateResult) {
-            if (delegateResult === ContinueSentinel) continue
-            return delegateResult
-          }
-        }
-        if (context.method === 'next') {
-          context.sent = context._sent = context.arg
-        } else if (context.method === 'throw') {
-          if (state === GenStateSuspendedStart) {
-            state = GenStateCompleted
-            throw context.arg
-          }
-          context.dispatchException(context.arg)
-        } else if (context.method === 'return') {
-          context.abrupt('return', context.arg)
-        }
-        state = GenStateExecuting
-        const record = tryCatch(innerFn, self, context)
-        if (record.type === 'normal') {
-          state = context.done ? GenStateCompleted : GenStateSuspendedYield
-          if (record.arg === ContinueSentinel) {
-            continue
-          }
-          return {
-            value: record.arg,
-            done: context.done
-          }
-        } else if (record.type === 'throw') {
-          state = GenStateCompleted
-          context.method = 'throw'
-          context.arg = record.arg
-        }
-      }
-    }
-  }
-  function maybeInvokeDelegate(delegate, context) {
-    const method = delegate.iterator[context.method]
-    if (method === undefined$1) {
-      context.delegate = null
-      if (context.method === 'throw') {
-        if (delegate.iterator.return) {
-          context.method = 'return'
-          context.arg = undefined$1
-          maybeInvokeDelegate(delegate, context)
-          if (context.method === 'throw') {
-            return ContinueSentinel
-          }
-        }
-        context.method = 'throw'
-        context.arg = new TypeError("The iterator does not provide a 'throw' method")
-      }
-      return ContinueSentinel
-    }
-    const record = tryCatch(method, delegate.iterator, context.arg)
-    if (record.type === 'throw') {
-      context.method = 'throw'
-      context.arg = record.arg
-      context.delegate = null
-      return ContinueSentinel
-    }
-    const info = record.arg
-    if (!info) {
-      context.method = 'throw'
-      context.arg = new TypeError('iterator result is not an object')
-      context.delegate = null
-      return ContinueSentinel
-    }
-    if (info.done) {
-      context[delegate.resultName] = info.value
-      context.next = delegate.nextLoc
-      if (context.method !== 'return') {
-        context.method = 'next'
-        context.arg = undefined$1
-      }
-    } else {
-      return info
-    }
-    context.delegate = null
-    return ContinueSentinel
-  }
-  defineIteratorMethods(Gp)
-  define(Gp, toStringTagSymbol, 'Generator')
-  define(Gp, iteratorSymbol, function () {
-    return this
-  })
-  define(Gp, 'toString', function () {
-    return '[object Generator]'
-  })
-  function pushTryEntry(locs) {
-    const entry = {
-      tryLoc: locs[0]
-    }
-    if (1 in locs) {
-      entry.catchLoc = locs[1]
-    }
-    if (2 in locs) {
-      entry.finallyLoc = locs[2]
-      entry.afterLoc = locs[3]
-    }
-    this.tryEntries.push(entry)
-  }
-  function resetTryEntry(entry) {
-    const record = entry.completion || {}
-    record.type = 'normal'
-    delete record.arg
-    entry.completion = record
-  }
-  function Context(tryLocsList) {
-    this.tryEntries = [
-      {
-        tryLoc: 'root'
-      }
-    ]
-    tryLocsList.forEach(pushTryEntry, this)
-    this.reset(true)
-  }
-  exports.keys = function (object) {
-    const keys = []
-    for (const key in object) {
-      keys.push(key)
-    }
-    keys.reverse()
-    return function next() {
-      while (keys.length) {
-        const key = keys.pop()
-        if (key in object) {
-          next.value = key
-          next.done = false
-          return next
-        }
-      }
-      next.done = true
-      return next
-    }
-  }
-  function values(iterable) {
-    if (iterable) {
-      const iteratorMethod = iterable[iteratorSymbol]
-      if (iteratorMethod) {
-        return iteratorMethod.call(iterable)
-      }
-      if (typeof iterable.next === 'function') {
-        return iterable
-      }
-      if (!isNaN(iterable.length)) {
-        let i = -1
-        const next = function next() {
-          while (++i < iterable.length) {
-            if (hasOwn.call(iterable, i)) {
-              next.value = iterable[i]
-              next.done = false
-              return next
-            }
-          }
-          next.value = undefined$1
-          next.done = true
-          return next
-        }
-        return (next.next = next)
-      }
-    }
-    return {
-      next: doneResult
-    }
-  }
-  exports.values = values
-  function doneResult() {
-    return {
-      value: undefined$1,
-      done: true
-    }
-  }
-  Context.prototype = {
-    constructor: Context,
-    reset: function reset(skipTempReset) {
-      this.prev = 0
-      this.next = 0
-      this.sent = this._sent = undefined$1
-      this.done = false
-      this.delegate = null
-      this.method = 'next'
-      this.arg = undefined$1
-      this.tryEntries.forEach(resetTryEntry)
-      if (!skipTempReset) {
-        for (const name in this) {
-          if (name.charAt(0) === 't' && hasOwn.call(this, name) && !isNaN(+name.slice(1))) {
-            this[name] = undefined$1
-          }
-        }
-      }
-    },
-    stop: function stop() {
-      this.done = true
-      const rootEntry = this.tryEntries[0]
-      const rootRecord = rootEntry.completion
-      if (rootRecord.type === 'throw') {
-        throw rootRecord.arg
-      }
-      return this.rval
-    },
-    dispatchException: function dispatchException(exception) {
-      if (this.done) {
-        throw exception
-      }
-      const context = this
-      function handle(loc, caught) {
-        record.type = 'throw'
-        record.arg = exception
-        context.next = loc
-        if (caught) {
-          context.method = 'next'
-          context.arg = undefined$1
-        }
-        return !!caught
-      }
-      for (let i = this.tryEntries.length - 1; i >= 0; --i) {
-        const entry = this.tryEntries[i]
-        const record = entry.completion
-        if (entry.tryLoc === 'root') {
-          return handle('end')
-        }
-        if (entry.tryLoc <= this.prev) {
-          const hasCatch = hasOwn.call(entry, 'catchLoc')
-          const hasFinally = hasOwn.call(entry, 'finallyLoc')
-          if (hasCatch && hasFinally) {
-            if (this.prev < entry.catchLoc) {
-              return handle(entry.catchLoc, true)
-            } else if (this.prev < entry.finallyLoc) {
-              return handle(entry.finallyLoc)
-            }
-          } else if (hasCatch) {
-            if (this.prev < entry.catchLoc) {
-              return handle(entry.catchLoc, true)
-            }
-          } else if (hasFinally) {
-            if (this.prev < entry.finallyLoc) {
-              return handle(entry.finallyLoc)
-            }
-          } else {
-            throw new Error('try statement without catch or finally')
-          }
-        }
-      }
-    },
-    abrupt: function abrupt(type, arg) {
-      for (let i = this.tryEntries.length - 1; i >= 0; --i) {
-        const entry = this.tryEntries[i]
-        if (
-          entry.tryLoc <= this.prev &&
-          hasOwn.call(entry, 'finallyLoc') &&
-          this.prev < entry.finallyLoc
-        ) {
-          const finallyEntry = entry
-          break
-        }
-      }
-      if (
-        finallyEntry &&
-        (type === 'break' || type === 'continue') &&
-        finallyEntry.tryLoc <= arg &&
-        arg <= finallyEntry.finallyLoc
-      ) {
-        finallyEntry = null
-      }
-      const record = finallyEntry ? finallyEntry.completion : {}
-      record.type = type
-      record.arg = arg
-      if (finallyEntry) {
-        this.method = 'next'
-        this.next = finallyEntry.finallyLoc
-        return ContinueSentinel
-      }
-      return this.complete(record)
-    },
-    complete: function complete(record, afterLoc) {
-      if (record.type === 'throw') {
-        throw record.arg
-      }
-      if (record.type === 'break' || record.type === 'continue') {
-        this.next = record.arg
-      } else if (record.type === 'return') {
-        this.rval = this.arg = record.arg
-        this.method = 'return'
-        this.next = 'end'
-      } else if (record.type === 'normal' && afterLoc) {
-        this.next = afterLoc
-      }
-      return ContinueSentinel
-    },
-    finish: function finish(finallyLoc) {
-      for (let i = this.tryEntries.length - 1; i >= 0; --i) {
-        const entry = this.tryEntries[i]
-        if (entry.finallyLoc === finallyLoc) {
-          this.complete(entry.completion, entry.afterLoc)
-          resetTryEntry(entry)
-          return ContinueSentinel
-        }
-      }
-    },
-    catch: function _catch(tryLoc) {
-      for (let i = this.tryEntries.length - 1; i >= 0; --i) {
-        const entry = this.tryEntries[i]
-        if (entry.tryLoc === tryLoc) {
-          const record = entry.completion
-          if (record.type === 'throw') {
-            const thrown = record.arg
-            resetTryEntry(entry)
-          }
-          return thrown
-        }
-      }
-      throw new Error('illegal catch attempt')
-    },
-    delegateYield: function delegateYield(iterable, resultName, nextLoc) {
-      this.delegate = {
-        iterator: values(iterable),
-        resultName,
-        nextLoc
-      }
-      if (this.method === 'next') {
-        this.arg = undefined$1
-      }
-      return ContinueSentinel
-    }
-  }
-  return exports
-})(
-  (typeof module === 'undefined' ? 'undefined' : _typeof(module)) === 'object' ? module.exports : {}
-)
-try {
-  regeneratorRuntime = runtime
-} catch (accidentalStrictMode) {
-  if ((typeof globalThis === 'undefined' ? 'undefined' : _typeof(globalThis)) === 'object') {
-    globalThis.regeneratorRuntime = runtime
-  } else {
-    Function('r', 'regeneratorRuntime = r')(runtime)
-  }
 }
 
 const FifoSampleBuffer = (function () {
@@ -820,7 +211,7 @@ const FifoSampleBuffer = (function () {
     this._position = 0
     this._frameCount = 0
   }
-  _createClass(FifoSampleBuffer, [
+  return _createClass(FifoSampleBuffer, [
     {
       key: 'vector',
       get: function get() {
@@ -953,7 +344,6 @@ const FifoSampleBuffer = (function () {
       }
     }
   ])
-  return FifoSampleBuffer
 })()
 const AbstractFifoSamplePipe = (function () {
   function AbstractFifoSamplePipe(createBuffers) {
@@ -965,7 +355,7 @@ const AbstractFifoSamplePipe = (function () {
       this._inputBuffer = this._outputBuffer = null
     }
   }
-  _createClass(AbstractFifoSamplePipe, [
+  return _createClass(AbstractFifoSamplePipe, [
     {
       key: 'inputBuffer',
       get: function get() {
@@ -992,20 +382,18 @@ const AbstractFifoSamplePipe = (function () {
       }
     }
   ])
-  return AbstractFifoSamplePipe
 })()
 const RateTransposer = (function (_AbstractFifoSamplePi) {
-  _inherits(RateTransposer, _AbstractFifoSamplePi)
-  const _super = _createSuper(RateTransposer)
   function RateTransposer(createBuffers) {
     let _this
     _classCallCheck(this, RateTransposer)
-    _this = _super.call(this, createBuffers)
+    _this = _callSuper(this, RateTransposer, [createBuffers])
     _this.reset()
     _this._rate = 1
     return _this
   }
-  _createClass(RateTransposer, [
+  _inherits(RateTransposer, _AbstractFifoSamplePi)
+  return _createClass(RateTransposer, [
     {
       key: 'rate',
       set: function set(rate) {
@@ -1084,14 +472,13 @@ const RateTransposer = (function (_AbstractFifoSamplePi) {
       }
     }
   ])
-  return RateTransposer
 })(AbstractFifoSamplePipe)
 const FilterSupport = (function () {
   function FilterSupport(pipe) {
     _classCallCheck(this, FilterSupport)
     this._pipe = pipe
   }
-  _createClass(FilterSupport, [
+  return _createClass(FilterSupport, [
     {
       key: 'pipe',
       get: function get() {
@@ -1137,17 +524,14 @@ const FilterSupport = (function () {
       }
     }
   ])
-  return FilterSupport
 })()
 const noop = function noop() {}
 const SimpleFilter = (function (_FilterSupport) {
-  _inherits(SimpleFilter, _FilterSupport)
-  const _super2 = _createSuper(SimpleFilter)
   function SimpleFilter(sourceSound, pipe) {
     let _this2
     const callback = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : noop
     _classCallCheck(this, SimpleFilter)
-    _this2 = _super2.call(this, pipe)
+    _this2 = _callSuper(this, SimpleFilter, [pipe])
     _this2.callback = callback
     _this2.sourceSound = sourceSound
     _this2.historyBufferSize = 22050
@@ -1156,7 +540,8 @@ const SimpleFilter = (function (_FilterSupport) {
     _this2._position = 0
     return _this2
   }
-  _createClass(SimpleFilter, [
+  _inherits(SimpleFilter, _FilterSupport)
+  return _createClass(SimpleFilter, [
     {
       key: 'position',
       get: function get() {
@@ -1230,12 +615,11 @@ const SimpleFilter = (function (_FilterSupport) {
     {
       key: 'clear',
       value: function clear() {
-        _get(_getPrototypeOf(SimpleFilter.prototype), 'clear', this).call(this)
+        _superPropGet(SimpleFilter, 'clear', this)([])
         this.outputBufferPosition = 0
       }
     }
   ])
-  return SimpleFilter
 })(FilterSupport)
 const USE_AUTO_SEQUENCE_LEN = 0
 const DEFAULT_SEQUENCE_MS = USE_AUTO_SEQUENCE_LEN
@@ -1251,8 +635,8 @@ const _SCAN_OFFSETS = [
   [-20, -15, -10, -5, 5, 10, 15, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   [-4, -3, -2, -1, 1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 ]
-const AUTOSEQ_TEMPO_LOW = 0.5
-const AUTOSEQ_TEMPO_TOP = 2.0
+const AUTOSEQ_TEMPO_LOW = 0.25
+const AUTOSEQ_TEMPO_TOP = 4.0
 const AUTOSEQ_AT_MIN = 125.0
 const AUTOSEQ_AT_MAX = 50.0
 const AUTOSEQ_K = (AUTOSEQ_AT_MAX - AUTOSEQ_AT_MIN) / (AUTOSEQ_TEMPO_TOP - AUTOSEQ_TEMPO_LOW)
@@ -1262,12 +646,10 @@ const AUTOSEEK_AT_MAX = 15.0
 const AUTOSEEK_K = (AUTOSEEK_AT_MAX - AUTOSEEK_AT_MIN) / (AUTOSEQ_TEMPO_TOP - AUTOSEQ_TEMPO_LOW)
 const AUTOSEEK_C = AUTOSEEK_AT_MIN - AUTOSEEK_K * AUTOSEQ_TEMPO_LOW
 const Stretch = (function (_AbstractFifoSamplePi2) {
-  _inherits(Stretch, _AbstractFifoSamplePi2)
-  const _super3 = _createSuper(Stretch)
   function Stretch(createBuffers) {
     let _this3
     _classCallCheck(this, Stretch)
-    _this3 = _super3.call(this, createBuffers)
+    _this3 = _callSuper(this, Stretch, [createBuffers])
     _this3._quickSeek = true
     _this3.midBufferDirty = false
     _this3.midBuffer = null
@@ -1278,11 +660,12 @@ const Stretch = (function (_AbstractFifoSamplePi2) {
     _this3.setParameters(44100, DEFAULT_SEQUENCE_MS, DEFAULT_SEEKWINDOW_MS, DEFAULT_OVERLAP_MS)
     return _this3
   }
-  _createClass(Stretch, [
+  _inherits(Stretch, _AbstractFifoSamplePi2)
+  return _createClass(Stretch, [
     {
       key: 'clear',
       value: function clear() {
-        _get(_getPrototypeOf(Stretch.prototype), 'clear', this).call(this)
+        _superPropGet(Stretch, 'clear', this)([])
         this.clearMidBuffer()
       }
     },
@@ -1562,7 +945,6 @@ const Stretch = (function (_AbstractFifoSamplePi2) {
       }
     }
   ])
-  return Stretch
 })(AbstractFifoSamplePipe)
 const testFloatEqual = function testFloatEqual(a, b) {
   return (a > b ? a - b : b - a) > 1e-10
@@ -1582,7 +964,7 @@ const SoundTouch = (function () {
     this.virtualTempo = 1.0
     this.calculateEffectiveRateAndTempo()
   }
-  _createClass(SoundTouch, [
+  return _createClass(SoundTouch, [
     {
       key: 'clear',
       value: function clear() {
@@ -1706,7 +1088,6 @@ const SoundTouch = (function () {
       }
     }
   ])
-  return SoundTouch
 })()
 const WebAudioBufferSource = (function () {
   function WebAudioBufferSource(buffer) {
@@ -1714,7 +1095,7 @@ const WebAudioBufferSource = (function () {
     this.buffer = buffer
     this._position = 0
   }
-  _createClass(WebAudioBufferSource, [
+  return _createClass(WebAudioBufferSource, [
     {
       key: 'dualChannel',
       get: function get() {
@@ -1749,7 +1130,6 @@ const WebAudioBufferSource = (function () {
       }
     }
   ])
-  return WebAudioBufferSource
 })()
 const getWebAudioNode = function getWebAudioNode(context, filter) {
   const sourcePositionCallback =
@@ -1823,7 +1203,7 @@ const onUpdate = function onUpdate(sourcePosition) {
     this.sampleRate = context.sampleRate
     this.listeners = []
   }
-  _createClass(PitchShifter, [
+  return _createClass(PitchShifter, [
     {
       key: 'formattedDuration',
       get: function get() {
@@ -1920,156 +1300,106 @@ const onUpdate = function onUpdate(sourcePosition) {
       }
     }
   ])
-  return PitchShifter
-})()
-
-const ProcessAudioBufferSource = (function () {
-  function ProcessAudioBufferSource(bufferProps, leftChannel, rightChannel) {
-    _classCallCheck(this, ProcessAudioBufferSource)
-    Object.assign(this, bufferProps)
-    this.leftChannel = leftChannel
-    this.rightChannel = rightChannel
-    this._position = 0
-  }
-  _createClass(ProcessAudioBufferSource, [
-    {
-      key: 'position',
-      get: function get() {
-        return this._position
-      },
-      set: function set(value) {
-        this._position = value
-      }
-    },
-    {
-      key: 'extract',
-      value: function extract(target) {
-        const numFrames = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0
-        const position = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 0
-        this.position = position
-        let i = 0
-        for (; i < numFrames; i++) {
-          target[i * 2] = this.leftChannel[i + position]
-          target[i * 2 + 1] = this.rightChannel[i + position]
-        }
-        return numFrames
-      }
-    }
-  ])
-  return ProcessAudioBufferSource
 })()
 
 const SoundTouchWorklet = (function (_AudioWorkletProcesso) {
-  _inherits(SoundTouchWorklet, _AudioWorkletProcesso)
-  const _super = _createSuper(SoundTouchWorklet)
-  function SoundTouchWorklet(nodeOptions) {
+  function SoundTouchWorklet() {
     let _this
     _classCallCheck(this, SoundTouchWorklet)
-    _this = _super.call(this)
-    _this._initialized = false
+    _this = _callSuper(this, SoundTouchWorklet)
     _this.bufferSize = 128
-    _this.port.onmessage = _this._messageProcessor.bind(_assertThisInitialized(_this))
-    _this.port.postMessage({
-      message: 'PROCESSOR_CONSTRUCTOR',
-      detail: nodeOptions
-    })
+    _this._samples = new Float32Array(_this.bufferSize * 2)
+    _this._pipe = new SoundTouch()
     return _this
   }
-  _createClass(SoundTouchWorklet, [
-    {
-      key: '_messageProcessor',
-      value: function _messageProcessor(eventFromWorker) {
-        const _eventFromWorker$data = eventFromWorker.data
-        const message = _eventFromWorker$data.message
-        const detail = _eventFromWorker$data.detail
-        if (message === 'INITIALIZE_PROCESSOR') {
-          const _detail = _slicedToArray(detail, 3)
-          const bufferProps = _detail[0]
-          const leftChannel = _detail[1]
-          const rightChannel = _detail[2]
-          this.bufferSource = new ProcessAudioBufferSource(bufferProps, leftChannel, rightChannel)
-          this._samples = new Float32Array(this.bufferSize * 2)
-          this._pipe = new SoundTouch()
-          this._filter = new SimpleFilter(this.bufferSource, this._pipe)
-          this.port.postMessage({
-            message: 'PROCESSOR_READY'
-          })
-          this._initialized = true
-          return true
-        }
-        if (message === 'SET_PIPE_PROP' && detail) {
-          const name = detail.name
-          const value = detail.value
-          this._pipe[name] = value
-          this.port.postMessage({
-            message: 'PIPE_PROP_CHANGED',
-            detail: 'Updated '
-              .concat(name, ' to ')
-              .concat(this._pipe[name], '\ntypeof ')
-              .concat(_typeof(value))
-          })
-          return
-        }
-        if (message === 'SET_FILTER_PROP' && detail) {
-          const _name = detail.name
-          const _value = detail.value
-          this._filter[_name] = _value
-          this.port.postMessage({
-            message: 'FILTER_PROP_CHANGED',
-            detail: 'Updated '
-              .concat(_name, ' to ')
-              .concat(this._filter[_name], '\ntypeof ')
-              .concat(_typeof(_value))
-          })
-          return
-        }
-        console.log('[PitchShifterWorkletProcessor] Unknown message: ', eventFromWorker)
-      }
-    },
-    {
-      key: '_sendMessage',
-      value: function _sendMessage(message) {
-        const detail = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : null
-        if (!message) {
-          return
-        }
-        this.port.postMessage({
-          message,
-          detail
-        })
-      }
-    },
-    {
-      key: 'process',
-      value: function process(inputs, outputs) {
-        if (!this._initialized || !inputs[0].length) {
-          return true
-        }
-        const left = outputs[0][0]
-        const right = outputs[0].length > 1 ? outputs[0][1] : outputs[0][0]
-        const samples = this._samples
-        if (!left || (left && !left.length)) {
-          return false
-        }
-        const framesExtracted = this._filter.extract(samples, inputs[0][0].length)
-        if (isNaN(samples[0]) || !framesExtracted) {
-          this._sendMessage('PROCESSOR_END')
-          return false
-        }
-        this._sendMessage('SOURCEPOSITION', this._filter.sourcePosition)
-        let i = 0
-        for (; i < framesExtracted; i = i + 1) {
-          left[i] = samples[i * 2]
-          right[i] = samples[i * 2 + 1]
-          if (isNaN(left[i]) || isNaN(right[i])) {
-            left[i] = 0
-            right[i] = 0
+  _inherits(SoundTouchWorklet, _AudioWorkletProcesso)
+  return _createClass(
+    SoundTouchWorklet,
+    [
+      {
+        key: 'process',
+        value: function process(inputs, outputs, parameters) {
+          let _parameters$rate$, _parameters$tempo$, _parameters$pitch$, _parameters$pitchSemi
+          if (!inputs[0].length) return true
+          const leftInput = inputs[0][0]
+          const rightInput = inputs[0].length > 1 ? inputs[0][1] : inputs[0][0]
+          const leftOutput = outputs[0][0]
+          const rightOutput = outputs[0].length > 1 ? outputs[0][1] : outputs[0][0]
+          const samples = this._samples
+          if (!leftOutput || !leftOutput.length) return false
+          const rate =
+            (_parameters$rate$ = parameters.rate[0]) !== null && _parameters$rate$ !== void 0
+              ? _parameters$rate$
+              : parameters.rate
+          const tempo =
+            (_parameters$tempo$ = parameters.tempo[0]) !== null && _parameters$tempo$ !== void 0
+              ? _parameters$tempo$
+              : parameters.tempo
+          const pitch =
+            (_parameters$pitch$ = parameters.pitch[0]) !== null && _parameters$pitch$ !== void 0
+              ? _parameters$pitch$
+              : parameters.pitch
+          const pitchSemitones =
+            (_parameters$pitchSemi = parameters.pitchSemitones[0]) !== null &&
+            _parameters$pitchSemi !== void 0
+              ? _parameters$pitchSemi
+              : parameters.pitchSemitones
+          this._pipe.rate = rate
+          this._pipe.tempo = tempo
+          this._pipe.pitch = pitch * Math.pow(2, pitchSemitones / 12)
+          for (let i = 0; i < leftInput.length; i++) {
+            samples[i * 2] = leftInput[i]
+            samples[i * 2 + 1] = rightInput[i]
           }
+          this._pipe.inputBuffer.putSamples(samples, 0, leftInput.length)
+          this._pipe.process()
+          const processedSamples = new Float32Array(leftInput.length * 2)
+          this._pipe.outputBuffer.receiveSamples(processedSamples, leftOutput.length)
+          for (let _i = 0; _i < leftInput.length; _i++) {
+            leftOutput[_i] = processedSamples[_i * 2]
+            rightOutput[_i] = processedSamples[_i * 2 + 1]
+            if (isNaN(leftOutput[_i]) || isNaN(rightOutput[_i])) {
+              leftOutput[_i] = 0
+              rightOutput[_i] = 0
+            }
+          }
+          return true
         }
-        return true
       }
-    }
-  ])
-  return SoundTouchWorklet
+    ],
+    [
+      {
+        key: 'parameterDescriptors',
+        get: function get() {
+          return [
+            {
+              name: 'rate',
+              defaultValue: 1.0,
+              minValue: 0.25,
+              maxValue: 4.0
+            },
+            {
+              name: 'tempo',
+              defaultValue: 1.0,
+              minValue: 0.25,
+              maxValue: 4.0
+            },
+            {
+              name: 'pitch',
+              defaultValue: 1.0,
+              minValue: 0.25,
+              maxValue: 4.0
+            },
+            {
+              name: 'pitchSemitones',
+              defaultValue: 0,
+              minValue: -24,
+              maxValue: 24
+            }
+          ]
+        }
+      }
+    ]
+  )
 })(_wrapNativeSuper(AudioWorkletProcessor))
-registerProcessor('soundtouch-worklet', SoundTouchWorklet)
+registerProcessor('soundtouch-processor', SoundTouchWorklet)

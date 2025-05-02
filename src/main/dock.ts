@@ -5,7 +5,7 @@ let isPlaying = false
 let enableOSD = false
 let isLock = false
 
-export function createDockMenu(win: BrowserWindow) {
+export const createDockMenu = (win: BrowserWindow) => {
   const lang = store.get('settings.lang') as string
 
   const updateDockMenu = (language: string) => {

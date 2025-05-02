@@ -10,6 +10,7 @@ import './assets/css/global.scss'
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import DOMPurify from 'dompurify'
 import { dailyTask } from './utils'
+import vue3lottie from 'vue3-lottie'
 
 // Add API key defined in contextBridge to window object type
 declare global {
@@ -31,6 +32,7 @@ declare global {
       isMac: boolean
       isWindows: boolean
     }
+    LottieAnimation: (typeof import('vue3-lottie'))['Vue3Lottie']
   }
 }
 
@@ -48,7 +50,7 @@ app.directive('same-html', (el, binding) => {
 const pinia = createPinia()
 pinia.use(piniaPluginPersistedstate)
 
-app.use(vuetify).use(i18n).use(router).use(pinia)
+app.use(vuetify).use(vue3lottie).use(i18n).use(router).use(pinia)
 
 app.mount('#app')
 

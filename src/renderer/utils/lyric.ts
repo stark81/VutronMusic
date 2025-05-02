@@ -50,7 +50,7 @@ const parseLyric = (lyric: string | string[]) => {
     for (const timestamp of lyricTimestamps.matchAll(extractTimestampRegex)) {
       const { min, sec, ms } = timestamp.groups
       const start = Number(min) * 60 + Number(sec) + Number(ms?.padEnd(3, '0') ?? 0) * 0.001
-      const parsedLyric = { start, content: trimContent(cInfo) }
+      const parsedLyric = { start: Number(start.toFixed(3)), content: trimContent(cInfo) }
       parsedLyrics.splice(binarySearch(parsedLyric), 0, parsedLyric)
     }
   }
@@ -146,8 +146,10 @@ const parsewBywLrc = (lyric: string[]) => {
   const switchTime = (str: string, regex: RegExp) => {
     const match = str.matchAll(regex)
     const [, min, sec, ms] = [...match].flat()
-    return Math.round(
-      (Number(min) * 60 + Number(sec) + Number(ms?.padEnd(3, '0') ?? 0) * 0.001) * 1000
+    return Number(
+      Math.round(
+        (Number(min) * 60 + Number(sec) + Number(ms?.padEnd(3, '0') ?? 0) * 0.001) * 1000
+      ).toFixed(3)
     )
   }
 
@@ -160,11 +162,11 @@ const parsewBywLrc = (lyric: string[]) => {
       const end = switchTime(word[3], extractTimestampRegex)
       return { start, end, word: word[2] }
     })
-    const start = contentInfo[0].start / 1000
-    const end = contentInfo.at(-1)!.end / 1000
+    const start = Number((contentInfo[0].start / 1000).toFixed(3))
+    const end = Number((contentInfo.at(-1)!.end / 1000).toFixed(3))
     const content = contentInfo.map((item) => item.word).join('')
 
-    const parsedLyric = { start, end, content, contentInfo }
+    const parsedLyric = { start, end: Number(end.toFixed(3)), content, contentInfo }
 
     parsedLyrics.splice(binarySearch(parsedLyric), 0, parsedLyric)
   }

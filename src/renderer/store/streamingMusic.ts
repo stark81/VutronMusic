@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Track, Playlist } from './localMusic'
 import _ from 'lodash'
 
@@ -8,20 +8,25 @@ export interface StreamPlaylist extends Omit<Playlist, 'id'> {
   trackItemIds: Record<number, number>
 }
 
-export const servers = ['navidrome', 'jellyfin', 'emby'] as const
-export type streamServer = (typeof servers)[number]
+export const servicesName = ['navidrome', 'jellyfin', 'emby'] as const
+export type serviceName = (typeof servicesName)[number]
 export type streamStatus = 'logout' | 'login' | 'offline'
+
+export type serviceType = {
+  name: serviceName
+  selected: boolean
+  status: streamStatus
+}
 
 export const useStreamMusicStore = defineStore(
   'streamMusic',
   () => {
     const enable = ref(false)
-    const select = ref<streamServer>('navidrome')
-    const status = reactive<Record<streamServer, streamStatus>>({
-      navidrome: 'logout',
-      jellyfin: 'logout',
-      emby: 'logout'
-    })
+    const services = ref<serviceType[]>([
+      { name: 'navidrome', selected: true, status: 'logout' },
+      { name: 'jellyfin', selected: false, status: 'logout' },
+      { name: 'emby', selected: false, status: 'logout' }
+    ])
     const streamTracks = ref<Track[]>([])
     const playlists = ref<StreamPlaylist[]>([])
     const sortBy = ref('default')
@@ -31,31 +36,36 @@ export const useStreamMusicStore = defineStore(
       return streamTracks.value.filter((track) => track.starred)
     })
 
+    const currentService = computed(() => services.value.find((s) => s.selected)!)
+
     const fetchStreamMusic = async () => {
-      if (status[select.value] === 'logout' || !enable.value) return
+      if (!enable.value) return
+      const service = services.value.find((s) => s.selected)!
+      if (service.status === 'logout') return
       await window.mainApi
-        ?.invoke('get-stream-songs', { platform: select.value })
+        ?.invoke('get-stream-songs', { platform: service.name })
         .then((data: { code: number; message: string; tracks: any; playlists: any }) => {
-          if (data.code === 200) {
-            status[select.value] = 'login'
+          if (data?.code === 200) {
             streamTracks.value = data.tracks
             playlists.value = data.playlists
+            service.status = 'login'
           } else if (data.code === 504) {
-            // console.log('get-stream-songs response = ', data)
-            status[select.value] = 'offline'
+            service.status = 'offline'
             streamTracks.value = []
             playlists.value = []
-            message.value = data.message
           } else {
             console.log('get-stream-songs response = ', data)
-            // status[select.value] = 'logout'
           }
         })
+        .catch((error) => error)
     }
 
     const fetchStreamPlaylist = async () => {
+      if (!enable.value) return
+      const service = services.value.find((s) => s.selected)!
+      if (service.status === 'logout') return
       window.mainApi
-        ?.invoke('get-stream-playlists', { platform: select.value })
+        ?.invoke('get-stream-playlists', { platform: service.name })
         .then((data: { code: number; playlists: StreamPlaylist[] }) => {
           if (data.code === 200) {
             playlists.value = data.playlists
@@ -64,10 +74,13 @@ export const useStreamMusicStore = defineStore(
     }
 
     const addOrRemoveTrackFromStreamPlaylist = async (
-      op: string,
+      op: 'add' | 'del',
       playlistId: string,
       ids: string[]
     ) => {
+      if (!enable.value) return
+      const service = services.value.find((s) => s.selected)!
+      if (service.status === 'logout') return
       let newIDs: any[] = []
       if (op === 'add') {
         const playlist = playlists.value.find((p) => p.id === playlistId)
@@ -77,7 +90,7 @@ export const useStreamMusicStore = defineStore(
 
       const status: boolean = await window.mainApi?.invoke('updateStreamPlaylist', {
         op,
-        platform: select.value,
+        platform: service.name,
         playlistId,
         ids: op === 'add' ? newIDs : ids
       })
@@ -87,19 +100,61 @@ export const useStreamMusicStore = defineStore(
       return status
     }
 
-    const scrobble = (id: string) => {
-      window.mainApi?.send('scrobbleStreamMusic', { platform: select.value, id })
+    const scrobble = (id: string | number) => {
+      if (!enable.value) return
+      const service = services.value.find((s) => s.selected)!
+      if (service.status === 'logout') return
+      window.mainApi?.send('scrobbleStreamMusic', { platform: service.name, id })
+    }
+
+    const getStreamLyric = async (id: string | number) => {
+      if (!enable.value) return
+      const service = services.value.find((s) => s.selected)!
+      if (service.status === 'logout') return
+      let data = {
+        lrc: { lyric: [] as any[] },
+        tlyric: { lyric: [] as any[] },
+        romalrc: { lyric: [] as any[] },
+        yrc: { lyric: [] as any[] },
+        ytlrc: { lyric: [] as any[] },
+        yromalrc: { lyric: [] as any[] }
+      }
+      data = await fetch(`atom://get-stream-lyric/${id}`).then((res) => res.json())
+      return data
     }
 
     const handleStreamLogout = () => {
-      window.mainApi?.invoke('logoutStreamMusic', { platform: select.value }).then(() => {
-        status[select.value] = 'logout'
+      if (!enable.value) return
+      const service = services.value.find((s) => s.selected)!
+      if (service.status === 'logout') return
+      window.mainApi?.invoke('logoutStreamMusic', { platform: service.name }).then(() => {
+        service.status = 'logout'
       })
     }
 
+    const getStreamPic = async (track: Track, size: number = 512) => {
+      if (!enable.value) return
+      const service = services.value.find((s) => s.selected)!
+      if (service.status === 'logout') return
+      let id = track.id as any
+      const match = (track.album || track.al).picUrl.match(/get-stream-pic\/(.*)/)
+      if (match) {
+        id = match[1].replace('/64', `/${size}`)
+        return await fetch(`atom://get-stream-pic/${id}`)
+          .then((res) => res.blob())
+          .then((res) => URL.createObjectURL(res))
+          .catch(() => null)
+      } else {
+        return new URL(`../assets/images/default.jpg`, import.meta.url).href
+      }
+    }
+
     const likeAStreamTrack = (op: 'unstar' | 'star', id: string | number) => {
+      if (!enable.value) return
+      const service = services.value.find((s) => s.selected)!
+      if (service.status === 'logout') return
       window.mainApi
-        ?.invoke('likeAStreamTrack', { platform: select.value, operation: op, id })
+        ?.invoke('likeAStreamTrack', { platform: service.name, operation: op, id })
         .then((res: boolean) => {
           if (res) {
             const track = streamTracks.value.find((track) => track.id === id)
@@ -108,24 +163,30 @@ export const useStreamMusicStore = defineStore(
         })
     }
 
-    watch(select, (value) => {
+    const getAStreamTrack = (id: string | number) => {
+      return streamTracks.value.find((track) => track.id === id)
+    }
+
+    watch(currentService, () => {
       streamTracks.value = []
       playlists.value = []
-      if (status[value] === 'login') {
-        fetchStreamMusic()
-      }
+      fetchStreamMusic()
+      fetchStreamPlaylist()
     })
 
     return {
       enable,
-      select,
-      status,
+      services,
+      currentService,
       streamTracks,
       streamLikedTracks,
       playlists,
       sortBy,
       message,
       scrobble,
+      getStreamLyric,
+      getStreamPic,
+      getAStreamTrack,
       likeAStreamTrack,
       handleStreamLogout,
       fetchStreamMusic,
@@ -135,7 +196,7 @@ export const useStreamMusicStore = defineStore(
   },
   {
     persist: {
-      pick: ['sortBy', 'enable', 'status', 'select']
+      pick: ['sortBy', 'enable', 'services']
     }
   }
 )

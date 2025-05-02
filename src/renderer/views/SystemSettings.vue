@@ -119,7 +119,7 @@
               <div class="toggle">
                 <input
                   id="linux-title-bar"
-                  v-model="useLinuxTitleBar"
+                  v-model="useCustomTitlebar"
                   type="checkbox"
                   name="linux-title-bar"
                 />
@@ -273,7 +273,7 @@
                 <div class="title">{{ $t('settings.osdLyric.type.text') }}</div>
               </div>
               <div class="right">
-                <select v-model="typeOption">
+                <select v-model="type">
                   <option value="small">{{ $t('settings.osdLyric.type.small') }}</option>
                   <option value="normal">{{ $t('settings.osdLyric.type.normal') }}</option>
                 </select>
@@ -285,7 +285,7 @@
                 <div class="description">{{ $t('settings.osdLyric.mode.desc') }}</div>
               </div>
               <div class="right">
-                <select v-model="modeOption">
+                <select v-model="mode">
                   <option value="oneLine">{{ $t('settings.osdLyric.mode.oneLine') }}</option>
                   <option value="twoLines">{{ $t('settings.osdLyric.mode.twoLines') }}</option>
                 </select>
@@ -296,7 +296,7 @@
                 <div class="title">{{ $t('settings.osdLyric.translationMode.text') }}</div>
               </div>
               <div class="right">
-                <select v-model="translationOption">
+                <select v-model="translationMode">
                   <option value="none">{{ $t('settings.osdLyric.translationMode.none') }}</option>
                   <option value="tlyric">{{
                     $t('settings.osdLyric.translationMode.tlyric')
@@ -357,6 +357,18 @@
           <div v-show="lyricTab === 'lyric'">
             <div class="item">
               <div class="left">
+                <div class="title">{{ $t('settings.osdLyric.useMask.text') }}</div>
+                <div class="description">{{ $t('settings.osdLyric.useMask.desc') }}</div>
+              </div>
+              <div class="right">
+                <div class="toggle">
+                  <input id="useMask" v-model="useMask" type="checkbox" name="useMask" />
+                  <label for="useMask"></label>
+                </div>
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
                 <div class="title">{{ $t('settings.osdLyric.isWordByWord') }}</div>
               </div>
               <div class="right">
@@ -373,7 +385,7 @@
             </div>
             <div class="item">
               <div class="left">
-                <div class="title"> {{ $t('settings.osdLyric.fontSize') }} </div>
+                <div class="title">{{ $t('settings.osdLyric.fontSize') }}</div>
               </div>
               <div class="right">
                 <input
@@ -386,16 +398,43 @@
             </div>
             <div class="item">
               <div class="left">
+                <div class="title">{{ $t('settings.osdLyric.textAlign.text') }}</div>
+              </div>
+              <div class="right">
+                <select v-model="textAlign">
+                  <option value="start">{{ $t('settings.osdLyric.textAlign.start') }}</option>
+                  <option value="center">{{ $t('settings.osdLyric.textAlign.center') }}</option>
+                  <option value="end">{{ $t('settings.osdLyric.textAlign.end') }}</option>
+                </select>
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
                 <div class="title">{{ $t('settings.osdLyric.translationMode.text') }}</div>
               </div>
               <div class="right">
-                <select v-model="nTranslationOption">
+                <select v-model="nTranslationMode">
                   <option value="none">{{ $t('settings.osdLyric.translationMode.none') }}</option>
                   <option value="tlyric">{{
                     $t('settings.osdLyric.translationMode.tlyric')
                   }}</option>
                   <option value="rlyric">{{
                     $t('settings.osdLyric.translationMode.romalrc')
+                  }}</option>
+                </select>
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('settings.general.lyricBackground.text') }}</div>
+              </div>
+              <div class="right">
+                <select v-model="lyricBackground">
+                  <option value="none">{{ $t('settings.general.lyricBackground.close') }}</option>
+                  <option value="true">{{ $t('settings.general.lyricBackground.true') }}</option>
+                  <option value="blur">{{ $t('settings.general.lyricBackground.blur') }}</option>
+                  <option value="dynamic">{{
+                    $t('settings.general.lyricBackground.dynamic')
                   }}</option>
                 </select>
               </div>
@@ -499,7 +538,7 @@
             </div>
           </div>
         </div>
-        <div v-if="isElectron" v-show="tab === 'music'" key="music">
+        <div v-show="tab === 'music'" key="music">
           <div class="lyric-tab">
             <button
               :class="{ 'lyric-button': true, 'lyric-button--selected': musicTab === 'netease' }"
@@ -507,6 +546,7 @@
               >{{ $t('settings.nav.netease') }}</button
             >
             <button
+              v-if="isElectron"
               :class="{ 'lyric-button': true, 'lyric-button--selected': musicTab === 'local' }"
               @click="musicTab = 'local'"
               >{{ $t('settings.nav.local') }}</button
@@ -585,7 +625,7 @@
               </div>
             </div>
           </div>
-          <div v-show="musicTab === 'local'">
+          <div v-if="isElectron" v-show="musicTab === 'local'">
             <div class="item">
               <div class="left">
                 <div class="title">{{ $t('localMusic.enableLocalMusic') }}</div>
@@ -641,22 +681,22 @@
             <div class="item">
               <div>{{ $t('settings.stream.service') }}：</div>
               <div
-                v-for="service of servers"
-                :key="service"
+                v-for="service of services"
+                :key="service.name"
                 :title="serviceTitle(service)"
                 class="stream-item"
-                :class="{ itemSelected: select === service }"
-                @click="select = service"
+                :class="{ itemSelected: service.selected }"
+                @click="handleSelect(service)"
                 @click.right="loginOrlogout(service)"
               >
-                <img :src="getImagePath(service)" />
+                <img :src="getImagePath(service.name)" />
                 <div class="service-name">
                   <div
                     class="service-status"
-                    :title="$t(`settings.stream.${status[service]}`)"
+                    :title="$t(`settings.stream.${service.status}`)"
                     :style="{ background: getStatusColor(service) }"
                   ></div>
-                  <div>{{ service }}</div>
+                  <div>{{ service.name }}</div>
                 </div>
               </div>
             </div>
@@ -918,7 +958,7 @@ import { usePlayerStore } from '../store/player'
 import { useLocalMusicStore } from '../store/localMusic'
 import { useNormalStateStore } from '../store/state'
 import { useOsdLyricStore } from '../store/osdLyric'
-import { useStreamMusicStore, servers, streamServer } from '../store/streamingMusic'
+import { useStreamMusicStore, serviceName, serviceType } from '../store/streamingMusic'
 import { useDataStore } from '../store/data'
 import { storeToRefs } from 'pinia'
 import { doLogout } from '../utils/auth'
@@ -945,16 +985,21 @@ const {
   normalLyric
 } = storeToRefs(settingsStore)
 const { scanDir, enble, trackInfoOrder } = toRefs(localMusic.value)
-const { showTrackTimeOrID, useCustomTitlebar, language, musicQuality, closeAppOption } = toRefs(
-  general.value
-)
+const {
+  showTrackTimeOrID,
+  useCustomTitlebar,
+  language,
+  musicQuality,
+  closeAppOption,
+  lyricBackground
+} = toRefs(general.value)
 const { appearance, colors } = toRefs(theme.value)
 const customizeColor = computed(() => colors.value[4])
 const { showLyric, showControl, lyricWidth, scrollRate, enableExtension } = toRefs(tray.value)
-const { nFontSize, isNWordByWord, nTranslationMode } = toRefs(normalLyric.value)
+const { nFontSize, isNWordByWord, nTranslationMode, textAlign, useMask } = toRefs(normalLyric.value)
 
 const streamMusicStore = useStreamMusicStore()
-const { enable, status, select } = storeToRefs(streamMusicStore)
+const { enable, services } = storeToRefs(streamMusicStore)
 const { handleStreamLogout } = streamMusicStore
 
 const stateStore = useNormalStateStore()
@@ -990,7 +1035,7 @@ const { restoreDefaultShortcuts, updateShortcut } = useSettingsStore()
 
 const cacheTracksInfo = reactive({ length: 0, size: 0 })
 
-const getImagePath = (platform: streamServer) => {
+const getImagePath = (platform: serviceName) => {
   return new URL(`../assets/images/${platform}.png`, import.meta.url).href
 }
 
@@ -1017,10 +1062,19 @@ const cacheSize = computed(() => {
   }
 })
 
-const serviceTitle = (platform: streamServer) => {
-  const statusType = status.value[platform]
-  const title = statusType === 'logout' ? '登陆' : '登出'
+const serviceTitle = (platform: serviceType) => {
+  const title = platform.status === 'logout' ? '登陆' : '登出'
   return `单击选择，右击选择并${title}`
+}
+
+const handleSelect = (platform: serviceType) => {
+  services.value.forEach((s) => {
+    if (s.name === platform.name) {
+      platform.selected = true
+    } else {
+      s.selected = false
+    }
+  })
 }
 
 const handleUpdate = () => {
@@ -1037,54 +1091,15 @@ const handleUpdate = () => {
   }
 }
 
-const loginOrlogout = (platform: streamServer) => {
-  select.value = platform
-  const statusType = status.value[platform]
-  if (statusType === 'logout') {
+const loginOrlogout = (platform: serviceType) => {
+  if (platform.status === 'logout') {
     router.push('/streamLogin')
   } else {
-    if (confirm(`确定登出${platform}吗？`)) {
+    if (confirm(`确定登出${platform.name}吗？`)) {
       handleStreamLogout()
-      // status.value[platform] = 'logout'
-      // if ()
     }
   }
 }
-
-const typeOption = computed({
-  get: () => type.value,
-  set: (value) => {
-    type.value = value
-  }
-})
-
-const modeOption = computed({
-  get: () => mode.value,
-  set: (value) => {
-    mode.value = value
-  }
-})
-
-const translationOption = computed({
-  get: () => translationMode.value,
-  set: (value) => {
-    translationMode.value = value
-  }
-})
-
-const nTranslationOption = computed({
-  get: () => nTranslationMode.value,
-  set: (value) => {
-    nTranslationMode.value = value
-  }
-})
-
-const useLinuxTitleBar = computed({
-  get: () => useCustomTitlebar.value,
-  set: (value) => {
-    useCustomTitlebar.value = value
-  }
-})
 
 const shortcutInput = ref({
   id: '',
@@ -1133,7 +1148,7 @@ const selectedOutputDevice = computed({
     )
     if (
       outputDevice.value === undefined ||
-      outputDevice.value === 'default' ||
+      // outputDevice.value === 'default' ||
       isValidDevice === undefined
     )
       return allOutputDevices.value[0]?.deviceId
@@ -1141,7 +1156,7 @@ const selectedOutputDevice = computed({
   },
   set: (deviceId) => {
     if (deviceId === outputDevice.value || deviceId === undefined) return
-    outputDevice.value = deviceId
+    outputDevice.value = deviceId === 'default' ? '' : deviceId
   }
 })
 
@@ -1149,7 +1164,7 @@ const allOutputDevices = ref<MediaDeviceInfo[]>([])
 const getAllOutputDevices = () => {
   navigator.mediaDevices.enumerateDevices().then((devices: MediaDeviceInfo[]) => {
     allOutputDevices.value = devices.filter(
-      (device: MediaDeviceInfo) => device.kind === 'audiooutput' && device.deviceId !== 'default'
+      (device: MediaDeviceInfo) => device.kind === 'audiooutput' // && device.deviceId !== 'default'
     )
     if (allOutputDevices.value.length === 0 || allOutputDevices.value[0].label === '') {
       allOutputDevices.value = []
@@ -1250,13 +1265,13 @@ const inputNValue = () => {
   }, 500)
 }
 
-const getStatusColor = (platform: streamServer) => {
+const getStatusColor = (platform: serviceType) => {
   const colorMap = {
     login: 'green',
     logout: 'red',
     offline: 'orange'
   }
-  return colorMap[status.value[platform]]
+  return colorMap[platform.status]
 }
 
 const deleteLocalMusic = () => {

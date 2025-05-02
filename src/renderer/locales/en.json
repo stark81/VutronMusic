@@ -7,6 +7,7 @@
     "localMusic": "Local Music",
     "settings": "Settings",
     "github": "GitHub Repository",
+    "log": "Open Log Folder",
     "error": "Unknown Error",
     "track": "Track",
     "artist": "Artist",
@@ -137,6 +138,7 @@
     "showLyric": "Show Lyrics",
     "setConvolver": "Sound Effects",
     "playBackSpeed": "Playback Speed",
+    "pitch": "Pitch",
     "lyricOffset": "Lyric Offset Adjustment",
     "play": "Play",
     "addToQueue": "Add to Queue",
@@ -277,6 +279,13 @@
         "high": "High",
         "lossless": "Lossless"
       },
+      "lyricBackground": {
+        "text": "Show lyrics background",
+        "close": "Close",
+        "true": "Open",
+        "blur": "Blur cover",
+        "dynamic": "Dynamic"
+      },
       "logout": "Logout",
       "perventSuspend": "Prevent system sleep during playback"
     },
@@ -331,6 +340,16 @@
         "romalrc": "Transliteration"
       },
       "fontSize": "Font Size (px)",
+      "textAlign": {
+        "text": "Text Alignment",
+        "start": "Left",
+        "center": "Center",
+        "end": "Right"
+      },
+      "useMask": {
+        "text": "Enable lyrics mask",
+        "desc": "Enable a transparent gradient effect on the top and bottom edges of the lyrics page"
+      },
       "staticTime": {
         "text": "Mouse Hover Timeout",
         "desc": "After locking, lyrics fade after this duration (ms). Not supported on Linux."

@@ -17,6 +17,7 @@ import ArtistMv from './ArtistMv.vue'
 import NextUp from './NextUp.vue'
 import StreamLogin from './StreamLogin.vue'
 import StreamPage from './StreamPage.vue'
+import LottiePlayer from './LottiePlayer.vue'
 
 export {
   ErrorScreen,
@@ -37,5 +38,6 @@ export {
   ArtistMv,
   NextUp,
   StreamLogin,
-  StreamPage
+  StreamPage,
+  LottiePlayer
 }

@@ -8,16 +8,13 @@ import {
   protocol,
   screen,
   MessageChannelMain,
-  powerMonitor,
-  MessagePortMain
+  powerMonitor
 } from 'electron'
 import fs from 'fs'
 import Constants from './utils/Constants'
 import store from './store'
 import { createTray, YPMTray } from './tray'
 import { createMenu } from './menu'
-import { createDockMenu } from './dock'
-import { createTouchBar } from './touchBar'
 import { MprisImpl } from './mpris'
 import fastify, { FastifyInstance } from 'fastify'
 import fastifyCookie from '@fastify/cookie'
@@ -25,8 +22,6 @@ import netease from './appServer/netease'
 import IPCs from './IPCs'
 import fastifyStatic from '@fastify/static'
 import path from 'path'
-// import mime from 'mime-types'
-import cache from './cache'
 import {
   getPic,
   getPicFromApi,
@@ -102,8 +97,6 @@ class BackGround {
   willQuitApp: boolean = !Constants.IS_MAC
   checkInterval: any = null
   lastKnownMousePosition = { x: 0, y: 0 }
-  port1: MessagePortMain | null = null
-  port2: MessagePortMain | null = null
 
   async init() {
     // if (release().startsWith('6.1')) app.disableHardwareAcceleration()
@@ -129,10 +122,6 @@ class BackGround {
 
     // create fastify app
     this.fastifyApp = await this.createFastifyApp()
-
-    const { port1, port2 } = new MessageChannelMain()
-    this.port1 = port1
-    this.port2 = port2
 
     this.handleAppEvents()
   }
@@ -260,9 +249,9 @@ class BackGround {
       webPreferences: Constants.DEFAULT_OSD_PREFERENCES
     }
 
-    if (option.x && option.y) {
-      const x = option.x
-      const y = option.y
+    if (store.get('osdWin.x') && store.get('osdWin.y')) {
+      const x = store.get('osdWin.x') as number
+      const y = store.get('osdWin.y') as number
 
       const displays = screen.getAllDisplays()
       let isResetWindow = false
@@ -437,10 +426,10 @@ class BackGround {
 
   handleProtocol() {
     protocol.handle('atom', async (request) => {
+      const cache = (await import('./cache')).default
       const { host, pathname } = new URL(request.url)
       if (host === 'online-pic') {
-        const url = pathname.slice(1).replace('http://', 'https://')
-        return net.fetch(url)
+        return net.fetch(pathname.slice(1))
       } else if (host === 'get-pic') {
         const ids = pathname.slice(1)
         const res = cache.get(CacheAPIs.Track, { ids })
@@ -571,6 +560,12 @@ class BackGround {
         }
 
         res = await getTrackDetail(ids)
+        if (!res || !res.songs?.length) {
+          console.log('======get-track-error=====', ids)
+          return new Response(JSON.stringify({ status: 404 }), {
+            headers: { 'content-type': 'application/json' }
+          })
+        }
         const track = res.songs[0]
         track.cache = false
         const { url, br, gain, peak, source } = await getAudioSource(track)
@@ -684,6 +679,10 @@ class BackGround {
         return new Response(JSON.stringify(lyrics), {
           headers: { 'content-type': 'application/json' }
         })
+      } else if (host === 'get-stream') {
+        const url = decodeURIComponent(pathname.slice(1))
+        const headers = request.headers
+        return net.fetch(url, { headers })
       }
     })
   }
@@ -698,7 +697,6 @@ class BackGround {
       this.handleWindowEvents()
 
       this.tray = createTray(this.win)
-      createTouchBar(this.win)
       if (Constants.IS_LINUX) {
         const createMpris = await import('./mpris').then((m) => m.createMpris)
         this.mpris = createMpris(this.win)
@@ -720,7 +718,13 @@ class BackGround {
       }
       IPCs.initialize(this.win, this.tray, this.mpris, lrc)
       createMenu(this.win)
-      createDockMenu(this.win)
+      if (Constants.IS_MAC) {
+        const { createDockMenu } = await import('./dock')
+        createDockMenu(this.win)
+
+        const { createTouchBar } = await import('./touchBar')
+        createTouchBar(this.win)
+      }
     })
 
     app.on('activate', () => {

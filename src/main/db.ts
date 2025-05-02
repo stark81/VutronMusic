@@ -2,7 +2,7 @@
 import SQLite3 from 'better-sqlite3'
 import fs from 'fs'
 import path from 'path'
-// import log from './log'
+import log from './log'
 import { app } from 'electron'
 import { createFileIfNotExist } from './utils/utils'
 import Constants from './utils/Constants'
@@ -96,17 +96,22 @@ class DB {
   constructor() {
     try {
       createFileIfNotExist(this.dbFilePath)
-      const root = path.join(__dirname, '../../')
-      // const VITE_BETTER_SQLITE3_BINDING = process.env[`VITE_BETTER_SQLITE3_BINDING_${process.arch}`]
+      const root = app.isPackaged
+        ? path.join(process.resourcesPath, 'app.asar.unpacked')
+        : path.join(__dirname, '../../')
       this.sqlite = new SQLite3(this.dbFilePath, {
         nativeBinding: path.join(root, 'dist-native', `better_sqlite3-${process.arch}.node`)
       })
       this.sqlite.pragma('auto_vacuum = FULL')
       this.initTables()
       this.migrate()
+      log.info(
+        '=== better-sqlite3 path ===',
+        path.join(root, 'dist-native', `better_sqlite3-${process.arch}.node`)
+      )
     } catch (e) {
-      console.log('111111111111111111112222, init error = ', e)
-      // log.error(e)
+      // console.log('111111111111111111112222, init error = ', e)
+      log.error(e)
     }
   }
 

@@ -7,6 +7,7 @@
     "localMusic": "本地音樂",
     "settings": "設定",
     "github": "GitHub 倉庫",
+    "log": "開啟 log 資料夾",
     "error": "未知錯誤",
     "track": "單曲",
     "artist": "歌手",
@@ -137,6 +138,7 @@
     "showLyric": "顯示歌詞",
     "setConvolver": "音效設定",
     "playBackSpeed": "倍速播放",
+    "pitch": "音調調整",
     "lyricOffset": "歌詞時間調整",
     "play": "播放",
     "addToQueue": "新增至佇列",
@@ -277,6 +279,13 @@
         "high": "極高",
         "lossless": "無損"
       },
+      "lyricBackground": {
+        "text": "顯示歌詞背景",
+        "close": "關閉",
+        "true": "開啟",
+        "blur": "模糊封面",
+        "dynamic": "動態"
+      },
       "logout": "登出",
       "perventSuspend": "播放時防止系統休眠"
     },
@@ -331,6 +340,16 @@
         "romalrc": "音譯"
       },
       "fontSize": "字型大小（px）",
+      "textAlign": {
+        "text": "字型對齊方式",
+        "start": "靠左",
+        "center": "置中",
+        "end": "靠右"
+      },
+      "useMask": {
+        "text": "啟用歌詞遮罩",
+        "desc": "歌詞頁上下邊緣啟用透明漸層的效果"
+      },
       "staticTime": {
         "text": "滑鼠停留時長",
         "desc": "鎖定後，滑鼠停留該時長後（毫秒）降低視窗透明度，Linux系統下無效"

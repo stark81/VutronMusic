@@ -169,7 +169,7 @@ const image = computed(() => {
       if (track.value.source === 'navidrome') {
         return new URL(`../assets/images/navidrome.webp`, import.meta.url).href
       } else if (track.value.source === 'emby') {
-        return 'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg'
+        return 'atom://get-default-pic'
       }
     }
   }
@@ -187,6 +187,9 @@ const image = computed(() => {
   }
   if (url.startsWith('https')) {
     url += '?param=128y128'
+  }
+  if (url.includes('https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg')) {
+    url = 'atom://get-default-pic'
   }
   return url
 })

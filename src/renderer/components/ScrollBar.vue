@@ -20,6 +20,7 @@ import { storeToRefs } from 'pinia'
 import { ref, computed, inject, watch } from 'vue'
 import eventBus from '../utils/eventBus'
 import { useNormalStateStore } from '../store/state'
+import { useSettingsStore } from '../store/settings'
 import { useRouter } from 'vue-router'
 
 const show = ref(false)
@@ -33,15 +34,22 @@ const updateUserSelect = inject('updateUserSelect', ref(false))
 const normalState = useNormalStateStore()
 const { scrollbar } = storeToRefs(normalState)
 
+const settingsStore = useSettingsStore()
+const { general } = storeToRefs(settingsStore)
+
+const marginTop = computed(() => {
+  return window.env?.isMac || general.value.useCustomTitlebar ? 84 : 64
+})
+
 const scrollHeight = computed(() => {
   return scrollbar.value.active
-    ? scrollbar.value.instances[scrollbar.value.active].listHeight - 64
+    ? scrollbar.value.instances[scrollbar.value.active].listHeight - marginTop.value
     : 0
 })
 
 const clientHeight = computed(() => {
   return scrollbar.value.active
-    ? scrollbar.value.instances[scrollbar.value.active].containerHeight - 64
+    ? scrollbar.value.instances[scrollbar.value.active].containerHeight - marginTop.value
     : 0
 })
 
@@ -76,6 +84,8 @@ const thumbStyle = computed(() => {
 const handleMouseenter = () => {
   active.value = true
 }
+
+const scrollMainTo = inject('scrollMainTo', (to: number, behavior: 'smooth' | 'instant') => {})
 
 const handleMouseleave = () => {
   setScrollbarHideTimeout()
@@ -115,6 +125,7 @@ const handleDragEnd = () => {
 
 router.beforeEach((to, from, next) => {
   show.value = false
+  scrollMainTo(0, 'instant')
   next()
 })
 </script>
@@ -129,7 +140,7 @@ router.beforeEach((to, from, next) => {
   z-index: 1000;
 
   .thumbContainer {
-    margin-top: 64px;
+    margin-top: v-bind('`${marginTop}px`');
     div {
       transition: background 0.4s;
       position: absolute;

@@ -10,8 +10,6 @@ import request from '../appServer/request'
 import { CacheAPIs } from './CacheApis'
 import Cache from '../cache'
 import store, { TrackInfoOrder } from '../store'
-import navidrome from '../streaming/navidrome'
-import emby from '../streaming/emby'
 
 import { Readable } from 'stream'
 import { db, Tables } from '../db'
@@ -247,13 +245,13 @@ export const getPic = async (track: any): Promise<{ pic: Buffer; format: string 
 }
 
 export const getPicColor = async (pic: Buffer) => {
-  const Vibrant = require('node-vibrant')
+  const { Vibrant } = require('node-vibrant/node')
   const Color = require('color')
   try {
     const palette = await Vibrant.from(pic, {
       colorCount: 1
     }).getPalette()
-    const originColor = Color.rgb(palette.DarkMuted._rgb)
+    const originColor = Color.rgb(palette.DarkMuted.rgb)
     const color = originColor.darken(0.1).rgb().string()
     const color2 = originColor.lighten(0.28).rotate(-30).rgb().string()
     return { color, color2 }
@@ -650,26 +648,30 @@ const formatTime = (ms: number) => {
   return `[${minutesStr}:${secondsStr}]`
 }
 
-export const getStreamPic = (ids: string) => {
+export const getStreamPic = async (ids: string) => {
   const service =
     (store.get('accounts.selected') as ['navidrome', 'emby', 'jellyfin'][number]) || 'navidrome'
   if (service === 'navidrome') {
+    const navidrome = (await import('../streaming/navidrome')).default
     const [id, size] = ids.split('/')
     return fetch(navidrome.getPic(id, size ? Number(size) : null))
   } else if (service === 'emby') {
+    const emby = (await import('../streaming/emby')).default
     const [id, primary, size] = ids.split('/')
     const url = emby.getPic(Number(id), primary, Number(size))
     return fetch(url)
   }
 }
 
-export const getStreamMusic = (id: string, headers?: any) => {
+export const getStreamMusic = async (id: string, headers?: any) => {
   const service =
     (store.get('accounts.selected') as ['navidrome', 'emby', 'jellyfin'][number]) || 'navidrome'
 
   if (service === 'navidrome') {
+    const navidrome = (await import('../streaming/navidrome')).default
     return fetch(navidrome.getStream(id), { headers })
   } else if (service === 'emby') {
+    const emby = (await import('../streaming/emby')).default
     return fetch(emby.getStrem(id), { headers })
   }
 }
@@ -679,10 +681,12 @@ export const getStreamLyric = async (id: string) => {
     (store.get('accounts.selected') as ['navidrome', 'emby', 'jellyfin'][number]) || 'navidrome'
 
   if (service === 'navidrome') {
+    const navidrome = (await import('../streaming/navidrome')).default
     const url = navidrome.getLyricByID(id)
     const lyrics = await getNavidromeLyric(url)
     return lyrics
   } else if (service === 'emby') {
+    const emby = (await import('../streaming/emby')).default
     const [idx, ,] = id.split('/')
     const lyrics = await emby.getLyric(Number(idx))
     return lyrics

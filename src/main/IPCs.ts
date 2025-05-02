@@ -7,14 +7,13 @@ import store from './store'
 import fs from 'fs'
 import path from 'path'
 import { parseFile } from 'music-metadata'
-import cache from './cache'
 import { db, Tables } from './db'
 import { CacheAPIs } from './utils/CacheApis'
 import { createMD5, deleteExcessCache, getReplayGainFromMetadata, splitArtist } from './utils/utils'
 import { registerGlobalShortcuts } from './globalShortcut'
 import { createMenu } from './menu'
 
-let isLock = store.get('osdWindow.isLock') as boolean
+let isLock = store.get('osdWin.isLock') as boolean
 let blockerId: number | null = null
 /*
  * IPC Communications
@@ -147,6 +146,10 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
       tray.setOSDLock(value)
     }
   })
+
+  ipcMain.on('updateTooltip', (event: IpcMainEvent, title: string) => {
+    tray.updateTooltip(title)
+  })
 }
 
 function initOSDWindowIpcMain(win: BrowserWindow, lrc: { [key: string]: Function }): void {
@@ -203,8 +206,9 @@ function initOSDWindowIpcMain(win: BrowserWindow, lrc: { [key: string]: Function
 
 function initTaskbarIpcMain(): void {}
 
-function initOtherIpcMain(win: BrowserWindow): void {
+async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
   // Get application version
+  const cache = (await import('./cache')).default
   ipcMain.handle('msgRequestGetVersion', () => {
     return Constants.APP_VERSION
   })
@@ -506,8 +510,14 @@ async function initMprisIpcMain(win: BrowserWindow, mpris: MprisImpl): Promise<v
       }
     }
   })
-  ipcMain.on('playerCurrentTrackTime', (event: IpcMainEvent, progress: number) => {
-    mpris?.setPosition(progress)
+  ipcMain.on(
+    'playerCurrentTrackTime',
+    (event: IpcMainEvent, data: { seeked: boolean; progress: number }) => {
+      mpris?.setPosition(data)
+    }
+  )
+  ipcMain.on('updateRate', (event: IpcMainEvent, rate: number) => {
+    mpris?.setRate(rate)
   })
 }
 

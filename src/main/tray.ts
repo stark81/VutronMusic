@@ -183,6 +183,7 @@ export interface YPMTray {
   setShuffleMode: (isShuffle: boolean) => void
   setShowOSD: (show: boolean) => void
   setOSDLock: (lock: boolean) => void
+  updateTooltip: (title: string) => void
 }
 
 class TrayImpl implements YPMTray {
@@ -197,6 +198,8 @@ class TrayImpl implements YPMTray {
 
     this.createTray()
     this.setContextMenu()
+
+    this.updateTooltip(app.name)
 
     nativeTheme.on('updated', () => {
       this.setContextMenu(true)
@@ -297,6 +300,10 @@ class TrayImpl implements YPMTray {
     if (!this._contextMenu) return
     this._contextMenu.getMenuItemById('shuffle').checked = isShuffle
     this._tray.setContextMenu(this._contextMenu)
+  }
+
+  updateTooltip(title: string) {
+    if (!Constants.IS_MAC) this._tray.setToolTip(title)
   }
 }
 

@@ -9,6 +9,9 @@
   --color-primary-bg-for-transparent: rgba(189, 207, 255, 0.28);
   --color-secondary-bg-for-transparent: rgba(180, 180, 180, 0.4);
   --html-overflow-y: overlay;
+  --color-wbw-text-unplay: rgba(0, 0, 0, 0.28);
+  --color-wbw-text: rgba(0, 0, 0, 0.75);
+  --color-wbw-text-played: rgba(0, 0, 0, 0.95);
 }
 
 [data-theme='dark'] {
@@ -21,6 +24,9 @@
   --color-navbar-bg: rgba(34, 34, 34, 0.86);
   --color-primary-bg-for-transparent: rgba(255, 255, 255, 0.12);
   --color-secondary-bg-for-transparent: rgba(255, 255, 255, 0.08);
+  --color-wbw-text-unplay: rgba(255, 255, 255, 0.28);
+  --color-wbw-text: rgba(255, 255, 255, 0.75);
+  --color-wbw-text-played: rgba(255, 255, 255, 0.95);
 }
 
 #app,

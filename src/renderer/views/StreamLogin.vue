@@ -2,21 +2,21 @@
   <div class="stream-container">
     <div class="icon-container">
       <div
-        v-for="platform in servers"
-        :key="platform"
+        v-for="platform in services"
+        :key="platform.name"
         ref="iconWrappers"
         class="icon-wrapper"
-        @click="selectPlatform(platform)"
+        @click="selectPlatform(platform.name)"
       >
         <img
-          :src="getImagePath(platform)"
-          :class="{ selected: select === platform }"
+          :src="getImagePath(platform.name)"
+          :class="{ selected: platform.selected }"
           alt="platform logo"
         />
       </div>
       <div class="indicator" :class="{ animated: isIndicatorReady }" :style="indicatorStyle"></div>
     </div>
-    <div class="title">{{ select }}</div>
+    <div class="title">{{ currentService.name }}</div>
     <div class="section-2">
       <div class="input-box">
         <div class="container" :class="{ active: inputFocus === 'web' }">
@@ -76,7 +76,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import SvgIcon from '../components/SvgIcon.vue'
-import { useStreamMusicStore, streamServer, servers } from '../store/streamingMusic'
+import { useStreamMusicStore, serviceName } from '../store/streamingMusic'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 
@@ -85,7 +85,7 @@ const indicatorStyle = ref({ width: '0px', left: '0px' })
 const isIndicatorReady = ref(false)
 
 const streamMusicStore = useStreamMusicStore()
-const { select, status } = storeToRefs(streamMusicStore)
+const { currentService, services } = storeToRefs(streamMusicStore)
 
 const router = useRouter()
 
@@ -95,12 +95,12 @@ const user = ref('')
 const password = ref('')
 const error = ref<string | null>(null)
 
-const getImagePath = (platform: streamServer) => {
+const getImagePath = (platform: serviceName) => {
   return new URL(`../assets/images/${platform}.png`, import.meta.url).href
 }
 
 const updateIndicatorPosition = () => {
-  const index = servers.indexOf(select.value)
+  const index = services.value.indexOf(currentService.value)
   const wrapper = iconWrappers.value[index]
   const container = wrapper?.parentElement
 
@@ -115,21 +115,27 @@ const updateIndicatorPosition = () => {
   }
 }
 
-const selectPlatform = (platform: streamServer) => {
-  select.value = platform
+const selectPlatform = (platform: serviceName) => {
+  services.value.forEach((s) => {
+    if (s.name === platform) {
+      s.selected = true
+    } else {
+      s.selected = false
+    }
+  })
   nextTick(updateIndicatorPosition)
 }
 
 const login = () => {
   const params = {
-    platform: select.value,
+    platform: currentService.value.name,
     baseURL: url.value,
     username: user.value,
     password: password.value
   }
   window.mainApi?.invoke('stream-login', params).then((res: { code: number; message: any }) => {
     if (res.code === 200) {
-      status.value[select.value] = 'login'
+      currentService.value.status = 'login'
       router.push('/stream')
     } else {
       error.value = res.message
@@ -137,12 +143,12 @@ const login = () => {
   })
 }
 
-watch(select, (value) => {
-  if (status.value[value] !== 'logout') {
+watch(currentService, (value) => {
+  if (value.status !== 'logout') {
     router.push('/stream')
     return
   }
-  window.mainApi?.invoke('get-stream-account', { platform: value }).then((result) => {
+  window.mainApi?.invoke('get-stream-account', { platform: value.name }).then((result) => {
     url.value = result?.url || ''
     user.value = result?.username || ''
     password.value = result?.password || ''
@@ -150,11 +156,13 @@ watch(select, (value) => {
 })
 
 onMounted(() => {
-  window.mainApi?.invoke('get-stream-account', { platform: select.value }).then((result) => {
-    url.value = result?.url || ''
-    user.value = result?.username || ''
-    password.value = result?.password || ''
-  })
+  window.mainApi
+    ?.invoke('get-stream-account', { platform: currentService.value.name })
+    .then((result) => {
+      url.value = result?.url || ''
+      user.value = result?.username || ''
+      password.value = result?.password || ''
+    })
   window.addEventListener('resize', updateIndicatorPosition)
   nextTick(() => {
     updateIndicatorPosition()

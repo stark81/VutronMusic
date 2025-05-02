@@ -3,7 +3,7 @@
     <ScrollBar v-show="!showLyrics" />
     <SideNav />
     <NavBar ref="navBarRef" />
-    <div id="main" ref="mainRef" :style="mainStyle">
+    <div id="main" ref="mainRef" :style="mainStyle" @scroll="scrollEvent">
       <router-view v-slot="{ Component }">
         <keep-alive :include="['HomePage']">
           <component :is="Component"></component>
@@ -19,14 +19,14 @@
 </template>
 
 <script setup lang="tsx">
-import { onMounted, ref, provide, toRefs, watch, computed } from 'vue'
+import { onMounted, ref, provide, toRefs, watch, computed, onBeforeUnmount } from 'vue'
 import ScrollBar from './components/ScrollBar.vue'
 import PlayerBar from './components/PlayerBar.vue'
 import NavBar from './components/NavBar.vue'
 import SideNav from './components/SideNav.vue'
 import ShowToast from './components/ShowToast.vue'
-import AddTrackToPlaylistModal from './components/AddTrackToPlaylistModal.vue'
-import newPlaylistModal from './components/NewPlaylistModal.vue'
+import AddTrackToPlaylistModal from './components/ModalAddTrackToPlaylist.vue'
+import newPlaylistModal from './components/ModalNewPlaylist.vue'
 import PlayPage from './views/PlayPage.vue'
 import { useDataStore } from './store/data'
 import { useLocalMusicStore } from './store/localMusic'
@@ -39,6 +39,7 @@ import Utils from './utils'
 import { useRoute } from 'vue-router'
 import { type ProgressInfo } from 'electron-updater'
 import router from './router'
+import eventBus from './utils/eventBus'
 
 const localMusicStore = useLocalMusicStore()
 const { localTracks } = storeToRefs(localMusicStore)
@@ -52,7 +53,7 @@ const { show, type, isLock } = storeToRefs(osdLyricStore)
 
 const stateStore = useNormalStateStore()
 const { enableScrolling, extensionCheckResult, showLyrics, isDownloading } = storeToRefs(stateStore)
-const { showToast, checkUpdate } = stateStore
+const { showToast, checkUpdate, registerInstance, unregisterInstance, updateScroll } = stateStore
 
 const {
   fetchLikedPlaylist,
@@ -78,6 +79,39 @@ const fetchLocalData = () => {
   scanLocalMusic()
 }
 
+const scrollEvent = () => {
+  const scrollTop = mainRef.value.scrollTop
+  const containerHeight = mainRef.value.clientHeight - 64
+  const contentHeight = mainRef.value.scrollHeight
+
+  registerInstance(instanceId.value)
+  updateScroll(instanceId.value, {
+    scrollTop,
+    containerHeight,
+    listHeight: contentHeight
+  })
+}
+
+const handleEventBus = () => {
+  let updateScrollStart = 0
+
+  eventBus.on('update-start', () => {
+    updateScrollStart = mainRef.value.scrollTop
+  })
+
+  // @ts-ignore
+  eventBus.on('update-scroll-bar', (data: { active: string; offset: number }) => {
+    if (data.active !== instanceId.value) return
+    if (updateScrollStart === 0) updateScrollStart = mainRef.value?.scrollTop
+    const top = Math.min(mainRef.value?.scrollHeight, Math.max(updateScrollStart + data.offset, 0))
+    mainRef.value.scrollTo({ top, behavior: 'instant' })
+  })
+
+  eventBus.on('update-done', () => {
+    updateScrollStart = mainRef.value?.scrollTop || 0
+  })
+}
+
 const padding = ref(96)
 const userSelectNone = ref(false)
 const settingsStore = useSettingsStore()
@@ -99,7 +133,7 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () 
 const route = useRoute()
 
 const scrollBarRef = ref()
-
+const instanceId = ref('appInstance')
 const hasCustomTitleBar = ref(false)
 
 const mainStyle = computed(() => {
@@ -150,6 +184,10 @@ provide('hasCustomTitleBar', hasCustomTitleBar)
 
 provide('updatePadding', (value: number) => {
   padding.value = value
+})
+
+provide('scrollMainTo', (top: number, behavior = 'smooth') => {
+  mainRef.value.scrollTo({ top, behavior })
 })
 
 const scanLocalMusic = async () => {
@@ -217,6 +255,8 @@ const handleChanelEvent = () => {
 watchOsdEvent()
 
 onMounted(async () => {
+  registerInstance(instanceId.value)
+  handleEventBus()
   hasCustomTitleBar.value =
     (window.env?.isLinux && general.value.useCustomTitlebar) || window.env?.isWindows || false
   if (isMac.value) {
@@ -242,6 +282,10 @@ onMounted(async () => {
   handleChanelEvent()
   checkUpdate()
 })
+
+onBeforeUnmount(() => {
+  unregisterInstance(instanceId.value)
+})
 </script>
 
 <style lang="scss">
@@ -260,8 +304,7 @@ onMounted(async () => {
   box-sizing: border-box;
   scrollbar-width: none;
   color: var(--color-text);
-  overflow: auto;
-  min-height: 720px;
+  height: 100vh;
 }
 
 main::-webkit-scrollbar {

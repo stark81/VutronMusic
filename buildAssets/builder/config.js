@@ -5,8 +5,8 @@ const baseConfig = {
   productName: 'VutronMusic',
   appId: '',
   asar: true,
+  asarUnpack: ['./dist-native/*.node'],
   extends: null,
-  // compression: 'maximum',
   artifactName: '${productName}-${version}_${os}_${arch}.${ext}',
   directories: {
     output: './release/${version}'

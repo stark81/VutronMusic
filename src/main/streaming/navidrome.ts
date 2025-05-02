@@ -152,7 +152,7 @@ class Navidrome implements NavidromeImpl {
                 picUrl: `atom://get-stream-pic/${song.albumId}/64`
               }
             ],
-            picUrl: `atom://get-stream-pic/${song.albumId}/64`
+            picUrl: getRestUrl('getCoverArt', { id: song.albumId, size: 64 })
           }
           return track
         }) || []

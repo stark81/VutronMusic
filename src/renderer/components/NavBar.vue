@@ -85,6 +85,10 @@
         <svg-icon icon-class="github" />
         {{ $t('nav.github') }}
       </div>
+      <div class="item" @click="openLogFile">
+        <svg-icon icon-class="log" />
+        {{ $t('nav.log') }}
+      </div>
     </ContextMenu>
   </div>
 </template>
@@ -135,6 +139,10 @@ const toGitHub = (): void => {
   openExternal('https://github.com/stark81/VutronMusic')
 }
 
+const openLogFile = () => {
+  window.mainApi?.send('openLogFile')
+}
+
 const handleRoute = (path: string): void => {
   router.push(path)
 }
@@ -159,7 +167,7 @@ const logout = () => {
 const data = storeToRefs(useDataStore())
 
 const avatarUrl = computed(() => {
-  return `atom://online-pic/${data.user.value.avatarUrl}`
+  return `${data.user.value.avatarUrl}`
 })
 
 const userProfileMenu = ref<InstanceType<typeof ContextMenu>>()

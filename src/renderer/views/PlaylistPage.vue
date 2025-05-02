@@ -529,7 +529,10 @@ const deleteAPlaylist = () => {
       })
     } else if (playlistType.value === 'stream') {
       window.mainApi
-        ?.invoke('deleteStreamPlaylist', { id: playlist.value.id, platform: streamMusic.select })
+        ?.invoke('deleteStreamPlaylist', {
+          id: playlist.value.id,
+          platform: streamMusic.currentService.name
+        })
         .then((result: boolean) => {
           if (result) {
             show.value = false

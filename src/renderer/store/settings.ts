@@ -7,6 +7,8 @@ import cloneDeep from 'lodash/cloneDeep'
 export type TranslationMode = 'none' | 'tlyric' | 'rlyric'
 export type StreamStatus = 'logout' | 'login' | 'offline'
 export type TrackInfoOrder = 'path' | 'online' | 'embedded'
+type TextAlign = 'start' | 'center' | 'end'
+type BackgroundEffect = 'none' | 'true' | 'blur' | 'dynamic'
 
 export const useSettingsStore = defineStore(
   'settings',
@@ -39,6 +41,7 @@ export const useSettingsStore = defineStore(
       closeAppOption: 'ask',
       useCustomTitlebar: false,
       preventSuspension: false,
+      lyricBackground: 'true' as BackgroundEffect,
       enabledPlaylistCategories
     })
 
@@ -56,11 +59,15 @@ export const useSettingsStore = defineStore(
       isNWordByWord: boolean
       isTWordByWord: boolean
       nTranslationMode: TranslationMode
+      textAlign: TextAlign
+      useMask: boolean
     }>({
       nFontSize: 28,
       isNWordByWord: true,
       isTWordByWord: true,
-      nTranslationMode: 'tlyric'
+      nTranslationMode: 'tlyric',
+      textAlign: 'start',
+      useMask: true
     })
 
     const osdLyric = reactive({
@@ -239,6 +246,12 @@ export const useSettingsStore = defineStore(
         useCustomTitlebar: general.useCustomTitlebar,
         trackInfoOrder: toRaw(localMusic.trackInfoOrder)
       })
+      setTimeout(() => {
+        const trayMenu = !(tray.showControl || tray.showLyric)
+        window.mainApi?.send('setStoreSettings', {
+          enableTrayMenu: trayMenu
+        })
+      }, 2000)
     })
     return {
       theme,

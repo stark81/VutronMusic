@@ -5,13 +5,26 @@
         v-if="showLyrics"
         class="play-page"
         :class="{ 'no-lyric': noLyric && show === 'lyric' }"
-        :style="{ background }"
-        data-theme="dark"
+        :data-theme="theme"
       >
+        <div class="lyrics-container">
+          <div
+            v-if="['blur', 'dynamic'].includes(general.lyricBackground)"
+            class="lyrics-background"
+            :class="{ 'dynamic-background': general.lyricBackground === 'dynamic' }"
+            :style="{ '--cover-url': `url(${pic})` }"
+          />
+          <div
+            v-else-if="general.lyricBackground === 'true'"
+            class="graditent-background"
+            :style="{ background }"
+          />
+        </div>
         <div class="left-side">
           <div>
             <div class="cover">
               <img :src="pic" loading="lazy" />
+              <div class="shadow" :style="{ backgroundImage: `url(${pic})` }"></div>
             </div>
             <div class="controls">
               <div class="top-part">
@@ -119,11 +132,11 @@
                       height: '8px',
                       width: '8px',
                       transform: 'translateY(-2px)',
-                      backgroundColor: 'white',
+                      backgroundColor: 'var(--color-text)',
                       opacy: 0.8
                     }"
                     :rail-style="{ backgroundColor: 'rgba(128, 128, 128, 0.18)' }"
-                    :process-style="{ backgroundColor: '#eee', opacity: 0.8 }"
+                    :process-style="{ backgroundColor: 'var(--color-text)', opacity: 0.8 }"
                     :dot-style="{ display: 'none' }"
                     tooltip="none"
                     :lazy="false"
@@ -185,10 +198,10 @@
                     :drag-on-click="false"
                     :tooltip-formatter="Math.round(volume * 100).toString()"
                     :rail-style="{ backgroundColor: 'rgba(128, 128, 128, 0.18)' }"
-                    :process-style="{ backgroundColor: '#eee', opacity: 0.8 }"
+                    :process-style="{ backgroundColor: 'var(--color-text)', opacity: 0.8 }"
                     :dot-style="{
                       display: 'none',
-                      backgroundColor: '#eee',
+                      backgroundColor: 'var(--color-text)',
                       boxshadow: '0.5px 0.5px 2px 1px rgba(0, 0, 0, 0.18)'
                     }"
                     tooltip="none"
@@ -202,8 +215,8 @@
             </div>
           </div>
         </div>
-        <div class="right-side">
-          <LyricPage v-if="show === 'lyric'" />
+        <div class="right-side" @mouseenter="hover = true" @mouseleave="hover = false">
+          <LyricPage v-if="show === 'lyric'" :hover="hover" />
           <Comment v-else :id="currentTrack!.id" type="music" />
         </div>
         <button-icon class="close-button" @click="showLyrics = !showLyrics">
@@ -214,23 +227,27 @@
   </div>
   <div>
     <ConvolverModal />
+    <PitchModal />
     <PlaybackModal />
     <ContextMenu ref="playPageContextMenu">
       <div class="item" @click="setPlaybackRateModal = true">{{
         $t('contextMenu.playBackSpeed')
       }}</div>
+      <div class="item" @click="setPitchModal = true">{{ $t('contextMenu.pitch') }}</div>
       <div class="item" @click="setConvolverModal = true">{{ $t('contextMenu.setConvolver') }}</div>
     </ContextMenu>
   </div>
 </template>
 
+<!-- Modifications to fix memory leaks -->
 <script setup lang="ts">
 import ButtonIcon from '../components/ButtonIcon.vue'
 import VueSlider from 'vue-3-slider-component'
 import SvgIcon from '../components/SvgIcon.vue'
 import ContextMenu from '../components/ContextMenu.vue'
-import ConvolverModal from '../components/ConvolverModal.vue'
-import PlaybackModal from '../components/PlaybackModal.vue'
+import ConvolverModal from '../components/ModalConvolver.vue'
+import PlaybackModal from '../components/ModalPlayback.vue'
+import PitchModal from '../components/ModalPitch.vue'
 import LyricPage from '../components/LyricPage.vue'
 import Comment from '../components/CommentPage.vue'
 import { hasListSource, getListSourcePath } from '../utils/playlist'
@@ -239,20 +256,27 @@ import { useSettingsStore, TranslationMode } from '../store/settings'
 import { usePlayerStore } from '../store/player'
 import { useDataStore } from '../store/data'
 import { storeToRefs } from 'pinia'
-import { ref, computed, watch, provide, toRefs, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, provide, toRefs } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStreamMusicStore } from '../store/streamingMusic'
+import { Vibrant } from 'node-vibrant/browser'
+import Color from 'color'
 
 const router = useRouter()
 const playPageContextMenu = ref<InstanceType<typeof ContextMenu>>()
 const show = ref('lyric')
 
 const stateStore = useNormalStateStore()
-const { showLyrics, setConvolverModal, setPlaybackRateModal, addTrackToPlaylistModal } =
-  storeToRefs(stateStore)
+const {
+  showLyrics,
+  setConvolverModal,
+  setPitchModal,
+  setPlaybackRateModal,
+  addTrackToPlaylistModal
+} = storeToRefs(stateStore)
 
 const settingsStore = useSettingsStore()
-const { normalLyric } = storeToRefs(settingsStore)
+const { normalLyric, general } = storeToRefs(settingsStore)
 const { nTranslationMode } = toRefs(normalLyric.value)
 
 const playerStore = usePlayerStore()
@@ -267,17 +291,18 @@ const {
   playing,
   shuffle,
   isLiked,
-  color,
-  color2,
-  pic,
   source,
   chorus,
-  repeatMode
+  repeatMode,
+  pic
 } = storeToRefs(playerStore)
 const { playPrev, playOrPause, _playNextTrack, switchRepeatMode, moveToFMTrash } = playerStore
 const { likeATrack } = useDataStore()
 
 const { likeAStreamTrack } = useStreamMusicStore()
+
+const color = ref('')
+const color2 = ref('')
 
 const tags = computed(() => {
   const lst = ['none']
@@ -308,6 +333,7 @@ const position = computed({
 })
 
 const idx = ref(tags.value.indexOf(nTranslationMode.value))
+const hover = ref(false)
 
 const likeTrack = () => {
   if (currentTrack.value?.type === 'stream') {
@@ -349,21 +375,30 @@ const marks = computed(() => {
   return result
 })
 
+const theme = computed(() => {
+  return general.value.lyricBackground === 'true' ? 'dark' : 'auto'
+})
+
 watch(showLyrics, (value) => {
-  if (!value) {
-    // clearTimeout(timer)
-    // updateCurrentTime()
-  } else {
+  if (value) {
     show.value = 'lyric'
   }
 })
 
-watch(playing, (value) => {
-  if (value) {
-    // updateCurrentTime()
-  } else {
-    // clearTimeout(timer)
-  }
+watch(pic, (value) => {
+  if (!value) return
+  Vibrant.from(value)
+    .getPalette()
+    .then((palette) => {
+      const swatch = palette.DarkMuted
+      if (swatch) {
+        const originColor = Color.rgb(swatch.rgb)
+        color.value = originColor.darken(0.1).rgb().string()
+        color2.value = originColor.lighten(0.28).rotate(-30).rgb().string()
+      } else {
+        console.log('未找到 DarkMuted 颜色')
+      }
+    })
 })
 
 const addTrackToPlaylist = () => {
@@ -398,11 +433,6 @@ const switchRightPage = (name: string) => {
 }
 
 provide('show', show)
-
-onBeforeUnmount(() => {
-  // clearTimeout(timer)
-  // if (rOnTimeupdate) rOnTimeupdate()
-})
 </script>
 
 <style scoped lang="scss">
@@ -415,23 +445,84 @@ onBeforeUnmount(() => {
   z-index: 100;
   color: var(--color-text);
   overflow: hidden;
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  display: flex;
+  background: var(--color-body-bg);
+  // grid-template-columns: repeat(2, 1fr);
 }
 
 .play-page.no-lyric {
   .left-side {
     transition: all 0.5s;
-    transform: translateX(25vh);
+    transform: translateX(25vw);
     padding-right: 0;
+    padding-left: 0;
   }
 }
 
+.lyrics-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.lyrics-background {
+  --contrast-lyrics-background: 50%;
+  --brightness-lyrics-background: 130%;
+}
+
+.lyrics-background {
+  position: absolute;
+  height: 100vh;
+  width: 100vw;
+  filter: blur(50px) contrast(var(--contrast-lyrics-background))
+    brightness(var(--brightness-lyrics-background));
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    width: 140vw;
+    height: 140vw;
+    background-image: var(--cover-url);
+    background-size: cover;
+    opacity: 0.6;
+  }
+
+  &::before {
+    top: 0;
+    right: 0;
+    mix-blend-mode: luminosity;
+  }
+
+  &::after {
+    bottom: 0;
+    left: 0;
+    animation-direction: reverse;
+  }
+}
+
+.dynamic-background {
+  &::before,
+  &::after {
+    animation: rotate 90s linear infinite;
+    will-change: transform;
+    transform: translateZ(0);
+  }
+}
+
+.graditent-background {
+  position: absolute;
+  width: 100vw;
+  height: 100vh;
+}
+
 .left-side {
+  flex: 1;
   display: flex;
-  justify-content: flex-end;
-  padding-right: 4rem;
-  width: 50vw;
+  justify-content: center;
+  padding-left: 3vw;
   align-items: center;
   transition: all 0.5s;
   z-index: 10;
@@ -445,12 +536,23 @@ onBeforeUnmount(() => {
       object-fit: cover;
       border-radius: 0.75rem;
     }
+    .shadow {
+      position: absolute;
+      top: 12px;
+      height: min(50vh, 33.33vw);
+      width: min(50vh, 33.33vw);
+      filter: blur(16px) opacity(0.6);
+      transform: scale(0.92, 0.96);
+      z-index: -1;
+      background-size: cover;
+      border-radius: 0.75em;
+    }
   }
 
   .controls {
     color: var(--color-text);
     max-width: min(50vh, 33.33vw);
-    margin-top: 20px;
+    margin-top: 3vh;
     position: relative;
 
     .top-part {
@@ -548,7 +650,7 @@ onBeforeUnmount(() => {
     .media-controls {
       display: flex;
       justify-content: center;
-      margin-top: 18px;
+      margin-top: 3vh;
       align-items: center;
 
       .svg-icon {
@@ -562,12 +664,12 @@ onBeforeUnmount(() => {
       }
 
       .middle {
-        padding: 0 16px;
+        padding: 0 2.2vw;
         display: flex;
         align-items: center;
 
         button {
-          margin: 0 8px;
+          margin: 0 1.2vw;
         }
 
         button#play .svg-icon {
@@ -587,7 +689,9 @@ onBeforeUnmount(() => {
 }
 
 .right-side {
-  max-width: 50vw;
+  flex: 1;
+  justify-self: center;
+  padding-right: 3vw;
 }
 
 .close-button {
@@ -607,7 +711,6 @@ onBeforeUnmount(() => {
 
   .svg-icon {
     color: var(--color-text);
-    // padding-top: 5px;
     height: 22px;
     width: 22px;
   }
@@ -626,6 +729,24 @@ onBeforeUnmount(() => {
   }
   &:active {
     transform: unset;
+  }
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg) translateZ(0);
+  } // 触发GPU加速
+  to {
+    transform: rotate(360deg) translateZ(0);
+  }
+}
+
+@media (max-aspect-ratio: 10/9) {
+  .left-side {
+    display: none;
+  }
+  .right-side {
+    max-width: 100%;
   }
 }
 
