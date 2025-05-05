@@ -16,8 +16,6 @@ import Constants from './utils/Constants'
 import store from './store'
 import { createTray, YPMTray } from './tray'
 import { createMenu } from './menu'
-import { createDockMenu } from './dock'
-import { createTouchBar } from './touchBar'
 import { MprisImpl } from './mpris'
 import fastify, { FastifyInstance } from 'fastify'
 import fastifyCookie from '@fastify/cookie'
@@ -25,8 +23,6 @@ import netease from './appServer/netease'
 import IPCs from './IPCs'
 import fastifyStatic from '@fastify/static'
 import path from 'path'
-// import mime from 'mime-types'
-import cache from './cache'
 import {
   getPic,
   getPicFromApi,
@@ -35,10 +31,10 @@ import {
   getPicColor,
   getTrackDetail,
   getAudioSource,
-  cacheOnlineTrack,
-  getStreamLyric,
-  getStreamPic,
-  getStreamMusic
+  cacheOnlineTrack
+  // getStreamLyric,
+  // getStreamPic,
+  // getStreamMusic
 } from './utils/utils'
 import { CacheAPIs } from './utils/CacheApis'
 import { registerGlobalShortcuts } from './globalShortcut'
@@ -260,9 +256,9 @@ class BackGround {
       webPreferences: Constants.DEFAULT_OSD_PREFERENCES
     }
 
-    if (option.x && option.y) {
-      const x = option.x
-      const y = option.y
+    if (store.get('osdWin.x') && store.get('osdWin.y')) {
+      const x = store.get('osdWin.x') as number
+      const y = store.get('osdWin.y') as number
 
       const displays = screen.getAllDisplays()
       let isResetWindow = false
@@ -437,10 +433,14 @@ class BackGround {
 
   handleProtocol() {
     protocol.handle('atom', async (request) => {
+      const cache = (await import('./cache')).default
       const { host, pathname } = new URL(request.url)
-      if (host === 'online-pic') {
-        const url = pathname.slice(1).replace('http://', 'https://')
-        return net.fetch(url)
+      if (host === 'get-stream') {
+        const url = decodeURIComponent(pathname.slice(1))
+        const headers = request.headers
+        return net.fetch(url, { headers })
+      } else if (host === 'online-pic') {
+        return net.fetch(pathname.slice(1))
       } else if (host === 'get-pic') {
         const ids = pathname.slice(1)
         const res = cache.get(CacheAPIs.Track, { ids })
@@ -465,6 +465,19 @@ class BackGround {
         const format = result.format
 
         return new Response(pic, { headers: { 'Content-Type': format } })
+      } else if (host === 'get-local-pic') {
+        const ids = pathname.slice(1)
+        const res = cache.get(CacheAPIs.Track, { ids })
+        if (res) {
+          const track = res.songs[0]
+          const result = await getPic(track)
+
+          const pic = result.pic
+          const format = result.format
+
+          return new Response(pic, { headers: { 'Content-Type': format } })
+        }
+        throw new Error()
       } else if (host === 'get-default-pic') {
         const pic = fs.readFileSync(defaultImagePath)
         return new Response(pic)
@@ -650,42 +663,46 @@ class BackGround {
         const url = pathname.slice(1)
         const headers = request.headers
         return fetch(url, { headers })
-      } else if (host === 'get-stream-pic') {
-        const url = pathname.slice(1)
-        return getStreamPic(url)
-      } else if (host === 'get-stream-music') {
-        const id = pathname.slice(1)
-        const headers = request.headers
-        return getStreamMusic(id, headers)
-      } else if (host === 'get-stream-track-info') {
-        const id = pathname.slice(1)
-        let pic: Buffer | null = null
-        let format: string = ''
-
-        // 获取图片
-        pic = await getStreamPic(id)
-          .then((res) => {
-            format = res.headers.get('Content-Type')
-            return res.arrayBuffer()
-          })
-          .then((res) => Buffer.from(res))
-
-        // 获取颜色
-        const { color, color2 } = await getPicColor(pic)
-
-        // 获取歌词
-        const lyrics = await getStreamLyric(id)
-        return new Response(JSON.stringify({ pic, format, color, color2, lyrics }), {
-          headers: { 'content-type': 'application/json' }
-        })
-      } else if (host === 'get-stream-lyric') {
-        const id = pathname.slice(1)
-        const lyrics = await getStreamLyric(id)
-        return new Response(JSON.stringify(lyrics), {
-          headers: { 'content-type': 'application/json' }
-        })
       }
+      // else if (host === 'get-stream-pic') {
+      //   const url = pathname.slice(1)
+      //   return getStreamPic(url)
+      // } else if (host === 'get-stream-music') {
+      //   const id = pathname.slice(1)
+      //   const headers = request.headers
+      //   return getStreamMusic(id, headers)
+      // } else if (host === 'get-stream-track-info') {
+      //   const id = pathname.slice(1)
+      //   let pic: Buffer | null = null
+      //   let format: string = ''
+
+      //   // 获取图片
+      //   pic = await getStreamPic(id)
+      //     .then((res) => {
+      //       format = res.headers.get('Content-Type')
+      //       return res.arrayBuffer()
+      //     })
+      //     .then((res) => Buffer.from(res))
+
+      //   // 获取颜色
+      //   const { color, color2 } = await getPicColor(pic)
+
+      //   // 获取歌词
+      //   const lyrics = await getStreamLyric(id)
+      //   return new Response(JSON.stringify({ pic, format, color, color2, lyrics }), {
+      //     headers: { 'content-type': 'application/json' }
+      //   })
+      // } else if (host === 'get-stream-lyric') {
+      //   const id = pathname.slice(1)
+      //   const lyrics = await getStreamLyric(id)
+      //   return new Response(JSON.stringify(lyrics), {
+      //     headers: { 'content-type': 'application/json' }
+      //   })
+      // }
     })
+    // protocol.handle('http', (request) => {
+    //   return fetch(request)
+    // })
   }
 
   handleAppEvents() {
@@ -698,7 +715,6 @@ class BackGround {
       this.handleWindowEvents()
 
       this.tray = createTray(this.win)
-      createTouchBar(this.win)
       if (Constants.IS_LINUX) {
         const createMpris = await import('./mpris').then((m) => m.createMpris)
         this.mpris = createMpris(this.win)
@@ -720,7 +736,13 @@ class BackGround {
       }
       IPCs.initialize(this.win, this.tray, this.mpris, lrc)
       createMenu(this.win)
-      createDockMenu(this.win)
+      if (Constants.IS_MAC) {
+        const { createDockMenu } = await import('./dock')
+        createDockMenu(this.win)
+
+        const { createTouchBar } = await import('./touchBar')
+        createTouchBar(this.win)
+      }
     })
 
     app.on('activate', () => {

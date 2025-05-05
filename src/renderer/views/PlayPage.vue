@@ -12,6 +12,7 @@
           <div>
             <div class="cover">
               <img :src="pic" loading="lazy" />
+              <div class="shadow" :style="{ backgroundImage: `url(${pic})` }"></div>
             </div>
             <div class="controls">
               <div class="top-part">
@@ -202,8 +203,8 @@
             </div>
           </div>
         </div>
-        <div class="right-side">
-          <LyricPage v-if="show === 'lyric'" />
+        <div class="right-side" @mouseenter="hover = true" @mouseleave="hover = false">
+          <LyricPage v-if="show === 'lyric'" :hover="hover" />
           <Comment v-else :id="currentTrack!.id" type="music" />
         </div>
         <button-icon class="close-button" @click="showLyrics = !showLyrics">
@@ -239,9 +240,11 @@ import { useSettingsStore, TranslationMode } from '../store/settings'
 import { usePlayerStore } from '../store/player'
 import { useDataStore } from '../store/data'
 import { storeToRefs } from 'pinia'
-import { ref, computed, watch, provide, toRefs, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, provide, toRefs } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStreamMusicStore } from '../store/streamingMusic'
+import { Vibrant } from 'node-vibrant/browser'
+import Color from 'color'
 
 const router = useRouter()
 const playPageContextMenu = ref<InstanceType<typeof ContextMenu>>()
@@ -267,17 +270,19 @@ const {
   playing,
   shuffle,
   isLiked,
-  color,
-  color2,
-  pic,
   source,
   chorus,
   repeatMode
 } = storeToRefs(playerStore)
-const { playPrev, playOrPause, _playNextTrack, switchRepeatMode, moveToFMTrash } = playerStore
+const { playPrev, playOrPause, _playNextTrack, switchRepeatMode, moveToFMTrash, getPic } =
+  playerStore
 const { likeATrack } = useDataStore()
 
 const { likeAStreamTrack } = useStreamMusicStore()
+
+const pic = ref('')
+const color = ref('')
+const color2 = ref('')
 
 const tags = computed(() => {
   const lst = ['none']
@@ -308,6 +313,7 @@ const position = computed({
 })
 
 const idx = ref(tags.value.indexOf(nTranslationMode.value))
+const hover = ref(false)
 
 const likeTrack = () => {
   if (currentTrack.value?.type === 'stream') {
@@ -350,20 +356,32 @@ const marks = computed(() => {
 })
 
 watch(showLyrics, (value) => {
-  if (!value) {
-    // clearTimeout(timer)
-    // updateCurrentTime()
-  } else {
+  if (value) {
     show.value = 'lyric'
   }
 })
 
-watch(playing, (value) => {
-  if (value) {
-    // updateCurrentTime()
-  } else {
-    // clearTimeout(timer)
-  }
+watch(currentTrack, (value) => {
+  getPic(value!, 512)
+    .then((res) => {
+      pic.value = res
+      if (value?.matched) pic.value += '?param=512y512'
+      return pic.value
+    })
+    .then((cover) => {
+      Vibrant.from(cover)
+        .getPalette()
+        .then((palette) => {
+          const swatch = palette.DarkMuted
+          if (swatch) {
+            const originColor = Color.rgb(swatch.rgb)
+            color.value = originColor.darken(0.1).rgb().string()
+            color2.value = originColor.lighten(0.28).rotate(-30).rgb().string()
+          } else {
+            console.log('未找到 DarkMuted 颜色')
+          }
+        })
+    })
 })
 
 const addTrackToPlaylist = () => {
@@ -398,11 +416,6 @@ const switchRightPage = (name: string) => {
 }
 
 provide('show', show)
-
-onBeforeUnmount(() => {
-  // clearTimeout(timer)
-  // if (rOnTimeupdate) rOnTimeupdate()
-})
 </script>
 
 <style scoped lang="scss">
@@ -415,23 +428,25 @@ onBeforeUnmount(() => {
   z-index: 100;
   color: var(--color-text);
   overflow: hidden;
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  display: flex;
+  // grid-template-columns: repeat(2, 1fr);
 }
 
 .play-page.no-lyric {
   .left-side {
     transition: all 0.5s;
-    transform: translateX(25vh);
+    transform: translateX(25vw);
     padding-right: 0;
+    padding-left: 0;
   }
 }
 
 .left-side {
+  flex: 1;
   display: flex;
-  justify-content: flex-end;
-  padding-right: 4rem;
-  width: 50vw;
+  justify-content: center;
+  padding-left: 3vw;
+  // width: 50vw;
   align-items: center;
   transition: all 0.5s;
   z-index: 10;
@@ -445,12 +460,23 @@ onBeforeUnmount(() => {
       object-fit: cover;
       border-radius: 0.75rem;
     }
+    .shadow {
+      position: absolute;
+      top: 12px;
+      height: min(50vh, 33.33vw);
+      width: min(50vh, 33.33vw);
+      filter: blur(16px) opacity(0.6);
+      transform: scale(0.92, 0.96);
+      z-index: -1;
+      background-size: cover;
+      border-radius: 0.75em;
+    }
   }
 
   .controls {
     color: var(--color-text);
     max-width: min(50vh, 33.33vw);
-    margin-top: 20px;
+    margin-top: 3vh;
     position: relative;
 
     .top-part {
@@ -548,7 +574,7 @@ onBeforeUnmount(() => {
     .media-controls {
       display: flex;
       justify-content: center;
-      margin-top: 18px;
+      margin-top: 3vh;
       align-items: center;
 
       .svg-icon {
@@ -562,12 +588,12 @@ onBeforeUnmount(() => {
       }
 
       .middle {
-        padding: 0 16px;
+        padding: 0 2.2vw;
         display: flex;
         align-items: center;
 
         button {
-          margin: 0 8px;
+          margin: 0 1.2vw;
         }
 
         button#play .svg-icon {
@@ -587,7 +613,9 @@ onBeforeUnmount(() => {
 }
 
 .right-side {
-  max-width: 50vw;
+  flex: 1;
+  justify-self: center;
+  padding-right: 3vw;
 }
 
 .close-button {
@@ -607,7 +635,6 @@ onBeforeUnmount(() => {
 
   .svg-icon {
     color: var(--color-text);
-    // padding-top: 5px;
     height: 22px;
     width: 22px;
   }
@@ -626,6 +653,15 @@ onBeforeUnmount(() => {
   }
   &:active {
     transform: unset;
+  }
+}
+
+@media (max-aspect-ratio: 10/9) {
+  .left-side {
+    display: none;
+  }
+  .right-side {
+    max-width: 100%;
   }
 }
 

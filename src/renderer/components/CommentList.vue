@@ -97,7 +97,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, inject, computed, onBeforeUnmount } from 'vue'
+import { ref, onMounted, reactive, inject, computed, onBeforeUnmount, watch } from 'vue'
 import { getComment, likeComment, submitComment } from '../api/comment'
 import { useNormalStateStore } from '../store/state'
 import VirtualScroll from './VirtualScrollNoHeight.vue'
@@ -163,6 +163,23 @@ const typeMap = {
   djRadio: 4,
   video: 5
 }
+
+watch(
+  () => props.id,
+  () => {
+    if (props.type === 'music') {
+      commentInfo.totalCount = 0
+      commentInfo.sortType = 1
+      commentInfo.paramType = 1
+      commentInfo.pageNo = 1
+      commentInfo.hasMore = true
+      commentInfo.cursor = 0
+      commentInfo.pageSize = 50
+      comments.value = []
+      loadComment()
+    }
+  }
+)
 
 const { t } = useI18n()
 const stateStore = useNormalStateStore()

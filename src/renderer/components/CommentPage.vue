@@ -11,7 +11,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, provide } from 'vue'
+import { ref, provide, watch } from 'vue'
 import CommentList from './CommentList.vue'
 import FloorComment from './CommentFloor.vue'
 
@@ -28,6 +28,14 @@ const props = defineProps({
 
 const currentPage = ref('comment')
 const beRepliedCommentId = ref(0)
+
+watch(
+  () => props.id,
+  () => {
+    currentPage.value = 'comment'
+  }
+)
+
 provide('currentPage', currentPage)
 provide('beRepliedCommentId', beRepliedCommentId)
 </script>

@@ -331,6 +331,16 @@
         "romalrc": "Transliteration"
       },
       "fontSize": "Font Size (px)",
+      "textAlign": {
+        "text": "Text Alignment",
+        "start": "Left",
+        "center": "Center",
+        "end": "Right"
+      },
+      "useMask": {
+        "text": "Enable lyrics mask",
+        "desc": "Enable a transparent gradient effect on the top and bottom edges of the lyrics page"
+      },
       "staticTime": {
         "text": "Mouse Hover Timeout",
         "desc": "After locking, lyrics fade after this duration (ms). Not supported on Linux."

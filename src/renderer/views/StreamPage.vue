@@ -4,7 +4,7 @@
       <div class="left" style="width: 100%">
         <InfoBG />
         <div class="content">
-          <h2 style="margin-bottom: 20px">流媒体歌曲 - {{ select }}</h2>
+          <h2 style="margin-bottom: 20px">流媒体歌曲 - {{ currentService.name }}</h2>
           <div class="content-info">
             <div>
               <div class="subtitle">全部歌曲</div>
@@ -103,7 +103,7 @@
           ><svg-icon icon-class="plus" />{{ $t('library.playlist.newPlaylist') }}</button
         >
       </div>
-      <div v-if="status[select] === 'offline'" class="errorInfo">{{ streamMessage }}</div>
+      <div v-if="currentService.status === 'offline'" class="errorInfo">{{ streamMessage }}</div>
       <div v-if="show" class="section-two-content" :style="tabStyle">
         <div v-show="currentTab === 'track'">
           <TrackList
@@ -169,9 +169,9 @@ import { Track } from '../store/localMusic'
 const { newPlaylistModal, modalOpen } = storeToRefs(useNormalStateStore())
 
 const streamMusicStore = useStreamMusicStore()
-const { select, status, sortBy, streamTracks, playlists, message, streamLikedTracks } =
+const { sortBy, streamTracks, playlists, message, streamLikedTracks, currentService } =
   storeToRefs(streamMusicStore)
-const { fetchStreamMusic } = streamMusicStore
+const { fetchStreamMusic, fetchStreamPlaylist, getStreamLyric } = streamMusicStore
 
 const router = useRouter()
 
@@ -193,7 +193,7 @@ const tabStyle = computed(() => {
 })
 
 const streamMessage = computed(() => {
-  return status.value[select.value] === 'offline' ? message.value : ''
+  return currentService.value.status === 'offline' ? message.value : ''
 })
 
 const pickedLyricLines = computed(() => {
@@ -292,7 +292,7 @@ const goToLikedSongsList = () => {
 }
 
 const openAddPlaylistModal = () => {
-  if (status.value[select.value] !== 'login') return
+  if (currentService.value.status !== 'login') return
   newPlaylistModal.value = {
     type: 'stream',
     afterCreateAddTrackID: [],
@@ -307,7 +307,7 @@ const getRandomTrack = async () => {
   let randomID: string | number
   while (i < ids.length - 1) {
     randomID = ids[randomNum(0, ids.length - 1)]
-    data = await fetch(`atom://get-stream-lyric/${randomID}`).then((res) => res.json())
+    data = await getStreamLyric(randomID as unknown as string)
     if (data.lrc.lyric.length > 0) {
       const { lyric } = lyricParse(data)
       const isInstrumental = lyric.filter((l) => l.content?.includes('纯音乐，请欣赏'))
@@ -369,19 +369,17 @@ const handleResize = () => {
   if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
 }
 
-watch(
-  () => status.value[select.value],
-  (value) => {
-    if (value === 'logout') {
-      router.push('/streamLogin')
-    }
+watch(currentService, (value) => {
+  if (value.status === 'logout') {
+    router.push('/streamLogin')
   }
-)
+})
 
 onMounted(async () => {
   if (!streamTracks.value.length) {
+    fetchStreamPlaylist()
     await fetchStreamMusic().then(() => {
-      if (status.value[select.value] === 'login') {
+      if (currentService.value.status === 'login') {
         show.value = true
         getRandomTrack()
       }
@@ -390,8 +388,9 @@ onMounted(async () => {
     show.value = true
     getRandomTrack()
     fetchStreamMusic()
+    fetchStreamPlaylist()
   }
-  if (status.value[select.value] === 'logout') {
+  if (currentService.value.status === 'logout') {
     router.push('/streamLogin')
     return
   }

@@ -1,6 +1,16 @@
 import { defineStore } from 'pinia'
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
+import {
+  getNavidromeTracks,
+  getNavidromePlaylists,
+  opTracksFromePlaylist,
+  navidromeScrobble,
+  likeANavidromeTrack,
+  getNavidromeLyric,
+  getRestUrl
+} from '../api/navidrome'
 import { Track, Playlist } from './localMusic'
+import { updateStreamInfo } from '../utils/db'
 import _ from 'lodash'
 
 export interface StreamPlaylist extends Omit<Playlist, 'id'> {
@@ -8,20 +18,25 @@ export interface StreamPlaylist extends Omit<Playlist, 'id'> {
   trackItemIds: Record<number, number>
 }
 
-export const servers = ['navidrome', 'jellyfin', 'emby'] as const
-export type streamServer = (typeof servers)[number]
+export const servicesName = ['navidrome', 'jellyfin', 'emby'] as const
+export type serviceName = (typeof servicesName)[number]
 export type streamStatus = 'logout' | 'login' | 'offline'
+
+export type serviceType = {
+  name: serviceName
+  selected: boolean
+  status: streamStatus
+}
 
 export const useStreamMusicStore = defineStore(
   'streamMusic',
   () => {
     const enable = ref(false)
-    const select = ref<streamServer>('navidrome')
-    const status = reactive<Record<streamServer, streamStatus>>({
-      navidrome: 'logout',
-      jellyfin: 'logout',
-      emby: 'logout'
-    })
+    const services = ref<serviceType[]>([
+      { name: 'navidrome', selected: true, status: 'logout' },
+      { name: 'jellyfin', selected: false, status: 'logout' },
+      { name: 'emby', selected: false, status: 'logout' }
+    ])
     const streamTracks = ref<Track[]>([])
     const playlists = ref<StreamPlaylist[]>([])
     const sortBy = ref('default')
@@ -31,101 +46,149 @@ export const useStreamMusicStore = defineStore(
       return streamTracks.value.filter((track) => track.starred)
     })
 
+    const currentService = computed(() => services.value.find((s) => s.selected)!)
+
     const fetchStreamMusic = async () => {
-      if (status[select.value] === 'logout' || !enable.value) return
-      await window.mainApi
-        ?.invoke('get-stream-songs', { platform: select.value })
-        .then((data: { code: number; message: string; tracks: any; playlists: any }) => {
-          if (data.code === 200) {
-            status[select.value] = 'login'
-            streamTracks.value = data.tracks
-            playlists.value = data.playlists
-          } else if (data.code === 504) {
-            // console.log('get-stream-songs response = ', data)
-            status[select.value] = 'offline'
-            streamTracks.value = []
-            playlists.value = []
-            message.value = data.message
-          } else {
-            console.log('get-stream-songs response = ', data)
-            // status[select.value] = 'logout'
+      if (!enable.value) return
+      const service = services.value.find((s) => s.selected)!
+      if (service.status === 'logout') return
+      if (service.name === 'navidrome') {
+        await getNavidromeTracks().then((res) => {
+          if (res?.code === 200) {
+            streamTracks.value = res.data
           }
         })
+      } else if (service.name === 'emby') {
+        //
+      }
     }
 
     const fetchStreamPlaylist = async () => {
-      window.mainApi
-        ?.invoke('get-stream-playlists', { platform: select.value })
-        .then((data: { code: number; playlists: StreamPlaylist[] }) => {
-          if (data.code === 200) {
-            playlists.value = data.playlists
+      if (!enable.value) return
+      const service = services.value.find((s) => s.selected)!
+      if (service.status === 'logout') return
+      if (service.name === 'navidrome') {
+        getNavidromePlaylists().then((res) => {
+          if (res?.code === 200) {
+            playlists.value = res.data
           }
         })
+      } else if (service.name === 'emby') {
+        //
+      }
     }
 
     const addOrRemoveTrackFromStreamPlaylist = async (
-      op: string,
+      op: 'add' | 'del',
       playlistId: string,
       ids: string[]
     ) => {
-      let newIDs: any[] = []
-      if (op === 'add') {
-        const playlist = playlists.value.find((p) => p.id === playlistId)
-        newIDs = _.difference(ids, (playlist?.trackIds || []) as unknown as string[])
-        if (!newIDs.length) return false
-      }
+      if (!enable.value) return
+      const service = services.value.find((s) => s.selected)!
+      if (service.status === 'logout') return
+      if (service.name === 'navidrome') {
+        let newIDs: any[] = []
+        if (op === 'add') {
+          const playlist = playlists.value.find((p) => p.id === playlistId)
+          newIDs = _.difference(ids, (playlist?.trackIds || []) as unknown as string[])
+          if (!newIDs.length) return false
+        }
 
-      const status: boolean = await window.mainApi?.invoke('updateStreamPlaylist', {
-        op,
-        platform: select.value,
-        playlistId,
-        ids: op === 'add' ? newIDs : ids
-      })
-      if (status) {
-        fetchStreamPlaylist()
+        const status = await opTracksFromePlaylist(op, playlistId, op === 'add' ? newIDs : ids)
+        if (status) {
+          fetchStreamPlaylist()
+        }
+        return status
       }
-      return status
     }
 
-    const scrobble = (id: string) => {
-      window.mainApi?.send('scrobbleStreamMusic', { platform: select.value, id })
+    const scrobble = (id: string | number) => {
+      if (!enable.value) return
+      const service = services.value.find((s) => s.selected)!
+      if (service.status === 'logout') return
+      if (service.name === 'navidrome') {
+        navidromeScrobble(id as string)
+      }
+    }
+
+    const getStreamLyric = (id: string | number) => {
+      if (!enable.value) return
+      const service = services.value.find((s) => s.selected)!
+      if (service.status === 'logout') return
+      const data = {
+        lrc: { lyric: [] as any[] },
+        tlyric: { lyric: [] as any[] },
+        romalrc: { lyric: [] as any[] },
+        yrc: { lyric: [] as any[] },
+        ytlrc: { lyric: [] as any[] },
+        yromalrc: { lyric: [] as any[] }
+      }
+      if (service.name === 'navidrome') {
+        return getNavidromeLyric(id as string)
+      }
+      return Promise.resolve(data)
     }
 
     const handleStreamLogout = () => {
-      window.mainApi?.invoke('logoutStreamMusic', { platform: select.value }).then(() => {
-        status[select.value] = 'logout'
-      })
+      if (!enable.value) return
+      const service = services.value.find((s) => s.selected)!
+      if (service.status === 'logout') return
+      if (service.name === 'navidrome') {
+        updateStreamInfo(service.name, { authorization: '', clientID: '' }).then(() => {
+          service.status = 'logout'
+          streamTracks.value = []
+          playlists.value = []
+        })
+      }
+    }
+
+    const getStreamPic = async (track: Track, size: number = 512) => {
+      if (!enable.value) return
+      const service = services.value.find((s) => s.selected)!
+      if (service.status === 'logout') return
+      if (service.name === 'navidrome') {
+        const pic = await getRestUrl('getCoverArt', { id: track.album.id, size })
+        return window.env?.isElectron
+          ? await fetch(pic!)
+              .then((res) => res.blob())
+              .then((res) => URL.createObjectURL(res))
+          : pic
+      }
     }
 
     const likeAStreamTrack = (op: 'unstar' | 'star', id: string | number) => {
-      window.mainApi
-        ?.invoke('likeAStreamTrack', { platform: select.value, operation: op, id })
-        .then((res: boolean) => {
+      if (!enable.value) return
+      const service = services.value.find((s) => s.selected)!
+      if (service.status === 'logout') return
+      if (service.name === 'navidrome') {
+        likeANavidromeTrack(op, id as string).then((res: boolean) => {
           if (res) {
             const track = streamTracks.value.find((track) => track.id === id)
             if (track) track.starred = !track.starred
           }
         })
+      }
     }
 
-    watch(select, (value) => {
+    watch(currentService, () => {
       streamTracks.value = []
       playlists.value = []
-      if (status[value] === 'login') {
-        fetchStreamMusic()
-      }
+      fetchStreamMusic()
+      fetchStreamPlaylist()
     })
 
     return {
       enable,
-      select,
-      status,
+      services,
+      currentService,
       streamTracks,
       streamLikedTracks,
       playlists,
       sortBy,
       message,
       scrobble,
+      getStreamLyric,
+      getStreamPic,
       likeAStreamTrack,
       handleStreamLogout,
       fetchStreamMusic,
@@ -135,7 +198,7 @@ export const useStreamMusicStore = defineStore(
   },
   {
     persist: {
-      pick: ['sortBy', 'enable', 'status', 'select']
+      pick: ['sortBy', 'enable', 'services']
     }
   }
 )

@@ -301,7 +301,7 @@ export class LyricManager {
     if (this.isMini) {
       this.buildMiniMode()
     } else {
-      this.container.addEventListener('wheel', this.handleWheel.bind(this))
+      this.container.addEventListener('wheel', this.handleWheel.bind(this), { passive: true })
     }
   }
 

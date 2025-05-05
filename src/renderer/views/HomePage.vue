@@ -62,6 +62,7 @@ import { useSettingsStore } from '../store/settings'
 import { useNormalStateStore } from '../store/state'
 import { usePlayerStore } from '../store/player'
 import { storeToRefs } from 'pinia'
+import Utils from '../utils'
 
 const toplistOfArtistsAreaTable = {
   all: null,
@@ -141,8 +142,10 @@ const handleBannerClick = (banner: any) => {
     router.push(`/album/${id}`)
   } else if (banner.typeTitle === '歌单推荐') {
     router.push(`/playlist/${banner.targetId}`)
-  } else if (banner.typeTitle === '独家策划') {
-    //
+  } else if (banner.typeTitle === 'MV首发') {
+    router.push(`/mv/${banner.targetId}`)
+  } else if (banner.url) {
+    Utils.openExternal(banner.url)
   }
 }
 

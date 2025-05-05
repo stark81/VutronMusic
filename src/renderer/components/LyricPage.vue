@@ -1,11 +1,6 @@
 <template>
   <transition name="slide-fade">
-    <div
-      v-show="!noLyric"
-      class="lyric-container"
-      @mouseenter="hover = true"
-      @mouseleave="hover = false"
-    >
+    <div v-show="!noLyric" :class="{ 'lyric-wrapper': useMask }">
       <div v-show="hover" class="offset">
         <button-icon title="提前0.5s" @click="setOffset(-0.5)">
           <svg-icon icon-class="back5s" />
@@ -17,7 +12,7 @@
           <svg-icon icon-class="forward5s" />
         </button-icon>
       </div>
-      <div ref="lyricContainer"></div>
+      <div ref="lyricContainer" class="lyric-container" />
     </div>
   </transition>
 </template>
@@ -42,26 +37,21 @@ import {
   updateMode
 } from '../utils/lyricController'
 
+defineProps({
+  hover: { type: Boolean, default: false }
+})
+
 const playerStore = usePlayerStore()
-const {
-  noLyric,
-  currentTrack,
-  lyrics,
-  seek,
-  playing,
-  currentLyricIndex,
-  currentIndex,
-  lyricOffset
-} = storeToRefs(playerStore)
+const { noLyric, currentTrack, lyrics, seek, playing, currentIndex, lyricOffset } =
+  storeToRefs(playerStore)
 
 const stateStore = useNormalStateStore()
 const { showToast } = stateStore
 
 const settingsStore = useSettingsStore()
 const { normalLyric } = storeToRefs(settingsStore)
-const { nFontSize, nTranslationMode, isNWordByWord } = toRefs(normalLyric.value)
+const { nFontSize, nTranslationMode, isNWordByWord, textAlign, useMask } = toRefs(normalLyric.value)
 
-const hover = ref(false)
 const lyricContainer = ref<HTMLElement>()
 
 const offset = computed(() => {
@@ -113,19 +103,22 @@ watch(playing, (value) => {
   updatePlayStatus(value)
 })
 
-watch(currentLyricIndex, (value) => {
-  updateLineIndex(value)
-})
+watch(
+  () => currentIndex.value.line,
+  (value) => {
+    updateLineIndex(value)
+  }
+)
 
 watch(
-  () => currentIndex.value.list,
+  () => currentIndex.value.word,
   (value) => {
     updateFontIndex(value)
   }
 )
 
 watch(
-  () => currentIndex.value.tList,
+  () => currentIndex.value.tWord,
   (value) => {
     updateTFontIndex(value)
   }
@@ -135,9 +128,9 @@ watch(nTranslationMode, (value) => {
   updateMode({
     mode: value,
     currentTime: seek.value * 1000,
-    line: currentLyricIndex.value,
-    fontIndex: currentIndex.value.list,
-    tFontIndex: currentIndex.value.tList
+    line: currentIndex.value.line,
+    fontIndex: currentIndex.value.word,
+    tFontIndex: currentIndex.value.tWord
   })
 })
 
@@ -159,9 +152,9 @@ onMounted(() => {
       playing: playing.value,
       mode: nTranslationMode.value,
       wByw: isNWordByWord.value,
-      line: currentLyricIndex.value,
-      fontIdx: currentIndex.value.list,
-      tFontIdx: currentIndex.value.tList,
+      line: currentIndex.value.line,
+      fontIdx: currentIndex.value.word,
+      tFontIdx: currentIndex.value.tWord,
       currentTime: seek.value * 1000
     })
   }
@@ -176,35 +169,52 @@ onBeforeUnmount(() => {
 </script>
 
 <style lang="scss">
+.lyric-wrapper {
+  position: relative;
+  height: 100vh;
+  overflow: hidden;
+
+  mask-image: linear-gradient(to bottom, transparent, black 25%, black 75%, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, black 25%, black 75%, transparent);
+
+  contain: strict;
+  will-change: opacity;
+}
+
+.offset {
+  display: flex;
+  position: fixed;
+  flex-direction: column;
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 10px 6px;
+  top: 50%;
+  right: 3vw;
+  border-radius: 8px;
+  transform: translate(0, -50%);
+  z-index: 1;
+  contain: content;
+
+  .button-icon {
+    margin: unset;
+  }
+
+  .recovery {
+    margin: 10px 0;
+  }
+}
+
 .lyric-container {
   height: 100vh;
+  width: calc(min(50vh, 33.33vw) + 8vw);
   display: flex;
   flex-direction: column;
   overflow-y: scroll;
   scrollbar-width: none;
-  padding: 0 6vw 0 3vw;
-  transition: all 0.5s;
+  padding-left: 3vw;
+  position: relative;
 
-  .offset {
-    display: flex;
-    position: fixed;
-    flex-direction: column;
-    background-color: rgba(0, 0, 0, 0.05);
-    padding: 10px 6px;
-    top: 50%;
-    right: 30px;
-    border-radius: 8px;
-    transform: translate(0, -50%);
-    z-index: 1;
-
-    .button-icon {
-      margin: unset;
-    }
-
-    .recovery {
-      margin: 10px 0;
-    }
-  }
+  contain: content;
+  transform: translateZ(0);
 }
 
 .line {
@@ -213,6 +223,23 @@ onBeforeUnmount(() => {
   user-select: none;
   padding: 12px;
   font-weight: 600;
+  text-align: v-bind(textAlign);
+  transition: 0.5s;
+  .lyric-line {
+    contain: layout style;
+    will-change: transform;
+    transform-origin: center left;
+    transform: scale(0.95);
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  .translation {
+    contain: layout style;
+    will-change: transform;
+    transform-origin: center left;
+    transform: scale(0.95);
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
 
   &:hover {
     background: var(--color-secondary-bg-for-transparent);
@@ -230,9 +257,6 @@ onBeforeUnmount(() => {
 .line {
   .lyric-line span {
     font-size: v-bind('`${nFontSize}px`');
-    transition:
-      font-size 0.4s ease,
-      background-color 0.4s ease;
     background-repeat: no-repeat;
     background-color: rgba(255, 255, 255, 0.28);
     -webkit-text-fill-color: transparent;
@@ -242,9 +266,6 @@ onBeforeUnmount(() => {
   }
   .translation span {
     font-size: v-bind('`${nFontSize - 2}px`');
-    transition:
-      font-size 0.4s ease,
-      background-color 0.4s ease;
     background-repeat: no-repeat;
     background-color: rgba(255, 255, 255, 0.28);
     -webkit-text-fill-color: transparent;
@@ -255,37 +276,61 @@ onBeforeUnmount(() => {
 }
 
 .line-mode.active {
-  .lyric-line span {
-    background-color: rgba(255, 255, 255, 0.95);
+  .lyric-line {
+    transform: scale(1);
+    span {
+      background-color: rgba(255, 255, 255, 0.95);
+    }
   }
-  .translation span {
-    background-color: rgba(255, 255, 255, 0.75);
+  .translation {
+    transform: scale(1);
+    span {
+      background-color: rgba(255, 255, 255, 0.75);
+    }
   }
 }
 
 .word-mode.active {
-  .lyric-line span {
-    background-image: -webkit-linear-gradient(
-      top,
-      rgba(255, 255, 255, 0.95),
-      rgba(255, 255, 255, 0.95)
-    );
+  .lyric-line {
+    transform: scale(1);
+    span {
+      will-change: background-size;
+      background-image: -webkit-linear-gradient(
+        top,
+        rgba(255, 255, 255, 0.95),
+        rgba(255, 255, 255, 0.95)
+      );
+    }
   }
-  .translation span {
-    background-image: -webkit-linear-gradient(
-      top,
-      rgba(255, 255, 255, 0.75),
-      rgba(255, 255, 255, 0.75)
-    );
+  .translation {
+    transform: scale(1);
+    span {
+      will-change: background-size;
+      background-image: -webkit-linear-gradient(
+        top,
+        rgba(255, 255, 255, 0.75),
+        rgba(255, 255, 255, 0.75)
+      );
+    }
+  }
+}
+
+@media (max-aspect-ratio: 10/9) {
+  .lyric-container {
+    width: 100vw;
+    padding-right: 3vw;
+    .line {
+      text-align: center;
+    }
   }
 }
 
 .slide-fade-enter-active {
-  transition: all 0.5s;
+  transition: all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .slide-fade-leave-active {
-  transition: all 0.5s;
+  transition: all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .slide-fade-enter-from,

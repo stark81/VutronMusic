@@ -37,6 +37,8 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
 import { useRouter } from 'vue-router'
+import { Vibrant } from 'node-vibrant/browser'
+import Color from 'color'
 
 const router = useRouter()
 const playerStore = usePlayerStore()
@@ -54,12 +56,19 @@ const nextTrackCover = computed(() => {
 
 const getColor = (track: any) => {
   const cover = `${track.album.picUrl.replace('http://', 'https://')}?param=512y512`
-  fetch(`atom://get-color/${cover}`)
-    .then((res) => res.json())
-    .then((data: { color: string; color2: string }) => {
-      background.value = `linear-gradient(to top left, ${data.color}, ${data.color2})`
+  Vibrant.from(cover)
+    .getPalette()
+    .then((palette) => {
+      const swatch = palette.DarkMuted
+      if (swatch) {
+        const originColor = Color.rgb(swatch.rgb)
+        const color = originColor.darken(0.1).rgb().string()
+        const color2 = originColor.lighten(0.28).rotate(-30).rgb().string()
+        background.value = `linear-gradient(to top left, ${color}, ${color2})`
+      } else {
+        console.log('未找到 DarkMuted 颜色')
+      }
     })
-    .catch(() => {})
 }
 
 const goToAlbum = () => {

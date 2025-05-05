@@ -7,6 +7,7 @@ import cloneDeep from 'lodash/cloneDeep'
 export type TranslationMode = 'none' | 'tlyric' | 'rlyric'
 export type StreamStatus = 'logout' | 'login' | 'offline'
 export type TrackInfoOrder = 'path' | 'online' | 'embedded'
+type TextAlign = 'start' | 'center' | 'end'
 
 export const useSettingsStore = defineStore(
   'settings',
@@ -56,11 +57,15 @@ export const useSettingsStore = defineStore(
       isNWordByWord: boolean
       isTWordByWord: boolean
       nTranslationMode: TranslationMode
+      textAlign: TextAlign
+      useMask: boolean
     }>({
       nFontSize: 28,
       isNWordByWord: true,
       isTWordByWord: true,
-      nTranslationMode: 'tlyric'
+      nTranslationMode: 'tlyric',
+      textAlign: 'start',
+      useMask: true
     })
 
     const osdLyric = reactive({

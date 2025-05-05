@@ -331,6 +331,16 @@
         "romalrc": "音译"
       },
       "fontSize": "字体大小（px）",
+      "textAlign": {
+        "text": "字体对齐方式",
+        "start": "居左",
+        "center": "居中",
+        "end": "居右"
+      },
+      "useMask": {
+        "text": "启用歌词遮罩",
+        "desc": "歌词页上下边缘启用透明渐变的效果"
+      },
       "staticTime": {
         "text": "鼠标停留时长",
         "desc": "锁定后，鼠标停留该时长后（毫秒）降低窗体透明度，Linux系统下无效"

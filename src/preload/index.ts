@@ -44,6 +44,7 @@ const mainAvailChannels: string[] = [
   'get-stream-account',
   'check-update',
   'downloadUpdate',
+  'playerCurrentTrackTime',
   'update-powersave'
 ]
 const rendererAvailChannels: string[] = [
@@ -68,6 +69,7 @@ const rendererAvailChannels: string[] = [
   'update-not-available',
   'update-error',
   'download-progress',
+  'setPosition',
   'changeRouteTo'
 ]
 
