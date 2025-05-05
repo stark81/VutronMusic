@@ -1,4 +1,3 @@
-// import store from '../store'
 import axios from 'axios'
 import Constants from '../utils/Constants'
 import { parseLyricString } from '../utils/utils'
@@ -88,7 +87,7 @@ class Emby implements EmbyImpl {
       const tracks = response?.data?.Items.map((song) => {
         const picUrl = song?.ImageTags?.Primary
           ? `atom://get-stream-pic/${song.Id}/${song.ImageTags?.Primary}/64`
-          : 'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg'
+          : 'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg?param=128y128'
         const artists = song.ArtistItems.map((t) => {
           const art = response2.find((a) => a.Id === t.Id)!
           const artUrl = art?.ImageTags?.Primary
@@ -124,7 +123,7 @@ class Emby implements EmbyImpl {
             picUrl
           },
           artists,
-          picUrl
+          picUrl: this.getPic(song.Id, song.ImageTags?.Primary, 64)
         }
         return track
       })
@@ -191,7 +190,7 @@ class Emby implements EmbyImpl {
           }, {})
           const url = p.ImageTags?.Primary
             ? `atom://get-stream-pic/${p.Id}/${p.ImageTags?.Primary}/512`
-            : 'https://p1.music.126.net/jWE3OEZUlwdz0ARvyQ9wWw==/109951165474121408.jpg?param=512y512?param=512y512'
+            : 'https://p1.music.126.net/jWE3OEZUlwdz0ARvyQ9wWw==/109951165474121408.jpg?param=512y512'
           const playlist = {
             id: p.Id,
             name: p.Name,
@@ -237,7 +236,12 @@ class Emby implements EmbyImpl {
     const baseUrl = store.get('accounts.emby.url') as string
     const headers = { 'X-Emby-Token': accessToken, timeout: 15000 }
 
-    const url = `${baseUrl}/Users/${userId}/PlayedItems/${id}`
+    const time = new Date()
+      .toISOString()
+      .replace(/[-:TZ.]/g, '')
+      .slice(0, 14)
+
+    const url = `${baseUrl}/Users/${userId}/PlayedItems/${id}?datePlayed=${time}`
     axios({ method: 'POST', url, headers })
   }
 
@@ -258,7 +262,7 @@ class Emby implements EmbyImpl {
   }
 
   async getLyric(id: number) {
-    let result = {
+    const result = {
       lrc: { lyric: [] },
       tlyric: { lyric: [] },
       romalrc: { lyric: [] },
@@ -275,15 +279,7 @@ class Emby implements EmbyImpl {
     const lrc = getLyricFromExtraData(response.data)
     if (!lrc) return result
     const lyrics = parseLyricString(lrc)
-    result = {
-      lrc: { lyric: lyrics[0] || [] },
-      tlyric: { lyric: lyrics[1] || [] },
-      romalrc: { lyric: lyrics[2] || [] },
-      yrc: { lyric: [] },
-      ytlrc: { lyric: [] },
-      yromalrc: { lyric: [] }
-    }
-    return result
+    return lyrics
   }
 }
 

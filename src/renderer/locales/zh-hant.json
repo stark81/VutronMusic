@@ -277,6 +277,13 @@
         "high": "極高",
         "lossless": "無損"
       },
+      "lyricBackground": {
+        "text": "顯示歌詞背景",
+        "close": "關閉",
+        "true": "開啟",
+        "blur": "模糊封面",
+        "dynamic": "動態"
+      },
       "logout": "登出",
       "perventSuspend": "播放時防止系統休眠"
     },

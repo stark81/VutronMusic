@@ -217,14 +217,17 @@ const image = computed(() => {
   const alPic = rightClickedTrackComputed.value.al.picUrl
   const albumPic = rightClickedTrackComputed.value.album.picUrl
 
-  return rightClickedTrackComputed.value.matched !== false ||
+  let url =
+    rightClickedTrackComputed.value.matched !== false ||
     rightClickedTrackComputed.value.type === 'stream'
-    ? ((alPic !== '' && alPic) ||
-        (albumPic !== '' && albumPic) ||
-        'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg') + '?param=56y56'
-    : rightClickedTrackComputed.value.filePath
-      ? `atom://get-pic/${rightClickedTrackComputed.value.id}`
-      : ''
+      ? (alPic !== '' && alPic) || (albumPic !== '' && albumPic) || 'atom://get-default-pic'
+      : rightClickedTrackComputed.value.filePath
+        ? `atom://get-pic/${rightClickedTrackComputed.value.id}`
+        : ''
+  if (url.includes('https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg')) {
+    url = 'atom://get-default-pic'
+  }
+  return url
 })
 const typeType = computed(() => {
   if (props.type.includes('local')) return 'local'

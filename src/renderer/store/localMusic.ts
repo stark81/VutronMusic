@@ -186,7 +186,7 @@ export const useLocalMusicStore = defineStore(
 
     const getLocalPic = async (id: number) => {
       const pic = new URL(`../assets/images/default.jpg`, import.meta.url).href
-      const result = await fetch(`atom://get-local-pic/${id}`)
+      const result = await fetch(`atom://get-pic/${id}`)
         .then((res) => res.blob())
         .then((res) => URL.createObjectURL(res))
         .catch(() => null)

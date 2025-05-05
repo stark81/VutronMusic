@@ -119,7 +119,7 @@
               <div class="toggle">
                 <input
                   id="linux-title-bar"
-                  v-model="useLinuxTitleBar"
+                  v-model="useCustomTitlebar"
                   type="checkbox"
                   name="linux-title-bar"
                 />
@@ -273,7 +273,7 @@
                 <div class="title">{{ $t('settings.osdLyric.type.text') }}</div>
               </div>
               <div class="right">
-                <select v-model="typeOption">
+                <select v-model="type">
                   <option value="small">{{ $t('settings.osdLyric.type.small') }}</option>
                   <option value="normal">{{ $t('settings.osdLyric.type.normal') }}</option>
                 </select>
@@ -285,7 +285,7 @@
                 <div class="description">{{ $t('settings.osdLyric.mode.desc') }}</div>
               </div>
               <div class="right">
-                <select v-model="modeOption">
+                <select v-model="mode">
                   <option value="oneLine">{{ $t('settings.osdLyric.mode.oneLine') }}</option>
                   <option value="twoLines">{{ $t('settings.osdLyric.mode.twoLines') }}</option>
                 </select>
@@ -296,7 +296,7 @@
                 <div class="title">{{ $t('settings.osdLyric.translationMode.text') }}</div>
               </div>
               <div class="right">
-                <select v-model="translationOption">
+                <select v-model="translationMode">
                   <option value="none">{{ $t('settings.osdLyric.translationMode.none') }}</option>
                   <option value="tlyric">{{
                     $t('settings.osdLyric.translationMode.tlyric')
@@ -413,13 +413,28 @@
                 <div class="title">{{ $t('settings.osdLyric.translationMode.text') }}</div>
               </div>
               <div class="right">
-                <select v-model="nTranslationOption">
+                <select v-model="nTranslationMode">
                   <option value="none">{{ $t('settings.osdLyric.translationMode.none') }}</option>
                   <option value="tlyric">{{
                     $t('settings.osdLyric.translationMode.tlyric')
                   }}</option>
                   <option value="rlyric">{{
                     $t('settings.osdLyric.translationMode.romalrc')
+                  }}</option>
+                </select>
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('settings.general.lyricBackground.text') }}</div>
+              </div>
+              <div class="right">
+                <select v-model="lyricBackground">
+                  <option value="none">{{ $t('settings.general.lyricBackground.close') }}</option>
+                  <option value="true">{{ $t('settings.general.lyricBackground.true') }}</option>
+                  <option value="blur">{{ $t('settings.general.lyricBackground.blur') }}</option>
+                  <option value="dynamic">{{
+                    $t('settings.general.lyricBackground.dynamic')
                   }}</option>
                 </select>
               </div>
@@ -970,9 +985,14 @@ const {
   normalLyric
 } = storeToRefs(settingsStore)
 const { scanDir, enble, trackInfoOrder } = toRefs(localMusic.value)
-const { showTrackTimeOrID, useCustomTitlebar, language, musicQuality, closeAppOption } = toRefs(
-  general.value
-)
+const {
+  showTrackTimeOrID,
+  useCustomTitlebar,
+  language,
+  musicQuality,
+  closeAppOption,
+  lyricBackground
+} = toRefs(general.value)
 const { appearance, colors } = toRefs(theme.value)
 const customizeColor = computed(() => colors.value[4])
 const { showLyric, showControl, lyricWidth, scrollRate, enableExtension } = toRefs(tray.value)
@@ -1077,46 +1097,9 @@ const loginOrlogout = (platform: serviceType) => {
   } else {
     if (confirm(`确定登出${platform.name}吗？`)) {
       handleStreamLogout()
-      // status.value[platform] = 'logout'
-      // if ()
     }
   }
 }
-
-const typeOption = computed({
-  get: () => type.value,
-  set: (value) => {
-    type.value = value
-  }
-})
-
-const modeOption = computed({
-  get: () => mode.value,
-  set: (value) => {
-    mode.value = value
-  }
-})
-
-const translationOption = computed({
-  get: () => translationMode.value,
-  set: (value) => {
-    translationMode.value = value
-  }
-})
-
-const nTranslationOption = computed({
-  get: () => nTranslationMode.value,
-  set: (value) => {
-    nTranslationMode.value = value
-  }
-})
-
-const useLinuxTitleBar = computed({
-  get: () => useCustomTitlebar.value,
-  set: (value) => {
-    useCustomTitlebar.value = value
-  }
-})
 
 const shortcutInput = ref({
   id: '',

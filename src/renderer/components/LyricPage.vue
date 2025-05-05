@@ -254,11 +254,24 @@ onBeforeUnmount(() => {
   }
 }
 
+[data-theme='dark'] .line {
+  --color-wbw-text-unplay: rgba(255, 255, 255, 0.28);
+  --color-wbw-text: rgba(255, 255, 255, 0.75);
+  --color-wbw-text-played: rgba(255, 255, 255, 0.95);
+}
+
+[data-theme='auto'] .line {
+  --color-wbw-text-unplay: rgba(0, 0, 0, 0.28);
+  --color-wbw-text: rgba(0, 0, 0, 0.75);
+  --color-wbw-text-played: rgba(0, 0, 0, 0.95);
+  --color-secondary-bg-for-transparent: rgba(0, 0, 0, 0.2);
+}
+
 .line {
   .lyric-line span {
     font-size: v-bind('`${nFontSize}px`');
     background-repeat: no-repeat;
-    background-color: rgba(255, 255, 255, 0.28);
+    background-color: var(--color-wbw-text-unplay);
     -webkit-text-fill-color: transparent;
     background-clip: text;
     background-size: 0 100%;
@@ -267,7 +280,7 @@ onBeforeUnmount(() => {
   .translation span {
     font-size: v-bind('`${nFontSize - 2}px`');
     background-repeat: no-repeat;
-    background-color: rgba(255, 255, 255, 0.28);
+    background-color: var(--color-wbw-text-unplay);
     -webkit-text-fill-color: transparent;
     background-clip: text;
     background-size: 0 100%;
@@ -279,13 +292,13 @@ onBeforeUnmount(() => {
   .lyric-line {
     transform: scale(1);
     span {
-      background-color: rgba(255, 255, 255, 0.95);
+      background-color: var(--color-wbw-text-played);
     }
   }
   .translation {
     transform: scale(1);
     span {
-      background-color: rgba(255, 255, 255, 0.75);
+      background-color: var(--color-wbw-text);
     }
   }
 }
@@ -297,8 +310,8 @@ onBeforeUnmount(() => {
       will-change: background-size;
       background-image: -webkit-linear-gradient(
         top,
-        rgba(255, 255, 255, 0.95),
-        rgba(255, 255, 255, 0.95)
+        var(--color-wbw-text-played),
+        var(--color-wbw-text-played)
       );
     }
   }
@@ -306,11 +319,7 @@ onBeforeUnmount(() => {
     transform: scale(1);
     span {
       will-change: background-size;
-      background-image: -webkit-linear-gradient(
-        top,
-        rgba(255, 255, 255, 0.75),
-        rgba(255, 255, 255, 0.75)
-      );
+      background-image: -webkit-linear-gradient(top, var(--color-wbw-text), var(--color-wbw-text));
     }
   }
 }

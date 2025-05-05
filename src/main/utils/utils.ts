@@ -220,7 +220,7 @@ export const getPic = async (track: any): Promise<{ pic: Buffer; format: string 
 
   for (const order of trackInfoOrder) {
     if (order === 'online' && track.matched) {
-      // res = await getPicFromApi(track.album?.picUrl || track.al?.picUrl)
+      res = await getPicFromApi(track.album?.picUrl || track.al?.picUrl)
     } else if (order === 'path' && track.filePath) {
       const prefixs = ['.jpg', '.png', '.jpeg', '.webp']
       for (const prefix of prefixs) {
@@ -319,9 +319,9 @@ export const getLyric = async (track: {
 
   for (const order of trackInfoOrder) {
     if (order === 'online') {
-      // if (track.matched) {
-      //   lyrics = await getLyricFromApi(track.id)
-      // }
+      if (track.matched) {
+        lyrics = await getLyricFromApi(track.id)
+      }
     } else if (order === 'embedded') {
       if (track.filePath) {
         lyrics = await getLyricFromEmbedded(track.filePath)

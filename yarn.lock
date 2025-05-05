@@ -8322,6 +8322,11 @@ thread-stream@^3.0.0:
   dependencies:
     real-require "^0.2.0"
 
+three@^0.176.0:
+  version "0.176.0"
+  resolved "https://registry.npmmirror.com/three/-/three-0.176.0.tgz#a30c1974e46db5745e4f96dd9ee2028d71e16ecf"
+  integrity sha512-PWRKYWQo23ojf9oZSlRGH8K09q7nRSWx6LY/HF/UUrMdYgN9i1e2OwJYHoQjwc6HF/4lvvYLC5YC1X8UJL2ZpA==
+
 through@2, through@^2.3.8, through@~2.3, through@~2.3.4:
   version "2.3.8"
   resolved "https://registry.npmmirror.com/through/-/through-2.3.8.tgz#0dd4c9ffaabc357960b1b724115d7e0e86a2e1f5"

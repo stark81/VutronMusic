@@ -79,8 +79,6 @@ import SvgIcon from '../components/SvgIcon.vue'
 import { useStreamMusicStore, serviceName } from '../store/streamingMusic'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
-import { navidromeLogin } from '../api/navidrome'
-import { getStreamInfo, setStreamInfo } from '../utils/db'
 
 const iconWrappers = ref<HTMLElement[]>([])
 const indicatorStyle = ref({ width: '0px', left: '0px' })
@@ -130,27 +128,19 @@ const selectPlatform = (platform: serviceName) => {
 
 const login = () => {
   const params = {
-    url: url.value,
+    platform: currentService.value.name,
+    baseURL: url.value,
     username: user.value,
     password: password.value
   }
-  if (currentService.value.name === 'navidrome') {
-    navidromeLogin(params).then(async (res) => {
-      if (res.code === 200) {
-        await setStreamInfo('navidrome', {
-          url: url.value,
-          username: user.value,
-          password: password.value,
-          authorization: res.data.token,
-          clientID: res.data.id
-        })
-        currentService.value.status = 'login'
-        router.push('/stream')
-      } else {
-        error.value = res.message
-      }
-    })
-  }
+  window.mainApi?.invoke('stream-login', params).then((res: { code: number; message: any }) => {
+    if (res.code === 200) {
+      currentService.value.status = 'login'
+      router.push('/stream')
+    } else {
+      error.value = res.message
+    }
+  })
 }
 
 watch(currentService, (value) => {
@@ -158,7 +148,7 @@ watch(currentService, (value) => {
     router.push('/stream')
     return
   }
-  getStreamInfo(value.name).then((result) => {
+  window.mainApi?.invoke('get-stream-account', { platform: value.name }).then((result) => {
     url.value = result?.url || ''
     user.value = result?.username || ''
     password.value = result?.password || ''
@@ -166,11 +156,13 @@ watch(currentService, (value) => {
 })
 
 onMounted(() => {
-  getStreamInfo(currentService.value.name).then((result) => {
-    url.value = result?.url || ''
-    user.value = result?.username || ''
-    password.value = result?.password || ''
-  })
+  window.mainApi
+    ?.invoke('get-stream-account', { platform: currentService.value.name })
+    .then((result) => {
+      url.value = result?.url || ''
+      user.value = result?.username || ''
+      password.value = result?.password || ''
+    })
   window.addEventListener('resize', updateIndicatorPosition)
   nextTick(() => {
     updateIndicatorPosition()

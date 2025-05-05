@@ -5,9 +5,19 @@
         v-if="showLyrics"
         class="play-page"
         :class="{ 'no-lyric': noLyric && show === 'lyric' }"
-        :style="{ background }"
-        data-theme="dark"
+        :data-theme="theme"
       >
+        <div
+          v-if="['blur', 'dynamic'].includes(general.lyricBackground)"
+          class="lyrics-background"
+          :class="{ 'dynamic-background': general.lyricBackground === 'dynamic' }"
+          :style="{ '--cover-url': `url(${pic})` }"
+        />
+        <div
+          v-else-if="general.lyricBackground === 'true'"
+          class="graditent-background"
+          :style="{ background }"
+        />
         <div class="left-side">
           <div>
             <div class="cover">
@@ -120,11 +130,11 @@
                       height: '8px',
                       width: '8px',
                       transform: 'translateY(-2px)',
-                      backgroundColor: 'white',
+                      backgroundColor: 'var(--color-text)',
                       opacy: 0.8
                     }"
                     :rail-style="{ backgroundColor: 'rgba(128, 128, 128, 0.18)' }"
-                    :process-style="{ backgroundColor: '#eee', opacity: 0.8 }"
+                    :process-style="{ backgroundColor: 'var(--color-text)', opacity: 0.8 }"
                     :dot-style="{ display: 'none' }"
                     tooltip="none"
                     :lazy="false"
@@ -186,10 +196,10 @@
                     :drag-on-click="false"
                     :tooltip-formatter="Math.round(volume * 100).toString()"
                     :rail-style="{ backgroundColor: 'rgba(128, 128, 128, 0.18)' }"
-                    :process-style="{ backgroundColor: '#eee', opacity: 0.8 }"
+                    :process-style="{ backgroundColor: 'var(--color-text)', opacity: 0.8 }"
                     :dot-style="{
                       display: 'none',
-                      backgroundColor: '#eee',
+                      backgroundColor: 'var(--color-text)',
                       boxshadow: '0.5px 0.5px 2px 1px rgba(0, 0, 0, 0.18)'
                     }"
                     tooltip="none"
@@ -225,6 +235,7 @@
   </div>
 </template>
 
+<!-- Modifications to fix memory leaks -->
 <script setup lang="ts">
 import ButtonIcon from '../components/ButtonIcon.vue'
 import VueSlider from 'vue-3-slider-component'
@@ -255,7 +266,7 @@ const { showLyrics, setConvolverModal, setPlaybackRateModal, addTrackToPlaylistM
   storeToRefs(stateStore)
 
 const settingsStore = useSettingsStore()
-const { normalLyric } = storeToRefs(settingsStore)
+const { normalLyric, general } = storeToRefs(settingsStore)
 const { nTranslationMode } = toRefs(normalLyric.value)
 
 const playerStore = usePlayerStore()
@@ -272,15 +283,14 @@ const {
   isLiked,
   source,
   chorus,
-  repeatMode
+  repeatMode,
+  pic
 } = storeToRefs(playerStore)
-const { playPrev, playOrPause, _playNextTrack, switchRepeatMode, moveToFMTrash, getPic } =
-  playerStore
+const { playPrev, playOrPause, _playNextTrack, switchRepeatMode, moveToFMTrash } = playerStore
 const { likeATrack } = useDataStore()
 
 const { likeAStreamTrack } = useStreamMusicStore()
 
-const pic = ref('')
 const color = ref('')
 const color2 = ref('')
 
@@ -355,32 +365,29 @@ const marks = computed(() => {
   return result
 })
 
+const theme = computed(() => {
+  return general.value.lyricBackground === 'true' ? 'dark' : 'auto'
+})
+
 watch(showLyrics, (value) => {
   if (value) {
     show.value = 'lyric'
   }
 })
 
-watch(currentTrack, (value) => {
-  getPic(value!, 512)
-    .then((res) => {
-      pic.value = res
-      if (value?.matched) pic.value += '?param=512y512'
-      return pic.value
-    })
-    .then((cover) => {
-      Vibrant.from(cover)
-        .getPalette()
-        .then((palette) => {
-          const swatch = palette.DarkMuted
-          if (swatch) {
-            const originColor = Color.rgb(swatch.rgb)
-            color.value = originColor.darken(0.1).rgb().string()
-            color2.value = originColor.lighten(0.28).rotate(-30).rgb().string()
-          } else {
-            console.log('未找到 DarkMuted 颜色')
-          }
-        })
+watch(pic, (value) => {
+  if (!value) return
+  Vibrant.from(value)
+    .getPalette()
+    .then((palette) => {
+      const swatch = palette.DarkMuted
+      if (swatch) {
+        const originColor = Color.rgb(swatch.rgb)
+        color.value = originColor.darken(0.1).rgb().string()
+        color2.value = originColor.lighten(0.28).rotate(-30).rgb().string()
+      } else {
+        console.log('未找到 DarkMuted 颜色')
+      }
     })
 })
 
@@ -429,6 +436,7 @@ provide('show', show)
   color: var(--color-text);
   overflow: hidden;
   display: flex;
+  background: var(--color-body-bg);
   // grid-template-columns: repeat(2, 1fr);
 }
 
@@ -441,12 +449,61 @@ provide('show', show)
   }
 }
 
+.lyrics-background {
+  --contrast-lyrics-background: 30%;
+  --brightness-lyrics-background: 110%;
+}
+
+.lyrics-background {
+  position: absolute;
+  height: 100vh;
+  width: 100vw;
+  filter: blur(50px) contrast(var(--contrast-lyrics-background))
+    brightness(var(--brightness-lyrics-background));
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    width: 140vw;
+    height: 140vw;
+    background-image: var(--cover-url);
+    background-size: cover;
+    opacity: 0.6;
+  }
+
+  &::before {
+    top: 0;
+    right: 0;
+    mix-blend-mode: luminosity;
+  }
+
+  &::after {
+    bottom: 0;
+    left: 0;
+    animation-direction: reverse;
+  }
+}
+
+.dynamic-background {
+  &::before,
+  &::after {
+    animation: rotate 90s linear infinite;
+    will-change: transform;
+  }
+}
+
+.graditent-background {
+  position: absolute;
+  width: 100vw;
+  height: 100vh;
+}
+
 .left-side {
   flex: 1;
   display: flex;
   justify-content: center;
   padding-left: 3vw;
-  // width: 50vw;
   align-items: center;
   transition: all 0.5s;
   z-index: 10;
@@ -653,6 +710,15 @@ provide('show', show)
   }
   &:active {
     transform: unset;
+  }
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg) translateZ(0);
+  } // 触发GPU加速
+  to {
+    transform: rotate(360deg) translateZ(0);
   }
 }
 

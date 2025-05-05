@@ -31,10 +31,10 @@ import {
   getPicColor,
   getTrackDetail,
   getAudioSource,
-  cacheOnlineTrack
-  // getStreamLyric,
-  // getStreamPic,
-  // getStreamMusic
+  cacheOnlineTrack,
+  getStreamLyric,
+  getStreamPic,
+  getStreamMusic
 } from './utils/utils'
 import { CacheAPIs } from './utils/CacheApis'
 import { registerGlobalShortcuts } from './globalShortcut'
@@ -435,11 +435,7 @@ class BackGround {
     protocol.handle('atom', async (request) => {
       const cache = (await import('./cache')).default
       const { host, pathname } = new URL(request.url)
-      if (host === 'get-stream') {
-        const url = decodeURIComponent(pathname.slice(1))
-        const headers = request.headers
-        return net.fetch(url, { headers })
-      } else if (host === 'online-pic') {
+      if (host === 'online-pic') {
         return net.fetch(pathname.slice(1))
       } else if (host === 'get-pic') {
         const ids = pathname.slice(1)
@@ -465,19 +461,6 @@ class BackGround {
         const format = result.format
 
         return new Response(pic, { headers: { 'Content-Type': format } })
-      } else if (host === 'get-local-pic') {
-        const ids = pathname.slice(1)
-        const res = cache.get(CacheAPIs.Track, { ids })
-        if (res) {
-          const track = res.songs[0]
-          const result = await getPic(track)
-
-          const pic = result.pic
-          const format = result.format
-
-          return new Response(pic, { headers: { 'Content-Type': format } })
-        }
-        throw new Error()
       } else if (host === 'get-default-pic') {
         const pic = fs.readFileSync(defaultImagePath)
         return new Response(pic)
@@ -663,46 +646,46 @@ class BackGround {
         const url = pathname.slice(1)
         const headers = request.headers
         return fetch(url, { headers })
+      } else if (host === 'get-stream-pic') {
+        const url = pathname.slice(1)
+        return getStreamPic(url)
+      } else if (host === 'get-stream-music') {
+        const id = pathname.slice(1)
+        const headers = request.headers
+        return getStreamMusic(id, headers)
+      } else if (host === 'get-stream-track-info') {
+        const id = pathname.slice(1)
+        let pic: Buffer | null = null
+        let format: string = ''
+
+        // 获取图片
+        pic = await getStreamPic(id)
+          .then((res) => {
+            format = res.headers.get('Content-Type')
+            return res.arrayBuffer()
+          })
+          .then((res) => Buffer.from(res))
+
+        // 获取颜色
+        const { color, color2 } = await getPicColor(pic)
+
+        // 获取歌词
+        const lyrics = await getStreamLyric(id)
+        return new Response(JSON.stringify({ pic, format, color, color2, lyrics }), {
+          headers: { 'content-type': 'application/json' }
+        })
+      } else if (host === 'get-stream-lyric') {
+        const id = pathname.slice(1)
+        const lyrics = await getStreamLyric(id)
+        return new Response(JSON.stringify(lyrics), {
+          headers: { 'content-type': 'application/json' }
+        })
+      } else if (host === 'get-stream') {
+        const url = decodeURIComponent(pathname.slice(1))
+        const headers = request.headers
+        return net.fetch(url, { headers })
       }
-      // else if (host === 'get-stream-pic') {
-      //   const url = pathname.slice(1)
-      //   return getStreamPic(url)
-      // } else if (host === 'get-stream-music') {
-      //   const id = pathname.slice(1)
-      //   const headers = request.headers
-      //   return getStreamMusic(id, headers)
-      // } else if (host === 'get-stream-track-info') {
-      //   const id = pathname.slice(1)
-      //   let pic: Buffer | null = null
-      //   let format: string = ''
-
-      //   // 获取图片
-      //   pic = await getStreamPic(id)
-      //     .then((res) => {
-      //       format = res.headers.get('Content-Type')
-      //       return res.arrayBuffer()
-      //     })
-      //     .then((res) => Buffer.from(res))
-
-      //   // 获取颜色
-      //   const { color, color2 } = await getPicColor(pic)
-
-      //   // 获取歌词
-      //   const lyrics = await getStreamLyric(id)
-      //   return new Response(JSON.stringify({ pic, format, color, color2, lyrics }), {
-      //     headers: { 'content-type': 'application/json' }
-      //   })
-      // } else if (host === 'get-stream-lyric') {
-      //   const id = pathname.slice(1)
-      //   const lyrics = await getStreamLyric(id)
-      //   return new Response(JSON.stringify(lyrics), {
-      //     headers: { 'content-type': 'application/json' }
-      //   })
-      // }
     })
-    // protocol.handle('http', (request) => {
-    //   return fetch(request)
-    // })
   }
 
   handleAppEvents() {

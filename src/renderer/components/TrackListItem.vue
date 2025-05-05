@@ -93,7 +93,7 @@
 import SvgIcon from './SvgIcon.vue'
 import ArtistsInLine from './ArtistsInLine.vue'
 import ExplicitSymbol from './ExplicitSymbol.vue'
-import { PropType, computed, ref, toRefs, inject, onMounted, onBeforeUnmount } from 'vue'
+import { PropType, computed, ref, toRefs, inject } from 'vue'
 import { useNormalStateStore } from '../store/state'
 import { useSettingsStore } from '../store/settings'
 import { useStreamMusicStore } from '../store/streamingMusic'
@@ -135,7 +135,7 @@ const props = defineProps({
 })
 
 const settingsStore = useSettingsStore()
-const { general } = storeToRefs(settingsStore)
+const { general, localMusic } = storeToRefs(settingsStore)
 const { subTitleDefault, showTrackTimeOrID } = toRefs(general.value)
 
 const streamingMusicStore = useStreamMusicStore()
@@ -143,7 +143,6 @@ const { likeAStreamTrack } = streamingMusicStore
 
 const playerStore = usePlayerStore()
 const { currentTrack, enabled } = storeToRefs(playerStore)
-const { getPic } = playerStore
 
 const stateStore = useNormalStateStore()
 const { showToast } = stateStore
@@ -164,41 +163,36 @@ const track = computed(
     }
 )
 
-const pic = ref((track.value.album || track.value.al).picUrl)
-
 const image = computed(() => {
   if (stateStore.virtualScrolling) {
     if (track.value.type === 'stream') {
       if (track.value.source === 'navidrome') {
         return new URL(`../assets/images/navidrome.webp`, import.meta.url).href
       } else if (track.value.source === 'emby') {
-        return 'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg'
+        return 'atom://get-default-pic'
       }
     }
   }
-  // let url =
-  //   track.value.type === 'local'
-  //     ? localMusic.value.scanning && !track.value.matched
-  //       ? `atom://get-pic-path/${track.value.filePath}`
-  //       : `atom://get-pic/${track.value.id}`
-  //     : track.value.al?.picUrl ||
-  //       track.value.album?.picUrl ||
-  //       track.value.picUrl ||
-  //       `https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg`
-  // if (url && url.startsWith('http')) {
-  //   url = url.replace('http:', 'https:')
-  // }
-  // if (url.startsWith('https')) {
-  //   url += '?param=128y128'
-  // }
-  return pic.value
+  let url =
+    track.value.type === 'local'
+      ? localMusic.value.scanning && !track.value.matched
+        ? `atom://get-pic-path/${track.value.filePath}`
+        : `atom://get-pic/${track.value.id}`
+      : track.value.al?.picUrl ||
+        track.value.album?.picUrl ||
+        track.value.picUrl ||
+        `https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg`
+  if (url && url.startsWith('http')) {
+    url = url.replace('http:', 'https:')
+  }
+  if (url.startsWith('https')) {
+    url += '?param=128y128'
+  }
+  if (url.includes('https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg')) {
+    url = 'atom://get-default-pic'
+  }
+  return url
 })
-
-const getCover = async (track) => {
-  let pic = await getPic(track)
-  if (track.type === 'online' || track.matched) pic += '?param=64y64'
-  return pic
-}
 
 const hover = ref(false)
 
@@ -353,14 +347,6 @@ const isBatchOp = inject('isBatchOp', ref(false))
 const selectedList = inject('selectedList', ref<number[]>([]))
 const rightClickedTrack = inject('rightClickedTrack', ref({ id: 0 }))
 const playThisList = inject('playThisList') as (id: number) => void
-
-onMounted(async () => {
-  pic.value = await getCover(track.value)
-})
-
-onBeforeUnmount(() => {
-  if (pic.value.startsWith('blob')) URL.revokeObjectURL(pic.value)
-})
 </script>
 
 <style scoped lang="scss">

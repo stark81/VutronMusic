@@ -9,10 +9,9 @@ import { useNormalStateStore } from './state'
 import { useOsdLyricStore } from './osdLyric'
 import { useDataStore } from './data'
 import { searchMatch, fmTrash, personalFM, songChorus } from '../api/other'
-import { scrobble, getLyric as getApiLyric, getTrackDetail } from '../api/track'
+import { getLyric as getApiLyric, getTrackDetail } from '../api/track'
 import { useI18n } from 'vue-i18n'
 import { cloneDeep } from 'lodash'
-import { getRestUrl } from '../api/navidrome'
 
 interface biquadType {
   31: number
@@ -55,15 +54,14 @@ export const usePlayerStore = defineStore(
     const title = ref<string | null>('VutronMusic')
     const outputDevice = ref('default')
     const backRate = ref(1.0)
-    const streamMusics = ref<Track[]>([])
     const isLiked = ref(false)
     const isLocalList = ref(false)
     const isHidden = ref(document.hidden)
     const chorus = ref(0)
-    // const pic = ref<string>(
-    //   currentTrack.value?.album?.picUrl ||
-    //     'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg'
-    // )
+    const pic = ref<string>(
+      currentTrack.value?.album?.picUrl ||
+        'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg'
+    )
     const playlistSource = ref<{
       type: string
       id: number | string
@@ -92,7 +90,7 @@ export const usePlayerStore = defineStore(
 
     let initAcx = false
     let lastUpdateTime = 0
-    let pic = new URL(`../assets/images/default.jpg`, import.meta.url).href
+    let intervalTimer
 
     const localMusicStore = useLocalMusicStore()
     const streamMusicStore = useStreamMusicStore()
@@ -102,7 +100,8 @@ export const usePlayerStore = defineStore(
       scrobble: scrobbleStream,
       fetchStreamMusic,
       getStreamLyric,
-      getStreamPic
+      getStreamPic,
+      getAStreamTrack
     } = streamMusicStore
     const { likeATrack } = useDataStore()
     const { t } = useI18n()
@@ -374,19 +373,10 @@ export const usePlayerStore = defineStore(
       }
     })
 
-    watch(currentTrack, async (value) => {
-      if (!value) return
-      const flag = await searchMatchForLocal(value)
-      if (flag) return
-      await getCurrentTrackInfo(value)
-      updateMediaSessionMetaData(value)
-      if (osdLyricStore.show) {
-        window.mainApi?.sendMessage({
-          type: 'update-osd-status',
-          data: { title: `${(value.artists || value.ar)[0]?.name} - ${value.name}` }
-        })
-      }
-    })
+    // watch(currentTrack, async (value) => {
+    //   if (!value) return
+    //   searchMatchForLocal(value)
+    // })
 
     watch(lyrics, () => {
       clearTimeout(timer.line)
@@ -504,7 +494,11 @@ export const usePlayerStore = defineStore(
     })
 
     watch(currentLyric, (value) => {
-      if (window.env?.isLinux && settingsStore.tray.enableExtension) {
+      if (
+        window.env?.isLinux &&
+        settingsStore.tray.enableExtension &&
+        stateStore.extensionCheckResult
+      ) {
         window.mainApi?.send('updateLyricInfo', { currentLyric: toRaw(value) })
       }
     })
@@ -512,6 +506,7 @@ export const usePlayerStore = defineStore(
     watch(
       () => window.env?.isLinux && settingsStore.tray.enableExtension,
       (value) => {
+        if (!stateStore.extensionCheckResult) return
         if (value) {
           window.mainApi?.send('updateLyricInfo', { currentLyric: toRaw(currentLyric.value) })
         } else {
@@ -537,6 +532,7 @@ export const usePlayerStore = defineStore(
         progress.value = audio.currentTime
         _progress.value = audio.currentTime
         updateIndex()
+        updateMprisProgress()
         if (settingsStore.general.preventSuspension) {
           window.mainApi?.send('update-powersave', true)
         }
@@ -551,6 +547,10 @@ export const usePlayerStore = defineStore(
         timer.tList = null
         if (settingsStore.general.preventSuspension) {
           window.mainApi?.send('update-powersave', false)
+        }
+        if (intervalTimer) {
+          clearInterval(intervalTimer)
+          intervalTimer = null
         }
       }
     })
@@ -598,7 +598,6 @@ export const usePlayerStore = defineStore(
     })
 
     const searchMatchForLocal = async (track: Track) => {
-      let flag = false
       if (track.type === 'local' && !track.matched) {
         const params = {
           title: track.name,
@@ -608,23 +607,43 @@ export const usePlayerStore = defineStore(
           md5: track.md5,
           localID: track.id
         }
-        await searchMatch(params)
-          .then(async (res: any) => {
+        const result = await searchMatch(params)
+          .then((res: any) => {
             if (res.result.songs.length > 0) {
               const newTrack = res.result.songs[0]
               updateTrack(track.filePath, newTrack)
               _list.value[currentTrackIndex.value] = newTrack.id
-              const newSong = getALocalTrack({ filePath: track.filePath })
-              await getCurrentTrackInfo(newSong!)
-              await updateMediaSessionMetaData(newSong!)
-              flag = true
+              return getALocalTrack({ filePath: track.filePath })
             }
           })
           .catch((err) => {
             showToast(err)
+            return null
           })
+        if (result) track = result
       }
-      return flag
+      await getCurrentTrackInfo(track)
+      await updateMediaSessionMetaData(track)
+      if (osdLyricStore.show) {
+        window.mainApi?.sendMessage({
+          type: 'update-osd-status',
+          data: { title: `${(track.artists || track.ar)[0]?.name} - ${track.name}` }
+        })
+      }
+    }
+
+    const updateMprisProgress = () => {
+      if (!window.env?.isLinux) return
+      window.mainApi?.send('playerCurrentTrackTime', {
+        seeked: true,
+        progress: audio.currentTime
+      })
+      intervalTimer = setInterval(() => {
+        window.mainApi?.send('playerCurrentTrackTime', {
+          seeked: true,
+          progress: audio.currentTime
+        })
+      }, 5 * 1000)
     }
 
     const setConvolver = (data: {
@@ -804,6 +823,7 @@ export const usePlayerStore = defineStore(
         })
         .then(async (track) => {
           currentTrack.value = track
+          await searchMatchForLocal(track!)
           seek.value = autoPlay ? 0 : progress.value
           const source = await getTrackSource(track!)
           let replaced = false
@@ -817,7 +837,7 @@ export const usePlayerStore = defineStore(
             _playNextTrack(isPersonalFM.value)
           }
           if (autoPlay && currentTrack.value?.name && currentTrack.value?.matched !== false) {
-            _scrobble(currentTrack.value, seek.value)
+            // _scrobble(currentTrack.value, seek.value)
           } else if (autoPlay && currentTrack.value?.type === 'stream') {
             scrobbleStream(trackID as string)
           }
@@ -825,13 +845,13 @@ export const usePlayerStore = defineStore(
         })
     }
 
-    const _scrobble = (track: any, time: number, completed = false) => {
-      const trackDuration = ~~(track.dt / 1000)
-      time = completed ? trackDuration : ~~time
-      const sourceID =
-        playlistSource.value.id === 0 ? track.al?.id || track.album?.id : playlistSource.value.id
-      scrobble({ id: track.id, sourceid: sourceID, time })
-    }
+    // const _scrobble = (track: any, time: number, completed = false) => {
+    //   const trackDuration = ~~(track.dt / 1000)
+    //   time = completed ? trackDuration : ~~time
+    //   const sourceID =
+    //     playlistSource.value.id === 0 ? track.al?.id || track.album?.id : playlistSource.value.id
+    //   scrobble({ id: track.id, sourceid: sourceID, time })
+    // }
 
     const playAudioSource = (source: string, autoPlay = true) => {
       // await stop()
@@ -854,8 +874,7 @@ export const usePlayerStore = defineStore(
           resolve(matchTrack)
           return
         }
-        streamMusics.value = streamMusicStore.streamTracks
-        matchTrack = streamMusics.value?.find((track) => track.id === id)
+        matchTrack = getAStreamTrack(id)
         if (matchTrack) {
           resolve(matchTrack)
           return
@@ -941,9 +960,9 @@ export const usePlayerStore = defineStore(
     }
 
     const _playNextTrack = (isPersonal: boolean) => {
-      if (currentTrack.value?.name && currentTrack.value?.matched !== false) {
-        _scrobble(currentTrack.value, seek.value, true)
-      }
+      // if (currentTrack.value?.name && currentTrack.value?.matched !== false) {
+      //   _scrobble(currentTrack.value, seek.value, true)
+      // }
       if (isPersonal) {
         playNextFMTrack()
       } else {
@@ -1119,11 +1138,10 @@ export const usePlayerStore = defineStore(
     const updateMediaSessionMetaData = async (track: Track) => {
       if ('mediaSession' in navigator === false) return
 
-      if (pic?.startsWith('blob:')) {
-        URL.revokeObjectURL(pic)
-        pic = new URL(`../assets/images/default.jpg`, import.meta.url).href
+      if (pic.value?.startsWith('blob:')) {
+        URL.revokeObjectURL(pic.value)
       }
-      pic = await getPic(track)
+      pic.value = await getPic(track, 512)
 
       const arts = track.artists ?? track.ar
       const artists = arts.map((a) => a.name)
@@ -1133,12 +1151,14 @@ export const usePlayerStore = defineStore(
         album: track.album?.name ?? track.al?.name,
         artwork: [
           {
-            src: track.type === 'online' || track.matched ? pic + '?param=224y224' : pic,
+            src:
+              track.type === 'online' || track.matched ? pic.value + '?param=224y224' : pic.value,
             type: 'image/jpg',
             sizes: '224x224'
           },
           {
-            src: track.type === 'online' || track.matched ? pic + '?param=512y512' : pic,
+            src:
+              track.type === 'online' || track.matched ? pic.value + '?param=512y512' : pic.value,
             type: 'image/jpg',
             sizes: '512x512'
           }
@@ -1149,15 +1169,27 @@ export const usePlayerStore = defineStore(
       }
       navigator.mediaSession.metadata = null
       navigator.mediaSession.metadata = new MediaMetadata(metadata)
+      if (pic.value.startsWith('http')) pic.value += '?param=512y512'
       if (window.env?.isLinux) {
         metadata.artwork.map((art) => {
           art.src = (currentTrack.value?.album?.picUrl || currentTrack.value?.al?.picUrl)!
         })
+        let pic1: string = new URL(`../assets/images/default.jpg`, import.meta.url).href
+        let pic2: string = new URL(`../assets/images/default.jpg`, import.meta.url).href
         if (track.type === 'stream') {
-          const pic1 = await getRestUrl('getCoverArt', { id: track.album.id, size: 224 }, true)
-          const pic2 = await getRestUrl('getCoverArt', { id: track.album.id, size: 512 }, true)
-          metadata.artwork[0].src = pic1!
-          metadata.artwork[1].src = pic2!
+          if (track.source === 'navidrome') {
+            pic1 = track.picUrl.replace('size=64', 'size=224')
+            pic2 = track.picUrl.replace('size=64', 'size=512')
+          } else if (track.source === 'emby') {
+            pic1 = track.picUrl
+              .replace('maxHeight=64', 'maxHeight=224')
+              .replace('maxWidth=64', 'maxWidth=224')
+            pic1 = track.picUrl
+              .replace('maxHeight=64', 'maxHeight=512')
+              .replace('maxWidth=64', 'maxWidth=512')
+          }
+          metadata.artwork[0].src = pic1
+          metadata.artwork[1].src = pic2
         }
         window.mainApi?.send('metadata', metadata)
       }
@@ -1175,9 +1207,9 @@ export const usePlayerStore = defineStore(
       lyrics.lyric = []
       lyrics.tlyric = []
       lyrics.rlyric = []
-      if (pic.startsWith('blob:')) {
-        URL.revokeObjectURL(pic)
-        pic = new URL(`../assets/images/default.jpg`, import.meta.url).href
+      if (pic.value.startsWith('blob:')) {
+        URL.revokeObjectURL(pic.value)
+        pic.value = new URL(`../assets/images/default.jpg`, import.meta.url).href
       }
 
       if (resetBiq) {
@@ -1210,12 +1242,6 @@ export const usePlayerStore = defineStore(
       watch(
         () => currentIndex.line,
         (value) => {
-          if (window.env?.isLinux) {
-            window.mainApi?.send('playerCurrentTrackTime', {
-              seeked: true,
-              progress: audio.currentTime
-            })
-          }
           if (osdLyricStore.show)
             window.mainApi?.sendMessage({ type: 'update-osd-status', data: { line: value } })
         }
@@ -1335,6 +1361,11 @@ export const usePlayerStore = defineStore(
         })
         navigator.mediaSession.setActionHandler('seekforward', (event) => {
           seek.value += event.seekOffset || 10
+        })
+        navigator.mediaSession.setPositionState({
+          duration: currentTrackDuration.value,
+          playbackRate: playbackRate.value,
+          position: seek.value
         })
       }
     }
@@ -1469,7 +1500,7 @@ export const usePlayerStore = defineStore(
 
     onBeforeUnmount(() => {
       progress.value = audio.currentTime
-      if (pic.startsWith('blob:')) URL.revokeObjectURL(pic)
+      if (pic.value.startsWith('blob:')) URL.revokeObjectURL(pic.value)
     })
 
     return {
@@ -1477,6 +1508,7 @@ export const usePlayerStore = defineStore(
       enabled,
       progress,
       seek,
+      pic,
       chorus,
       playbackRate,
       repeatMode,

@@ -8,6 +8,7 @@ export type TranslationMode = 'none' | 'tlyric' | 'rlyric'
 export type StreamStatus = 'logout' | 'login' | 'offline'
 export type TrackInfoOrder = 'path' | 'online' | 'embedded'
 type TextAlign = 'start' | 'center' | 'end'
+type BackgroundEffect = 'none' | 'true' | 'blur' | 'dynamic'
 
 export const useSettingsStore = defineStore(
   'settings',
@@ -40,6 +41,7 @@ export const useSettingsStore = defineStore(
       closeAppOption: 'ask',
       useCustomTitlebar: false,
       preventSuspension: false,
+      lyricBackground: 'true' as BackgroundEffect,
       enabledPlaylistCategories
     })
 

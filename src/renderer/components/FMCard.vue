@@ -1,7 +1,12 @@
 <template>
   <div class="fm" :style="{ background }" data-theme="dark">
     <img :src="nextTrackCover" style="display: none" loading="lazy" />
-    <img class="cover" :src="track.album && track.album.picUrl" loading="lazy" @click="goToAlbum" />
+    <img
+      class="cover"
+      :src="track.album && track.album.picUrl + '?param=256y256'"
+      loading="lazy"
+      @click="goToAlbum"
+    />
     <div class="right-part">
       <div class="info">
         <div class="title">{{ track.name }}</div>
@@ -33,7 +38,7 @@
 import ButtonIcon from './ButtonIcon.vue'
 import ArtistsInLine from './ArtistsInLine.vue'
 import SvgIcon from './SvgIcon.vue'
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
 import { useRouter } from 'vue-router'
@@ -55,7 +60,7 @@ const nextTrackCover = computed(() => {
 })
 
 const getColor = (track: any) => {
-  const cover = `${track.album.picUrl.replace('http://', 'https://')}?param=512y512`
+  const cover = `${(track.album || track.al).picUrl.replace('http://', 'https://')}?param=512y512`
   Vibrant.from(cover)
     .getPalette()
     .then((palette) => {
@@ -80,12 +85,6 @@ watch(track, (val) => {
   if (val) {
     getColor(val)
   }
-})
-
-onMounted(() => {
-  // setTimeout(() => {
-  //   getColor(track.value)
-  // }, 1000)
 })
 </script>
 

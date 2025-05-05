@@ -277,6 +277,13 @@
         "high": "High",
         "lossless": "Lossless"
       },
+      "lyricBackground": {
+        "text": "Show lyrics background",
+        "close": "Close",
+        "true": "Open",
+        "blur": "Blur cover",
+        "dynamic": "Dynamic"
+      },
       "logout": "Logout",
       "perventSuspend": "Prevent system sleep during playback"
     },
