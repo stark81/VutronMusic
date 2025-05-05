@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { Track, Playlist } from './localMusic'
-// import { updateStreamInfo } from '../utils/db'
 import _ from 'lodash'
 
 export interface StreamPlaylist extends Omit<Playlist, 'id'> {
