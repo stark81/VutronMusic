@@ -12,6 +12,7 @@
     :below-value="5"
     :gap="gap"
     :pid="id"
+    :enable-virtual-scroll="enableVirtualScroll"
   >
     <template #position="{ scrollToCurrent }">
       <div v-show="showScrollTo" @click="scrollToCurrent(currentIndex)"
@@ -162,7 +163,8 @@ const props = defineProps({
   },
   highlightPlayingTrack: { type: Boolean, default: true },
   isEnd: { type: Boolean, required: true },
-  paddingBottom: { type: Number, default: 96 }
+  paddingBottom: { type: Number, default: 96 },
+  enableVirtualScroll: { type: Boolean, default: true }
 })
 const { items, colunmNumber, id } = toRefs(props)
 const trackListMenuRef = ref<InstanceType<typeof ContextMenu>>()

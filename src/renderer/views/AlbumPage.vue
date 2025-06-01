@@ -74,6 +74,7 @@
           :is-end="false"
           :type="'album'"
           :album-object="album"
+          :enable-virtual-scroll="false"
         />
       </div>
     </div>
@@ -86,6 +87,7 @@
         :is-end="false"
         type="album"
         :album-object="album"
+        :enable-virtual-scroll="false"
       />
     </div>
     <div class="extra-info">
