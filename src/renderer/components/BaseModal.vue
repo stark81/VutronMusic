@@ -112,6 +112,8 @@ watch(
   overflow: auto;
   overflow-x: hidden;
   padding: 0 24px;
+  overscroll-behavior: none;
+  scrollbar-width: none;
 }
 
 .header {

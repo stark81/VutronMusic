@@ -55,7 +55,6 @@ export const usePlayerStore = defineStore(
     const outputDevice = ref('default')
     const backRate = ref(1.0)
     const _pitch = ref(1.0)
-    const isLiked = ref(false)
     const isLocalList = ref(false)
     const isHidden = ref(document.hidden)
     const chorus = ref(0)
@@ -103,7 +102,8 @@ export const usePlayerStore = defineStore(
       getStreamPic,
       getAStreamTrack
     } = streamMusicStore
-    const { likeATrack } = useDataStore()
+    const dataStore = useDataStore()
+    const { likeATrack } = dataStore
     const { t } = useI18n()
 
     const settingsStore = useSettingsStore()
@@ -111,12 +111,6 @@ export const usePlayerStore = defineStore(
     const { showToast } = stateStore
 
     const osdLyricStore = useOsdLyricStore()
-
-    // const audio = new Audio()
-    // audio.crossOrigin = 'anonymous'
-    // audio.preservesPitch = true
-    // const audioContext = new AudioContext()
-    // const audioSource = audioContext.createMediaElementSource(audio)
 
     const _shuffleList = ref<number[]>([])
     const _list = ref<number[]>([])
@@ -177,6 +171,13 @@ export const usePlayerStore = defineStore(
 
     const currentTrackDuration = computed(() => {
       return ~~((currentTrack.value?.dt || currentTrack.value?.duration || 1000) / 1000)
+    })
+
+    const isLiked = computed(() => {
+      return (
+        !!dataStore.liked.songs.find((id) => id === currentTrack.value?.id) ||
+        currentTrack.value?.starred
+      )
     })
 
     const list = computed({
@@ -472,6 +473,13 @@ export const usePlayerStore = defineStore(
     )
 
     watch(
+      () => !audioNodes.audio?.paused,
+      (value) => {
+        playing.value = value
+      }
+    )
+
+    watch(
       () => convolverParams.sendGain,
       (value) => {
         if (convolverParams.buffer && audioNodes.convolverOutputGain) {
@@ -543,7 +551,7 @@ export const usePlayerStore = defineStore(
       if (!line) return { content: currentTrack.value?.name || '听你想听的音乐', time: 0 }
       const nextLine = lyrics.lyric[currentIndex.line + 1]
       const diff = nextLine ? nextLine.start - line?.start : 10
-      return { content: line?.content, time: diff }
+      return { content: line?.content, time: diff, start: line?.start || 0 }
     })
 
     watch(currentLyric, (value) => {

@@ -660,6 +660,14 @@ export const getStreamPic = async (ids: string) => {
     const [id, primary, size] = ids.split('/')
     const url = emby.getPic(Number(id), primary, Number(size))
     return fetch(url)
+  } else if (service === 'jellyfin') {
+    const jellyfin = (await import('../streaming/jellyfin')).default
+    const [id, size] = ids.split('/')
+    const url = jellyfin.getPic(id, Number(size))
+    return fetch(url).catch(async (err) => {
+      console.error('获取Jellyfin封面失败:', err)
+      return await fetch('atom://get-default-pic')
+    })
   }
 }
 
@@ -672,7 +680,11 @@ export const getStreamMusic = async (id: string, headers?: any) => {
     return fetch(navidrome.getStream(id), { headers })
   } else if (service === 'emby') {
     const emby = (await import('../streaming/emby')).default
-    return fetch(emby.getStrem(id), { headers })
+    return fetch(emby.getStream(id), { headers })
+  } else if (service === 'jellyfin') {
+    const jellyfin = (await import('../streaming/jellyfin')).default
+    const url = jellyfin.getStream(id)
+    return fetch(url, { headers })
   }
 }
 
@@ -690,5 +702,25 @@ export const getStreamLyric = async (id: string) => {
     const [idx, ,] = id.split('/')
     const lyrics = await emby.getLyric(Number(idx))
     return lyrics
+  } else if (service === 'jellyfin') {
+    const jellyfin = (await import('../streaming/jellyfin')).default
+    const [idx, ,] = id.split('/')
+    const lyrics = await jellyfin.getLyric(idx)
+    return lyrics
   }
+}
+
+export const getFileName = (filePath: string) => {
+  const fileExt = path.extname(filePath)
+  const fileNameWithExt = path.basename(filePath)
+  const fileName = fileNameWithExt.replace(fileExt, '')
+  return fileName
+}
+
+export const cleanFontName = (fontName: string) => {
+  return fontName
+    .trim()
+    .replace(/^['"]|['"]$/g, '')
+    .replace(/\s+/g, ' ')
+    .replace(/^\./, '')
 }

@@ -19,6 +19,9 @@ jobs:
           - os: macos-latest
             arch: arm64
 
+          - os: windows-latest
+            arch: arm64
+
     runs-on: ${{ matrix.os }}
     env:
       XVFB_PFX: ${{ (matrix.os == 'ubuntu-22.04' && 'xvfb-run --auto-servernum -- ') || '' }}
@@ -40,13 +43,14 @@ jobs:
         run: brew install rpm
 
       - name: Install deps
+        env:
+          SKIP_REBUILD: true
         run: ${{ env.XVFB_PFX }}yarn
 
       - name: Rebuild native dependencies for current architecture
         run: |
           ${{ env.XVFB_PFX }}npm rebuild --arch=${{ matrix.arch }}
           ${{ env.XVFB_PFX }}./node_modules/.bin/electron-rebuild --arch=${{ matrix.arch }}
-
       - name: Build Electron app (without auto-publish)
         shell: bash
         env:
@@ -170,18 +174,15 @@ jobs:
         run: |
           mkdir -p upload
           find all-artifacts -type f -exec cp {} upload/ \;
-
       - name: Create release tag if triggered by workflow_dispatch
         if: github.event_name == 'workflow_dispatch'
         run: |
           DATE_TAG=$(date +'%Y%m%d%H%M')
           echo "RELEASE_TAG=v-draft-${DATE_TAG}" >> $GITHUB_ENV
-
       - name: Set tag from git tag if available
         if: github.event_name == 'push'
         run: |
           echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-
       - name: Upload all files to GitHub Release
         uses: softprops/action-gh-release@v1
         env:

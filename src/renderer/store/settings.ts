@@ -3,12 +3,20 @@ import { ref, reactive, watch, onMounted, toRaw } from 'vue'
 import DefaultShortcuts from '../utils/shortcuts'
 import { playlistCategories } from '../utils/common'
 import cloneDeep from 'lodash/cloneDeep'
+// import snow from '../assets/lottie/snow.json'
 
 export type TranslationMode = 'none' | 'tlyric' | 'rlyric'
 export type StreamStatus = 'logout' | 'login' | 'offline'
 export type TrackInfoOrder = 'path' | 'online' | 'embedded'
 type TextAlign = 'start' | 'center' | 'end'
 type BackgroundEffect = 'none' | 'true' | 'blur' | 'dynamic'
+
+// export type PlayerTheme = {
+//   name: string
+//   type: 'common' | 'creative' | 'lottie'
+//   selected: boolean
+//   source?: Record<string, any>
+// }
 
 export const useSettingsStore = defineStore(
   'settings',
@@ -93,6 +101,23 @@ export const useSettingsStore = defineStore(
       enable: false,
       sizeLimit: 512 as boolean | number,
       number: 0
+    })
+
+    const playerTheme = reactive({
+      common: [
+        { name: '默认' as const, selected: true, font: '', img: 'common' },
+        { name: '旋转封面' as const, selected: false, font: '', img: 'rotate' }
+      ],
+      creative: [
+        // { name: '信笺歌词' as const, selected: false, font: '' },
+        {
+          name: '歌词环游' as const,
+          selected: false,
+          font: '',
+          senseIndex: 0,
+          img: 'creative_snow'
+        }
+      ]
     })
 
     const enableGlobalShortcut = ref(false)
@@ -227,10 +252,12 @@ export const useSettingsStore = defineStore(
     }
 
     window.mainApi?.on('resume', () => {
-      const trayMenu = !(tray.showControl || tray.showLyric)
-      window.mainApi?.send('setStoreSettings', {
-        enableTrayMenu: trayMenu
-      })
+      setTimeout(() => {
+        const trayMenu = !(tray.showControl || tray.showLyric)
+        window.mainApi?.send('setStoreSettings', {
+          enableTrayMenu: trayMenu
+        })
+      }, 5000)
     })
 
     onMounted(() => {
@@ -251,13 +278,14 @@ export const useSettingsStore = defineStore(
         window.mainApi?.send('setStoreSettings', {
           enableTrayMenu: trayMenu
         })
-      }, 2000)
+      }, 5000)
     })
     return {
       theme,
       general,
       localMusic,
       tray,
+      playerTheme,
       enableGlobalShortcut,
       shortcuts,
       normalLyric,

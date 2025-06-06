@@ -613,9 +613,6 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
-.playlist {
-  margin-top: 32px;
-}
 .playlist-info {
   display: flex;
   margin-bottom: 72px;
@@ -688,8 +685,7 @@ onMounted(() => {
 }
 
 .special-playlist {
-  margin-top: 192px;
-  margin-bottom: 128px;
+  padding: 192px 0 128px 0;
   border-radius: 1.25em;
   text-align: center;
 
@@ -724,11 +720,6 @@ onMounted(() => {
     animation-name: letterSpacing4;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    // background-image: linear-gradient(
-    //   225deg,
-    //   var(--color-primary),
-    //   var(--color-primary)
-    // );
 
     img {
       height: 78px;

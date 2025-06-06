@@ -87,7 +87,7 @@ const isCurrentRoute = (path: string): boolean => {
   text-transform: uppercase;
   user-select: none;
   -webkit-app-region: drag;
-  z-index: 100;
+  z-index: 15;
   background-color: var(--color-secondary-bg);
   border-radius: 12px;
   transform: translate(0, -50%);

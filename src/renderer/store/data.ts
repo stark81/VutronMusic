@@ -37,7 +37,7 @@ export const useDataStore = defineStore(
     const { t } = useI18n()
 
     const liked = reactive<{
-      songs: any[]
+      songs: number[]
       songsWithDetails: any[]
       playlists: any[]
       albums: any[]

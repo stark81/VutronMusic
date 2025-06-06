@@ -1,6 +1,11 @@
 import { randomNum } from '.'
 
 export const lyricParse = (lrc: any) => {
+  // console.log('lyricParse', lrc)
+  if (Array.isArray(lrc)) {
+    const result = parseJellyfinLyric(lrc)
+    return result
+  }
   return {
     lyric:
       parsewBywLrc(lrc?.lrc?.lyric) ?? parseyrc(lrc.yrc?.lyric) ?? parseLyric(lrc.lrc?.lyric) ?? [],
@@ -119,7 +124,7 @@ const parseyrc = (lyric: string) => {
 
 const parsewBywLrc = (lyric: string[]) => {
   if (!lyric || typeof lyric === 'string') return
-  const regex = /(\[\d{2}:\d{2}\.\d{2,3}\])([^[]*?)(?=(\[\d{2}:\d{2}\.\d{2,3}\]))/g
+  const regex = /(\[\d{2}:\d{2}\.\d{1,3}\])([^[]*?)(?=(\[\d{2}:\d{2}\.\d{2,3}\]))/g
   const extractTimestampRegex = /\[(?<min>\d+):(?<sec>\d+)(?:\.|:)*(?<ms>\d+)*\]/g
 
   const parsedLyrics = [] as any[]
@@ -171,6 +176,46 @@ const parsewBywLrc = (lyric: string[]) => {
     parsedLyrics.splice(binarySearch(parsedLyric), 0, parsedLyric)
   }
   return parsedLyrics.length ? parsedLyrics : null
+}
+
+/**
+ * Parse Jellyfin lyrics format
+ * @param lyric - Array of lyric objects with Text and Start properties
+ * lyric: { Text: string, Start: number }[]: Start 的单位为 微秒， 即 Start / 1000000
+ * @return Parsed lyrics as an array of objects with start time and content
+ */
+export const parseJellyfinLyric = (lyric: { Text: string; Start: number }[]) => {
+  const result = { lyric: [] as any[], tlyric: [] as any[], rlyric: [] as any[] }
+  if (!lyric || !lyric.length) return result
+  const lyricMap = new Map<number, { start: number; content: string }[]>()
+  const chineseRegex = /[\u4E00-\u9FFF]/
+
+  lyric.forEach((item) => {
+    if (!item.Text || !item.Start) return result
+    if (!lyricMap.has(item.Start)) {
+      lyricMap.set(item.Start, [])
+    }
+    lyricMap.get(item.Start)!.push({
+      start: item.Start / 10000000, // Convert microseconds to seconds
+      content: item.Text.trim()
+    })
+  })
+
+  lyricMap.values().forEach((lyricArray) => {
+    for (let i = 0; i < lyricArray.length; i++) {
+      if (i === 0) {
+        result.lyric.push(lyricArray[i])
+      } else {
+        chineseRegex.test(lyricArray[i].content)
+          ? result.tlyric.push(lyricArray[i])
+          : result.rlyric.push(lyricArray[i])
+      }
+    }
+  })
+  result.lyric.sort((a, b) => a.start - b.start)
+  result.tlyric.sort((a, b) => a.start - b.start)
+  result.rlyric.sort((a, b) => a.start - b.start)
+  return result
 }
 
 export const pickedLyric = (lyric: any[], number = 3) => {

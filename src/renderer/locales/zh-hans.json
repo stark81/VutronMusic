@@ -154,7 +154,8 @@
     "openOnBrowser": "在浏览器中打开",
     "copyURL": "复制链接",
     "copyId": "复制ID",
-    "playMV": "播放MV"
+    "playMV": "播放MV",
+    "setFont": "设置字体"
   },
   "login": {
     "login": "登录",
@@ -424,6 +425,11 @@
       "changelog": "版本变化",
       "updateAvailable": "可更新",
       "updating": "更新中"
+    },
+    "playerTheme": {
+      "title": "播放器样式",
+      "common": "经典模式",
+      "creative": "创意模式"
     }
   },
   "toast": {

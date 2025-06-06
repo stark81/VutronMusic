@@ -154,7 +154,8 @@
     "openOnBrowser": "Open in Browser",
     "copyURL": "Copy URL",
     "copyId": "Copy ID",
-    "playMV": "Play MV"
+    "playMV": "Play MV",
+    "setFont": "Set Font"
   },
   "login": {
     "login": "Login",
@@ -424,6 +425,11 @@
       "changelog": "Change Log",
       "updateAvailable": "UpdateAvailable",
       "updating": "Updating"
+    },
+    "playerTheme": {
+      "title": "Player Theme",
+      "common": "Classic Mode",
+      "creative": "Creative Mode"
     }
   },
   "toast": {

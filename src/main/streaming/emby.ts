@@ -41,7 +41,7 @@ export interface EmbyImpl {
   getTracks: () => Promise<{ code: number; data?: any; message?: any }>
   getPlaylists: () => Promise<any>
   getLyric: (id: number) => Promise<any>
-  getStrem: (id: string) => string
+  getStream: (id: string) => string
   createPlaylist: (name: string) => Promise<{ status: string; data?: any }>
   deletePlaylist: (id: number) => Promise<boolean>
   scrobble: (id: number) => void
@@ -68,7 +68,11 @@ class Emby implements EmbyImpl {
         return { code: 200 }
       }
     } catch (error) {
-      return { code: 404, message: error.response.data as string }
+      console.error('======= Emby login error =======', error)
+      return {
+        code: 404,
+        message: (error?.response?.data as string) || error.message || 'Login failed'
+      }
     }
   }
 
@@ -147,10 +151,7 @@ class Emby implements EmbyImpl {
     const endpoint = 'Items/Delete'
     const params = { Ids: id }
 
-    const response = await ApiRequest('POST', endpoint, params).catch((err) => {
-      console.log('111111111', err)
-      return err
-    })
+    const response = await ApiRequest('POST', endpoint, params)
     return response.status === 204
   }
 
@@ -245,7 +246,7 @@ class Emby implements EmbyImpl {
     axios({ method: 'POST', url, headers })
   }
 
-  getStrem(id: string) {
+  getStream(id: string) {
     const userId = store.get('accounts.emby.userId') as string
     const accessToken = store.get('accounts.emby.accessToken') as string
     const baseUrl = store.get('accounts.emby.url') as string

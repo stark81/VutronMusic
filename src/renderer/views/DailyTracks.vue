@@ -43,8 +43,7 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .special-playlist1 {
-  margin-top: 192px;
-  margin-bottom: 128px;
+  padding: 192px 0 128px 0;
   border-radius: 1.25em;
   text-align: center;
 
@@ -79,11 +78,6 @@ onMounted(() => {
     animation-name: letterSpacing4;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    // background-image: linear-gradient(
-    //   225deg,
-    //   var(--color-primary),
-    //   var(--color-primary)
-    // );
 
     img {
       height: 78px;
@@ -94,7 +88,7 @@ onMounted(() => {
   .subtitle {
     font-size: 18px;
     letter-spacing: 1px;
-    margin: 28px 0 54px 0;
+    margin: 28px 0 18px 0;
     animation-duration: 0.8s;
     animation-name: letterSpacing1;
     text-transform: uppercase;
@@ -104,6 +98,7 @@ onMounted(() => {
     margin-top: 32px;
     display: flex;
     justify-content: center;
+    align-items: center;
     button {
       margin-right: 16px;
     }

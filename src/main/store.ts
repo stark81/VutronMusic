@@ -39,6 +39,13 @@ export interface TypeElectronStore {
       userId: string
       accessToken: string
     }
+    jellyfin: {
+      url: string
+      username: string
+      password: string
+      userId: string
+      accessToken: string
+    }
   }
 }
 
@@ -131,6 +138,13 @@ const store = new Store<TypeElectronStore>({
         salt: ''
       },
       emby: {
+        url: '',
+        username: '',
+        password: '',
+        userId: '',
+        accessToken: ''
+      },
+      jellyfin: {
         url: '',
         username: '',
         password: '',

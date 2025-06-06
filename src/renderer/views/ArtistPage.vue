@@ -547,13 +547,4 @@ onBeforeUnmount(() => {
   overflow: hidden;
   white-space: pre-line;
 }
-
-.description-fulltext {
-  font-size: 16px;
-  margin-top: 24px;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  white-space: pre-line;
-}
 </style>

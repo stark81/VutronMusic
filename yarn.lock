@@ -1724,6 +1724,11 @@
   resolved "https://registry.npmmirror.com/@vue/shared/-/shared-3.5.13.tgz#87b309a6379c22b926e696893237826f64339b6f"
   integrity sha512-/hnE/qP5ZoGpol0a5mDi45bOd7t3tjYJBjsgCsivow7D48cJeV5l05RD82lPqi7gRiphZM37rnhW1l6ZoCNNnQ==
 
+"@vueform/multiselect@^2.6.11":
+  version "2.6.11"
+  resolved "http://mirrors.cloud.tencent.com/npm/@vueform/multiselect/-/multiselect-2.6.11.tgz#3585bf1989b969019cd6f8095c8a27d4d45c61e7"
+  integrity sha512-iG4TGfqE3baftbSGF0PhoS+xZOCnV0ChkDo9rwhJ/Qi2YlCdb6tyQCjvyug3jnzncga8+d85kx0WvG7rDYFqiA==
+
 "@vuetify/loader-shared@^2.0.3":
   version "2.0.3"
   resolved "https://registry.npmmirror.com/@vuetify/loader-shared/-/loader-shared-2.0.3.tgz#11451c717e4a352ec311da52a79c857cd256c92f"
@@ -4193,7 +4198,7 @@ fast-deep-equal@^3.1.1, fast-deep-equal@^3.1.3:
 
 fast-glob@^3.2.9, fast-glob@^3.3.3:
   version "3.3.3"
-  resolved "https://mirrors.cloud.tencent.com/npm/fast-glob/-/fast-glob-3.3.3.tgz#d06d585ce8dba90a16b0505c543c3ccfb3aeb818"
+  resolved "https://registry.npmmirror.com/fast-glob/-/fast-glob-3.3.3.tgz#d06d585ce8dba90a16b0505c543c3ccfb3aeb818"
   integrity sha512-7MptL8U0cqcFdzIzwOTHoilX9x5BrNqye7Z/LuC7kCMRio1EMSyqRK3BEAUD7sXRq4iT4AzTVuZdhgQ2TCvYLg==
   dependencies:
     "@nodelib/fs.stat" "^2.0.2"
@@ -4443,6 +4448,11 @@ follow-redirects@^1.15.6:
   version "1.15.9"
   resolved "https://registry.npmmirror.com/follow-redirects/-/follow-redirects-1.15.9.tgz#a604fa10e443bf98ca94228d9eebcc2e8a2c8ee1"
   integrity sha512-gew4GsXizNgdoRyqmyfMHyAmXsZDk6mHkSxZFCzW9gwlbtOW44CDtYavM+y+72qD/Vq2l550kMF52DT8fOLJqQ==
+
+font-list@^1.5.1:
+  version "1.5.1"
+  resolved "http://mirrors.cloud.tencent.com/npm/font-list/-/font-list-1.5.1.tgz#55c45a974dd30862bafcf5b7ce694bded184c08c"
+  integrity sha512-Hr5V0dsSv91wH3FgirXd7qh1PydqA/vMQyWjFFWn+lUPJtC+3i2tzgVqbLRcvQh87TGdbTGbAR3mEo4VlwC1jw==
 
 for-each@^0.3.3:
   version "0.3.3"
@@ -4848,6 +4858,11 @@ graphemer@^1.4.0:
   resolved "https://registry.npmmirror.com/graphemer/-/graphemer-1.4.0.tgz#fb2f1d55e0e3a1849aeffc90c4fa0dd53a0e66c6"
   integrity sha512-EtKwoO6kxCL9WO5xipiHTZlSzBm7WLT627TqC/uVRd0HKmq8NXyebnNYxDoBi7wt8eTWrUrKXCOVaFq9x1kgag==
 
+gsap@^3.13.0:
+  version "3.13.0"
+  resolved "http://mirrors.cloud.tencent.com/npm/gsap/-/gsap-3.13.0.tgz#597d4e019a2bb487785387d91296adebf92db9dd"
+  integrity sha512-QL7MJ2WMjm1PHWsoFrAQH/J8wUeqZvMtHO58qdekHpCfhvhSL4gSiz6vJf5EeMP0LOn3ZCprL2ki/gjED8ghVw==
+
 has-ansi@^2.0.0:
   version "2.0.0"
   resolved "https://registry.npmmirror.com/has-ansi/-/has-ansi-2.0.0.tgz#34f5049ce1ecdf2b0649af3ef24e45ed35416d91"
@@ -4955,11 +4970,6 @@ hosted-git-info@^4.1.0:
   integrity sha512-kyCuEOWjJqZuDbRHzL8V93NzQhwIB71oFWSyzVo+KPZI+pnQPPxucdkrOZvkLRnrf5URsQM+IJ09Dw29cRALIA==
   dependencies:
     lru-cache "^6.0.0"
-
-howler@^2.2.4:
-  version "2.2.4"
-  resolved "https://registry.npmmirror.com/howler/-/howler-2.2.4.tgz#bd3df4a4f68a0118a51e4bd84a2bfc2e93e6e5a1"
-  integrity sha512-iARIBPgcQrwtEr+tALF+rapJ8qSc+Set2GJQl7xT1MQzWaVkFebdJhR3alVlSiUf5U7nAANKuj3aWpwerocD5w==
 
 html-tags@^3.3.1:
   version "3.3.1"

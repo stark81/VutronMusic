@@ -5,7 +5,7 @@ const baseConfig = {
   productName: 'VutronMusic',
   appId: '',
   asar: true,
-  asarUnpack: ['./dist-native/*.node'],
+  // asarUnpack: ['./dist-native/*.node'],
   extends: null,
   artifactName: '${productName}-${version}_${os}_${arch}.${ext}',
   directories: {
@@ -39,9 +39,9 @@ const baseConfig = {
   win: {
     icon: 'buildAssets/icons/icon.ico',
     target: [
-      { target: 'zip', arch: 'x64' },
-      { target: 'portable', arch: 'x64' },
-      { target: 'nsis', arch: 'x64' }
+      { target: 'zip', arch: ['x64', 'arm64'] },
+      { target: 'portable', arch: ['x64', 'arm64'] },
+      { target: 'nsis', arch: ['x64', 'arm64'] }
     ]
   },
   portable: {
@@ -91,7 +91,8 @@ baseConfig.files = [
   '!dist/main/index.dev.js',
   '!docs/**/*',
   '!tests/**/*',
-  '!release/**/*'
+  '!release/**/*',
+  '!**/.build-id/**'
 ]
 
 // TODO: Notarize for macOS

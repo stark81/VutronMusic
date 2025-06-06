@@ -154,7 +154,8 @@
     "openOnBrowser": "在瀏覽器中開啟",
     "copyURL": "複製連結",
     "copyId": "複製ID",
-    "playMV": "播放MV"
+    "playMV": "播放MV",
+    "setFont": "設定字型"
   },
   "login": {
     "login": "登入",
@@ -424,6 +425,11 @@
       "changelog": "版本更新內容",
       "updateAvailable": "有可用更新",
       "updating": "更新進行中"
+    },
+    "playerTheme": {
+      "title": "播放器樣式",
+      "common": "經典模式",
+      "creative": "創意模式"
     }
   },
   "toast": {

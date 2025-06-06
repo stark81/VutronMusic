@@ -9,11 +9,12 @@ const { resolve, join } = require('path')
 const { promisify } = require('util')
 const stream = require('stream')
 
-const pkg = require(`${process.cwd()}/package.json`)
+if (process.env.SKIP_REBUILD === 'true') {
+  console.log('[postinstall] SKIP_REBUILD is true, skipping rebuild.')
+  process.exit(0)
+}
 
-const isWindows = process.platform === 'win32'
-const isMac = process.platform === 'darwin'
-const isLinux = process.platform === 'linux'
+const pkg = require(`${process.cwd()}/package.json`)
 
 const argv = minimist(process.argv.slice(2))
 const electronVersion = pkg.devDependencies.electron.replaceAll('^', '')
@@ -70,7 +71,7 @@ async function download(arch) {
   }
   const fileName = `better-sqlite3-v${betterSqlite3Version}-electron-v${electronModuleVersion}-${process.platform}-${arch}`
   const zipFileName = `${fileName}.tar.gz`
-  const url = `https://ghproxy.com/https://github.com/JoshuaWise/better-sqlite3/releases/download/v${betterSqlite3Version}/${zipFileName}`
+  const url = `https://github.com/JoshuaWise/better-sqlite3/releases/download/v${betterSqlite3Version}/${zipFileName}`
   if (!fs.existsSync(tmpDir)) {
     fs.mkdirSync(tmpDir, {
       recursive: true
@@ -165,15 +166,7 @@ async function main() {
     if (argv.x64) await build('x64')
     if (argv.arm64) await build('arm64')
   } else {
-    if (isWindows) {
-      await build('x64')
-    } else if (isMac) {
-      await build('x64')
-      await build('arm64')
-    } else if (isLinux) {
-      await build('x64')
-      await build('arm64')
-    }
+    await build(process.arch)
   }
   process.exit(0)
 }

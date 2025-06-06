@@ -206,7 +206,7 @@ const stateStore = useNormalStateStore()
 const { showLyrics, enableScrolling } = storeToRefs(stateStore)
 
 const dataStore = useDataStore()
-const { liked } = storeToRefs(dataStore)
+// const { liked } = storeToRefs(dataStore)
 const { likeATrack } = dataStore
 
 const streamMusicStore = useStreamMusicStore()
@@ -321,26 +321,9 @@ const heartDisabled = computed(() => {
   return currentTrack.value?.type === 'local' && !currentTrack.value?.matched
 })
 
-// watch(
-//   currentTrack,
-//   (value) => {
-//     getPic(value!).then((res) => {
-//       pic.value = value?.matched ? res + '?param=64y64' : res
-//     })
-//   },
-//   { immediate: true }
-// )
-
 watch(showLyrics, (value) => {
   enableScrolling.value = !value
 })
-
-watch(
-  () => liked.value.songs.includes(currentTrack.value?.id) || currentTrack.value?.starred,
-  (value) => {
-    isLiked.value = value
-  }
-)
 </script>
 
 <style scoped lang="scss">
@@ -355,11 +338,12 @@ watch(
   background-color: var(--color-navbar-bg);
   z-index: 20;
 }
-.progress-bar {
+:deep(.progress-bar) {
   margin-top: -6px !important;
   margin-bottom: -6px !important;
   width: 100%;
   position: relative;
+  will-change: transform;
 
   .progress-tooltip {
     position: absolute;
@@ -387,6 +371,10 @@ watch(
     border-top-color: rgb(from var(--color-primary) r g b / 90%);
     transform: translate(-50%, -81%);
   }
+}
+
+:deep(.player-bar *) {
+  will-change: transform;
 }
 
 .controls {

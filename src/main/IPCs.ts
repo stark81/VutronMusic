@@ -6,10 +6,17 @@ import Constants from './utils/Constants'
 import store from './store'
 import fs from 'fs'
 import path from 'path'
-import { parseFile } from 'music-metadata'
 import { db, Tables } from './db'
+import { parseFile } from 'music-metadata'
 import { CacheAPIs } from './utils/CacheApis'
-import { createMD5, deleteExcessCache, getReplayGainFromMetadata, splitArtist } from './utils/utils'
+import {
+  deleteExcessCache,
+  createMD5,
+  getFileName,
+  getReplayGainFromMetadata,
+  splitArtist,
+  cleanFontName
+} from './utils/utils'
 import { registerGlobalShortcuts } from './globalShortcut'
 import { createMenu } from './menu'
 
@@ -461,6 +468,18 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
       }
     }
   })
+
+  ipcMain.handle('getFontList', async (event) => {
+    const { getFonts } = await import('font-list')
+    try {
+      const fonts = await getFonts()
+      const cleandFonts = [...new Set(fonts.map(cleanFontName))]
+      return ['system-ui', ...cleandFonts].sort()
+    } catch (error) {
+      console.error('获取字体列表失败:', error)
+      return ['system-ui']
+    }
+  })
 }
 
 async function initMprisIpcMain(win: BrowserWindow, mpris: MprisImpl): Promise<void> {
@@ -524,6 +543,8 @@ async function initMprisIpcMain(win: BrowserWindow, mpris: MprisImpl): Promise<v
 async function initStreaming() {
   const navidrome = (await import('./streaming/navidrome')).default
   const emby = (await import('./streaming/emby')).default
+  const jellyfin = (await import('./streaming/jellyfin')).default
+
   ipcMain.handle('stream-login', async (event: IpcMainEvent, data: any) => {
     const { platform } = data
     store.set('accounts.selected', platform)
@@ -535,6 +556,9 @@ async function initStreaming() {
       return response
     } else if (platform === 'emby') {
       const response = await emby.doLogin(data.baseURL, data.username, data.password)
+      return response
+    } else if (platform === 'jellyfin') {
+      const response = await jellyfin.doLogin(data.baseURL, data.username, data.password)
       return response
     }
   })
@@ -554,6 +578,10 @@ async function initStreaming() {
       const tracks = await emby.getTracks()
       const playlists = await emby.getPlaylists()
       return { code: tracks.code, message: '', tracks: tracks.data, playlists: playlists.data }
+    } else if (data.platform === 'jellyfin') {
+      const tracks = await jellyfin.getTracks()
+      const playlists = await jellyfin.getPlaylists()
+      return { code: tracks.code, message: '', tracks: tracks.data, playlists: playlists.data }
     }
   })
 
@@ -571,6 +599,9 @@ async function initStreaming() {
     } else if (data.platform === 'emby') {
       const playlists = await emby.getPlaylists()
       return { code: playlists.code, playlists: playlists.data }
+    } else if (data.platform === 'jellyfin') {
+      const playlists = await jellyfin.getPlaylists()
+      return { code: playlists.code, playlists: playlists.data }
     }
   })
 
@@ -585,6 +616,10 @@ async function initStreaming() {
       store.set('accounts.emby.userId', '')
       store.set('accounts.emby.accessToken', '')
       return true
+    } else if (data.platform === 'jellyfin') {
+      store.set('accounts.jellyfin.userId', '')
+      store.set('accounts.jellyfin.accessToken', '')
+      return true
     }
   })
 
@@ -594,6 +629,9 @@ async function initStreaming() {
       return result
     } else if (data.platform === 'emby') {
       const result = await emby.deletePlaylist(data.id)
+      return result
+    } else if (data.platform === 'jellyfin') {
+      const result = await jellyfin.deletePlaylist(data.id)
       return result
     }
   })
@@ -605,6 +643,9 @@ async function initStreaming() {
     } else if (data.platform === 'emby') {
       const result = await emby.createPlaylist(data.name)
       return result
+    } else if (data.platform === 'jellyfin') {
+      const result = await jellyfin.createPlaylist(data.name)
+      return result
     }
   })
 
@@ -615,6 +656,9 @@ async function initStreaming() {
     } else if (data.platform === 'emby') {
       const result = await emby.addTracksToPlaylist(data.op, data.playlistId, data.ids)
       return result
+    } else if (data.platform === 'jellyfin') {
+      const result = await jellyfin.addTracksToPlaylist(data.op, data.playlistId, data.ids)
+      return result
     }
   })
 
@@ -623,6 +667,8 @@ async function initStreaming() {
       navidrome.scrobble(data.id)
     } else if (data.platform === 'emby') {
       emby.scrobble(data.id)
+    } else if (data.platform === 'jellyfin') {
+      jellyfin.scrobble(data.id)
     }
   })
 
@@ -633,13 +679,16 @@ async function initStreaming() {
     } else if (data.platform === 'emby') {
       const result = await emby.likeATrack(data.operation, data.id)
       return result
+    } else if (data.platform === 'jellyfin') {
+      const result = await jellyfin.likeATrack(data.operation, data.id)
+      return result
     }
   })
 }
 
-function getFileName(filePath: string) {
-  const fileExt = path.extname(filePath)
-  const fileNameWithExt = path.basename(filePath)
-  const fileName = fileNameWithExt.replace(fileExt, '')
-  return fileName
-}
+// function getFileName(filePath: string) {
+//   const fileExt = path.extname(filePath)
+//   const fileNameWithExt = path.basename(filePath)
+//   const fileName = fileNameWithExt.replace(fileExt, '')
+//   return fileName
+// }

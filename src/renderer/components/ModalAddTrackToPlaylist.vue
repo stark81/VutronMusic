@@ -20,7 +20,7 @@
         <img :src="playlist?.coverImgUrl" loading="lazy" />
         <div class="info">
           <div class="title">{{ playlist?.name }}</div>
-          <div class="track-count">{{ playlist?.trackCount }} 首</div>
+          <div class="track-count">{{ playlist?.trackCount || 0 }} 首</div>
         </div>
       </div>
     </template>

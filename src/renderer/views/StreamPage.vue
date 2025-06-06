@@ -308,7 +308,7 @@ const getRandomTrack = async () => {
   while (i < ids.length - 1) {
     randomID = ids[randomNum(0, ids.length - 1)]
     data = await getStreamLyric(randomID as unknown as string)
-    if (data.lrc.lyric.length > 0) {
+    if (Array.isArray(data) || data.lrc.lyric.length > 0) {
       const { lyric } = lyricParse(data)
       const isInstrumental = lyric.filter((l) => l.content?.includes('纯音乐，请欣赏'))
       if (!isInstrumental.length) {

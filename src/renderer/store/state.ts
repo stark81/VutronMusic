@@ -19,6 +19,11 @@ export const useNormalStateStore = defineStore('state', () => {
   const setConvolverModal = ref(false)
   const setPlaybackRateModal = ref(false)
   const setPitchModal = ref(false)
+  const setThemeModal = ref(false)
+  const setFontModal = ref(false)
+  const fontList = ref<{ label: string; value: string }[]>([
+    { label: '系统默认', value: 'system-ui' }
+  ])
   const extensionCheckResult = ref(false)
   const modalOpen = ref(false)
   const addTrackToPlaylistModal = ref({
@@ -72,6 +77,15 @@ export const useNormalStateStore = defineStore('state', () => {
     }
   }
 
+  const getFontList = () => {
+    window.mainApi?.invoke('getFontList').then((fonts: string[]) => {
+      fontList.value = [
+        { label: '系统默认', value: 'system-ui' },
+        ...fonts.map((font) => ({ label: font, value: font }))
+      ]
+    })
+  }
+
   const updateScroll = (tabId: string, payload: Partial<ScrollState>) => {
     if (scrollbar.instances[tabId]) {
       scrollbar.instances[tabId] = { ...scrollbar.instances[tabId], ...payload }
@@ -112,6 +126,9 @@ export const useNormalStateStore = defineStore('state', () => {
     setConvolverModal,
     setPlaybackRateModal,
     setPitchModal,
+    setThemeModal,
+    setFontModal,
+    fontList,
     extensionCheckResult,
     addTrackToPlaylistModal,
     newPlaylistModal,
@@ -124,6 +141,7 @@ export const useNormalStateStore = defineStore('state', () => {
     latestVersion,
     isDownloading,
     showToast,
+    getFontList,
     registerInstance,
     unregisterInstance,
     updateScroll,

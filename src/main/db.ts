@@ -96,9 +96,10 @@ class DB {
   constructor() {
     try {
       createFileIfNotExist(this.dbFilePath)
-      const root = app.isPackaged
-        ? path.join(process.resourcesPath, 'app.asar.unpacked')
-        : path.join(__dirname, '../../')
+      // const root = app.isPackaged
+      //   ? path.join(process.resourcesPath, 'app.asar.unpacked')
+      //   : path.join(__dirname, '../../')
+      const root = path.join(__dirname, '../../')
       this.sqlite = new SQLite3(this.dbFilePath, {
         nativeBinding: path.join(root, 'dist-native', `better_sqlite3-${process.arch}.node`)
       })
@@ -110,7 +111,6 @@ class DB {
         path.join(root, 'dist-native', `better_sqlite3-${process.arch}.node`)
       )
     } catch (e) {
-      // console.log('111111111111111111112222, init error = ', e)
       log.error(e)
     }
   }
@@ -124,7 +124,6 @@ class DB {
   migrate() {
     const key = 'appVersion'
     const appVersion = this.find(Tables.AppData, key)
-    // log.info('[db] App version:', appVersion)
     const updateAppVersionInDB = () => {
       this.upsert(Tables.AppData, { id: key, value: Constants.APP_VERSION })
     }
@@ -248,8 +247,46 @@ class DB {
   }
 
   deleteMany<T extends TableNames>(table: T, keys: TablesStructures[T]['id'][]) {
-    const idsQuery = keys.map((key) => `id = ${key}`).join(' OR ')
-    return this.sqlite.prepare(`DELETE FROM ${table} WHERE ${idsQuery}`).run()
+    if (keys.length === 0) return
+
+    const calculateBatchSize = () => {
+      if (keys.length > 100_000) return 50
+      if (keys.length > 10_000) return 100
+      if (keys.length > 1_000) return 250
+      return 500
+    }
+
+    const batchSize = calculateBatchSize()
+    const totalBatches = Math.ceil(keys.length / batchSize)
+
+    const transaction = this.sqlite.transaction(() => {
+      for (let i = 0; i < totalBatches; i++) {
+        const batchKeys = keys.slice(i * batchSize, (i + 1) * batchSize)
+
+        const placeholders = batchKeys.map(() => '?').join(',')
+        const query = `DELETE FROM ${table} WHERE id IN (${placeholders})`
+
+        try {
+          const stmt = this.sqlite.prepare(query)
+          stmt.run(...batchKeys)
+        } catch (batchError) {
+          console.error(
+            `[Batch ${i + 1}/${totalBatches}] Failed to delete ${batchKeys.length} records:`,
+            batchError
+          )
+          throw batchError
+        }
+      }
+    })
+
+    try {
+      // 执行事务
+      transaction()
+      console.log(`Deleted ${keys.length} records from ${table} in ${totalBatches} batches`)
+    } catch (transactionError) {
+      console.error(`Transaction failed:`, transactionError)
+      throw new Error(`Bulk delete operation partially failed: ${transactionError.message}`)
+    }
   }
 
   truncate<T extends TableNames>(table: T) {

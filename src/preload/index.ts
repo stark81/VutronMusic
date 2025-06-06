@@ -48,6 +48,7 @@ const mainAvailChannels: string[] = [
   'update-powersave',
   'openLogFile',
   'updateTooltip',
+  'getFontList',
   'updateRate'
 ]
 const rendererAvailChannels: string[] = [

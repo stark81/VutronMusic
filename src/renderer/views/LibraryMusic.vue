@@ -324,7 +324,7 @@ const getRandomLyric = () => {
         const isInstrumental = lyricObj.lyric.filter((l) => l.content?.includes('纯音乐，请欣赏'))
         if (isInstrumental.length === 0) {
           lyric.value = lyricObj.lyric
-          getTrackDetail(id).then((data) => {
+          getTrackDetail(id.toString()).then((data) => {
             randomtrack.value = data.songs[0]
           })
         }

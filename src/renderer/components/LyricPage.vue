@@ -38,8 +38,10 @@ import {
   updateRate
 } from '../utils/lyricController'
 
-defineProps({
-  hover: { type: Boolean, default: false }
+const props = defineProps({
+  hover: { type: Boolean, default: false },
+  textAlign: { type: String, default: 'left' },
+  unplayColor: { type: String, default: 'var(--color-wbw-text-unplay)' }
 })
 
 const playerStore = usePlayerStore()
@@ -51,7 +53,7 @@ const { showToast } = stateStore
 
 const settingsStore = useSettingsStore()
 const { normalLyric } = storeToRefs(settingsStore)
-const { nFontSize, nTranslationMode, isNWordByWord, textAlign, useMask } = toRefs(normalLyric.value)
+const { nFontSize, nTranslationMode, isNWordByWord, useMask } = toRefs(normalLyric.value)
 
 const lyricContainer = ref<HTMLElement>()
 
@@ -64,6 +66,16 @@ const offset = computed(() => {
   } else {
     return `提前${Math.abs(lrcOffset)}s`
   }
+})
+
+const map = {
+  start: 'left',
+  center: 'center',
+  end: 'right'
+}
+
+const transformOrigin = computed(() => {
+  return `center ${map[props.textAlign]}`
 })
 
 const setOffset = (offset: number) => {
@@ -168,13 +180,13 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   eventBus.off('update-process')
-  // eventBus.off('get-line-font-index')
   eventBus.off('updateSeek')
   destroyController()
 })
 </script>
 
 <style lang="scss">
+// 此处将scoped移出，以避免Windows版本下的offset无法实时预览
 .lyric-wrapper {
   position: relative;
   height: 100vh;
@@ -188,9 +200,7 @@ onBeforeUnmount(() => {
 }
 
 .offset {
-  display: flex;
   position: fixed;
-  flex-direction: column;
   background-color: rgba(0, 0, 0, 0.05);
   padding: 10px 6px;
   top: 50%;
@@ -211,14 +221,13 @@ onBeforeUnmount(() => {
 
 .lyric-container {
   height: 100vh;
-  width: calc(min(50vh, 33.33vw) + 8vw);
+  width: calc(min(50vh, 33.33vw));
   display: flex;
   flex-direction: column;
   overflow-y: scroll;
   scrollbar-width: none;
-  padding-left: 3vw;
   position: relative;
-
+  margin: 0 auto;
   contain: content;
   transform: translateZ(0);
 }
@@ -234,7 +243,7 @@ onBeforeUnmount(() => {
   .lyric-line {
     contain: layout style;
     will-change: transform;
-    transform-origin: center left;
+    transform-origin: v-bind(transformOrigin);
     transform: scale(0.95);
     transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
@@ -242,7 +251,7 @@ onBeforeUnmount(() => {
   .translation {
     contain: layout style;
     will-change: transform;
-    transform-origin: center left;
+    transform-origin: v-bind(transformOrigin);
     transform: scale(0.95);
     transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
@@ -260,19 +269,11 @@ onBeforeUnmount(() => {
   }
 }
 
-[data-theme='dark'] {
-  --color-secondary-bg-for-transparent: rgba(0, 0, 0, 0.1);
-}
-
-:root {
-  --color-secondary-bg-for-transparent: rgba(0, 0, 0, 0.2);
-}
-
 .line {
   .lyric-line span {
     font-size: v-bind('`${nFontSize}px`');
     background-repeat: no-repeat;
-    background-color: var(--color-wbw-text-unplay);
+    background-color: v-bind('`${unplayColor}`');
     -webkit-text-fill-color: transparent;
     background-clip: text;
     background-size: 0 100%;
@@ -281,7 +282,7 @@ onBeforeUnmount(() => {
   .translation span {
     font-size: v-bind('`${nFontSize - 2}px`');
     background-repeat: no-repeat;
-    background-color: var(--color-wbw-text-unplay);
+    background-color: v-bind('`${unplayColor}`');
     -webkit-text-fill-color: transparent;
     background-clip: text;
     background-size: 0 100%;
@@ -327,10 +328,13 @@ onBeforeUnmount(() => {
 
 @media (max-aspect-ratio: 10/9) {
   .lyric-container {
-    width: 100vw;
-    padding-right: 3vw;
+    width: 100%;
     .line {
       text-align: center;
+      .lyric-line,
+      .translation {
+        transform-origin: center center;
+      }
     }
   }
 }
