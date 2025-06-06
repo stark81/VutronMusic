@@ -692,3 +692,10 @@ export const getStreamLyric = async (id: string) => {
     return lyrics
   }
 }
+
+export const getFileName = (filePath: string) => {
+  const fileExt = path.extname(filePath)
+  const fileNameWithExt = path.basename(filePath)
+  const fileName = fileNameWithExt.replace(fileExt, '')
+  return fileName
+}
