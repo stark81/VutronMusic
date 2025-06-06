@@ -227,10 +227,12 @@ export const useSettingsStore = defineStore(
     }
 
     window.mainApi?.on('resume', () => {
-      const trayMenu = !(tray.showControl || tray.showLyric)
-      window.mainApi?.send('setStoreSettings', {
-        enableTrayMenu: trayMenu
-      })
+      setTimeout(() => {
+        const trayMenu = !(tray.showControl || tray.showLyric)
+        window.mainApi?.send('setStoreSettings', {
+          enableTrayMenu: trayMenu
+        })
+      }, 5000)
     })
 
     onMounted(() => {
@@ -251,7 +253,7 @@ export const useSettingsStore = defineStore(
         window.mainApi?.send('setStoreSettings', {
           enableTrayMenu: trayMenu
         })
-      }, 2000)
+      }, 5000)
     })
     return {
       theme,

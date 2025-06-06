@@ -68,7 +68,11 @@ class Emby implements EmbyImpl {
         return { code: 200 }
       }
     } catch (error) {
-      return { code: 404, message: error.response.data as string }
+      console.error('======= Emby login error =======', error)
+      return {
+        code: 404,
+        message: (error?.response?.data as string) || error.message || 'Login failed'
+      }
     }
   }
 

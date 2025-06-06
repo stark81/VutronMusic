@@ -26,7 +26,8 @@ const doLogin = async (baseUrl: string, username: string, password: string) => {
     store.set('accounts.selected', 'navidrome')
     return { code: 200 }
   } catch (error) {
-    return { code: 404, message: error.response.data.error }
+    console.error('===== navidrome login error =====', error.response)
+    return { code: 404, message: error?.response?.data?.error || '登录失败' }
   }
 }
 
@@ -70,7 +71,7 @@ const ApiRequest = async (endpoint: string, params?: Record<string, string>) => 
           return { code: 401, message: err.response.data.error, data: undefined }
         })
       }
-      console.log('=getTracks= err = ', err)
+      console.log('==== navidrome getTracks err ====', err)
       return err
     })
 }
@@ -261,10 +262,6 @@ class Navidrome implements NavidromeImpl {
     fetch(getRestUrl('scrobble', { id }))
   }
 }
-
-// export const startNavidrome = () => {
-//   return new Navidrome()
-// }
 
 const navidrome = new Navidrome()
 

@@ -11,12 +11,13 @@ import {
   ArtistMv,
   SearchPage,
   HomePage,
-  ExplorePage,
+  // ExplorePage,
   PlaylistPage,
   DailyTracks,
   NextUp,
   StreamLogin,
-  StreamPage
+  StreamPage,
+  LottiePlayer
 } from '../views'
 import { createRouter, createWebHashHistory, createWebHistory } from 'vue-router'
 import { isAccountLoggedIn } from '../utils/auth'
@@ -35,7 +36,7 @@ const routes = [
   {
     path: '/explore',
     name: 'explore',
-    component: ExplorePage,
+    component: LottiePlayer,
     meta: {
       titleKey: 'nav.search',
       keepAlive: true,

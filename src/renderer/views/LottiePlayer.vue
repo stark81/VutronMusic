@@ -1,6 +1,7 @@
 <template>
   <Vue3Lottie
     ref="container"
+    class="lottie-container"
     :animation-data="snow"
     :auto-play="false"
     height="100vh"
@@ -39,3 +40,9 @@ onBeforeUnmount(() => {
   container.value?.destroy()
 })
 </script>
+
+<style scoped lang="scss">
+.lottie-container {
+  transform: translateZ(0);
+}
+</style>
