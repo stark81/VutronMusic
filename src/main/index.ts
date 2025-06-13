@@ -699,7 +699,7 @@ class BackGround {
       this.tray = createTray(this.win)
       if (Constants.IS_LINUX) {
         const createMpris = await import('./mpris').then((m) => m.createMpris)
-        this.mpris = createMpris(this.win)
+        this.mpris = await createMpris(this.win)
       }
 
       if (store.get('settings.enableGlobalShortcut') || false) {
