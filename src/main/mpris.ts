@@ -101,6 +101,14 @@ class Mpris implements MprisImpl {
   }
 }
 
-export function createMpris(win: BrowserWindow) {
-  return new Mpris(win)
+// 使用 async 关键字，让这个函数本身变成异步的
+export async function createMpris(win: BrowserWindow): Promise<MprisImpl> {
+  // 创建实例的过程不变
+  const mprisInstance = new Mpris(win)
+
+  // 使用 setImmediate 来“暂停”一瞬间，这会把后续操作推迟到下一个事件循环
+  // 这既打破了启动时的竞态条件，又能安全地返回完整的类实例
+  await new Promise((resolve) => setImmediate(resolve))
+
+  return mprisInstance
 }
