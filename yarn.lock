@@ -1233,11 +1233,6 @@
   dependencies:
     "@types/node" "*"
 
-"@types/howler@^2.2.11":
-  version "2.2.12"
-  resolved "https://registry.npmmirror.com/@types/howler/-/howler-2.2.12.tgz#078d20787911f6e3e871a0e93a23832e13abaa59"
-  integrity sha512-hy769UICzOSdK0Kn1FBk4gN+lswcj1EKRkmiDtMkUGvFfYJzgaDXmVXkSShS2m89ERAatGIPnTUlp2HhfkVo5g==
-
 "@types/http-cache-semantics@*":
   version "4.0.4"
   resolved "https://registry.npmmirror.com/@types/http-cache-semantics/-/http-cache-semantics-4.0.4.tgz#b979ebad3919799c979b17c72621c0bc0a31c6c4"
@@ -3478,10 +3473,10 @@ electron-extension-installer@^1.2.0:
     jszip "^3.10.1"
     rimraf "^5.0.0"
 
-electron-log@^4.4.8:
-  version "4.4.8"
-  resolved "http://mirrors.cloud.tencent.com/npm/electron-log/-/electron-log-4.4.8.tgz#fcb9f714dbcaefb6ac7984c4683912c74730248a"
-  integrity sha512-QQ4GvrXO+HkgqqEOYbi+DHL7hj5JM+nHi/j+qrN9zeeXVKy8ZABgbu4CnG+BBqDZ2+tbeq9tUC4DZfIWFU5AZA==
+electron-log@^5.4.1:
+  version "5.4.1"
+  resolved "http://mirrors.cloud.tencent.com/npm/electron-log/-/electron-log-5.4.1.tgz#700ddc6ef4b06c13a983468580ba7a7e579129d4"
+  integrity sha512-QvisA18Z++8E3Th0zmhUelys9dEv7aIeXJlbFw3UrxCc8H9qSRW0j8/ooTef/EtHui8tVmbKSL+EIQzP9GoRLg==
 
 electron-publish@24.13.1:
   version "24.13.1"

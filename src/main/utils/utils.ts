@@ -13,6 +13,7 @@ import store, { TrackInfoOrder } from '../store'
 
 import { Readable } from 'stream'
 import { db, Tables } from '../db'
+import log from '../log'
 
 export const isFileExist = (file: string) => {
   return fs.existsSync(file)
@@ -256,6 +257,7 @@ export const getPicColor = async (pic: Buffer) => {
     const color2 = originColor.lighten(0.28).rotate(-30).rgb().string()
     return { color, color2 }
   } catch (error) {
+    log.error('获取图片颜色失败:', error)
     return { color: null, color2: null }
   }
 }
@@ -274,9 +276,7 @@ export const getLyricFromApi = async (
     return await request({
       url: '/lyric/new',
       method: 'get',
-      params: {
-        id
-      }
+      params: { id }
     })
   } catch {
     return {
@@ -566,7 +566,8 @@ export const deleteExcessCache = (deleteAll = false) => {
         fs.rmSync(audioCachePath, { recursive: true })
       }
       return true
-    } catch {
+    } catch (error) {
+      log.error('清理在线歌曲缓存失败:', error)
       return false
     }
   }
@@ -665,7 +666,7 @@ export const getStreamPic = async (ids: string) => {
     const [id, size] = ids.split('/')
     const url = jellyfin.getPic(id, Number(size))
     return fetch(url).catch(async (err) => {
-      console.error('获取Jellyfin封面失败:', err)
+      log.error('获取Jellyfin封面失败:', err)
       return await fetch('atom://get-default-pic')
     })
   }

@@ -120,13 +120,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const startX = e.clientX
     const startY = e.clientY
+    const startHeight = window.innerHeight
+    const startWidth = window.innerWidth
 
     const onMouseMove = throttle((e: MouseEvent) => {
       if (!isDragging) return
       titleBar.style.cursor = 'move'
       const dx = e.clientX - startX
       const dy = e.clientY - startY
-      ipcRenderer.send('window-drag', { dx, dy })
+      ipcRenderer.send('window-drag', { dx, dy, startHeight, startWidth })
     }, 16)
 
     const onMouseUp = () => {
@@ -169,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
     timeoutId = setTimeout(() => {
       const now = Date.now()
       if (
-        root.classList.contains('is-lock') &&
+        root?.classList?.contains('is-lock') &&
         now - lastMoveTime >= (osdLyric.staticTime ?? 1500)
       ) {
         root.style.opacity = '0.02'

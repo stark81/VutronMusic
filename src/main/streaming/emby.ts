@@ -2,6 +2,7 @@ import axios from 'axios'
 import Constants from '../utils/Constants'
 import { parseLyricString } from '../utils/utils'
 import store from '../store'
+import log from '../log'
 
 const client = 'VutronMusic'
 const version = Constants.APP_VERSION
@@ -68,7 +69,7 @@ class Emby implements EmbyImpl {
         return { code: 200 }
       }
     } catch (error) {
-      console.error('======= Emby login error =======', error)
+      log.error('======= Emby login error =======', error)
       return {
         code: 404,
         message: (error?.response?.data as string) || error.message || 'Login failed'
@@ -215,7 +216,7 @@ class Emby implements EmbyImpl {
     const endpoint = `Playlists/${id}/Items`
     const params = { Recursive: true }
     const response = await ApiRequest('GET', endpoint, params).catch((err) => {
-      console.log('122223333', err)
+      log.log('emby getPlaylistTracks error = ', err)
       return err
     })
     return (response?.data?.Items as any[]) ?? []

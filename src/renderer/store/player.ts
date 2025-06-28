@@ -56,7 +56,6 @@ export const usePlayerStore = defineStore(
     const backRate = ref(1.0)
     const _pitch = ref(1.0)
     const isLocalList = ref(false)
-    const isHidden = ref(document.hidden)
     const chorus = ref(0)
     const pic = ref<string>(
       currentTrack.value?.album?.picUrl ||
@@ -67,8 +66,6 @@ export const usePlayerStore = defineStore(
       id: number | string
     }>({ type: 'album', id: 0 })
 
-    // const color = ref<string>()
-    // const color2 = ref<string>()
     const lyrics = reactive<{
       lyric: any[]
       tlyric: any[]
@@ -366,12 +363,8 @@ export const usePlayerStore = defineStore(
       )
     })
 
-    window.addEventListener('visibilitychange', () => {
-      isHidden.value = document.hidden
-    })
-
     const shouldGetFontIndex = computed(() => {
-      return osdLyricStore.show || (stateStore.showLyrics && !isHidden.value)
+      return osdLyricStore.show || stateStore.showLyrics
     })
 
     const getLyricIndex = (

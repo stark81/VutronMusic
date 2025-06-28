@@ -1,6 +1,7 @@
 import { BrowserWindow } from 'electron'
 import type { DBusClient } from '@httptoolkit/dbus-native'
 import type { DBusNativeImport } from './dbus'
+import log from './log'
 
 export interface Iface {
   UpdateLyric: (lrcObj: string) => void
@@ -57,7 +58,7 @@ class ServiceMonitor {
         })
       })
       .catch((err) => {
-        console.error('Failed to get D-Bus interface:', err)
+        log.error('Failed to get D-Bus interface:', err)
       })
   }
 
@@ -72,7 +73,7 @@ class ServiceMonitor {
         this.win.webContents.send('msgExtensionCheckResult', true)
       })
       .catch((err) => {
-        console.error('Failed to get D-Bus interface:', err)
+        log.error('Failed to get D-Bus interface:', err)
         this.status = false
         this.win.webContents.send('msgExtensionCheckResult', false)
       })

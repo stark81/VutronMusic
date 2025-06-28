@@ -140,14 +140,15 @@ const createMenuTemplate = (win: BrowserWindow) => {
       label: t('openOSD'),
       icon: createNativeImage('lrc'),
       click: () => win.webContents.send('updateOSDSetting', { show: true }),
-      id: 'openOSD'
+      id: 'openOSD',
+      visible: store.get('osdWin.show') === false
     },
     {
       label: t('closeOSD'),
       icon: createNativeImage('lrc'),
       click: () => win.webContents.send('updateOSDSetting', { show: false }),
       id: 'closeOSD',
-      visible: false
+      visible: store.get('osdWin.show')
     },
     {
       label: t('lockOSD'),

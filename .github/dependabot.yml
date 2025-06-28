@@ -1,0 +1,12 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    assignees:
+      - "stark81"
+    reviewers:
+      - "stark81"
+    open-pull-requests-limit: 20
+    versioning-strategy: increase

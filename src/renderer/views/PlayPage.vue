@@ -46,6 +46,7 @@ import { ref, watch, provide, computed } from 'vue'
 
 const playPageContextMenu = ref<InstanceType<typeof ContextMenu>>()
 const show = ref('lyric')
+const display = ref(false)
 
 const stateStore = useNormalStateStore()
 const {
@@ -82,6 +83,20 @@ watch(showLyrics, (value) => {
     show.value = 'lyric'
   }
 })
+
+watch(
+  showLyrics,
+  (value) => {
+    if (value) {
+      display.value = value
+    } else {
+      setTimeout(() => {
+        display.value = value
+      }, 400)
+    }
+  },
+  { immediate: true }
+)
 
 provide('playPageContextMenu', playPageContextMenu)
 </script>

@@ -21,6 +21,13 @@
           <SvgIcon icon-class="arrow-down" />
         </button-icon>
         <button-icon
+          title="换场景"
+          class="player-button sense-button"
+          @click="showSenseSelector = true"
+        >
+          <SvgIcon icon-class="sense" />
+        </button-icon>
+        <button-icon
           class="player-button lyric-button-1"
           :title="$t('contextMenu.showLyric')"
           @click="switchCurrentTab"
@@ -28,7 +35,7 @@
           <SvgIcon :icon-class="getIcon()" />
         </button-icon>
       </div>
-      <div class="title-name">
+      <div class="title-name" :class="{ right: currentTheme.senseIndex % 2 === 1 }">
         <span class="title">{{ currentTrack?.name }}</span>
         <span>&nbsp;-&nbsp;{{ artist.name }}</span>
       </div>
@@ -139,6 +146,7 @@
         v-if="tabs[index] === 'pickLyric'"
         ref="pickLyricRef"
         class="pick-lyric"
+        :class="{ right: currentTheme.senseIndex % 2 === 1 }"
         :style="{ fontFamily: currentTheme.font }"
       />
       <div v-else class="full-lyric-container">
@@ -147,12 +155,35 @@
             v-if="tabs[index] === 'fullLyric'"
             text-align="center"
             unplay-color="var(--color-full-text-unplay)"
+            :container-width="'100%'"
+            :offset-padding="'0'"
             :hover="hover"
           />
           <Comment v-else-if="tabs[index] === 'comment'" :id="currentTrack!.id" type="music" />
         </div>
       </div>
     </div>
+    <Transition name="slide-up">
+      <div v-if="showSenseSelector" class="sense-modal" @click="showSenseSelector = false">
+        <div class="sense-content" @click.stop>
+          <div class="sense-title">切换场景</div>
+          <div class="sense-list">
+            <div
+              v-for="(sense, idx) in senses"
+              :key="idx"
+              :index="idx"
+              class="sense-item"
+              :class="{ active: idx === currentTheme.senseIndex }"
+              @click="updateSense(idx)"
+            >
+              <div class="sense-active">使用中</div>
+              <img :src="senseImg(idx)" loading="lazy" />
+              <div>{{ sense.name }}</div></div
+            ></div
+          >
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -173,6 +204,7 @@ import LyricPage from './LyricPage.vue'
 import Comment from './CommentPage.vue'
 import ContextMenu from './ContextMenu.vue'
 import snow from '../assets/lottie/snow.json'
+import sunshine from '../assets/lottie/sunshine.json'
 
 const playerStore = usePlayerStore()
 const {
@@ -204,8 +236,13 @@ const { showLyrics, setThemeModal } = storeToRefs(stateStore)
 const lottieContainer = ref()
 const index = ref(0)
 const hover = ref(false)
+const showSenseSelector = ref(false)
 const pickLyricRef = ref<HTMLElement>()
 const playPageContextMenu = inject('playPageContextMenu', ref<InstanceType<typeof ContextMenu>>())
+const senses = [
+  { name: '纯净雪域', img: 'creative_snow' },
+  { name: '落日余晖', img: 'sunshine' }
+]
 
 let tl: gsap.core.Timeline | null = null
 
@@ -219,6 +256,10 @@ const tabs = computed(() => {
 
 const switchCurrentTab = () => {
   index.value = (index.value + 1) % tabs.value.length
+}
+
+const senseImg = (index: number) => {
+  return new URL(`../assets/images/${senses[index].img}.png`, import.meta.url).href
 }
 
 const getIcon = () => {
@@ -283,7 +324,25 @@ const splitWithSpaces = (str: string) => {
 }
 
 const currentTheme = computed(() => playerTheme.value.creative.find((theme) => theme.selected)!)
-const lottieList = [snow]
+const lottieList = [snow, sunshine]
+
+const updateSense = async (idx: number) => {
+  currentTheme.value.senseIndex = idx
+  tl?.kill()
+  await nextTick()
+  if (tabs.value[index.value] === 'pickLyric' && playing.value) {
+    lottieContainer.value?.play()
+    clearLyricElements()
+    buildLyricElements()
+    enterAnimation()
+    if (playing.value) {
+      const currentTime = (seek.value + 1 - currentLyric.value.start) / playbackRate.value
+      tl?.play(currentTime)
+    }
+  } else {
+    clearLyricElements()
+  }
+}
 
 const artist = computed(() => {
   return currentTrack.value?.artists ? currentTrack.value.artists[0] : currentTrack.value?.ar[0]
@@ -330,7 +389,7 @@ const splitLine = (length: number) => {
     const rate = (-2 / 15) * length + 1.5
     const secondLength = Math.random() < rate ? 2 : 3
     return [length - secondLength, length]
-  } else if (length < 40) {
+  } else if (length < 38) {
     const firstRatio = Math.random() < 0.6 ? 0.5 : 0.4
     const firstLength = Math.floor(length * firstRatio)
     const rate = (-4 / 300) * length + 254 / 300
@@ -405,10 +464,11 @@ const enterAnimation = () => {
     })
     return
   }
-  const duration = Math.min(
-    currentLyric.value.time / playbackRate.value - 0.7 - spanLength * 0.15,
-    0.7
-  )
+
+  const duration =
+    currentTheme.value.senseIndex % 2 === 0
+      ? Math.min(currentLyric.value.time / playbackRate.value - 0.7 - spanLength * 0.15, 0.7)
+      : 0.35
   tl = gsap.timeline({ paused: true })
 
   const enterAns = {
@@ -431,7 +491,7 @@ const enterAnimation = () => {
         filter: 'blur(0px)',
         duration,
         ease: 'power2.out',
-        stagger: 0.15
+        stagger: 0.1
       },
       {
         opacity: 0,
@@ -442,14 +502,48 @@ const enterAnimation = () => {
         duration: 0.5,
         stagger: { amount: 0.25, from: 'random' }
       }
+    ],
+    sunshine: [
+      {
+        opacity: 0,
+        x: -250,
+        y: 10,
+        filter: 'blur(15px)',
+        transformPerspective: 400
+      },
+      {
+        opacity: 1,
+        x: 0,
+        y: 0,
+        filter: 'blur(0px)',
+        duration: 0.5,
+        stagger: { amount: 0.35, from: 'random' }
+      },
+      {
+        opacity: 0,
+        filter: `blur(0px)`,
+        x: 300,
+        y: -80,
+        rotateX: -30,
+        rotateY: 30,
+        ease: 'power2.in',
+        transformPerspective: 200,
+        duration: 0.5,
+        stagger: 0.5 / spanLength
+      }
     ]
   }
 
+  const aniType = currentTheme.value.senseIndex % 2 === 0 ? 'snow' : 'sunshine'
   // @ts-ignore
-  tl.set('.ani-char', enterAns.snow[0])
-  const delay = currentLyric.value.time / playbackRate.value - 0.75
+  tl.set('.ani-char', enterAns[aniType][0])
+  const delay =
+    currentTheme.value.senseIndex % 2 === 0
+      ? currentLyric.value.time / playbackRate.value - 0.75
+      : currentLyric.value.time / playbackRate.value - 1
+
   // @ts-ignore
-  tl.to('.ani-char', enterAns.snow[1]).to('.ani-char', enterAns.snow[2], delay)
+  tl.to('.ani-char', enterAns[aniType][1]).to('.ani-char', enterAns[aniType][2], delay)
 }
 
 const formatTime = (time: number) => {
@@ -515,7 +609,7 @@ watch(pickedLyric, async (value) => {
 })
 
 const playLottie = () => {
-  if (playing.value) lottieContainer.value?.play()
+  if (playing.value && tabs.value[index.value] === 'pickLyric') lottieContainer.value?.play()
   enterAnimation()
   if (playing.value) {
     const currentTime = (seek.value + 1 - currentLyric.value.start) / playbackRate.value
@@ -533,7 +627,9 @@ onBeforeUnmount(() => {
     tl = null
   }
   lottieContainer.value?.stop()
-  lottieContainer.value?.destroy()
+  setTimeout(() => {
+    lottieContainer.value?.destroy()
+  }, 390)
 })
 </script>
 
@@ -597,7 +693,7 @@ onBeforeUnmount(() => {
 }
 
 .lyric-container-1 {
-  width: 50vw;
+  width: 60vw;
   margin: 0 auto;
 }
 
@@ -605,6 +701,7 @@ onBeforeUnmount(() => {
   position: fixed;
   top: 28px;
   left: 15vw;
+  right: 15vw;
   font-weight: bold;
   line-height: 50px;
 
@@ -616,12 +713,20 @@ onBeforeUnmount(() => {
   }
 }
 
+.title-name.right {
+  text-align: right;
+}
+
 .pick-lyric {
   position: absolute;
   top: 15vh;
   left: 15vw;
   right: 15vw;
   letter-spacing: 1px;
+}
+
+.pick-lyric.right {
+  text-align: right;
 }
 
 :deep(.lyric-item) {
@@ -636,6 +741,7 @@ onBeforeUnmount(() => {
   opacity: 0;
   display: inline-block;
   white-space: pre;
+  will-change: transform;
 }
 
 :deep(.lyric-item *) {
@@ -651,6 +757,12 @@ onBeforeUnmount(() => {
 .close-button {
   position: fixed;
   top: 24px;
+  right: 24px;
+}
+
+.sense-button {
+  position: fixed;
+  bottom: 124px;
   right: 24px;
 }
 
@@ -761,5 +873,91 @@ onBeforeUnmount(() => {
       width: 22px;
     }
   }
+}
+
+.sense-modal {
+  position: fixed;
+  transition: opacity 0.3s ease-in-out;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1000;
+}
+
+.sense-content {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  padding-bottom: 10px;
+  width: 100%;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(12px) opacity(1);
+  color: var(--color-text);
+}
+
+[data-theme='dark'] .sense-content {
+  background: rgba(36, 36, 36, 0.88);
+}
+
+.sense-title {
+  text-align: center;
+  font-size: 20px;
+  font-weight: 600;
+  padding: 20px 0;
+}
+
+.sense-list {
+  display: flex;
+  height: 200px;
+  padding: 0 10px;
+  overflow: auto hidden;
+  scrollbar-width: none;
+}
+
+.sense-item {
+  height: 100%;
+  margin: 0 10px;
+  border-radius: 8px;
+  text-align: center;
+  position: relative;
+
+  img {
+    height: 80%;
+    border-radius: 8px;
+    padding: 4px;
+  }
+
+  .sense-active {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    font-size: 16px;
+    border-radius: 8px 0;
+    padding: 4px 10px;
+  }
+}
+
+.sense-item.active {
+  .sense-active {
+    display: block;
+    background-color: var(--color-primary);
+    color: white;
+  }
+  img {
+    background-color: var(--color-primary);
+  }
+}
+
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: all 0.4s ease-out;
+}
+
+.slide-up-enter-from,
+.slide-up-leave-to {
+  transform: translateY(100%);
 }
 </style>

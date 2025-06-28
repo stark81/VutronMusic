@@ -3,6 +3,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import cache from '../cache'
 import { CacheAPIs } from '../utils/CacheApis'
 import { handleNeteaseResult } from '../utils/utils'
+import log from '../log'
 
 async function netease(fastify: FastifyInstance) {
   const NeteaseCloudMusicApi = require('NeteaseCloudMusicApi')
@@ -20,6 +21,7 @@ async function netease(fastify: FastifyInstance) {
         cache.set(name as CacheAPIs, result.body, req.query)
         return reply.send(result.body)
       } catch (error: any) {
+        log.error(`Netease API Error: ${name}`, error)
         if ([400, 301, 250].includes(error.status)) {
           return reply.status(error.status).send(error.body)
         }

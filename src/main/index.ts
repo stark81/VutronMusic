@@ -38,6 +38,7 @@ import {
 import { CacheAPIs } from './utils/CacheApis'
 import { registerGlobalShortcuts } from './globalShortcut'
 import { initAutoUpdater } from './checkUpdate'
+import log from './log'
 
 const closeOnLinux = (e: any, win: BrowserWindow) => {
   const closeOpt = store.get('settings.closeAppOption') || 'ask'
@@ -141,7 +142,7 @@ class BackGround {
         : Constants.ELECTRON_WEB_SERVER_PORT || 41830
     )
     await server.listen({ port })
-    console.log(`AppServer is running at http://localhost:${port}`)
+    log.info(`AppServer is running at http://localhost:${port}`)
     return server
   }
 
@@ -297,9 +298,14 @@ class BackGround {
     this.lyricWin?.setVisibleOnAllWorkspaces(isLock)
   }
 
-  dragOsdWindow(data: { dx: number; dy: number }) {
-    const [x, y] = this.lyricWin?.getPosition()
-    this.lyricWin?.setPosition(x + data.dx, y + data.dy)
+  dragOsdWindow(data: { dx: number; dy: number; startHeight: number; startWidth: number }) {
+    const bounds = this.lyricWin?.getBounds()
+    this.lyricWin?.setBounds({
+      x: bounds.x + data.dx,
+      y: bounds.y + data.dy,
+      height: data.startHeight,
+      width: data.startWidth
+    })
   }
 
   toggleOSDWindow() {
@@ -387,6 +393,7 @@ class BackGround {
         clearTimeout(moveTimeout)
       }
       moveTimeout = setTimeout(() => {
+        if (!this.lyricWin) return
         const data = this.lyricWin.getBounds()
         store.set(this.osdMode === 'small' ? 'osdWin.x' : 'osdWin.x2', data.x)
         store.set(this.osdMode === 'small' ? 'osdWin.y' : 'osdWin.y2', data.y)
@@ -561,7 +568,7 @@ class BackGround {
 
         res = await getTrackDetail(ids)
         if (!res || !res.songs?.length) {
-          console.log('======get-track-error=====', ids)
+          log.error('======get-track-error=====', ids)
           return new Response(JSON.stringify({ status: 404 }), {
             headers: { 'content-type': 'application/json' }
           })
@@ -808,6 +815,7 @@ class BackGround {
         clearTimeout(moveTimeout)
       }
       moveTimeout = setTimeout(() => {
+        if (!this.win) return
         store.set('window', this.win.getBounds())
       }, 500)
     })

@@ -449,10 +449,11 @@ onMounted(() => {
 
 .play-page.no-lyric {
   .left-side {
-    transition: all 0.5s;
+    flex: 1;
+    transition: all 0.35s;
+    justify-content: center;
     transform: translateX(25vw);
-    padding-right: 0;
-    padding-left: 0;
+    padding: 0 calc((50vw - min(50vh, 33.33vw)) / 6);
   }
 }
 
@@ -462,12 +463,18 @@ onMounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
+  overflow: hidden;
   z-index: -1;
 }
 
 .lyrics-background {
   --contrast-lyrics-background: 50%;
   --brightness-lyrics-background: 130%;
+}
+
+[data-theme='dark'] .lyrics-background {
+  --contrast-lyrics-background: 105%;
+  --brightness-lyrics-background: 60%;
 }
 
 .lyrics-background {
@@ -486,6 +493,8 @@ onMounted(() => {
     background-image: var(--cover-url);
     background-size: cover;
     opacity: 0.6;
+    will-change: transform;
+    transform: translateZ(0);
   }
 
   &::before {
@@ -498,6 +507,7 @@ onMounted(() => {
     bottom: 0;
     left: 0;
     animation-direction: reverse;
+    animation-delay: 10s;
   }
 }
 
@@ -522,7 +532,7 @@ onMounted(() => {
   justify-content: right;
   padding-right: calc((50vw - min(50vh, 33.33vw)) / 6);
   align-items: center;
-  transition: all 0.5s;
+  transition: all 0.35s;
   z-index: 10;
 
   .cover {
@@ -766,6 +776,11 @@ onMounted(() => {
   }
   .right-side {
     max-width: 100%;
+  }
+  .play-page.no-lyric {
+    .left-side {
+      display: flex;
+    }
   }
 }
 </style>

@@ -41,7 +41,9 @@ import {
 const props = defineProps({
   hover: { type: Boolean, default: false },
   textAlign: { type: String, default: 'left' },
-  unplayColor: { type: String, default: 'var(--color-wbw-text-unplay)' }
+  unplayColor: { type: String, default: 'var(--color-wbw-text-unplay)' },
+  containerWidth: { type: String, default: 'calc(min(50vh, 33.33vw))' },
+  offsetPadding: { type: String, default: '3vw' }
 })
 
 const playerStore = usePlayerStore()
@@ -204,7 +206,7 @@ onBeforeUnmount(() => {
   background-color: rgba(0, 0, 0, 0.05);
   padding: 10px 6px;
   top: 50%;
-  right: 3vw;
+  right: v-bind(offsetPadding);
   border-radius: 8px;
   transform: translate(0, -50%);
   z-index: 1;
@@ -221,7 +223,7 @@ onBeforeUnmount(() => {
 
 .lyric-container {
   height: 100vh;
-  width: calc(min(50vh, 33.33vw));
+  width: v-bind(containerWidth);
   display: flex;
   flex-direction: column;
   overflow-y: scroll;
@@ -349,7 +351,7 @@ onBeforeUnmount(() => {
 
 .slide-fade-enter-from,
 .slide-fade-leave-to {
-  transform: translateX(27vh);
+  // transform: translateX(25vw);
   opacity: 0;
 }
 </style>

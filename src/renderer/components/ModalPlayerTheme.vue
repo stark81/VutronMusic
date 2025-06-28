@@ -87,10 +87,12 @@ const closeFn = () => {
   }
 
   .theme-img {
+    width: 224px;
     height: 132px;
 
     img {
       height: 100%;
+      width: 100%;
       border-radius: 8px;
     }
   }

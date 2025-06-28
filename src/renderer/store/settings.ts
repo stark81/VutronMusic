@@ -11,19 +11,12 @@ export type TrackInfoOrder = 'path' | 'online' | 'embedded'
 type TextAlign = 'start' | 'center' | 'end'
 type BackgroundEffect = 'none' | 'true' | 'blur' | 'dynamic'
 
-// export type PlayerTheme = {
-//   name: string
-//   type: 'common' | 'creative' | 'lottie'
-//   selected: boolean
-//   source?: Record<string, any>
-// }
-
 export const useSettingsStore = defineStore(
   'settings',
   () => {
     const enabledPlaylistCategories = playlistCategories.filter((c) => c.enable).map((c) => c.name)
     const theme = reactive({
-      appearance: 'auto', // auto | dark | light
+      appearance: 'auto', // as 'auto' | 'dark' | 'light',
       colors: [
         { name: 'blue', color: 'rgba(51, 94, 234, 1)', selected: true },
         { name: 'purple', color: 'rgba(136, 84, 208, 1)', selected: false },
@@ -273,12 +266,13 @@ export const useSettingsStore = defineStore(
         useCustomTitlebar: general.useCustomTitlebar,
         trackInfoOrder: toRaw(localMusic.trackInfoOrder)
       })
-      setTimeout(() => {
+      if (window.env?.isWindows) return
+      setInterval(() => {
         const trayMenu = !(tray.showControl || tray.showLyric)
         window.mainApi?.send('setStoreSettings', {
           enableTrayMenu: trayMenu
         })
-      }, 5000)
+      }, 60000)
     })
     return {
       theme,

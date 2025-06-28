@@ -19,6 +19,7 @@ import {
 } from './utils/utils'
 import { registerGlobalShortcuts } from './globalShortcut'
 import { createMenu } from './menu'
+import log from './log'
 
 let isLock = store.get('osdWin.isLock') as boolean
 let blockerId: number | null = null
@@ -226,6 +227,12 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     await shell.openExternal(url)
   })
 
+  ipcMain.on('openLogFile', () => {
+    const { shell } = require('electron')
+    const logFilePath = log.transports.file.getFile().path
+    shell.showItemInFolder(logFilePath)
+  })
+
   // Open file
   ipcMain.handle('msgOpenFile', async (event, filter: string) => {
     const { dialog } = require('electron')
@@ -291,7 +298,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
         db.deleteMany(Tables.Track, deletedTracks)
         win.webContents.send('msgDeletedTracks', deletedTracks)
       } catch (e) {
-        console.log(e)
+        log.error(e)
       }
     }
   })
@@ -436,6 +443,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
       db.delete(Tables.Playlist, pid)
       return true
     } catch (error) {
+      log.error('删除本地歌单失败:', error)
       return false
     }
   })
@@ -445,6 +453,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
       db.delete(Tables.AccountData, uid)
       return true
     } catch (error) {
+      log.error('登出失败:', error)
       return false
     }
   })
@@ -476,7 +485,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
       const cleandFonts = [...new Set(fonts.map(cleanFontName))]
       return ['system-ui', ...cleandFonts].sort()
     } catch (error) {
-      console.error('获取字体列表失败:', error)
+      log.error('获取字体列表失败:', error)
       return ['system-ui']
     }
   })
@@ -685,10 +694,3 @@ async function initStreaming() {
     }
   })
 }
-
-// function getFileName(filePath: string) {
-//   const fileExt = path.extname(filePath)
-//   const fileNameWithExt = path.basename(filePath)
-//   const fileName = fileNameWithExt.replace(fileExt, '')
-//   return fileName
-// }
