@@ -270,7 +270,7 @@ class DB {
           const stmt = this.sqlite.prepare(query)
           stmt.run(...batchKeys)
         } catch (batchError) {
-          console.error(
+          log.error(
             `[Batch ${i + 1}/${totalBatches}] Failed to delete ${batchKeys.length} records:`,
             batchError
           )
@@ -282,9 +282,9 @@ class DB {
     try {
       // 执行事务
       transaction()
-      console.log(`Deleted ${keys.length} records from ${table} in ${totalBatches} batches`)
+      log.log(`Deleted ${keys.length} records from ${table} in ${totalBatches} batches`)
     } catch (transactionError) {
-      console.error(`Transaction failed:`, transactionError)
+      log.error(`Transaction failed:`, transactionError)
       throw new Error(`Bulk delete operation partially failed: ${transactionError.message}`)
     }
   }

@@ -2,6 +2,7 @@ import store from '../store'
 import axios from 'axios'
 import crypto from 'crypto'
 import qs from 'qs'
+import log from '../log'
 
 const apiVersion = '1.16.1'
 const client = 'VutronMusic'
@@ -26,7 +27,7 @@ const doLogin = async (baseUrl: string, username: string, password: string) => {
     store.set('accounts.selected', 'navidrome')
     return { code: 200 }
   } catch (error) {
-    console.error('===== navidrome login error =====', error.response)
+    log.error('===== navidrome login error =====', error.response)
     return { code: 404, message: error?.response?.data?.error || '登录失败' }
   }
 }
@@ -71,7 +72,7 @@ const ApiRequest = async (endpoint: string, params?: Record<string, string>) => 
           return { code: 401, message: err.response.data.error, data: undefined }
         })
       }
-      console.log('==== navidrome getTracks err ====', err)
+      log.info('==== navidrome getTracks err ====', err)
       return err
     })
 }

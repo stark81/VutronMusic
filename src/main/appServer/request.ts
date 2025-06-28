@@ -1,6 +1,7 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
 import Constants from '../utils/Constants'
 import { session } from 'electron'
+import log from '../log'
 
 const port = Number(
   Constants.IS_DEV_ENV
@@ -33,7 +34,7 @@ service.interceptors.response.use(
     const { response } = error
     const data = response?.data as any
     if (data?.code === 301 && data?.message === '未登录') {
-      console.log('未登录')
+      log.info('未登录')
     }
     return Promise.reject(error)
   }

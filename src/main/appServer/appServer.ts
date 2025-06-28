@@ -1,6 +1,7 @@
 import fastify from 'fastify'
 import netease from './netease'
 import Constants from '../utils/Constants'
+import log from '../log'
 
 const initAppserver = async () => {
   const server = fastify({
@@ -14,7 +15,7 @@ const initAppserver = async () => {
       : Constants.ELECTRON_WEB_SERVER_PORT || 41830
   )
   await server.listen({ port })
-  console.log(`AppServer is running at http://localhost:${port}`)
+  log.info(`AppServer is running at http://localhost:${port}`)
   return server
 }
 

@@ -451,6 +451,7 @@ onMounted(() => {
   .left-side {
     transition: all 0.5s;
     transform: translateX(25vw);
+    justify-content: center;
     padding-right: 0;
     padding-left: 0;
   }
@@ -766,6 +767,11 @@ onMounted(() => {
   }
   .right-side {
     max-width: 100%;
+  }
+  .play-page.no-lyric {
+    .left-side {
+      display: flex;
+    }
   }
 }
 </style>

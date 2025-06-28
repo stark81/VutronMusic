@@ -5,23 +5,19 @@
  * @see https://www.npmjs.com/package/electron-log
  */
 
-import log from 'electron-log'
-import pc from 'picocolors'
 import Constants from './utils/Constants'
-import { ipcMain } from 'electron'
 
-Object.assign(console, log.functions)
-log.variables.process = 'main'
-if (log.transports.ipc) log.transports.ipc.level = false
-log.transports.console.format = `${Constants.IS_DEV_ENV ? '' : pc.dim('{h}:{i}:{s}{scope} ')}{level} › {text}`
-log.transports.file.level = 'info'
+let log = null
 
-ipcMain.removeAllListeners('openLogFile')
+if (!log) {
+  log = require('electron-log')
+  const pc = require('picocolors')
 
-ipcMain.on('openLogFile', () => {
-  const { shell } = require('electron')
-  const logFilePath = log.transports.file.getFile().path
-  shell.showItemInFolder(logFilePath)
-})
+  Object.assign(console, log.functions)
+  log.variables.process = 'main'
+  if (log.transports.ipc) log.transports.ipc.level = false
+  log.transports.console.format = `${Constants.IS_DEV_ENV ? '' : pc.dim('{h}:{i}:{s}{scope} ')}{level} › {text}`
+  log.transports.file.level = 'info'
+}
 
 export default log

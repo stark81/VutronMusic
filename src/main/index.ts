@@ -38,6 +38,7 @@ import {
 import { CacheAPIs } from './utils/CacheApis'
 import { registerGlobalShortcuts } from './globalShortcut'
 import { initAutoUpdater } from './checkUpdate'
+import log from './log'
 
 const closeOnLinux = (e: any, win: BrowserWindow) => {
   const closeOpt = store.get('settings.closeAppOption') || 'ask'
@@ -141,7 +142,7 @@ class BackGround {
         : Constants.ELECTRON_WEB_SERVER_PORT || 41830
     )
     await server.listen({ port })
-    console.log(`AppServer is running at http://localhost:${port}`)
+    log.info(`AppServer is running at http://localhost:${port}`)
     return server
   }
 
@@ -561,7 +562,7 @@ class BackGround {
 
         res = await getTrackDetail(ids)
         if (!res || !res.songs?.length) {
-          console.log('======get-track-error=====', ids)
+          log.error('======get-track-error=====', ids)
           return new Response(JSON.stringify({ status: 404 }), {
             headers: { 'content-type': 'application/json' }
           })

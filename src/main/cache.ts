@@ -1,6 +1,7 @@
 import { db, Tables } from './db'
 import { CacheAPIs } from './utils/CacheApis'
 import _ from 'lodash'
+import log from './log'
 
 class Cache {
   constructor() {}
@@ -62,6 +63,7 @@ class Cache {
           db.update(Tables.Track, trackRaw.id, result)
           return true
         } catch (error) {
+          log.error('更新本地歌曲失败:', error)
           db.update(Tables.Track, result.id, result)
           db.delete(Tables.Track, trackRaw.id)
           return true
@@ -78,6 +80,7 @@ class Cache {
           db.upsert(Tables.Playlist, playlist)
           return true
         } catch (error) {
+          log.error('更新本地歌单失败:', error)
           return false
         }
       }
@@ -104,6 +107,7 @@ class Cache {
           db.update(Tables.Track, trackRaw.id, result)
           return true
         } catch (error) {
+          log.error('更新歌曲缓存失败:', error)
           return false
         }
       }

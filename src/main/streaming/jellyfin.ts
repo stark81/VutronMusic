@@ -1,5 +1,6 @@
 import axios from 'axios'
 import store from '../store'
+import log from '../log'
 
 const client = 'VutronMusic'
 const version = '1.6.5'
@@ -61,7 +62,7 @@ class Jellyfin implements JellyfinImpl {
         return { code: 200, message: 'Login successful', data: response.data }
       }
     } catch (err) {
-      console.error('==== jellyfin doLogin err ====', err)
+      log.error('==== jellyfin doLogin err ====', err)
       return { code: 401, message: 'Login failed', data: undefined }
     }
   }
@@ -122,7 +123,7 @@ class Jellyfin implements JellyfinImpl {
       )
       return { code: 200, message: 'Playlists fetched successfully', data: playlists }
     } catch (error) {
-      console.error('Error fetching playlists:', error)
+      log.error('Error fetching playlists:', error)
       return { code: 500, message: 'Failed to fetch playlists', data: [] }
     }
   }
