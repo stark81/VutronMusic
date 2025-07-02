@@ -575,7 +575,7 @@ onBeforeUnmount(() => {
 }
 
 .lt-background {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
   bottom: 0;
@@ -602,7 +602,7 @@ onBeforeUnmount(() => {
 }
 
 .title-name {
-  position: fixed;
+  position: absolute;
   top: 28px;
   left: 15vw;
   font-weight: bold;
