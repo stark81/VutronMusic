@@ -169,7 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
     timeoutId = setTimeout(() => {
       const now = Date.now()
       if (
-        root.classList.contains('is-lock') &&
+        root?.classList?.contains('is-lock') &&
         now - lastMoveTime >= (osdLyric.staticTime ?? 1500)
       ) {
         root.style.opacity = '0.02'

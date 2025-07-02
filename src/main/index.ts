@@ -388,6 +388,7 @@ class BackGround {
         clearTimeout(moveTimeout)
       }
       moveTimeout = setTimeout(() => {
+        if (!this.lyricWin) return
         const data = this.lyricWin.getBounds()
         store.set(this.osdMode === 'small' ? 'osdWin.x' : 'osdWin.x2', data.x)
         store.set(this.osdMode === 'small' ? 'osdWin.y' : 'osdWin.y2', data.y)
@@ -809,6 +810,7 @@ class BackGround {
         clearTimeout(moveTimeout)
       }
       moveTimeout = setTimeout(() => {
+        if (!this.win) return
         store.set('window', this.win.getBounds())
       }, 500)
     })

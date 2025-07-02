@@ -533,7 +533,9 @@ onBeforeUnmount(() => {
     tl = null
   }
   lottieContainer.value?.stop()
-  lottieContainer.value?.destroy()
+  setTimeout(() => {
+    lottieContainer.value?.destroy()
+  }, 390)
 })
 </script>
 
@@ -636,6 +638,7 @@ onBeforeUnmount(() => {
   opacity: 0;
   display: inline-block;
   white-space: pre;
+  will-change: transform;
 }
 
 :deep(.lyric-item *) {
