@@ -122,7 +122,7 @@
     "vite-plugin-electron": "^0.28.2",
     "vite-plugin-electron-renderer": "^0.14.5",
     "vite-plugin-eslint": "^1.8.1",
-    "vite-plugin-vuetify": "^2.0.2",
+    "vite-plugin-vuetify": "^2.1.1",
     "vue-eslint-parser": "^9.4.2",
     "vue-tsc": "^2.0.22"
   },
