@@ -639,6 +639,18 @@
   resolved "https://registry.npmmirror.com/@intlify/shared/-/shared-9.14.2.tgz#f7dceea32db44c9253e3f965745a42a5cb3a1883"
   integrity sha512-uRAHAxYPeF+G5DBIboKpPgC/Waecd4Jz8ihtkpJQD5ycb5PwXp0k/+hBGl5dAjwF7w+l74kz/PKA8r8OK//RUw==
 
+"@isaacs/balanced-match@^4.0.1":
+  version "4.0.1"
+  resolved "https://registry.yarnpkg.com/@isaacs/balanced-match/-/balanced-match-4.0.1.tgz#3081dadbc3460661b751e7591d7faea5df39dd29"
+  integrity sha512-yzMTt9lEb8Gv7zRioUilSglI0c0smZ9k5D65677DLWLtWJaXIS3CqcGyUFByYKlnUj6TkjLVs54fBl6+TiGQDQ==
+
+"@isaacs/brace-expansion@^5.0.0":
+  version "5.0.0"
+  resolved "https://registry.yarnpkg.com/@isaacs/brace-expansion/-/brace-expansion-5.0.0.tgz#4b3dabab7d8e75a429414a96bd67bf4c1d13e0f3"
+  integrity sha512-ZT55BDLV0yv0RBm2czMiZ+SqCGO7AvmOM3G/w2xhVPH+te0aKgFjmBvGlL1dH+ql2tgGO3MVrbb3jCKyvpgnxA==
+  dependencies:
+    "@isaacs/balanced-match" "^4.0.1"
+
 "@isaacs/cliui@^8.0.2":
   version "8.0.2"
   resolved "https://registry.npmmirror.com/@isaacs/cliui/-/cliui-8.0.2.tgz#b37667b7bc181c168782259bab42474fbf52b550"
@@ -1559,24 +1571,24 @@
   resolved "https://registry.npmmirror.com/@vitejs/plugin-vue/-/plugin-vue-5.2.1.tgz#d1491f678ee3af899f7ae57d9c21dc52a65c7133"
   integrity sha512-cxh314tzaWwOLqVes2gnnCtvBDcM1UMdn+iFR+UjAn411dPT3tOmqrJjbMd7koZpMAmBM/GqeV4n9ge7JSiJJQ==
 
-"@volar/language-core@2.4.11", "@volar/language-core@~2.4.11":
-  version "2.4.11"
-  resolved "https://registry.npmmirror.com/@volar/language-core/-/language-core-2.4.11.tgz#d95a9ec4f14fbdb41a6a64f9f321d11d23a5291c"
-  integrity sha512-lN2C1+ByfW9/JRPpqScuZt/4OrUUse57GLI6TbLgTIqBVemdl1wNcZ1qYGEo2+Gw8coYLgCy7SuKqn6IrQcQgg==
+"@volar/language-core@2.4.17":
+  version "2.4.17"
+  resolved "https://registry.yarnpkg.com/@volar/language-core/-/language-core-2.4.17.tgz#547dc58e9a366bfc901a003d74d82dbf84c95829"
+  integrity sha512-chmRZMbKmcGpKMoO7Reb70uiLrzo0KWC2CkFttKUuKvrE+VYgi+fL9vWMJ07Fv5ulX0V1TAyyacN9q3nc5/ecA==
   dependencies:
-    "@volar/source-map" "2.4.11"
+    "@volar/source-map" "2.4.17"
 
-"@volar/source-map@2.4.11":
-  version "2.4.11"
-  resolved "https://registry.npmmirror.com/@volar/source-map/-/source-map-2.4.11.tgz#5876d4531508129724c2755e295db1df98bd5895"
-  integrity sha512-ZQpmafIGvaZMn/8iuvCFGrW3smeqkq/IIh9F1SdSx9aUl0J4Iurzd6/FhmjNO5g2ejF3rT45dKskgXWiofqlZQ==
+"@volar/source-map@2.4.17":
+  version "2.4.17"
+  resolved "https://registry.yarnpkg.com/@volar/source-map/-/source-map-2.4.17.tgz#9a5e2c6e4a2130a2d1f73b1d73657006248001a4"
+  integrity sha512-QDybtQyO3Ms/NjFqNHTC5tbDN2oK5VH7ZaKrcubtfHBDj63n2pizHC3wlMQ+iT55kQXZUUAbmBX5L1C8CHFeBw==
 
-"@volar/typescript@~2.4.11":
-  version "2.4.11"
-  resolved "https://registry.npmmirror.com/@volar/typescript/-/typescript-2.4.11.tgz#aafbfa413337654db211bf4d8fb6670c89f6fa57"
-  integrity sha512-2DT+Tdh88Spp5PyPbqhyoYavYCPDsqbHLFwcUI9K1NlY1YgUJvujGdrqUp0zWxnW7KWNTr3xSpMuv2WnaTKDAw==
+"@volar/typescript@2.4.17":
+  version "2.4.17"
+  resolved "https://registry.yarnpkg.com/@volar/typescript/-/typescript-2.4.17.tgz#be252f650ff83e18363db50ed5a42cfbc230ae00"
+  integrity sha512-3paEFNh4P5DkgNUB2YkTRrfUekN4brAXxd3Ow1syMqdIPtCZHbUy4AW99S5RO/7mzyTWPMdDSo3mqTpB/LPObQ==
   dependencies:
-    "@volar/language-core" "2.4.11"
+    "@volar/language-core" "2.4.17"
     path-browserify "^1.0.1"
     vscode-uri "^3.0.8"
 
@@ -1667,17 +1679,17 @@
   resolved "https://registry.npmmirror.com/@vue/devtools-api/-/devtools-api-6.6.4.tgz#cbe97fe0162b365edc1dba80e173f90492535343"
   integrity sha512-sGhTPMuXqZ1rVOk32RylztWkfXTRhuS7vgAKv0zjqk8gbsHkJ7xfFf+jbySxt7tWObEJwyKaHMikV/WGDiQm8g==
 
-"@vue/language-core@2.2.0":
-  version "2.2.0"
-  resolved "https://registry.npmmirror.com/@vue/language-core/-/language-core-2.2.0.tgz#e48c54584f889f78b120ce10a050dfb316c7fcdf"
-  integrity sha512-O1ZZFaaBGkKbsRfnVH1ifOK1/1BUkyK+3SQsfnh6PmMmD4qJcTU8godCeA96jjDRTL6zgnK7YzCHfaUlH2r0Mw==
+"@vue/language-core@3.0.1":
+  version "3.0.1"
+  resolved "https://registry.yarnpkg.com/@vue/language-core/-/language-core-3.0.1.tgz#809790739e5d0ce66b1a8c4b57255d3f43bdd73b"
+  integrity sha512-sq+/Mc1IqIexWEQ+Q2XPiDb5SxSvY5JPqHnMOl/PlF5BekslzduX8dglSkpC17VeiAQB6dpS+4aiwNLJRduCNw==
   dependencies:
-    "@volar/language-core" "~2.4.11"
+    "@volar/language-core" "2.4.17"
     "@vue/compiler-dom" "^3.5.0"
     "@vue/compiler-vue2" "^2.7.16"
     "@vue/shared" "^3.5.0"
-    alien-signals "^0.4.9"
-    minimatch "^9.0.3"
+    alien-signals "^2.0.5"
+    minimatch "^10.0.1"
     muggle-string "^0.4.1"
     path-browserify "^1.0.1"
 
@@ -1898,10 +1910,10 @@ ajv@^8.0.0, ajv@^8.10.0, ajv@^8.11.0, ajv@^8.6.3:
     json-schema-traverse "^1.0.0"
     require-from-string "^2.0.2"
 
-alien-signals@^0.4.9:
-  version "0.4.12"
-  resolved "https://registry.npmmirror.com/alien-signals/-/alien-signals-0.4.12.tgz#3ac0fe641da5fb0a81ad985c03a63f2a8b385f00"
-  integrity sha512-Og0PgAihxlp1R22bsoBsyhhMG4+qhU+fkkLPoGBQkYVc3qt9rYnrwYTf+M6kqUqUZpf3rXDnpL90iKa0QcSVVg==
+alien-signals@^2.0.5:
+  version "2.0.5"
+  resolved "https://registry.yarnpkg.com/alien-signals/-/alien-signals-2.0.5.tgz#7528fc28de7cd76ccb6aad1d46d5b5635ce10805"
+  integrity sha512-PdJB6+06nUNAClInE3Dweq7/2xVAYM64vvvS1IHVHSJmgeOtEdrAGyp7Z2oJtYm0B342/Exd2NT0uMJaThcjLQ==
 
 ansi-regex@^2.0.0:
   version "2.1.1"
@@ -6064,6 +6076,13 @@ mimic-response@^3.1.0:
   resolved "https://registry.npmmirror.com/mimic-response/-/mimic-response-3.1.0.tgz#2d1d59af9c1b129815accc2c46a022a5ce1fa3c9"
   integrity sha512-z0yWI+4FDrrweS8Zmt4Ej5HdJmky15+L2e6Wgn3+iK5fWzb6T3fhNFq2+MeTRb064c6Wr4N/wv0DzQTjNzHNGQ==
 
+minimatch@^10.0.1:
+  version "10.0.3"
+  resolved "https://registry.yarnpkg.com/minimatch/-/minimatch-10.0.3.tgz#cf7a0314a16c4d9ab73a7730a0e8e3c3502d47aa"
+  integrity sha512-IPZ167aShDZZUMdRk66cyQAW3qr0WzbHkPdMYa8bzZhlHhO3jALbKdxcaak7W9FfT2rZNpQuUu4Od7ILEpXSaw==
+  dependencies:
+    "@isaacs/brace-expansion" "^5.0.0"
+
 minimatch@^3.0.4, minimatch@^3.0.5, minimatch@^3.1.1, minimatch@^3.1.2:
   version "3.1.2"
   resolved "https://registry.npmmirror.com/minimatch/-/minimatch-3.1.2.tgz#19cd194bfd3e428f049a70817c038d89ab4be35b"
@@ -6078,7 +6097,7 @@ minimatch@^5.0.1, minimatch@^5.1.0, minimatch@^5.1.1:
   dependencies:
     brace-expansion "^2.0.1"
 
-minimatch@^9.0.3, minimatch@^9.0.4:
+minimatch@^9.0.4:
   version "9.0.5"
   resolved "https://registry.npmmirror.com/minimatch/-/minimatch-9.0.5.tgz#d74f9dd6b57d83d8e98cfb82133b03978bc929e5"
   integrity sha512-G6T0ZX48xgozx7587koeX9Ys2NYy6Gmv//P89sEte9V9whIapMNF4idKxnW2QtCcLiTWlb/wfCabAtAFWhhBow==
@@ -8037,7 +8056,16 @@ strict-uri-encode@^1.0.0:
   resolved "https://registry.npmmirror.com/strict-uri-encode/-/strict-uri-encode-1.1.0.tgz#279b225df1d582b1f54e65addd4352e18faa0713"
   integrity sha512-R3f198pcvnB+5IpnBlRkphuE9n46WyVl8I39W/ZUTZLz4nqSP/oLYUrcnJrw462Ds8he4YKMov2efsTIw1BDGQ==
 
-"string-width-cjs@npm:string-width@^4.2.0", string-width@^4.1.0, string-width@^4.2.0, string-width@^4.2.3:
+"string-width-cjs@npm:string-width@^4.2.0":
+  version "4.2.3"
+  resolved "https://registry.npmmirror.com/string-width/-/string-width-4.2.3.tgz#269c7117d27b05ad2e536830a8ec895ef9c6d010"
+  integrity sha512-wKyQRQpjJ0sIp62ErSZdGsjMJWsap5oRNihHhu6G7JVO/9jIB6UyevL+tXuOqrng8j/cxKTWyWUwvSTriiZz/g==
+  dependencies:
+    emoji-regex "^8.0.0"
+    is-fullwidth-code-point "^3.0.0"
+    strip-ansi "^6.0.1"
+
+string-width@^4.1.0, string-width@^4.2.0, string-width@^4.2.3:
   version "4.2.3"
   resolved "https://registry.npmmirror.com/string-width/-/string-width-4.2.3.tgz#269c7117d27b05ad2e536830a8ec895ef9c6d010"
   integrity sha512-wKyQRQpjJ0sIp62ErSZdGsjMJWsap5oRNihHhu6G7JVO/9jIB6UyevL+tXuOqrng8j/cxKTWyWUwvSTriiZz/g==
@@ -8101,7 +8129,7 @@ string_decoder@~1.1.1:
   dependencies:
     safe-buffer "~5.1.0"
 
-"strip-ansi-cjs@npm:strip-ansi@^6.0.1", strip-ansi@^6.0.0, strip-ansi@^6.0.1:
+"strip-ansi-cjs@npm:strip-ansi@^6.0.1":
   version "6.0.1"
   resolved "https://registry.npmmirror.com/strip-ansi/-/strip-ansi-6.0.1.tgz#9e26c63d30f53443e9489495b2105d37b67a85d9"
   integrity sha512-Y38VPSHcqkFrCpFnQ9vuSXmquuv5oXOKpGeT6aGrr3o3Gc9AlVa6JBfUSOCnbxGGZF+/0ooI7KrPuUSztUdU5A==
@@ -8121,6 +8149,13 @@ strip-ansi@^4.0.0:
   integrity sha512-4XaJ2zQdCzROZDivEVIDPkcQn8LMFSa8kj8Gxb/Lnwzv9A8VctNZ+lfivC/sV3ivW8ElJTERXZoPBRrZKkNKow==
   dependencies:
     ansi-regex "^3.0.0"
+
+strip-ansi@^6.0.0, strip-ansi@^6.0.1:
+  version "6.0.1"
+  resolved "https://registry.npmmirror.com/strip-ansi/-/strip-ansi-6.0.1.tgz#9e26c63d30f53443e9489495b2105d37b67a85d9"
+  integrity sha512-Y38VPSHcqkFrCpFnQ9vuSXmquuv5oXOKpGeT6aGrr3o3Gc9AlVa6JBfUSOCnbxGGZF+/0ooI7KrPuUSztUdU5A==
+  dependencies:
+    ansi-regex "^5.0.1"
 
 strip-ansi@^7.0.1:
   version "7.1.0"
@@ -8916,13 +8951,13 @@ vue-router@^4.0.15, vue-router@^4.3.0:
   dependencies:
     "@vue/devtools-api" "^6.6.4"
 
-vue-tsc@^2.0.22:
-  version "2.2.0"
-  resolved "https://registry.npmmirror.com/vue-tsc/-/vue-tsc-2.2.0.tgz#dd06c56636f760d7534b7a7a0f6669ba93c217b8"
-  integrity sha512-gtmM1sUuJ8aSb0KoAFmK9yMxb8TxjewmxqTJ1aKphD5Cbu0rULFY6+UQT51zW7SpUcenfPUuflKyVwyx9Qdnxg==
+vue-tsc@^3.0.1:
+  version "3.0.1"
+  resolved "https://registry.yarnpkg.com/vue-tsc/-/vue-tsc-3.0.1.tgz#344ffb206d5cb8edbaa1d34771dfe12c294935b7"
+  integrity sha512-UvMLQD0hAGL1g/NfEQelnSVB4H5gtf/gz2lJKjMMwWNOUmSNyWkejwJagAxEbSjtV5CPPJYslOtoSuqJ63mhdg==
   dependencies:
-    "@volar/typescript" "~2.4.11"
-    "@vue/language-core" "2.2.0"
+    "@volar/typescript" "2.4.17"
+    "@vue/language-core" "3.0.1"
 
 vue3-lottie@^3.3.1:
   version "3.3.1"
@@ -9076,7 +9111,7 @@ wordwrap@~0.0.2:
   resolved "https://registry.yarnpkg.com/wordwrap/-/wordwrap-0.0.3.tgz#a3d5da6cd5c0bc0008d37234bbaf1bed63059107"
   integrity sha512-1tMA907+V4QmxV7dbRvb4/8MaRALK6q9Abid3ndMYnbyo8piisCmeONVqVSXqQA3KaP4SLt5b7ud6E2sqP8TFw==
 
-"wrap-ansi-cjs@npm:wrap-ansi@^7.0.0", wrap-ansi@^7.0.0:
+"wrap-ansi-cjs@npm:wrap-ansi@^7.0.0":
   version "7.0.0"
   resolved "https://registry.npmmirror.com/wrap-ansi/-/wrap-ansi-7.0.0.tgz#67e145cff510a6a6984bdf1152911d69d2eb9e43"
   integrity sha512-YVGIj2kamLSTxw6NsZjoBxfSwsn0ycdesmc4p+Q21c5zPuZ1pl+NfxVdxPtdHvmNVOQ6XSYG4AUtyt/Fi7D16Q==
@@ -9089,6 +9124,15 @@ wrap-ansi@^6.2.0:
   version "6.2.0"
   resolved "https://registry.npmmirror.com/wrap-ansi/-/wrap-ansi-6.2.0.tgz#e9393ba07102e6c91a3b221478f0257cd2856e53"
   integrity sha512-r6lPcBGxZXlIcymEu7InxDMhdW0KDxpLgoFLcguasxCaJ/SOIZwINatK9KY/tf+ZrlywOKU0UDj3ATXUBfxJXA==
+  dependencies:
+    ansi-styles "^4.0.0"
+    string-width "^4.1.0"
+    strip-ansi "^6.0.0"
+
+wrap-ansi@^7.0.0:
+  version "7.0.0"
+  resolved "https://registry.npmmirror.com/wrap-ansi/-/wrap-ansi-7.0.0.tgz#67e145cff510a6a6984bdf1152911d69d2eb9e43"
+  integrity sha512-YVGIj2kamLSTxw6NsZjoBxfSwsn0ycdesmc4p+Q21c5zPuZ1pl+NfxVdxPtdHvmNVOQ6XSYG4AUtyt/Fi7D16Q==
   dependencies:
     ansi-styles "^4.0.0"
     string-width "^4.1.0"
