@@ -102,7 +102,7 @@
     "@vitejs/plugin-vue": "^5.0.4",
     "@vitejs/plugin-vue-jsx": "^3.1.0",
     "cross-env": "^7.0.3",
-    "dotenv": "^16.4.5",
+    "dotenv": "^17.0.1",
     "electron": "^34.3.0",
     "electron-builder": "^24.13.3",
     "electron-extension-installer": "^1.2.0",
