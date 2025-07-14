@@ -224,6 +224,10 @@
       "soft": "Soft",
       "subwoofer": "Subwoofer",
       "vocal": "Vocal"
+    },
+    "fade": {
+      "fadeDuration": "Audio Fade In/Out Duration (seconds)",
+      "fadeDurationDesc": "Duration of volume fade when switching, playing, or pausing."
     }
   },
   "common": {
