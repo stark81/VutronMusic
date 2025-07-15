@@ -90,7 +90,7 @@
     "vue-router": "^4.3.0",
     "vue3-lottie": "^3.3.1",
     "vue3-virtual-scroll": "^0.1.10",
-    "vuetify": "^3.5.11"
+    "vuetify": "^3.9.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.42.0",
