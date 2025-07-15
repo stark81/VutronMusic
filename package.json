@@ -99,7 +99,7 @@
     "@types/qs": "^6.9.18",
     "@typescript-eslint/eslint-plugin": "^7.1.0",
     "@typescript-eslint/parser": "^7.1.0",
-    "@vitejs/plugin-vue": "^5.0.4",
+    "@vitejs/plugin-vue": "^6.0.0",
     "@vitejs/plugin-vue-jsx": "^3.1.0",
     "cross-env": "^7.0.3",
     "dotenv": "^16.4.5",
