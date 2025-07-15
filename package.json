@@ -61,7 +61,7 @@
     "electron-updater": "^6.6.2",
     "eslint": "^8.57.0",
     "fastify": "^4.26.2",
-    "file-type": "^20.4.1",
+    "file-type": "^21.0.0",
     "font-list": "^1.5.1",
     "gsap": "^3.13.0",
     "iconv-lite": "^0.6.3",
