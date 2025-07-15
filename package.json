@@ -72,7 +72,7 @@
     "music-metadata": "^10.5.0",
     "node-html-parser": "^7.0.1",
     "node-vibrant": "^4.0.0",
-    "pinia": "^2.1.7",
+    "pinia": "^3.0.3",
     "pinia-plugin-persistedstate": "^4.2.0",
     "plyr": "^3.7.8",
     "qrcode": "^1.5.3",
