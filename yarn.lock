@@ -7891,10 +7891,10 @@ sonic-boom@^4.0.1:
   dependencies:
     atomic-sleep "^1.0.0"
 
-soundtouchjs@^0.1.30:
-  version "0.1.30"
-  resolved "https://registry.npmmirror.com/soundtouchjs/-/soundtouchjs-0.1.30.tgz#5c890d5738bfb0581659ffc131f89e9c574806bf"
-  integrity sha512-qc1kMCPQ+SH8tmoPwVSpVInGAE4XFyQ5uZLm1rLyGjwD+MT2ZdBWHWureyq2akDBYBE81GI0I0FdLCNBf86zDQ==
+soundtouchjs@^0.2.1:
+  version "0.2.1"
+  resolved "https://registry.yarnpkg.com/soundtouchjs/-/soundtouchjs-0.2.1.tgz#f24798a7ede5f194ba07ba0e64f4078ac587bcab"
+  integrity sha512-ApYdqT4bHqvm6QTRzHDta8PzJIgLacaXdkzUnSdotHvk7N2Ugr9JqV3SlWYsFTsd4ceJHEJqT7JI5E2MYmuQ6w==
 
 "source-map-js@>=0.6.2 <2.0.0", source-map-js@^1.0.2, source-map-js@^1.2.0, source-map-js@^1.2.1:
   version "1.2.1"
