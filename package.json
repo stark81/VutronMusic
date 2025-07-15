@@ -57,7 +57,7 @@
     "dexie": "^4.0.11",
     "dompurify": "^3.1.6",
     "electron-log": "^5.4.1",
-    "electron-store": "^8.2.0",
+    "electron-store": "^10.1.0",
     "electron-updater": "^6.6.2",
     "eslint": "^8.57.0",
     "fastify": "^4.26.2",
