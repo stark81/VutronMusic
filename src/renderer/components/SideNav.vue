@@ -9,7 +9,7 @@
     </button-icon>
     <button-icon
       :class="{ active: isCurrentRoute('/explore') }"
-      :data-tip="`${$t('nav.search')}`"
+      :data-tip="`${$t('nav.explore')}`"
       @click="handleRoute('/explore')"
     >
       <svg-icon class="icon" icon-class="explore" style="transform: scale(1.4)" />

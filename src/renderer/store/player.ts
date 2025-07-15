@@ -409,11 +409,6 @@ export const usePlayerStore = defineStore(
       }
     })
 
-    // watch(currentTrack, async (value) => {
-    //   if (!value) return
-    //   searchMatchForLocal(value)
-    // })
-
     watch(lyrics, () => {
       clearTimeout(timer.line)
       clearTimeout(timer.list)
@@ -668,8 +663,14 @@ export const usePlayerStore = defineStore(
           .then((res: any) => {
             if (res.result.songs.length > 0) {
               const newTrack = res.result.songs[0]
-              updateTrack(track.filePath, newTrack)
               _list.value[currentTrackIndex.value] = newTrack.id
+              if (_shuffle.value) {
+                const idx = _shuffleList.value.indexOf(track.id)
+                _shuffleList.value[idx] = newTrack.id
+              }
+              const index = _playNextList.value.indexOf(track.id)
+              if (index !== -1) _playNextList.value[index] = newTrack.id
+              updateTrack(track.filePath, newTrack)
               return getALocalTrack({ filePath: track.filePath })
             }
           })
@@ -724,9 +725,7 @@ export const usePlayerStore = defineStore(
         .then((buffer) => {
           if (buffer) convolverParams.buffer = buffer
         })
-        .catch((error) => {
-          console.log('setConvolver error:', error)
-        })
+        .catch()
     }
 
     const getCurrentTrackInfo = async (track: Track) => {
@@ -1051,19 +1050,6 @@ export const usePlayerStore = defineStore(
         _playNextTrack(isPersonalFM.value)
       }
     }
-
-    // const stop = async () => {
-    //   if (playingNext.value) {
-    //     if (_shuffle.value) {
-    //       _shuffleList.value.splice(currentTrackIndex.value + 1, 0, currentTrack.value!.id)
-    //       currentTrackIndex.value += 1
-    //     } else {
-    //       _list.value.splice(currentTrackIndex.value + 1, 0, currentTrack.value!.id)
-    //       currentTrackIndex.value += 1
-    //     }
-    //   }
-    //   pause()
-    // }
 
     const play = async () => {
       if (!audioNodes.audio) return

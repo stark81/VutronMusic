@@ -4,6 +4,7 @@ updates:
     directory: "/"
     schedule:
       interval: "monthly"
+    target-branch: 'dev.feature.depend-pull'
     assignees:
       - "stark81"
     reviewers:

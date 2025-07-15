@@ -2,6 +2,7 @@
   "nav": {
     "home": "Home",
     "search": "Search",
+    "explore": "Explore",
     "library": "Library",
     "stream": "Stream",
     "localMusic": "Local Music",
@@ -247,6 +248,7 @@
       "trayLyric": "Tray Lyrics",
       "localMusic": "Local Music",
       "music": "Msc Setting",
+      "player": "Player Setting",
       "netease": "Online Music",
       "stream": "Stream Music",
       "local": "Local Music",

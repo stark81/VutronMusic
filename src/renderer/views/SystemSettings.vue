@@ -27,22 +27,19 @@
         <div class="tab" :class="{ active: tab === 'general' }" @click="updateTab(0)">{{
           $t('settings.nav.general')
         }}</div>
-        <div class="tab" :class="{ active: tab === 'appearance' }" @click="updateTab(1)">{{
-          $t('settings.nav.appearance')
-        }}</div>
-        <div class="tab" :class="{ active: tab === 'lyric' }" @click="updateTab(2)">{{
+        <div class="tab" :class="{ active: tab === 'lyric' }" @click="updateTab(1)">{{
           $t('settings.nav.lyricSetting')
         }}</div>
-        <div class="tab" :class="{ active: tab === 'music' }" @click="updateTab(3)">{{
+        <div class="tab" :class="{ active: tab === 'music' }" @click="updateTab(2)">{{
           $t('settings.nav.music')
         }}</div>
-        <div class="tab" :class="{ active: tab === 'unblock' }" @click="updateTab(4)">{{
+        <div class="tab" :class="{ active: tab === 'unblock' }" @click="updateTab(3)">{{
           $t('settings.nav.unblock')
         }}</div>
-        <div class="tab" :class="{ active: tab === 'shortcut' }" @click="updateTab(5)">{{
+        <div class="tab" :class="{ active: tab === 'shortcut' }" @click="updateTab(4)">{{
           $t('settings.nav.shortcut')
         }}</div>
-        <div class="tab" :class="{ active: tab === 'update' }" @click="updateTab(6)">{{
+        <div class="tab" :class="{ active: tab === 'update' }" @click="updateTab(5)">{{
           $t('settings.nav.update')
         }}</div>
       </div>
@@ -77,75 +74,7 @@
             </div>
           </div>
           <div class="item">
-            <div class="left">
-              <div class="title">{{ $t('settings.general.showTimeOrID.text') }}</div>
-            </div>
-            <div class="right">
-              <select v-model="showTrackInfo">
-                <option value="time">{{ $t('settings.general.showTimeOrID.time') }}</option>
-                <option value="ID">{{ $t('settings.general.showTimeOrID.ID') }}</option>
-              </select>
-            </div>
-          </div>
-          <div class="item">
-            <div class="left">
-              <div class="title">{{ $t('settings.general.outputDevice.text') }}</div>
-            </div>
-            <div class="right">
-              <select v-model="selectedOutputDevice">
-                <option
-                  v-for="device in allOutputDevices"
-                  :key="device.deviceId"
-                  :value="device.deviceId"
-                  :selected="device.deviceId == selectedOutputDevice"
-                  >{{ device.label }}</option
-                >
-              </select>
-            </div>
-          </div>
-          <div class="item">
-            <div class="left">
-              <div class="title">{{ $t('player.resetPlayer') }}</div>
-            </div>
-            <div class="right">
-              <button @click="resetPlayer()">确定</button>
-            </div>
-          </div>
-          <div v-if="isElectron && isLinux" class="item">
-            <div class="left">
-              <div class="title">{{ $t('settings.general.useCustomTitlebar') }}</div>
-            </div>
-            <div class="right">
-              <div class="toggle">
-                <input
-                  id="linux-title-bar"
-                  v-model="useCustomTitlebar"
-                  type="checkbox"
-                  name="linux-title-bar"
-                />
-                <label for="linux-title-bar"></label>
-              </div>
-            </div>
-          </div>
-          <div v-if="isElectron" class="item">
-            <div class="left">
-              <div class="title">{{ $t('settings.general.perventSuspend') }}</div>
-            </div>
-            <div class="right">
-              <div class="toggle">
-                <input
-                  id="pervent-suspend"
-                  v-model="general.preventSuspension"
-                  type="checkbox"
-                  name="pervent-suspend"
-                />
-                <label for="pervent-suspend"></label>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div v-show="tab === 'appearance'" key="appearance">
-          <div class="item">
+            <div>{{ $t('settings.nav.appearance') }}：</div>
             <div
               class="appearance"
               :class="{ selected: appearance === 'light' }"
@@ -556,6 +485,11 @@
               @click="musicTab = 'stream'"
               >{{ $t('settings.nav.stream') }}</button
             >
+            <button
+              :class="{ 'lyric-button': true, 'lyric-button--selected': musicTab === 'player' }"
+              @click="musicTab = 'player'"
+              >{{ $t('settings.nav.player') }}</button
+            >
           </div>
           <div v-show="musicTab === 'netease'">
             <div class="item">
@@ -701,15 +635,86 @@
               </div>
             </div>
           </div>
-          <div v-show="musicTab === 'netease' || musicTab === 'local' || musicTab === 'stream'">
+          <div v-show="musicTab === 'player'">
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('settings.general.showTimeOrID.text') }}</div>
+              </div>
+              <div class="right">
+                <select v-model="showTrackInfo">
+                  <option value="time">{{ $t('settings.general.showTimeOrID.time') }}</option>
+                  <option value="ID">{{ $t('settings.general.showTimeOrID.ID') }}</option>
+                </select>
+              </div>
+            </div>
             <div class="item">
               <div class="left">
                 <div class="title">{{ $t('player.fade.fadeDuration') }}</div>
                 <div class="description">{{ $t('player.fade.fadeDurationDesc') }}</div>
               </div>
               <div class="right">
-                <input type="range" min="0.3" max="1.5" step="0.01" v-model.number="general.fadeDuration" style="width:120px;vertical-align:middle;" />
-                <span style="margin-left:8px;">{{ general.fadeDuration.toFixed(2) }}s</span>
+                <input
+                  v-model.number="general.fadeDuration"
+                  type="number"
+                  step="0.1"
+                  class="text-input margin-right-0"
+                />
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('settings.general.outputDevice.text') }}</div>
+              </div>
+              <div class="right">
+                <select v-model="selectedOutputDevice">
+                  <option
+                    v-for="device in allOutputDevices"
+                    :key="device.deviceId"
+                    :value="device.deviceId"
+                    :selected="device.deviceId == selectedOutputDevice"
+                    >{{ device.label }}</option
+                  >
+                </select>
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('player.resetPlayer') }}</div>
+              </div>
+              <div class="right">
+                <button @click="resetPlayer()">确定</button>
+              </div>
+            </div>
+            <div v-if="isElectron && isLinux" class="item">
+              <div class="left">
+                <div class="title">{{ $t('settings.general.useCustomTitlebar') }}</div>
+              </div>
+              <div class="right">
+                <div class="toggle">
+                  <input
+                    id="linux-title-bar"
+                    v-model="useCustomTitlebar"
+                    type="checkbox"
+                    name="linux-title-bar"
+                  />
+                  <label for="linux-title-bar"></label>
+                </div>
+              </div>
+            </div>
+            <div v-if="isElectron" class="item">
+              <div class="left">
+                <div class="title">{{ $t('settings.general.perventSuspend') }}</div>
+              </div>
+              <div class="right">
+                <div class="toggle">
+                  <input
+                    id="pervent-suspend"
+                    v-model="general.preventSuspension"
+                    type="checkbox"
+                    name="pervent-suspend"
+                  />
+                  <label for="pervent-suspend"></label>
+                </div>
               </div>
             </div>
           </div>
@@ -1188,7 +1193,7 @@ const tab = ref('general')
 const lyricTab = ref(isWindows ? 'lyric' : 'trayLyric')
 const musicTab = ref('netease')
 const updateTab = (index: number) => {
-  const tabs = ['general', 'appearance', 'lyric', 'music', 'unblock', 'shortcut', 'update']
+  const tabs = ['general', 'lyric', 'music', 'unblock', 'shortcut', 'update'] // 'appearance'
   const tabName = tabs[index]
   tab.value = tabName
   slideTop.value = index * 40

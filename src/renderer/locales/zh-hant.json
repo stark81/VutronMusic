@@ -2,6 +2,7 @@
   "nav": {
     "home": "首頁",
     "search": "搜尋",
+    "explore": "探索",
     "library": "音樂庫",
     "stream": "串流媒體",
     "localMusic": "本地音樂",
@@ -224,6 +225,10 @@
       "soft": "柔和",
       "subwoofer": "重低音",
       "vocal": "人聲"
+    },
+    "fade": {
+      "fadeDuration": "音訊淡入淡出時長（秒）",
+      "fadeDurationDesc": "切換歌曲、播放、暫停時音量漸變的時長"
     }
   },
   "common": {
@@ -243,6 +248,7 @@
       "trayLyric": "狀態列歌詞",
       "localMusic": "本地歌曲",
       "music": "音樂設定",
+      "player": "播放器設定",
       "netease": "線上音樂",
       "stream": "串流媒體音樂",
       "local": "本地音樂",

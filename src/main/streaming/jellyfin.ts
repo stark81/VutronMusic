@@ -249,6 +249,7 @@ class Jellyfin implements JellyfinImpl {
         br: song.MediaSources?.[0].Bitrate || 0,
         type: 'stream',
         matched: false,
+        no: song.IndexNumber || 1,
         offset: 0,
         createTime: new Date(song.DateCreated).getTime() || new Date(song.PremiereDate).getTime(),
         alias: [],

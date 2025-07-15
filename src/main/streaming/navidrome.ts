@@ -137,6 +137,7 @@ class Navidrome implements NavidromeImpl {
             br: song.sampleRate,
             type: 'stream',
             matched: false,
+            no: song.trackNumber || 1,
             offset: 0,
             createTime: new Date(song.createdAt).getTime(),
             alias: [],

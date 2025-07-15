@@ -397,7 +397,7 @@ const splitLine = (length: number) => {
     const secondLength = Math.max(2, Math.floor(length * secondRatio))
     return [firstLength, firstLength + secondLength, length]
   } else {
-    const n = Math.ceil(length / 20) + 1
+    const n = Math.ceil(length / 19) + 1
     const minVal = 1 / (n + 1)
 
     const midCount = n - 2

@@ -23,7 +23,7 @@
       <div class="track-item">
         <TrackListItem
           :track-prop="item"
-          :track-no="index + 1"
+          :track-no="item.no || index + 1"
           :type-prop="type"
           :is-lyric="isLyric"
           :style="{ height: itemHeight + 'px' }"

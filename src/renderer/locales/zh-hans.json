@@ -2,6 +2,7 @@
   "nav": {
     "home": "首页",
     "search": "搜索",
+    "explore": "探索",
     "library": "音乐库",
     "stream": "流媒体",
     "localMusic": "本地音乐",
@@ -247,6 +248,7 @@
       "trayLyric": "状态栏歌词",
       "localMusic": "本地歌曲",
       "music": "音乐设置",
+      "player": "播放器设置",
       "netease": "线上音乐",
       "stream": "流媒体音乐",
       "local": "本地音乐",

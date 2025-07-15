@@ -118,6 +118,7 @@ class Emby implements EmbyImpl {
           br: song.Bitrate,
           type: 'stream',
           matched: false,
+          no: song.IndexNumber || 1,
           offset: 0,
           createTime: new Date(song.DateCreated).getTime(),
           alias: [],
