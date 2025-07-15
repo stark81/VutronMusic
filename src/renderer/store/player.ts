@@ -1587,7 +1587,9 @@ export const usePlayerStore = defineStore(
         const start = performance.now()
         const change = to - from
         const ease = (t: number) => from + change * 0.5 * (1 - Math.cos(Math.PI * t)) // S型
-        function step(now: number) {
+        const interval = 16
+        function step() {
+          const now = performance.now()
           const elapsed = (now - start) / (duration * 1000)
           if (elapsed >= 1) {
             gainNode.gain.value = to
@@ -1595,9 +1597,9 @@ export const usePlayerStore = defineStore(
             return
           }
           gainNode.gain.value = ease(elapsed)
-          requestAnimationFrame(step)
+          setTimeout(step, interval)
         }
-        requestAnimationFrame(step)
+        step()
       })
     }
 
