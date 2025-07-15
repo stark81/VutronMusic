@@ -93,7 +93,7 @@
     "vuetify": "^3.9.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.42.0",
+    "@playwright/test": "^1.54.1",
     "@types/better-sqlite3": "^7.6.11",
     "@types/color": "^4.2.0",
     "@types/qs": "^6.9.18",
