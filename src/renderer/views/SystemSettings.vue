@@ -701,6 +701,18 @@
               </div>
             </div>
           </div>
+          <div v-show="musicTab === 'netease' || musicTab === 'local' || musicTab === 'stream'">
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('player.fade.fadeDuration') }}</div>
+                <div class="description">{{ $t('player.fade.fadeDurationDesc') }}</div>
+              </div>
+              <div class="right">
+                <input type="range" min="0.3" max="1.5" step="0.01" v-model.number="general.fadeDuration" style="width:120px;vertical-align:middle;" />
+                <span style="margin-left:8px;">{{ general.fadeDuration.toFixed(2) }}s</span>
+              </div>
+            </div>
+          </div>
         </div>
         <div v-if="isElectron" v-show="tab === 'unblock'" key="unblock">
           <div class="item">

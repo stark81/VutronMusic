@@ -43,7 +43,8 @@ export const useSettingsStore = defineStore(
       useCustomTitlebar: false,
       preventSuspension: false,
       lyricBackground: 'true' as BackgroundEffect,
-      enabledPlaylistCategories
+      enabledPlaylistCategories,
+      fadeDuration: 0.5 // 音频淡入淡出时长（秒）
     })
 
     const tray = reactive({

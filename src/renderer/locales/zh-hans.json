@@ -224,6 +224,10 @@
       "soft": "柔和",
       "subwoofer": "重低音",
       "vocal": "人声"
+    },
+    "fade": {
+      "fadeDuration": "音频淡入淡出时长（秒）",
+      "fadeDurationDesc": "切歌、播放、暂停时音量渐变的时长"
     }
   },
   "common": {

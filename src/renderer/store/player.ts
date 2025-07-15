@@ -871,8 +871,11 @@ export const usePlayerStore = defineStore(
     }
 
     const replaceCurrentTrack = async (trackID: number | string, autoPlay = true) => {
-      // audioNodes.audio!.volume = 0
-      // audioNodes.masterGain!.gain.setValueAtTime(0, audioNodes.audioContext!.currentTime)
+      // 切歌时先淡出
+      const fade = getFadeDuration()
+      if (audioNodes.masterGain && audioNodes.audioContext) {
+        await smoothGain(audioNodes.masterGain.gain.value, 0, fade, audioNodes.masterGain)
+      }
       return getLocalMusic(trackID as number).then(async (track) => {
         if (!track) {
           nextTrackCallback()
@@ -909,6 +912,11 @@ export const usePlayerStore = defineStore(
     // }
 
     const playAudioSource = async (source: string, autoPlay = true) => {
+      // 切歌时先淡出
+      const fade = getFadeDuration()
+      if (audioNodes.masterGain && audioNodes.audioContext) {
+        await smoothGain(audioNodes.masterGain.gain.value, 0, fade, audioNodes.masterGain)
+      }
       await destroAudioNode()
       await setupAudioNode(autoPlay)
       audioNodes.audio!.src = source
@@ -1067,28 +1075,23 @@ export const usePlayerStore = defineStore(
         window.mainApi?.send('updateTooltip', title.value)
       }
       document.title = title.value
-      audioNodes.masterGain!.gain.setValueAtTime(0, audioNodes.audioContext!.currentTime)
-      audioNodes.masterGain!.gain.linearRampToValueAtTime(
-        volume.value,
-        audioNodes.audioContext!.currentTime + 0.2
-      )
-      setTimeout(() => {
-        audioNodes.audio!.volume = volume.value
-      }, 200)
+      const fade = getFadeDuration()
+      audioNodes.masterGain!.gain.value = 0
+      await smoothGain(0, volume.value, fade, audioNodes.masterGain!)
+      audioNodes.audio!.volume = volume.value
     }
 
     const pause = () => {
       if (!audioNodes.audio) return
-      audioNodes.masterGain!.gain.linearRampToValueAtTime(
-        0,
-        audioNodes.audioContext!.currentTime + 0.2
-      )
-      audioNodes.audio.pause()
-      title.value = 'VutronMusic'
-      if (!window.env?.isMac) {
-        window.mainApi?.send('updateTooltip', title.value)
-      }
-      document.title = title.value
+      const fade = getFadeDuration()
+      smoothGain(audioNodes.masterGain!.gain.value, 0, fade, audioNodes.masterGain!).then(() => {
+        audioNodes.audio?.pause()
+        title.value = 'VutronMusic'
+        if (!window.env?.isMac) {
+          window.mainApi?.send('updateTooltip', title.value)
+        }
+        document.title = title.value
+      })
     }
 
     const playOrPause = async () => {
@@ -1584,6 +1587,32 @@ export const usePlayerStore = defineStore(
 
     const clearPlayNextList = () => {
       _playNextList.value = []
+    }
+
+    // 获取淡入淡出时长，限制范围，防止极端值
+    const getFadeDuration = () => {
+      const d = settingsStore.general.fadeDuration
+      return Math.max(0.1, Math.min(3, Number(d) || 0.5))
+    }
+
+    // S型淡入淡出曲线
+    const smoothGain = async (from: number, to: number, duration: number, gainNode: GainNode) => {
+      return new Promise<void>((resolve) => {
+        const start = performance.now()
+        const change = to - from
+        const ease = (t: number) => from + change * 0.5 * (1 - Math.cos(Math.PI * t)) // S型
+        function step(now: number) {
+          const elapsed = (now - start) / (duration * 1000)
+          if (elapsed >= 1) {
+            gainNode.gain.value = to
+            resolve()
+            return
+          }
+          gainNode.gain.value = ease(elapsed)
+          requestAnimationFrame(step)
+        }
+        requestAnimationFrame(step)
+      })
     }
 
     onMounted(async () => {
