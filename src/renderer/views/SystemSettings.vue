@@ -1535,7 +1535,7 @@ onBeforeUnmount(() => {
 })
 </script>
 
-<style lang="scss">
+<style scoped lang="scss">
 .system-settings {
   width: 100%;
 }
@@ -2020,22 +2020,22 @@ input.text-input {
   border-radius: 8px !important;
   box-shadow: none !important;
 }
+</style>
 
-[data-theme='dark'] .v-overlay__content .v-list,
-[data-theme='light'] .v-overlay__content .v-list {
+<style lang="scss">
+body[data-theme='dark'] .v-overlay__content .v-list,
+body[data-theme='light'] .v-overlay__content .v-list {
   background: var(--color-secondary-bg) !important;
   color: var(--color-text) !important;
   border-radius: 8px !important;
   box-shadow: 0 4px 24px 0 rgba(0,0,0,0.18) !important;
 }
-
-[data-theme='dark'] .v-overlay__content .v-list .v-list-item-title,
-[data-theme='light'] .v-overlay__content .v-list .v-list-item-title {
+body[data-theme='dark'] .v-overlay__content .v-list .v-list-item-title,
+body[data-theme='light'] .v-overlay__content .v-list .v-list-item-title {
   color: var(--color-text) !important;
 }
-
-[data-theme='dark'] .v-overlay__content .v-list .v-list-item--active,
-[data-theme='light'] .v-overlay__content .v-list .v-list-item--active {
+body[data-theme='dark'] .v-overlay__content .v-list .v-list-item--active,
+body[data-theme='light'] .v-overlay__content .v-list .v-list-item--active {
   background: color-mix(in oklab, var(--color-primary) 12%, var(--color-secondary-bg)) !important;
   color: var(--color-primary) !important;
 }
