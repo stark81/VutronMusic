@@ -1528,6 +1528,28 @@ onMounted(() => {
     attributes: true,
     attributeFilter: ['data-theme']
   })
+  // 动态注入 v-overlay 跟随 theme 的样式
+  const style = document.createElement('style')
+  style.innerHTML = `
+    body[data-theme='dark'] .v-overlay__content .v-list,
+    body[data-theme='light'] .v-overlay__content .v-list {
+      background: var(--color-secondary-bg) !important;
+      color: var(--color-text) !important;
+      border-radius: 8px !important;
+      box-shadow: 0 4px 24px 0 rgba(0,0,0,0.18) !important;
+    }
+    body[data-theme='dark'] .v-overlay__content .v-list .v-list-item-title,
+    body[data-theme='light'] .v-overlay__content .v-list .v-list-item-title {
+      color: var(--color-text) !important;
+    }
+    body[data-theme='dark'] .v-overlay__content .v-list .v-list-item--active,
+    body[data-theme='light'] .v-overlay__content .v-list .v-list-item--active {
+      background: color-mix(in oklab, var(--color-primary) 12%, var(--color-secondary-bg)) !important;
+      color: var(--color-primary) !important;
+    }
+  `
+  style.setAttribute('data-vuetify-overlay-theme', 'true')
+  document.head.appendChild(style)
 })
 onBeforeUnmount(() => {
   updatePadding(96)
@@ -2020,22 +2042,17 @@ input.text-input {
   border-radius: 8px !important;
   box-shadow: none !important;
 }
-</style>
 
-<style lang="scss">
-body[data-theme='dark'] .v-overlay__content .v-list,
-body[data-theme='light'] .v-overlay__content .v-list {
+:deep(.v-overlay__content .v-list) {
   background: var(--color-secondary-bg) !important;
   color: var(--color-text) !important;
   border-radius: 8px !important;
   box-shadow: 0 4px 24px 0 rgba(0,0,0,0.18) !important;
 }
-body[data-theme='dark'] .v-overlay__content .v-list .v-list-item-title,
-body[data-theme='light'] .v-overlay__content .v-list .v-list-item-title {
+:deep(.v-overlay__content .v-list .v-list-item-title) {
   color: var(--color-text) !important;
 }
-body[data-theme='dark'] .v-overlay__content .v-list .v-list-item--active,
-body[data-theme='light'] .v-overlay__content .v-list .v-list-item--active {
+:deep(.v-overlay__content .v-list .v-list-item--active) {
   background: color-mix(in oklab, var(--color-primary) 12%, var(--color-secondary-bg)) !important;
   color: var(--color-primary) !important;
 }
