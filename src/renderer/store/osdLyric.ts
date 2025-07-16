@@ -21,6 +21,7 @@ export const useOsdLyricStore = defineStore(
     const playedLrcColor = ref('#37cf88')
     const unplayLrcColor = ref('rgba(210, 210, 210, 1)')
     const textShadow = ref('rgba(0, 0, 0, 0.2)')
+    const font = ref('')
 
     window.addEventListener('storage', (event) => {
       if (event.key === 'osdLyric') {
@@ -39,6 +40,7 @@ export const useOsdLyricStore = defineStore(
         unplayLrcColor.value = newState.unplayLrcColor
         textShadow.value = newState.textShadow
         translationMode.value = newState.translationMode
+        font.value = newState.font
       }
     })
 
@@ -59,7 +61,8 @@ export const useOsdLyricStore = defineStore(
       playedLrcColor,
       unplayLrcColor,
       textShadow,
-      translationMode
+      translationMode,
+      font
     }
   },
   {

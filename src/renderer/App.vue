@@ -105,7 +105,7 @@ const handleEventBus = () => {
     if (data.active !== instanceId.value) return
     if (updateScrollStart === 0) updateScrollStart = mainRef.value?.scrollTop
     const top = Math.min(mainRef.value?.scrollHeight, Math.max(updateScrollStart + data.offset, 0))
-    mainRef.value.scrollTo({ top, behavior: 'instant' })
+    if (mainRef.value) mainRef.value.scrollTo({ top, behavior: 'instant' })
   })
 
   eventBus.on('update-done', () => {
@@ -188,7 +188,7 @@ provide('updatePadding', (value: number) => {
 })
 
 provide('scrollMainTo', (top: number, behavior = 'smooth') => {
-  mainRef.value.scrollTo({ top, behavior })
+  if (mainRef.value) mainRef.value.scrollTo({ top, behavior })
 })
 
 const scanLocalMusic = async () => {

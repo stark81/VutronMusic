@@ -191,6 +191,23 @@
             </div>
             <div class="item">
               <div class="left">
+                <div class="title"> {{ $t('settings.osdLyric.font') || '字体' }}</div>
+              </div>
+              <div class="right">
+                <v-select
+                  v-model="osdLyricFont"
+                  :items="fontList"
+                  item-title="value"
+                  item-value="value"
+                  variant="outlined"
+                  density="comfortable"
+                  class="my-vselect"
+                  :menu-props="{ maxHeight: '300px' }"
+                />
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
                 <div class="title"> {{ $t('settings.osdLyric.staticTime.text') }} </div>
                 <div class="description"> {{ $t('settings.osdLyric.staticTime.desc') }} </div>
               </div>
@@ -1047,7 +1064,8 @@ const { showToast, checkUpdate } = stateStore
 const dataStore = useDataStore()
 const { user } = storeToRefs(dataStore)
 
-const osdLyric = useOsdLyricStore()
+const osdLyricStore = useOsdLyricStore()
+const osdLyric = osdLyricStore
 const {
   isLock,
   type,
@@ -1515,7 +1533,15 @@ const unblockOrderOptions = computed(() => [
   { value: false, label: t('settings.unblock.sourceSearchMode.speedFirst') }
 ])
 
-onMounted(() => {
+const fontList = ref<string[]>([])
+const osdLyricFont = computed({
+  get: () => osdLyric.font,
+  set: (val: string) => {
+    osdLyric.font = val
+  }
+})
+
+onMounted(async () => {
   mainStyle.value = {
     marginTop: isMac || !useCustomTitlebar.value ? '20px' : '0'
   }
@@ -1523,6 +1549,9 @@ onMounted(() => {
   updatePadding(64)
   getAllOutputDevices()
   getVersion()
+  if (isElectron && window.mainApi) {
+    fontList.value = await window.mainApi.invoke('getFontList')
+  }
   // 开始监听 body 元素的属性变化
   observer.observe(document.body, {
     attributes: true,
