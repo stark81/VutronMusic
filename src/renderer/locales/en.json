@@ -346,6 +346,7 @@
         "tlyric": "Translation",
         "romalrc": "Transliteration"
       },
+      "font": "Font",
       "fontSize": "Font Size (px)",
       "textAlign": {
         "text": "Text Alignment",

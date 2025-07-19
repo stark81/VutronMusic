@@ -346,7 +346,7 @@
         "tlyric": "翻译",
         "romalrc": "音译"
       },
-      "fontSize": "字体大小（px）",
+      "font": "字体",
       "textAlign": {
         "text": "字体对齐方式",
         "start": "居左",

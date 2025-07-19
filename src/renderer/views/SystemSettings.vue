@@ -52,11 +52,15 @@
               <div class="title">{{ $t('settings.general.language.text') }}</div>
             </div>
             <div class="right">
-              <select v-model="selectLanguage">
-                <option value="zh">{{ $t('settings.general.language.zhHans') }}</option>
-                <option value="zht">{{ $t('settings.general.language.zhHant') }}</option>
-                <option value="en">{{ $t('settings.general.language.en') }}</option>
-              </select>
+              <v-select
+                v-model="selectLanguage"
+                :items="languageOptions"
+                item-title="label"
+                item-value="value"
+                variant="outlined"
+                density="comfortable"
+                class="my-vselect"
+              />
             </div>
           </div>
           <div v-if="!isMac" class="item">
@@ -64,13 +68,15 @@
               <div class="title">{{ $t('settings.general.closeAppOption.text') }}</div>
             </div>
             <div class="right">
-              <select v-model="selectOptions">
-                <option value="ask">{{ $t('settings.general.closeAppOption.ask') }}</option>
-                <option value="minimizeToTray">{{
-                  $t('settings.general.closeAppOption.minimizeToTray')
-                }}</option>
-                <option value="exit">{{ $t('settings.general.closeAppOption.exit') }}</option>
-              </select>
+              <v-select
+                v-model="selectOptions"
+                :items="closeAppOptions"
+                item-title="label"
+                item-value="value"
+                variant="outlined"
+                density="comfortable"
+                class="my-vselect"
+              />
             </div>
           </div>
           <div class="item">
@@ -185,6 +191,23 @@
             </div>
             <div class="item">
               <div class="left">
+                <div class="title"> {{ $t('settings.osdLyric.font') || '字体' }}</div>
+              </div>
+              <div class="right">
+                <v-select
+                  v-model="osdLyricFont"
+                  :items="fontList"
+                  item-title="value"
+                  item-value="value"
+                  variant="outlined"
+                  density="comfortable"
+                  class="my-vselect"
+                  :menu-props="{ maxHeight: '300px' }"
+                />
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
                 <div class="title"> {{ $t('settings.osdLyric.staticTime.text') }} </div>
                 <div class="description"> {{ $t('settings.osdLyric.staticTime.desc') }} </div>
               </div>
@@ -202,10 +225,15 @@
                 <div class="title">{{ $t('settings.osdLyric.type.text') }}</div>
               </div>
               <div class="right">
-                <select v-model="type">
-                  <option value="small">{{ $t('settings.osdLyric.type.small') }}</option>
-                  <option value="normal">{{ $t('settings.osdLyric.type.normal') }}</option>
-                </select>
+                <v-select
+                  v-model="type"
+                  :items="osdLyricTypeOptions"
+                  item-title="label"
+                  item-value="value"
+                  variant="outlined"
+                  density="comfortable"
+                  class="my-vselect"
+                />
               </div>
             </div>
             <div class="item">
@@ -214,10 +242,15 @@
                 <div class="description">{{ $t('settings.osdLyric.mode.desc') }}</div>
               </div>
               <div class="right">
-                <select v-model="mode">
-                  <option value="oneLine">{{ $t('settings.osdLyric.mode.oneLine') }}</option>
-                  <option value="twoLines">{{ $t('settings.osdLyric.mode.twoLines') }}</option>
-                </select>
+                <v-select
+                  v-model="mode"
+                  :items="osdLyricModeOptions"
+                  item-title="label"
+                  item-value="value"
+                  variant="outlined"
+                  density="comfortable"
+                  class="my-vselect"
+                />
               </div>
             </div>
             <div class="item">
@@ -225,15 +258,15 @@
                 <div class="title">{{ $t('settings.osdLyric.translationMode.text') }}</div>
               </div>
               <div class="right">
-                <select v-model="translationMode">
-                  <option value="none">{{ $t('settings.osdLyric.translationMode.none') }}</option>
-                  <option value="tlyric">{{
-                    $t('settings.osdLyric.translationMode.tlyric')
-                  }}</option>
-                  <option value="rlyric">{{
-                    $t('settings.osdLyric.translationMode.romalrc')
-                  }}</option>
-                </select>
+                <v-select
+                  v-model="translationMode"
+                  :items="osdLyricTransOptions"
+                  item-title="label"
+                  item-value="value"
+                  variant="outlined"
+                  density="comfortable"
+                  class="my-vselect"
+                />
               </div>
             </div>
             <div class="item">
@@ -330,11 +363,15 @@
                 <div class="title">{{ $t('settings.osdLyric.textAlign.text') }}</div>
               </div>
               <div class="right">
-                <select v-model="textAlign">
-                  <option value="start">{{ $t('settings.osdLyric.textAlign.start') }}</option>
-                  <option value="center">{{ $t('settings.osdLyric.textAlign.center') }}</option>
-                  <option value="end">{{ $t('settings.osdLyric.textAlign.end') }}</option>
-                </select>
+                <v-select
+                  v-model="textAlign"
+                  :items="osdLyricAlignOptions"
+                  item-title="label"
+                  item-value="value"
+                  variant="outlined"
+                  density="comfortable"
+                  class="my-vselect"
+                />
               </div>
             </div>
             <div class="item">
@@ -342,15 +379,15 @@
                 <div class="title">{{ $t('settings.osdLyric.translationMode.text') }}</div>
               </div>
               <div class="right">
-                <select v-model="nTranslationMode">
-                  <option value="none">{{ $t('settings.osdLyric.translationMode.none') }}</option>
-                  <option value="tlyric">{{
-                    $t('settings.osdLyric.translationMode.tlyric')
-                  }}</option>
-                  <option value="rlyric">{{
-                    $t('settings.osdLyric.translationMode.romalrc')
-                  }}</option>
-                </select>
+                <v-select
+                  v-model="nTranslationMode"
+                  :items="nTransOptions"
+                  item-title="label"
+                  item-value="value"
+                  variant="outlined"
+                  density="comfortable"
+                  class="my-vselect"
+                />
               </div>
             </div>
             <div class="item">
@@ -358,14 +395,15 @@
                 <div class="title">{{ $t('settings.general.lyricBackground.text') }}</div>
               </div>
               <div class="right">
-                <select v-model="lyricBackground">
-                  <option value="none">{{ $t('settings.general.lyricBackground.close') }}</option>
-                  <option value="true">{{ $t('settings.general.lyricBackground.true') }}</option>
-                  <option value="blur">{{ $t('settings.general.lyricBackground.blur') }}</option>
-                  <option value="dynamic">{{
-                    $t('settings.general.lyricBackground.dynamic')
-                  }}</option>
-                </select>
+                <v-select
+                  v-model="lyricBackground"
+                  :items="lyricBgOptions"
+                  item-title="label"
+                  item-value="value"
+                  variant="outlined"
+                  density="comfortable"
+                  class="my-vselect"
+                />
               </div>
             </div>
           </div>
@@ -513,34 +551,29 @@
                 <div class="title">{{ $t('settings.autoCacheTrack.sizeLimit') }}</div>
               </div>
               <div class="right">
-                <select v-model="autoCacheTrack.sizeLimit">
-                  <option :value="false">{{ $t('settings.autoCacheTrack.noLimit') }}</option>
-                  <option :value="512"> 500M </option>
-                  <option :value="1024"> 1G </option>
-                  <option :value="2048"> 2G </option>
-                  <option :value="4096"> 4G </option>
-                  <option :value="8192"> 8G </option>
-                </select>
+                <v-select
+                  v-model="autoCacheTrack.sizeLimit"
+                  :items="cacheSizeOptions"
+                  item-title="label"
+                  item-value="value"
+                  variant="outlined"
+                  density="comfortable"
+                  class="my-vselect"
+                />
               </div>
             </div>
             <div class="item">
               <div class="left">{{ $t('settings.general.musicQuality.text') }}</div>
               <div class="right">
-                <select v-model="musicQuality">
-                  <option value="128000"
-                    >{{ $t('settings.general.musicQuality.low') }} - 128Kbps</option
-                  >
-                  <option value="192000"
-                    >{{ $t('settings.general.musicQuality.medium') }} - 192Kbps</option
-                  >
-                  <option value="320000"
-                    >{{ $t('settings.general.musicQuality.high') }} - 320Kbps</option
-                  >
-                  <option value="flac"
-                    >{{ $t('settings.general.musicQuality.lossless') }} - FLAC</option
-                  >
-                  <option value="999000">Hi-Res</option>
-                </select>
+                <v-select
+                  v-model="musicQuality"
+                  :items="musicQualityOptions"
+                  item-title="label"
+                  item-value="value"
+                  variant="outlined"
+                  density="comfortable"
+                  class="my-vselect"
+                />
               </div>
             </div>
             <div class="item">
@@ -641,10 +674,15 @@
                 <div class="title">{{ $t('settings.general.showTimeOrID.text') }}</div>
               </div>
               <div class="right">
-                <select v-model="showTrackInfo">
-                  <option value="time">{{ $t('settings.general.showTimeOrID.time') }}</option>
-                  <option value="ID">{{ $t('settings.general.showTimeOrID.ID') }}</option>
-                </select>
+                <v-select
+                  v-model="showTrackInfo"
+                  :items="showTrackInfoOptions"
+                  item-title="label"
+                  item-value="value"
+                  variant="outlined"
+                  density="comfortable"
+                  class="my-vselect"
+                />
               </div>
             </div>
             <div class="item">
@@ -666,15 +704,14 @@
                 <div class="title">{{ $t('settings.general.outputDevice.text') }}</div>
               </div>
               <div class="right">
-                <select v-model="selectedOutputDevice">
-                  <option
-                    v-for="device in allOutputDevices"
-                    :key="device.deviceId"
-                    :value="device.deviceId"
-                    :selected="device.deviceId == selectedOutputDevice"
-                    >{{ device.label }}</option
-                  >
-                </select>
+                <v-select
+                  v-model="selectedOutputDevice"
+                  :items="allOutputDevices"
+                  item-title="label"
+                  item-value="deviceId"
+                  variant="outlined"
+                  density="comfortable"
+                />
               </div>
             </div>
             <div class="item">
@@ -758,14 +795,15 @@
               <div class="title">{{ $t('settings.unblock.sourceSearchMode.text') }}</div>
             </div>
             <div class="right">
-              <select v-model="unblockNeteaseMusic.orderFirst">
-                <option :value="true">{{
-                  $t('settings.unblock.sourceSearchMode.orderFirst')
-                }}</option>
-                <option :value="false">{{
-                  $t('settings.unblock.sourceSearchMode.speedFirst')
-                }}</option>
-              </select>
+              <v-select
+                v-model="unblockNeteaseMusic.orderFirst"
+                :items="unblockOrderOptions"
+                item-title="label"
+                item-value="value"
+                variant="outlined"
+                density="comfortable"
+                class="my-vselect"
+              />
             </div>
           </div>
           <div class="item">
@@ -1026,7 +1064,8 @@ const { showToast, checkUpdate } = stateStore
 const dataStore = useDataStore()
 const { user } = storeToRefs(dataStore)
 
-const osdLyric = useOsdLyricStore()
+const osdLyricStore = useOsdLyricStore()
+const osdLyric = osdLyricStore
 const {
   isLock,
   type,
@@ -1129,6 +1168,8 @@ const recordedShortcut = ref<any[]>([])
 const mainStyle = ref({})
 
 const { locale } = useI18n()
+const { t } = useI18n()
+
 const selectLanguage = computed({
   get: () => language.value,
   set: (value) => {
@@ -1418,7 +1459,89 @@ const changeColor = (color: { name: string }) => {
   colorObj.selected = true
 }
 
-onMounted(() => {
+const languageOptions = computed(() => [
+  { value: 'zh', label: t('settings.general.language.zhHans') },
+  { value: 'zht', label: t('settings.general.language.zhHant') },
+  { value: 'en', label: t('settings.general.language.en') }
+])
+
+const closeAppOptions = computed(() => [
+  { value: 'ask', label: t('settings.general.closeAppOption.ask') },
+  { value: 'minimizeToTray', label: t('settings.general.closeAppOption.minimizeToTray') },
+  { value: 'exit', label: t('settings.general.closeAppOption.exit') }
+])
+
+const osdLyricTypeOptions = computed(() => [
+  { value: 'small', label: t('settings.osdLyric.type.small') },
+  { value: 'normal', label: t('settings.osdLyric.type.normal') }
+])
+
+const osdLyricModeOptions = computed(() => [
+  { value: 'oneLine', label: t('settings.osdLyric.mode.oneLine') },
+  { value: 'twoLines', label: t('settings.osdLyric.mode.twoLines') }
+])
+
+const osdLyricTransOptions = computed(() => [
+  { value: 'none', label: t('settings.osdLyric.translationMode.none') },
+  { value: 'tlyric', label: t('settings.osdLyric.translationMode.tlyric') },
+  { value: 'rlyric', label: t('settings.osdLyric.translationMode.romalrc') }
+])
+
+const osdLyricAlignOptions = computed(() => [
+  { value: 'start', label: t('settings.osdLyric.textAlign.start') },
+  { value: 'center', label: t('settings.osdLyric.textAlign.center') },
+  { value: 'end', label: t('settings.osdLyric.textAlign.end') }
+])
+
+const nTransOptions = computed(() => [
+  { value: 'none', label: t('settings.osdLyric.translationMode.none') },
+  { value: 'tlyric', label: t('settings.osdLyric.translationMode.tlyric') },
+  { value: 'rlyric', label: t('settings.osdLyric.translationMode.romalrc') }
+])
+
+const lyricBgOptions = computed(() => [
+  { value: 'none', label: t('settings.general.lyricBackground.close') },
+  { value: 'true', label: t('settings.general.lyricBackground.true') },
+  { value: 'blur', label: t('settings.general.lyricBackground.blur') },
+  { value: 'dynamic', label: t('settings.general.lyricBackground.dynamic') }
+])
+
+const cacheSizeOptions = computed(() => [
+  { value: false, label: t('settings.autoCacheTrack.noLimit') },
+  { value: 512, label: '500M' },
+  { value: 1024, label: '1G' },
+  { value: 2048, label: '2G' },
+  { value: 4096, label: '4G' },
+  { value: 8192, label: '8G' }
+])
+
+const musicQualityOptions = computed(() => [
+  { value: 128000, label: t('settings.general.musicQuality.low') + ' - 128Kbps' },
+  { value: 192000, label: t('settings.general.musicQuality.medium') + ' - 192Kbps' },
+  { value: 320000, label: t('settings.general.musicQuality.high') + ' - 320Kbps' },
+  { value: 'flac', label: t('settings.general.musicQuality.lossless') + ' - FLAC' },
+  { value: 999000, label: 'Hi-Res' }
+])
+
+const showTrackInfoOptions = computed(() => [
+  { value: 'time', label: t('settings.general.showTimeOrID.time') },
+  { value: 'ID', label: t('settings.general.showTimeOrID.ID') }
+])
+
+const unblockOrderOptions = computed(() => [
+  { value: true, label: t('settings.unblock.sourceSearchMode.orderFirst') },
+  { value: false, label: t('settings.unblock.sourceSearchMode.speedFirst') }
+])
+
+const fontList = ref<string[]>([])
+const osdLyricFont = computed({
+  get: () => osdLyric.font,
+  set: (val: string) => {
+    osdLyric.font = val
+  }
+})
+
+onMounted(async () => {
   mainStyle.value = {
     marginTop: isMac || !useCustomTitlebar.value ? '20px' : '0'
   }
@@ -1426,11 +1549,36 @@ onMounted(() => {
   updatePadding(64)
   getAllOutputDevices()
   getVersion()
+  if (isElectron && window.mainApi) {
+    fontList.value = await window.mainApi.invoke('getFontList')
+  }
   // 开始监听 body 元素的属性变化
   observer.observe(document.body, {
     attributes: true,
     attributeFilter: ['data-theme']
   })
+  // 动态注入 v-overlay 跟随 theme 的样式
+  const style = document.createElement('style')
+  style.innerHTML = `
+    body[data-theme='dark'] .v-overlay__content .v-list,
+    body[data-theme='light'] .v-overlay__content .v-list {
+      background: var(--color-secondary-bg) !important;
+      color: var(--color-text) !important;
+      border-radius: 8px !important;
+      box-shadow: 0 4px 24px 0 rgba(0,0,0,0.18) !important;
+    }
+    body[data-theme='dark'] .v-overlay__content .v-list .v-list-item-title,
+    body[data-theme='light'] .v-overlay__content .v-list .v-list-item-title {
+      color: var(--color-text) !important;
+    }
+    body[data-theme='dark'] .v-overlay__content .v-list .v-list-item--active,
+    body[data-theme='light'] .v-overlay__content .v-list .v-list-item--active {
+      background: color-mix(in oklab, var(--color-primary) 12%, var(--color-secondary-bg)) !important;
+      color: var(--color-primary) !important;
+    }
+  `
+  style.setAttribute('data-vuetify-overlay-theme', 'true')
+  document.head.appendChild(style)
 })
 onBeforeUnmount(() => {
   updatePadding(96)
@@ -1915,5 +2063,26 @@ input.text-input {
   100% {
     transform: translateY(-50%) rotate(360deg);
   }
+}
+.my-vselect .v-field__input,
+.my-vselect .v-field {
+  background: var(--color-secondary-bg) !important;
+  color: var(--color-text) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+
+:deep(.v-overlay__content .v-list) {
+  background: var(--color-secondary-bg) !important;
+  color: var(--color-text) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 24px 0 rgba(0,0,0,0.18) !important;
+}
+:deep(.v-overlay__content .v-list .v-list-item-title) {
+  color: var(--color-text) !important;
+}
+:deep(.v-overlay__content .v-list .v-list-item--active) {
+  background: color-mix(in oklab, var(--color-primary) 12%, var(--color-secondary-bg)) !important;
+  color: var(--color-primary) !important;
 }
 </style>

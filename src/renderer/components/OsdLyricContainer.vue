@@ -20,7 +20,7 @@ import {
 } from '../utils/lyricController'
 
 const osdLyricStore = useOsdLyricStore()
-const { isWordByWord, translationMode, type, fontSize, playedLrcColor, unplayLrcColor, mode } =
+const { isWordByWord, translationMode, type, fontSize, playedLrcColor, unplayLrcColor, mode, font } =
   storeToRefs(osdLyricStore)
 
 const lyricContainer = ref<HTMLElement>()
@@ -42,6 +42,9 @@ const containerStyle = computed(() => {
   const result: Record<string, any> = {}
   result.overflowY = type.value === 'normal' ? 'scroll' : 'hidden'
   result.justifyContent = type.value === 'normal' ? '' : 'center'
+  if (font.value) {
+    result.fontFamily = font.value
+  }
   return result
 })
 

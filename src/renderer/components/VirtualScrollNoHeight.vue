@@ -246,7 +246,7 @@ const scrollTocurrent = (index: number, behavior: ScrollBehavior = 'smooth') => 
   } else {
     top = position.value[idx * props.columnNumber]?.top || 0
   }
-  listRef.value.scrollTo({ top, behavior })
+  if (listRef.value) listRef.value.scrollTo({ top, behavior })
 
   if (idx < 0 && index < startRow.value) {
     let isScrolling = true
@@ -276,7 +276,7 @@ const scrollToTop = () => {
   if (Math.abs(visibleMiddle.value) > 100) {
     virtualScrolling.value = true
   }
-  listRef.value?.scrollTo({ top: 0, behavior: 'smooth' })
+  if (listRef.value) listRef.value.scrollTo({ top: 0, behavior: 'smooth' })
   const checkScrolling = () => {
     const currentScrollTop = listRef.value?.scrollTop
     if (currentScrollTop === lastScrollTop) {
@@ -448,7 +448,7 @@ const updateEvent = (data: { active: string; offset: number }) => {
   if (data.active !== instanceId.value) return
   if (updateScrollStart === 0) updateScrollStart = listRef.value?.scrollTop
   const top = Math.min(listRef.value?.scrollHeight, Math.max(updateScrollStart + data.offset, 0))
-  listRef.value.scrollTo({ top, behavior: 'instant' })
+  if (listRef.value) listRef.value.scrollTo({ top, behavior: 'instant' })
 }
 
 eventBus.on('update-start', startEvent)
