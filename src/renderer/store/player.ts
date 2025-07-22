@@ -1232,6 +1232,7 @@ export const usePlayerStore = defineStore(
       lastBiquadFilter.connect(audioNodes.convolver)
       audioNodes.dynamics.connect(audioNodes.masterGain)
       audioNodes.masterGain.connect(audioNodes.audioContext.destination)
+      setDevice(outputDevice.value)
     }
 
     const getPic = async (track: Track, size: number = 128) => {
