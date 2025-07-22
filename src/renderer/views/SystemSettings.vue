@@ -49,18 +49,26 @@
         <div v-show="tab === 'general'" key="general">
           <div class="item">
             <div class="left">
+              <div class="title">{{ $t('settings.general.showBanner') }}</div>
+            </div>
+            <div class="right">
+              <div class="toggle">
+                <input
+                  id="showBanner"
+                  v-model="general.showBanner"
+                  type="checkbox"
+                  name="showBanner"
+                />
+                <label for="showBanner"></label>
+              </div>
+            </div>
+          </div>
+          <div class="item">
+            <div class="left">
               <div class="title">{{ $t('settings.general.language.text') }}</div>
             </div>
             <div class="right">
-              <v-select
-                v-model="selectLanguage"
-                :items="languageOptions"
-                item-title="label"
-                item-value="value"
-                variant="outlined"
-                density="comfortable"
-                class="my-vselect"
-              />
+              <CustomSelect v-model="selectLanguage" :options="languageOption" />
             </div>
           </div>
           <div v-if="!isMac" class="item">
@@ -68,15 +76,7 @@
               <div class="title">{{ $t('settings.general.closeAppOption.text') }}</div>
             </div>
             <div class="right">
-              <v-select
-                v-model="selectOptions"
-                :items="closeAppOptions"
-                item-title="label"
-                item-value="value"
-                variant="outlined"
-                density="comfortable"
-                class="my-vselect"
-              />
+              <CustomSelect v-model="selectClose" :options="closeOptions" />
             </div>
           </div>
           <div class="item">
@@ -178,6 +178,18 @@
             </div>
             <div class="item">
               <div class="left">
+                <div class="title"> {{ $t('settings.osdLyric.font') }} </div>
+              </div>
+              <div class="right">
+                <CustomSelect v-model="font" :options="fontList" :searchable="true">
+                  <template #option="{ option }">
+                    <div :style="{ fontFamily: option.value as string }">{{ option.label }}</div>
+                  </template>
+                </CustomSelect>
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
                 <div class="title"> {{ $t('settings.osdLyric.fontSize') }} </div>
               </div>
               <div class="right">
@@ -186,23 +198,6 @@
                   type="number"
                   class="text-input margin-right-0"
                   @input="inputFontSizeDebounce"
-                />
-              </div>
-            </div>
-            <div class="item">
-              <div class="left">
-                <div class="title"> {{ $t('settings.osdLyric.font') || '字体' }}</div>
-              </div>
-              <div class="right">
-                <v-select
-                  v-model="osdLyricFont"
-                  :items="fontList"
-                  item-title="value"
-                  item-value="value"
-                  variant="outlined"
-                  density="comfortable"
-                  class="my-vselect"
-                  :menu-props="{ maxHeight: '300px' }"
                 />
               </div>
             </div>
@@ -225,15 +220,7 @@
                 <div class="title">{{ $t('settings.osdLyric.type.text') }}</div>
               </div>
               <div class="right">
-                <v-select
-                  v-model="type"
-                  :items="osdLyricTypeOptions"
-                  item-title="label"
-                  item-value="value"
-                  variant="outlined"
-                  density="comfortable"
-                  class="my-vselect"
-                />
+                <CustomSelect v-model="type" :options="typeOptions" />
               </div>
             </div>
             <div class="item">
@@ -242,15 +229,7 @@
                 <div class="description">{{ $t('settings.osdLyric.mode.desc') }}</div>
               </div>
               <div class="right">
-                <v-select
-                  v-model="mode"
-                  :items="osdLyricModeOptions"
-                  item-title="label"
-                  item-value="value"
-                  variant="outlined"
-                  density="comfortable"
-                  class="my-vselect"
-                />
+                <CustomSelect v-model="mode" :options="modeOptions" />
               </div>
             </div>
             <div class="item">
@@ -258,15 +237,7 @@
                 <div class="title">{{ $t('settings.osdLyric.translationMode.text') }}</div>
               </div>
               <div class="right">
-                <v-select
-                  v-model="translationMode"
-                  :items="osdLyricTransOptions"
-                  item-title="label"
-                  item-value="value"
-                  variant="outlined"
-                  density="comfortable"
-                  class="my-vselect"
-                />
+                <CustomSelect v-model="translationMode" :options="translateOptions" />
               </div>
             </div>
             <div class="item">
@@ -363,15 +334,7 @@
                 <div class="title">{{ $t('settings.osdLyric.textAlign.text') }}</div>
               </div>
               <div class="right">
-                <v-select
-                  v-model="textAlign"
-                  :items="osdLyricAlignOptions"
-                  item-title="label"
-                  item-value="value"
-                  variant="outlined"
-                  density="comfortable"
-                  class="my-vselect"
-                />
+                <CustomSelect v-model="textAlign" :options="alignOptions" />
               </div>
             </div>
             <div class="item">
@@ -379,15 +342,7 @@
                 <div class="title">{{ $t('settings.osdLyric.translationMode.text') }}</div>
               </div>
               <div class="right">
-                <v-select
-                  v-model="nTranslationMode"
-                  :items="nTransOptions"
-                  item-title="label"
-                  item-value="value"
-                  variant="outlined"
-                  density="comfortable"
-                  class="my-vselect"
-                />
+                <CustomSelect v-model="nTranslationMode" :options="nTranslateOptions" />
               </div>
             </div>
             <div class="item">
@@ -395,15 +350,7 @@
                 <div class="title">{{ $t('settings.general.lyricBackground.text') }}</div>
               </div>
               <div class="right">
-                <v-select
-                  v-model="lyricBackground"
-                  :items="lyricBgOptions"
-                  item-title="label"
-                  item-value="value"
-                  variant="outlined"
-                  density="comfortable"
-                  class="my-vselect"
-                />
+                <CustomSelect v-model="lyricBackground" :options="lrcBgOptions" />
               </div>
             </div>
           </div>
@@ -551,29 +498,13 @@
                 <div class="title">{{ $t('settings.autoCacheTrack.sizeLimit') }}</div>
               </div>
               <div class="right">
-                <v-select
-                  v-model="autoCacheTrack.sizeLimit"
-                  :items="cacheSizeOptions"
-                  item-title="label"
-                  item-value="value"
-                  variant="outlined"
-                  density="comfortable"
-                  class="my-vselect"
-                />
+                <CustomSelect v-model="autoCacheTrack.sizeLimit" :options="sizeLimitOptions" />
               </div>
             </div>
             <div class="item">
               <div class="left">{{ $t('settings.general.musicQuality.text') }}</div>
               <div class="right">
-                <v-select
-                  v-model="musicQuality"
-                  :items="musicQualityOptions"
-                  item-title="label"
-                  item-value="value"
-                  variant="outlined"
-                  density="comfortable"
-                  class="my-vselect"
-                />
+                <CustomSelect v-model="musicQuality" :options="musicQualityOptions" />
               </div>
             </div>
             <div class="item">
@@ -586,7 +517,7 @@
                 >
               </div>
               <div class="right">
-                <button style="width: 150px" @click="deleteCacheTracks">{{
+                <button class="clear-cache" @click="deleteCacheTracks">{{
                   $t('settings.autoCacheTrack.clearCache')
                 }}</button>
               </div>
@@ -674,15 +605,7 @@
                 <div class="title">{{ $t('settings.general.showTimeOrID.text') }}</div>
               </div>
               <div class="right">
-                <v-select
-                  v-model="showTrackInfo"
-                  :items="showTrackInfoOptions"
-                  item-title="label"
-                  item-value="value"
-                  variant="outlined"
-                  density="comfortable"
-                  class="my-vselect"
-                />
+                <CustomSelect v-model="showTrackInfo" :options="trackInfoOptions" />
               </div>
             </div>
             <div class="item">
@@ -704,14 +627,7 @@
                 <div class="title">{{ $t('settings.general.outputDevice.text') }}</div>
               </div>
               <div class="right">
-                <v-select
-                  v-model="selectedOutputDevice"
-                  :items="allOutputDevices"
-                  item-title="label"
-                  item-value="deviceId"
-                  variant="outlined"
-                  density="comfortable"
-                />
+                <CustomSelect v-model="selectedOutputDevice" :options="devicesOptions" />
               </div>
             </div>
             <div class="item">
@@ -795,15 +711,7 @@
               <div class="title">{{ $t('settings.unblock.sourceSearchMode.text') }}</div>
             </div>
             <div class="right">
-              <v-select
-                v-model="unblockNeteaseMusic.orderFirst"
-                :items="unblockOrderOptions"
-                item-title="label"
-                item-value="value"
-                variant="outlined"
-                density="comfortable"
-                class="my-vselect"
-              />
+              <CustomSelect v-model="unblockNeteaseMusic.orderFirst" :options="orderFirstOptions" />
             </div>
           </div>
           <div class="item">
@@ -1018,6 +926,7 @@ import { useDataStore } from '../store/data'
 import { storeToRefs } from 'pinia'
 import { doLogout } from '../utils/auth'
 import SvgIcon from '../components/SvgIcon.vue'
+import CustomSelect from '../components/CustomSelect.vue'
 import LatestVersion from '../components/LatestVersion.vue'
 import Utils from '../utils'
 import { VueDraggable } from 'vue-draggable-plus'
@@ -1058,14 +967,14 @@ const { enable, services } = storeToRefs(streamMusicStore)
 const { handleStreamLogout } = streamMusicStore
 
 const stateStore = useNormalStateStore()
-const { extensionCheckResult, updateStatus, latestVersion, isDownloading } = toRefs(stateStore)
-const { showToast, checkUpdate } = stateStore
+const { extensionCheckResult, updateStatus, latestVersion, isDownloading, fontList } =
+  toRefs(stateStore)
+const { showToast, checkUpdate, getFontList } = stateStore
 
 const dataStore = useDataStore()
 const { user } = storeToRefs(dataStore)
 
-const osdLyricStore = useOsdLyricStore()
-const osdLyric = osdLyricStore
+const osdLyric = useOsdLyricStore()
 const {
   isLock,
   type,
@@ -1077,7 +986,8 @@ const {
   playedLrcColor,
   unplayLrcColor,
   textShadow,
-  staticTime
+  staticTime,
+  font
 } = storeToRefs(osdLyric)
 
 const playerStore = usePlayerStore()
@@ -1164,11 +1074,8 @@ const shortcutInput = ref({
 })
 
 const recordedShortcut = ref<any[]>([])
-
 const mainStyle = ref({})
-
-const { locale } = useI18n()
-const { t } = useI18n()
+const { locale, t } = useI18n()
 
 const selectLanguage = computed({
   get: () => language.value,
@@ -1178,7 +1085,7 @@ const selectLanguage = computed({
   }
 })
 
-const selectOptions = computed({
+const selectClose = computed({
   get: () => {
     return closeAppOption.value
   },
@@ -1186,6 +1093,87 @@ const selectOptions = computed({
     closeAppOption.value = value
   }
 })
+
+const languageOption = computed(() => [
+  { label: t('settings.general.language.zhHans'), value: 'zh' },
+  { label: t('settings.general.language.zhHant'), value: 'zht' },
+  { label: t('settings.general.language.en'), value: 'en' }
+])
+
+const closeOptions = computed(() => [
+  { label: t('settings.general.closeAppOption.ask'), value: 'ask' },
+  { label: t('settings.general.closeAppOption.minimizeToTray'), value: 'minimizeToTray' },
+  { label: t('settings.general.closeAppOption.exit'), value: 'exit' }
+])
+
+const typeOptions = computed(() => [
+  { label: t('settings.osdLyric.type.small'), value: 'small' },
+  { label: t('settings.osdLyric.type.normal'), value: 'normal' }
+])
+
+const modeOptions = computed(() => [
+  { label: t('settings.osdLyric.mode.oneLine'), value: 'oneLine' },
+  { label: t('settings.osdLyric.mode.twoLines'), value: 'twoLines' }
+])
+
+const translateOptions = computed(() => [
+  { label: t('settings.osdLyric.translationMode.none'), value: 'none' },
+  { label: t('settings.osdLyric.translationMode.tlyric'), value: 'tlyric' },
+  { label: t('settings.osdLyric.translationMode.romalrc'), value: 'rlyric' }
+])
+
+const alignOptions = computed(() => [
+  { label: t('settings.osdLyric.textAlign.start'), value: 'start' },
+  { label: t('settings.osdLyric.textAlign.center'), value: 'center' },
+  { label: t('settings.osdLyric.textAlign.end'), value: 'end' }
+])
+
+const nTranslateOptions = computed(() => [
+  { label: t('settings.osdLyric.translationMode.none'), value: 'none' },
+  { label: t('settings.osdLyric.translationMode.tlyric'), value: 'tlyric' },
+  { label: t('settings.osdLyric.translationMode.romalrc'), value: 'rlyric' }
+])
+
+const lrcBgOptions = computed(() => [
+  { label: t('settings.general.lyricBackground.close'), value: 'none' },
+  { label: t('settings.general.lyricBackground.true'), value: 'true' },
+  { label: t('settings.general.lyricBackground.blur'), value: 'blur' },
+  { label: t('settings.general.lyricBackground.dynamic'), value: 'dynamic' }
+])
+
+const sizeLimitOptions = computed(() => [
+  { label: t('settings.autoCacheTrack.noLimit'), value: false },
+  { label: '500M', value: 512 },
+  { label: '1G', value: 1024 },
+  { label: '2G', value: 2048 },
+  { label: '4G', value: 4096 },
+  { label: '8G', value: 8192 }
+])
+
+const musicQualityOptions = computed(() => [
+  { label: t('settings.general.musicQuality.low') + ' - 128Kbps', value: 128000 },
+  { label: t('settings.general.musicQuality.medium') + ' - 192Kbps', value: 192000 },
+  { label: t('settings.general.musicQuality.high') + ' - 320Kbps', value: 320000 },
+  { label: t('settings.general.musicQuality.lossless') + ' - FLAC', value: 'flac' },
+  { label: 'Hi-Res', value: 999000 }
+])
+
+const trackInfoOptions = computed(() => [
+  { label: t('settings.general.showTimeOrID.time'), value: 'time' },
+  { label: t('settings.general.showTimeOrID.ID'), value: 'ID' }
+])
+
+const devicesOptions = computed(() => {
+  return allOutputDevices.value.map((device) => ({
+    label: device.label || 'Unknown Device',
+    value: device.deviceId
+  }))
+})
+
+const orderFirstOptions = computed(() => [
+  { label: t('settings.unblock.sourceSearchMode.orderFirst'), value: true },
+  { label: t('settings.unblock.sourceSearchMode.speedFirst'), value: false }
+])
 
 const currentTheme = ref(
   (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') as Theme
@@ -1459,89 +1447,7 @@ const changeColor = (color: { name: string }) => {
   colorObj.selected = true
 }
 
-const languageOptions = computed(() => [
-  { value: 'zh', label: t('settings.general.language.zhHans') },
-  { value: 'zht', label: t('settings.general.language.zhHant') },
-  { value: 'en', label: t('settings.general.language.en') }
-])
-
-const closeAppOptions = computed(() => [
-  { value: 'ask', label: t('settings.general.closeAppOption.ask') },
-  { value: 'minimizeToTray', label: t('settings.general.closeAppOption.minimizeToTray') },
-  { value: 'exit', label: t('settings.general.closeAppOption.exit') }
-])
-
-const osdLyricTypeOptions = computed(() => [
-  { value: 'small', label: t('settings.osdLyric.type.small') },
-  { value: 'normal', label: t('settings.osdLyric.type.normal') }
-])
-
-const osdLyricModeOptions = computed(() => [
-  { value: 'oneLine', label: t('settings.osdLyric.mode.oneLine') },
-  { value: 'twoLines', label: t('settings.osdLyric.mode.twoLines') }
-])
-
-const osdLyricTransOptions = computed(() => [
-  { value: 'none', label: t('settings.osdLyric.translationMode.none') },
-  { value: 'tlyric', label: t('settings.osdLyric.translationMode.tlyric') },
-  { value: 'rlyric', label: t('settings.osdLyric.translationMode.romalrc') }
-])
-
-const osdLyricAlignOptions = computed(() => [
-  { value: 'start', label: t('settings.osdLyric.textAlign.start') },
-  { value: 'center', label: t('settings.osdLyric.textAlign.center') },
-  { value: 'end', label: t('settings.osdLyric.textAlign.end') }
-])
-
-const nTransOptions = computed(() => [
-  { value: 'none', label: t('settings.osdLyric.translationMode.none') },
-  { value: 'tlyric', label: t('settings.osdLyric.translationMode.tlyric') },
-  { value: 'rlyric', label: t('settings.osdLyric.translationMode.romalrc') }
-])
-
-const lyricBgOptions = computed(() => [
-  { value: 'none', label: t('settings.general.lyricBackground.close') },
-  { value: 'true', label: t('settings.general.lyricBackground.true') },
-  { value: 'blur', label: t('settings.general.lyricBackground.blur') },
-  { value: 'dynamic', label: t('settings.general.lyricBackground.dynamic') }
-])
-
-const cacheSizeOptions = computed(() => [
-  { value: false, label: t('settings.autoCacheTrack.noLimit') },
-  { value: 512, label: '500M' },
-  { value: 1024, label: '1G' },
-  { value: 2048, label: '2G' },
-  { value: 4096, label: '4G' },
-  { value: 8192, label: '8G' }
-])
-
-const musicQualityOptions = computed(() => [
-  { value: 128000, label: t('settings.general.musicQuality.low') + ' - 128Kbps' },
-  { value: 192000, label: t('settings.general.musicQuality.medium') + ' - 192Kbps' },
-  { value: 320000, label: t('settings.general.musicQuality.high') + ' - 320Kbps' },
-  { value: 'flac', label: t('settings.general.musicQuality.lossless') + ' - FLAC' },
-  { value: 999000, label: 'Hi-Res' }
-])
-
-const showTrackInfoOptions = computed(() => [
-  { value: 'time', label: t('settings.general.showTimeOrID.time') },
-  { value: 'ID', label: t('settings.general.showTimeOrID.ID') }
-])
-
-const unblockOrderOptions = computed(() => [
-  { value: true, label: t('settings.unblock.sourceSearchMode.orderFirst') },
-  { value: false, label: t('settings.unblock.sourceSearchMode.speedFirst') }
-])
-
-const fontList = ref<string[]>([])
-const osdLyricFont = computed({
-  get: () => osdLyric.font,
-  set: (val: string) => {
-    osdLyric.font = val
-  }
-})
-
-onMounted(async () => {
+onMounted(() => {
   mainStyle.value = {
     marginTop: isMac || !useCustomTitlebar.value ? '20px' : '0'
   }
@@ -1549,36 +1455,12 @@ onMounted(async () => {
   updatePadding(64)
   getAllOutputDevices()
   getVersion()
-  if (isElectron && window.mainApi) {
-    fontList.value = await window.mainApi.invoke('getFontList')
-  }
+  getFontList()
   // 开始监听 body 元素的属性变化
   observer.observe(document.body, {
     attributes: true,
     attributeFilter: ['data-theme']
   })
-  // 动态注入 v-overlay 跟随 theme 的样式
-  const style = document.createElement('style')
-  style.innerHTML = `
-    body[data-theme='dark'] .v-overlay__content .v-list,
-    body[data-theme='light'] .v-overlay__content .v-list {
-      background: var(--color-secondary-bg) !important;
-      color: var(--color-text) !important;
-      border-radius: 8px !important;
-      box-shadow: 0 4px 24px 0 rgba(0,0,0,0.18) !important;
-    }
-    body[data-theme='dark'] .v-overlay__content .v-list .v-list-item-title,
-    body[data-theme='light'] .v-overlay__content .v-list .v-list-item-title {
-      color: var(--color-text) !important;
-    }
-    body[data-theme='dark'] .v-overlay__content .v-list .v-list-item--active,
-    body[data-theme='light'] .v-overlay__content .v-list .v-list-item--active {
-      background: color-mix(in oklab, var(--color-primary) 12%, var(--color-secondary-bg)) !important;
-      color: var(--color-primary) !important;
-    }
-  `
-  style.setAttribute('data-vuetify-overlay-theme', 'true')
-  document.head.appendChild(style)
 })
 onBeforeUnmount(() => {
   updatePadding(96)
@@ -1670,7 +1552,6 @@ onBeforeUnmount(() => {
 }
 .main-container {
   position: relative;
-  width: 100%;
   height: 100%;
   padding: 0 30px 0 180px;
   transition: all 0.3s;
@@ -1695,6 +1576,7 @@ onBeforeUnmount(() => {
     .selected {
       img {
         border: 2px solid var(--color-primary);
+        transition: border 0.3s;
       }
     }
 
@@ -1707,6 +1589,7 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 16px;
   background-color: var(--color-primary);
+  transition: background-color 0.3s;
 }
 .slideBar {
   max-width: 120px;
@@ -1739,7 +1622,9 @@ onBeforeUnmount(() => {
     opacity: 1;
     color: var(--color-primary);
     margin-left: 10px;
-    transition: margin 0.3s;
+    transition:
+      margin 0.3s,
+      color 0.3s;
   }
 }
 #shortcut-table {
@@ -1761,7 +1646,6 @@ onBeforeUnmount(() => {
     padding: 8px;
     display: flex;
     align-items: center;
-    /* border: 1px solid red; */
     &:first-of-type {
       padding-left: 0;
       min-width: 128px;
@@ -1770,10 +1654,11 @@ onBeforeUnmount(() => {
   .keyboard-input {
     font-weight: 600;
     background-color: var(--color-secondary-bg);
-    padding: 8px 12px 8px 12px;
+    padding: 0 12px;
     border-radius: 0.5rem;
-    min-width: 146px;
-    min-height: 34px;
+    min-width: 164px;
+    height: 34px;
+    line-height: 34px;
     box-sizing: border-box;
     &.active {
       color: var(--color-primary);
@@ -1906,7 +1791,7 @@ button {
   position: relative;
   color: var(--color-text);
   background: var(--color-secondary-bg);
-  padding: 8px 12px 8px 12px;
+  padding: 8px 12px;
   font-weight: 600;
   border-radius: 8px;
   transition: 0.2s;
@@ -1915,7 +1800,7 @@ button.lyric-button {
   color: var(--color-text);
   background: unset;
   border-radius: 8px;
-  padding: 6px 8px;
+  // padding: 6px 8px;
   margin-bottom: 12px;
   margin-right: 10px;
   transition: 0.2s;
@@ -1932,6 +1817,14 @@ button.lyric-button--selected {
   background: var(--color-secondary-bg);
   opacity: 1;
   font-weight: 700;
+}
+button.clear-cache {
+  height: 40px;
+  padding: 0 12px;
+  box-sizing: border-box;
+  font-size: 16px;
+  font-weight: 600;
+  width: 164px;
 }
 button.loading {
   padding-left: 42px;
@@ -1955,7 +1848,7 @@ button.loading::before {
 select {
   font-weight: 600;
   border: none;
-  min-width: 150px;
+  min-width: 164px;
   text-align: center;
   padding: 8px 12px 8px 12px;
   border-radius: 8px;
@@ -1963,6 +1856,10 @@ select {
   appearance: none;
   color: var(--color-text);
   outline: none;
+}
+
+:deep(.custom-select) {
+  min-width: 164px;
 }
 
 .toggle {
@@ -2034,13 +1931,15 @@ input.text-input {
   background: var(--color-secondary-bg);
   border: none;
   margin-right: 22px;
-  padding: 8px 12px 8px 12px;
+  padding: 0 12px;
   border-radius: 8px;
   color: var(--color-text);
   font-weight: 600;
   font-size: 16px;
-  width: 150px;
+  width: 164px;
+  height: 40px;
   text-align: center;
+  box-sizing: border-box;
 }
 
 .version-info {
@@ -2063,26 +1962,5 @@ input.text-input {
   100% {
     transform: translateY(-50%) rotate(360deg);
   }
-}
-.my-vselect .v-field__input,
-.my-vselect .v-field {
-  background: var(--color-secondary-bg) !important;
-  color: var(--color-text) !important;
-  border-radius: 8px !important;
-  box-shadow: none !important;
-}
-
-:deep(.v-overlay__content .v-list) {
-  background: var(--color-secondary-bg) !important;
-  color: var(--color-text) !important;
-  border-radius: 8px !important;
-  box-shadow: 0 4px 24px 0 rgba(0,0,0,0.18) !important;
-}
-:deep(.v-overlay__content .v-list .v-list-item-title) {
-  color: var(--color-text) !important;
-}
-:deep(.v-overlay__content .v-list .v-list-item--active) {
-  background: color-mix(in oklab, var(--color-primary) 12%, var(--color-secondary-bg)) !important;
-  color: var(--color-primary) !important;
 }
 </style>

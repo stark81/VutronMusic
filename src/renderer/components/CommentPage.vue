@@ -1,10 +1,16 @@
 <template>
   <div class="comment-page">
-    <CommentList v-show="currentPage === 'comment'" :id="props.id" :type="props.type" />
+    <CommentList
+      v-show="currentPage === 'comment'"
+      :id="props.id"
+      :type="props.type"
+      :padding-right="paddingRight"
+    />
     <FloorComment
       v-if="currentPage === 'floorComment'"
       :id="props.id"
       :type="props.type"
+      :padding-right="paddingRight"
       :be-replied-comment-id="beRepliedCommentId"
     />
   </div>
@@ -23,6 +29,10 @@ const props = defineProps({
   type: {
     type: String,
     default: 'music'
+  },
+  paddingRight: {
+    type: String,
+    default: '4vh'
   }
 })
 

@@ -26,7 +26,6 @@
           :track-no="item.no || index + 1"
           :type-prop="type"
           :is-lyric="isLyric"
-          :style="{ height: itemHeight + 'px' }"
           :album-object="albumObject"
           :highlight-playing-track="highlightPlayingTrack"
           @dblclick="playThisList(item.id || item.songId)"

@@ -52,7 +52,7 @@ const osdLyricStore = useOsdLyricStore()
 const { show, type, isLock } = storeToRefs(osdLyricStore)
 
 const stateStore = useNormalStateStore()
-const { enableScrolling, extensionCheckResult, showLyrics, isDownloading } = storeToRefs(stateStore)
+const { extensionCheckResult, showLyrics, isDownloading } = storeToRefs(stateStore)
 const { showToast, checkUpdate, registerInstance, unregisterInstance, updateScroll, getFontList } =
   stateStore
 
@@ -105,7 +105,7 @@ const handleEventBus = () => {
     if (data.active !== instanceId.value) return
     if (updateScrollStart === 0) updateScrollStart = mainRef.value?.scrollTop
     const top = Math.min(mainRef.value?.scrollHeight, Math.max(updateScrollStart + data.offset, 0))
-    if (mainRef.value) mainRef.value.scrollTo({ top, behavior: 'instant' })
+    mainRef.value.scrollTo({ top, behavior: 'instant' })
   })
 
   eventBus.on('update-done', () => {
@@ -137,13 +137,10 @@ const scrollBarRef = ref()
 const instanceId = ref('appInstance')
 const hasCustomTitleBar = ref(false)
 
-const mainStyle = computed(() => {
-  return {
-    overflow: enableScrolling ? 'auto' : 'hidden',
-    paddingTop: (hasCustomTitleBar.value ? 84 : 64) + 'px',
-    paddingBottom: padding.value + 'px'
-  }
-})
+const mainStyle = computed(() => ({
+  paddingTop: (hasCustomTitleBar.value ? 84 : 64) + 'px',
+  paddingBottom: padding.value + 'px'
+}))
 
 const showPlayerBar = computed(() => {
   return ['mv', 'loginAccount'].includes(route.name as string) === false
@@ -188,7 +185,7 @@ provide('updatePadding', (value: number) => {
 })
 
 provide('scrollMainTo', (top: number, behavior = 'smooth') => {
-  if (mainRef.value) mainRef.value.scrollTo({ top, behavior })
+  mainRef.value.scrollTo({ top, behavior })
 })
 
 const scanLocalMusic = async () => {
@@ -309,7 +306,7 @@ onBeforeUnmount(() => {
   height: 100vh;
 }
 
-main::-webkit-scrollbar {
+#main::-webkit-scrollbar {
   width: 0px;
 }
 

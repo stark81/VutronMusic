@@ -494,7 +494,6 @@ onMounted(() => {
     background-size: cover;
     opacity: 0.6;
     will-change: transform;
-    transform: translateZ(0);
   }
 
   &::before {
@@ -516,7 +515,6 @@ onMounted(() => {
   &::after {
     animation: rotate 90s linear infinite;
     will-change: transform;
-    transform: translateZ(0);
   }
 }
 
@@ -650,7 +648,6 @@ onMounted(() => {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      will-change: transform;
 
       .slider {
         flex: 1;
@@ -663,9 +660,6 @@ onMounted(() => {
         opacity: 0.58;
         width: 34px;
       }
-    }
-    :deep(.progress-bar *) {
-      will-change: transform;
     }
     .media-controls {
       display: flex;

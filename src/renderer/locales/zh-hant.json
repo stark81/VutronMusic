@@ -263,6 +263,7 @@
         "zhHant": "繁體中文",
         "en": "English"
       },
+      "showBanner": "在首頁顯示Banner",
       "showTimeOrID": {
         "text": "歌曲列表資訊顯示選項",
         "time": "歌曲時長",
@@ -346,6 +347,7 @@
         "tlyric": "翻譯",
         "romalrc": "音譯"
       },
+      "font": "字型設定",
       "fontSize": "字型大小（px）",
       "textAlign": {
         "text": "字型對齊方式",

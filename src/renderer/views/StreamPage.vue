@@ -500,6 +500,7 @@ onUnmounted(() => {
     align-items: center;
     justify-content: space-between;
     width: 100%;
+    box-sizing: border-box;
     z-index: 10;
 
     .tabs {

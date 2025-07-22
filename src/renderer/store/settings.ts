@@ -44,7 +44,8 @@ export const useSettingsStore = defineStore(
       preventSuspension: false,
       lyricBackground: 'true' as BackgroundEffect,
       enabledPlaylistCategories,
-      fadeDuration: 0.5 // 音频淡入淡出时长（秒）
+      fadeDuration: 0.2, // 音频淡入淡出时长（秒）
+      showBanner: true
     })
 
     const tray = reactive({
@@ -79,8 +80,7 @@ export const useSettingsStore = defineStore(
       playedColor: 'rgba(57, 203, 255, 1)',
       unplayedColor: 'rgba(255, 255, 255, 0.8)',
       alwaysOnTop: false,
-      lock: false,
-      font: '' 
+      lock: false
     })
 
     const unblockNeteaseMusic = reactive({

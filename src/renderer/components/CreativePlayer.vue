@@ -159,7 +159,12 @@
             :offset-padding="'0'"
             :hover="hover"
           />
-          <Comment v-else-if="tabs[index] === 'comment'" :id="currentTrack!.id" type="music" />
+          <Comment
+            v-else-if="tabs[index] === 'comment'"
+            :id="currentTrack!.id"
+            type="music"
+            padding-right="8vh"
+          />
         </div>
       </div>
     </div>
@@ -690,6 +695,8 @@ onBeforeUnmount(() => {
   height: 100%;
   width: 100%;
   background-color: rgba(0, 0, 0, 0.2);
+  position: absolute;
+  z-index: 10;
 }
 
 .lyric-container-1 {
@@ -800,6 +807,7 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: space-between;
   width: 100%;
+  box-sizing: border-box;
   height: 50px;
   position: absolute;
   bottom: 10px;
@@ -821,7 +829,6 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  will-change: transform;
 
   .slider {
     flex: 1;
@@ -833,9 +840,6 @@ onBeforeUnmount(() => {
     font-weight: 600;
     width: 34px;
   }
-}
-:deep(.player-progress-bar *) {
-  will-change: transform;
 }
 
 .player-media-control {

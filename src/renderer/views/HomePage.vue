@@ -1,9 +1,9 @@
 <template>
   <div v-show="show">
-    <div ref="bannerRef" class="banner">
+    <div v-if="general.showBanner" ref="bannerRef" class="banner">
       <div v-for="item in banner" :key="item.id" class="banner-item">
         <img :src="imgFilter(item.imageUrl ?? item.pic)" alt="" />
-        <div class="subtitle" :style="{ backgroundColor: item.titleColor }">{{
+        <div class="subtitle" :style="{ backgroundColor: item.titleColor || 'red' }">{{
           item.typeTitle
         }}</div>
       </div>
@@ -12,7 +12,6 @@
       <div class="title">
         {{ $t('home.recommendPlaylist') }}
         <a @click="toExplore('playlist', '推荐歌单')">{{ $t('home.seeMore') }}</a>
-        <!-- <router-link to="/explore?category=推荐歌单">{{ $t('home.seeMore') }}</router-link> -->
       </div>
       <CoverRow :items="recommendPlaylist.items" type="playlist" sub-text="copywriter" />
     </div>
@@ -109,23 +108,18 @@ const toExplore = (tab: string, Category = '全部') => {
 }
 
 const bannerChange = () => {
-  if (!bannerRef.value || !bannerRef.value.children || bannerRef.value.children.length === 0) return;
   left.value =
-    (current.value - 1 + bannerRef.value.children.length) % bannerRef.value.children.length
-  const right = (current.value + 1) % bannerRef.value.children.length
-  Array.from(bannerRef.value.children).forEach((item, index) => {
-    if (item) item.className = 'banner-item'
-  })
-  if (bannerRef.value.children[left.value]) {
+    (current.value - 1 + bannerRef.value!.children.length) % bannerRef.value!.children.length
+  const right = (current.value + 1) % bannerRef.value!.children.length
+  if (bannerRef.value) {
+    Array.from(bannerRef.value.children).forEach((item, index) => {
+      item.className = 'banner-item'
+    })
     bannerRef.value.children[left.value].className = 'banner-item left'
-  }
-  if (bannerRef.value.children[current.value]) {
     bannerRef.value.children[current.value].className = 'banner-item center'
-    bannerRef.value.children[current.value].addEventListener('click', () => {
+    bannerRef.value?.children[current.value].addEventListener('click', () => {
       handleBannerClick(banner.value[current.value])
     })
-  }
-  if (bannerRef.value.children[right]) {
     bannerRef.value.children[right].className = 'banner-item right'
   }
 }
@@ -162,22 +156,22 @@ const loadData = () => {
   setTimeout(() => {
     if (!show.value) tricklingProgress.start()
   }, 1000)
-  getBanner({ type: 0 }).then((res) => {
-    banner.value = res.banners.filter((item: any) => item.typeTitle !== '广告')
-    setTimeout(bannerChange)
+  if (general.value.showBanner) {
+    getBanner({ type: 0 }).then((res) => {
+      banner.value = res.banners.filter((item: any) => item.typeTitle !== '广告')
+      setTimeout(bannerChange)
 
-    if (timer.value) clearInterval(timer.value)
-    timer.value = setInterval(() => {
-      bannerNext()
-      // 轮播后，需要把左边那一张图的点击事件取消掉，这里直接使用节点替换的方式更为彻底，需要在切换动画结束后再进行
-      setTimeout(() => {
-        if (bannerRef.value && bannerRef.value.children[left.value]) {
-          const newNode = bannerRef.value.children[left.value].cloneNode(true)
-          bannerRef.value.children[left.value].replaceWith(newNode)
-        }
-      }, 800)
-    }, 8000)
-  })
+      if (timer.value) clearInterval(timer.value)
+      timer.value = setInterval(() => {
+        bannerNext()
+        // 轮播后，需要把左边那一张图的点击事件取消掉，这里直接使用节点替换的方式更为彻底，需要在切换动画结束后再进行
+        setTimeout(() => {
+          const newNode = bannerRef.value!.children[left.value].cloneNode(true)
+          bannerRef.value!.children[left.value].replaceWith(newNode)
+        }, 800)
+      }, 8000)
+    })
+  }
 
   getRecommendPlayList(10, false).then((items) => {
     recommendPlaylist.value.items = items

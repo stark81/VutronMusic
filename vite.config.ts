@@ -3,7 +3,7 @@ import { defineConfig, loadEnv, normalizePath } from 'vite' // normalizePath
 import ElectronPlugin, { ElectronOptions } from 'vite-plugin-electron' // ElectronPlugin
 import RendererPlugin from 'vite-plugin-electron-renderer'
 import EslintPlugin from 'vite-plugin-eslint'
-import VuetifyPlugin from 'vite-plugin-vuetify'
+// import VuetifyPlugin from 'vite-plugin-vuetify'
 import VueJsx from '@vitejs/plugin-vue-jsx'
 import Vue from '@vitejs/plugin-vue'
 import fs, { rmSync } from 'fs' // fs
@@ -117,12 +117,12 @@ export default defineConfig(({ mode }) => {
       }),
       VueJsx(),
       // Docs: https://github.com/vuetifyjs/vuetify-loader
-      VuetifyPlugin({
-        autoImport: true
-        // styles: {
-        //   configFile: 'assets/css/global.scss'
-        // }
-      }),
+      // VuetifyPlugin({
+      //   autoImport: true
+      //   // styles: {
+      //   //   configFile: 'assets/css/global.scss'
+      //   // }
+      // }),
       // Docs: https://github.com/gxmari007/vite-plugin-eslint
       EslintPlugin(),
       // Docs: https://github.com/electron-vite/vite-plugin-electron

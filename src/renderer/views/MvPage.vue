@@ -1,5 +1,5 @@
 <template>
-  <div class="mv-page" :style="mainStyle">
+  <div class="mv-page">
     <div class="left">
       <div class="current-video">
         <div class="video">
@@ -42,14 +42,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, toRefs, computed, onMounted, inject, onBeforeUnmount } from 'vue'
+import { ref, onMounted, inject, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import { mvDetail, mvDetailInfo, likeAMV, subAMV, mvUrl, simiMv } from '../api/mv'
 import { tricklingProgress } from '../utils/tricklingProgress'
 import { usePlayerStore } from '../store/player'
 import { storeToRefs } from 'pinia'
 import { formatPlayCount } from '../utils'
-// import ButtonIcon from '../components/ButtonIcon.vue'
 import SvgIcon from '../components/SvgIcon.vue'
 import Comment from '../components/CommentPage.vue'
 import '../assets/css/plyr.css'
@@ -57,10 +56,6 @@ import Plyr from 'plyr'
 import { isAccountLoggedIn } from '../utils/auth'
 import { useI18n } from 'vue-i18n'
 import { useNormalStateStore } from '../store/state'
-import { useSettingsStore } from '../store/settings'
-
-const { general } = storeToRefs(useSettingsStore())
-const { useCustomTitlebar } = toRefs(general.value)
 
 const mv = ref<{ [key: string]: any }>({
   url: '',
@@ -76,8 +71,6 @@ const mv = ref<{ [key: string]: any }>({
 const simiMvs = ref<any[]>([])
 const videoPlayer = ref()
 const player = ref()
-const isMac = computed(() => window.env?.isMac)
-const mainStyle = ref({})
 
 const playerStore = usePlayerStore()
 const { playing, volume } = storeToRefs(playerStore)
@@ -170,9 +163,6 @@ const updatePadding = inject('updatePadding') as (val: number) => void
 
 onMounted(() => {
   updatePadding(0)
-  mainStyle.value = {
-    marginTop: isMac.value || !useCustomTitlebar.value ? '20px' : '0'
-  }
   const videoOptions = {
     settings: ['quality', 'speed'],
     autoplay: false,
@@ -262,6 +252,7 @@ onBeforeUnmount(() => {
         display: flex;
         margin-left: 10px;
         align-items: center;
+        color: var(--color-text);
 
         svg {
           margin-right: 2px;

@@ -1,7 +1,17 @@
 import { defineStore } from 'pinia'
 import shuffleFn from 'lodash/shuffle'
 import { lyricParse } from '../utils/lyric'
-import { ref, computed, reactive, watch, watchEffect, onMounted, onBeforeUnmount, toRaw } from 'vue'
+import {
+  ref,
+  computed,
+  reactive,
+  watch,
+  watchEffect,
+  onMounted,
+  onBeforeUnmount,
+  toRaw,
+  nextTick
+} from 'vue'
 import { Track, useLocalMusicStore } from './localMusic'
 import { useStreamMusicStore } from './streamingMusic'
 import { useSettingsStore } from './settings'
@@ -52,9 +62,9 @@ export const usePlayerStore = defineStore(
     const isPersonalFM = ref(false)
     const currentTrack = ref<Track | null>(null)
     const title = ref<string | null>('VutronMusic')
-    const outputDevice = ref('default')
+    const outputDevice = ref('')
     const backRate = ref(1.0)
-    const _pitch = ref(1.0)
+    const pitch = ref(1.0)
     const isLocalList = ref(false)
     const chorus = ref(0)
     const pic = ref<string>(
@@ -194,15 +204,23 @@ export const usePlayerStore = defineStore(
       }
     })
 
-    const pitch = computed({
-      get() {
-        return _pitch.value
-      },
-      set(value) {
-        _pitch.value = value
-        if (!audioNodes.soundtouch) return
-        // @ts-ignore
-        audioNodes.soundtouch.parameters.get('pitch').value = value
+    watch(pitch, (value) => {
+      if (value === 1) {
+        nextTick(() => {
+          // @ts-ignore
+          if (audioNodes.soundtouch) audioNodes.soundtouch.parameters.get('pitch').value = value
+          audioNodes.masterGain?.disconnect()
+          audioNodes.soundtouch?.disconnect(audioNodes.audioContext!.destination)
+          audioNodes.masterGain?.connect(audioNodes.audioContext!.destination)
+        })
+      } else {
+        nextTick(() => {
+          // @ts-ignore
+          if (audioNodes.soundtouch) audioNodes.soundtouch.parameters.get('pitch').value = value
+          audioNodes.masterGain?.disconnect()
+          audioNodes.masterGain?.connect(audioNodes.soundtouch!)
+          audioNodes.soundtouch?.connect(audioNodes.audioContext!.destination)
+        })
       }
     })
 
@@ -487,13 +505,13 @@ export const usePlayerStore = defineStore(
       if (nextLine) {
         const driftTime =
           nextLine.start -
-          ((audioNodes.audio?.currentTime || 0) / playbackRate.value + lyricOffset.value) * 1000
+          ((audioNodes.audio?.currentTime || 0) / playbackRate.value + lyricOffset.value)
         if (playing.value) {
           timer.line = setTimeout(() => {
             clearTimeout(timer.line)
             if (!playing.value) return
             _refreshLineIdx()
-          }, driftTime)
+          }, driftTime * 1000)
         }
       }
     }
@@ -716,16 +734,23 @@ export const usePlayerStore = defineStore(
 
       if (!data.source) {
         convolverParams.buffer = null
+        return
       }
 
       const path = new URL(`../assets/medias/${data.source}`, import.meta.url).href
-      fetch(path)
-        .then((res) => res.arrayBuffer())
-        .then((arrayBuffer) => audioNodes.audioContext!.decodeAudioData(arrayBuffer))
-        .then((buffer) => {
-          if (buffer) convolverParams.buffer = buffer
-        })
-        .catch()
+      try {
+        fetch(path)
+          .then((res) => res.arrayBuffer())
+          .then((arrayBuffer) => audioNodes.audioContext!.decodeAudioData(arrayBuffer))
+          .then((buffer) => {
+            if (buffer) convolverParams.buffer = buffer
+          })
+          .catch((err) => {
+            console.log(err)
+          })
+      } catch {
+        console.log('set convolver failed!')
+      }
     }
 
     const getCurrentTrackInfo = async (track: Track) => {
@@ -739,7 +764,7 @@ export const usePlayerStore = defineStore(
           }
         })
       }
-      getLyric(track)
+      await getLyric(track)
     }
 
     const getLyric = async (track: Track) => {
@@ -1042,8 +1067,6 @@ export const usePlayerStore = defineStore(
     }
 
     const nextTrackCallback = () => {
-      pause()
-      seek.value = 0
       if (!isPersonalFM.value && repeatMode.value === 'one') {
         replaceCurrentTrack(currentTrack.value!.id)
       } else {
@@ -1130,14 +1153,20 @@ export const usePlayerStore = defineStore(
         _progress.value = audioNodes.audio.currentTime
         lastUpdateTime = audioNodes.audio.currentTime
       }
-      if (audioNodes.audio.currentTime >= audioNodes.audio.duration - 0.5) {
-        nextTrackCallback()
-      }
+    }
+
+    const handleEnded = () => {
+      seek.value = 0
+      clearTimeout(timer.line)
+      clearTimeout(timer.list)
+      clearTimeout(timer.tList)
+      nextTrackCallback()
     }
 
     const destroAudioNode = async () => {
       if (audioNodes.audio) {
         audioNodes.audio.removeEventListener('timeupdate', _handleTimeUpdate)
+        audioNodes.audio.removeEventListener('ended', handleEnded)
         audioNodes.audio.pause()
 
         audioNodes.audioSource?.disconnect()
@@ -1174,22 +1203,14 @@ export const usePlayerStore = defineStore(
       audio.onended = null
       audioNodes.audio = audio
       seek.value = autoPlay ? 0 : progress.value
+      playbackRate.value = backRate.value
 
       audioNodes.audio.addEventListener('timeupdate', _handleTimeUpdate)
+      audioNodes.audio.addEventListener('ended', handleEnded)
 
       audioNodes.audioContext = new AudioContext()
       audioNodes.audioSource = audioNodes.audioContext.createMediaElementSource(audioNodes.audio)
       await audioNodes.audioContext.resume()
-
-      await audioNodes.audioContext.audioWorklet.addModule(
-        new URL('../utils/soundtouch-worklet.js', import.meta.url)
-      )
-      const soundtouch = new AudioWorkletNode(audioNodes.audioContext, 'soundtouch-processor')
-      audioNodes.soundtouch = soundtouch
-      audioNodes.audioSource.connect(audioNodes.soundtouch)
-
-      playbackRate.value = backRate.value
-      pitch.value = _pitch.value
 
       setConvolver({
         name: '',
@@ -1212,7 +1233,7 @@ export const usePlayerStore = defineStore(
         audioNodes.biquads.get(`hz${prev}`)!.connect(audioNodes.biquads.get(`hz${curr}`)!)
       }
 
-      audioNodes.soundtouch.connect(audioNodes.biquads.get(`hz${biquadParamsKeys[0]}`)!)
+      audioNodes.audioSource.connect(audioNodes.biquads.get(`hz${biquadParamsKeys[0]}`)!)
 
       audioNodes.dynamics = audioNodes.audioContext.createDynamicsCompressor()
       audioNodes.convolver = audioNodes.audioContext.createConvolver()
@@ -1234,7 +1255,23 @@ export const usePlayerStore = defineStore(
       lastBiquadFilter.connect(audioNodes.convolverSourceGain)
       lastBiquadFilter.connect(audioNodes.convolver)
       audioNodes.dynamics.connect(audioNodes.masterGain)
-      audioNodes.masterGain.connect(audioNodes.audioContext.destination)
+
+      await audioNodes.audioContext.audioWorklet.addModule(
+        new URL('../utils/soundtouch-worklet.js', import.meta.url)
+      )
+      const soundtouch = new AudioWorkletNode(audioNodes.audioContext, 'soundtouch-processor')
+      audioNodes.soundtouch = soundtouch
+      // @ts-ignore
+      audioNodes.soundtouch.parameters.get('pitch').value = pitch.value
+
+      if (pitch.value === 1) {
+        audioNodes.masterGain.connect(audioNodes.audioContext.destination)
+      } else {
+        audioNodes.masterGain.connect(audioNodes.soundtouch)
+        audioNodes.soundtouch.connect(audioNodes.audioContext.destination)
+      }
+
+      setDevice(outputDevice.value)
     }
 
     const getPic = async (track: Track, size: number = 128) => {
@@ -1659,7 +1696,6 @@ export const usePlayerStore = defineStore(
       lyricOffset,
       volume,
       _volume,
-      _pitch,
       volumeBeforeMuted,
       _list,
       _shuffleList,

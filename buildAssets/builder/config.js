@@ -18,7 +18,7 @@ const baseConfig = {
     notarize: false,
     icon: 'buildAssets/icons/icon.icns',
     type: 'distribution',
-    target: [{ target: 'dmg', arch: ['x64', 'arm64'] }]
+    target: [{ target: 'dmg', arch: 'x64' }]
   },
   dmg: {
     contents: [

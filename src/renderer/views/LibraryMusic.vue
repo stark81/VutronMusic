@@ -127,7 +127,7 @@
         </div>
 
         <div v-show="currentTab === 'mvs'">
-          <Mvrow :mvs="liked.mvs" />
+          <Mvrow :mvs="liked.mvs" :is-end="true" />
         </div>
 
         <div v-show="currentTab === 'artist'">
@@ -366,7 +366,7 @@ const observeTab = new IntersectionObserver(
     entries.forEach((entry) => {
       const intersectionRatio = entry.intersectionRatio
       const maxPadding = 42
-      const maxPaddingRight = hasCustomTitleBar.value ? 120 : 84
+      const maxPaddingRight = 224
       if (intersectionRatio > 0) {
         if (isMac.value) {
           const paddingLeft = maxPadding * (1 - intersectionRatio)
@@ -505,8 +505,9 @@ onUnmounted(() => {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    // height: 64px;
+    height: 64px;
     width: 100%;
+    box-sizing: border-box;
     z-index: 10;
 
     .tabs {

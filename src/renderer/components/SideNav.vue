@@ -107,6 +107,7 @@ const isCurrentRoute = (path: string): boolean => {
     .svg-icon {
       width: 100px;
       height: 40px;
+      transition: color 0.2s ease-in;
     }
     .icon {
       width: 26px;
@@ -160,6 +161,10 @@ const isCurrentRoute = (path: string): boolean => {
   button.active {
     background: var(--color-primary);
     color: white;
+    transition: background 0.2s ease-in;
+    .icon {
+      color: white;
+    }
   }
 }
 </style>

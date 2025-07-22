@@ -117,6 +117,10 @@ const props = defineProps({
   type: {
     type: String,
     default: 'music'
+  },
+  paddingRight: {
+    type: String,
+    default: '4vh'
   }
 })
 
@@ -141,7 +145,7 @@ const commentInfo = reactive({
 const containerStyle = computed(() => {
   return {
     height: props.type === 'mv' ? 'calc(100vh - 84px)' : '100vh',
-    padding: props.type === 'mv' ? '0 0 0 3vh' : '40px 8vh 0 4vh'
+    padding: props.type === 'mv' ? '0 0 0 3vh' : `40px 8vh 0 ${props.paddingRight}`
   }
 })
 
@@ -354,7 +358,7 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
 .comment-container {
   // height: 100vh;
-  width: 100%;
+  // width: 100%;
   display: flex;
   flex-direction: column;
   scrollbar-width: none;
@@ -379,6 +383,7 @@ onBeforeUnmount(() => {
     justify-items: center;
     .btn {
       font-size: 16px;
+      color: var(--color-text);
       font-weight: bold;
       padding: 0 10px;
       opacity: 0.5;
@@ -468,6 +473,7 @@ onBeforeUnmount(() => {
     display: flex;
     margin-left: 10px;
     align-items: center;
+    color: var(--color-text);
 
     svg {
       margin-right: 2px;

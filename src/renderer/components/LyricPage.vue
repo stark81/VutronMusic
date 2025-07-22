@@ -187,7 +187,7 @@ onBeforeUnmount(() => {
 })
 </script>
 
-<style lang="scss">
+<style scoped lang="scss">
 // 此处将scoped移出，以避免Windows版本下的offset无法实时预览
 .lyric-wrapper {
   position: relative;
@@ -198,7 +198,7 @@ onBeforeUnmount(() => {
   -webkit-mask-image: linear-gradient(to bottom, transparent, black 25%, black 75%, transparent);
 
   contain: strict;
-  will-change: opacity;
+  // will-change: opacity;
 }
 
 .offset {
@@ -231,10 +231,13 @@ onBeforeUnmount(() => {
   position: relative;
   margin: 0 auto;
   contain: content;
-  transform: translateZ(0);
+
+  &::-webkit-scrollbar {
+    width: 0px;
+  }
 }
 
-.line {
+:deep(.line) {
   border-radius: 12px;
   margin: 2px 0;
   user-select: none;
@@ -244,7 +247,7 @@ onBeforeUnmount(() => {
   transition: 0.5s;
   .lyric-line {
     contain: layout style;
-    will-change: transform;
+    // will-change: transform;
     transform-origin: v-bind(transformOrigin);
     transform: scale(0.95);
     transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -252,7 +255,7 @@ onBeforeUnmount(() => {
 
   .translation {
     contain: layout style;
-    will-change: transform;
+    // will-change: transform;
     transform-origin: v-bind(transformOrigin);
     transform: scale(0.95);
     transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -271,7 +274,7 @@ onBeforeUnmount(() => {
   }
 }
 
-.line {
+:deep(.line) {
   .lyric-line span {
     font-size: v-bind('`${nFontSize}px`');
     background-repeat: no-repeat;
@@ -292,7 +295,7 @@ onBeforeUnmount(() => {
   }
 }
 
-.line-mode.active {
+:deep(.line-mode.active) {
   .lyric-line {
     transform: scale(1);
     span {
@@ -307,11 +310,11 @@ onBeforeUnmount(() => {
   }
 }
 
-.word-mode.active {
+:deep(.word-mode.active) {
   .lyric-line {
     transform: scale(1);
     span {
-      will-change: background-size;
+      // will-change: background-size;
       background-image: -webkit-linear-gradient(
         top,
         var(--color-wbw-text-played),
@@ -322,7 +325,7 @@ onBeforeUnmount(() => {
   .translation {
     transform: scale(1);
     span {
-      will-change: background-size;
+      // will-change: background-size;
       background-image: -webkit-linear-gradient(top, var(--color-wbw-text), var(--color-wbw-text));
     }
   }
@@ -331,7 +334,7 @@ onBeforeUnmount(() => {
 @media (max-aspect-ratio: 10/9) {
   .lyric-container {
     width: 100%;
-    .line {
+    :deep(.line) {
       text-align: center;
       .lyric-line,
       .translation {

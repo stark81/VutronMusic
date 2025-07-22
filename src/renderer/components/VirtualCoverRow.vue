@@ -56,7 +56,7 @@ const props = defineProps({
   items: { type: Array as () => any[], required: true },
   type: { type: String, default: '' },
   subText: { type: String, default: null },
-  itemHeight: { type: Number, default: 260 },
+  itemHeight: { type: Number, default: 240 },
   showPosition: { type: Boolean, default: true },
   subTextFontSize: { type: String, default: '16px' },
   showPlayCount: { type: Boolean, default: false },

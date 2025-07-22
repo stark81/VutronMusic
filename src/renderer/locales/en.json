@@ -268,6 +268,7 @@
         "time": "Duration",
         "ID": "Track ID"
       },
+      "showBanner": "Show Banner In Home Page",
       "useCustomTitlebar": "Use Custom Titlebar (Restart Required)",
       "outputDevice": {
         "text": "Audio Output Device",
@@ -346,7 +347,7 @@
         "tlyric": "Translation",
         "romalrc": "Transliteration"
       },
-      "font": "Font",
+      "font": "Font Settings",
       "fontSize": "Font Size (px)",
       "textAlign": {
         "text": "Text Alignment",

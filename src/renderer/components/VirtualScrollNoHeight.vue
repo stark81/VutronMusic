@@ -246,7 +246,7 @@ const scrollTocurrent = (index: number, behavior: ScrollBehavior = 'smooth') => 
   } else {
     top = position.value[idx * props.columnNumber]?.top || 0
   }
-  if (listRef.value) listRef.value.scrollTo({ top, behavior })
+  listRef.value.scrollTo({ top, behavior })
 
   if (idx < 0 && index < startRow.value) {
     let isScrolling = true
@@ -276,7 +276,7 @@ const scrollToTop = () => {
   if (Math.abs(visibleMiddle.value) > 100) {
     virtualScrolling.value = true
   }
-  if (listRef.value) listRef.value.scrollTo({ top: 0, behavior: 'smooth' })
+  listRef.value?.scrollTo({ top: 0, behavior: 'smooth' })
   const checkScrolling = () => {
     const currentScrollTop = listRef.value?.scrollTop
     if (currentScrollTop === lastScrollTop) {
@@ -394,7 +394,7 @@ const observer = new IntersectionObserver(
   },
   {
     root: null,
-    rootMargin: `-${hasCustomTitleBar.value ? 84 : 64}px 0px 0px 0px`,
+    rootMargin: `-64px 0px 0px 0px`,
     // 这里设置成0.98的目的，是为了确保在special-playlist页面可以正常进入到滚动状态
     // 某些情况下，页面会无法达到1，导致无法滚动
     threshold: 0.99
@@ -448,7 +448,7 @@ const updateEvent = (data: { active: string; offset: number }) => {
   if (data.active !== instanceId.value) return
   if (updateScrollStart === 0) updateScrollStart = listRef.value?.scrollTop
   const top = Math.min(listRef.value?.scrollHeight, Math.max(updateScrollStart + data.offset, 0))
-  if (listRef.value) listRef.value.scrollTo({ top, behavior: 'instant' })
+  listRef.value.scrollTo({ top, behavior: 'instant' })
 }
 
 eventBus.on('update-start', startEvent)

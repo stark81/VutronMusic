@@ -3,7 +3,7 @@ import { createPinia } from 'pinia'
 
 import App from './App.vue'
 import router from './router'
-import vuetify from './plugins/vuetify'
+// import vuetify from './plugins/vuetify'
 import i18n from './plugins/i18n'
 import 'virtual:svg-icons-register'
 import './assets/css/global.scss'
@@ -50,7 +50,12 @@ app.directive('same-html', (el, binding) => {
 const pinia = createPinia()
 pinia.use(piniaPluginPersistedstate)
 
-app.use(vuetify).use(vue3lottie).use(i18n).use(router).use(pinia)
+app
+  // .use(vuetify)
+  .use(vue3lottie)
+  .use(i18n)
+  .use(router)
+  .use(pinia)
 
 app.mount('#app')
 
