@@ -282,13 +282,10 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .comment-container {
-  // height: 100vh;
-  width: 100%;
   display: flex;
   flex-direction: column;
   overflow-y: hidden;
   scrollbar-width: none;
-  // padding: 40px 8vh 0 4vh;
   transition: all 0.5s;
 }
 
@@ -310,6 +307,7 @@ onMounted(() => {
     .btn {
       font-size: 16px;
       font-weight: bold;
+      color: var(--color-text);
       padding: 0 10px;
       opacity: 0.5;
       -webkit-app-region: no-drag;
@@ -397,6 +395,7 @@ onMounted(() => {
     display: flex;
     margin-left: 10px;
     align-items: center;
+    color: var(--color-text);
 
     svg {
       margin-right: 2px;

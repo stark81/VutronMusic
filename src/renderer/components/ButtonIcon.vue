@@ -14,9 +14,11 @@ button {
   margin: 4px;
   border-radius: 25%;
   transition: 0.2s;
-  .svg-icon {
+  :deep(.svg-icon) {
     height: 16px;
     width: 16px;
+    color: var(--color-text);
+    transition: color 0.3s;
   }
   &:first-child {
     margin-left: 0;

@@ -128,7 +128,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, watch, onMounted, ref, inject } from 'vue'
+import { computed, watch, onMounted, ref, inject, nextTick, onBeforeUnmount } from 'vue'
 import { useRoute, onBeforeRouteUpdate } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { userDetail, userPlayHistory } from '../api/user'
@@ -270,8 +270,14 @@ onBeforeRouteUpdate((to, from, next) => {
 })
 
 onMounted(() => {
-  updatePadding(0)
+  nextTick(() => {
+    updatePadding(0)
+  })
   getUser(route.params.id as string)
+})
+
+onBeforeUnmount(() => {
+  updatePadding(96)
 })
 </script>
 

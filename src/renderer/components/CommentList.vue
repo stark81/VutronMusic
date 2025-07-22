@@ -354,7 +354,7 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
 .comment-container {
   // height: 100vh;
-  width: 100%;
+  // width: 100%;
   display: flex;
   flex-direction: column;
   scrollbar-width: none;
@@ -379,6 +379,7 @@ onBeforeUnmount(() => {
     justify-items: center;
     .btn {
       font-size: 16px;
+      color: var(--color-text);
       font-weight: bold;
       padding: 0 10px;
       opacity: 0.5;
@@ -468,6 +469,7 @@ onBeforeUnmount(() => {
     display: flex;
     margin-left: 10px;
     align-items: center;
+    color: var(--color-text);
 
     svg {
       margin-right: 2px;

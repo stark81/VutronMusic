@@ -346,6 +346,7 @@
         "tlyric": "翻譯",
         "romalrc": "音譯"
       },
+      "font": "字型設定",
       "fontSize": "字型大小（px）",
       "textAlign": {
         "text": "字型對齊方式",

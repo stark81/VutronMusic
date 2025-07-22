@@ -79,8 +79,7 @@ export const useSettingsStore = defineStore(
       playedColor: 'rgba(57, 203, 255, 1)',
       unplayedColor: 'rgba(255, 255, 255, 0.8)',
       alwaysOnTop: false,
-      lock: false,
-      font: '' 
+      lock: false
     })
 
     const unblockNeteaseMusic = reactive({

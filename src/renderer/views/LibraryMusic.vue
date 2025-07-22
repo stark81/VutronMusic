@@ -43,7 +43,6 @@
         ref="tabsRowRef"
         class="tabs-row"
         :style="{
-          height: (hasCustomTitleBar ? 84 : 64) + 'px',
           paddingTop: (hasCustomTitleBar ? 20 : 0) + 'px'
         }"
       >
@@ -127,7 +126,7 @@
         </div>
 
         <div v-show="currentTab === 'mvs'">
-          <Mvrow :mvs="liked.mvs" />
+          <Mvrow :mvs="liked.mvs" :is-end="true" />
         </div>
 
         <div v-show="currentTab === 'artist'">
@@ -505,7 +504,7 @@ onUnmounted(() => {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    // height: 64px;
+    height: 64px;
     width: 100%;
     z-index: 10;
 

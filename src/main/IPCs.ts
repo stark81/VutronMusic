@@ -20,7 +20,6 @@ import {
 import { registerGlobalShortcuts } from './globalShortcut'
 import { createMenu } from './menu'
 import log from './log'
-import fontList from 'font-list'
 
 let isLock = store.get('osdWin.isLock') as boolean
 let blockerId: number | null = null
@@ -479,13 +478,15 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     }
   })
 
-  ipcMain.handle('getFontList', async () => {
+  ipcMain.handle('getFontList', async (event) => {
+    const { getFonts } = await import('font-list')
     try {
-      const fonts = await fontList.getFonts();
-      // font-list 返回的格式如 'Microsoft YaHei Regular'，只取字体名部分
-      return fonts.map(f => f.replace(/(.+?) .*/, '$1'));
-    } catch (e) {
-      return [];
+      const fonts = await getFonts()
+      const cleandFonts = [...new Set(fonts.map(cleanFontName))]
+      return ['system-ui', ...cleandFonts].sort()
+    } catch (error) {
+      log.error('获取字体列表失败:', error)
+      return ['system-ui']
     }
   })
 }

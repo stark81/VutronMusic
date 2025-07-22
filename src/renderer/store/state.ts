@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { reactive, ref, watch } from 'vue'
+import { nextTick, reactive, ref, watch } from 'vue'
 import { type UpdateCheckResult } from 'electron-updater'
 
 type TrackType = 'online' | 'local' | 'stream'
@@ -81,7 +81,9 @@ export const useNormalStateStore = defineStore('state', () => {
     window.mainApi?.invoke('getFontList').then((fonts: string[]) => {
       fontList.value = [
         { label: '系统默认', value: 'system-ui' },
-        ...fonts.map((font) => ({ label: font, value: font }))
+        ...fonts
+          .filter((font) => font !== 'system-ui')
+          .map((font) => ({ label: font, value: font }))
       ]
     })
   }
@@ -113,9 +115,15 @@ export const useNormalStateStore = defineStore('state', () => {
     })
   }
 
-  watch(enableScrolling, (value) => {
-    document.documentElement.style.overflowY = value ? 'auto' : 'hidden'
-  })
+  watch(
+    enableScrolling,
+    (value) => {
+      nextTick(() => {
+        document.getElementById('main')!.style.overflowY = value ? 'auto' : 'hidden'
+      })
+    },
+    { immediate: true }
+  )
 
   return {
     enableScrolling,

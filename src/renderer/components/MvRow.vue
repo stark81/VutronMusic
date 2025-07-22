@@ -67,7 +67,7 @@ const props = defineProps({
   },
   paddingBottom: {
     type: Number,
-    default: 0
+    default: 64
   },
   loadMore: {
     type: Function as PropType<() => void>,

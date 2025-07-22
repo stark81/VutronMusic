@@ -43,6 +43,7 @@ defineExpose({ comment })
     color: var(--text-color);
     width: 100%;
     height: 100%;
+    box-sizing: border-box;
     font-size: 14px;
     resize: none;
     border: none;
@@ -62,6 +63,7 @@ defineExpose({ comment })
     box-sizing: border-box;
     width: 80px;
     margin-left: 1px;
+    color: var(--text-color);
     background: var(--color-secondary-bg-for-transparent);
   }
 }

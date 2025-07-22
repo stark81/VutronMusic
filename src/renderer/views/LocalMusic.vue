@@ -42,7 +42,6 @@
         ref="tabsRowRef"
         class="tabs-row"
         :style="{
-          height: (hasCustomTitleBar ? 84 : 64) + 'px',
           paddingTop: (hasCustomTitleBar ? 20 : 0) + 'px'
         }"
       >
@@ -360,7 +359,7 @@ const observeTab = new IntersectionObserver(
   {
     root: null,
     rootMargin: `-${hasCustomTitleBar.value ? 84 : 64}px 0px 0px 0px`,
-    threshold: Array.from({ length: 101 }, (v, i) => i / 100)
+    threshold: Array.from({ length: 100 }, (v, i) => i / 100)
   }
 )
 
@@ -493,6 +492,7 @@ onUnmounted(() => {
     position: absolute;
     top: 0;
     display: flex;
+    height: 64px;
     align-items: center;
     justify-content: space-between;
     width: 100%;

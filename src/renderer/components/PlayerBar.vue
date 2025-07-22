@@ -13,7 +13,7 @@
         :use-keyboard="false"
         :marks="marks"
         :rail-style="{ backgroundColor: 'rgba(128, 128, 128, 0.18)' }"
-        :process-style="{ background: 'var(--color-primary)' }"
+        :process-style="{ background: 'var(--color-primary)', transition: 'background 0.3s' }"
         :step-style="{
           display: 'block',
           height: '6px',
@@ -358,7 +358,7 @@ watch(showLyrics, (value) => {
     background-color: rgb(from var(--color-primary) r g b / 90%);
     position: absolute;
     border-radius: 5px;
-    top: -40px;
+    top: -37px;
     padding: 3px 8px;
     white-space: nowrap;
     transform: translate(-50%, 0);

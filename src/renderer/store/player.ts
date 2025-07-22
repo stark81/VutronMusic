@@ -1042,8 +1042,6 @@ export const usePlayerStore = defineStore(
     }
 
     const nextTrackCallback = () => {
-      pause()
-      seek.value = 0
       if (!isPersonalFM.value && repeatMode.value === 'one') {
         replaceCurrentTrack(currentTrack.value!.id)
       } else {
@@ -1130,14 +1128,12 @@ export const usePlayerStore = defineStore(
         _progress.value = audioNodes.audio.currentTime
         lastUpdateTime = audioNodes.audio.currentTime
       }
-      if (audioNodes.audio.currentTime >= audioNodes.audio.duration - 0.5) {
-        nextTrackCallback()
-      }
     }
 
     const destroAudioNode = async () => {
       if (audioNodes.audio) {
         audioNodes.audio.removeEventListener('timeupdate', _handleTimeUpdate)
+        audioNodes.audio.removeEventListener('ended', nextTrackCallback)
         audioNodes.audio.pause()
 
         audioNodes.audioSource?.disconnect()
@@ -1176,6 +1172,7 @@ export const usePlayerStore = defineStore(
       seek.value = autoPlay ? 0 : progress.value
 
       audioNodes.audio.addEventListener('timeupdate', _handleTimeUpdate)
+      audioNodes.audio.addEventListener('ended', nextTrackCallback)
 
       audioNodes.audioContext = new AudioContext()
       audioNodes.audioSource = audioNodes.audioContext.createMediaElementSource(audioNodes.audio)
