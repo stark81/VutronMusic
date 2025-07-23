@@ -285,6 +285,10 @@ const matchedFreqs = (data: any) => {
       width: 30px;
       text-align: center;
     }
+
+    &:nth-child(even) {
+      padding-right: 4px;
+    }
   }
 }
 

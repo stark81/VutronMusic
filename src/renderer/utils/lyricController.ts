@@ -493,6 +493,8 @@ export class LyricManager {
   }
 
   clearLyrics() {
+    clearTimeout(this.scrollingTimer)
+    this.container.removeEventListener('wheel', this.handleWheel)
     this.animations.lyric.forEach((an) => an.animation.cancel())
     this.animations.translation.forEach((an) => an.animation.cancel())
 
@@ -502,8 +504,6 @@ export class LyricManager {
     while (this.container.firstChild) {
       this.container.removeChild(this.container.firstChild)
     }
-
-    this.container.removeEventListener('wheel', this.handleWheel)
   }
 
   handleWheel() {

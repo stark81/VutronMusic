@@ -174,6 +174,7 @@ const createAPlaylist = async () => {
       border-radius: 8px;
       margin-top: -1px;
       color: var(--color-text);
+      box-sizing: border-box;
       &:focus {
         opacity: 1;
       }

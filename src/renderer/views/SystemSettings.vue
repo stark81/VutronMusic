@@ -49,6 +49,22 @@
         <div v-show="tab === 'general'" key="general">
           <div class="item">
             <div class="left">
+              <div class="title">{{ $t('settings.general.showBanner') }}</div>
+            </div>
+            <div class="right">
+              <div class="toggle">
+                <input
+                  id="showBanner"
+                  v-model="general.showBanner"
+                  type="checkbox"
+                  name="showBanner"
+                />
+                <label for="showBanner"></label>
+              </div>
+            </div>
+          </div>
+          <div class="item">
+            <div class="left">
               <div class="title">{{ $t('settings.general.language.text') }}</div>
             </div>
             <div class="right">
@@ -1784,7 +1800,7 @@ button.lyric-button {
   color: var(--color-text);
   background: unset;
   border-radius: 8px;
-  padding: 6px 8px;
+  // padding: 6px 8px;
   margin-bottom: 12px;
   margin-right: 10px;
   transition: 0.2s;

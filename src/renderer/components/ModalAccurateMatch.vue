@@ -87,6 +87,7 @@ const close = () => {
       border-radius: 8px;
       margin-top: -1px;
       color: var(--color-text);
+      box-sizing: border-box;
       &:focus {
         // background: color-mix(in oklab, var(--color-primary) var(--bg-alpha), white);
         opacity: 1;

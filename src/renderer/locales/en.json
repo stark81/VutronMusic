@@ -268,6 +268,7 @@
         "time": "Duration",
         "ID": "Track ID"
       },
+      "showBanner": "Show Banner In Home Page",
       "useCustomTitlebar": "Use Custom Titlebar (Restart Required)",
       "outputDevice": {
         "text": "Audio Output Device",
