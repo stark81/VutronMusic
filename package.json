@@ -85,7 +85,7 @@
     "vue": "^3.5.10",
     "vue-3-slider-component": "^1.0.2",
     "vue-draggable-plus": "^0.5.2",
-    "vue-i18n": "^9.9.1",
+    "vue-i18n": "^11.1.11",
     "vue-pick-colors": "^1.8.0",
     "vue-router": "^4.5.1",
     "vue3-lottie": "^3.3.1",
