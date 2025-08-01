@@ -3650,10 +3650,10 @@ electron-extension-installer@^1.2.0:
     jszip "^3.10.1"
     rimraf "^5.0.0"
 
-electron-log@^5.4.1:
-  version "5.4.1"
-  resolved "http://mirrors.cloud.tencent.com/npm/electron-log/-/electron-log-5.4.1.tgz#700ddc6ef4b06c13a983468580ba7a7e579129d4"
-  integrity sha512-QvisA18Z++8E3Th0zmhUelys9dEv7aIeXJlbFw3UrxCc8H9qSRW0j8/ooTef/EtHui8tVmbKSL+EIQzP9GoRLg==
+electron-log@^5.4.2:
+  version "5.4.2"
+  resolved "https://registry.yarnpkg.com/electron-log/-/electron-log-5.4.2.tgz#ac52eacd5f85049471795b801dc7c2dcea1fc648"
+  integrity sha512-L55kJzbVVoBY6kyJ3A+cjPchL1aXLdV2/Q8SvIj4sE5VmOcwZa6KXaFICZE+Z+RMXhAIFta79kSaXBqn+0XXMA==
 
 electron-publish@24.13.1:
   version "24.13.1"
