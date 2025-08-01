@@ -103,7 +103,7 @@
     "@vitejs/plugin-vue-jsx": "^5.0.1",
     "cross-env": "^7.0.3",
     "dotenv": "^17.2.0",
-    "electron": "^37.2.1",
+    "electron": "^37.2.5",
     "electron-builder": "^24.13.3",
     "electron-extension-installer": "^1.2.0",
     "eslint-config-prettier": "^9.1.0",
