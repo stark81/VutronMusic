@@ -101,7 +101,7 @@
     "@typescript-eslint/parser": "^7.1.0",
     "@vitejs/plugin-vue": "^6.0.0",
     "@vitejs/plugin-vue-jsx": "^5.0.1",
-    "cross-env": "^7.0.3",
+    "cross-env": "^10.0.0",
     "dotenv": "^17.2.0",
     "electron": "^37.2.1",
     "electron-builder": "^24.13.3",
