@@ -73,7 +73,7 @@
     "node-html-parser": "^7.0.1",
     "node-vibrant": "^4.0.0",
     "pinia": "^2.1.7",
-    "pinia-plugin-persistedstate": "^4.2.0",
+    "pinia-plugin-persistedstate": "^4.4.1",
     "plyr": "^3.7.8",
     "qrcode": "^1.5.3",
     "qs": "^6.14.0",
