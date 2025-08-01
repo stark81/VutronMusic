@@ -124,7 +124,7 @@
     "vite-plugin-eslint": "^1.8.1",
     "vite-plugin-vuetify": "^2.0.2",
     "vue-eslint-parser": "^9.4.2",
-    "vue-tsc": "^2.0.22"
+    "vue-tsc": "^3.0.5"
   },
   "overrides": {
     "vite-plugin-electron": {
