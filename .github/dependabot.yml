@@ -9,5 +9,5 @@ updates:
       - "stark81"
     reviewers:
       - "stark81"
-    open-pull-requests-limit: 20
+    open-pull-requests-limit: 5
     versioning-strategy: increase

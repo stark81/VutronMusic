@@ -512,7 +512,7 @@ onBeforeUnmount(() => {
 }
 
 .infinite-list-container {
-  /* overflow-x: hidden; */
+  overflow-x: hidden;
   width: 100%;
   overflow-y: auto;
   position: relative;

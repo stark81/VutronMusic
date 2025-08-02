@@ -5,7 +5,7 @@ import relativeTime from 'dayjs/plugin/relativeTime'
 import { useDataStore } from '../store/data'
 import { storeToRefs } from 'pinia'
 import { isAccountLoggedIn } from './auth'
-import { refreshCookie } from '../api/auth'
+// import { refreshCookie } from '../api/auth'
 import { dailySignin } from '../api/user'
 
 export default class Utils {
@@ -137,16 +137,17 @@ export default class Utils {
       isAccountLoggedIn() &&
       (lastRefreshCookieDate.value === undefined || lastRefreshCookieDate.value !== dayjs().date())
     ) {
-      refreshCookie().then(() => {
-        console.debug('[debug][common.js] 刷新cookie')
-        lastRefreshCookieDate.value = dayjs().date()
-      })
+      // refreshCookie().then(() => {
+      //   console.debug('[debug][common.js] 刷新cookie')
+      //   lastRefreshCookieDate.value = dayjs().date()
+      // })
       dailySignin(0).catch((e) => {
         console.debug(`[debug][common.js] 手机端重复签到: ${e}`)
       })
       dailySignin(1).catch((e) => {
         console.debug(`[debug][common.js] PC端重复签到: ${e}`)
       })
+      lastRefreshCookieDate.value = dayjs().date()
     }
   }
 }

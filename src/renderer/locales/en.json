@@ -168,6 +168,8 @@
     "usernameLogin": "Username Login",
     "loginWithEmail": "Login with Email",
     "loginWithPhone": "Login with Phone",
+    "loginWithQrCode": "Login with QrCode",
+    "loginWithCookie": "Login with Cookie",
     "noticeElectron": "Your password is hashed with MD5 locally before transmission to NetEase API. VutronMusic does not transmit your account data to any non-official servers."
   },
   "player": {

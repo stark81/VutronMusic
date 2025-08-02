@@ -247,6 +247,7 @@ const handleChanelEvent = () => {
     showToast('下载错误')
   })
   window.mainApi?.on('changeRouteTo', (_: any, route: string) => {
+    showLyrics.value = false
     router.push(route)
   })
 }

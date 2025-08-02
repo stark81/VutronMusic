@@ -74,7 +74,7 @@
           type="playlist"
           :show-play-count="true"
           :is-end="true"
-          :item-height="267"
+          :item-height="260"
           :colunm-number="5"
           :padding-bottom="64"
         />
@@ -102,8 +102,8 @@
           :items="playHistoryList"
           :colunm-number="1"
           :is-end="true"
-          :item-height="56"
-          :padding-bottom="64"
+          :item-height="60"
+          :padding-bottom="96"
           type="tracklist"
         />
       </div>
@@ -223,6 +223,9 @@ const getUser = (id: string) => {
 
 const updateCurrentTab = (tab: string) => {
   currentTab.value = tab
+  nextTick(() => {
+    updatePadding(0)
+  })
 }
 
 const updatePadding = inject('updatePadding') as (padding: number) => void

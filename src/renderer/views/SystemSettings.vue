@@ -63,6 +63,22 @@
               </div>
             </div>
           </div>
+          <div v-if="isElectron && isLinux" class="item">
+            <div class="left">
+              <div class="title">{{ $t('settings.general.useCustomTitlebar') }}</div>
+            </div>
+            <div class="right">
+              <div class="toggle">
+                <input
+                  id="linux-title-bar"
+                  v-model="useCustomTitlebar"
+                  type="checkbox"
+                  name="linux-title-bar"
+                />
+                <label for="linux-title-bar"></label>
+              </div>
+            </div>
+          </div>
           <div class="item">
             <div class="left">
               <div class="title">{{ $t('settings.general.language.text') }}</div>
@@ -636,22 +652,6 @@
               </div>
               <div class="right">
                 <button @click="resetPlayer()">确定</button>
-              </div>
-            </div>
-            <div v-if="isElectron && isLinux" class="item">
-              <div class="left">
-                <div class="title">{{ $t('settings.general.useCustomTitlebar') }}</div>
-              </div>
-              <div class="right">
-                <div class="toggle">
-                  <input
-                    id="linux-title-bar"
-                    v-model="useCustomTitlebar"
-                    type="checkbox"
-                    name="linux-title-bar"
-                  />
-                  <label for="linux-title-bar"></label>
-                </div>
               </div>
             </div>
             <div v-if="isElectron" class="item">

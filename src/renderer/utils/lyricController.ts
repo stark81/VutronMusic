@@ -138,6 +138,15 @@ export class LyricManager {
     }
   }
 
+  updateAniPlaybackRate(rate: number) {
+    this.animations.lyric.forEach((an) => {
+      an.animation.playbackRate = rate
+    })
+    this.animations.translation.forEach((an) => {
+      an.animation.playbackRate = rate
+    })
+  }
+
   updateMode(data: {
     mode: TranslationMode
     line: number
@@ -218,7 +227,8 @@ export class LyricManager {
           lyricLine.appendChild(span)
           fontIndex++
 
-          const animation = createAnimation(span, (w.end - w.start) / this.rate)
+          const animation = createAnimation(span, w.end - w.start)
+          animation.playbackRate = this.rate
           this.animations.lyric.push({ dom: span, animation, start: w.start, end: w.end })
         })
         element.appendChild(lyricLine)
@@ -229,7 +239,7 @@ export class LyricManager {
             const translation = document.createElement('div')
             translation.classList.add('translation')
             const words = sameTlyric.content.split('')
-            const interval = (end - start) / words.length / this.rate
+            const interval = (end - start) / words.length
             words.forEach((w, index) => {
               const span = document.createElement('span')
               span.textContent = w
@@ -237,6 +247,7 @@ export class LyricManager {
               translation.appendChild(span)
 
               const animation = createAnimation(span, interval)
+              animation.playbackRate = this.rate
               this.animations.translation.push({
                 dom: span,
                 animation,
@@ -258,7 +269,8 @@ export class LyricManager {
               span.style.backgroundSize = '0 100%'
               translation.appendChild(span)
 
-              const animation = createAnimation(span, (w.end - w.start) / this.rate)
+              const animation = createAnimation(span, w.end - w.start)
+              animation.playbackRate = this.rate
               this.animations.translation.push({
                 dom: span,
                 animation,
@@ -630,5 +642,5 @@ export const updateWordByWord = (wByw: boolean) => {
 export const updateRate = (rate: number) => {
   if (!manager) return
   manager.rate = rate
-  setLyrics(manager.lyrics || { lyric: [], tlyric: [], rlyric: [] })
+  manager.updateAniPlaybackRate(rate)
 }

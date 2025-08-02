@@ -12,6 +12,18 @@ export function setCookies(string: string) {
   })
 }
 
+export function setCookiesWithCookie(raw: string, maxAgeSeconds = 60 * 60 * 24 * 30) {
+  const cookies = raw.split(';')
+  cookies.forEach((c) => {
+    const [key, ...rest] = c.trim().split('=')
+    const value = rest.join('=')
+    if (!key || !value) return
+
+    document.cookie = `${key}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}`
+    localStorage.setItem(`cookie-${key}`, value)
+  })
+}
+
 export function getCookie(key: string) {
   return Cookies.get(key) ?? localStorage.getItem(`cookie-${key}`)
 }

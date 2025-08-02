@@ -358,7 +358,7 @@ watch(showLyrics, (value) => {
     background-color: rgb(from var(--color-primary) r g b / 90%);
     position: absolute;
     border-radius: 5px;
-    top: -37px;
+    top: -36px;
     padding: 3px 8px;
     white-space: nowrap;
     transform: translate(-50%, 0);

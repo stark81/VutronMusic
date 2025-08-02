@@ -173,10 +173,6 @@ class Cache {
       }
     }
   }
-
-  getAudio(fileName: string) {}
-
-  setAudio(buffer: Buffer, { id, url, bitrate }: { id: number; url: string; bitrate: number }) {}
 }
 
 export default new Cache()

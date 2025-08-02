@@ -57,7 +57,7 @@ export const usePlayerStore = defineStore(
     const _progress = ref(0)
     const repeatMode = ref('off')
     const _shuffle = ref(false)
-    const _volume = ref(1)
+    const volume = ref(1)
     const volumeBeforeMuted = ref(1)
     const isPersonalFM = ref(false)
     const currentTrack = ref<Track | null>(null)
@@ -204,6 +204,11 @@ export const usePlayerStore = defineStore(
       }
     })
 
+    watch(volume, (value) => {
+      if (!audioNodes.audio) return
+      audioNodes.audio.volume = value
+    })
+
     watch(pitch, (value) => {
       if (value === 1) {
         nextTick(() => {
@@ -278,38 +283,25 @@ export const usePlayerStore = defineStore(
       return `${currentTrack.value.name}, 音源：${source ?? currentTrack.value.source}`
     })
 
-    const volume = computed({
-      get() {
-        return _volume.value
-      },
-      set(value) {
-        _volume.value = value
-        audioNodes.masterGain?.gain.linearRampToValueAtTime(
-          value,
-          audioNodes.audioContext?.currentTime || 0 + 0.2
-        )
-      }
-    })
-
     const playbackRate = computed({
       get: () => backRate.value,
       set: (value) => {
         backRate.value = value
         audioNodes.audio!.playbackRate = value
-        window.mainApi?.send('updateRate', value)
-        currentIndex.line = getLyricIndex(lyrics.lyric, 0, 1)
-        currentIndex.word = getLyricIndex(fontList.value.word, 0, 1000)
-        currentIndex.tWord = getLyricIndex(fontList.value.tWord, 0, 1000)
-        clearTimeout(timer.line)
-        clearTimeout(timer.list)
-        clearTimeout(timer.tList)
-        updateIndex()
-        navigator.mediaSession.setPositionState({
-          duration: currentTrackDuration.value,
-          playbackRate: value,
-          position: seek.value
-        })
       }
+    })
+
+    watch(playbackRate, (value) => {
+      window.mainApi?.send('updateRate', value)
+      navigator.mediaSession.setPositionState({
+        duration: currentTrackDuration.value,
+        playbackRate: value,
+        position: seek.value
+      })
+      clearTimeout(timer.line)
+      clearTimeout(timer.list)
+      clearTimeout(timer.tList)
+      updateIndex()
     })
 
     const isWordByWord = computed(() => {
@@ -394,8 +386,8 @@ export const usePlayerStore = defineStore(
       start = Math.max(start, 0)
       for (let i = start; i < lst.length; i++) {
         if (
-          (lst[i].start || lst[i].start) / rate >
-          audioNodes.audio.currentTime + lyricOffset.value
+          lst[i]?.start &&
+          lst[i]?.start / rate > audioNodes.audio.currentTime + lyricOffset.value
         ) {
           return i - 1
         }
@@ -425,13 +417,6 @@ export const usePlayerStore = defineStore(
         clearTimeout(timer.list)
         clearTimeout(timer.tList)
       }
-    })
-
-    watch(lyrics, () => {
-      clearTimeout(timer.line)
-      clearTimeout(timer.list)
-      clearTimeout(timer.tList)
-      updateIndex()
     })
 
     watch(
@@ -503,15 +488,16 @@ export const usePlayerStore = defineStore(
       const nextLine = lyrics.lyric[currentIndex.line + 1]
 
       if (nextLine) {
-        const driftTime =
-          nextLine.start -
-          ((audioNodes.audio?.currentTime || 0) / playbackRate.value + lyricOffset.value)
+        const driftTime = nextLine.start - (audioNodes.audio?.currentTime || 0 + lyricOffset.value)
         if (playing.value) {
-          timer.line = setTimeout(() => {
-            clearTimeout(timer.line)
-            if (!playing.value) return
-            _refreshLineIdx()
-          }, driftTime * 1000)
+          timer.line = setTimeout(
+            () => {
+              clearTimeout(timer.line)
+              if (!playing.value) return
+              _refreshLineIdx()
+            },
+            (driftTime * 1000) / playbackRate.value
+          )
         }
       }
     }
@@ -524,14 +510,13 @@ export const usePlayerStore = defineStore(
       const nextFont = fontList.value[type][index + 1]
       if (nextFont) {
         const driftTime =
-          nextFont.start -
-          ((audioNodes.audio?.currentTime || 0) / playbackRate.value + lyricOffset.value) * 1000
+          nextFont.start - (audioNodes.audio?.currentTime || 0 + lyricOffset.value) * 1000
         if (playing.value) {
           timer[type] = setTimeout(() => {
             clearTimeout(timer[type])
             if (!playing.value) return
             _refreshFontIdx(type)
-          }, driftTime)
+          }, driftTime / playbackRate.value)
         }
       }
     }
@@ -595,11 +580,17 @@ export const usePlayerStore = defineStore(
 
     watch(playing, (value) => {
       window.mainApi?.send('updatePlayerState', { playing: value })
-      navigator.mediaSession.setPositionState({
-        duration: currentTrackDuration.value,
-        playbackRate: playbackRate.value,
-        position: seek.value
-      })
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = value ? 'playing' : 'paused'
+        navigator.mediaSession.setPositionState({
+          duration: currentTrackDuration.value,
+          playbackRate: playbackRate.value,
+          position: seek.value
+        })
+      }
+      if (osdLyricStore.show) {
+        window.mainApi?.sendMessage({ type: 'update-osd-status', data: { playing: value } })
+      }
       progress.value = audioNodes.audio?.currentTime || 0
       _progress.value = audioNodes.audio?.currentTime || 0
       if (value) {
@@ -765,6 +756,9 @@ export const usePlayerStore = defineStore(
         })
       }
       await getLyric(track)
+      nextTick(() => {
+        seek.value = playing.value ? 0 : progress.value
+      })
     }
 
     const getLyric = async (track: Track) => {
@@ -897,8 +891,8 @@ export const usePlayerStore = defineStore(
     const replaceCurrentTrack = async (trackID: number | string, autoPlay = true) => {
       // 切歌时先淡出
       const fade = getFadeDuration()
-      if (audioNodes.masterGain && audioNodes.audioContext) {
-        await smoothGain(audioNodes.masterGain.gain.value, 0, fade, audioNodes.masterGain)
+      if (audioNodes.audio && audioNodes.audioContext) {
+        await smoothGain(volume.value, 0, fade, audioNodes.audio)
       }
       return getLocalMusic(trackID as number).then(async (track) => {
         if (!track) {
@@ -938,8 +932,8 @@ export const usePlayerStore = defineStore(
     const playAudioSource = async (source: string, autoPlay = true) => {
       // 切歌时先淡出
       const fade = getFadeDuration()
-      if (audioNodes.masterGain && audioNodes.audioContext) {
-        await smoothGain(audioNodes.masterGain.gain.value, 0, fade, audioNodes.masterGain)
+      if (audioNodes.audio && audioNodes.audioContext) {
+        await smoothGain(volume.value, 0, fade, audioNodes.audio)
       }
       await destroAudioNode()
       await setupAudioNode(autoPlay)
@@ -1067,6 +1061,10 @@ export const usePlayerStore = defineStore(
     }
 
     const nextTrackCallback = () => {
+      seek.value = 0
+      clearTimeout(timer.line)
+      clearTimeout(timer.list)
+      clearTimeout(timer.tList)
       if (!isPersonalFM.value && repeatMode.value === 'one') {
         replaceCurrentTrack(currentTrack.value!.id)
       } else {
@@ -1085,15 +1083,13 @@ export const usePlayerStore = defineStore(
       }
       document.title = title.value
       const fade = getFadeDuration()
-      audioNodes.masterGain!.gain.value = 0
-      await smoothGain(0, volume.value, fade, audioNodes.masterGain!)
-      audioNodes.audio!.volume = volume.value
+      await smoothGain(0, volume.value, fade, audioNodes.audio!)
     }
 
     const pause = () => {
       if (!audioNodes.audio) return
       const fade = getFadeDuration()
-      smoothGain(audioNodes.masterGain!.gain.value, 0, fade, audioNodes.masterGain!).then(() => {
+      smoothGain(volume.value, 0, fade, audioNodes.audio).then(() => {
         audioNodes.audio?.pause()
         title.value = 'VutronMusic'
         if (!window.env?.isMac) {
@@ -1155,18 +1151,18 @@ export const usePlayerStore = defineStore(
       }
     }
 
-    const handleEnded = () => {
-      seek.value = 0
-      clearTimeout(timer.line)
-      clearTimeout(timer.list)
-      clearTimeout(timer.tList)
-      nextTrackCallback()
-    }
+    // const handleEnded = () => {
+    //   seek.value = 0
+    //   clearTimeout(timer.line)
+    //   clearTimeout(timer.list)
+    //   clearTimeout(timer.tList)
+    //   nextTrackCallback()
+    // }
 
     const destroAudioNode = async () => {
       if (audioNodes.audio) {
         audioNodes.audio.removeEventListener('timeupdate', _handleTimeUpdate)
-        audioNodes.audio.removeEventListener('ended', handleEnded)
+        audioNodes.audio.removeEventListener('ended', nextTrackCallback)
         audioNodes.audio.pause()
 
         audioNodes.audioSource?.disconnect()
@@ -1206,7 +1202,7 @@ export const usePlayerStore = defineStore(
       playbackRate.value = backRate.value
 
       audioNodes.audio.addEventListener('timeupdate', _handleTimeUpdate)
-      audioNodes.audio.addEventListener('ended', handleEnded)
+      audioNodes.audio.addEventListener('ended', nextTrackCallback)
 
       audioNodes.audioContext = new AudioContext()
       audioNodes.audioSource = audioNodes.audioContext.createMediaElementSource(audioNodes.audio)
@@ -1249,7 +1245,7 @@ export const usePlayerStore = defineStore(
       audioNodes.convolverSourceGain.gain.value = convolverParams.mainGain
       audioNodes.convolverOutputGain.gain.value = convolverParams.sendGain
 
-      audioNodes.masterGain.gain.setValueAtTime(volume.value, audioNodes.audioContext.currentTime)
+      audioNodes.masterGain.gain.setValueAtTime(1, audioNodes.audioContext.currentTime)
       const key = biquadParamsKeys[biquadParamsKeys.length - 1]
       const lastBiquadFilter = audioNodes.biquads.get(`hz${key}`)!
       lastBiquadFilter.connect(audioNodes.convolverSourceGain)
@@ -1428,14 +1424,6 @@ export const usePlayerStore = defineStore(
         }
       })
 
-      watch(playing, (value) => {
-        if ('mediaSession' in navigator) {
-          navigator.mediaSession.playbackState = value ? 'playing' : 'paused'
-        }
-        if (osdLyricStore.show)
-          window.mainApi?.sendMessage({ type: 'update-osd-status', data: { playing: value } })
-      })
-
       watch(
         () => osdLyricStore.show,
         (value) => {
@@ -1481,6 +1469,14 @@ export const usePlayerStore = defineStore(
       })
       window.mainApi?.on('setPosition', (_: any, value: number) => {
         seek.value = value
+      })
+      window.mainApi?.on('increaseVolume', () => {
+        if (volume.value + 0.1 >= 1) return (volume.value = 1)
+        volume.value += 0.1
+      })
+      window.mainApi?.on('decreaseVolume', () => {
+        if (volume.value - 0.1 <= 0) return (volume.value = 0)
+        volume.value -= 0.1
       })
     }
 
@@ -1615,11 +1611,16 @@ export const usePlayerStore = defineStore(
     // 获取淡入淡出时长，限制范围，防止极端值
     const getFadeDuration = () => {
       const d = settingsStore.general.fadeDuration
-      return Math.max(0.1, Math.min(3, Number(d) || 0.5))
+      return Math.max(0.1, Math.min(1, Number(d) || 0.2))
     }
 
     // S型淡入淡出曲线
-    const smoothGain = async (from: number, to: number, duration: number, gainNode: GainNode) => {
+    const smoothGain = async (
+      from: number,
+      to: number,
+      duration: number,
+      gainNode: HTMLAudioElement
+    ) => {
       return new Promise<void>((resolve) => {
         const start = performance.now()
         const change = to - from
@@ -1629,11 +1630,11 @@ export const usePlayerStore = defineStore(
           const now = performance.now()
           const elapsed = (now - start) / (duration * 1000)
           if (elapsed >= 1) {
-            gainNode.gain.value = to
+            gainNode.volume = to
             resolve()
             return
           }
-          gainNode.gain.value = ease(elapsed)
+          gainNode.volume = ease(elapsed)
           setTimeout(step, interval)
         }
         step()
@@ -1695,7 +1696,6 @@ export const usePlayerStore = defineStore(
       shuffle,
       lyricOffset,
       volume,
-      _volume,
       volumeBeforeMuted,
       _list,
       _shuffleList,
