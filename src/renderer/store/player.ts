@@ -488,7 +488,8 @@ export const usePlayerStore = defineStore(
       const nextLine = lyrics.lyric[currentIndex.line + 1]
 
       if (nextLine) {
-        const driftTime = nextLine.start - (audioNodes.audio?.currentTime || 0 + lyricOffset.value)
+        const driftTime =
+          nextLine.start - ((audioNodes.audio?.currentTime || 0) + lyricOffset.value)
         if (playing.value) {
           timer.line = setTimeout(
             () => {
@@ -510,7 +511,7 @@ export const usePlayerStore = defineStore(
       const nextFont = fontList.value[type][index + 1]
       if (nextFont) {
         const driftTime =
-          nextFont.start - (audioNodes.audio?.currentTime || 0 + lyricOffset.value) * 1000
+          nextFont.start - ((audioNodes.audio?.currentTime || 0) + lyricOffset.value) * 1000
         if (playing.value) {
           timer[type] = setTimeout(() => {
             clearTimeout(timer[type])

@@ -1,8 +1,17 @@
 <template>
-  <button class="button-icon"><slot></slot></button>
+  <button class="button-icon" @click="handleClick"><slot></slot></button>
 </template>
 
-<script setup lang="ts"></script>
+<script setup lang="ts">
+const handleClick = (e: any) => {
+  setTimeout(() => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur()
+    }
+    document.body.focus()
+  }, 0)
+}
+</script>
 
 <style scoped lang="scss">
 button {

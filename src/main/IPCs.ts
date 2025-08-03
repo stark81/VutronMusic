@@ -142,6 +142,12 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
         }
       } else if (key === 'shortcuts') {
         createMenu(win)
+        const global = store.get('settings.enableGlobalShortcut') as boolean
+        if (global) {
+          const { globalShortcut } = require('electron')
+          globalShortcut.unregisterAll()
+          registerGlobalShortcuts(win)
+        }
       }
     }
   })

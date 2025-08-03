@@ -1,15 +1,6 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
 import { doLogout } from './auth'
 
-// let baseUrl = ''
-
-// if (window.env?.isElectron) {
-//   //
-// } else {
-//   baseUrl = process.env.
-// }
-
-// const baseUrl = window.env?.isElectron ? '/netease' : ''
 const baseUrl = '/netease'
 
 const service: AxiosInstance = axios.create({
