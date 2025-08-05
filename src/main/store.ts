@@ -67,6 +67,7 @@ const store = new Store<TypeElectronStore>({
       closeAppOption: 'ask',
       useCustomTitlebar: false,
       showTray: true,
+      trayColor: 0, // 0: 彩色, 1: 白色, 2: 黑色, 3: 跟随系统
       enableGlobalShortcut: false,
       unblockNeteaseMusic: {
         enable: true,

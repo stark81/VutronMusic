@@ -107,7 +107,7 @@
                 <button-icon class="button" @click="addTrackToPlaylist"
                   ><SvgIcon icon-class="plus"
                 /></button-icon>
-                <button-icon class="button" @click="showContextMenu">
+                <button-icon class="button" :prevent-blur="true" @click="showContextMenu">
                   <SvgIcon icon-class="options" />
                 </button-icon>
               </div>

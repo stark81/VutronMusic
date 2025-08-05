@@ -92,7 +92,15 @@
               <div class="title">{{ $t('settings.general.closeAppOption.text') }}</div>
             </div>
             <div class="right">
-              <CustomSelect v-model="selectClose" :options="closeOptions" />
+              <CustomSelect v-model="closeAppOption" :options="closeOptions" />
+            </div>
+          </div>
+          <div v-if="!isMac" class="item">
+            <div class="left">
+              <div class="title">{{ $t('settings.general.trayColor.text') }}</div>
+            </div>
+            <div class="right">
+              <CustomSelect v-model="trayColor" :options="trayColorOptions" />
             </div>
           </div>
           <div class="item">
@@ -955,6 +963,7 @@ const {
   language,
   musicQuality,
   closeAppOption,
+  trayColor,
   lyricBackground
 } = toRefs(general.value)
 const { appearance, colors } = toRefs(theme.value)
@@ -1085,15 +1094,6 @@ const selectLanguage = computed({
   }
 })
 
-const selectClose = computed({
-  get: () => {
-    return closeAppOption.value
-  },
-  set: (value) => {
-    closeAppOption.value = value
-  }
-})
-
 const languageOption = computed(() => [
   { label: t('settings.general.language.zhHans'), value: 'zh' },
   { label: t('settings.general.language.zhHant'), value: 'zht' },
@@ -1104,6 +1104,13 @@ const closeOptions = computed(() => [
   { label: t('settings.general.closeAppOption.ask'), value: 'ask' },
   { label: t('settings.general.closeAppOption.minimizeToTray'), value: 'minimizeToTray' },
   { label: t('settings.general.closeAppOption.exit'), value: 'exit' }
+])
+
+const trayColorOptions = computed(() => [
+  { label: t('settings.general.trayColor.color'), value: 0 },
+  { label: t('settings.general.trayColor.white'), value: 1 },
+  { label: t('settings.general.trayColor.black'), value: 2 },
+  { label: t('settings.general.trayColor.auto'), value: 3 }
 ])
 
 const typeOptions = computed(() => [

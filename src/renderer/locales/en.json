@@ -296,6 +296,13 @@
         "blur": "Blur cover",
         "dynamic": "Dynamic"
       },
+      "trayColor": {
+        "text": "Tray Icon Color",
+        "color": "Color",
+        "white": "White",
+        "black": "Black",
+        "auto": "Auto (Based on system theme)"
+      },
       "logout": "Logout",
       "perventSuspend": "Prevent system sleep during playback"
     },
