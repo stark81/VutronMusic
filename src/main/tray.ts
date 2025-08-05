@@ -15,7 +15,11 @@ import path from 'path'
 let repeatMode = 'off'
 let shuffleMode = false
 
-// const getIcon = () => {}
+const themeList = [
+  { id: 0, fileName: 'vutronmusic-icon' },
+  { id: 1, fileName: 'vutronmusic-white' },
+  { id: 2, fileName: 'vutronmusic-black' }
+]
 
 const createNativeImage = (filename: string) => {
   const isDarkMode = nativeTheme.shouldUseDarkColors
@@ -24,6 +28,21 @@ const createNativeImage = (filename: string) => {
     Constants.IS_DEV_ENV
       ? path.join(process.cwd(), `./src/public/images/tray/${name}`)
       : path.join(__dirname, `../images/tray/${name}`)
+  )
+}
+
+const getIconPath = () => {
+  const themeId = (store.get('settings.trayColor') as number) || 0
+  const theme =
+    themeId === 3
+      ? nativeTheme.shouldUseDarkColors
+        ? themeList[1]
+        : themeList[2]
+      : themeList.find((t) => t.id === themeId) || themeList[0]
+  return nativeImage.createFromPath(
+    Constants.IS_DEV_ENV
+      ? path.join(process.cwd(), `./src/public/images/tray/${theme.fileName}.png`)
+      : path.join(__dirname, `../images/tray/${theme.fileName}.png`)
   )
 }
 
@@ -175,6 +194,7 @@ const createMenuTemplate = (win: BrowserWindow) => {
 export interface YPMTray {
   createTray: () => void
   updateTray: (img: string, width: number, height: number) => void
+  updateTrayColor: () => void
   destroyTray: () => void
   show: () => void
   setContextMenu: (setMenu: boolean) => void
@@ -203,6 +223,7 @@ class TrayImpl implements YPMTray {
     this.updateTooltip(app.name)
 
     nativeTheme.on('updated', () => {
+      this.updateTrayColor()
       this.setContextMenu(true)
     })
   }
@@ -212,13 +233,7 @@ class TrayImpl implements YPMTray {
       const tray = new Tray(nativeImage.createEmpty())
       this._tray = tray
     } else {
-      const image = nativeImage
-        .createFromPath(
-          Constants.IS_DEV_ENV
-            ? path.join(process.cwd(), `./src/public/images/tray/vutronmusic-icon.png`)
-            : path.join(__dirname, `../images/tray/vutronmusic-icon.png`)
-        )
-        .resize({ height: 20, width: 20 })
+      const image = getIconPath().resize({ height: 20, width: 20 })
       this._tray = new Tray(image)
     }
     this._tray.on('click', (event, bounds, position) => {
@@ -243,6 +258,12 @@ class TrayImpl implements YPMTray {
     const image = nativeImage.createFromDataURL(img).resize({ height, width })
     image.setTemplateImage(true)
     this._tray.setImage(image)
+  }
+
+  updateTrayColor() {
+    if (!this._tray || Constants.IS_MAC) return
+    const icon = getIconPath()
+    this._tray.setImage(icon.resize({ height: 20, width: 20 }))
   }
 
   show() {

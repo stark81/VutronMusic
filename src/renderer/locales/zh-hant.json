@@ -296,6 +296,13 @@
         "blur": "模糊封面",
         "dynamic": "動態"
       },
+      "trayColor": {
+        "text": "系統匣圖示顏色",
+        "color": "彩色",
+        "white": "白色",
+        "black": "黑色",
+        "auto": "自動 (跟隨系統主題)"
+      },
       "logout": "登出",
       "perventSuspend": "播放時防止系統休眠"
     },

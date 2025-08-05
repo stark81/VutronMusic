@@ -3,13 +3,29 @@
 </template>
 
 <script setup lang="ts">
+interface Props {
+  preventBlur?: boolean
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  preventBlur: false
+})
+
+const emit = defineEmits<{
+  click: [event: MouseEvent]
+}>()
+
 const handleClick = (e: any) => {
-  setTimeout(() => {
-    if (document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur()
-    }
-    document.body.focus()
-  }, 0)
+  emit('click', e)
+
+  if (!props.preventBlur) {
+    setTimeout(() => {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur()
+      }
+      document.body.focus()
+    }, 0)
+  }
 }
 </script>
 

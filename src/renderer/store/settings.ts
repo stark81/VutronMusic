@@ -45,7 +45,8 @@ export const useSettingsStore = defineStore(
       lyricBackground: 'true' as BackgroundEffect,
       enabledPlaylistCategories,
       fadeDuration: 0.2, // 音频淡入淡出时长（秒）
-      showBanner: true
+      showBanner: true,
+      trayColor: 0 // 0: 彩色, 1: 白色, 2: 黑色, 3: 跟随系统
     })
 
     const tray = reactive({
@@ -223,6 +224,13 @@ export const useSettingsStore = defineStore(
       }
     )
 
+    watch(
+      () => general.trayColor,
+      (val) => {
+        window.mainApi?.send('setStoreSettings', { trayColor: val })
+      }
+    )
+
     const togglePlaylistCategory = (name: string) => {
       const index = general.enabledPlaylistCategories.findIndex((c) => c === name)
       if (index !== -1) {
@@ -262,6 +270,7 @@ export const useSettingsStore = defineStore(
         enableGlobalShortcut: enableGlobalShortcut.value,
         shortcuts: toRaw(shortcuts.value),
         enableTrayMenu: trayMenu,
+        trayColor: general.trayColor,
         innerFirst: localMusic.useInnerInfoFirst,
         musicQuality: general.musicQuality,
         closeAppOption: general.closeAppOption,
