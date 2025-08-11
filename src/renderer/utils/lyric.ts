@@ -1,7 +1,6 @@
 import { randomNum } from '.'
 
 export const lyricParse = (lrc: any) => {
-  // console.log('lyricParse', lrc)
   if (Array.isArray(lrc)) {
     const result = parseJellyfinLyric(lrc)
     return result

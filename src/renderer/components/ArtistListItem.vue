@@ -1,6 +1,6 @@
 <template>
   <div class="item" :class="{ selected: selected }">
-    <img :src="`${image}?param=64y64`" loading="lazy" />
+    <img :src="image" loading="lazy" />
     <div class="title-and-artist">
       <div class="container">
         <div class="title"> {{ artistProp.name }} </div>
@@ -31,7 +31,12 @@ const props = defineProps({
 const artist = computed(() => props.artistProp)
 
 const image = computed(() => {
-  return artist.value.matched ? artist.value.img1v1Url : artist.value.picUrl
+  const url = artist.value.matched
+    ? (artist.value.img1v1Url ??
+      artist.value.picUrl ??
+      'https://p1.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg')
+    : artist.value.picUrl
+  return props.trackProp[0]?.type === 'local' ? url + '?param=64y64' : url
 })
 </script>
 

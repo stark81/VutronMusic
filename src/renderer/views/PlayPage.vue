@@ -38,7 +38,7 @@ import PlayerThemeModal from '../components/ModalPlayerTheme.vue'
 import PlayerFontModal from '../components/ModalPlayerFont.vue'
 import CommonPlayer from '../components/CommonPlayer.vue'
 import LottiePlayer from '../components/CreativePlayer.vue'
-import { useNormalStateStore } from '../store/state'
+import { TrackType, useNormalStateStore } from '../store/state'
 import { useSettingsStore } from '../store/settings'
 import { usePlayerStore } from '../store/player'
 import { storeToRefs } from 'pinia'
@@ -74,7 +74,10 @@ const addTrackToPlaylist = () => {
   addTrackToPlaylistModal.value = {
     show: true,
     selectedTrackID: [currentTrack.value.id],
-    type: currentTrack.value.type!
+    type:
+      currentTrack.value.type === 'stream'
+        ? (currentTrack.value.source as TrackType)
+        : (currentTrack.value.type as TrackType)
   }
 }
 

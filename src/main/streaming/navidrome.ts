@@ -2,7 +2,7 @@ import store from '../store'
 import axios from 'axios'
 import crypto from 'crypto'
 import qs from 'qs'
-import log from '../log'
+import { formatTime } from '../utils/utils'
 
 const apiVersion = '1.16.1'
 const client = 'VutronMusic'
@@ -22,12 +22,16 @@ const doLogin = async (baseUrl: string, username: string, password: string) => {
       username,
       password,
       token: generateToken(password, salt),
-      salt
+      salt,
+      status: 'login'
     })
-    store.set('accounts.selected', 'navidrome')
     return { code: 200 }
   } catch (error) {
-    log.error('===== navidrome login error =====', error.response)
+    const dialog = (await import('electron')).dialog
+    dialog.showErrorBox(
+      'Navidrome 接口请求失败',
+      JSON.stringify(error?.response?.data || error.message)
+    )
     return { code: 404, message: error?.response?.data?.error || '登录失败' }
   }
 }
@@ -43,7 +47,7 @@ const ApiRequest = async (endpoint: string, params?: Record<string, string>) => 
   const headers = {
     'x-nd-authorization': `Bearer ${store.get('accounts.navidrome.anthorization')}`,
     'x-nd-client-unique-id': store.get('accounts.navidrome.clientID') as string,
-    timeout: 15000
+    timeout: 5000
   }
 
   const queryString = new URLSearchParams(params).toString()
@@ -54,26 +58,13 @@ const ApiRequest = async (endpoint: string, params?: Record<string, string>) => 
     .then((res) => {
       return { code: 200, message: res.statusText, data: res.data }
     })
-    .catch((err) => {
-      if (err.code === 'ECONNREFUSED') {
-        return { code: 504, message: '连接navidrom服务器失败', data: undefined }
-      } else if (err.code === 'ETIMEDOUT') {
-        return { code: 504, message: '连接navidrom服务器超时', data: undefined }
-      } else if (err.code === 'ERR_BAD_REQUEST') {
-        const baseUrl = store.get('accounts.navidrome.url') as string
-        const username = store.get('accounts.navidrome.username') as string
-        const password = store.get('accounts.navidrome.password') as string
-        return doLogin(baseUrl, username, password).then((result) => {
-          if (result.code === 200) {
-            return axios.get(url, { headers }).then((res) => {
-              return { code: 200, message: res.statusText, data: res.data }
-            })
-          }
-          return { code: 401, message: err.response.data.error, data: undefined }
-        })
-      }
-      log.info('==== navidrome getTracks err ====', err)
-      return err
+    .catch(async (error) => {
+      const dialog = (await import('electron')).dialog
+      dialog.showErrorBox(
+        'Navidrome 接口请求失败',
+        JSON.stringify(error?.response?.data || error.message)
+      )
+      return error
     })
 }
 
@@ -101,12 +92,13 @@ const getRestUrl = (endpoint: string, params?: Record<string, any>) => {
 }
 
 interface NavidromeImpl {
+  systemPing: () => Promise<'logout' | 'login' | 'offline'>
   doLogin: (baseURL: string, username: string, password: string) => Promise<any>
   getTracks: () => Promise<{ code: number; message: string; data: any }>
   getPlaylists: () => Promise<{ code: number; message: string; data: any }>
   getPic: (id: string, size?: number) => string
   getStream: (id: string) => string
-  getLyricByID: (id: string) => string
+  getLyric: (id: string) => Promise<any>
   createPlaylist: (name: string) => Promise<{ status: string; pid: any }>
   deletePlaylist: (id: string) => Promise<boolean>
   addTracksToPlaylist: (op: string, playlistId: string, ids: string[]) => Promise<boolean>
@@ -115,6 +107,26 @@ interface NavidromeImpl {
 }
 
 class Navidrome implements NavidromeImpl {
+  async systemPing() {
+    const baseURL = (store.get('accounts.navidrome.url') as string) || ''
+    const status = store.get('accounts.navidrome.status') as 'logout' | 'login' | 'offline'
+    if (!baseURL || status === 'logout') return 'logout'
+
+    const url = getRestUrl('ping')
+    const res = await axios
+      .get(url, { timeout: 5000 })
+      .then((res) => {
+        store.set('accounts.navidrome.status', 'login')
+        return res
+      })
+      .catch((error) => ({ status: error?.code === 'ECONNREFUSED' ? 503 : 500, ...error }))
+
+    if (res.status === 200) {
+      return res.data['subsonic-response'].status === 'ok' ? 'login' : 'logout'
+    }
+    return res.status === 503 || res.response?.status === 504 ? 'offline' : 'logout'
+  }
+
   async doLogin(baseUrl: string, username: string, password: string) {
     return doLogin(baseUrl, username, password)
   }
@@ -131,7 +143,7 @@ class Navidrome implements NavidromeImpl {
             starred: song.starred,
             size: song.size,
             source: 'navidrome',
-            url: `atom://get-stream-music/${song.id}`,
+            url: this.getStream(song.id),
             gain: song.rgTrackGain,
             peak: song.rgTrackPeak,
             br: song.sampleRate,
@@ -145,14 +157,14 @@ class Navidrome implements NavidromeImpl {
               id: song.albumId,
               name: song.album,
               matched: false,
-              picUrl: `atom://get-stream-pic/${song.albumId}/64`
+              picUrl: `/stream-asset?service=navidrome&id=${song.albumId}&size=64`
             },
             artists: [
               {
                 id: song.artistId,
                 name: song.artist,
                 matched: false,
-                picUrl: `atom://get-stream-pic/${song.albumId}/64`
+                picUrl: this.getPic(song.artistId, 64)
               }
             ],
             picUrl: getRestUrl('getCoverArt', { id: song.albumId, size: 64 })
@@ -171,16 +183,6 @@ class Navidrome implements NavidromeImpl {
 
   async getPlaylists() {
     const response = await ApiRequest('playlist')
-    // if (response && response.code === 401) {
-    //   const baseUrl = store.get('accounts.navidrome.url') as string
-    //   const username = store.get('accounts.navidrome.username') as string
-    //   const password = store.get('accounts.navidrome.password') as string
-    //   const { code } = await this.doLogin(baseUrl, username, password)
-    //   if (code === 200) {
-    //     return this.getPlaylists()
-    //   }
-    //   return response
-    // }
     if (response.code && response.code === 200) {
       const playlists = await Promise.all(
         response.data.map(async (p: any) => {
@@ -192,7 +194,8 @@ class Navidrome implements NavidromeImpl {
             description: p.comment,
             updateTime: new Date(p.updatedAt).getTime(),
             trackCount: p.songCount,
-            coverImgUrl: `atom://get-stream-pic/${p.id}/512`,
+            coverImgUrl: this.getPic(p.id, 512),
+            service: 'navidrome',
             trackIds,
             creator: { nickname: p.ownerName }
           }
@@ -220,8 +223,50 @@ class Navidrome implements NavidromeImpl {
     return getRestUrl('stream', { id })
   }
 
-  getLyricByID(id: string) {
-    return getRestUrl('getLyricsBySongId.view', { id })
+  async getLyric(id: string) {
+    const result = {
+      lrc: { lyric: [] },
+      tlyric: { lyric: [] },
+      romalrc: { lyric: [] },
+      yrc: { lyric: [] },
+      ytlrc: { lyric: [] },
+      yromalrc: { lyric: [] }
+    }
+    const url = getRestUrl('getLyricsBySongId.view', { id })
+    const lyricRaw: any[] = await fetch(url)
+      .then((res) => res.json())
+      .then((data) => {
+        const lyricArray = data['subsonic-response'].lyricsList.structuredLyrics
+        return lyricArray ? lyricArray[0].line : []
+      })
+    if (lyricRaw.length) {
+      const map = new Map()
+      const chineseRegex = /[\u4E00-\u9FFF]/
+      lyricRaw.forEach(({ start, value }) => {
+        if (!map.has(start)) {
+          map.set(start, [])
+        }
+        map.get(start).push(value)
+      })
+
+      const sortedStarts = Array.from(map.keys()).sort((a, b) => a - b)
+      for (const start of sortedStarts) {
+        const values = map.get(start)
+        const timeStr = formatTime(start)
+        for (let i = 0; i < values.length; i++) {
+          if (i === 0) {
+            result.lrc.lyric.push(`${timeStr}${values[0]}`)
+          } else {
+            if (chineseRegex.test(values[i])) {
+              result.tlyric.lyric.push(`${timeStr}${values[i]}`)
+            } else {
+              result.romalrc.lyric.push(`${timeStr}${values[i]}`)
+            }
+          }
+        }
+      }
+    }
+    return result
   }
 
   async createPlaylist(name: string) {

@@ -128,8 +128,8 @@ const modeList = ['phone', 'email', 'qrCode', 'cookie'] as const
 const loginModes = ref([
   { mode: 'phone' as (typeof modeList)[number], selected: false, text: t('login.loginWithPhone') },
   { mode: 'email' as (typeof modeList)[number], selected: false, text: t('login.loginWithEmail') },
-  { mode: 'qrCode' as (typeof modeList)[number], selected: true, text: t('login.loginWithQrCode') },
-  { mode: 'cookie' as (typeof modeList)[number], selected: false, text: t('login.loginWithCookie') }
+  { mode: 'qrCode' as (typeof modeList)[number], selected: false, text: t('login.loginWithQr') },
+  { mode: 'cookie' as (typeof modeList)[number], selected: true, text: t('login.loginWithCookie') }
 ])
 
 const selectedMode = computed(() => loginModes.value.find((M) => M.selected)!)

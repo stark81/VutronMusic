@@ -35,12 +35,14 @@ const mainAvailChannels: string[] = [
   'stream-login',
   'get-stream-songs',
   'get-stream-playlists',
+  'get-stream-lyric',
   'deleteStreamPlaylist',
   'createStreamPlaylist',
   'updateStreamPlaylist',
   'logoutStreamMusic',
   'scrobbleStreamMusic',
   'likeAStreamTrack',
+  'systemPing',
   'get-stream-account',
   'check-update',
   'downloadUpdate',
@@ -152,5 +154,6 @@ contextBridge.exposeInMainWorld('env', {
   isEnableTitlebar: process.platform === 'win32' || process.platform === 'linux',
   isLinux: process.platform === 'linux',
   isMac: process.platform === 'darwin',
-  isWindows: process.platform === 'win32'
+  isWindows: process.platform === 'win32',
+  isDev: process.env.NODE_ENV === 'development'
 })

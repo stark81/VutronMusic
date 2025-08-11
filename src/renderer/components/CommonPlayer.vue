@@ -232,7 +232,7 @@ import { usePlayerStore } from '../store/player'
 import ContextMenu from './ContextMenu.vue'
 import { useSettingsStore, TranslationMode } from '../store/settings'
 import { hasListSource, getListSourcePath } from '../utils/playlist'
-import { useNormalStateStore } from '../store/state'
+import { useNormalStateStore, TrackType } from '../store/state'
 import { useStreamMusicStore } from '../store/streamingMusic'
 import { useDataStore } from '../store/data'
 import { Vibrant } from 'node-vibrant/browser'
@@ -321,6 +321,10 @@ const position = computed({
     return seek.value
   },
   set(value) {
+    if (!general.value.jumpToLyricBegin) {
+      seek.value = value
+      return
+    }
     const line = lyrics.value.lyric.find((l, index) => {
       const nextLine = lyrics.value.lyric[index + 1]
       if (nextLine) {
@@ -391,7 +395,7 @@ const formatTime = (time: number) => {
 const likeTrack = () => {
   if (currentTrack.value?.type === 'stream') {
     const op = currentTrack.value.starred ? 'unstar' : 'star'
-    likeAStreamTrack(op, currentTrack.value.id)
+    likeAStreamTrack(op, currentTrack.value)
   }
   if (currentTrack.value?.matched) {
     likeATrack(currentTrack.value.id)
@@ -403,7 +407,10 @@ const addTrackToPlaylist = () => {
   addTrackToPlaylistModal.value = {
     show: true,
     selectedTrackID: [currentTrack.value.id],
-    type: currentTrack.value.type!
+    type:
+      currentTrack.value.type === 'stream'
+        ? (currentTrack.value.source as TrackType)
+        : (currentTrack.value.type as TrackType)
   }
 }
 

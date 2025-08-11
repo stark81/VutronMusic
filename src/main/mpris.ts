@@ -10,8 +10,8 @@ export interface MprisImpl {
   setRepeatMode: (repeat: string) => void
   setShuffleMode: (isShuffle: boolean) => void
   setMetadata: (metadata: any) => void
-  setPosition: (data: { seeked: boolean; progress: number }) => void
-  setRate: (rate: number) => void
+  setPosition: (data: { progress: number }) => void
+  setRate: (rdata: { rate: number; progress: number }) => void
   setPersonalFM: (value: boolean) => void
 }
 
@@ -82,32 +82,32 @@ class Mpris implements MprisImpl {
       'xesam:title': metadata.title,
       'xesam:artist': metadata.artist.split(','),
       'xesam:album': metadata.album,
-      'xesam:url': metadata.url
+      'xesam:url': metadata.url,
+      'xesam:asText': metadata.asText,
+      'xesam:lyricOffset': metadata.lyricOffset
     }
+    this._player.rate = metadata.rate
+    this._player.seeked(metadata.progress * 1000 * 1000)
+    this._player.getPosition = () => metadata.progress * 1000 * 1000
   }
 
   setPersonalFM(value: boolean) {
     isPersonalFM = value
   }
 
-  setRate(rate: number) {
-    this._player.rate = rate
+  setRate(data: { rate: number; progress: number }) {
+    this._player.rate = data.rate
+    this.setPosition({ progress: data.progress })
   }
 
-  setPosition(data: { seeked: boolean; progress: number }) {
-    if (data.seeked) this._player.seeked(data.progress * 1000 * 1000)
+  setPosition(data: { progress: number }) {
+    this._player.seeked(data.progress * 1000 * 1000)
     this._player.getPosition = () => data.progress * 1000 * 1000
-    this._player.position = data.progress * 1000 * 1000
   }
 }
 
-// 使用 async 关键字，让这个函数本身变成异步的
 export async function createMpris(win: BrowserWindow): Promise<MprisImpl> {
-  // 创建实例的过程不变
   const mprisInstance = new Mpris(win)
-
-  // 使用 setImmediate 来“暂停”一瞬间，这会把后续操作推迟到下一个事件循环
-  // 这既打破了启动时的竞态条件，又能安全地返回完整的类实例
   await new Promise((resolve) => setImmediate(resolve))
 
   return mprisInstance

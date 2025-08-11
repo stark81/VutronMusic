@@ -177,9 +177,7 @@ export const splitArtist = (artist: string | undefined) => {
 export const getPicFromApi = async (url: string) => {
   let pic: Buffer | null = null
   let format: string = ''
-  if (url.startsWith('http') && !url.includes('?param=')) {
-    url = `${url}?param=512y512`
-  }
+  if (!url) return { pic, format }
   pic = await net
     .fetch(url)
     .then((res) => {
@@ -187,6 +185,10 @@ export const getPicFromApi = async (url: string) => {
       return res.arrayBuffer()
     })
     .then((res) => Buffer.from(res))
+    .catch((err) => {
+      console.log('===1===', err)
+      return err
+    })
   return { pic, format }
 }
 
@@ -201,7 +203,7 @@ export const getPicFromEmbedded = async (filePath: string) => {
   return { pic, format }
 }
 
-const getPicFromPath = async (filePath: string) => {
+export const getPicFromPath = async (filePath: string) => {
   let pic: Buffer | null = null
   let format: string = ''
   pic = await fs.promises.readFile(filePath)
@@ -218,10 +220,11 @@ export const getPic = async (track: any): Promise<{ pic: Buffer; format: string 
   ]
 
   let res: { pic: Buffer<ArrayBufferLike>; format: string }
+  const url = track.album?.picUrl || track.al?.picUrl
 
   for (const order of trackInfoOrder) {
     if (order === 'online' && track.matched) {
-      res = await getPicFromApi(track.album?.picUrl || track.al?.picUrl)
+      res = await getPicFromApi(url)
     } else if (order === 'path' && track.filePath) {
       const prefixs = ['.jpg', '.png', '.jpeg', '.webp']
       for (const prefix of prefixs) {
@@ -241,7 +244,7 @@ export const getPic = async (track: any): Promise<{ pic: Buffer; format: string 
     }
     if (res?.pic) return res
   }
-  res = await getPicFromApi(track.album?.picUrl || track.al?.picUrl)
+  res = await getPicFromApi(url)
   return res
 }
 
@@ -377,6 +380,30 @@ export const handleNeteaseResult = (name: string, result: any) => {
     }
     case CacheAPIs.Album: {
       result.songs = mapTrackPlayableStatus(result.songs)
+      return result
+    }
+    case CacheAPIs.ListenedRecords: {
+      if (result.weekData) {
+        result.weekData = result.weekData.map((item: any) => {
+          item.song = { ...item.song, type: 'online', matched: true }
+          return item
+        })
+      }
+      if (result.allData) {
+        result.allData = result.allData.map((item: any) => {
+          item.song = { ...item.song, type: 'online', matched: true }
+          return item
+        })
+      }
+      return result
+    }
+    case CacheAPIs.CloudDisk: {
+      result.data = result.data.map((item: any) => {
+        item.type = 'online'
+        item.matched = true
+        if (item.simpleSong) item.simpleSong = { ...item.simpleSong, type: 'online', matched: true }
+        return item
+      })
       return result
     }
     default:
@@ -585,57 +612,7 @@ export const deleteExcessCache = (deleteAll = false) => {
   }
 }
 
-const getNavidromeLyric = async (url: string) => {
-  const result = {
-    lrc: { lyric: [] },
-    tlyric: { lyric: [] },
-    romalrc: { lyric: [] },
-    yrc: { lyric: [] },
-    ytlrc: { lyric: [] },
-    yromalrc: { lyric: [] }
-  }
-  const lyricRaw: any[] = await fetch(url)
-    .then((res) => {
-      if (res.ok) {
-        return res.json()
-      }
-    })
-    .then((data) => {
-      const lyricArray = data['subsonic-response'].lyricsList.structuredLyrics
-      return lyricArray ? lyricArray[0].line : []
-    })
-
-  if (lyricRaw.length) {
-    const map = new Map()
-    const chineseRegex = /[\u4E00-\u9FFF]/
-    lyricRaw.forEach(({ start, value }) => {
-      if (!map.has(start)) {
-        map.set(start, [])
-      }
-      map.get(start).push(value)
-    })
-
-    const sortedStarts = Array.from(map.keys()).sort((a, b) => a - b)
-    for (const start of sortedStarts) {
-      const values = map.get(start)
-      const timeStr = formatTime(start)
-      for (let i = 0; i < values.length; i++) {
-        if (i === 0) {
-          result.lrc.lyric.push(`${timeStr}${values[0]}`)
-        } else {
-          if (chineseRegex.test(values[i])) {
-            result.tlyric.lyric.push(`${timeStr}${values[i]}`)
-          } else {
-            result.romalrc.lyric.push(`${timeStr}${values[i]}`)
-          }
-        }
-      }
-    }
-  }
-  return result
-}
-
-const formatTime = (ms: number) => {
+export const formatTime = (ms: number) => {
   const totalSeconds = ms / 1000 // 将毫秒转换为秒
   const minutes = Math.floor(totalSeconds / 60) // 计算分钟
   const seconds = totalSeconds - minutes * 60 // 计算剩余的秒数（含小数部分）
@@ -647,68 +624,6 @@ const formatTime = (ms: number) => {
   // 格式化分钟，确保两位
   const minutesStr = String(minutes).padStart(2, '0')
   return `[${minutesStr}:${secondsStr}]`
-}
-
-export const getStreamPic = async (ids: string) => {
-  const service =
-    (store.get('accounts.selected') as ['navidrome', 'emby', 'jellyfin'][number]) || 'navidrome'
-  if (service === 'navidrome') {
-    const navidrome = (await import('../streaming/navidrome')).default
-    const [id, size] = ids.split('/')
-    return fetch(navidrome.getPic(id, size ? Number(size) : null))
-  } else if (service === 'emby') {
-    const emby = (await import('../streaming/emby')).default
-    const [id, primary, size] = ids.split('/')
-    const url = emby.getPic(Number(id), primary, Number(size))
-    return fetch(url)
-  } else if (service === 'jellyfin') {
-    const jellyfin = (await import('../streaming/jellyfin')).default
-    const [id, size] = ids.split('/')
-    const url = jellyfin.getPic(id, Number(size))
-    return fetch(url).catch(async (err) => {
-      log.error('获取Jellyfin封面失败:', err)
-      return await fetch('atom://get-default-pic')
-    })
-  }
-}
-
-export const getStreamMusic = async (id: string, headers?: any) => {
-  const service =
-    (store.get('accounts.selected') as ['navidrome', 'emby', 'jellyfin'][number]) || 'navidrome'
-
-  if (service === 'navidrome') {
-    const navidrome = (await import('../streaming/navidrome')).default
-    return fetch(navidrome.getStream(id), { headers })
-  } else if (service === 'emby') {
-    const emby = (await import('../streaming/emby')).default
-    return fetch(emby.getStream(id), { headers })
-  } else if (service === 'jellyfin') {
-    const jellyfin = (await import('../streaming/jellyfin')).default
-    const url = jellyfin.getStream(id)
-    return fetch(url, { headers })
-  }
-}
-
-export const getStreamLyric = async (id: string) => {
-  const service =
-    (store.get('accounts.selected') as ['navidrome', 'emby', 'jellyfin'][number]) || 'navidrome'
-
-  if (service === 'navidrome') {
-    const navidrome = (await import('../streaming/navidrome')).default
-    const url = navidrome.getLyricByID(id)
-    const lyrics = await getNavidromeLyric(url)
-    return lyrics
-  } else if (service === 'emby') {
-    const emby = (await import('../streaming/emby')).default
-    const [idx, ,] = id.split('/')
-    const lyrics = await emby.getLyric(Number(idx))
-    return lyrics
-  } else if (service === 'jellyfin') {
-    const jellyfin = (await import('../streaming/jellyfin')).default
-    const [idx, ,] = id.split('/')
-    const lyrics = await jellyfin.getLyric(idx)
-    return lyrics
-  }
 }
 
 export const getFileName = (filePath: string) => {

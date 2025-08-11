@@ -12,7 +12,7 @@
           ><svg-icon icon-class="play" />
         </button>
       </div>
-      <img :src="picUrl" :style="imageStyles" loading="lazy" />
+      <img :src="imageUrl" :style="imageStyles" loading="lazy" />
       <Transition v-if="coverHover || alwaysShowShadow" name="fade">
         <div v-show="focus || alwaysShowShadow" class="shadow" :style="shadowStyles"></div>
       </Transition>
@@ -22,11 +22,11 @@
 
 <script setup lang="ts">
 import SvgIcon from './SvgIcon.vue'
-import { ref, computed } from 'vue'
+import { ref, computed, PropType } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePlayerStore } from '../store/player'
 import { useLocalMusicStore } from '../store/localMusic'
-import { useStreamMusicStore } from '../store/streamingMusic'
+import { useStreamMusicStore, serviceName } from '../store/streamingMusic'
 import { storeToRefs } from 'pinia'
 import { getPlaylistDetail } from '../api/playlist'
 import { getArtist } from '../api/artist'
@@ -35,6 +35,7 @@ import { getAlbum } from '../api/album'
 const props = defineProps({
   id: { type: [Number, String], required: true },
   type: { type: String, required: true },
+  service: { type: String as PropType<serviceName>, default: '' },
   imageUrl: { type: String, required: true },
   fixedSize: { type: Number, default: 0 },
   playButtonSize: { type: Number, default: 22 },
@@ -72,20 +73,9 @@ const imageStyles = computed(() => {
   return styles
 })
 
-const picUrl = computed(() => {
-  let url = props.imageUrl
-  if (props.imageUrl.startsWith('http://')) {
-    url = props.imageUrl.replace('http://', 'https://')
-  }
-  if (url.indexOf('?param') === -1) {
-    url += '?param=256y256'
-  }
-  return url
-})
-
 const shadowStyles = computed(() => {
   const styles = {
-    backgroundImage: `url(${picUrl.value})`,
+    backgroundImage: `url(${props.imageUrl})`,
     borderRadius: props.type === 'artist' ? '50%' : '0'
   }
   return styles
@@ -109,7 +99,7 @@ const play = () => {
     const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : trackIDs.length - 1
     replacePlaylist('localPlaylist', props.id, trackIDs, idx)
   } else if (props.type === 'streamPlaylist') {
-    const playlist = streamMusic.playlists.value.find((p) => p.id === props.id)!
+    const playlist = streamMusic.playlists.value[props.service].find((p) => p.id === props.id)!
     const trackIDs = playlist.trackIds
     const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : trackIDs.length - 1
     replacePlaylist('streamPlaylist', props.id, trackIDs, idx)
@@ -129,7 +119,10 @@ const play = () => {
 }
 
 const goTo = () => {
-  router.push(`/${props.type}/${props.id}`)
+  const url = props.service
+    ? `/${props.type}/${props.service}/${props.id}`
+    : `/${props.type}/${props.id}`
+  router.push(url)
 }
 </script>
 

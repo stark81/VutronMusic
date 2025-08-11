@@ -39,7 +39,6 @@ const lyrics = ref({
   tlyric: [] as any[],
   rlyric: [] as any[]
 })
-const lyricOffset = ref(0)
 const indexs = reactive({
   line: -1,
   font: -1,
@@ -130,7 +129,6 @@ onMounted(() => {
       content: `${(player.currentTrack?.artists || player.currentTrack?.ar)[0]?.name} - ${player.currentTrack?.name}`
     }
   }
-  lyricOffset.value = (player.currentTrack?.offset || 0) * 1000
   progress.value = (player.progress ?? 0) * 1000
 
   initLyric({
@@ -155,8 +153,7 @@ onBeforeUnmount(() => {
 <style lang="scss">
 .container {
   user-select: none;
-  padding: 0 20px;
-  height: calc(100vh - 44px);
+  height: calc(100vh - 54px);
   scrollbar-width: none;
   display: flex;
   flex-direction: column;

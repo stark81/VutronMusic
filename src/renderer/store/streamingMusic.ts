@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { computed, ref, watch } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { Track, Playlist } from './localMusic'
 import _ from 'lodash'
 
@@ -8,13 +8,11 @@ export interface StreamPlaylist extends Omit<Playlist, 'id'> {
   trackItemIds: Record<number, number>
 }
 
-export const servicesName = ['navidrome', 'jellyfin', 'emby'] as const
-export type serviceName = (typeof servicesName)[number]
+export type serviceName = 'navidrome' | 'jellyfin' | 'emby'
 export type streamStatus = 'logout' | 'login' | 'offline'
 
 export type serviceType = {
   name: serviceName
-  selected: boolean
   status: streamStatus
 }
 
@@ -23,74 +21,80 @@ export const useStreamMusicStore = defineStore(
   () => {
     const enable = ref(false)
     const services = ref<serviceType[]>([
-      { name: 'navidrome', selected: true, status: 'logout' },
-      { name: 'jellyfin', selected: false, status: 'logout' },
-      { name: 'emby', selected: false, status: 'logout' }
+      { name: 'navidrome', status: 'logout' },
+      { name: 'jellyfin', status: 'logout' },
+      { name: 'emby', status: 'logout' }
     ])
-    const streamTracks = ref<Track[]>([])
-    const playlists = ref<StreamPlaylist[]>([])
+    const streamTracks = reactive<Record<serviceName, Track[]>>({
+      navidrome: [],
+      jellyfin: [],
+      emby: []
+    })
+    const playlists = reactive<Record<serviceName, StreamPlaylist[]>>({
+      navidrome: [],
+      jellyfin: [],
+      emby: []
+    })
     const sortBy = ref('default')
+    const groundBy = ref<serviceName | 'all'>('all')
     const message = ref('')
 
-    const streamLikedTracks = computed(() => {
-      return streamTracks.value.filter((track) => track.starred)
+    const loginedServices = computed(() => {
+      return services.value.filter((s) => s.status === 'login')
     })
 
-    const currentService = computed(() => services.value.find((s) => s.selected)!)
+    const streamLikedTracks = computed(() => {
+      const result = {} as Record<serviceName, Track[]>
+      services.value.forEach((service) => {
+        result[service.name] = (streamTracks[service.name] || []).filter((track) => track.starred)
+      })
+      return result
+    })
 
     const fetchStreamMusic = async () => {
-      if (!enable.value) return
-      const service = services.value.find((s) => s.selected)!
-      if (service.status === 'logout') return
+      const loginServices = loginedServices.value.map((s) => s.name)
+      if (!loginServices.length || !enable.value) return
+
       await window.mainApi
-        ?.invoke('get-stream-songs', { platform: service.name })
-        .then((data: { code: number; message: string; tracks: any; playlists: any }) => {
-          if (data?.code === 200) {
-            streamTracks.value = data.tracks
-            playlists.value = data.playlists
-            service.status = 'login'
-          } else if (data.code === 504) {
-            service.status = 'offline'
-            streamTracks.value = []
-            playlists.value = []
-          } else {
-            console.log('get-stream-songs response = ', data)
-          }
+        ?.invoke('get-stream-songs', { platforms: loginServices })
+        .then((data: { platform: serviceName; tracks: Track[] }[]) => {
+          loginServices.forEach((service) => {
+            streamTracks[service] = data.find((d) => d.platform === service)?.tracks || []
+          })
         })
         .catch((error) => error)
     }
 
     const fetchStreamPlaylist = async () => {
-      if (!enable.value) return
-      const service = services.value.find((s) => s.selected)!
-      if (service.status === 'logout') return
+      const loginServices = loginedServices.value.map((s) => s.name)
+      if (!loginServices.length || !enable.value) return
+
       window.mainApi
-        ?.invoke('get-stream-playlists', { platform: service.name })
-        .then((data: { code: number; playlists: StreamPlaylist[] }) => {
-          if (data.code === 200) {
-            playlists.value = data.playlists
-          }
+        ?.invoke('get-stream-playlists', { platforms: loginServices })
+        .then((data: { platform: serviceName; playlists: StreamPlaylist[] }[]) => {
+          loginServices.forEach((service) => {
+            playlists[service] = data.find((d) => d.platform === service)?.playlists || []
+          })
         })
     }
 
     const addOrRemoveTrackFromStreamPlaylist = async (
       op: 'add' | 'del',
+      service: serviceName,
       playlistId: string,
       ids: string[]
     ) => {
       if (!enable.value) return
-      const service = services.value.find((s) => s.selected)!
-      if (service.status === 'logout') return
       let newIDs: any[] = []
       if (op === 'add') {
-        const playlist = playlists.value.find((p) => p.id === playlistId)
+        const playlist = playlists[service].find((p) => p.id === playlistId)
         newIDs = _.difference(ids, (playlist?.trackIds || []) as unknown as string[])
         if (!newIDs.length) return false
       }
 
       const status: boolean = await window.mainApi?.invoke('updateStreamPlaylist', {
         op,
-        platform: service.name,
+        platform: service,
         playlistId,
         ids: op === 'add' ? newIDs : ids
       })
@@ -100,17 +104,16 @@ export const useStreamMusicStore = defineStore(
       return status
     }
 
-    const scrobble = (id: string | number) => {
+    const scrobble = (track: Track) => {
       if (!enable.value) return
-      const service = services.value.find((s) => s.selected)!
-      if (service.status === 'logout') return
-      window.mainApi?.send('scrobbleStreamMusic', { platform: service.name, id })
+      const service = track.source as serviceName
+      window.mainApi?.send('scrobbleStreamMusic', { platform: service, id: track.id })
     }
 
-    const getStreamLyric = async (id: string | number) => {
+    const getStreamLyric = async (track: Track) => {
       if (!enable.value) return
-      const service = services.value.find((s) => s.selected)!
-      if (service.status === 'logout') return
+      const service = track.source as serviceName
+
       let data = {
         lrc: { lyric: [] as any[] },
         tlyric: { lyric: [] as any[] },
@@ -119,72 +122,75 @@ export const useStreamMusicStore = defineStore(
         ytlrc: { lyric: [] as any[] },
         yromalrc: { lyric: [] as any[] }
       }
-      data = await fetch(`atom://get-stream-lyric/${id}`).then((res) => res.json())
+      data = await window.mainApi?.invoke('get-stream-lyric', { platform: service, id: track.id })
       return data
     }
 
-    const handleStreamLogout = () => {
-      if (!enable.value) return
-      const service = services.value.find((s) => s.selected)!
-      if (service.status === 'logout') return
-      window.mainApi?.invoke('logoutStreamMusic', { platform: service.name }).then(() => {
-        service.status = 'logout'
+    const handleStreamLogout = (service: serviceName) => {
+      const selectedService = services.value.find((s) => s.name === service)!
+      if (!enable.value || selectedService.status === 'logout') return
+      window.mainApi?.invoke('logoutStreamMusic', { platform: service }).then(() => {
+        selectedService.status = 'logout'
+        streamTracks[service] = []
+        playlists[service] = []
       })
     }
 
-    const getStreamPic = async (track: Track, size: number = 512) => {
-      if (!enable.value) return
-      const service = services.value.find((s) => s.selected)!
-      if (service.status === 'logout') return
-      let id = track.id as any
-      const match = (track.album || track.al).picUrl.match(/get-stream-pic\/(.*)/)
-      if (match) {
-        id = match[1].replace('/64', `/${size}`)
-        return await fetch(`atom://get-stream-pic/${id}`)
-          .then((res) => res.blob())
-          .then((res) => URL.createObjectURL(res))
-          .catch(() => null)
-      } else {
-        return new URL(`../assets/images/default.jpg`, import.meta.url).href
-      }
+    const getStreamPic = (track: Track, size: number = 512) => {
+      const service = track.source as serviceName
+      const selectedService = services.value.find((s) => s.name === service)!
+      if (!enable.value || selectedService.status === 'logout') return
+
+      let url = (track.album || track.al).picUrl
+      const regex = /size=\d+/
+      url = url.replace(regex, `size=${size}`)
+      return url
     }
 
-    const likeAStreamTrack = (op: 'unstar' | 'star', id: string | number) => {
-      if (!enable.value) return
-      const service = services.value.find((s) => s.selected)!
-      if (service.status === 'logout') return
+    const likeAStreamTrack = (op: 'unstar' | 'star', track: Track) => {
+      const service = track.source as serviceName
+      const selectedService = services.value.find((s) => s.name === service)!
+      if (!enable.value || selectedService.status === 'logout') return
+
       window.mainApi
-        ?.invoke('likeAStreamTrack', { platform: service.name, operation: op, id })
-        .then((res: boolean) => {
+        ?.invoke('likeAStreamTrack', { platform: service, operation: op, id: track.id })
+        .then(async (res: boolean) => {
           if (res) {
-            const track = streamTracks.value.find((track) => track.id === id)
-            if (track) track.starred = !track.starred
+            const t = streamTracks[service].find((t) => t.id === track.id)
+            if (t) t.starred = !t.starred
           }
         })
     }
 
     const getAStreamTrack = (id: string | number) => {
-      return streamTracks.value.find((track) => track.id === id)
+      return _.cloneDeep(_.flatten(Object.values(streamTracks)).find((track) => track.id === id)!)
     }
 
-    watch(currentService, () => {
-      streamTracks.value = []
-      playlists.value = []
-      fetchStreamMusic()
-      fetchStreamPlaylist()
-    })
+    const checkStreamStatus = async () => {
+      await window.mainApi?.invoke('systemPing').then((res: Record<serviceName, streamStatus>) => {
+        services.value.forEach((service) => {
+          service.status = res[service.name] || 'logout'
+          if (service.status !== 'login') {
+            streamTracks[service.name] = []
+            playlists[service.name] = []
+          }
+        })
+      })
+    }
 
     return {
       enable,
       services,
-      currentService,
+      loginedServices,
       streamTracks,
       streamLikedTracks,
       playlists,
       sortBy,
+      groundBy,
       message,
       scrobble,
       getStreamLyric,
+      checkStreamStatus,
       getStreamPic,
       getAStreamTrack,
       likeAStreamTrack,

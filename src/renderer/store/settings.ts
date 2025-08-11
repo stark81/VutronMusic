@@ -3,10 +3,9 @@ import { ref, reactive, watch, onMounted, toRaw } from 'vue'
 import DefaultShortcuts from '../utils/shortcuts'
 import { playlistCategories } from '../utils/common'
 import cloneDeep from 'lodash/cloneDeep'
-// import snow from '../assets/lottie/snow.json'
+import { useLocalMusicStore } from './localMusic'
 
 export type TranslationMode = 'none' | 'tlyric' | 'rlyric'
-export type StreamStatus = 'logout' | 'login' | 'offline'
 export type TrackInfoOrder = 'path' | 'online' | 'embedded'
 type TextAlign = 'start' | 'center' | 'end'
 type BackgroundEffect = 'none' | 'true' | 'blur' | 'dynamic'
@@ -14,6 +13,9 @@ type BackgroundEffect = 'none' | 'true' | 'blur' | 'dynamic'
 export const useSettingsStore = defineStore(
   'settings',
   () => {
+    const localMusicStore = useLocalMusicStore()
+    const { scanLocalMusic } = localMusicStore
+
     const enabledPlaylistCategories = playlistCategories.filter((c) => c.enable).map((c) => c.name)
     const theme = reactive({
       appearance: 'auto', // as 'auto' | 'dark' | 'light',
@@ -46,6 +48,7 @@ export const useSettingsStore = defineStore(
       enabledPlaylistCategories,
       fadeDuration: 0.2, // 音频淡入淡出时长（秒）
       showBanner: true,
+      jumpToLyricBegin: true,
       trayColor: 0 // 0: 彩色, 1: 白色, 2: 黑色, 3: 跟随系统
     })
 
@@ -72,16 +75,6 @@ export const useSettingsStore = defineStore(
       nTranslationMode: 'tlyric',
       textAlign: 'start',
       useMask: true
-    })
-
-    const osdLyric = reactive({
-      show: false,
-      opacity: 0.2,
-      fontSize: 24,
-      playedColor: 'rgba(57, 203, 255, 1)',
-      unplayedColor: 'rgba(255, 255, 255, 0.8)',
-      alwaysOnTop: false,
-      lock: false
     })
 
     const unblockNeteaseMusic = reactive({
@@ -134,6 +127,13 @@ export const useSettingsStore = defineStore(
       },
       {
         deep: true
+      }
+    )
+
+    watch(
+      () => localMusic.scanDir,
+      () => {
+        scanLocalMusic()
       }
     )
 
@@ -191,15 +191,6 @@ export const useSettingsStore = defineStore(
       () => general.language,
       (newValue) => {
         window.mainApi?.send('setStoreSettings', { lang: newValue })
-      }
-    )
-
-    watch(
-      () => general.preventSuspension,
-      (value) => {
-        if (!value) {
-          window.mainApi?.send('update-powersave', false)
-        }
       }
     )
 
@@ -294,7 +285,6 @@ export const useSettingsStore = defineStore(
       enableGlobalShortcut,
       shortcuts,
       normalLyric,
-      osdLyric,
       autoCacheTrack,
       unblockNeteaseMusic,
       updateShortcut,

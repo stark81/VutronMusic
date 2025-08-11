@@ -4,11 +4,13 @@
       <div class="left" style="width: 100%">
         <InfoBG />
         <div class="content">
-          <h2 style="margin-bottom: 20px">流媒体歌曲 - {{ currentService.name }}</h2>
+          <h2 style="margin-bottom: 20px"
+            >流媒体歌曲 - {{ defaultGroupBy === 'all' ? '聚合' : defaultGroupBy }}</h2
+          >
           <div class="content-info">
             <div>
               <div class="subtitle">全部歌曲</div>
-              <div class="text">{{ streamTracks.length }}首</div>
+              <div class="text">{{ defaultTracks.length }}首</div>
             </div>
             <div>
               <div class="subtitle">歌曲总时长</div>
@@ -16,7 +18,7 @@
             </div>
             <div>
               <div class="subtitle">流媒体歌单</div>
-              <div class="text">{{ playlists.length }}个</div>
+              <div class="text">{{ defaultPlaylists.length }}个</div>
             </div>
             <div>
               <div class="subtitle">歌曲占用</div>
@@ -27,17 +29,17 @@
       </div>
       <div class="right-top" @click="goToLikedSongsList">
         <div class="title"
-          >{{ $t('library.likedSongs') }} - {{ streamLikedTracks.length
-          }}{{ $t('common.songs') }}</div
+          >{{ $t('library.likedSongs') }} - {{ likedTracks.length }}{{ $t('common.songs') }}</div
         >
-        <p>
-          <span
+        <div>
+          <div
             v-for="(line, index) in pickedLyricLines"
             v-show="line !== ''"
             :key="`${line}${index}`"
-            >{{ line }}<br
-          /></span>
-        </p>
+            class="lyric-p"
+            >{{ line }}</div
+          >
+        </div>
       </div>
       <div class="right-bottom">{{ randomTrack?.artists[0].name }} - {{ randomTrack?.name }}</div>
     </div>
@@ -103,7 +105,7 @@
           ><svg-icon icon-class="plus" />{{ $t('library.playlist.newPlaylist') }}</button
         >
       </div>
-      <div v-if="currentService.status === 'offline'" class="errorInfo">{{ streamMessage }}</div>
+      <div v-if="!loginedServices.length" class="errorInfo">{{ streamMessage }}</div>
       <div v-if="show" class="section-two-content" :style="tabStyle">
         <div v-show="currentTab === 'track'">
           <TrackList
@@ -111,6 +113,8 @@
             ref="streamListRef"
             :items="sortedLocalTracks"
             :type="'streamPlaylist'"
+            :group-by="defaultGroupBy"
+            :show-service="true"
             :colunm-number="1"
             :is-end="true"
             :extra-context-menu-item="['addToStreamList']"
@@ -118,7 +122,7 @@
         </div>
         <div v-show="currentTab === 'playlist'">
           <CoverRow
-            :items="playlists"
+            :items="defaultPlaylists"
             type="streamPlaylist"
             sub-text="creator"
             :colunm-number="5"
@@ -135,10 +139,25 @@
     </div>
 
     <ContextMenu ref="streamTabMenu">
-      <div class="item" @click="sortBy = 'default'">{{ $t('contextMenu.defaultSort') }}</div>
-      <div class="item" @click="sortBy = 'byname'">{{ $t('contextMenu.sortByName') }}</div>
-      <div class="item" @click="sortBy = 'descend'">{{ $t('contextMenu.descendSort') }}</div>
-      <div class="item" @click="sortBy = 'ascend'">{{ $t('contextMenu.ascendSort') }}</div>
+      <div class="item" :class="{ active: groundBy === 'all' }" @click="groundBy = 'all'">聚合</div>
+      <div
+        v-for="service in loginedServices"
+        :key="service.name"
+        class="item"
+        :class="{ active: groundBy === service.name }"
+        @click="groundBy = service.name"
+      >
+        {{ service.name }}
+      </div>
+      <hr />
+      <div
+        v-for="sortOption in sortOptions"
+        :key="sortOption.value"
+        class="item"
+        :class="{ active: sortOption.value === sortBy }"
+        @click="sortBy = sortOption.value"
+        >{{ sortOption.name }}</div
+      >
       <hr v-show="!isBatchOp" />
       <div v-show="!isBatchOp" class="item" @click="isBatchOp = true">{{
         $t('contextMenu.batchOperation')
@@ -148,9 +167,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, inject, computed, onUnmounted, provide, watch, shallowRef } from 'vue'
+import { ref, onMounted, inject, computed, provide, watch, shallowRef, onBeforeUnmount } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useStreamMusicStore } from '../store/streamingMusic'
+import { serviceName, useStreamMusicStore } from '../store/streamingMusic'
 import { useNormalStateStore } from '../store/state'
 import { useRouter } from 'vue-router'
 import InfoBG from '../components/InfoBG.vue'
@@ -165,13 +184,17 @@ import { useI18n } from 'vue-i18n'
 import { randomNum } from '../utils'
 import { lyricParse, pickedLyric } from '../utils/lyric'
 import { Track } from '../store/localMusic'
+import _ from 'lodash'
 
-const { newPlaylistModal, modalOpen } = storeToRefs(useNormalStateStore())
+const stateStore = useNormalStateStore()
+const { newPlaylistModal, modalOpen } = storeToRefs(stateStore)
+const { showToast } = stateStore
 
 const streamMusicStore = useStreamMusicStore()
-const { sortBy, streamTracks, playlists, message, streamLikedTracks, currentService } =
+const { sortBy, streamTracks, playlists, message, streamLikedTracks, loginedServices, groundBy } =
   storeToRefs(streamMusicStore)
-const { fetchStreamMusic, fetchStreamPlaylist, getStreamLyric } = streamMusicStore
+const { fetchStreamMusic, fetchStreamPlaylist, getStreamLyric, checkStreamStatus } =
+  streamMusicStore
 
 const router = useRouter()
 
@@ -187,13 +210,41 @@ const currentTab = ref('track')
 const randomTrack = ref<Track>()
 const randomLyric = ref<{ content: string }[]>([])
 
+const { t } = useI18n()
+const sortOptions = [
+  { name: t('contextMenu.defaultSort'), value: 'default' },
+  { name: t('contextMenu.sortByName'), value: 'byname' },
+  { name: t('contextMenu.ascendSort'), value: 'ascend' },
+  { name: t('contextMenu.descendSort'), value: 'descend' }
+]
+
 const tabStyle = computed(() => {
   const marginTop = hasCustomTitleBar.value ? 20 : 0
   return { marginTop: `${marginTop}px` }
 })
 
+const defaultGroupBy = computed(() => {
+  if (loginedServices.value.length === 1) {
+    return loginedServices.value[0].name
+  }
+  return groundBy.value
+})
+
 const streamMessage = computed(() => {
-  return currentService.value.status === 'offline' ? message.value : ''
+  return loginedServices.value.length === 0 ? message.value : '当前服务离线，请稍后再试'
+})
+
+const defaultPlaylists = computed(() => {
+  if (groundBy.value === 'all') {
+    return _.cloneDeep(_.flatten(Object.values(playlists.value)))
+  }
+  return playlists.value[groundBy.value]
+})
+
+const likedTracks = computed(() => {
+  return groundBy.value === 'all'
+    ? _.flatten(Object.values(streamLikedTracks.value))
+    : streamLikedTracks.value[groundBy.value]
 })
 
 const pickedLyricLines = computed(() => {
@@ -204,7 +255,12 @@ const pickedLyricLines = computed(() => {
 const keyword = computed(() => streamSearchBoxRef.value?.keywords || '')
 
 const defaultTracks = computed(() => {
-  return streamTracks.value?.map((track, index) => ({ ...track, index }))
+  if (groundBy.value === 'all') {
+    return _.cloneDeep(
+      _.flatten(Object.values(streamTracks.value)).map((track, index) => ({ ...track, index }))
+    )
+  }
+  return streamTracks.value[groundBy.value].map((track, index) => ({ ...track, index }))
 })
 
 const filterStreamTracks = computed(() => {
@@ -236,7 +292,11 @@ const sortedLocalTracks = computed(() => {
 })
 
 const formatedTime = computed(() => {
-  const dt = streamTracks.value.map((track) => track.dt).reduce((acc, cur) => acc + cur, 0) / 1000
+  const dt =
+    defaultTracks.value
+      .map((track) => track.dt)
+      .filter((dt) => dt && !isNaN(Number(dt)))
+      .reduce((acc, cur) => acc + cur, 0) / 1000
   const hourse = Math.floor(dt / 3600)
   const minutes = Math.floor((dt % 3600) / 60)
   const seconds = Math.floor(dt % 60)
@@ -245,8 +305,8 @@ const formatedTime = computed(() => {
 
 const formatedMemory = computed(() => {
   const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
-  let memory = streamTracks.value
-    .map((track) => track.size)
+  let memory = defaultTracks.value
+    .map((track) => track.size!)
     .reduce((acc, cur) => acc + cur, 0) as number
   let i = 0
   while (memory >= 1024 && i < units.length - 1) {
@@ -277,7 +337,6 @@ const openTabMenu = (e: MouseEvent): void => {
   streamTabMenu.value?.openMenu(e)
 }
 
-const { t } = useI18n()
 const placeHolderMap = (tab: string) => {
   const pMap = {
     track: t('streamMusic.song'),
@@ -288,37 +347,40 @@ const placeHolderMap = (tab: string) => {
 }
 
 const goToLikedSongsList = () => {
-  router.push({ path: '/stream-liked-songs' })
+  router.push({ path: `/stream-liked-songs/${groundBy.value}` })
 }
 
 const openAddPlaylistModal = () => {
-  if (currentService.value.status !== 'login') return
+  if (groundBy.value === 'all' && loginedServices.value.length > 1) {
+    showToast('在聚合视图下无法进行操作，请先选择具体的流媒体服务')
+    return
+  }
   newPlaylistModal.value = {
-    type: 'stream',
+    type:
+      groundBy.value === 'all' ? loginedServices.value[0].name : (groundBy.value as serviceName),
     afterCreateAddTrackID: [],
     show: true
   }
 }
 
 const getRandomTrack = async () => {
-  const ids = streamLikedTracks.value.map((t) => t.id)
   let i = 0
   let data: any
-  let randomID: string | number
-  while (i < ids.length - 1) {
-    randomID = ids[randomNum(0, ids.length - 1)]
-    data = await getStreamLyric(randomID as unknown as string)
+  let randomT: Track
+  while (i < likedTracks.value.length - 1) {
+    randomT = likedTracks.value[randomNum(0, likedTracks.value.length - 1)]
+    data = await getStreamLyric(randomT)
     if (Array.isArray(data) || data.lrc.lyric.length > 0) {
       const { lyric } = lyricParse(data)
       const isInstrumental = lyric.filter((l) => l.content?.includes('纯音乐，请欣赏'))
       if (!isInstrumental.length) {
         randomLyric.value = lyric
+        randomTrack.value = randomT
         break
       }
     }
     i++
   }
-  randomTrack.value = streamTracks.value.find((t) => t.id === randomID)!
 }
 
 watch(modalOpen, (value) => {
@@ -330,9 +392,6 @@ watch(modalOpen, (value) => {
 provide('isBatchOp', isBatchOp)
 
 const navBarRef = inject('navBarRef', ref())
-// 这里需要进行调整
-// 1. 将滚动条组件变更为控制root元素滚动，而非main元素滚动
-// 2. root元素滚动应该和虚拟列表滚动互斥，即root元素滚动时虚拟列表不滚动，反之亦然
 const observeTab = new IntersectionObserver(
   (entries) => {
     entries.forEach((entry) => {
@@ -369,30 +428,25 @@ const handleResize = () => {
   if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
 }
 
-watch(currentService, (value) => {
-  if (value.status === 'logout') {
-    router.push('/streamLogin')
-  }
-})
-
 onMounted(async () => {
-  if (!streamTracks.value.length) {
+  await checkStreamStatus()
+  if (loginedServices.value.length === 0) {
+    router.push(`/streamLogin/${groundBy.value === 'all' ? 'navidrome' : groundBy.value}`)
+    return
+  }
+
+  if (!defaultTracks.value.length) {
     fetchStreamPlaylist()
     await fetchStreamMusic().then(() => {
-      if (currentService.value.status === 'login') {
-        show.value = true
-        getRandomTrack()
-      }
+      show.value = true
+      getRandomTrack()
     })
   } else {
     show.value = true
-    getRandomTrack()
-    fetchStreamMusic()
+    fetchStreamMusic().then(() => {
+      getRandomTrack()
+    })
     fetchStreamPlaylist()
-  }
-  if (currentService.value.status === 'logout') {
-    router.push('/streamLogin')
-    return
   }
   window.addEventListener('resize', handleResize)
   setTimeout(() => {
@@ -400,9 +454,10 @@ onMounted(async () => {
   }, 100)
 })
 
-onUnmounted(() => {
+onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
   navBarRef.value.searchBoxRef.$el.style.display = ''
+  observeTab.unobserve(tabsRowRef.value)
   observeTab.disconnect()
 })
 </script>
@@ -447,14 +502,14 @@ onUnmounted(() => {
   .title {
     font-size: 22px;
     font-weight: 700;
-    margin: 10px 0 10px 0;
+    margin-bottom: 20px;
     color: var(--color-primary);
   }
   .right-top {
     position: absolute;
     height: 190px;
     left: 580px;
-    width: 270px;
+    max-width: 270px;
     font-size: 18px;
     line-height: 30px;
     color: var(--color-primary);
@@ -462,6 +517,14 @@ onUnmounted(() => {
     justify-content: center;
     flex-direction: column;
     cursor: pointer;
+
+    .lyric-p {
+      height: 30px;
+      line-clamp: 1;
+      -webkit-line-clamp: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
   }
   .right-bottom {
     position: absolute;

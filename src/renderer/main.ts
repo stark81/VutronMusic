@@ -31,6 +31,12 @@ declare global {
       isLinux: boolean
       isMac: boolean
       isWindows: boolean
+      isDev: boolean
+    }
+    vutronmusic?: {
+      currentTrack: Record<string, any>
+      progress: number
+      lyric: { lrc: string; tlyric: string; romalrc: string }
     }
     LottieAnimation: (typeof import('vue3-lottie'))['Vue3Lottie']
   }

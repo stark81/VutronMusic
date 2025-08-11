@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
-import { ref, toRaw } from 'vue'
+import { ref, toRaw, toRefs } from 'vue'
+import { useSettingsStore } from './settings'
 import _ from 'lodash'
 
 type TrackType = 'online' | 'local' | 'stream'
@@ -36,6 +37,7 @@ export interface Track {
   artists: Artist[]
   picUrl: string
   source?: string
+  size?: number
   gain: number
   peak: number
   [key: string]: any
@@ -184,13 +186,17 @@ export const useLocalMusicStore = defineStore(
       )
     }
 
-    const getLocalPic = async (id: number) => {
-      const pic = new URL(`../assets/images/default.jpg`, import.meta.url).href
-      const result = await fetch(`atom://get-pic/${id}`)
-        .then((res) => res.blob())
-        .then((res) => URL.createObjectURL(res))
-        .catch(() => null)
-      return result ?? pic
+    const scanLocalMusic = async () => {
+      const settingsStore = useSettingsStore()
+      const { scanDir, scanning } = toRefs(settingsStore.localMusic)
+
+      window.mainApi?.send('clearDeletedMusic')
+
+      if (!scanDir.value) return
+      const isExist = await window.mainApi?.invoke('msgCheckFileExist', scanDir.value)
+      if (!isExist) return
+      scanning.value = true
+      window.mainApi?.send('msgScanLocalMusic', scanDir.value)
     }
 
     const resetLocalMusic = () => {
@@ -206,9 +212,9 @@ export const useLocalMusicStore = defineStore(
       sortPlaylistsIDs,
       sortBy,
       updateTrack,
+      scanLocalMusic,
       fetchLocalMusic,
       getLocalLyric,
-      getLocalPic,
       getALocalTrack,
       resetLocalMusic,
       createLocalPlaylist,

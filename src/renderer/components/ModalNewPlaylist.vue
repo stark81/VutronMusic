@@ -33,7 +33,7 @@ import { computed, ref, toRaw } from 'vue'
 import BaseModal from './BaseModal.vue'
 import { useNormalStateStore } from '../store/state'
 import { useLocalMusicStore } from '../store/localMusic'
-import { useStreamMusicStore } from '../store/streamingMusic'
+import { serviceName, useStreamMusicStore } from '../store/streamingMusic'
 import { useDataStore } from '../store/data'
 import { createPlaylist, addOrRemoveTrackFromPlaylist } from '../api/playlist'
 import { useI18n } from 'vue-i18n'
@@ -47,7 +47,7 @@ const { createLocalPlaylist } = useLocalMusicStore()
 const { fetchLikedPlaylist } = useDataStore()
 
 const streamMusicStore = useStreamMusicStore()
-const { currentService } = storeToRefs(streamMusicStore)
+// const { currentService } = storeToRefs(streamMusicStore)
 const { fetchStreamPlaylist, addOrRemoveTrackFromStreamPlaylist } = streamMusicStore
 
 const title = ref('')
@@ -76,10 +76,10 @@ const ids = computed({
 const modelTitle = computed(() => {
   if (type.value === 'local') {
     return t('localMusic.playlist.newPlaylist')
-  } else if (type.value === 'stream') {
-    return t('streamMusic.playlist.newPlaylist')
+  } else if (type.value === 'online') {
+    return t('library.playlist.newPlaylist')
   }
-  return t('library.playlist.newPlaylist')
+  return t('streamMusic.playlist.newPlaylist')
 })
 
 const close = () => {
@@ -110,23 +110,7 @@ const createAPlaylist = async () => {
     } else {
       showToast(t('toast.createLocalPlaylistFailed'))
     }
-  } else if (type.value === 'stream') {
-    window.mainApi
-      ?.invoke('createStreamPlaylist', {
-        name: title.value,
-        platform: currentService.value.name
-      })
-      .then((res: { status: 'ok' | 'failed'; pid: string | undefined }) => {
-        if (res.status === 'ok') {
-          if (ids.value.length) {
-            addOrRemoveTrackFromStreamPlaylist('add', res.pid as string, ids.value as string[])
-          }
-          close()
-          showToast(t('toast.createLocalPlaylistSuccess'))
-          fetchStreamPlaylist()
-        }
-      })
-  } else {
+  } else if (type.value === 'online') {
     const params: Record<string, any> = { name: title.value }
     if (isPrivate.value) params.privacy = 10
     createPlaylist(params).then((res) => {
@@ -150,6 +134,27 @@ const createAPlaylist = async () => {
         fetchLikedPlaylist()
       }
     })
+  } else {
+    window.mainApi
+      ?.invoke('createStreamPlaylist', {
+        name: title.value,
+        platform: type.value
+      })
+      .then((res: { status: 'ok' | 'failed'; pid: string | undefined }) => {
+        if (res.status === 'ok') {
+          if (ids.value.length) {
+            addOrRemoveTrackFromStreamPlaylist(
+              'add',
+              type.value as serviceName,
+              res.pid as string,
+              ids.value as string[]
+            )
+          }
+          close()
+          showToast(t('toast.createLocalPlaylistSuccess'))
+          fetchStreamPlaylist()
+        }
+      })
   }
 }
 </script>

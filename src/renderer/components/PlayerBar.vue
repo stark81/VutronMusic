@@ -116,7 +116,7 @@
           @click.stop="shuffle = !shuffle"
           ><svg-icon icon-class="shuffle"
         /></button-icon>
-        <div class="volume">
+        <div class="volume" @wheel="updateVolume">
           <div class="volume-slider" @click.stop>
             <vue-slider
               v-model="volume"
@@ -166,6 +166,7 @@ import { useOsdLyricStore } from '../store/osdLyric'
 import { useNormalStateStore } from '../store/state'
 import { hasListSource, getListSourcePath } from '../utils/playlist'
 import { useStreamMusicStore } from '../store/streamingMusic'
+import { useSettingsStore } from '../store/settings'
 import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
 import { computed, ref, watch } from 'vue'
@@ -202,6 +203,9 @@ let hoverTimeout
 const osdLyric = useOsdLyricStore()
 const { show } = storeToRefs(osdLyric)
 
+const settingsStore = useSettingsStore()
+const { general } = storeToRefs(settingsStore)
+
 const stateStore = useNormalStateStore()
 const { showLyrics, enableScrolling } = storeToRefs(stateStore)
 
@@ -227,6 +231,10 @@ const position = computed({
     return seek.value
   },
   set(value) {
+    if (!general.value.jumpToLyricBegin) {
+      seek.value = value
+      return
+    }
     const line = lyrics.value.lyric.find((l, index) => {
       const nextLine = lyrics.value.lyric[index + 1]
       if (nextLine) {
@@ -249,7 +257,7 @@ const marks = computed(() => {
 const likeTrack = () => {
   if (currentTrack.value?.type === 'stream') {
     const op = currentTrack.value.starred ? 'unstar' : 'star'
-    likeAStreamTrack(op, currentTrack.value.id)
+    likeAStreamTrack(op, currentTrack.value)
   } else if (currentTrack.value?.matched) {
     likeATrack(currentTrack.value.id)
   }
@@ -279,6 +287,12 @@ const setHover = (e: MouseEvent) => {
     hoverX.value = e.clientX + 'px'
     clearTimeout(hoverTimeout)
   }, 100)
+}
+
+const updateVolume = (e: WheelEvent) => {
+  e.preventDefault()
+  const delta = e.deltaY < 0 ? 0.02 : -0.02
+  volume.value = Math.min(Math.max(volume.value + delta, 0), 1)
 }
 
 const getPosition = (e: MouseEvent) => {

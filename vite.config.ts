@@ -136,7 +136,14 @@ export default defineConfig(({ mode }) => {
         '/netease': {
           target: `http://127.0.0.1:40001`,
           changeOrigin: true
-          // rewrite: (path) => path.replace(/^\/netease/, '')
+        },
+        '/local-asset': {
+          target: `http://127.0.0.1:40001`,
+          changeOrigin: true
+        },
+        '/stream-asset': {
+          target: `http://127.0.0.1:40001`,
+          changeOrigin: true
         }
       }
     }

@@ -3,7 +3,7 @@ import store from './store'
 
 let isPlaying = false
 let enableOSD = store.get('osdWin.show') as boolean
-let isLock = false
+let isLock = (store.get('osdWin.isLock') as boolean) || false
 
 export const createDockMenu = (win: BrowserWindow) => {
   const lang = store.get('settings.lang') as string

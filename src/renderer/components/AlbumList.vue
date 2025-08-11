@@ -23,6 +23,8 @@
       :list="showTracks"
       :item-height="48"
       class="track-list"
+      :above-value="5"
+      :below-value="5"
       :show-position="false"
       :is-end="true"
     >
@@ -31,6 +33,7 @@
           :key="index"
           :track-prop="item"
           :track-no="item.no || index + 1"
+          :show-service="item.type === 'stream'"
           type-prop="album"
           :style="{ marginLeft: '20px' }"
           @dblclick="playThisList(item.id)"

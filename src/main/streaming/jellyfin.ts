@@ -30,6 +30,7 @@ const sendItemsList = async (
 }
 
 interface JellyfinImpl {
+  systemPing: () => Promise<'logout' | 'login' | 'offline'>
   doLogin: (baseURL: string, username: string, password: string) => Promise<any>
   getTracks: () => Promise<{ code: number; message?: string; data?: any }>
   getPlaylists: () => Promise<{ code: number; message: string; data: any }>
@@ -44,6 +45,29 @@ interface JellyfinImpl {
 }
 
 class Jellyfin implements JellyfinImpl {
+  async systemPing() {
+    const baseUrl = store.get('accounts.jellyfin.url') as string
+    const status = store.get('accounts.jellyfin.status') as 'logout' | 'login' | 'offline'
+    if (!baseUrl || status === 'logout') return 'logout'
+    const response = await axios
+      .get(`${baseUrl}/System/Ping`, { timeout: 5000 })
+      .then((res) => {
+        store.set('accounts.jellyfin.status', 'login')
+        return res
+      })
+      .catch(() => ({ status: 504 }))
+
+    switch (response.status) {
+      case 200:
+        return 'login'
+      case 503:
+      case 504:
+        return 'offline'
+      default:
+        return 'logout'
+    }
+  }
+
   async doLogin(baseURL: string, Username: string, password: string) {
     const baseUrl = store.get('accounts.jellyfin.url') as string
     const url = `${baseUrl}/Users/AuthenticateByName`
@@ -59,11 +83,12 @@ class Jellyfin implements JellyfinImpl {
       if (response.status === 200) {
         store.set('accounts.jellyfin.userId', response.data.User.Id)
         store.set('accounts.jellyfin.accessToken', response.data.AccessToken)
-        return { code: 200, message: 'Login successful', data: response.data }
+        store.set('accounts.jellyfin.status', 'login')
+        return { code: 200 }
       }
     } catch (err) {
       log.error('==== jellyfin doLogin err ====', err)
-      return { code: 401, message: 'Login failed', data: undefined }
+      return { code: 404, message: 'Login failed', data: undefined }
     }
   }
 
@@ -105,7 +130,7 @@ class Jellyfin implements JellyfinImpl {
             return acc
           }, {})
           const url = p.ImageTags?.Primary
-            ? `atom://get-stream-pic/${p.Id}/512`
+            ? this.getPic(p.Id, 512)
             : 'https://p1.music.126.net/jWE3OEZUlwdz0ARvyQ9wWw==/109951165474121408.jpg?param=512y512'
           const playlist = {
             id: p.Id,
@@ -114,6 +139,7 @@ class Jellyfin implements JellyfinImpl {
             updateTime: new Date(p.DateCreated).getTime(),
             trackCount: p.ChildCount,
             coverImgUrl: url,
+            service: 'jellyfin',
             trackIds,
             trackItemIds,
             creator: { nickname: username }
@@ -203,7 +229,7 @@ class Jellyfin implements JellyfinImpl {
 
   getPic(id: string, size: number) {
     const baseUrl = store.get('accounts.jellyfin.url') as string
-    const url = `${baseUrl}/Items/${id}/Images/Primary?fillHeight=${size}&fillWeight=${size}`
+    const url = `${baseUrl}/Items/${id}/Images/Primary?fillHeight=${size}&fillWidth=${size}`
     return url
   }
 
@@ -224,15 +250,10 @@ class Jellyfin implements JellyfinImpl {
       return { code: res1.status, message: 'Failed to fetch tracks', data: [] }
     }
     const tracks = res1.data.Items.map((song: any) => {
-      const picUrl = song.ImageTags?.Primary
-        ? `atom://get-stream-pic/${song.Id}/64`
-        : song.AlbumPrimaryImageTag
-          ? `atom://get-stream-pic/${song.AlbumId}/64`
-          : 'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg?param=128y128'
       const artists = song.ArtistItems?.map((artist: any) => {
         const art = res2.data.Items.find((a: any) => a.Id === artist.Id)!
         const artUrl = art?.ImageTags?.Primary
-          ? `atom://get-stream-pic/${artist.Id}/64`
+          ? this.getPic(artist.Id, 64)
           : 'http://p1.music.126.net/6y-UleORITEDbvrOLV0Q8A==/5639395138885805.jpg?param=64y64'
         return { name: artist.Name, id: artist.Id, picUrl: artUrl, matched: false }
       })
@@ -243,7 +264,7 @@ class Jellyfin implements JellyfinImpl {
         starred: song.UserData?.IsFavorite || false,
         size: song.MediaSources[0]?.Size || 0,
         source: 'jellyfin',
-        url: `atom://get-stream-music/${song.Id}`,
+        url: this.getStream(song.Id),
         gain: song.NormalizationGain || 0,
         peak: 1,
         br: song.MediaSources?.[0].Bitrate || 0,
@@ -257,7 +278,7 @@ class Jellyfin implements JellyfinImpl {
           id: song.AlbumId,
           name: song.Album,
           matched: false,
-          picUrl
+          picUrl: `/stream-asset?service=jellyfin&id=${song.Id}&primary=${song.ImageTags?.Primary}&size=64`
         },
         artists,
         picUrl: this.getPic(song.Id, 64)

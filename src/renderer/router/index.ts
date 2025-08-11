@@ -52,7 +52,7 @@ const routes = [
     }
   },
   {
-    path: '/streamLogin',
+    path: '/streamLogin/:service',
     name: 'streamLogin',
     component: StreamLogin
   },
@@ -62,7 +62,7 @@ const routes = [
     component: StreamPage
   },
   {
-    path: '/streamPlaylist/:id',
+    path: '/streamPlaylist/:service/:id',
     name: 'streamPlaylist',
     component: PlaylistPage
   },
@@ -75,7 +75,7 @@ const routes = [
     }
   },
   {
-    path: '/stream-liked-songs',
+    path: '/stream-liked-songs/:service',
     name: 'streamLikedSongs',
     component: PlaylistPage
   },

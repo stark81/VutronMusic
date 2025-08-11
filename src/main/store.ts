@@ -31,6 +31,7 @@ export interface TypeElectronStore {
       username: string
       password: string
       salt: string
+      status: 'logout' | 'login' | 'offline'
     }
     emby: {
       url: string
@@ -38,6 +39,7 @@ export interface TypeElectronStore {
       password: string
       userId: string
       accessToken: string
+      status: 'logout' | 'login' | 'offline'
     }
     jellyfin: {
       url: string
@@ -45,6 +47,7 @@ export interface TypeElectronStore {
       password: string
       userId: string
       accessToken: string
+      status: 'logout' | 'login' | 'offline'
     }
   }
 }
@@ -136,21 +139,24 @@ const store = new Store<TypeElectronStore>({
         username: '',
         password: '',
         token: '',
-        salt: ''
+        salt: '',
+        status: 'logout'
       },
       emby: {
         url: '',
         username: '',
         password: '',
         userId: '',
-        accessToken: ''
+        accessToken: '',
+        status: 'logout'
       },
       jellyfin: {
         url: '',
         username: '',
         password: '',
         userId: '',
-        accessToken: ''
+        accessToken: '',
+        status: 'logout'
       }
     }
   }

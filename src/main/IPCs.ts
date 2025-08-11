@@ -179,7 +179,6 @@ function initOSDWindowIpcMain(win: BrowserWindow, lrc: { [key: string]: Function
     } else if (key === 'isLock') {
       isLock = value
       // 当设置鼠标忽略时，同时设置窗口置顶，避免窗口不位于最上层而导致无法点击
-      store.set('osdWin.isAlwaysOnTop', value)
       lrc.toggleMouseIgnore()
     }
   })
@@ -359,20 +358,21 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
               }
 
               // 获取专辑信息
+              const id = songs.length + newTracks.length + 1
               let album = [...albums, ...newAlbums].find((album) => album.name === common.album)
               if (!album) {
                 album = {
                   id: albums.length + newAlbums.length + 1,
                   name: common.album ?? '未知专辑',
                   matched: false,
-                  picUrl: 'atom://get-default-pic'
+                  picUrl: `/local-asset/pic?id=${id}`
                 }
                 newAlbums.push(album)
               }
 
               // 获取音乐信息
               const track = {
-                id: songs.length + newTracks.length + 1,
+                id,
                 name: common.title ?? getFileName(filePath) ?? '错误文件',
                 dt: (format.duration ?? 0) * 1000,
                 source: 'localTrack',
@@ -388,7 +388,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
                 alias: [],
                 album,
                 artists: arIDsResult,
-                picUrl: 'atom://get-default-pic'
+                picUrl: `/local-asset/pic?id=${id}`
               }
               win.webContents.send('msgHandleScanLocalMusic', { track })
               newTracks.push(track)
@@ -487,7 +487,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
   })
 
   ipcMain.handle('getFontList', async (event) => {
-    const { getFonts } = await import('font-list')
+    const getFonts = (await import('font-list')).getFonts
     try {
       const fonts = await getFonts()
       const cleandFonts = [...new Set(fonts.map(cleanFontName))]
@@ -510,7 +510,7 @@ async function initMprisIpcMain(win: BrowserWindow, mpris: MprisImpl): Promise<v
   //   dbus.iface?.emit(signalNameEnum.currentLrc, data)
   // })
 
-  const createDBus = await import('./dbusClient').then((m) => m.createDBus)
+  const createDBus = (await import('./dbusClient')).createDBus
 
   const busName = 'org.gnome.Shell.TrayLyric'
   const dbus = createDBus(busName, win)
@@ -546,14 +546,11 @@ async function initMprisIpcMain(win: BrowserWindow, mpris: MprisImpl): Promise<v
       }
     }
   })
-  ipcMain.on(
-    'playerCurrentTrackTime',
-    (event: IpcMainEvent, data: { seeked: boolean; progress: number }) => {
-      mpris?.setPosition(data)
-    }
-  )
-  ipcMain.on('updateRate', (event: IpcMainEvent, rate: number) => {
-    mpris?.setRate(rate)
+  ipcMain.on('playerCurrentTrackTime', (event: IpcMainEvent, data: { progress: number }) => {
+    mpris?.setPosition(data)
+  })
+  ipcMain.on('updateRate', (event: IpcMainEvent, data: { rate: number; progress: number }) => {
+    mpris?.setRate(data)
   })
 }
 
@@ -580,27 +577,19 @@ async function initStreaming() {
     }
   })
 
-  ipcMain.handle('get-stream-songs', async (event, data) => {
-    store.set('accounts.selected', data.platform)
-    if (data.platform === 'navidrome') {
-      const tracks = await navidrome.getTracks()
-      const playlists = await navidrome.getPlaylists()
-      return {
-        code: tracks.code,
-        message: tracks.message,
-        tracks: tracks.data,
-        playlists: playlists.data
-      }
-    } else if (data.platform === 'emby') {
-      const tracks = await emby.getTracks()
-      const playlists = await emby.getPlaylists()
-      return { code: tracks.code, message: '', tracks: tracks.data, playlists: playlists.data }
-    } else if (data.platform === 'jellyfin') {
-      const tracks = await jellyfin.getTracks()
-      const playlists = await jellyfin.getPlaylists()
-      return { code: tracks.code, message: '', tracks: tracks.data, playlists: playlists.data }
+  ipcMain.handle(
+    'get-stream-songs',
+    async (event, data: { platforms: ('navidrome' | 'emby' | 'jellyfin')[] }) => {
+      const platformMap = { navidrome, emby, jellyfin }
+      const result = await Promise.all(
+        data.platforms.map(async (platform) => {
+          const tracks = await platformMap[platform].getTracks()
+          return { platform, tracks: tracks.data }
+        })
+      )
+      return result
     }
-  })
+  )
 
   ipcMain.handle('get-stream-account', (event, data) => {
     const url = (store.get(`accounts.${data.platform}.url`) as string) || ''
@@ -609,18 +598,28 @@ async function initStreaming() {
     return { url, username, password }
   })
 
-  ipcMain.handle('get-stream-playlists', async (event, data) => {
-    if (data.platform === 'navidrome') {
-      const playlists = await navidrome.getPlaylists()
-      return { code: playlists.code, playlists: playlists.data }
-    } else if (data.platform === 'emby') {
-      const playlists = await emby.getPlaylists()
-      return { code: playlists.code, playlists: playlists.data }
-    } else if (data.platform === 'jellyfin') {
-      const playlists = await jellyfin.getPlaylists()
-      return { code: playlists.code, playlists: playlists.data }
+  ipcMain.handle(
+    'get-stream-lyric',
+    async (event, data: { platform: 'navidrome' | 'emby' | 'jellyfin'; id: number | string }) => {
+      const platformMap = { navidrome, emby, jellyfin }
+      const lyric = await platformMap[data.platform].getLyric(data.id.toString())
+      return lyric
     }
-  })
+  )
+
+  ipcMain.handle(
+    'get-stream-playlists',
+    async (event, data: { platforms: ('navidrome' | 'emby' | 'jellyfin')[] }) => {
+      const platformMap = { navidrome, emby, jellyfin }
+      const result = await Promise.all(
+        data.platforms.map(async (platform) => {
+          const playlists = await platformMap[platform].getPlaylists()
+          return { platform, playlists: playlists.data }
+        })
+      )
+      return result
+    }
+  )
 
   ipcMain.handle('logoutStreamMusic', (event, data) => {
     if (data.platform === 'navidrome') {
@@ -628,14 +627,17 @@ async function initStreaming() {
       store.set('accounts.navidrome.anthorization', '')
       store.set('accounts.navidrome.token', '')
       store.set('accounts.navidrome.salt', '')
+      store.set('accounts.navidrome.status', 'logout')
       return true
     } else if (data.platform === 'emby') {
       store.set('accounts.emby.userId', '')
       store.set('accounts.emby.accessToken', '')
+      store.set('accounts.emby.status', 'logout')
       return true
     } else if (data.platform === 'jellyfin') {
       store.set('accounts.jellyfin.userId', '')
       store.set('accounts.jellyfin.accessToken', '')
+      store.set('accounts.jellyfin.status', 'logout')
       return true
     }
   })
@@ -700,5 +702,14 @@ async function initStreaming() {
       const result = await jellyfin.likeATrack(data.operation, data.id)
       return result
     }
+  })
+
+  ipcMain.handle('systemPing', async (event) => {
+    const res = await Promise.all([
+      navidrome.systemPing(),
+      emby.systemPing(),
+      jellyfin.systemPing()
+    ])
+    return { navidrome: res[0], emby: res[1], jellyfin: res[2] }
   })
 }

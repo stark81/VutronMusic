@@ -106,7 +106,7 @@
           >
             <svg-icon :icon-class="isLiked ? 'heart-solid' : 'heart'"></svg-icon>
           </button-icon>
-          <button-icon class="button" @click="showContextMenu">
+          <button-icon class="button" :prevent-blur="true" @click="showContextMenu">
             <SvgIcon icon-class="options" />
           </button-icon>
         </div>
@@ -230,7 +230,7 @@ const {
 const { playPrev, playOrPause, _playNextTrack, switchRepeatMode, moveToFMTrash } = playerStore
 
 const settingsStore = useSettingsStore()
-const { playerTheme } = storeToRefs(settingsStore)
+const { playerTheme, general } = storeToRefs(settingsStore)
 
 const { likeATrack } = useDataStore()
 const { likeAStreamTrack } = useStreamMusicStore()
@@ -358,6 +358,10 @@ const position = computed({
     return seek.value
   },
   set(value) {
+    if (!general.value.jumpToLyricBegin) {
+      seek.value = value
+      return
+    }
     const line = lyrics.value.lyric.find((l, index) => {
       const nextLine = lyrics.value.lyric[index + 1]
       if (nextLine) {
@@ -377,7 +381,7 @@ const heartDisabled = computed(() => {
 const likeTrack = () => {
   if (currentTrack.value?.type === 'stream') {
     const op = currentTrack.value.starred ? 'unstar' : 'star'
-    likeAStreamTrack(op, currentTrack.value.id)
+    likeAStreamTrack(op, currentTrack.value)
   } else if (currentTrack.value?.matched) {
     likeATrack(currentTrack.value.id)
   }
@@ -895,7 +899,7 @@ onBeforeUnmount(() => {
   left: 0;
   padding-bottom: 10px;
   width: 100%;
-  border-radius: 12px;
+  border-radius: 12px 12px 0 0;
   background: rgba(255, 255, 255, 0.78);
   backdrop-filter: blur(12px) opacity(1);
   color: var(--color-text);

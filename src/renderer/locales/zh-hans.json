@@ -168,7 +168,7 @@
     "usernameLogin": "用户名登录",
     "loginWithEmail": "邮箱登录",
     "loginWithPhone": "手机号登录",
-    "loginWithQrCode": "二维码登陆",
+    "loginWithQr": "二维码登陆",
     "loginWithCookie": "Cookie登陆",
     "noticeElectron": "你的密码会在本地进行MD5加密后再传输到网易云API。VutronMusic 不会传输你的账号数据到任何非网易云音乐官方的服务器。"
   },
@@ -304,6 +304,7 @@
         "auto": "自动 (跟随系统主题)"
       },
       "logout": "登出",
+      "jumpToLyricBegin": "调整进度时吸附到歌词开始位置",
       "perventSuspend": "播放时防止系统休眠"
     },
     "theme": {
@@ -370,7 +371,13 @@
       },
       "staticTime": {
         "text": "鼠标停留时长",
-        "desc": "锁定后，鼠标停留该时长后（毫秒）降低窗体透明度，Linux系统下无效"
+        "desc": "锁定后，鼠标停留该时长后（毫秒）降低窗体透明度，",
+        "desc2": "设置为0则表示不启用该功能，Linux系统下无效"
+      },
+      "showButtonWhenLock": {
+        "text": "锁定后显示解锁按钮",
+        "desc": "启用后，锁定桌面歌词窗口时仍然显示解锁按钮，",
+        "desc2": "并启用鼠标停留降低窗体透明度功能"
       }
     },
     "unblock": {

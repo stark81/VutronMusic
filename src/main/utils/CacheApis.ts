@@ -22,6 +22,7 @@ export enum CacheAPIs {
   searchMatch = 'search/match',
   loginStatus = 'login/status',
   recommendTracks = 'recommend/songs',
+  CloudDisk = 'user/cloud',
 
   // not netease api
   LocalMusic = 'local_music',

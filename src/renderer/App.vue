@@ -75,10 +75,6 @@ const fetchData = () => {
   fetchLikedMVs()
   fetchCloudDisk()
 }
-const fetchLocalData = () => {
-  window.mainApi?.send('clearDeletedMusic')
-  scanLocalMusic()
-}
 
 const scrollEvent = () => {
   const scrollTop = mainRef.value.scrollTop
@@ -118,12 +114,8 @@ const userSelectNone = ref(false)
 const settingsStore = useSettingsStore()
 const { theme, localMusic, general } = storeToRefs(settingsStore)
 const appearance = ref(theme.value.appearance)
-const { scanDir, scanning } = toRefs(localMusic.value)
+const { scanning } = toRefs(localMusic.value)
 Utils.changeAppearance(appearance.value)
-
-watch(scanDir, () => {
-  scanLocalMusic()
-})
 
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
   if (appearance.value === 'auto') {
@@ -187,18 +179,6 @@ provide('updatePadding', (value: number) => {
 provide('scrollMainTo', (top: number, behavior = 'smooth') => {
   mainRef.value.scrollTo({ top, behavior })
 })
-
-const scanLocalMusic = async () => {
-  const filePath = scanDir.value
-
-  if (!filePath) return
-  const isExist = await window.mainApi?.invoke('msgCheckFileExist', filePath)
-  if (!isExist) return
-  scanning.value = true
-  window.mainApi?.send('msgScanLocalMusic', filePath)
-}
-
-provide('scanLocalMusic', scanLocalMusic)
 
 const handleChanelEvent = () => {
   window.mainApi?.send('updateOsdState', { show: show.value })
@@ -278,7 +258,6 @@ onMounted(async () => {
     theme.value.colors.find((c) => c.selected)?.color || 'rgba(51, 94, 234, 1)'
   )
   fetchData()
-  fetchLocalData()
   handleChanelEvent()
   checkUpdate()
 })

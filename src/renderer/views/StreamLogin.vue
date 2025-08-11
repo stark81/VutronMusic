@@ -10,13 +10,13 @@
       >
         <img
           :src="getImagePath(platform.name)"
-          :class="{ selected: platform.selected }"
+          :class="{ selected: platform.name === currentService }"
           alt="platform logo"
         />
       </div>
       <div class="indicator" :class="{ animated: isIndicatorReady }" :style="indicatorStyle"></div>
     </div>
-    <div class="title">{{ currentService.name }}</div>
+    <div class="title">{{ currentService }}</div>
     <div class="section-2">
       <div class="input-box">
         <div class="container" :class="{ active: inputFocus === 'web' }">
@@ -78,16 +78,18 @@ import { ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import SvgIcon from '../components/SvgIcon.vue'
 import { useStreamMusicStore, serviceName } from '../store/streamingMusic'
 import { storeToRefs } from 'pinia'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 const iconWrappers = ref<HTMLElement[]>([])
 const indicatorStyle = ref({ width: '0px', left: '0px' })
 const isIndicatorReady = ref(false)
+const currentService = ref<serviceName>('navidrome')
 
 const streamMusicStore = useStreamMusicStore()
-const { currentService, services } = storeToRefs(streamMusicStore)
+const { services } = storeToRefs(streamMusicStore)
 
 const router = useRouter()
+const route = useRoute()
 
 const inputFocus = ref('')
 const url = ref('')
@@ -100,7 +102,7 @@ const getImagePath = (platform: serviceName) => {
 }
 
 const updateIndicatorPosition = () => {
-  const index = services.value.indexOf(currentService.value)
+  const index = services.value.findIndex((s) => s.name === currentService.value)
   const wrapper = iconWrappers.value[index]
   const container = wrapper?.parentElement
 
@@ -116,27 +118,25 @@ const updateIndicatorPosition = () => {
 }
 
 const selectPlatform = (platform: serviceName) => {
-  services.value.forEach((s) => {
-    if (s.name === platform) {
-      s.selected = true
-    } else {
-      s.selected = false
-    }
-  })
+  currentService.value = platform
   nextTick(updateIndicatorPosition)
 }
 
 const login = () => {
   const params = {
-    platform: currentService.value.name,
+    platform: currentService.value,
     baseURL: url.value,
     username: user.value,
     password: password.value
   }
   window.mainApi?.invoke('stream-login', params).then((res: { code: number; message: any }) => {
     if (res.code === 200) {
-      currentService.value.status = 'login'
-      router.push('/stream')
+      services.value = services.value.map((service) =>
+        service.name === currentService.value ? { ...service, status: 'login' } : service
+      )
+      nextTick(() => {
+        router.push('/stream')
+      })
     } else {
       error.value = res.message
     }
@@ -144,11 +144,12 @@ const login = () => {
 }
 
 watch(currentService, (value) => {
-  if (value.status !== 'logout') {
+  const service = services.value.find((s) => s.name === value)!
+  if (service.status === 'login') {
     router.push('/stream')
     return
   }
-  window.mainApi?.invoke('get-stream-account', { platform: value.name }).then((result) => {
+  window.mainApi?.invoke('get-stream-account', { platform: value }).then((result) => {
     url.value = result?.url || ''
     user.value = result?.username || ''
     password.value = result?.password || ''
@@ -156,8 +157,10 @@ watch(currentService, (value) => {
 })
 
 onMounted(() => {
+  currentService.value = (route.params.service as serviceName) || 'jellyfin'
+
   window.mainApi
-    ?.invoke('get-stream-account', { platform: currentService.value.name })
+    ?.invoke('get-stream-account', { platform: currentService.value })
     .then((result) => {
       url.value = result?.url || ''
       user.value = result?.username || ''

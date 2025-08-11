@@ -23,6 +23,7 @@ declare global {
       isLinux: boolean
       isMac: boolean
       isWindows: boolean
+      isDev: boolean
     }
   }
 }

@@ -168,7 +168,7 @@
     "usernameLogin": "使用者名稱登入",
     "loginWithEmail": "電子郵件登入",
     "loginWithPhone": "手機號碼登入",
-    "loginWithQrCode": "QrCode登入",
+    "loginWithQr": "QrCode登入",
     "loginWithCookie": "Cookie登入",
     "noticeElectron": "你的密碼會在本地進行MD5加密後傳輸到網易雲API。VutronMusic 不會傳輸你的帳號資料到任何非網易雲音樂官方的伺服器。"
   },
@@ -304,6 +304,7 @@
         "auto": "自動 (跟隨系統主題)"
       },
       "logout": "登出",
+      "jumpToLyricBegin": "調整進度時吸附到歌詞開始位置",
       "perventSuspend": "播放時防止系統休眠"
     },
     "theme": {
@@ -370,7 +371,13 @@
       },
       "staticTime": {
         "text": "滑鼠停留時長",
-        "desc": "鎖定後，滑鼠停留該時長後（毫秒）降低視窗透明度，Linux系統下無效"
+        "desc": "鎖定後，滑鼠停留該時長後（毫秒）降低視窗透明度，",
+        "desc2": "設置為0則表示不啟用該功能，Linux系統下無效"
+      },
+      "showButtonWhenLock": {
+        "text": "鎖定後顯示解鎖按鈕",
+        "desc": "啟用後，鎖定桌面歌詞視窗時仍然顯示解鎖按鈕，",
+        "desc2": "並啟用鼠標停留降低視窗透明度功能"
       }
     },
     "unblock": {

@@ -18,6 +18,7 @@
           :id="item.id"
           :image-url="getImageUrl(item)"
           :type="type"
+          :service="item.service"
           :play-button-size="type === 'artist' ? 26 : playButtonSize"
         />
         <div class="text">
@@ -78,11 +79,11 @@ const getImageUrl = (item: any) => {
     let img1v1ID = item.img1v1Url.split('/')
     img1v1ID = img1v1ID[img1v1ID.length - 1]
     if (img1v1ID === '5639395138885805.jpg') {
-      return 'https://p2.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg?param=512y512'
+      return 'https://p2.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg'
     }
   }
   const img = item.img1v1Url || item.picUrl || item.coverImgUrl || item.avatarUrl
-  return `${img?.replace('thumbnail=140y140&', 'thumbnail=512y512&').replace('http://', 'https://')}?param=512y512`
+  return `${img?.replace('thumbnail=140y140&', 'thumbnail=512y512&')}${item.service ? '' : '?param=512y512'}`
 }
 
 const isExplicit = (item: any) => {

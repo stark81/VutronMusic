@@ -15,6 +15,7 @@ export const useOsdLyricStore = defineStore(
     const alwaysOnTop = ref(false)
     const fontSize = ref(26)
     const staticTime = ref(1500)
+    const showButtonWhenLock = ref(true)
     const isWordByWord = ref(true)
     const translationMode = ref<TranslationMode>('tlyric')
     const backgroundColor = ref('rgba(0, 0, 0, 0)')
@@ -34,6 +35,7 @@ export const useOsdLyricStore = defineStore(
         alwaysOnTop.value = newState.alwaysOnTop
         fontSize.value = newState.fontSize
         staticTime.value = newState.staticTime
+        showButtonWhenLock.value = newState.showButtonWhenLock
         isWordByWord.value = newState.isWordByWord
         backgroundColor.value = newState.backgroundColor
         playedLrcColor.value = newState.playedLrcColor
@@ -58,6 +60,7 @@ export const useOsdLyricStore = defineStore(
       unplayLrcColor,
       textShadow,
       translationMode,
+      showButtonWhenLock,
       font
     }
   },

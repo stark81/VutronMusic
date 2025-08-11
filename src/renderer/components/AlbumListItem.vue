@@ -34,9 +34,10 @@ const tracks = computed(() => props.trackProp)
 // const pic = ref()
 
 const image = computed(() => {
-  return tracks.value[0].matched || tracks.value[0].type === 'stream'
-    ? tracks.value[0].album.picUrl + '?param=64y64'
-    : `atom://get-pic/${tracks.value[0].id}`
+  if (tracks.value[0].type === 'local') {
+    return `/local-asset/pic?id=${tracks.value[0].id}`
+  }
+  return tracks.value[0].album.picUrl
 })
 
 const artists = computed(() => {

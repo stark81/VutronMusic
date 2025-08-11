@@ -9,17 +9,19 @@
       <Header v-show="hover" :class="{ lock: isLock }" :style="headerStyle" />
       <div v-show="!hover" class="header-title" :class="{ show: bground.alpha }">{{ title }}</div>
     </div>
-    <div v-show="isLock" class="control-lock">
+    <div v-show="isLock" class="control-lock" tabindex="-1">
       <button
         v-if="!isLinux"
+        v-show="showButtonWhenLock"
         id="osd-lock"
         class="btn btn-lock"
         :style="lockStyle"
+        tabindex="-1"
         @click="handleLock"
-        ><SvgIcon icon-class="lock" style="margin-right: 4px" />解锁</button
+        ><SvgIcon icon-class="lock" style="margin-right: 4px" tabindex="-1" />解锁</button
       ></div
     >
-    <LyricContainer />
+    <LyricContainer tabindex="-1" />
   </div>
 </template>
 
@@ -29,12 +31,12 @@ import Header from '../components/OsdHeader.vue'
 import LyricContainer from '../components/OsdLyricContainer.vue'
 import SvgIcon from '../components/SvgIcon.vue'
 import { useOsdLyricStore } from '../store/osdLyric'
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 
 const isLinux = window.env?.isLinux
 
 const osdLyricStore = useOsdLyricStore()
-const { isLock, playedLrcColor, backgroundColor } = storeToRefs(osdLyricStore)
+const { isLock, playedLrcColor, backgroundColor, showButtonWhenLock } = storeToRefs(osdLyricStore)
 const hover = ref(false)
 const title = ref('听你想听的音乐')
 
@@ -78,20 +80,26 @@ window.addEventListener('message', (event: MessageEvent) => {
 window.mainApi?.on('mouseleave-completely', () => {
   hover.value = false
 })
+
+onMounted(() => {
+  if (isLinux) {
+    isLock.value = false
+  }
+})
 </script>
 
 <style lang="scss" scoped>
 #main {
-  // box-sizing: border-box;
+  box-sizing: border-box;
   border-radius: 4px;
   overflow: hidden;
   transition: all 0.3s ease;
   height: 100vh;
+  padding: 10px 20px;
 }
 
 .header {
   transition: opacity 0.3s;
-  margin-top: 1px;
 
   .lock {
     opacity: 0 !important;
@@ -100,8 +108,7 @@ window.mainApi?.on('mouseleave-completely', () => {
 
 .header-title {
   display: flex;
-  margin-top: 1px;
-  height: 43px;
+  height: 34px;
   justify-content: center;
   align-items: center;
   opacity: 0;
@@ -114,9 +121,8 @@ window.mainApi?.on('mouseleave-completely', () => {
 }
 
 .control-lock {
-  margin-top: 1px;
   width: 100%;
-  height: 43px;
+  height: 34px;
   z-index: 1;
   display: flex;
   justify-content: center;

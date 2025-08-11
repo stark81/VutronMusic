@@ -202,6 +202,44 @@
             </div>
             <div class="item">
               <div class="left">
+                <div class="title">{{ $t('settings.osdLyric.showButtonWhenLock.text') }}</div>
+                <div class="description">
+                  {{ $t('settings.osdLyric.showButtonWhenLock.desc') }}
+                </div>
+                <div class="description">
+                  {{ $t('settings.osdLyric.showButtonWhenLock.desc2') }}
+                </div>
+              </div>
+              <div class="right">
+                <div class="toggle">
+                  <input
+                    id="showButtonWhenLock"
+                    v-model="showButtonWhenLock"
+                    type="checkbox"
+                    name="showButtonWhenLock"
+                  />
+                  <label for="showButtonWhenLock"></label>
+                </div>
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
+                <div class="title"> {{ $t('settings.osdLyric.staticTime.text') }} </div>
+                <div class="description"> {{ $t('settings.osdLyric.staticTime.desc') }} </div>
+                <div class="description"> {{ $t('settings.osdLyric.staticTime.desc2') }} </div>
+              </div>
+              <div class="right">
+                <input
+                  v-model="staticTime"
+                  :disabled="!showButtonWhenLock"
+                  type="number"
+                  step="100"
+                  class="text-input margin-right-0"
+                />
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
                 <div class="title"> {{ $t('settings.osdLyric.font') }} </div>
               </div>
               <div class="right">
@@ -222,20 +260,6 @@
                   type="number"
                   class="text-input margin-right-0"
                   @input="inputFontSizeDebounce"
-                />
-              </div>
-            </div>
-            <div class="item">
-              <div class="left">
-                <div class="title"> {{ $t('settings.osdLyric.staticTime.text') }} </div>
-                <div class="description"> {{ $t('settings.osdLyric.staticTime.desc') }} </div>
-              </div>
-              <div class="right">
-                <input
-                  v-model="staticTime"
-                  type="number"
-                  step="100"
-                  class="text-input margin-right-0"
                 />
               </div>
             </div>
@@ -602,13 +626,12 @@
             </div>
             <div class="item">
               <div>{{ $t('settings.stream.service') }}：</div>
+              <!-- :class="{ itemSelected: service.selected }" -->
               <div
                 v-for="service of services"
                 :key="service.name"
                 :title="serviceTitle(service)"
                 class="stream-item"
-                :class="{ itemSelected: service.selected }"
-                @click="handleSelect(service)"
                 @click.right="loginOrlogout(service)"
               >
                 <img :src="getImagePath(service.name)" />
@@ -660,6 +683,22 @@
               </div>
               <div class="right">
                 <button @click="resetPlayer()">确定</button>
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('settings.general.jumpToLyricBegin') }}</div>
+              </div>
+              <div class="right">
+                <div class="toggle">
+                  <input
+                    id="jump-to-lyric-begin"
+                    v-model="general.jumpToLyricBegin"
+                    type="checkbox"
+                    name="jump-to-lyric-begin"
+                  />
+                  <label for="jump-to-lyric-begin"></label>
+                </div>
               </div>
             </div>
             <div v-if="isElectron" class="item">
@@ -929,7 +968,7 @@ import { usePlayerStore } from '../store/player'
 import { useLocalMusicStore } from '../store/localMusic'
 import { useNormalStateStore } from '../store/state'
 import { useOsdLyricStore } from '../store/osdLyric'
-import { useStreamMusicStore, serviceName, serviceType } from '../store/streamingMusic'
+import { useStreamMusicStore, serviceType, serviceName } from '../store/streamingMusic'
 import { useDataStore } from '../store/data'
 import { storeToRefs } from 'pinia'
 import { doLogout } from '../utils/auth'
@@ -996,6 +1035,7 @@ const {
   unplayLrcColor,
   textShadow,
   staticTime,
+  showButtonWhenLock,
   font
 } = storeToRefs(osdLyric)
 
@@ -1042,15 +1082,15 @@ const serviceTitle = (platform: serviceType) => {
   return `单击选择，右击选择并${title}`
 }
 
-const handleSelect = (platform: serviceType) => {
-  services.value.forEach((s) => {
-    if (s.name === platform.name) {
-      platform.selected = true
-    } else {
-      s.selected = false
-    }
-  })
-}
+// const handleSelect = (platform: serviceType) => {
+//   services.value.forEach((s) => {
+//     if (s.name === platform.name) {
+//       platform.selected = true
+//     } else {
+//       s.selected = false
+//     }
+//   })
+// }
 
 const handleUpdate = () => {
   if (isDownloading.value) return
@@ -1068,10 +1108,10 @@ const handleUpdate = () => {
 
 const loginOrlogout = (platform: serviceType) => {
   if (platform.status === 'logout') {
-    router.push('/streamLogin')
+    router.push(`/streamLogin/${platform.name}`)
   } else {
     if (confirm(`确定登出${platform.name}吗？`)) {
-      handleStreamLogout()
+      handleStreamLogout(platform.name)
     }
   }
 }

@@ -20,7 +20,7 @@
       </div>
       <div class="title-and-artist">
         <div class="container">
-          <div class="title">
+          <div class="title" :title="track.name">
             {{ track.name }}
             <span v-if="isSubTitle" :title="subTitle" class="sub-title"> ({{ subTitle }}) </span>
             <span v-if="isAlbum" class="featured">
@@ -47,11 +47,17 @@
       </div>
 
       <div v-if="showAlbumName" class="album">
-        <div v-if="album && album.matched !== false && album.id && album.name"
+        <div
+          v-if="album && album.matched !== false && album.id && album.name"
+          :title="album.name || '未知专辑'"
           ><router-link :to="`/album/${album.id}`">{{ album.name }}</router-link></div
         >
-        <div v-else> {{ album.name || '未知专辑' }}</div>
+        <div v-else :title="album.name || '未知专辑'"> {{ album.name || '未知专辑' }}</div>
       </div>
+
+      <div v-if="showService" class="service">{{
+        track.type === 'stream' ? track.source : track.type
+      }}</div>
 
       <div v-if="showTrackTime" class="createTime">
         {{
@@ -102,6 +108,7 @@ import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { Track } from '../store/localMusic'
 
 const router = useRouter()
 const props = defineProps({
@@ -109,29 +116,15 @@ const props = defineProps({
     type: Object as PropType<Record<string, any>>,
     required: true
   },
-  trackNo: {
-    type: Number,
-    required: true
-  },
-  typeProp: {
-    type: String,
-    required: true
-  },
+  trackNo: { type: Number, required: true },
+  typeProp: { type: String, required: true },
   isLyric: { type: Boolean, default: false },
+  showService: { type: Boolean, default: false },
   albumObject: {
     type: Object,
-    default: () => {
-      return {
-        artist: {
-          name: ''
-        }
-      }
-    }
+    default: () => ({ artist: { name: '' } })
   },
-  highlightPlayingTrack: {
-    type: Boolean,
-    default: true
-  }
+  highlightPlayingTrack: { type: Boolean, default: true }
 })
 
 const settingsStore = useSettingsStore()
@@ -164,34 +157,22 @@ const track = computed(
 )
 
 const image = computed(() => {
-  if (stateStore.virtualScrolling) {
-    if (track.value.type === 'stream') {
-      if (track.value.source === 'navidrome') {
-        return new URL(`../assets/images/navidrome.webp`, import.meta.url).href
-      } else if (track.value.source === 'emby') {
-        return 'atom://get-default-pic'
-      }
-    }
-  }
-  let url =
-    track.value.type === 'local'
-      ? localMusic.value.scanning && !track.value.matched
-        ? `atom://get-pic-path/${track.value.filePath}`
-        : `atom://get-pic/${track.value.id}`
-      : track.value.al?.picUrl ||
-        track.value.album?.picUrl ||
-        track.value.picUrl ||
-        `https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg`
-  if (url && url.startsWith('http')) {
-    url = url.replace('http:', 'https:')
-  }
-  if (url.startsWith('https')) {
+  let url: string
+  if (track.value.type === 'online') {
+    url = track.value.al?.picUrl || track.value.album?.picUrl || track.value.picUrl
+    if (url && url.startsWith('http')) url = url.replace('http:', 'https:')
     url += '?param=128y128'
+    return url
+  } else if (track.value.type === 'stream') {
+    url = track.value.al?.picUrl || track.value.album?.picUrl || track.value.picUrl
+    return stateStore.virtualScrolling ? 'atom://get-default-pic' : url
+  } else {
+    url =
+      localMusic.value.scanning && !track.value.matched
+        ? `atom://get-pic-path/${track.value.filePath}`
+        : `/local-asset/pic?id=${track.value.id}`
+    return url
   }
-  if (url.includes('https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg')) {
-    url = 'atom://get-default-pic'
-  }
-  return url
 })
 
 const hover = ref(false)
@@ -228,6 +209,10 @@ const album = computed(() => {
 const showAlbumName = computed(() => {
   return type.value !== 'tracklist' && type.value !== 'album'
 })
+
+// const showService = computed(() => {
+//   return ['navidrome', 'emby', 'jellyfin'].includes(track.value.source)
+// })
 
 const showTrackTime = computed(() => {
   return type.value !== 'tracklist'
@@ -337,7 +322,7 @@ const likeThisSong = () => {
     showToast(t('player.noAllowCauseLocal'))
   } else if (track.value.type === 'stream') {
     const op = track.value.starred ? 'unstar' : 'star'
-    likeAStreamTrack(op, track.value.id)
+    likeAStreamTrack(op, track.value as Track)
   } else {
     likeATrack(track.value.id)
   }
@@ -505,7 +490,7 @@ button {
     }
   }
   .album {
-    flex: 1;
+    flex: 0.8;
     display: flex;
     font-size: 16px;
     opacity: 0.88;
@@ -513,9 +498,14 @@ button {
     color: var(--color-text);
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
     overflow: hidden;
+  }
+  .service {
+    flex: 0.8;
+    font-size: 16px;
+    opacity: 0.88;
   }
   .createTime {
     flex: 0.8;
@@ -600,6 +590,7 @@ button {
 .actions {
   width: 80px;
   display: flex;
+  flex: 0.3;
   justify-content: flex-end;
 }
 

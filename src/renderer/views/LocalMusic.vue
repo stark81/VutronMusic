@@ -26,14 +26,15 @@
         </div>
       </div>
       <div class="right-top" @click="playThisTrack">
-        <p>
-          <span
+        <div>
+          <div
             v-for="(line, index) in pickedLyricLines"
             v-show="line !== ''"
             :key="`${line}${index}`"
-            >{{ line }}<br
-          /></span>
-        </p>
+            class="lyric-p"
+            >{{ line }}</div
+          >
+        </div>
       </div>
       <div class="right-bottom">{{ randomTrack?.artists[0].name }} - {{ randomTrack?.name }}</div>
     </div>
@@ -142,10 +143,14 @@
     <AccurateMatchModal />
 
     <ContextMenu ref="playlistTabMenu">
-      <div class="item" @click="sortBy = 'default'">{{ $t('contextMenu.defaultSort') }}</div>
-      <div class="item" @click="sortBy = 'byname'">{{ $t('contextMenu.sortByName') }}</div>
-      <div class="item" @click="sortBy = 'descend'">{{ $t('contextMenu.descendSort') }}</div>
-      <div class="item" @click="sortBy = 'ascend'">{{ $t('contextMenu.ascendSort') }}</div>
+      <div
+        v-for="sortOption in sortOptions"
+        :key="sortOption.value"
+        class="item"
+        :class="{ active: sortOption.value === sortBy }"
+        @click="sortBy = sortOption.value"
+        >{{ sortOption.name }}</div
+      >
       <hr v-show="!isBatchOp" />
       <div v-show="!isBatchOp" class="item" @click="scanLocalMusic">{{
         $t('contextMenu.reScan')
@@ -189,6 +194,7 @@ import { useI18n } from 'vue-i18n'
 // load
 const localMusicStore = useLocalMusicStore()
 const { localTracks, playlists, sortBy } = storeToRefs(localMusicStore)
+const { scanLocalMusic } = localMusicStore
 
 const { newPlaylistModal, modalOpen } = storeToRefs(useNormalStateStore())
 const { addTrackToPlayNext } = usePlayerStore()
@@ -214,7 +220,11 @@ const tabStyle = computed(() => {
 })
 
 const formatedTime = computed(() => {
-  const dt = localTracks.value.map((track) => track.dt).reduce((acc, cur) => acc + cur, 0) / 1000
+  const dt =
+    localTracks.value
+      .map((track) => track.dt)
+      .filter((dt) => dt && !isNaN(Number(dt)))
+      .reduce((acc, cur) => acc + cur, 0) / 1000
   const hourse = Math.floor(dt / 3600)
   const minutes = Math.floor((dt % 3600) / 60)
   const seconds = Math.floor(dt % 60)
@@ -243,7 +253,6 @@ const updateTab = (val: string) => {
   observeTab.observe(tabsRowRef.value!)
 }
 
-const scanLocalMusic = inject('scanLocalMusic') as () => Promise<void>
 const selectAll = () => {
   trackListRef.value?.selectAll()
 }
@@ -321,6 +330,14 @@ const openAddPlaylistModal = () => {
 provide('isBatchOp', isBatchOp)
 
 const { t } = useI18n()
+
+const sortOptions = [
+  { name: t('contextMenu.defaultSort'), value: 'default' },
+  { name: t('contextMenu.sortByName'), value: 'byname' },
+  { name: t('contextMenu.ascendSort'), value: 'ascend' },
+  { name: t('contextMenu.descendSort'), value: 'descend' }
+]
+
 const placeHolderMap = (tab: string) => {
   const pMap = {
     localTracks: t('localMusic.songs'),
@@ -424,6 +441,7 @@ onUnmounted(() => {
   background: color-mix(in oklab, var(--color-primary) var(--bg-alpha), white);
   border-radius: 14px;
   height: 240px;
+  width: 100%;
   transition: all 0.4s;
   position: relative;
   .left {
@@ -457,7 +475,7 @@ onUnmounted(() => {
     position: absolute;
     height: 190px;
     left: 580px;
-    width: 270px;
+    max-width: 270px;
     font-size: 18px;
     line-height: 30px;
     color: var(--color-primary);
@@ -465,6 +483,14 @@ onUnmounted(() => {
     justify-content: center;
     flex-direction: column;
     cursor: pointer;
+
+    .lyric-p {
+      height: 30px;
+      line-clamp: 1;
+      -webkit-line-clamp: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
   }
   .right-bottom {
     position: absolute;

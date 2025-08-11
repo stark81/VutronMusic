@@ -168,7 +168,7 @@
     "usernameLogin": "Username Login",
     "loginWithEmail": "Login with Email",
     "loginWithPhone": "Login with Phone",
-    "loginWithQrCode": "Login with QrCode",
+    "loginWithQr": "Login with QrCode",
     "loginWithCookie": "Login with Cookie",
     "noticeElectron": "Your password is hashed with MD5 locally before transmission to NetEase API. VutronMusic does not transmit your account data to any non-official servers."
   },
@@ -304,6 +304,7 @@
         "auto": "Auto (Based on system theme)"
       },
       "logout": "Logout",
+      "jumpToLyricBegin": "Jump to begining of current lyric when seeking",
       "perventSuspend": "Prevent system sleep during playback"
     },
     "theme": {
@@ -370,7 +371,13 @@
       },
       "staticTime": {
         "text": "Mouse Hover Timeout",
-        "desc": "After locking, lyrics fade after this duration (ms). Not supported on Linux."
+        "desc": "After locking, lyrics fade after this duration (ms),",
+        "desc2": "set to 0 to disable this feature, not effective on Linux"
+      },
+      "showButtonWhenLock": {
+        "text": "Show Unlock Button When Locked",
+        "desc": "Enabling this will show the unlock button when the desktop lyrics window is locked,",
+        "desc2": "and enable the mouse hover to reduce window transparency feature"
       }
     },
     "unblock": {
