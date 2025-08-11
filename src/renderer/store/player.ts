@@ -511,7 +511,7 @@ export const usePlayerStore = defineStore(
       const nextFont = fontList.value[type][index + 1]
       if (nextFont) {
         const driftTime =
-          nextFont.start - ((audioNodes.audio?.currentTime || 0) + lyricOffset.value) * 1000
+          nextFont.start + 16 - ((audioNodes.audio?.currentTime || 0) + lyricOffset.value) * 1000 // 添加一帧的延迟，以避免出现
         if (playing.value) {
           timer[type] = setTimeout(() => {
             clearTimeout(timer[type])
@@ -1307,6 +1307,18 @@ export const usePlayerStore = defineStore(
               track.type === 'online' || track.matched ? pic.value + '?param=512y512' : pic.value,
             type: 'image/jpg',
             sizes: '512x512'
+          },
+          {
+            src:
+              track.type === 'online' || track.matched ? pic.value + '?param=1024y1024' : pic.value,
+            type: 'image/jpg',
+            sizes: '1024x1024'
+          },
+          {
+            src:
+              track.type === 'online' || track.matched ? pic.value + '?param=2048y2048' : pic.value,
+            type: 'image/jpg',
+            sizes: '2048x2048'
           }
         ],
         length: currentTrackDuration.value,
@@ -1322,20 +1334,32 @@ export const usePlayerStore = defineStore(
         })
         let pic1: string = new URL(`../assets/images/default.jpg`, import.meta.url).href
         let pic2: string = new URL(`../assets/images/default.jpg`, import.meta.url).href
+        let pic3: string = new URL(`../assets/images/default.jpg`, import.meta.url).href
+        let pic4: string = new URL(`../assets/images/default.jpg`, import.meta.url).href
         if (track.type === 'stream') {
           if (track.source === 'navidrome') {
             pic1 = track.picUrl.replace('size=64', 'size=224')
             pic2 = track.picUrl.replace('size=64', 'size=512')
+            pic3 = track.picUrl.replace('size=64', 'size=224')
+            pic4 = track.picUrl.replace('size=64', 'size=512')
           } else if (track.source === 'emby') {
             pic1 = track.picUrl
               .replace('maxHeight=64', 'maxHeight=224')
               .replace('maxWidth=64', 'maxWidth=224')
-            pic1 = track.picUrl
+            pic2 = track.picUrl
               .replace('maxHeight=64', 'maxHeight=512')
               .replace('maxWidth=64', 'maxWidth=512')
+            pic3 = track.picUrl
+              .replace('maxHeight=64', 'maxHeight=1024')
+              .replace('maxWidth=64', 'maxWidth=1024')
+            pic4 = track.picUrl
+              .replace('maxHeight=64', 'maxHeight=2048')
+              .replace('maxWidth=64', 'maxWidth=2048')
           }
           metadata.artwork[0].src = pic1
           metadata.artwork[1].src = pic2
+          metadata.artwork[2].src = pic3
+          metadata.artwork[3].src = pic4
         }
         window.mainApi?.send('metadata', metadata)
       }

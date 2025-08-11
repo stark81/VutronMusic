@@ -396,12 +396,6 @@ const handleResize = () => {
   if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
 }
 
-// onActivated(() => {
-
-// })
-// onDeactivated(() => {
-//   updatePadding(96)
-// })
 onMounted(() => {
   window.addEventListener('resize', handleResize)
   setTimeout(() => {
