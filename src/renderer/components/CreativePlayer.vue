@@ -895,7 +895,7 @@ onBeforeUnmount(() => {
   left: 0;
   padding-bottom: 10px;
   width: 100%;
-  border-radius: 12px;
+  border-radius: 12px 12px 0 0;
   background: rgba(255, 255, 255, 0.78);
   backdrop-filter: blur(12px) opacity(1);
   color: var(--color-text);

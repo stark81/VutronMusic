@@ -19,6 +19,7 @@ import { MprisImpl } from './mpris'
 import fastify, { FastifyInstance } from 'fastify'
 import fastifyCookie from '@fastify/cookie'
 import netease from './appServer/netease'
+import httpHandler from './appServer/httpHandler'
 import IPCs from './IPCs'
 import fastifyStatic from '@fastify/static'
 import path from 'path'
@@ -32,7 +33,6 @@ import {
   getAudioSource,
   cacheOnlineTrack,
   getStreamLyric,
-  getStreamPic,
   getStreamMusic
 } from './utils/utils'
 import { CacheAPIs } from './utils/CacheApis'
@@ -136,6 +136,8 @@ class BackGround {
       root: path.join(__dirname, '../')
     })
     server.register(netease)
+    server.register(httpHandler)
+    server.decorate('win', null)
     const port = Number(
       Constants.IS_DEV_ENV
         ? Constants.ELECTRON_DEV_NETEASE_API_PORT || 40001
@@ -466,9 +468,7 @@ class BackGround {
         return new Response(pic)
       } else if (host === 'get-pic-path') {
         const filePath = pathname.slice(1)
-        // const url = 'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg'
-        // const metadata = await parseFile(decodeURI(filePath))
-        const track = { matched: false, filePath }
+        const track = { matched: false, filePath, album: { picUrl: 'atom://get-default-pic' } }
 
         const result = await getPic(track)
         return new Response(result.pic, { headers: { 'Content-Type': result.format } })
@@ -652,34 +652,10 @@ class BackGround {
         const url = pathname.slice(1)
         const headers = request.headers
         return fetch(url, { headers })
-      } else if (host === 'get-stream-pic') {
-        const url = pathname.slice(1)
-        return getStreamPic(url)
       } else if (host === 'get-stream-music') {
         const id = pathname.slice(1)
         const headers = request.headers
         return getStreamMusic(id, headers)
-      } else if (host === 'get-stream-track-info') {
-        const id = pathname.slice(1)
-        let pic: Buffer | null = null
-        let format: string = ''
-
-        // 获取图片
-        pic = await getStreamPic(id)
-          .then((res) => {
-            format = res.headers.get('Content-Type')
-            return res.arrayBuffer()
-          })
-          .then((res) => Buffer.from(res))
-
-        // 获取颜色
-        const { color, color2 } = await getPicColor(pic)
-
-        // 获取歌词
-        const lyrics = await getStreamLyric(id)
-        return new Response(JSON.stringify({ pic, format, color, color2, lyrics }), {
-          headers: { 'content-type': 'application/json' }
-        })
       } else if (host === 'get-stream-lyric') {
         const id = pathname.slice(1)
         const lyrics = await getStreamLyric(id)
@@ -698,7 +674,10 @@ class BackGround {
     this.handleProtocol()
     app.whenReady().then(async () => {
       // create window
-      this.createMainWindow()
+      this.createMainWindow().then(() => {
+        // @ts-ignore
+        this.fastifyApp.win = this.win
+      })
 
       // window events
       this.handleWindowEvents()

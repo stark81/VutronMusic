@@ -3,7 +3,7 @@ import { ref, reactive, watch, onMounted, toRaw } from 'vue'
 import DefaultShortcuts from '../utils/shortcuts'
 import { playlistCategories } from '../utils/common'
 import cloneDeep from 'lodash/cloneDeep'
-// import snow from '../assets/lottie/snow.json'
+import { useLocalMusicStore } from './localMusic'
 
 export type TranslationMode = 'none' | 'tlyric' | 'rlyric'
 export type StreamStatus = 'logout' | 'login' | 'offline'
@@ -14,6 +14,9 @@ type BackgroundEffect = 'none' | 'true' | 'blur' | 'dynamic'
 export const useSettingsStore = defineStore(
   'settings',
   () => {
+    const localMusicStore = useLocalMusicStore()
+    const { scanLocalMusic } = localMusicStore
+
     const enabledPlaylistCategories = playlistCategories.filter((c) => c.enable).map((c) => c.name)
     const theme = reactive({
       appearance: 'auto', // as 'auto' | 'dark' | 'light',
@@ -134,6 +137,13 @@ export const useSettingsStore = defineStore(
       },
       {
         deep: true
+      }
+    )
+
+    watch(
+      () => localMusic.scanDir,
+      () => {
+        scanLocalMusic()
       }
     )
 

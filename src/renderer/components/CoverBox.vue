@@ -74,9 +74,6 @@ const imageStyles = computed(() => {
 
 const picUrl = computed(() => {
   let url = props.imageUrl
-  if (props.imageUrl.startsWith('http://')) {
-    url = props.imageUrl.replace('http://', 'https://')
-  }
   if (url.indexOf('?param') === -1) {
     url += '?param=256y256'
   }

@@ -359,20 +359,21 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
               }
 
               // 获取专辑信息
+              const id = songs.length + newTracks.length + 1
               let album = [...albums, ...newAlbums].find((album) => album.name === common.album)
               if (!album) {
                 album = {
                   id: albums.length + newAlbums.length + 1,
                   name: common.album ?? '未知专辑',
                   matched: false,
-                  picUrl: 'atom://get-default-pic'
+                  picUrl: `/local-asset/pic?id=${id}`
                 }
                 newAlbums.push(album)
               }
 
               // 获取音乐信息
               const track = {
-                id: songs.length + newTracks.length + 1,
+                id,
                 name: common.title ?? getFileName(filePath) ?? '错误文件',
                 dt: (format.duration ?? 0) * 1000,
                 source: 'localTrack',
@@ -388,7 +389,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
                 alias: [],
                 album,
                 artists: arIDsResult,
-                picUrl: 'atom://get-default-pic'
+                picUrl: `/local-asset/pic?id=${id}`
               }
               win.webContents.send('msgHandleScanLocalMusic', { track })
               newTracks.push(track)

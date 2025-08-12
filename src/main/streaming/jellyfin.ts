@@ -105,7 +105,7 @@ class Jellyfin implements JellyfinImpl {
             return acc
           }, {})
           const url = p.ImageTags?.Primary
-            ? `atom://get-stream-pic/${p.Id}/512`
+            ? this.getPic(p.Id, 512)
             : 'https://p1.music.126.net/jWE3OEZUlwdz0ARvyQ9wWw==/109951165474121408.jpg?param=512y512'
           const playlist = {
             id: p.Id,
@@ -225,14 +225,14 @@ class Jellyfin implements JellyfinImpl {
     }
     const tracks = res1.data.Items.map((song: any) => {
       const picUrl = song.ImageTags?.Primary
-        ? `atom://get-stream-pic/${song.Id}/64`
+        ? this.getPic(song.Id, 64)
         : song.AlbumPrimaryImageTag
-          ? `atom://get-stream-pic/${song.AlbumId}/64`
+          ? this.getPic(song.AlbumId, 64)
           : 'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg?param=128y128'
       const artists = song.ArtistItems?.map((artist: any) => {
         const art = res2.data.Items.find((a: any) => a.Id === artist.Id)!
         const artUrl = art?.ImageTags?.Primary
-          ? `atom://get-stream-pic/${artist.Id}/64`
+          ? this.getPic(artist.Id, 64)
           : 'http://p1.music.126.net/6y-UleORITEDbvrOLV0Q8A==/5639395138885805.jpg?param=64y64'
         return { name: artist.Name, id: artist.Id, picUrl: artUrl, matched: false }
       })

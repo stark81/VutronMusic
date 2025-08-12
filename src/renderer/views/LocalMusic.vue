@@ -26,14 +26,15 @@
         </div>
       </div>
       <div class="right-top" @click="playThisTrack">
-        <p>
-          <span
+        <div>
+          <div
             v-for="(line, index) in pickedLyricLines"
             v-show="line !== ''"
             :key="`${line}${index}`"
-            >{{ line }}<br
-          /></span>
-        </p>
+            class="lyric-p"
+            >{{ line }}</div
+          >
+        </div>
       </div>
       <div class="right-bottom">{{ randomTrack?.artists[0].name }} - {{ randomTrack?.name }}</div>
     </div>
@@ -189,6 +190,7 @@ import { useI18n } from 'vue-i18n'
 // load
 const localMusicStore = useLocalMusicStore()
 const { localTracks, playlists, sortBy } = storeToRefs(localMusicStore)
+const { scanLocalMusic } = localMusicStore
 
 const { newPlaylistModal, modalOpen } = storeToRefs(useNormalStateStore())
 const { addTrackToPlayNext } = usePlayerStore()
@@ -243,7 +245,6 @@ const updateTab = (val: string) => {
   observeTab.observe(tabsRowRef.value!)
 }
 
-const scanLocalMusic = inject('scanLocalMusic') as () => Promise<void>
 const selectAll = () => {
   trackListRef.value?.selectAll()
 }
@@ -424,6 +425,7 @@ onUnmounted(() => {
   background: color-mix(in oklab, var(--color-primary) var(--bg-alpha), white);
   border-radius: 14px;
   height: 240px;
+  width: 100%;
   transition: all 0.4s;
   position: relative;
   .left {
@@ -457,7 +459,7 @@ onUnmounted(() => {
     position: absolute;
     height: 190px;
     left: 580px;
-    width: 270px;
+    max-width: 270px;
     font-size: 18px;
     line-height: 30px;
     color: var(--color-primary);
@@ -465,6 +467,14 @@ onUnmounted(() => {
     justify-content: center;
     flex-direction: column;
     cursor: pointer;
+
+    .lyric-p {
+      height: 30px;
+      line-clamp: 1;
+      -webkit-line-clamp: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
   }
   .right-bottom {
     position: absolute;

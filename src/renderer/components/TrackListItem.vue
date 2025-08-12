@@ -164,34 +164,21 @@ const track = computed(
 )
 
 const image = computed(() => {
-  if (stateStore.virtualScrolling) {
-    if (track.value.type === 'stream') {
-      if (track.value.source === 'navidrome') {
-        return new URL(`../assets/images/navidrome.webp`, import.meta.url).href
-      } else if (track.value.source === 'emby') {
-        return 'atom://get-default-pic'
-      }
-    }
-  }
-  let url =
-    track.value.type === 'local'
-      ? localMusic.value.scanning && !track.value.matched
-        ? `atom://get-pic-path/${track.value.filePath}`
-        : `atom://get-pic/${track.value.id}`
-      : track.value.al?.picUrl ||
-        track.value.album?.picUrl ||
-        track.value.picUrl ||
-        `https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg`
-  if (url && url.startsWith('http')) {
-    url = url.replace('http:', 'https:')
-  }
-  if (url.startsWith('https')) {
+  let url: string
+  if (track.value.type === 'online') {
+    url = track.value.al?.picUrl || track.value.album?.picUrl || track.value.picUrl
+    if (url && url.startsWith('http')) url = url.replace('http:', 'https:')
     url += '?param=128y128'
+    return url
+  } else if (track.value.type === 'stream') {
+    url = track.value.al?.picUrl || track.value.album?.picUrl || track.value.picUrl
+    return stateStore.virtualScrolling ? 'atom://get-default-pic' : url
+  } else {
+    url = localMusic.value.scanning
+      ? `atom://get-pic-path/${track.value.filePath}`
+      : `/local-asset/pic?id=${track.value.id}`
+    return url
   }
-  if (url.includes('https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg')) {
-    url = 'atom://get-default-pic'
-  }
-  return url
 })
 
 const hover = ref(false)

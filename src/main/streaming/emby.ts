@@ -91,12 +91,12 @@ class Emby implements EmbyImpl {
     if (response.status === 200) {
       const tracks = response?.data?.Items.map((song) => {
         const picUrl = song?.ImageTags?.Primary
-          ? `atom://get-stream-pic/${song.Id}/${song.ImageTags?.Primary}/64`
+          ? this.getPic(song.Id, song.ImageTags.Primary, 64)
           : 'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg?param=128y128'
         const artists = song.ArtistItems.map((t) => {
           const art = response2.find((a) => a.Id === t.Id)!
           const artUrl = art?.ImageTags?.Primary
-            ? `atom://get-stream-pic/${t.Id}/${art?.ImageTags?.Primary}/64`
+            ? this.getPic(t.Id, art.ImageTags.Primary, 64)
             : 'http://p1.music.126.net/6y-UleORITEDbvrOLV0Q8A==/5639395138885805.jpg?param=64y64'
           return {
             name: t.Name,
@@ -192,7 +192,7 @@ class Emby implements EmbyImpl {
             return acc
           }, {})
           const url = p.ImageTags?.Primary
-            ? `atom://get-stream-pic/${p.Id}/${p.ImageTags?.Primary}/512`
+            ? this.getPic(p.Id, p.ImageTags.Primary, 512)
             : 'https://p1.music.126.net/jWE3OEZUlwdz0ARvyQ9wWw==/109951165474121408.jpg?param=512y512'
           const playlist = {
             id: p.Id,

@@ -30,14 +30,15 @@
           >{{ $t('library.likedSongs') }} - {{ streamLikedTracks.length
           }}{{ $t('common.songs') }}</div
         >
-        <p>
-          <span
+        <div>
+          <div
             v-for="(line, index) in pickedLyricLines"
             v-show="line !== ''"
             :key="`${line}${index}`"
-            >{{ line }}<br
-          /></span>
-        </p>
+            class="lyric-p"
+            >{{ line }}</div
+          >
+        </div>
       </div>
       <div class="right-bottom">{{ randomTrack?.artists[0].name }} - {{ randomTrack?.name }}</div>
     </div>
@@ -447,14 +448,14 @@ onUnmounted(() => {
   .title {
     font-size: 22px;
     font-weight: 700;
-    margin: 10px 0 10px 0;
+    margin-bottom: 20px;
     color: var(--color-primary);
   }
   .right-top {
     position: absolute;
     height: 190px;
     left: 580px;
-    width: 270px;
+    max-width: 270px;
     font-size: 18px;
     line-height: 30px;
     color: var(--color-primary);
@@ -462,6 +463,14 @@ onUnmounted(() => {
     justify-content: center;
     flex-direction: column;
     cursor: pointer;
+
+    .lyric-p {
+      height: 30px;
+      line-clamp: 1;
+      -webkit-line-clamp: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
   }
   .right-bottom {
     position: absolute;

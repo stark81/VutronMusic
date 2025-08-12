@@ -132,21 +132,23 @@ export const useStreamMusicStore = defineStore(
       })
     }
 
-    const getStreamPic = async (track: Track, size: number = 512) => {
+    const getStreamPic = (track: Track, size: number = 512) => {
       if (!enable.value) return
       const service = services.value.find((s) => s.selected)!
       if (service.status === 'logout') return
-      let id = track.id as any
-      const match = (track.album || track.al).picUrl.match(/get-stream-pic\/(.*)/)
-      if (match) {
-        id = match[1].replace('/64', `/${size}`)
-        return await fetch(`atom://get-stream-pic/${id}`)
-          .then((res) => res.blob())
-          .then((res) => URL.createObjectURL(res))
-          .catch(() => null)
+      let url = (track.album || track.al).picUrl
+      let regex: RegExp | null = null
+      if (service.name === 'navidrome') {
+        regex = /size=\d+/
+        url = url.replace(regex, `size=${size}`)
+      } else if (service.name === 'jellyfin') {
+        regex = /fillHeight=\d+&fillWidth=\d+/
+        url = url.replace(regex, `fillHeight=${size}&fillWidth=${size}`)
       } else {
-        return new URL(`../assets/images/default.jpg`, import.meta.url).href
+        regex = /maxHeight=\d+&maxWidth=\d+/
+        url = url.replace(regex, `maxHeight=${size}&maxWidth=${size}`)
       }
+      return url
     }
 
     const likeAStreamTrack = (op: 'unstar' | 'star', id: string | number) => {

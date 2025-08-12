@@ -100,8 +100,7 @@ export const usePlayerStore = defineStore(
 
     const localMusicStore = useLocalMusicStore()
     const streamMusicStore = useStreamMusicStore()
-    const { updateTrack, fetchLocalMusic, getALocalTrack, getLocalLyric, getLocalPic } =
-      localMusicStore
+    const { updateTrack, fetchLocalMusic, getALocalTrack, getLocalLyric } = localMusicStore
     const {
       scrobble: scrobbleStream,
       fetchStreamMusic,
@@ -1271,23 +1270,20 @@ export const usePlayerStore = defineStore(
       setDevice(outputDevice.value)
     }
 
-    const getPic = async (track: Track, size: number = 128) => {
-      if (track.type === 'local' && !track.matched) {
-        return await getLocalPic(track.id)
+    const getPic = (track: Track, size: number = 128) => {
+      if (track.type === 'local') {
+        return `/local-asset/pic?id=${track.id}`
       } else if (track.type === 'stream') {
-        return (await getStreamPic(track, size))!
+        return getStreamPic(track, size)!
       } else {
-        return (track.album || track.al).picUrl
+        return (track.album || track.al).picUrl + `?param=${size}y${size}`
       }
     }
 
     const updateMediaSessionMetaData = async (track: Track) => {
       if ('mediaSession' in navigator === false) return
 
-      if (pic.value?.startsWith('blob:')) {
-        URL.revokeObjectURL(pic.value)
-      }
-      pic.value = await getPic(track, 512)
+      pic.value = getPic(track, 512)
 
       const arts = track.artists ?? track.ar
       const artists = arts.map((a) => a.name)
@@ -1297,26 +1293,22 @@ export const usePlayerStore = defineStore(
         album: track.album?.name ?? track.al?.name,
         artwork: [
           {
-            src:
-              track.type === 'online' || track.matched ? pic.value + '?param=224y224' : pic.value,
+            src: getPic(track, 224),
             type: 'image/jpg',
             sizes: '224x224'
           },
           {
-            src:
-              track.type === 'online' || track.matched ? pic.value + '?param=512y512' : pic.value,
+            src: getPic(track, 512),
             type: 'image/jpg',
             sizes: '512x512'
           },
           {
-            src:
-              track.type === 'online' || track.matched ? pic.value + '?param=1024y1024' : pic.value,
+            src: getPic(track, 1024),
             type: 'image/jpg',
             sizes: '1024x1024'
           },
           {
-            src:
-              track.type === 'online' || track.matched ? pic.value + '?param=2048y2048' : pic.value,
+            src: getPic(track, 2048),
             type: 'image/jpg',
             sizes: '2048x2048'
           }
@@ -1327,39 +1319,12 @@ export const usePlayerStore = defineStore(
       }
       navigator.mediaSession.metadata = null
       navigator.mediaSession.metadata = new MediaMetadata(metadata)
-      if (pic.value.startsWith('http')) pic.value += '?param=512y512'
       if (window.env?.isLinux) {
-        metadata.artwork.map((art) => {
-          art.src = (currentTrack.value?.album?.picUrl || currentTrack.value?.al?.picUrl)!
-        })
-        let pic1: string = new URL(`../assets/images/default.jpg`, import.meta.url).href
-        let pic2: string = new URL(`../assets/images/default.jpg`, import.meta.url).href
-        let pic3: string = new URL(`../assets/images/default.jpg`, import.meta.url).href
-        let pic4: string = new URL(`../assets/images/default.jpg`, import.meta.url).href
-        if (track.type === 'stream') {
-          if (track.source === 'navidrome') {
-            pic1 = track.picUrl.replace('size=64', 'size=224')
-            pic2 = track.picUrl.replace('size=64', 'size=512')
-            pic3 = track.picUrl.replace('size=64', 'size=224')
-            pic4 = track.picUrl.replace('size=64', 'size=512')
-          } else if (track.source === 'emby') {
-            pic1 = track.picUrl
-              .replace('maxHeight=64', 'maxHeight=224')
-              .replace('maxWidth=64', 'maxWidth=224')
-            pic2 = track.picUrl
-              .replace('maxHeight=64', 'maxHeight=512')
-              .replace('maxWidth=64', 'maxWidth=512')
-            pic3 = track.picUrl
-              .replace('maxHeight=64', 'maxHeight=1024')
-              .replace('maxWidth=64', 'maxWidth=1024')
-            pic4 = track.picUrl
-              .replace('maxHeight=64', 'maxHeight=2048')
-              .replace('maxWidth=64', 'maxWidth=2048')
-          }
-          metadata.artwork[0].src = pic1
-          metadata.artwork[1].src = pic2
-          metadata.artwork[2].src = pic3
-          metadata.artwork[3].src = pic4
+        if (track.type === 'local') {
+          metadata.artwork.map((art) => {
+            const url = `http://localhost:${window.env?.isDev ? 40001 : 41830}` + art.src
+            art.src = url
+          })
         }
         window.mainApi?.send('metadata', metadata)
       }
@@ -1377,10 +1342,6 @@ export const usePlayerStore = defineStore(
       lyrics.lyric = []
       lyrics.tlyric = []
       lyrics.rlyric = []
-      if (pic.value.startsWith('blob:')) {
-        URL.revokeObjectURL(pic.value)
-        pic.value = new URL(`../assets/images/default.jpg`, import.meta.url).href
-      }
 
       if (resetBiq) {
         volume.value = 1
@@ -1703,8 +1664,33 @@ export const usePlayerStore = defineStore(
 
     onBeforeUnmount(() => {
       progress.value = audioNodes.audio?.currentTime || 0
-      if (pic.value.startsWith('blob:')) URL.revokeObjectURL(pic.value)
     })
+
+    if (typeof window !== 'undefined') {
+      const formatTime = (seconds: number) => {
+        const minutes = Math.floor(seconds / 60)
+        const remainingSeconds = seconds % 60
+        const formattedMinutes = minutes.toString().padStart(2, '0')
+        const formattedSeconds = remainingSeconds.toFixed(3).padStart(6, '0')
+        return `[${formattedMinutes}:${formattedSeconds}]`
+      }
+      window.vutronmusic = {
+        get progress() {
+          return audioNodes.audio?.currentTime || 0
+        },
+        get currentTrack() {
+          return toRaw(currentTrack.value || {})
+        },
+        get lyric() {
+          const result = {
+            lrc: lyrics.lyric.map((lrc) => `${formatTime(lrc.start)}${lrc.content}`).join('\n'),
+            tlyric: lyrics.tlyric.map((lrc) => `${formatTime(lrc.start)}${lrc.content}`).join('\n'),
+            romalrc: lyrics.rlyric.map((lrc) => `${formatTime(lrc.start)}${lrc.content}`).join('\n')
+          }
+          return result
+        }
+      }
+    }
 
     return {
       playing,

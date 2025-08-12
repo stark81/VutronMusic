@@ -11,7 +11,7 @@ import Constants from './utils/Constants'
 import store from './store'
 import path from 'path'
 
-// let playState = false
+let playState = false
 let repeatMode = 'off'
 let shuffleMode = false
 
@@ -88,14 +88,15 @@ const createMenuTemplate = (win: BrowserWindow) => {
       label: t('play'),
       icon: createNativeImage('play'),
       click: () => win.webContents.send('play'),
-      id: 'play'
+      id: 'play',
+      visible: playState
     },
     {
       label: t('pause'),
       icon: createNativeImage('pause'),
       click: () => win.webContents.send('play'),
       id: 'pause',
-      visible: false
+      visible: !playState
     },
     {
       label: t('prev'),
@@ -296,7 +297,7 @@ class TrayImpl implements YPMTray {
   }
 
   setPlayState(isPlaying: boolean) {
-    // playState = isPlaying || false
+    playState = isPlaying || false
     if (!this._contextMenu) return
     this._contextMenu.getMenuItemById('play').visible = !isPlaying
     this._contextMenu.getMenuItemById('pause').visible = isPlaying

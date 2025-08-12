@@ -214,22 +214,25 @@ const rightClickedTrackComputed = computed(() => {
       }
     : rightClickedTrack.value
 })
-const image = computed(() => {
-  const alPic = rightClickedTrackComputed.value.al.picUrl
-  const albumPic = rightClickedTrackComputed.value.album.picUrl
 
-  let url =
-    rightClickedTrackComputed.value.matched !== false ||
-    rightClickedTrackComputed.value.type === 'stream'
-      ? (alPic !== '' && alPic) || (albumPic !== '' && albumPic) || 'atom://get-default-pic'
-      : rightClickedTrackComputed.value.filePath
-        ? `atom://get-pic/${rightClickedTrackComputed.value.id}`
-        : ''
-  if (url.includes('https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg')) {
-    url = 'atom://get-default-pic'
+const image = computed(() => {
+  let url: string
+  if (rightClickedTrackComputed.value.type === 'online') {
+    url =
+      rightClickedTrackComputed.value.al?.picUrl || rightClickedTrackComputed.value.album?.picUrl
+    if (url && url.startsWith('http')) url = url.replace('http:', 'https:')
+    url += '?param=128y128'
+    return url
+  } else if (rightClickedTrackComputed.value.type === 'stream') {
+    url =
+      rightClickedTrackComputed.value.al?.picUrl || rightClickedTrackComputed.value.album?.picUrl
+    return url
+  } else {
+    url = `/local-asset/pic?id=${rightClickedTrackComputed.value.id}`
+    return url
   }
-  return url
 })
+
 const typeType = computed(() => {
   if (props.type.includes('local')) return 'local'
   else if (props.type.includes('stream')) return 'stream'

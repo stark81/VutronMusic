@@ -152,5 +152,6 @@ contextBridge.exposeInMainWorld('env', {
   isEnableTitlebar: process.platform === 'win32' || process.platform === 'linux',
   isLinux: process.platform === 'linux',
   isMac: process.platform === 'darwin',
-  isWindows: process.platform === 'win32'
+  isWindows: process.platform === 'win32',
+  isDev: process.env.NODE_ENV === 'development'
 })

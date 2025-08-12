@@ -145,14 +145,14 @@ class Navidrome implements NavidromeImpl {
               id: song.albumId,
               name: song.album,
               matched: false,
-              picUrl: `atom://get-stream-pic/${song.albumId}/64`
+              picUrl: this.getPic(song.albumId, 64)
             },
             artists: [
               {
                 id: song.artistId,
                 name: song.artist,
                 matched: false,
-                picUrl: `atom://get-stream-pic/${song.albumId}/64`
+                picUrl: this.getPic(song.albumId, 64)
               }
             ],
             picUrl: getRestUrl('getCoverArt', { id: song.albumId, size: 64 })
@@ -192,7 +192,7 @@ class Navidrome implements NavidromeImpl {
             description: p.comment,
             updateTime: new Date(p.updatedAt).getTime(),
             trackCount: p.songCount,
-            coverImgUrl: `atom://get-stream-pic/${p.id}/512`,
+            coverImgUrl: this.getPic(p.id, 512),
             trackIds,
             creator: { nickname: p.ownerName }
           }

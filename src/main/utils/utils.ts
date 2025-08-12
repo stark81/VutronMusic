@@ -177,6 +177,7 @@ export const splitArtist = (artist: string | undefined) => {
 export const getPicFromApi = async (url: string) => {
   let pic: Buffer | null = null
   let format: string = ''
+  if (!url) return { pic, format }
   if (url.startsWith('http') && !url.includes('?param=')) {
     url = `${url}?param=512y512`
   }
@@ -187,6 +188,10 @@ export const getPicFromApi = async (url: string) => {
       return res.arrayBuffer()
     })
     .then((res) => Buffer.from(res))
+    .catch((err) => {
+      console.log('===1===', err)
+      return err
+    })
   return { pic, format }
 }
 
@@ -201,7 +206,7 @@ export const getPicFromEmbedded = async (filePath: string) => {
   return { pic, format }
 }
 
-const getPicFromPath = async (filePath: string) => {
+export const getPicFromPath = async (filePath: string) => {
   let pic: Buffer | null = null
   let format: string = ''
   pic = await fs.promises.readFile(filePath)
@@ -218,10 +223,11 @@ export const getPic = async (track: any): Promise<{ pic: Buffer; format: string 
   ]
 
   let res: { pic: Buffer<ArrayBufferLike>; format: string }
+  const url = track.album?.picUrl || track.al?.picUrl
 
   for (const order of trackInfoOrder) {
     if (order === 'online' && track.matched) {
-      res = await getPicFromApi(track.album?.picUrl || track.al?.picUrl)
+      res = await getPicFromApi(url)
     } else if (order === 'path' && track.filePath) {
       const prefixs = ['.jpg', '.png', '.jpeg', '.webp']
       for (const prefix of prefixs) {
@@ -241,7 +247,7 @@ export const getPic = async (track: any): Promise<{ pic: Buffer; format: string 
     }
     if (res?.pic) return res
   }
-  res = await getPicFromApi(track.album?.picUrl || track.al?.picUrl)
+  res = await getPicFromApi(url)
   return res
 }
 
@@ -649,28 +655,28 @@ const formatTime = (ms: number) => {
   return `[${minutesStr}:${secondsStr}]`
 }
 
-export const getStreamPic = async (ids: string) => {
-  const service =
-    (store.get('accounts.selected') as ['navidrome', 'emby', 'jellyfin'][number]) || 'navidrome'
-  if (service === 'navidrome') {
-    const navidrome = (await import('../streaming/navidrome')).default
-    const [id, size] = ids.split('/')
-    return fetch(navidrome.getPic(id, size ? Number(size) : null))
-  } else if (service === 'emby') {
-    const emby = (await import('../streaming/emby')).default
-    const [id, primary, size] = ids.split('/')
-    const url = emby.getPic(Number(id), primary, Number(size))
-    return fetch(url)
-  } else if (service === 'jellyfin') {
-    const jellyfin = (await import('../streaming/jellyfin')).default
-    const [id, size] = ids.split('/')
-    const url = jellyfin.getPic(id, Number(size))
-    return fetch(url).catch(async (err) => {
-      log.error('获取Jellyfin封面失败:', err)
-      return await fetch('atom://get-default-pic')
-    })
-  }
-}
+// export const getStreamPic = async (ids: string) => {
+//   const service =
+//     (store.get('accounts.selected') as ['navidrome', 'emby', 'jellyfin'][number]) || 'navidrome'
+//   if (service === 'navidrome') {
+//     const navidrome = (await import('../streaming/navidrome')).default
+//     const [id, size] = ids.split('/')
+//     return fetch(navidrome.getPic(id, size ? Number(size) : null))
+//   } else if (service === 'emby') {
+//     const emby = (await import('../streaming/emby')).default
+//     const [id, primary, size] = ids.split('/')
+//     const url = emby.getPic(Number(id), primary, Number(size))
+//     return fetch(url)
+//   } else if (service === 'jellyfin') {
+//     const jellyfin = (await import('../streaming/jellyfin')).default
+//     const [id, size] = ids.split('/')
+//     const url = jellyfin.getPic(id, Number(size))
+//     return fetch(url).catch(async (err) => {
+//       log.error('获取Jellyfin封面失败:', err)
+//       return await fetch('atom://get-default-pic')
+//     })
+//   }
+// }
 
 export const getStreamMusic = async (id: string, headers?: any) => {
   const service =
