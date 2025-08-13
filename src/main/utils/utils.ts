@@ -385,6 +385,30 @@ export const handleNeteaseResult = (name: string, result: any) => {
       result.songs = mapTrackPlayableStatus(result.songs)
       return result
     }
+    case CacheAPIs.ListenedRecords: {
+      if (result.weekData) {
+        result.weekData = result.weekData.map((item: any) => {
+          item.song = { ...item.song, type: 'online', matched: true }
+          return item
+        })
+      }
+      if (result.allData) {
+        result.allData = result.allData.map((item: any) => {
+          item.song = { ...item.song, type: 'online', matched: true }
+          return item
+        })
+      }
+      return result
+    }
+    case CacheAPIs.CloudDisk: {
+      result.data = result.data.map((item: any) => {
+        item.type = 'online'
+        item.matched = true
+        if (item.simpleSong) item.simpleSong = { ...item.simpleSong, type: 'online', matched: true }
+        return item
+      })
+      return result
+    }
     default:
       return result
   }
@@ -654,29 +678,6 @@ const formatTime = (ms: number) => {
   const minutesStr = String(minutes).padStart(2, '0')
   return `[${minutesStr}:${secondsStr}]`
 }
-
-// export const getStreamPic = async (ids: string) => {
-//   const service =
-//     (store.get('accounts.selected') as ['navidrome', 'emby', 'jellyfin'][number]) || 'navidrome'
-//   if (service === 'navidrome') {
-//     const navidrome = (await import('../streaming/navidrome')).default
-//     const [id, size] = ids.split('/')
-//     return fetch(navidrome.getPic(id, size ? Number(size) : null))
-//   } else if (service === 'emby') {
-//     const emby = (await import('../streaming/emby')).default
-//     const [id, primary, size] = ids.split('/')
-//     const url = emby.getPic(Number(id), primary, Number(size))
-//     return fetch(url)
-//   } else if (service === 'jellyfin') {
-//     const jellyfin = (await import('../streaming/jellyfin')).default
-//     const [id, size] = ids.split('/')
-//     const url = jellyfin.getPic(id, Number(size))
-//     return fetch(url).catch(async (err) => {
-//       log.error('获取Jellyfin封面失败:', err)
-//       return await fetch('atom://get-default-pic')
-//     })
-//   }
-// }
 
 export const getStreamMusic = async (id: string, headers?: any) => {
   const service =

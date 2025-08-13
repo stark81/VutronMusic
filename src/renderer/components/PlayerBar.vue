@@ -166,6 +166,7 @@ import { useOsdLyricStore } from '../store/osdLyric'
 import { useNormalStateStore } from '../store/state'
 import { hasListSource, getListSourcePath } from '../utils/playlist'
 import { useStreamMusicStore } from '../store/streamingMusic'
+import { useSettingsStore } from '../store/settings'
 import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
 import { computed, ref, watch } from 'vue'
@@ -202,6 +203,9 @@ let hoverTimeout
 const osdLyric = useOsdLyricStore()
 const { show } = storeToRefs(osdLyric)
 
+const settingsStore = useSettingsStore()
+const { general } = storeToRefs(settingsStore)
+
 const stateStore = useNormalStateStore()
 const { showLyrics, enableScrolling } = storeToRefs(stateStore)
 
@@ -227,6 +231,10 @@ const position = computed({
     return seek.value
   },
   set(value) {
+    if (!general.value.jumpToLyricBegin) {
+      seek.value = value
+      return
+    }
     const line = lyrics.value.lyric.find((l, index) => {
       const nextLine = lyrics.value.lyric[index + 1]
       if (nextLine) {

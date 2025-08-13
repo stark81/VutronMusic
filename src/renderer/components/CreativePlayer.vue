@@ -230,7 +230,7 @@ const {
 const { playPrev, playOrPause, _playNextTrack, switchRepeatMode, moveToFMTrash } = playerStore
 
 const settingsStore = useSettingsStore()
-const { playerTheme } = storeToRefs(settingsStore)
+const { playerTheme, general } = storeToRefs(settingsStore)
 
 const { likeATrack } = useDataStore()
 const { likeAStreamTrack } = useStreamMusicStore()
@@ -358,6 +358,10 @@ const position = computed({
     return seek.value
   },
   set(value) {
+    if (!general.value.jumpToLyricBegin) {
+      seek.value = value
+      return
+    }
     const line = lyrics.value.lyric.find((l, index) => {
       const nextLine = lyrics.value.lyric[index + 1]
       if (nextLine) {

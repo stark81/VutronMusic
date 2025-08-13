@@ -304,6 +304,7 @@
         "auto": "自動 (跟隨系統主題)"
       },
       "logout": "登出",
+      "jumpToLyricBegin": "調整進度時吸附到歌詞開始位置",
       "perventSuspend": "播放時防止系統休眠"
     },
     "theme": {

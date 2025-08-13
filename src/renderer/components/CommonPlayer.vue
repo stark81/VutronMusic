@@ -321,6 +321,10 @@ const position = computed({
     return seek.value
   },
   set(value) {
+    if (!general.value.jumpToLyricBegin) {
+      seek.value = value
+      return
+    }
     const line = lyrics.value.lyric.find((l, index) => {
       const nextLine = lyrics.value.lyric[index + 1]
       if (nextLine) {

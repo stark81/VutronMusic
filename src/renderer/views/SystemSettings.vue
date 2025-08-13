@@ -662,6 +662,22 @@
                 <button @click="resetPlayer()">确定</button>
               </div>
             </div>
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('settings.general.jumpToLyricBegin') }}</div>
+              </div>
+              <div class="right">
+                <div class="toggle">
+                  <input
+                    id="jump-to-lyric-begin"
+                    v-model="general.jumpToLyricBegin"
+                    type="checkbox"
+                    name="jump-to-lyric-begin"
+                  />
+                  <label for="jump-to-lyric-begin"></label>
+                </div>
+              </div>
+            </div>
             <div v-if="isElectron" class="item">
               <div class="left">
                 <div class="title">{{ $t('settings.general.perventSuspend') }}</div>

@@ -304,6 +304,7 @@
         "auto": "Auto (Based on system theme)"
       },
       "logout": "Logout",
+      "jumpToLyricBegin": "Jump to begining of current lyric when seeking",
       "perventSuspend": "Prevent system sleep during playback"
     },
     "theme": {
