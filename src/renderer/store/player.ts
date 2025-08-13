@@ -1292,21 +1292,21 @@ export const usePlayerStore = defineStore(
         artist: artists.join(','),
         album: track.album?.name ?? track.al?.name,
         artwork: [
-          {
-            src: getPic(track, 224),
-            type: 'image/jpg',
-            sizes: '224x224'
-          },
-          {
-            src: getPic(track, 512),
-            type: 'image/jpg',
-            sizes: '512x512'
-          },
-          {
-            src: getPic(track, 1024),
-            type: 'image/jpg',
-            sizes: '1024x1024'
-          },
+          // {
+          //   src: getPic(track, 224),
+          //   type: 'image/jpg',
+          //   sizes: '224x224'
+          // },
+          // {
+          //   src: getPic(track, 512),
+          //   type: 'image/jpg',
+          //   sizes: '512x512'
+          // },
+          // {
+          //   src: getPic(track, 1024),
+          //   type: 'image/jpg',
+          //   sizes: '1024x1024'
+          // },
           {
             src: getPic(track, 2048),
             type: 'image/jpg',
