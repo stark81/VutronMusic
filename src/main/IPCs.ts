@@ -547,14 +547,11 @@ async function initMprisIpcMain(win: BrowserWindow, mpris: MprisImpl): Promise<v
       }
     }
   })
-  ipcMain.on(
-    'playerCurrentTrackTime',
-    (event: IpcMainEvent, data: { seeked: boolean; progress: number }) => {
-      mpris?.setPosition(data)
-    }
-  )
-  ipcMain.on('updateRate', (event: IpcMainEvent, rate: number) => {
-    mpris?.setRate(rate)
+  ipcMain.on('playerCurrentTrackTime', (event: IpcMainEvent, data: { progress: number }) => {
+    mpris?.setPosition(data)
+  })
+  ipcMain.on('updateRate', (event: IpcMainEvent, data: { rate: number; progress: number }) => {
+    mpris?.setRate(data)
   })
 }
 

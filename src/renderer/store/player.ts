@@ -96,7 +96,6 @@ export const usePlayerStore = defineStore(
     }>({ id: 0 })
 
     let lastUpdateTime = 0
-    let intervalTimer
 
     const localMusicStore = useLocalMusicStore()
     const streamMusicStore = useStreamMusicStore()
@@ -242,7 +241,7 @@ export const usePlayerStore = defineStore(
         currentIndex.word = getLyricIndex(fontList.value.word, 0, 1000)
         currentIndex.tWord = getLyricIndex(fontList.value.tWord, 0, 1000)
         if (window.env?.isLinux) {
-          window.mainApi?.send('playerCurrentTrackTime', { seeked: true, progress: value })
+          window.mainApi?.send('playerCurrentTrackTime', { progress: value })
         }
         navigator.mediaSession.setPositionState({
           duration: currentTrackDuration.value,
@@ -291,7 +290,10 @@ export const usePlayerStore = defineStore(
     })
 
     watch(playbackRate, (value) => {
-      window.mainApi?.send('updateRate', value)
+      window.mainApi?.send('updateRate', {
+        rate: value,
+        progress: audioNodes.audio?.currentTime ?? 0
+      })
       navigator.mediaSession.setPositionState({
         duration: currentTrackDuration.value,
         playbackRate: value,
@@ -595,7 +597,7 @@ export const usePlayerStore = defineStore(
       _progress.value = audioNodes.audio?.currentTime || 0
       if (value) {
         updateIndex()
-        updateMprisProgress()
+        // updateMprisProgress()
         if (settingsStore.general.preventSuspension) {
           window.mainApi?.send('update-powersave', true)
         }
@@ -609,10 +611,10 @@ export const usePlayerStore = defineStore(
         if (settingsStore.general.preventSuspension) {
           window.mainApi?.send('update-powersave', false)
         }
-        if (intervalTimer) {
-          clearInterval(intervalTimer)
-          intervalTimer = null
-        }
+        // if (intervalTimer) {
+        //   clearInterval(intervalTimer)
+        //   intervalTimer = null
+        // }
       }
     })
 
@@ -697,20 +699,6 @@ export const usePlayerStore = defineStore(
           data: { title: `${(track.artists || track.ar)[0]?.name} - ${track.name}` }
         })
       }
-    }
-
-    const updateMprisProgress = () => {
-      if (!window.env?.isLinux) return
-      window.mainApi?.send('playerCurrentTrackTime', {
-        seeked: true,
-        progress: audioNodes.audio!.currentTime
-      })
-      intervalTimer = setInterval(() => {
-        window.mainApi?.send('playerCurrentTrackTime', {
-          seeked: true,
-          progress: audioNodes.audio!.currentTime
-        })
-      }, 5 * 1000)
     }
 
     const setConvolver = (data: {
@@ -1292,21 +1280,21 @@ export const usePlayerStore = defineStore(
         artist: artists.join(','),
         album: track.album?.name ?? track.al?.name,
         artwork: [
-          // {
-          //   src: getPic(track, 224),
-          //   type: 'image/jpg',
-          //   sizes: '224x224'
-          // },
-          // {
-          //   src: getPic(track, 512),
-          //   type: 'image/jpg',
-          //   sizes: '512x512'
-          // },
-          // {
-          //   src: getPic(track, 1024),
-          //   type: 'image/jpg',
-          //   sizes: '1024x1024'
-          // },
+          {
+            src: getPic(track, 224),
+            type: 'image/jpg',
+            sizes: '224x224'
+          },
+          {
+            src: getPic(track, 512),
+            type: 'image/jpg',
+            sizes: '512x512'
+          },
+          {
+            src: getPic(track, 1024),
+            type: 'image/jpg',
+            sizes: '1024x1024'
+          },
           {
             src: getPic(track, 2048),
             type: 'image/jpg',
@@ -1315,7 +1303,9 @@ export const usePlayerStore = defineStore(
         ],
         length: currentTrackDuration.value,
         trackId: track.id,
-        url: '/trackid/' + track.id
+        url: '/trackid/' + track.id,
+        progress: audioNodes.audio?.currentTime ?? 0,
+        rate: playbackRate.value
       }
       navigator.mediaSession.metadata = null
       navigator.mediaSession.metadata = new MediaMetadata(metadata)
