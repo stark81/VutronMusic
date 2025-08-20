@@ -1289,23 +1289,14 @@ export const usePlayerStore = defineStore(
             src: getPic(track, 512),
             type: 'image/jpg',
             sizes: '512x512'
-          },
-          {
-            src: getPic(track, 1024),
-            type: 'image/jpg',
-            sizes: '1024x1024'
-          },
-          {
-            src: getPic(track, 2048),
-            type: 'image/jpg',
-            sizes: '2048x2048'
           }
         ],
         length: currentTrackDuration.value,
         trackId: track.id,
         url: '/trackid/' + track.id,
         progress: audioNodes.audio?.currentTime ?? 0,
-        rate: playbackRate.value
+        rate: playbackRate.value,
+        asText: lyrics.lyric.map((lrc) => `${formatTime(lrc.start)}${lrc.content}`).join('\n')
       }
       navigator.mediaSession.metadata = null
       navigator.mediaSession.metadata = new MediaMetadata(metadata)
@@ -1617,6 +1608,33 @@ export const usePlayerStore = defineStore(
       })
     }
 
+    const formatTime = (seconds: number) => {
+      const minutes = Math.floor(seconds / 60)
+      const remainingSeconds = seconds % 60
+      const formattedMinutes = minutes.toString().padStart(2, '0')
+      const formattedSeconds = remainingSeconds.toFixed(3).padStart(6, '0')
+      return `[${formattedMinutes}:${formattedSeconds}]`
+    }
+
+    if (typeof window !== 'undefined') {
+      window.vutronmusic = {
+        get progress() {
+          return audioNodes.audio?.currentTime || 0
+        },
+        get currentTrack() {
+          return toRaw(currentTrack.value || {})
+        },
+        get lyric() {
+          const result = {
+            lrc: lyrics.lyric.map((lrc) => `${formatTime(lrc.start)}${lrc.content}`).join('\n'),
+            tlyric: lyrics.tlyric.map((lrc) => `${formatTime(lrc.start)}${lrc.content}`).join('\n'),
+            romalrc: lyrics.rlyric.map((lrc) => `${formatTime(lrc.start)}${lrc.content}`).join('\n')
+          }
+          return result
+        }
+      }
+    }
+
     onMounted(async () => {
       await Promise.all([fetchLocalMusic(), fetchStreamMusic()])
       playing.value = false
@@ -1655,32 +1673,6 @@ export const usePlayerStore = defineStore(
     onBeforeUnmount(() => {
       progress.value = audioNodes.audio?.currentTime || 0
     })
-
-    if (typeof window !== 'undefined') {
-      const formatTime = (seconds: number) => {
-        const minutes = Math.floor(seconds / 60)
-        const remainingSeconds = seconds % 60
-        const formattedMinutes = minutes.toString().padStart(2, '0')
-        const formattedSeconds = remainingSeconds.toFixed(3).padStart(6, '0')
-        return `[${formattedMinutes}:${formattedSeconds}]`
-      }
-      window.vutronmusic = {
-        get progress() {
-          return audioNodes.audio?.currentTime || 0
-        },
-        get currentTrack() {
-          return toRaw(currentTrack.value || {})
-        },
-        get lyric() {
-          const result = {
-            lrc: lyrics.lyric.map((lrc) => `${formatTime(lrc.start)}${lrc.content}`).join('\n'),
-            tlyric: lyrics.tlyric.map((lrc) => `${formatTime(lrc.start)}${lrc.content}`).join('\n'),
-            romalrc: lyrics.rlyric.map((lrc) => `${formatTime(lrc.start)}${lrc.content}`).join('\n')
-          }
-          return result
-        }
-      }
-    }
 
     return {
       playing,

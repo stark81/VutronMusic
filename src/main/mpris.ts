@@ -82,7 +82,8 @@ class Mpris implements MprisImpl {
       'xesam:title': metadata.title,
       'xesam:artist': metadata.artist.split(','),
       'xesam:album': metadata.album,
-      'xesam:url': metadata.url
+      'xesam:url': metadata.url,
+      'xesam:asText': metadata.asText
     }
     this._player.rate = metadata.rate
     this._player.seeked(metadata.progress * 1000 * 1000)
