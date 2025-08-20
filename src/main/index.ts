@@ -462,16 +462,18 @@ class BackGround {
         const pic = result.pic
         const format = result.format
 
-        return new Response(pic, { headers: { 'Content-Type': format } })
+        return new Response(new Uint8Array(pic), { headers: { 'Content-Type': format } })
       } else if (host === 'get-default-pic') {
         const pic = fs.readFileSync(defaultImagePath)
-        return new Response(pic)
+        return new Response(new Uint8Array(pic))
       } else if (host === 'get-pic-path') {
         const filePath = pathname.slice(1)
         const track = { matched: false, filePath, album: { picUrl: 'atom://get-default-pic' } }
 
         const result = await getPic(track)
-        return new Response(result.pic, { headers: { 'Content-Type': result.format } })
+        return new Response(new Uint8Array(result.pic), {
+          headers: { 'Content-Type': result.format }
+        })
       } else if (host === 'get-playlist-pic') {
         const ids = pathname.slice(1)
         const res = cache.get(CacheAPIs.Track, { ids })
@@ -488,7 +490,9 @@ class BackGround {
         }
 
         const result = await getPic(track)
-        return new Response(result.pic, { headers: { 'Content-Type': result.format } })
+        return new Response(new Uint8Array(result.pic), {
+          headers: { 'Content-Type': result.format }
+        })
       } else if (host === 'get-lyric') {
         const ids = pathname.slice(1)
         const res = cache.get(CacheAPIs.Track, { ids })

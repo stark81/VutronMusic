@@ -82,7 +82,8 @@ class Mpris implements MprisImpl {
       'xesam:title': metadata.title,
       'xesam:artist': metadata.artist.split(','),
       'xesam:album': metadata.album,
-      'xesam:url': metadata.url
+      'xesam:url': metadata.url,
+      'xesam:asText': metadata.asText
     }
   }
 

@@ -26,7 +26,7 @@ const httpHandler: FastifyPluginAsync = async (fastify: FastifyInstance, options
       const pic = result.pic
       const format = result.format
 
-      return new Response(pic, { headers: { 'Content-Type': format } })
+      return new Response(new Uint8Array(pic), { headers: { 'Content-Type': format } })
     }
   )
 
