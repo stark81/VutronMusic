@@ -359,7 +359,7 @@ class BackGround {
           mousePos.y >= bounds.y - 4 &&
           mousePos.y <= bounds.y + bounds.height + 4
         if (!isInWindow) {
-          this.lyricWin.webContents.send('mouseleave-completely')
+          this.lyricWin?.webContents.send('mouseleave-completely')
           clearInterval(this.checkInterval)
         }
       }
@@ -419,10 +419,10 @@ class BackGround {
   }
 
   initMessageChannel() {
-    if (!this.lyricWin) return
+    if (!this.lyricWin || !this.win) return
     const { port1, port2 } = new MessageChannelMain()
-    this.win.webContents.postMessage('port-connect', null, [port1])
-    this.lyricWin.webContents.postMessage('port-connect', null, [port2])
+    this.win?.webContents.postMessage('port-connect', null, [port1])
+    this.lyricWin?.webContents.postMessage('port-connect', null, [port2])
   }
 
   initOSDWindow() {

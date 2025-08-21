@@ -206,15 +206,6 @@ export const useSettingsStore = defineStore(
     )
 
     watch(
-      () => general.preventSuspension,
-      (value) => {
-        if (!value) {
-          window.mainApi?.send('update-powersave', false)
-        }
-      }
-    )
-
-    watch(
       () => general.musicQuality,
       (newValue) => {
         window.mainApi?.send('setStoreSettings', { musicQuality: newValue })

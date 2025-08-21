@@ -488,7 +488,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
   })
 
   ipcMain.handle('getFontList', async (event) => {
-    const { getFonts } = await import('font-list')
+    const getFonts = (await import('font-list')).getFonts
     try {
       const fonts = await getFonts()
       const cleandFonts = [...new Set(fonts.map(cleanFontName))]
@@ -511,7 +511,7 @@ async function initMprisIpcMain(win: BrowserWindow, mpris: MprisImpl): Promise<v
   //   dbus.iface?.emit(signalNameEnum.currentLrc, data)
   // })
 
-  const createDBus = await import('./dbusClient').then((m) => m.createDBus)
+  const createDBus = (await import('./dbusClient')).createDBus
 
   const busName = 'org.gnome.Shell.TrayLyric'
   const dbus = createDBus(busName, win)

@@ -597,10 +597,6 @@ export const usePlayerStore = defineStore(
       _progress.value = audioNodes.audio?.currentTime || 0
       if (value) {
         updateIndex()
-        // updateMprisProgress()
-        if (settingsStore.general.preventSuspension) {
-          window.mainApi?.send('update-powersave', true)
-        }
       } else {
         clearTimeout(timer.line)
         clearTimeout(timer.list)
@@ -608,15 +604,15 @@ export const usePlayerStore = defineStore(
         timer.line = null
         timer.list = null
         timer.tList = null
-        if (settingsStore.general.preventSuspension) {
-          window.mainApi?.send('update-powersave', false)
-        }
-        // if (intervalTimer) {
-        //   clearInterval(intervalTimer)
-        //   intervalTimer = null
-        // }
       }
     })
+
+    watch(
+      () => playing.value && settingsStore.general.preventSuspension,
+      (value) => {
+        window.mainApi?.send('update-powersave', value)
+      }
+    )
 
     watch(
       () => fontList.value.tWord,

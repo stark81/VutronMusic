@@ -116,7 +116,7 @@
           @click.stop="shuffle = !shuffle"
           ><svg-icon icon-class="shuffle"
         /></button-icon>
-        <div class="volume">
+        <div class="volume" @wheel="updateVolume">
           <div class="volume-slider" @click.stop>
             <vue-slider
               v-model="volume"
@@ -287,6 +287,12 @@ const setHover = (e: MouseEvent) => {
     hoverX.value = e.clientX + 'px'
     clearTimeout(hoverTimeout)
   }, 100)
+}
+
+const updateVolume = (e: WheelEvent) => {
+  e.preventDefault()
+  const delta = e.deltaY < 0 ? 0.02 : -0.02
+  volume.value = Math.min(Math.max(volume.value + delta, 0), 1)
 }
 
 const getPosition = (e: MouseEvent) => {
