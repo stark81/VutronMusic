@@ -101,6 +101,7 @@ const getRestUrl = (endpoint: string, params?: Record<string, any>) => {
 }
 
 interface NavidromeImpl {
+  systemPing: () => Promise<boolean>
   doLogin: (baseURL: string, username: string, password: string) => Promise<any>
   getTracks: () => Promise<{ code: number; message: string; data: any }>
   getPlaylists: () => Promise<{ code: number; message: string; data: any }>
@@ -115,6 +116,14 @@ interface NavidromeImpl {
 }
 
 class Navidrome implements NavidromeImpl {
+  async systemPing() {
+    const url = getRestUrl('ping')
+    const res = await axios
+      .get(url, { timeout: 5000 })
+      .catch(() => ({ status: 504, data: { 'subsonic-response': { status: 'failed' } } }))
+    return res.status === 200 && res.data['subsonic-response'].status === 'ok'
+  }
+
   async doLogin(baseUrl: string, username: string, password: string) {
     return doLogin(baseUrl, username, password)
   }
@@ -171,16 +180,6 @@ class Navidrome implements NavidromeImpl {
 
   async getPlaylists() {
     const response = await ApiRequest('playlist')
-    // if (response && response.code === 401) {
-    //   const baseUrl = store.get('accounts.navidrome.url') as string
-    //   const username = store.get('accounts.navidrome.username') as string
-    //   const password = store.get('accounts.navidrome.password') as string
-    //   const { code } = await this.doLogin(baseUrl, username, password)
-    //   if (code === 200) {
-    //     return this.getPlaylists()
-    //   }
-    //   return response
-    // }
     if (response.code && response.code === 200) {
       const playlists = await Promise.all(
         response.data.map(async (p: any) => {

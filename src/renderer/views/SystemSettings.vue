@@ -202,6 +202,44 @@
             </div>
             <div class="item">
               <div class="left">
+                <div class="title">{{ $t('settings.osdLyric.showButtonWhenLock.text') }}</div>
+                <div class="description">
+                  {{ $t('settings.osdLyric.showButtonWhenLock.desc') }}
+                </div>
+                <div class="description">
+                  {{ $t('settings.osdLyric.showButtonWhenLock.desc2') }}
+                </div>
+              </div>
+              <div class="right">
+                <div class="toggle">
+                  <input
+                    id="showButtonWhenLock"
+                    v-model="showButtonWhenLock"
+                    type="checkbox"
+                    name="showButtonWhenLock"
+                  />
+                  <label for="showButtonWhenLock"></label>
+                </div>
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
+                <div class="title"> {{ $t('settings.osdLyric.staticTime.text') }} </div>
+                <div class="description"> {{ $t('settings.osdLyric.staticTime.desc') }} </div>
+                <div class="description"> {{ $t('settings.osdLyric.staticTime.desc2') }} </div>
+              </div>
+              <div class="right">
+                <input
+                  v-model="staticTime"
+                  :disabled="!showButtonWhenLock"
+                  type="number"
+                  step="100"
+                  class="text-input margin-right-0"
+                />
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
                 <div class="title"> {{ $t('settings.osdLyric.font') }} </div>
               </div>
               <div class="right">
@@ -222,20 +260,6 @@
                   type="number"
                   class="text-input margin-right-0"
                   @input="inputFontSizeDebounce"
-                />
-              </div>
-            </div>
-            <div class="item">
-              <div class="left">
-                <div class="title"> {{ $t('settings.osdLyric.staticTime.text') }} </div>
-                <div class="description"> {{ $t('settings.osdLyric.staticTime.desc') }} </div>
-              </div>
-              <div class="right">
-                <input
-                  v-model="staticTime"
-                  type="number"
-                  step="100"
-                  class="text-input margin-right-0"
                 />
               </div>
             </div>
@@ -1012,6 +1036,7 @@ const {
   unplayLrcColor,
   textShadow,
   staticTime,
+  showButtonWhenLock,
   font
 } = storeToRefs(osdLyric)
 

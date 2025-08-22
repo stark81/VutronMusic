@@ -41,6 +41,7 @@ const mainAvailChannels: string[] = [
   'logoutStreamMusic',
   'scrobbleStreamMusic',
   'likeAStreamTrack',
+  'systemPing',
   'get-stream-account',
   'check-update',
   'downloadUpdate',

@@ -30,6 +30,7 @@ const sendItemsList = async (
 }
 
 interface JellyfinImpl {
+  systemPing: () => Promise<boolean>
   doLogin: (baseURL: string, username: string, password: string) => Promise<any>
   getTracks: () => Promise<{ code: number; message?: string; data?: any }>
   getPlaylists: () => Promise<{ code: number; message: string; data: any }>
@@ -44,6 +45,15 @@ interface JellyfinImpl {
 }
 
 class Jellyfin implements JellyfinImpl {
+  async systemPing() {
+    const baseUrl = store.get('accounts.jellyfin.url') as string
+    if (!baseUrl) return false
+    const response = await axios
+      .get(`${baseUrl}/System/Ping`, { timeout: 5000 })
+      .catch(() => ({ status: 504 }))
+    return response.status === 200
+  }
+
   async doLogin(baseURL: string, Username: string, password: string) {
     const baseUrl = store.get('accounts.jellyfin.url') as string
     const url = `${baseUrl}/Users/AuthenticateByName`
@@ -203,7 +213,7 @@ class Jellyfin implements JellyfinImpl {
 
   getPic(id: string, size: number) {
     const baseUrl = store.get('accounts.jellyfin.url') as string
-    const url = `${baseUrl}/Items/${id}/Images/Primary?fillHeight=${size}&fillWeight=${size}`
+    const url = `${baseUrl}/Items/${id}/Images/Primary?fillHeight=${size}&fillWidth=${size}`
     return url
   }
 

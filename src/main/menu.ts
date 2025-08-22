@@ -8,7 +8,7 @@ let isPlaying = false
 let repeatMode = 'off'
 let shuffleMode = false
 let enableOSD = false
-let isLock = false
+let isLock = (store.get('osdWin.isLock') as boolean) || false
 
 export function createMenu(win: BrowserWindow) {
   let shortcuts = store.get('settings.shortcuts') as

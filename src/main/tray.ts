@@ -14,6 +14,7 @@ import path from 'path'
 let playState = false
 let repeatMode = 'off'
 let shuffleMode = false
+let isOSDLock = (store.get('osdWin.isLock') as boolean) || false
 
 const themeList = [
   { id: 0, fileName: 'vutronmusic-icon' },
@@ -174,14 +175,15 @@ const createMenuTemplate = (win: BrowserWindow) => {
       label: t('lockOSD'),
       icon: createNativeImage('lock'),
       click: () => win.webContents.send('updateOSDSetting', { lock: true }),
-      id: 'lockOSD'
+      id: 'lockOSD',
+      visible: !isOSDLock
     },
     {
       label: t('unlockOSD'),
       icon: createNativeImage('unlock'),
       click: () => win.webContents.send('updateOSDSetting', { lock: false }),
       id: 'unlockOSD',
-      visible: false
+      visible: isOSDLock
     },
     { type: 'separator' },
     {
@@ -290,6 +292,7 @@ class TrayImpl implements YPMTray {
   }
 
   setOSDLock(lock: boolean) {
+    isOSDLock = lock
     if (!this._contextMenu) return
     this._contextMenu.getMenuItemById('lockOSD').visible = !lock
     this._contextMenu.getMenuItemById('unlockOSD').visible = lock

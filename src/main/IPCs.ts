@@ -699,4 +699,6 @@ async function initStreaming() {
       return result
     }
   })
+
+  ipcMain.handle('systemPing', async (event) => {})
 }

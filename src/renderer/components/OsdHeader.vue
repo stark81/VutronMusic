@@ -15,7 +15,7 @@
     <button class="btn" :style="{ color: unplayLrcColor }" @click="switchMode"
       ><svg-icon :icon-class="type === 'small' ? 'normal-mode' : 'mini-mode'"
     /></button>
-    <button class="btn" :style="{ color: unplayLrcColor }" @click="isLock = true"
+    <button class="btn" :style="{ color: unplayLrcColor }" tabindex="-1" @click="isLock = true"
       ><svg-icon icon-class="lock"
     /></button>
     <button class="btn" :style="{ color: unplayLrcColor }" @click="show = !show"
@@ -66,7 +66,7 @@ onMounted(() => {
 <style lang="scss" scoped>
 .header {
   display: flex;
-  height: 43px;
+  height: 34px;
   justify-content: center;
   align-items: center;
   position: relative;

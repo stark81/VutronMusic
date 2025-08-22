@@ -33,6 +33,7 @@ const getLyricFromExtraData = (data: any): string | null => {
 }
 
 export interface EmbyImpl {
+  systemPing: () => Promise<boolean>
   doLogin: (
     baseUrl: string,
     username: string,
@@ -51,6 +52,15 @@ export interface EmbyImpl {
 }
 
 class Emby implements EmbyImpl {
+  async systemPing() {
+    const baseUrl = store.get('accounts.emby.url') as string
+    if (!baseUrl) return false
+    const response = await axios
+      .get(`${baseUrl}/System/Ping`, { timeout: 5000 })
+      .catch(() => ({ status: 504 }))
+    return response.status === 200
+  }
+
   async doLogin(baseUrl: string, username: string, password: string) {
     const endpoint = 'Users/AuthenticateByName'
     const method = 'POST'

@@ -166,6 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
     clearTimeout(timeoutId)
 
     const osdLyric = JSON.parse(localStorage.getItem('osdLyric'))
+    if (osdLyric?.staticTime === 0 || !osdLyric.showButtonWhenLock) return
 
     lastMoveTime = Date.now()
     timeoutId = setTimeout(() => {
@@ -175,6 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
         now - lastMoveTime >= (osdLyric.staticTime ?? 1500)
       ) {
         root.style.opacity = '0.02'
+        clearTimeout(timeoutId)
       }
     }, osdLyric.staticTime ?? 1500)
   })

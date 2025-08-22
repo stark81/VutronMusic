@@ -141,13 +141,19 @@ export const useStreamMusicStore = defineStore(
       if (service.name === 'navidrome') {
         regex = /size=\d+/
         url = url.replace(regex, `size=${size}`)
-      } else if (service.name === 'jellyfin') {
-        regex = /fillHeight=\d+&fillWidth=\d+/
-        url = url.replace(regex, `fillHeight=${size}&fillWidth=${size}`)
-      } else {
-        regex = /maxHeight=\d+&maxWidth=\d+/
-        url = url.replace(regex, `maxHeight=${size}&maxWidth=${size}`)
       }
+      const u = new URL(url)
+      if (u.href.includes('music.126.net')) {
+        u.searchParams.set('param', `${size}y${size}`)
+      } else {
+        u.searchParams.set(
+          service.name === 'jellyfin' ? 'fillHeight' : 'maxHeight',
+          size.toString()
+        )
+        u.searchParams.set(service.name === 'jellyfin' ? 'fillWidth' : 'maxWidth', size.toString())
+      }
+
+      url = u.toString()
       return url
     }
 

@@ -231,7 +231,7 @@ class BackGround {
         type === 'small'
           ? ((store.get('osdWin.height') || 140) as number)
           : ((store.get('osdWin.height2') || 600) as number),
-      minHeight: type === 'small' ? 110 : 400,
+      minHeight: type === 'small' ? 140 : 400,
       maxHeight: type === 'small' ? 220 : undefined,
       minWidth: type === 'small' ? 700 : 400,
       maxWidth: type === 'small' ? undefined : undefined,
@@ -292,6 +292,7 @@ class BackGround {
     }
     this.lyricWin = new BrowserWindow(option)
     await this.lyricWin.loadURL(Constants.APP_OSD_URL)
+    this.lyricWin.setFocusable(false)
   }
 
   toggleMouseIgnore() {
@@ -373,7 +374,6 @@ class BackGround {
   handleOSDWindowEvents() {
     this.lyricWin.once('ready-to-show', () => {
       this.lyricWin.showInactive()
-      if (!Constants.IS_LINUX) this.toggleMouseIgnore()
     })
     this.lyricWin.webContents.on('did-finish-load', () => {
       this.initMessageChannel()
@@ -686,9 +686,10 @@ class BackGround {
       // window events
       this.handleWindowEvents()
 
+      initAutoUpdater(this.win)
       this.tray = createTray(this.win)
       if (Constants.IS_LINUX) {
-        const createMpris = await import('./mpris').then((m) => m.createMpris)
+        const createMpris = (await import('./mpris')).createMpris
         this.mpris = await createMpris(this.win)
       }
 
@@ -709,10 +710,10 @@ class BackGround {
       IPCs.initialize(this.win, this.tray, this.mpris, lrc)
       createMenu(this.win)
       if (Constants.IS_MAC) {
-        const { createDockMenu } = await import('./dock')
+        const createDockMenu = (await import('./dock')).createDockMenu
         createDockMenu(this.win)
 
-        const { createTouchBar } = await import('./touchBar')
+        const createTouchBar = (await import('./touchBar')).createTouchBar
         createTouchBar(this.win)
       }
     })
@@ -760,7 +761,6 @@ class BackGround {
   }
 
   handleWindowEvents() {
-    initAutoUpdater(this.win)
     this.win.once('ready-to-show', () => {
       this.win.show()
       this.win.focus()

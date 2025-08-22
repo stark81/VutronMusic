@@ -78,16 +78,6 @@ export const useSettingsStore = defineStore(
       useMask: true
     })
 
-    const osdLyric = reactive({
-      show: false,
-      opacity: 0.2,
-      fontSize: 24,
-      playedColor: 'rgba(57, 203, 255, 1)',
-      unplayedColor: 'rgba(255, 255, 255, 0.8)',
-      alwaysOnTop: false,
-      lock: false
-    })
-
     const unblockNeteaseMusic = reactive({
       enable: true,
       source: 'kuwo, kugou, ytdlp, qq, bilibili, pyncmd, migu',
@@ -296,7 +286,6 @@ export const useSettingsStore = defineStore(
       enableGlobalShortcut,
       shortcuts,
       normalLyric,
-      osdLyric,
       autoCacheTrack,
       unblockNeteaseMusic,
       updateShortcut,

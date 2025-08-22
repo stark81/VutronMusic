@@ -787,24 +787,18 @@ export const usePlayerStore = defineStore(
       } else {
         lyric = lyric.filter(({ content }) => Boolean(content))
         lyrics.lyric = lyric.map((l, index) => {
-          const end = lyric[index + 1]
-            ? (l.end ?? lyric[index + 1]?.start)
-            : currentTrackDuration.value
+          const end = l.end ?? lyric[index + 1]?.start ?? currentTrackDuration.value
           return { ...l, end }
         })
         tlyric = tlyric.filter(({ content }) => Boolean(content))
         lyrics.tlyric = tlyric.map((l, index) => {
-          const end = tlyric[index + 1]
-            ? (l.end ?? tlyric[index + 1]?.start)
-            : currentTrackDuration.value
+          const end = l.end ?? tlyric[index + 1]?.start ?? currentTrackDuration.value
           return { ...l, end }
         })
         lyrics.tlyric = tlyric
         rlyric = rlyric.filter(({ content }) => Boolean(content))
         lyrics.rlyric = rlyric.map((l, index) => {
-          const end = rlyric[index + 1]
-            ? (l.end ?? rlyric[index + 1]?.start)
-            : currentTrackDuration.value
+          const end = l.end ?? rlyric[index + 1]?.start ?? currentTrackDuration.value
           return { ...l, end }
         })
         lyrics.rlyric = rlyric
@@ -1134,14 +1128,6 @@ export const usePlayerStore = defineStore(
         lastUpdateTime = audioNodes.audio.currentTime
       }
     }
-
-    // const handleEnded = () => {
-    //   seek.value = 0
-    //   clearTimeout(timer.line)
-    //   clearTimeout(timer.list)
-    //   clearTimeout(timer.tList)
-    //   nextTrackCallback()
-    // }
 
     const destroAudioNode = async () => {
       if (audioNodes.audio) {

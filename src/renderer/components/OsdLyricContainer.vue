@@ -155,8 +155,7 @@ onBeforeUnmount(() => {
 <style lang="scss">
 .container {
   user-select: none;
-  padding: 0 20px;
-  height: calc(100vh - 44px);
+  height: calc(100vh - 54px);
   scrollbar-width: none;
   display: flex;
   flex-direction: column;
