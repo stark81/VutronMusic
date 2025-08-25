@@ -239,7 +239,9 @@ class Emby implements EmbyImpl {
     const endpoint = `Playlists/${id}/Items`
     const params = { Recursive: true }
     const response = await ApiRequest('GET', endpoint, params).catch((err) => {
-      log.log('emby getPlaylistTracks error = ', err)
+      if (err.code !== 'ECONNRESET') {
+        console.log('emby getPlaylistTracks error = ', err)
+      }
       return err
     })
     return (response?.data?.Items as any[]) ?? []

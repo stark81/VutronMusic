@@ -299,7 +299,7 @@ export const usePlayerStore = defineStore(
       navigator.mediaSession.setPositionState({
         duration: currentTrackDuration.value,
         playbackRate: value,
-        position: seek.value
+        position: seek.value > currentTrackDuration.value ? 0 : seek.value
       })
       clearTimeout(timer.line)
       clearTimeout(timer.list)
@@ -589,7 +589,7 @@ export const usePlayerStore = defineStore(
         navigator.mediaSession.setPositionState({
           duration: currentTrackDuration.value,
           playbackRate: playbackRate.value,
-          position: seek.value
+          position: seek.value > currentTrackDuration.value ? 0 : seek.value
         })
       }
       if (osdLyricStore.show) {
@@ -656,6 +656,9 @@ export const usePlayerStore = defineStore(
       clearTimeout(timer.list)
       clearTimeout(timer.tList)
       updateIndex()
+      if (window.env?.isLinux) {
+        updateMediaSessionMetaData(currentTrack.value!)
+      }
     })
 
     const searchMatchForLocal = async (track: Track) => {
@@ -1280,7 +1283,8 @@ export const usePlayerStore = defineStore(
         url: '/trackid/' + track.id,
         progress: audioNodes.audio?.currentTime ?? 0,
         rate: playbackRate.value,
-        asText: lyrics.lyric.map((lrc) => `${formatTime(lrc.start)}${lrc.content}`).join('\n')
+        asText: lyrics.lyric.map((lrc) => `${formatTime(lrc.start)}${lrc.content}`).join('\n'),
+        lyricOffset: lyricOffset.value
       }
       navigator.mediaSession.metadata = null
       navigator.mediaSession.metadata = new MediaMetadata(metadata)
@@ -1464,7 +1468,7 @@ export const usePlayerStore = defineStore(
         navigator.mediaSession.setPositionState({
           duration: currentTrackDuration.value,
           playbackRate: playbackRate.value,
-          position: seek.value
+          position: seek.value > currentTrackDuration.value ? 0 : seek.value
         })
       }
     }

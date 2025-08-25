@@ -242,7 +242,6 @@ class BackGround {
         undefined,
       transparent: true,
       frame: false,
-      alwaysOnTop: true,
       hasShadow: false,
       hiddenInMissionControl: true,
       skipTaskbar: true,
@@ -290,11 +289,13 @@ class BackGround {
     }
     this.lyricWin = new BrowserWindow(option)
     await this.lyricWin.loadURL(Constants.APP_OSD_URL)
+    this.lyricWin.setAlwaysOnTop(true)
     this.lyricWin.setFocusable(false)
   }
 
   toggleMouseIgnore() {
     const isLock = (store.get('osdWin.isLock') as boolean) || false
+    this.lyricWin?.setAlwaysOnTop(true)
     this.lyricWin?.setIgnoreMouseEvents(isLock, { forward: !Constants.IS_LINUX })
     this.lyricWin?.setVisibleOnAllWorkspaces(isLock)
   }
