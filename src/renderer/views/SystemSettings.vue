@@ -626,13 +626,12 @@
             </div>
             <div class="item">
               <div>{{ $t('settings.stream.service') }}：</div>
+              <!-- :class="{ itemSelected: service.selected }" -->
               <div
                 v-for="service of services"
                 :key="service.name"
                 :title="serviceTitle(service)"
                 class="stream-item"
-                :class="{ itemSelected: service.selected }"
-                @click="handleSelect(service)"
                 @click.right="loginOrlogout(service)"
               >
                 <img :src="getImagePath(service.name)" />
@@ -969,7 +968,7 @@ import { usePlayerStore } from '../store/player'
 import { useLocalMusicStore } from '../store/localMusic'
 import { useNormalStateStore } from '../store/state'
 import { useOsdLyricStore } from '../store/osdLyric'
-import { useStreamMusicStore, serviceName, serviceType } from '../store/streamingMusic'
+import { useStreamMusicStore, serviceType, serviceName } from '../store/streamingMusic'
 import { useDataStore } from '../store/data'
 import { storeToRefs } from 'pinia'
 import { doLogout } from '../utils/auth'
@@ -1083,15 +1082,15 @@ const serviceTitle = (platform: serviceType) => {
   return `单击选择，右击选择并${title}`
 }
 
-const handleSelect = (platform: serviceType) => {
-  services.value.forEach((s) => {
-    if (s.name === platform.name) {
-      platform.selected = true
-    } else {
-      s.selected = false
-    }
-  })
-}
+// const handleSelect = (platform: serviceType) => {
+//   services.value.forEach((s) => {
+//     if (s.name === platform.name) {
+//       platform.selected = true
+//     } else {
+//       s.selected = false
+//     }
+//   })
+// }
 
 const handleUpdate = () => {
   if (isDownloading.value) return
@@ -1109,10 +1108,10 @@ const handleUpdate = () => {
 
 const loginOrlogout = (platform: serviceType) => {
   if (platform.status === 'logout') {
-    router.push('/streamLogin')
+    router.push(`/streamLogin/${platform.name}`)
   } else {
     if (confirm(`确定登出${platform.name}吗？`)) {
-      handleStreamLogout()
+      handleStreamLogout(platform.name)
     }
   }
 }

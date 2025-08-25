@@ -30,7 +30,7 @@ const sendItemsList = async (
 }
 
 interface JellyfinImpl {
-  systemPing: () => Promise<boolean>
+  systemPing: () => Promise<'logout' | 'login' | 'offline'>
   doLogin: (baseURL: string, username: string, password: string) => Promise<any>
   getTracks: () => Promise<{ code: number; message?: string; data?: any }>
   getPlaylists: () => Promise<{ code: number; message: string; data: any }>
@@ -47,11 +47,24 @@ interface JellyfinImpl {
 class Jellyfin implements JellyfinImpl {
   async systemPing() {
     const baseUrl = store.get('accounts.jellyfin.url') as string
-    if (!baseUrl) return false
+    const status = store.get('accounts.jellyfin.status') as 'logout' | 'login' | 'offline'
+    if (!baseUrl || status === 'logout') return 'logout'
     const response = await axios
       .get(`${baseUrl}/System/Ping`, { timeout: 5000 })
+      .then((res) => {
+        store.set('accounts.jellyfin.status', 'login')
+        return res
+      })
       .catch(() => ({ status: 504 }))
-    return response.status === 200
+
+    switch (response.status) {
+      case 200:
+        return 'login'
+      case 504:
+        return 'offline'
+      default:
+        return 'logout'
+    }
   }
 
   async doLogin(baseURL: string, Username: string, password: string) {
@@ -69,11 +82,12 @@ class Jellyfin implements JellyfinImpl {
       if (response.status === 200) {
         store.set('accounts.jellyfin.userId', response.data.User.Id)
         store.set('accounts.jellyfin.accessToken', response.data.AccessToken)
-        return { code: 200, message: 'Login successful', data: response.data }
+        store.set('accounts.jellyfin.status', 'login')
+        return { code: 200 }
       }
     } catch (err) {
       log.error('==== jellyfin doLogin err ====', err)
-      return { code: 401, message: 'Login failed', data: undefined }
+      return { code: 404, message: 'Login failed', data: undefined }
     }
   }
 
@@ -124,6 +138,7 @@ class Jellyfin implements JellyfinImpl {
             updateTime: new Date(p.DateCreated).getTime(),
             trackCount: p.ChildCount,
             coverImgUrl: url,
+            service: 'jellyfin',
             trackIds,
             trackItemIds,
             creator: { nickname: username }
@@ -253,7 +268,7 @@ class Jellyfin implements JellyfinImpl {
         starred: song.UserData?.IsFavorite || false,
         size: song.MediaSources[0]?.Size || 0,
         source: 'jellyfin',
-        url: `atom://get-stream-music/${song.Id}`,
+        url: this.getStream(song.Id),
         gain: song.NormalizationGain || 0,
         peak: 1,
         br: song.MediaSources?.[0].Bitrate || 0,

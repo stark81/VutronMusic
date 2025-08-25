@@ -381,7 +381,7 @@ const heartDisabled = computed(() => {
 const likeTrack = () => {
   if (currentTrack.value?.type === 'stream') {
     const op = currentTrack.value.starred ? 'unstar' : 'star'
-    likeAStreamTrack(op, currentTrack.value.id)
+    likeAStreamTrack(op, currentTrack.value)
   } else if (currentTrack.value?.matched) {
     likeATrack(currentTrack.value.id)
   }

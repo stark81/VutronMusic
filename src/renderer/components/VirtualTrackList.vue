@@ -124,7 +124,7 @@ import { useI18n } from 'vue-i18n'
 import { addOrRemoveTrackFromPlaylist } from '../api/playlist'
 import _ from 'lodash'
 import { isAccountLoggedIn } from '../utils/auth'
-import { useStreamMusicStore } from '../store/streamingMusic'
+import { serviceName, useStreamMusicStore } from '../store/streamingMusic'
 import SvgIcon from './SvgIcon.vue'
 
 const props = defineProps({
@@ -133,6 +133,7 @@ const props = defineProps({
     required: true
   },
   type: { type: String, required: true },
+  groupBy: { type: String as PropType<'' | 'all' | serviceName>, default: '' },
   isLyric: { type: Boolean, default: false },
   showPosition: { type: Boolean, default: true },
   showTrackPosition: { type: Boolean, default: true },
@@ -327,24 +328,7 @@ const rmTrackFromPlaylist = () => {
         }
       )
     }
-  } else if (typeType.value === 'stream') {
-    if (confirm(`确定要从歌单删除 ${rightClickedTrackComputed.value.name}？`)) {
-      const idx = rightClickedTrackIndex.value
-      const playlistItemId = rightClickedTrackComputed.value.playlistItemId
-      addOrRemoveTrackFromStreamPlaylist(
-        'del',
-        props.id as string,
-        [
-          rightClickedTrackComputed.value.source === 'navidrome' ? idx : playlistItemId
-        ] as unknown as string[]
-      ).then((res) => {
-        if (res) {
-          removeTrack(idx)
-          showToast(t('toast.removedFromPlaylist'))
-        }
-      })
-    }
-  } else {
+  } else if (typeType.value === 'online') {
     if (!isAccountLoggedIn()) {
       showToast(t('toast.loginRequired'))
       return
@@ -361,6 +345,28 @@ const rmTrackFromPlaylist = () => {
           removeTrack(idx)
         } else {
           showToast(result.body.message)
+        }
+      })
+    }
+  } else {
+    if (props.groupBy === 'all') {
+      showToast('在聚合视图下无法进行操作，请先选择具体的流媒体服务')
+      return
+    }
+    if (confirm(`确定要从${props.groupBy}歌单删除 ${rightClickedTrackComputed.value.name}？`)) {
+      const idx = rightClickedTrackIndex.value
+      const playlistItemId = rightClickedTrackComputed.value.playlistItemId
+      addOrRemoveTrackFromStreamPlaylist(
+        'del',
+        props.groupBy as serviceName,
+        props.id as string,
+        [
+          rightClickedTrackComputed.value.source === 'navidrome' ? idx : playlistItemId
+        ] as unknown as string[]
+      ).then((res) => {
+        if (res) {
+          removeTrack(idx)
+          showToast(t('toast.removedFromPlaylist'))
         }
       })
     }
@@ -382,6 +388,10 @@ const addToLocalPlaylist = (trackIDs: number[] = []) => {
 }
 
 const addToSteamPlaylist = (trackIDs: number[] = []) => {
+  if (props.groupBy === 'all') {
+    showToast('在聚合视图下无法进行操作，请先选择具体的流媒体服务')
+    return
+  }
   if (!trackIDs.length) {
     trackIDs = selectedList.value
   }
@@ -389,7 +399,7 @@ const addToSteamPlaylist = (trackIDs: number[] = []) => {
     addTrackToPlaylistModal.value = {
       show: true,
       selectedTrackID: trackIDs,
-      type: 'stream'
+      type: props.groupBy as serviceName
     }
   })
 }

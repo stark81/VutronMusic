@@ -183,16 +183,25 @@
     </div>
 
     <ContextMenu ref="playlistTabMenu">
-      <div class="item" @click="changePlaylistFilter('all')">{{
-        $t('contextMenu.allPlaylists')
-      }}</div>
+      <div
+        class="item"
+        :class="{ active: libraryPlaylistFilter === 'all' }"
+        @click="changePlaylistFilter('all')"
+        >{{ $t('contextMenu.allPlaylists') }}</div
+      >
       <hr />
-      <div class="item" @click="changePlaylistFilter('mine')">{{
-        $t('contextMenu.minePlaylists')
-      }}</div>
-      <div class="item" @click="changePlaylistFilter('liked')">{{
-        $t('contextMenu.likedPlaylists')
-      }}</div>
+      <div
+        class="item"
+        :class="{ active: libraryPlaylistFilter === 'mine' }"
+        @click="changePlaylistFilter('mine')"
+        >{{ $t('contextMenu.minePlaylists') }}</div
+      >
+      <div
+        class="item"
+        :class="{ active: libraryPlaylistFilter === 'liked' }"
+        @click="changePlaylistFilter('liked')"
+        >{{ $t('contextMenu.likedPlaylists') }}</div
+      >
     </ContextMenu>
   </div>
 </template>

@@ -578,27 +578,19 @@ async function initStreaming() {
     }
   })
 
-  ipcMain.handle('get-stream-songs', async (event, data) => {
-    store.set('accounts.selected', data.platform)
-    if (data.platform === 'navidrome') {
-      const tracks = await navidrome.getTracks()
-      const playlists = await navidrome.getPlaylists()
-      return {
-        code: tracks.code,
-        message: tracks.message,
-        tracks: tracks.data,
-        playlists: playlists.data
-      }
-    } else if (data.platform === 'emby') {
-      const tracks = await emby.getTracks()
-      const playlists = await emby.getPlaylists()
-      return { code: tracks.code, message: '', tracks: tracks.data, playlists: playlists.data }
-    } else if (data.platform === 'jellyfin') {
-      const tracks = await jellyfin.getTracks()
-      const playlists = await jellyfin.getPlaylists()
-      return { code: tracks.code, message: '', tracks: tracks.data, playlists: playlists.data }
+  ipcMain.handle(
+    'get-stream-songs',
+    async (event, data: { platforms: ('navidrome' | 'emby' | 'jellyfin')[] }) => {
+      const platformMap = { navidrome, emby, jellyfin }
+      const result = await Promise.all(
+        data.platforms.map(async (platform) => {
+          const tracks = await platformMap[platform].getTracks()
+          return { platform, tracks: tracks.data }
+        })
+      )
+      return result
     }
-  })
+  )
 
   ipcMain.handle('get-stream-account', (event, data) => {
     const url = (store.get(`accounts.${data.platform}.url`) as string) || ''
@@ -607,18 +599,28 @@ async function initStreaming() {
     return { url, username, password }
   })
 
-  ipcMain.handle('get-stream-playlists', async (event, data) => {
-    if (data.platform === 'navidrome') {
-      const playlists = await navidrome.getPlaylists()
-      return { code: playlists.code, playlists: playlists.data }
-    } else if (data.platform === 'emby') {
-      const playlists = await emby.getPlaylists()
-      return { code: playlists.code, playlists: playlists.data }
-    } else if (data.platform === 'jellyfin') {
-      const playlists = await jellyfin.getPlaylists()
-      return { code: playlists.code, playlists: playlists.data }
+  ipcMain.handle(
+    'get-stream-lyric',
+    async (event, data: { platform: 'navidrome' | 'emby' | 'jellyfin'; id: number | string }) => {
+      const platformMap = { navidrome, emby, jellyfin }
+      const lyric = await platformMap[data.platform].getLyric(data.id.toString())
+      return lyric
     }
-  })
+  )
+
+  ipcMain.handle(
+    'get-stream-playlists',
+    async (event, data: { platforms: ('navidrome' | 'emby' | 'jellyfin')[] }) => {
+      const platformMap = { navidrome, emby, jellyfin }
+      const result = await Promise.all(
+        data.platforms.map(async (platform) => {
+          const playlists = await platformMap[platform].getPlaylists()
+          return { platform, playlists: playlists.data }
+        })
+      )
+      return result
+    }
+  )
 
   ipcMain.handle('logoutStreamMusic', (event, data) => {
     if (data.platform === 'navidrome') {
@@ -626,14 +628,17 @@ async function initStreaming() {
       store.set('accounts.navidrome.anthorization', '')
       store.set('accounts.navidrome.token', '')
       store.set('accounts.navidrome.salt', '')
+      store.set('accounts.navidrome.status', 'logout')
       return true
     } else if (data.platform === 'emby') {
       store.set('accounts.emby.userId', '')
       store.set('accounts.emby.accessToken', '')
+      store.set('accounts.emby.status', 'logout')
       return true
     } else if (data.platform === 'jellyfin') {
       store.set('accounts.jellyfin.userId', '')
       store.set('accounts.jellyfin.accessToken', '')
+      store.set('accounts.jellyfin.status', 'logout')
       return true
     }
   })
@@ -700,5 +705,12 @@ async function initStreaming() {
     }
   })
 
-  ipcMain.handle('systemPing', async (event) => {})
+  ipcMain.handle('systemPing', async (event) => {
+    const res = await Promise.all([
+      navidrome.systemPing(),
+      emby.systemPing(),
+      jellyfin.systemPing()
+    ])
+    return { navidrome: res[0], emby: res[1], jellyfin: res[2] }
+  })
 }

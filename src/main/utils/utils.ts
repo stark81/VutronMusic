@@ -615,57 +615,57 @@ export const deleteExcessCache = (deleteAll = false) => {
   }
 }
 
-const getNavidromeLyric = async (url: string) => {
-  const result = {
-    lrc: { lyric: [] },
-    tlyric: { lyric: [] },
-    romalrc: { lyric: [] },
-    yrc: { lyric: [] },
-    ytlrc: { lyric: [] },
-    yromalrc: { lyric: [] }
-  }
-  const lyricRaw: any[] = await fetch(url)
-    .then((res) => {
-      if (res.ok) {
-        return res.json()
-      }
-    })
-    .then((data) => {
-      const lyricArray = data['subsonic-response'].lyricsList.structuredLyrics
-      return lyricArray ? lyricArray[0].line : []
-    })
+// const getNavidromeLyric = async (url: string) => {
+//   const result = {
+//     lrc: { lyric: [] },
+//     tlyric: { lyric: [] },
+//     romalrc: { lyric: [] },
+//     yrc: { lyric: [] },
+//     ytlrc: { lyric: [] },
+//     yromalrc: { lyric: [] }
+//   }
+//   const lyricRaw: any[] = await fetch(url)
+//     .then((res) => {
+//       if (res.ok) {
+//         return res.json()
+//       }
+//     })
+//     .then((data) => {
+//       const lyricArray = data['subsonic-response'].lyricsList.structuredLyrics
+//       return lyricArray ? lyricArray[0].line : []
+//     })
 
-  if (lyricRaw.length) {
-    const map = new Map()
-    const chineseRegex = /[\u4E00-\u9FFF]/
-    lyricRaw.forEach(({ start, value }) => {
-      if (!map.has(start)) {
-        map.set(start, [])
-      }
-      map.get(start).push(value)
-    })
+//   if (lyricRaw.length) {
+//     const map = new Map()
+//     const chineseRegex = /[\u4E00-\u9FFF]/
+//     lyricRaw.forEach(({ start, value }) => {
+//       if (!map.has(start)) {
+//         map.set(start, [])
+//       }
+//       map.get(start).push(value)
+//     })
 
-    const sortedStarts = Array.from(map.keys()).sort((a, b) => a - b)
-    for (const start of sortedStarts) {
-      const values = map.get(start)
-      const timeStr = formatTime(start)
-      for (let i = 0; i < values.length; i++) {
-        if (i === 0) {
-          result.lrc.lyric.push(`${timeStr}${values[0]}`)
-        } else {
-          if (chineseRegex.test(values[i])) {
-            result.tlyric.lyric.push(`${timeStr}${values[i]}`)
-          } else {
-            result.romalrc.lyric.push(`${timeStr}${values[i]}`)
-          }
-        }
-      }
-    }
-  }
-  return result
-}
+//     const sortedStarts = Array.from(map.keys()).sort((a, b) => a - b)
+//     for (const start of sortedStarts) {
+//       const values = map.get(start)
+//       const timeStr = formatTime(start)
+//       for (let i = 0; i < values.length; i++) {
+//         if (i === 0) {
+//           result.lrc.lyric.push(`${timeStr}${values[0]}`)
+//         } else {
+//           if (chineseRegex.test(values[i])) {
+//             result.tlyric.lyric.push(`${timeStr}${values[i]}`)
+//           } else {
+//             result.romalrc.lyric.push(`${timeStr}${values[i]}`)
+//           }
+//         }
+//       }
+//     }
+//   }
+//   return result
+// }
 
-const formatTime = (ms: number) => {
+export const formatTime = (ms: number) => {
   const totalSeconds = ms / 1000 // 将毫秒转换为秒
   const minutes = Math.floor(totalSeconds / 60) // 计算分钟
   const seconds = totalSeconds - minutes * 60 // 计算剩余的秒数（含小数部分）
@@ -677,45 +677,6 @@ const formatTime = (ms: number) => {
   // 格式化分钟，确保两位
   const minutesStr = String(minutes).padStart(2, '0')
   return `[${minutesStr}:${secondsStr}]`
-}
-
-export const getStreamMusic = async (id: string, headers?: any) => {
-  const service =
-    (store.get('accounts.selected') as ['navidrome', 'emby', 'jellyfin'][number]) || 'navidrome'
-
-  if (service === 'navidrome') {
-    const navidrome = (await import('../streaming/navidrome')).default
-    return fetch(navidrome.getStream(id), { headers })
-  } else if (service === 'emby') {
-    const emby = (await import('../streaming/emby')).default
-    return fetch(emby.getStream(id), { headers })
-  } else if (service === 'jellyfin') {
-    const jellyfin = (await import('../streaming/jellyfin')).default
-    const url = jellyfin.getStream(id)
-    return fetch(url, { headers })
-  }
-}
-
-export const getStreamLyric = async (id: string) => {
-  const service =
-    (store.get('accounts.selected') as ['navidrome', 'emby', 'jellyfin'][number]) || 'navidrome'
-
-  if (service === 'navidrome') {
-    const navidrome = (await import('../streaming/navidrome')).default
-    const url = navidrome.getLyricByID(id)
-    const lyrics = await getNavidromeLyric(url)
-    return lyrics
-  } else if (service === 'emby') {
-    const emby = (await import('../streaming/emby')).default
-    const [idx, ,] = id.split('/')
-    const lyrics = await emby.getLyric(Number(idx))
-    return lyrics
-  } else if (service === 'jellyfin') {
-    const jellyfin = (await import('../streaming/jellyfin')).default
-    const [idx, ,] = id.split('/')
-    const lyrics = await jellyfin.getLyric(idx)
-    return lyrics
-  }
 }
 
 export const getFileName = (filePath: string) => {

@@ -17,7 +17,7 @@ const ApiRequest = async (
   const baseUrl = store.get('accounts.emby.url') as string
 
   params.UserId = userId
-  const headers = { 'X-Emby-Token': accessToken, timeout: 15000 }
+  const headers = { 'X-Emby-Token': accessToken, timeout: 5000 }
   const url = `${baseUrl}/emby/${endpoint}`
 
   const response = await axios({ method, url, data: params, headers })
@@ -33,7 +33,7 @@ const getLyricFromExtraData = (data: any): string | null => {
 }
 
 export interface EmbyImpl {
-  systemPing: () => Promise<boolean>
+  systemPing: () => Promise<'logout' | 'login' | 'offline'>
   doLogin: (
     baseUrl: string,
     username: string,
@@ -42,7 +42,7 @@ export interface EmbyImpl {
 
   getTracks: () => Promise<{ code: number; data?: any; message?: any }>
   getPlaylists: () => Promise<any>
-  getLyric: (id: number) => Promise<any>
+  getLyric: (id: string) => Promise<any>
   getStream: (id: string) => string
   createPlaylist: (name: string) => Promise<{ status: string; data?: any }>
   deletePlaylist: (id: number) => Promise<boolean>
@@ -54,11 +54,24 @@ export interface EmbyImpl {
 class Emby implements EmbyImpl {
   async systemPing() {
     const baseUrl = store.get('accounts.emby.url') as string
-    if (!baseUrl) return false
+    const status = store.get('accounts.emby.status') as 'logout' | 'login' | 'offline'
+    if (!baseUrl || status === 'logout') return 'logout'
     const response = await axios
       .get(`${baseUrl}/System/Ping`, { timeout: 5000 })
+      .then((res) => {
+        store.set('accounts.emby.status', 'login')
+        return res
+      })
       .catch(() => ({ status: 504 }))
-    return response.status === 200
+
+    switch (response.status) {
+      case 200:
+        return 'login'
+      case 504:
+        return 'offline'
+      default:
+        return 'logout'
+    }
   }
 
   async doLogin(baseUrl: string, username: string, password: string) {
@@ -76,6 +89,7 @@ class Emby implements EmbyImpl {
       if (response.status === 200) {
         store.set('accounts.emby.accessToken', response.data.AccessToken)
         store.set('accounts.emby.userId', response.data.User.Id)
+        store.set('accounts.emby.status', 'login')
         return { code: 200 }
       }
     } catch (error) {
@@ -122,7 +136,7 @@ class Emby implements EmbyImpl {
           starred: song.UserData.IsFavorite,
           size: song.Size,
           source: 'emby',
-          url: `atom://get-stream-music/${song.Id}`,
+          url: this.getStream(song.Id),
           gain: 0,
           peak: 1,
           br: song.Bitrate,
@@ -211,6 +225,7 @@ class Emby implements EmbyImpl {
             updateTime: new Date(p.DateCreated).getTime(),
             trackCount: trackIds.length || 0,
             coverImgUrl: url,
+            service: 'emby',
             trackIds,
             trackItemIds,
             creator: { nickname: username }
@@ -274,7 +289,7 @@ class Emby implements EmbyImpl {
     return url
   }
 
-  async getLyric(id: number) {
+  async getLyric(id: string) {
     const result = {
       lrc: { lyric: [] },
       tlyric: { lyric: [] },

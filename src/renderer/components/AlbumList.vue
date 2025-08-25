@@ -23,6 +23,8 @@
       :list="showTracks"
       :item-height="48"
       class="track-list"
+      :above-value="5"
+      :below-value="5"
       :show-position="false"
       :is-end="true"
     >

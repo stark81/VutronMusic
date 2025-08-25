@@ -110,16 +110,17 @@ defineExpose({
       opacity 125ms ease-out,
       transform 125ms ease-out;
   }
-  &:active {
-    opacity: 0.75;
-    transform: scale(0.95);
-  }
 
   .svg-icon {
     height: 16px;
     width: 16px;
     margin-right: 5px;
   }
+}
+
+.menu .item.active {
+  color: var(--color-primary);
+  background: color-mix(in oklab, var(--color-primary) var(--bg-alpha), white);
 }
 
 [data-theme='dark'] {

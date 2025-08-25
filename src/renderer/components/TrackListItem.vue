@@ -20,7 +20,7 @@
       </div>
       <div class="title-and-artist">
         <div class="container">
-          <div class="title">
+          <div class="title" :title="track.name">
             {{ track.name }}
             <span v-if="isSubTitle" :title="subTitle" class="sub-title"> ({{ subTitle }}) </span>
             <span v-if="isAlbum" class="featured">
@@ -47,11 +47,15 @@
       </div>
 
       <div v-if="showAlbumName" class="album">
-        <div v-if="album && album.matched !== false && album.id && album.name"
+        <div
+          v-if="album && album.matched !== false && album.id && album.name"
+          :title="album.name || '未知专辑'"
           ><router-link :to="`/album/${album.id}`">{{ album.name }}</router-link></div
         >
-        <div v-else> {{ album.name || '未知专辑' }}</div>
+        <div v-else :title="album.name || '未知专辑'"> {{ album.name || '未知专辑' }}</div>
       </div>
+
+      <div v-if="showService" class="service">{{ track.source }}</div>
 
       <div v-if="showTrackTime" class="createTime">
         {{
@@ -102,6 +106,7 @@ import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { Track } from '../store/localMusic'
 
 const router = useRouter()
 const props = defineProps({
@@ -217,6 +222,10 @@ const showAlbumName = computed(() => {
   return type.value !== 'tracklist' && type.value !== 'album'
 })
 
+const showService = computed(() => {
+  return ['navidrome', 'emby', 'jellyfin'].includes(track.value.source)
+})
+
 const showTrackTime = computed(() => {
   return type.value !== 'tracklist'
 })
@@ -325,7 +334,7 @@ const likeThisSong = () => {
     showToast(t('player.noAllowCauseLocal'))
   } else if (track.value.type === 'stream') {
     const op = track.value.starred ? 'unstar' : 'star'
-    likeAStreamTrack(op, track.value.id)
+    likeAStreamTrack(op, track.value as Track)
   } else {
     likeATrack(track.value.id)
   }
@@ -493,7 +502,7 @@ button {
     }
   }
   .album {
-    flex: 1;
+    flex: 0.8;
     display: flex;
     font-size: 16px;
     opacity: 0.88;
@@ -501,9 +510,14 @@ button {
     color: var(--color-text);
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
     overflow: hidden;
+  }
+  .service {
+    flex: 0.8;
+    font-size: 16px;
+    opacity: 0.88;
   }
   .createTime {
     flex: 0.8;
@@ -588,6 +602,7 @@ button {
 .actions {
   width: 80px;
   display: flex;
+  flex: 0.3;
   justify-content: flex-end;
 }
 

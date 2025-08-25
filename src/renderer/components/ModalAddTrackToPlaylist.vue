@@ -32,7 +32,7 @@ import BaseModal from './BaseModal.vue'
 import SvgIcon from './SvgIcon.vue'
 import { useNormalStateStore } from '../store/state'
 import { useLocalMusicStore, Playlist } from '../store/localMusic'
-import { useStreamMusicStore } from '../store/streamingMusic'
+import { serviceName, StreamPlaylist, useStreamMusicStore } from '../store/streamingMusic'
 import { useDataStore } from '../store/data'
 import { storeToRefs } from 'pinia'
 import { computed, toRaw, watch } from 'vue'
@@ -79,23 +79,23 @@ const ownPlaylists = computed(() => {
     return sortPlaylistsIDs.value.map(
       (id: number) => playlists.value.find((playlist) => playlist.id === id) as Playlist
     )
-  } else if (type.value === 'stream') {
-    return streamMusicStore.playlists
-  } else {
+  } else if (type.value === 'online') {
     return liked.value.playlists.filter(
       (playlist) =>
         playlist.creator.userId === user.value.userId && playlist.id !== likedSongPlaylistID.value
     )
+  } else {
+    return streamMusicStore.playlists[type.value] as StreamPlaylist[]
   }
 })
 
 const modelTitle = computed(() => {
   if (type.value === 'local') {
     return t('localMusic.playlist.addToPlaylist')
-  } else if (type.value === 'stream') {
-    return t('streamMusic.playlist.addToPlaylist')
+  } else if (type.value === 'online') {
+    return t('player.addToPlaylist')
   }
-  return t('player.addToPlaylist')
+  return t('streamMusic.playlist.addToPlaylist')
 })
 
 watch(show, (value) => {
@@ -115,7 +115,7 @@ const closeFn = () => {
 const newPlaylist = () => {
   show.value = false
   newPlaylistModal.value = {
-    type: type.value,
+    type: type.value as serviceName,
     afterCreateAddTrackID: ids.value as number[],
     show: true
   }
@@ -131,18 +131,7 @@ const addTrackToPlaylist = (playlistId: number | string) => {
         showToast(t('toast.tracksAlreadyInPlaylist'))
       }
     })
-  } else if (type.value === 'stream') {
-    addOrRemoveTrackFromStreamPlaylist('add', playlistId as string, ids.value as string[]).then(
-      (res) => {
-        show.value = false
-        if (res) {
-          showToast(t('toast.savedToPlaylist'))
-        } else {
-          showToast(t('toast.tracksAlreadyInPlaylist'))
-        }
-      }
-    )
-  } else {
+  } else if (type.value === 'online') {
     const id = ids.value.join(',')
     addOrRemoveTrackFromPlaylist({
       op: 'add',
@@ -154,6 +143,24 @@ const addTrackToPlaylist = (playlistId: number | string) => {
         showToast(t('toast.savedToPlaylist'))
       } else {
         showToast(result.message)
+      }
+    })
+  } else {
+    if (type.value === 'all') {
+      showToast('在聚合视图下无法进行操作，请先选择具体的流媒体服务')
+      return
+    }
+    addOrRemoveTrackFromStreamPlaylist(
+      'add',
+      type.value,
+      playlistId as string,
+      ids.value as string[]
+    ).then((res) => {
+      show.value = false
+      if (res) {
+        showToast(t('toast.savedToPlaylist'))
+      } else {
+        showToast(t('toast.tracksAlreadyInPlaylist'))
       }
     })
   }

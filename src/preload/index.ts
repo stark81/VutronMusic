@@ -35,6 +35,7 @@ const mainAvailChannels: string[] = [
   'stream-login',
   'get-stream-songs',
   'get-stream-playlists',
+  'get-stream-lyric',
   'deleteStreamPlaylist',
   'createStreamPlaylist',
   'updateStreamPlaylist',

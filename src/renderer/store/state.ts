@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { nextTick, reactive, ref, watch } from 'vue'
 import { type UpdateCheckResult } from 'electron-updater'
 
-type TrackType = 'online' | 'local' | 'stream'
+export type TrackType = 'online' | 'local' | 'navidrome' | 'emby' | 'jellyfin'
 
 type ScrollState = {
   scrollTop: number
@@ -29,7 +29,7 @@ export const useNormalStateStore = defineStore('state', () => {
   const addTrackToPlaylistModal = ref({
     show: false,
     selectedTrackID: [0] as (number | string)[],
-    type: 'online' as TrackType
+    type: 'online' as TrackType | 'all'
   })
   const newPlaylistModal = ref({
     show: false,

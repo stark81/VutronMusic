@@ -37,6 +37,7 @@ export interface Track {
   artists: Artist[]
   picUrl: string
   source?: string
+  size?: number
   gain: number
   peak: number
   [key: string]: any

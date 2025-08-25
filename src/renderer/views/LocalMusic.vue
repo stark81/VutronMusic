@@ -143,10 +143,14 @@
     <AccurateMatchModal />
 
     <ContextMenu ref="playlistTabMenu">
-      <div class="item" @click="sortBy = 'default'">{{ $t('contextMenu.defaultSort') }}</div>
-      <div class="item" @click="sortBy = 'byname'">{{ $t('contextMenu.sortByName') }}</div>
-      <div class="item" @click="sortBy = 'descend'">{{ $t('contextMenu.descendSort') }}</div>
-      <div class="item" @click="sortBy = 'ascend'">{{ $t('contextMenu.ascendSort') }}</div>
+      <div
+        v-for="sortOption in sortOptions"
+        :key="sortOption.value"
+        class="item"
+        :class="{ active: sortOption.value === sortBy }"
+        @click="sortBy = sortOption.value"
+        >{{ sortOption.name }}</div
+      >
       <hr v-show="!isBatchOp" />
       <div v-show="!isBatchOp" class="item" @click="scanLocalMusic">{{
         $t('contextMenu.reScan')
@@ -216,7 +220,11 @@ const tabStyle = computed(() => {
 })
 
 const formatedTime = computed(() => {
-  const dt = localTracks.value.map((track) => track.dt).reduce((acc, cur) => acc + cur, 0) / 1000
+  const dt =
+    localTracks.value
+      .map((track) => track.dt)
+      .filter((dt) => dt && !isNaN(Number(dt)))
+      .reduce((acc, cur) => acc + cur, 0) / 1000
   const hourse = Math.floor(dt / 3600)
   const minutes = Math.floor((dt % 3600) / 60)
   const seconds = Math.floor(dt % 60)
@@ -322,6 +330,14 @@ const openAddPlaylistModal = () => {
 provide('isBatchOp', isBatchOp)
 
 const { t } = useI18n()
+
+const sortOptions = [
+  { name: t('contextMenu.defaultSort'), value: 'default' },
+  { name: t('contextMenu.sortByName'), value: 'byname' },
+  { name: t('contextMenu.ascendSort'), value: 'ascend' },
+  { name: t('contextMenu.descendSort'), value: 'descend' }
+]
+
 const placeHolderMap = (tab: string) => {
   const pMap = {
     localTracks: t('localMusic.songs'),

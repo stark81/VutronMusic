@@ -31,9 +31,7 @@ import {
   getPicColor,
   getTrackDetail,
   getAudioSource,
-  cacheOnlineTrack,
-  getStreamLyric,
-  getStreamMusic
+  cacheOnlineTrack
 } from './utils/utils'
 import { CacheAPIs } from './utils/CacheApis'
 import { registerGlobalShortcuts } from './globalShortcut'
@@ -439,30 +437,6 @@ class BackGround {
       const { host, pathname } = new URL(request.url)
       if (host === 'online-pic') {
         return net.fetch(pathname.slice(1))
-      } else if (host === 'get-pic') {
-        const ids = pathname.slice(1)
-        const res = cache.get(CacheAPIs.Track, { ids })
-        let track
-        if (res) {
-          track = res.songs[0]
-        } else {
-          const res = await getTrackDetail(ids)
-          track = res.songs[0]
-        }
-        let url = track.album?.picUrl || track.al?.picUrl
-        url = `${url}?param=64y64`
-        if (track.album) {
-          track.album.picture = url
-        } else if (track.al) {
-          track.al.picUrl = url
-        }
-
-        const result = await getPic(track)
-
-        const pic = result.pic
-        const format = result.format
-
-        return new Response(new Uint8Array(pic), { headers: { 'Content-Type': format } })
       } else if (host === 'get-default-pic') {
         const pic = fs.readFileSync(defaultImagePath)
         return new Response(new Uint8Array(pic))
@@ -656,20 +630,6 @@ class BackGround {
         const url = pathname.slice(1)
         const headers = request.headers
         return fetch(url, { headers })
-      } else if (host === 'get-stream-music') {
-        const id = pathname.slice(1)
-        const headers = request.headers
-        return getStreamMusic(id, headers)
-      } else if (host === 'get-stream-lyric') {
-        const id = pathname.slice(1)
-        const lyrics = await getStreamLyric(id)
-        return new Response(JSON.stringify(lyrics), {
-          headers: { 'content-type': 'application/json' }
-        })
-      } else if (host === 'get-stream') {
-        const url = decodeURIComponent(pathname.slice(1))
-        const headers = request.headers
-        return net.fetch(url, { headers })
       }
     })
   }

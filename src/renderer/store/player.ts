@@ -21,7 +21,7 @@ import { useDataStore } from './data'
 import { searchMatch, fmTrash, personalFM, songChorus } from '../api/other'
 import { getLyric as getApiLyric, getTrackDetail } from '../api/track'
 import { useI18n } from 'vue-i18n'
-import { cloneDeep } from 'lodash'
+import _ from 'lodash'
 
 interface biquadType {
   31: number
@@ -181,7 +181,9 @@ export const usePlayerStore = defineStore(
     const isLiked = computed(() => {
       return (
         !!dataStore.liked.songs.find((id) => id === currentTrack.value?.id) ||
-        currentTrack.value?.starred
+        !!_.flatten(Object.values(streamMusicStore.streamLikedTracks)).find(
+          (t) => t.id === currentTrack.value?.id
+        )
       )
     })
 
@@ -756,7 +758,7 @@ export const usePlayerStore = defineStore(
       }
       switch (track.type!) {
         case 'stream':
-          data = (await getStreamLyric(track.id))!
+          data = (await getStreamLyric(track))!
           break
         case 'online':
           data = await getApiLyric(track.id)
@@ -890,10 +892,10 @@ export const usePlayerStore = defineStore(
           showToast(track?.reason)
           _playNextTrack(isPersonalFM.value)
         }
-        if (autoPlay && currentTrack.value?.name && currentTrack.value?.matched !== false) {
+        if (autoPlay && track.name && track.matched !== false) {
           // _scrobble(currentTrack.value, seek.value)
         } else if (autoPlay && currentTrack.value?.type === 'stream') {
-          scrobbleStream(trackID as string)
+          scrobbleStream(track)
         }
         return replaced
       })
@@ -1359,7 +1361,7 @@ export const usePlayerStore = defineStore(
 
       watch(lyrics, (value) => {
         if (osdLyricStore.show) {
-          const newLyric = cloneDeep(value)
+          const newLyric = _.cloneDeep(value)
           if (!newLyric.lyric.length) {
             newLyric.lyric[0] = {
               start: 0,
@@ -1622,12 +1624,12 @@ export const usePlayerStore = defineStore(
       playing.value = false
       title.value = 'VutronMusic'
       if (enabled.value) {
-        if (currentTrack.value?.type === 'stream') {
-          if (streamMusicStore.currentService.status !== 'login') {
-            resetPlayer(false)
-            return
-          }
-        }
+        // if (currentTrack.value?.type === 'stream') {
+        //   if (streamMusicStore.currentService.status !== 'login') {
+        //     resetPlayer(false)
+        //     return
+        //   }
+        // }
         replaceCurrentTrack(currentTrack.value!.id, false).then(() => {
           window.mainApi?.send('updatePlayerState', {
             playing: playing.value,

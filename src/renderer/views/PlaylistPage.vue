@@ -22,7 +22,7 @@
           离线歌单 {{ user.nickname ? `by ${user.nickname}` : `` }}
         </div>
         <div v-else-if="playlistType === 'stream'" class="artist">
-          流媒体歌单 by {{ playlist.creator.nickname }}
+          {{ currentService + ' 歌单 by ' + playlist.creator.nickname }}
         </div>
         <div v-else class="artist">
           歌单 by
@@ -143,6 +143,7 @@
         :id="playlist?.id"
         :items="filterTracks"
         :type="typeMap[playlistType]"
+        :group-by="currentService"
         :colunm-number="1"
         :show-position="true"
         :load-more="loadMore"
@@ -188,7 +189,7 @@
 import { computed, ref, provide, onMounted } from 'vue'
 import { useDataStore } from '../store/data'
 import { Playlist, useLocalMusicStore, Track } from '../store/localMusic'
-import { useStreamMusicStore, StreamPlaylist } from '../store/streamingMusic'
+import { useStreamMusicStore, StreamPlaylist, serviceName } from '../store/streamingMusic'
 import { useNormalStateStore } from '../store/state'
 import { usePlayerStore } from '../store/player'
 import { storeToRefs } from 'pinia'
@@ -212,6 +213,7 @@ import {
   intelligencePlaylist,
   deletePlaylist
 } from '../api/playlist'
+import _ from 'lodash'
 
 const specialPlaylist = {
   2829816518: {
@@ -323,6 +325,7 @@ const lastLoadedTrackIndex = ref(9)
 const showFullDescription = ref(false)
 const showComment = ref(false)
 const pSearchBoxRef = ref<InstanceType<typeof SearchBox>>()
+const currentService = ref<serviceName | 'all'>('all')
 
 const { user, likedSongPlaylistID } = storeToRefs(useDataStore())
 const listType = computed(() => route.name!.toString())
@@ -401,14 +404,16 @@ const loadLocalData = (id: number) => {
 }
 
 const loadStreamData = (id: string) => {
-  playlist.value = streamMusic.playlists.find((p) => p.id === id) as StreamPlaylist
+  playlist.value = streamMusic.playlists[currentService.value].find(
+    (p) => p.id === id
+  ) as StreamPlaylist
   if (!playlist.value) {
     router.go(-1)
     return
   }
   const trackIDs = playlist.value.trackIds
   tracks.value = trackIDs
-    .map((id) => streamMusic.streamTracks.find((item) => item.id === id))
+    .map((id) => streamMusic.streamTracks[currentService.value].find((item) => item.id === id))
     .map((track) => {
       if (!playlist.value.trackItemIds) return track
       return { ...track, playlistItemId: playlist.value.trackItemIds[track.id] }
@@ -418,7 +423,10 @@ const loadStreamData = (id: string) => {
 }
 
 const loadStreamLiked = () => {
-  tracks.value = streamMusic.streamLikedTracks
+  tracks.value =
+    currentService.value === 'all'
+      ? _.flatten(Object.values(streamMusic.streamLikedTracks))
+      : streamMusic.streamLikedTracks[currentService.value]
   tricklingProgress.done()
   show.value = true
 }
@@ -531,7 +539,7 @@ const deleteAPlaylist = () => {
       window.mainApi
         ?.invoke('deleteStreamPlaylist', {
           id: playlist.value.id,
-          platform: streamMusic.currentService.name
+          platform: currentService.value
         })
         .then((result: boolean) => {
           if (result) {
@@ -598,8 +606,11 @@ onMounted(() => {
   if (playlistType.value === 'local') {
     loadLocalData(Number(route.params.id))
   } else if (playlistType.value === 'stream') {
-    loadStreamData(route.params.id as string)
+    currentService.value = route.params.service as serviceName
+    const id = route.params.id as string
+    loadStreamData(id)
   } else if (route.name === 'streamLikedSongs') {
+    currentService.value = route.params.service as serviceName | 'all'
     loadStreamLiked()
   } else if (route.name === 'likedSongs') {
     loadData(likedSongPlaylistID.value)
