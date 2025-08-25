@@ -114,9 +114,6 @@ class Emby implements EmbyImpl {
     ])
     if (response.status === 200) {
       const tracks = response?.data?.Items.map((song) => {
-        const picUrl = song?.ImageTags?.Primary
-          ? this.getPic(song.Id, song.ImageTags.Primary, 64)
-          : 'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg?param=128y128'
         const artists = song.ArtistItems.map((t) => {
           const art = response2.find((a) => a.Id === t.Id)!
           const artUrl = art?.ImageTags?.Primary
@@ -150,7 +147,7 @@ class Emby implements EmbyImpl {
             id: song.AlbumId,
             name: song.Album,
             matched: false,
-            picUrl
+            picUrl: `/stream-asset?service=emby&id=${song.Id}&primary=${song.ImageTags?.Primary}&size=64`
           },
           artists,
           picUrl: this.getPic(song.Id, song.ImageTags?.Primary, 64)

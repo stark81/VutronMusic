@@ -1285,7 +1285,7 @@ export const usePlayerStore = defineStore(
       navigator.mediaSession.metadata = null
       navigator.mediaSession.metadata = new MediaMetadata(metadata)
       if (window.env?.isLinux) {
-        if (track.type === 'local') {
+        if (track.type !== 'online') {
           metadata.artwork.map((art) => {
             const url = `http://localhost:${window.env?.isDev ? 40001 : 41830}` + art.src
             art.src = url

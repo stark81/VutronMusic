@@ -249,11 +249,6 @@ class Jellyfin implements JellyfinImpl {
       return { code: res1.status, message: 'Failed to fetch tracks', data: [] }
     }
     const tracks = res1.data.Items.map((song: any) => {
-      const picUrl = song.ImageTags?.Primary
-        ? this.getPic(song.Id, 64)
-        : song.AlbumPrimaryImageTag
-          ? this.getPic(song.AlbumId, 64)
-          : 'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg?param=128y128'
       const artists = song.ArtistItems?.map((artist: any) => {
         const art = res2.data.Items.find((a: any) => a.Id === artist.Id)!
         const artUrl = art?.ImageTags?.Primary
@@ -282,7 +277,7 @@ class Jellyfin implements JellyfinImpl {
           id: song.AlbumId,
           name: song.Album,
           matched: false,
-          picUrl
+          picUrl: `/stream-asset?service=jellyfin&id=${song.Id}&primary=${song.ImageTags?.Primary}&size=64`
         },
         artists,
         picUrl: this.getPic(song.Id, 64)

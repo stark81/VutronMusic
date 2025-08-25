@@ -142,20 +142,8 @@ export const useStreamMusicStore = defineStore(
       if (!enable.value || selectedService.status === 'logout') return
 
       let url = (track.album || track.al).picUrl
-      let regex: RegExp | null = null
-      if (service === 'navidrome') {
-        regex = /size=\d+/
-        url = url.replace(regex, `size=${size}`)
-      }
-      const u = new URL(url)
-      if (u.href.includes('music.126.net')) {
-        u.searchParams.set('param', `${size}y${size}`)
-      } else {
-        u.searchParams.set(service === 'jellyfin' ? 'fillHeight' : 'maxHeight', size.toString())
-        u.searchParams.set(service === 'jellyfin' ? 'fillWidth' : 'maxWidth', size.toString())
-      }
-
-      url = u.toString()
+      const regex = /size=\d+/
+      url = url.replace(regex, `size=${size}`)
       return url
     }
 

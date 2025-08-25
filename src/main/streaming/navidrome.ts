@@ -157,14 +157,14 @@ class Navidrome implements NavidromeImpl {
               id: song.albumId,
               name: song.album,
               matched: false,
-              picUrl: this.getPic(song.albumId, 64)
+              picUrl: `/stream-asset?service=navidrome&id=${song.albumId}&size=64`
             },
             artists: [
               {
                 id: song.artistId,
                 name: song.artist,
                 matched: false,
-                picUrl: this.getPic(song.albumId, 64)
+                picUrl: this.getPic(song.artistId, 64)
               }
             ],
             picUrl: getRestUrl('getCoverArt', { id: song.albumId, size: 64 })

@@ -178,9 +178,6 @@ export const getPicFromApi = async (url: string) => {
   let pic: Buffer | null = null
   let format: string = ''
   if (!url) return { pic, format }
-  if (url.startsWith('http') && !url.includes('?param=')) {
-    url = `${url}?param=512y512`
-  }
   pic = await net
     .fetch(url)
     .then((res) => {
