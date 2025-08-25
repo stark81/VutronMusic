@@ -33,6 +33,7 @@
           :track-prop="item"
           :track-no="index + 1"
           type-prop="artist"
+          :show-service="item.type === 'stream'"
           :style="{ marginLeft: '20px' }"
           @dblclick="playThisList(item.id)"
         />

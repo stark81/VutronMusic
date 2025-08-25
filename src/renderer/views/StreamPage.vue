@@ -114,6 +114,7 @@
             :items="sortedLocalTracks"
             :type="'streamPlaylist'"
             :group-by="defaultGroupBy"
+            :show-service="true"
             :colunm-number="1"
             :is-end="true"
             :extra-context-menu-item="['addToStreamList']"

@@ -55,7 +55,9 @@
         <div v-else :title="album.name || '未知专辑'"> {{ album.name || '未知专辑' }}</div>
       </div>
 
-      <div v-if="showService" class="service">{{ track.source }}</div>
+      <div v-if="showService" class="service">{{
+        track.type === 'stream' ? track.source : track.type
+      }}</div>
 
       <div v-if="showTrackTime" class="createTime">
         {{
@@ -114,29 +116,15 @@ const props = defineProps({
     type: Object as PropType<Record<string, any>>,
     required: true
   },
-  trackNo: {
-    type: Number,
-    required: true
-  },
-  typeProp: {
-    type: String,
-    required: true
-  },
+  trackNo: { type: Number, required: true },
+  typeProp: { type: String, required: true },
   isLyric: { type: Boolean, default: false },
+  showService: { type: Boolean, default: false },
   albumObject: {
     type: Object,
-    default: () => {
-      return {
-        artist: {
-          name: ''
-        }
-      }
-    }
+    default: () => ({ artist: { name: '' } })
   },
-  highlightPlayingTrack: {
-    type: Boolean,
-    default: true
-  }
+  highlightPlayingTrack: { type: Boolean, default: true }
 })
 
 const settingsStore = useSettingsStore()
@@ -222,9 +210,9 @@ const showAlbumName = computed(() => {
   return type.value !== 'tracklist' && type.value !== 'album'
 })
 
-const showService = computed(() => {
-  return ['navidrome', 'emby', 'jellyfin'].includes(track.value.source)
-})
+// const showService = computed(() => {
+//   return ['navidrome', 'emby', 'jellyfin'].includes(track.value.source)
+// })
 
 const showTrackTime = computed(() => {
   return type.value !== 'tracklist'

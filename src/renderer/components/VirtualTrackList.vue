@@ -26,6 +26,7 @@
           :track-no="item.no || index + 1"
           :type-prop="type"
           :is-lyric="isLyric"
+          :show-service="showService"
           :album-object="albumObject"
           :highlight-playing-track="highlightPlayingTrack"
           @dblclick="playThisList(item.id || item.songId)"
@@ -136,6 +137,7 @@ const props = defineProps({
   groupBy: { type: String as PropType<'' | 'all' | serviceName>, default: '' },
   isLyric: { type: Boolean, default: false },
   showPosition: { type: Boolean, default: true },
+  showService: { type: Boolean, default: false },
   showTrackPosition: { type: Boolean, default: true },
   colunmNumber: { type: Number, required: true },
   gap: { type: Number, default: 20 },

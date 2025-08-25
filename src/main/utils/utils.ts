@@ -615,56 +615,6 @@ export const deleteExcessCache = (deleteAll = false) => {
   }
 }
 
-// const getNavidromeLyric = async (url: string) => {
-//   const result = {
-//     lrc: { lyric: [] },
-//     tlyric: { lyric: [] },
-//     romalrc: { lyric: [] },
-//     yrc: { lyric: [] },
-//     ytlrc: { lyric: [] },
-//     yromalrc: { lyric: [] }
-//   }
-//   const lyricRaw: any[] = await fetch(url)
-//     .then((res) => {
-//       if (res.ok) {
-//         return res.json()
-//       }
-//     })
-//     .then((data) => {
-//       const lyricArray = data['subsonic-response'].lyricsList.structuredLyrics
-//       return lyricArray ? lyricArray[0].line : []
-//     })
-
-//   if (lyricRaw.length) {
-//     const map = new Map()
-//     const chineseRegex = /[\u4E00-\u9FFF]/
-//     lyricRaw.forEach(({ start, value }) => {
-//       if (!map.has(start)) {
-//         map.set(start, [])
-//       }
-//       map.get(start).push(value)
-//     })
-
-//     const sortedStarts = Array.from(map.keys()).sort((a, b) => a - b)
-//     for (const start of sortedStarts) {
-//       const values = map.get(start)
-//       const timeStr = formatTime(start)
-//       for (let i = 0; i < values.length; i++) {
-//         if (i === 0) {
-//           result.lrc.lyric.push(`${timeStr}${values[0]}`)
-//         } else {
-//           if (chineseRegex.test(values[i])) {
-//             result.tlyric.lyric.push(`${timeStr}${values[i]}`)
-//           } else {
-//             result.romalrc.lyric.push(`${timeStr}${values[i]}`)
-//           }
-//         }
-//       }
-//     }
-//   }
-//   return result
-// }
-
 export const formatTime = (ms: number) => {
   const totalSeconds = ms / 1000 // 将毫秒转换为秒
   const minutes = Math.floor(totalSeconds / 60) // 计算分钟

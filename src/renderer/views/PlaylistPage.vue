@@ -110,8 +110,8 @@
     </div>
 
     <div v-if="isLikedSongsPage" class="special-playlist">
-      <div v-show="$route.name === 'likedSongs'" class="title gradient-green">我喜欢的音乐</div>
-      <div v-show="$route.name === 'streamLikedSongs'" class="title gradient-sky-blue"
+      <div v-show="playlistType === 'online'" class="title gradient-green">我喜欢的音乐</div>
+      <div v-show="playlistType === 'streamLiked'" class="title gradient-sky-blue"
         >我收藏的流媒体</div
       >
       <div class="buttons">
@@ -119,7 +119,7 @@
           {{ $t('common.play') }}
         </ButtonTwoTone>
         <ButtonTwoTone
-          v-if="$route.name === 'likedSongs'"
+          v-if="playlistType === 'online'"
           class="play-button"
           icon-class="play"
           color="grey"
@@ -127,7 +127,7 @@
           >心动模式</ButtonTwoTone
         >
         <ButtonTwoTone
-          v-if="$route.name === 'likedSongs'"
+          v-if="playlistType === 'online'"
           color="grey"
           icon-class="floor-comment"
           @click="openComment"
@@ -145,6 +145,7 @@
         :type="typeMap[playlistType]"
         :group-by="currentService"
         :colunm-number="1"
+        :show-service="['stream', 'streamLiked'].includes(playlistType)"
         :show-position="true"
         :load-more="loadMore"
         :extra-context-menu-item="isUserOwnPlaylist ? ['removeTrackFromPlaylist'] : []"

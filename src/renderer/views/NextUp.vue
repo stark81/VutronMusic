@@ -6,6 +6,7 @@
       :items="[currentTrack!]"
       :type="playlistSource.type"
       :colunm-number="1"
+      :show-service="true"
       :show-position="false"
       :dbclick-enable="false"
       :is-end="false"
@@ -21,6 +22,7 @@
       :items="playNextTracks"
       :type="playlistSource.type"
       :colunm-number="1"
+      :show-service="true"
       :highlight-playing-track="false"
       :show-position="false"
       :extra-context-menu-item="['removeTrackFromQueue']"
@@ -33,6 +35,7 @@
       :id="playlistSource.id"
       :items="filteredTracks"
       :type="playlistSource.type"
+      :show-service="true"
       :show-position="true"
       :show-track-position="false"
       :highlight-playing-track="false"
@@ -50,6 +53,7 @@ import { useLocalMusicStore } from '../store/localMusic'
 import { useStreamMusicStore } from '../store/streamingMusic'
 import { storeToRefs } from 'pinia'
 import { getTrackDetail } from '../api/track'
+import _ from 'lodash'
 
 const playerStore = usePlayerStore()
 const localMusicStore = useLocalMusicStore()
@@ -81,7 +85,9 @@ const loadTracks = async () => {
   ]
   const loadedTrackIDs = tracks.value.map((t) => t.id)
   const localMusics = localTracks.value.filter((t) => trackIDs.includes(t.id))
-  const streamMusics = streamTracks.value.filter((t) => trackIDs.includes(t.id))
+  const streamMusics = _.flatten(Object.values(streamTracks.value)).filter((t) =>
+    trackIDs.includes(t.id)
+  )
 
   let newTracks = localMusics.filter((t) => !loadedTrackIDs.includes(t.id))
 
