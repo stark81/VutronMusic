@@ -57,15 +57,15 @@ function _construct(t, e, r) {
   const o = [null]
   o.push.apply(o, e)
   const p = new (t.bind.apply(t, o))()
-  return r && _setPrototypeOf(p, r.prototype), p
+  return (r && _setPrototypeOf(p, r.prototype), p)
 }
 function _defineProperties(e, r) {
   for (let t = 0; t < r.length; t++) {
     const o = r[t]
-    ;(o.enumerable = o.enumerable || false),
+    ;((o.enumerable = o.enumerable || false),
       (o.configurable = true),
       'value' in o && (o.writable = true),
-      Object.defineProperty(e, _toPropertyKey(o.key), o)
+      Object.defineProperty(e, _toPropertyKey(o.key), o))
   }
 }
 function _createClass(e, r, t) {
@@ -106,7 +106,7 @@ function _getPrototypeOf(t) {
 function _inherits(t, e) {
   if (typeof e !== 'function' && e !== null)
     throw new TypeError('Super expression must either be null or a function')
-  ;(t.prototype = Object.create(e && e.prototype, {
+  ;((t.prototype = Object.create(e && e.prototype, {
     constructor: {
       value: t,
       writable: true,
@@ -116,7 +116,7 @@ function _inherits(t, e) {
     Object.defineProperty(t, 'prototype', {
       writable: false
     }),
-    e && _setPrototypeOf(t, e)
+    e && _setPrototypeOf(t, e))
 }
 function _isNativeFunction(t) {
   try {
@@ -143,7 +143,7 @@ function _setPrototypeOf(t, e) {
     (_setPrototypeOf = Object.setPrototypeOf
       ? Object.setPrototypeOf.bind()
       : function (t, e) {
-          return (t.__proto__ = e), t
+          return ((t.__proto__ = e), t)
         }),
     _setPrototypeOf(t, e)
   )

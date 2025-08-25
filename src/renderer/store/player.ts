@@ -13,7 +13,7 @@ import {
   nextTick
 } from 'vue'
 import { Track, useLocalMusicStore } from './localMusic'
-import { useStreamMusicStore } from './streamingMusic'
+import { serviceName, useStreamMusicStore } from './streamingMusic'
 import { useSettingsStore } from './settings'
 import { useNormalStateStore } from './state'
 import { useOsdLyricStore } from './osdLyric'
@@ -1624,12 +1624,16 @@ export const usePlayerStore = defineStore(
       playing.value = false
       title.value = 'VutronMusic'
       if (enabled.value) {
-        // if (currentTrack.value?.type === 'stream') {
-        //   if (streamMusicStore.currentService.status !== 'login') {
-        //     resetPlayer(false)
-        //     return
-        //   }
-        // }
+        if (currentTrack.value?.type === 'stream') {
+          if (
+            !streamMusicStore.loginedServices
+              .map((s) => s.name)
+              .includes(currentTrack.value.source as serviceName)
+          ) {
+            resetPlayer(false)
+            return
+          }
+        }
         replaceCurrentTrack(currentTrack.value!.id, false).then(() => {
           window.mainApi?.send('updatePlayerState', {
             playing: playing.value,

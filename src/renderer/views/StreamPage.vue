@@ -392,9 +392,6 @@ watch(modalOpen, (value) => {
 provide('isBatchOp', isBatchOp)
 
 const navBarRef = inject('navBarRef', ref())
-// 这里需要进行调整
-// 1. 将滚动条组件变更为控制root元素滚动，而非main元素滚动
-// 2. root元素滚动应该和虚拟列表滚动互斥，即root元素滚动时虚拟列表不滚动，反之亦然
 const observeTab = new IntersectionObserver(
   (entries) => {
     entries.forEach((entry) => {
