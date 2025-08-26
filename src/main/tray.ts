@@ -90,14 +90,14 @@ const createMenuTemplate = (win: BrowserWindow) => {
       icon: createNativeImage('play'),
       click: () => win.webContents.send('play'),
       id: 'play',
-      visible: playState
+      visible: !playState
     },
     {
       label: t('pause'),
       icon: createNativeImage('pause'),
       click: () => win.webContents.send('play'),
       id: 'pause',
-      visible: !playState
+      visible: playState
     },
     {
       label: t('prev'),
