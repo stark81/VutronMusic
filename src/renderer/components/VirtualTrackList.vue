@@ -220,18 +220,21 @@ const rightClickedTrackComputed = computed(() => {
 
 const image = computed(() => {
   let url: string
-  if (rightClickedTrackComputed.value.type === 'online') {
+  if (
+    rightClickedTrackComputed.value.type === 'online' ||
+    rightClickedTrackComputed.value.matched
+  ) {
     url =
       rightClickedTrackComputed.value.al?.picUrl || rightClickedTrackComputed.value.album?.picUrl
     if (url && url.startsWith('http')) url = url.replace('http:', 'https:')
-    url += '?param=128y128'
+    url += '?param=64y64'
     return url
   } else if (rightClickedTrackComputed.value.type === 'stream') {
     url =
       rightClickedTrackComputed.value.al?.picUrl || rightClickedTrackComputed.value.album?.picUrl
     return url
   } else {
-    url = `/local-asset/pic?id=${rightClickedTrackComputed.value.id}`
+    url = `atom://local-asset?type=pic&id=${rightClickedTrackComputed.value.id}&size=64`
     return url
   }
 })

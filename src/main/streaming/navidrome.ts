@@ -154,17 +154,17 @@ class Navidrome implements NavidromeImpl {
             createTime: new Date(song.createdAt).getTime(),
             alias: [],
             album: {
-              id: song.albumId,
-              name: song.album,
+              id: song.albumId ?? '',
+              name: song.album ?? '',
               matched: false,
-              picUrl: `/stream-asset?service=navidrome&id=${song.albumId}&size=64`
+              picUrl: `/stream-asset?service=navidrome&id=${song.albumId ?? song.id}&size=64`
             },
             artists: [
               {
-                id: song.artistId,
-                name: song.artist,
+                id: song.artistId ?? '',
+                name: song.artist ?? '',
                 matched: false,
-                picUrl: this.getPic(song.artistId, 64)
+                picUrl: this.getPic(song.artistId ?? song.albumId ?? song.id, 64)
               }
             ],
             picUrl: getRestUrl('getCoverArt', { id: song.albumId, size: 64 })

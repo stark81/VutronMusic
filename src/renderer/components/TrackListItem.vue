@@ -158,19 +158,18 @@ const track = computed(
 
 const image = computed(() => {
   let url: string
-  if (track.value.type === 'online') {
+  if (track.value.type === 'online' || track.value.matched) {
     url = track.value.al?.picUrl || track.value.album?.picUrl || track.value.picUrl
     if (url && url.startsWith('http')) url = url.replace('http:', 'https:')
-    url += '?param=128y128'
+    url += '?param=64y64'
     return url
   } else if (track.value.type === 'stream') {
     url = track.value.al?.picUrl || track.value.album?.picUrl || track.value.picUrl
     return stateStore.virtualScrolling ? 'atom://get-default-pic' : url
   } else {
-    url =
-      localMusic.value.scanning && !track.value.matched
-        ? `atom://get-pic-path/${track.value.filePath}`
-        : `/local-asset/pic?id=${track.value.id}`
+    url = localMusic.value.scanning
+      ? `atom://get-pic-path/${track.value.filePath}`
+      : `atom://local-asset?type=pic&id=${track.value.id}&size=64`
     return url
   }
 })
@@ -192,9 +191,8 @@ const trackClass = computed(() => {
 })
 
 const artists = computed(() => {
-  const { ar, artists } = track.value
-  const useAr = ar || artists
-  useAr.map((artist: any) => {
+  const useAr = track.value.ar ?? track.value.artists
+  useAr.forEach((artist: any) => {
     if (artist && !artist.name) {
       artist.name = '未知歌手'
     }

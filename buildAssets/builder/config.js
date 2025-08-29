@@ -5,7 +5,7 @@ const baseConfig = {
   productName: 'VutronMusic',
   appId: '',
   asar: true,
-  // asarUnpack: ['./dist-native/*.node'],
+  asarUnpack: ['**/node_modules/sharp/**/*', '**/node_modules/@img/**/*'],
   extends: null,
   artifactName: '${productName}-${version}_${os}_${arch}.${ext}',
   directories: {

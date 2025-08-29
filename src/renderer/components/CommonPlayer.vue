@@ -213,7 +213,12 @@
       </div>
     </div>
     <div class="right-side" @mouseenter="hover = true" @mouseleave="hover = false">
-      <LyricPage v-if="show === 'lyric'" :text-align="textAlign" :hover="hover" />
+      <LyricPage
+        v-if="show === 'lyric'"
+        :text-align="textAlign"
+        :container-width="'80%'"
+        :hover="hover"
+      />
       <Comment v-else :id="currentTrack!.id" type="music" />
     </div>
   </div>

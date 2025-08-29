@@ -122,7 +122,10 @@ export const useStreamMusicStore = defineStore(
         ytlrc: { lyric: [] as any[] },
         yromalrc: { lyric: [] as any[] }
       }
-      data = await window.mainApi?.invoke('get-stream-lyric', { platform: service, id: track.id })
+      data = await window.mainApi?.invoke('get-stream-lyric', {
+        platform: service,
+        id: track.source === 'emby' ? track.lrcId : track.id
+      })
       return data
     }
 
@@ -177,6 +180,7 @@ export const useStreamMusicStore = defineStore(
         })
       })
     }
+    checkStreamStatus()
 
     return {
       enable,

@@ -366,6 +366,17 @@
             </div>
             <div class="item">
               <div class="left">
+                <div class="title">{{ $t('settings.osdLyric.lyricZoom') }}</div>
+              </div>
+              <div class="right">
+                <div class="toggle">
+                  <input id="isZoom" v-model="isZoom" type="checkbox" name="isZoom" />
+                  <label for="isZoom"></label>
+                </div>
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
                 <div class="title">{{ $t('settings.osdLyric.fontSize') }}</div>
               </div>
               <div class="right">
@@ -783,7 +794,7 @@
               <input
                 v-model="unblockSource"
                 class="text-input margin-right-0"
-                placeholder="例 bilibili, kuwo"
+                placeholder="例 bodian, bilibili, kuwo"
                 @input="updateUnblockSource"
               />
             </div>
@@ -1008,7 +1019,9 @@ const {
 const { appearance, colors } = toRefs(theme.value)
 const customizeColor = computed(() => colors.value[4])
 const { showLyric, showControl, lyricWidth, scrollRate, enableExtension } = toRefs(tray.value)
-const { nFontSize, isNWordByWord, nTranslationMode, textAlign, useMask } = toRefs(normalLyric.value)
+const { nFontSize, isNWordByWord, nTranslationMode, textAlign, useMask, isZoom } = toRefs(
+  normalLyric.value
+)
 
 const streamMusicStore = useStreamMusicStore()
 const { enable, services } = storeToRefs(streamMusicStore)

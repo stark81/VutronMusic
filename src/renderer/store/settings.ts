@@ -68,18 +68,20 @@ export const useSettingsStore = defineStore(
       nTranslationMode: TranslationMode
       textAlign: TextAlign
       useMask: boolean
+      isZoom: boolean
     }>({
       nFontSize: 28,
       isNWordByWord: true,
       isTWordByWord: true,
       nTranslationMode: 'tlyric',
       textAlign: 'start',
-      useMask: true
+      useMask: true,
+      isZoom: true
     })
 
     const unblockNeteaseMusic = reactive({
       enable: true,
-      source: 'kuwo, kugou, ytdlp, qq, bilibili, pyncmd, migu',
+      source: 'bodian, kuwo, kugou, ytdlp, qq, bilibili, pyncmd, migu',
       enableFlac: true,
       orderFirst: true,
       jooxCookie: '',

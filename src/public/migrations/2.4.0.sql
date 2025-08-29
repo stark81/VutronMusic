@@ -1,6 +1,3 @@
--- 更新 Track 表中 json 字段里的 picUrl 和 album.picUrl
--- 条件：matched === false 或 album.matched === false 时进行替换
-
 BEGIN TRANSACTION;
 
 UPDATE Track

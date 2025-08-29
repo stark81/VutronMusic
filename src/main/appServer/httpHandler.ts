@@ -9,9 +9,9 @@ import emby from '../streaming/emby'
 
 const httpHandler: FastifyPluginAsync = async (fastify: FastifyInstance, options) => {
   fastify.get(
-    '/local-asset/pic',
+    '/local-asset',
     async (req: FastifyRequest<{ Querystring: Record<string, string> }>) => {
-      const { id } = req.query
+      const { id, size } = req.query
       const res = cache.get(CacheAPIs.Track, { ids: id })
       let track: any
       if (res) {
@@ -22,6 +22,10 @@ const httpHandler: FastifyPluginAsync = async (fastify: FastifyInstance, options
       }
       if (!track.matched) {
         ;(track.album || track.al).picUrl = 'atom://get-default-pic'
+      } else {
+        const url = new URL((track.album || track.al).picUrl)
+        url.searchParams.set('param', `${size}y${size}`)
+        ;(track.album || track.al).picUrl = url.toString()
       }
 
       const result = await getPic(track)

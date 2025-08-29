@@ -425,6 +425,8 @@ const mapTrackPlayableStatus = (tracks: any[], privileges: any[] = []) => {
     t.reason = result.reason
     t.type = 'online'
     t.matched = true
+    t.cache = false
+    t.source = 'netease'
     return t
   })
 }
@@ -525,7 +527,7 @@ export const getAudioSourceFromUnblock = async (track: any) => {
   const source = (store.get('settings.unblockNeteaseMusic.source') as string) || ''
   const sourceList = source
     ? source.split(',').map((s) => s.trim().toLowerCase())
-    : ['kuwo', 'kugou', 'ytdlp', 'qq', 'bilibili', 'pyncmd', 'migu']
+    : ['bodian', 'kuwo', 'kugou', 'ytdlp', 'qq', 'bilibili', 'pyncmd', 'migu']
 
   const qqCookie = (store.get('settings.unblockNeteaseMusic.qqCookie') as string) || ''
   const jooxCookie = store.get('settings.unblockNeteaseMusic.jooxCookie') as string

@@ -325,7 +325,7 @@ const loadData = async () => {
 const getRandomLyric = () => {
   if (liked.value.songs.length === 0) return
   const id = liked.value.songs[randomNum(0, liked.value.songs.length - 1)]
-  fetch(`atom://get-lyric/${id}`)
+  fetch(`atom://local-asset?type=lyric&id=${id}`)
     .then((res) => res.json())
     .then((data) => {
       if (data?.lrc?.lyric?.length) {

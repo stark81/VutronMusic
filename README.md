@@ -22,7 +22,7 @@
 - ⚡️ 使用 Vue3 + ts + pinia + fastify + better-sqlite3 进行开发；
 - ⚡️ 支持本地歌曲、离线歌单功能，本地歌曲支持读取外挂和内嵌封面歌词，支持逐字歌词功能，支持线上信息匹配；
 - ⚡️ 支持流媒体音乐，暂时包括：navidrome、jellyfin和emby；
-- ⚡️ 支持Mac状态栏歌词、TouchBar歌词等；Linux下可通过[media-controls](https://github.com/stark81/media-controls)插件将歌词显示在TopBar里；
+- ⚡️ 支持Mac状态栏歌词、TouchBar歌词等；Linux下可通过[media-controls](https://github.com/stark81/media-controls)插件(gnome桌面)或者[vutronmusic-lyrics](http://github.com/cmachsocket/org.kde.plasma.vutronmusic-lyrics)插件(kde桌面)将歌词显示在TopBar里；
 - ⚡️ 支持音效设置、变调变速等高级音频功能；
 - ⚡️ 支持云盘、歌曲评论等功能；
 

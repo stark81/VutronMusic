@@ -84,7 +84,9 @@ const getImageUrl = (item: any) => {
     }
   }
   const img = item.img1v1Url || item.picUrl || item.coverImgUrl
-  return `${img?.replace('http://', 'https://')}?param=512y512`
+  let url = img?.replace('http://', 'https://')
+  if (url.startsWith('https://')) url += '?param=512y512'
+  return url
 }
 
 const isExplicit = (item: any) => {

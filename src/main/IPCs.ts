@@ -14,8 +14,8 @@ import {
   createMD5,
   getFileName,
   getReplayGainFromMetadata,
-  splitArtist,
-  cleanFontName
+  splitArtist
+  // cleanFontName
 } from './utils/utils'
 import { registerGlobalShortcuts } from './globalShortcut'
 import { createMenu } from './menu'
@@ -310,7 +310,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     }
   })
 
-  ipcMain.on('msgScanLocalMusic', async (event, filePath: string) => {
+  ipcMain.on('msgScanLocalMusic', async (event, data: { filePath: string; update: boolean }) => {
     const musicFileExtensions = /\.(mp3|aiff|flac|alac|m4a|aac|wav)$/i
 
     const { songs } = cache.get(CacheAPIs.LocalMusic)
@@ -329,7 +329,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
 
           if (stat.isFile() && musicFileExtensions.test(filePath)) {
             const foundtrack = songs.find((track) => track.filePath === filePath)
-            if (!foundtrack) {
+            if (!foundtrack || data.update) {
               const md5 = createMD5(filePath)
               const metadata = await parseFile(filePath)
               const birthDate = new Date(stat.birthtime).getTime()
@@ -358,14 +358,14 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
               }
 
               // 获取专辑信息
-              const id = songs.length + newTracks.length + 1
+              const id = foundtrack?.id || songs.length + newTracks.length + 1
               let album = [...albums, ...newAlbums].find((album) => album.name === common.album)
               if (!album) {
                 album = {
                   id: albums.length + newAlbums.length + 1,
                   name: common.album ?? '未知专辑',
                   matched: false,
-                  picUrl: `/local-asset/pic?id=${id}`
+                  picUrl: `atom://local-asset?type=pic&id=${id}`
                 }
                 newAlbums.push(album)
               }
@@ -381,14 +381,16 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
                 br: format.bitrate ?? 320000,
                 filePath,
                 type: 'local',
-                matched: false,
+                matched: foundtrack?.matched || false,
                 offset: 0,
                 md5,
                 createTime: birthDate,
                 alias: [],
-                album,
-                artists: arIDsResult,
-                picUrl: `/local-asset/pic?id=${id}`
+                album: foundtrack?.album || album,
+                artists: foundtrack?.artists || arIDsResult,
+                size: stat.size,
+                cache: false,
+                picUrl: `atom://local-asset?type=pic&id=${id}`
               }
               win.webContents.send('msgHandleScanLocalMusic', { track })
               newTracks.push(track)
@@ -401,7 +403,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
         }
       }
     }
-    await walk(filePath)
+    await walk(data.filePath)
     if (newTracks.length > 0) cache.set(CacheAPIs.LocalMusic, { newTracks })
     win.webContents.send('scanLocalMusicDone')
   })
@@ -487,11 +489,15 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
   })
 
   ipcMain.handle('getFontList', async (event) => {
-    const getFonts = (await import('font-list')).getFonts
     try {
-      const fonts = await getFonts()
-      const cleandFonts = [...new Set(fonts.map(cleanFontName))]
-      return ['system-ui', ...cleandFonts].sort()
+      const { getFonts2 } = require('font-list') as typeof import('font-list')
+      const fonts = await getFonts2({ disableQuoting: true })
+
+      return fonts.sort((a, b) => {
+        if (a.familyName === 'system-ui') return -1
+        if (b.familyName === 'system-ui') return 1
+        return a.familyName.localeCompare(b.familyName)
+      })
     } catch (error) {
       log.error('获取字体列表失败:', error)
       return ['system-ui']
@@ -543,14 +549,12 @@ async function initMprisIpcMain(win: BrowserWindow, mpris: MprisImpl): Promise<v
         // dbus.iface?.emit(signalNameEnum.updateLikeStatus, value)
       } else if (key === 'isPersonalFM') {
         mpris?.setPersonalFM(value)
+      } else if (key === 'progress') {
+        mpris?.setPosition({ progress: value })
+      } else if (key === 'rate') {
+        mpris?.setRate({ rate: value })
       }
     }
-  })
-  ipcMain.on('playerCurrentTrackTime', (event: IpcMainEvent, data: { progress: number }) => {
-    mpris?.setPosition(data)
-  })
-  ipcMain.on('updateRate', (event: IpcMainEvent, data: { rate: number; progress: number }) => {
-    mpris?.setRate(data)
   })
 }
 
