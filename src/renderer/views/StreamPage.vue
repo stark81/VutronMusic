@@ -429,7 +429,7 @@ const handleResize = () => {
 }
 
 onMounted(async () => {
-  await checkStreamStatus()
+  checkStreamStatus()
   if (loginedServices.value.length === 0) {
     router.push(`/streamLogin/${groundBy.value === 'all' ? 'navidrome' : groundBy.value}`)
     return

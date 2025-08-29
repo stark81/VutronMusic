@@ -46,12 +46,10 @@ const mainAvailChannels: string[] = [
   'get-stream-account',
   'check-update',
   'downloadUpdate',
-  'playerCurrentTrackTime',
   'update-powersave',
   'openLogFile',
   'updateTooltip',
-  'getFontList',
-  'updateRate'
+  'getFontList'
 ]
 const rendererAvailChannels: string[] = [
   'msgHandleScanLocalMusic',

@@ -177,6 +177,7 @@ export const useStreamMusicStore = defineStore(
         })
       })
     }
+    checkStreamStatus()
 
     return {
       enable,

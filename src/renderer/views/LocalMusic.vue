@@ -235,6 +235,7 @@ const formatedMemory = computed(() => {
   const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
   let memory = defaultTracks.value
     .map((track) => track.size!)
+    .filter((size) => size && !isNaN(Number(size)))
     .reduce((acc, cur) => acc + cur, 0) as number
   let i = 0
   while (memory >= 1024 && i < units.length - 1) {
