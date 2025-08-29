@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { nextTick, reactive, ref, watch } from 'vue'
 import { type UpdateCheckResult } from 'electron-updater'
+import { type IFontInfo } from 'font-list'
 
 export type TrackType = 'online' | 'local' | 'navidrome' | 'emby' | 'jellyfin'
 
@@ -78,12 +79,12 @@ export const useNormalStateStore = defineStore('state', () => {
   }
 
   const getFontList = () => {
-    window.mainApi?.invoke('getFontList').then((fonts: string[]) => {
+    window.mainApi?.invoke('getFontList').then((fonts: IFontInfo[]) => {
       fontList.value = [
         { label: '系统默认', value: 'system-ui' },
         ...fonts
-          .filter((font) => font !== 'system-ui')
-          .map((font) => ({ label: font, value: font }))
+          .filter((font) => font.familyName !== 'system-ui')
+          .map((font) => ({ label: font.name, value: font.postScriptName }))
       ]
     })
   }

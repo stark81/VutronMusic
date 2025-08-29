@@ -158,10 +158,10 @@ const track = computed(
 
 const image = computed(() => {
   let url: string
-  if (track.value.type === 'online') {
+  if (track.value.type === 'online' || track.value.matched) {
     url = track.value.al?.picUrl || track.value.album?.picUrl || track.value.picUrl
     if (url && url.startsWith('http')) url = url.replace('http:', 'https:')
-    url += '?param=128y128'
+    url += '?param=64y64'
     return url
   } else if (track.value.type === 'stream') {
     url = track.value.al?.picUrl || track.value.album?.picUrl || track.value.picUrl
@@ -170,7 +170,7 @@ const image = computed(() => {
     url =
       localMusic.value.scanning && !track.value.matched
         ? `atom://get-pic-path/${track.value.filePath}`
-        : `/local-asset/pic?id=${track.value.id}`
+        : `atom://local-asset?type=pic&id=${track.value.id}&size=64`
     return url
   }
 })

@@ -425,6 +425,8 @@ const mapTrackPlayableStatus = (tracks: any[], privileges: any[] = []) => {
     t.reason = result.reason
     t.type = 'online'
     t.matched = true
+    t.cache = false
+    t.source = 'netease'
     return t
   })
 }

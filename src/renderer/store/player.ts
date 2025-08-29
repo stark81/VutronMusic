@@ -99,7 +99,8 @@ export const usePlayerStore = defineStore(
 
     const localMusicStore = useLocalMusicStore()
     const streamMusicStore = useStreamMusicStore()
-    const { updateTrack, fetchLocalMusic, getALocalTrack, getLocalLyric } = localMusicStore
+    const { updateTrack, fetchLocalMusic, getALocalTrack, getLocalLyric, getLocalPic } =
+      localMusicStore
     const {
       scrobble: scrobbleStream,
       checkStreamStatus,
@@ -950,7 +951,7 @@ export const usePlayerStore = defineStore(
           return
         }
         if (window.env?.isElectron) {
-          fetch(`atom://get-track/${id}`).then((data) => {
+          fetch(`atom://local-asset?type=track&id=${id}`).then((data) => {
             if (data.status === 200) {
               data.json().then((track: Track) => {
                 resolve(track)
@@ -977,12 +978,14 @@ export const usePlayerStore = defineStore(
           resolve('')
         }
         if (track.type === 'local' || track.cache) {
-          resolve(`atom://get-music/${track.cache ? track.url : track.filePath}`)
+          resolve(
+            `atom://local-asset?type=stream&path=${encodeURIComponent(track.cache ? track.url : track.filePath)}`
+          )
         } else if (track.type === 'stream') {
           resolve(track.url)
         } else {
           const url = track.url.replace('http:', 'https:')
-          resolve(window.env?.isElectron ? `atom://get-online-music/${track.url}` : url)
+          resolve(url)
         }
       })
     }
@@ -1250,9 +1253,9 @@ export const usePlayerStore = defineStore(
       setDevice(outputDevice.value)
     }
 
-    const getPic = (track: Track, size: number = 128) => {
-      if (track.type === 'local') {
-        return `/local-asset/pic?id=${track.id}`
+    const getPic = async (track: Track, size: number = 128) => {
+      if (track.type === 'local' && !track.matched) {
+        return await getLocalPic(track.id, size)
       } else if (track.type === 'stream') {
         return getStreamPic(track, size)!
       } else {
@@ -1263,7 +1266,10 @@ export const usePlayerStore = defineStore(
     const updateMediaSessionMetaData = async (track: Track) => {
       if ('mediaSession' in navigator === false) return
 
-      pic.value = getPic(track, 512)
+      if (pic.value?.startsWith('blob:')) {
+        URL.revokeObjectURL(pic.value)
+      }
+      pic.value = await getPic(track, 512)
 
       const arts = track.artists ?? track.ar
       const artists = arts.map((a) => a.name)
@@ -1273,12 +1279,12 @@ export const usePlayerStore = defineStore(
         album: track.album?.name ?? track.al?.name,
         artwork: [
           {
-            src: getPic(track, 224),
+            src: await getPic(track, 224),
             type: 'image/jpg',
             sizes: '224x224'
           },
           {
-            src: getPic(track, 512),
+            src: await getPic(track, 512),
             type: 'image/jpg',
             sizes: '512x512'
           }
@@ -1294,9 +1300,14 @@ export const usePlayerStore = defineStore(
       navigator.mediaSession.metadata = null
       navigator.mediaSession.metadata = new MediaMetadata(metadata)
       if (window.env?.isLinux) {
-        if (track.type !== 'online') {
+        if (track.type === 'stream') {
           metadata.artwork.map((art) => {
             const url = `http://localhost:${window.env?.isDev ? 40001 : 41830}` + art.src
+            art.src = url
+          })
+        } else if (track.type === 'local') {
+          metadata.artwork.map((art) => {
+            const url = `http://localhost:${window.env?.isDev ? 40001 : 41830}/local-asset?id=${track.id}&size=${art.sizes.split('x')[0]}`
             art.src = url
           })
         }
@@ -1316,6 +1327,10 @@ export const usePlayerStore = defineStore(
       lyrics.lyric = []
       lyrics.tlyric = []
       lyrics.rlyric = []
+      if (pic.value.startsWith('blob:')) {
+        URL.revokeObjectURL(pic.value)
+        pic.value = new URL(`../assets/images/default.jpg`, import.meta.url).href
+      }
 
       if (resetBiq) {
         volume.value = 1
@@ -1674,6 +1689,7 @@ export const usePlayerStore = defineStore(
 
     onBeforeUnmount(() => {
       progress.value = audioNodes.audio?.currentTime || 0
+      if (pic.value.startsWith('blob:')) URL.revokeObjectURL(pic.value)
     })
 
     return {
@@ -1715,7 +1731,6 @@ export const usePlayerStore = defineStore(
       personalFMTrack,
       personalFMNextTrack,
       playlistSource,
-      getPic,
       setConvolver,
       replacePlaylist,
       playPrev,

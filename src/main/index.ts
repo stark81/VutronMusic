@@ -4,7 +4,6 @@ import {
   dialog,
   globalShortcut,
   Menu,
-  net,
   protocol,
   screen,
   MessageChannelMain,
@@ -23,6 +22,7 @@ import httpHandler from './appServer/httpHandler'
 import IPCs from './IPCs'
 import fastifyStatic from '@fastify/static'
 import path from 'path'
+import sharp from 'sharp'
 import {
   getPic,
   getPicFromApi,
@@ -436,34 +436,14 @@ class BackGround {
   handleProtocol() {
     protocol.handle('atom', async (request) => {
       const cache = (await import('./cache')).default
-      const { host, pathname } = new URL(request.url)
-      if (host === 'online-pic') {
-        return net.fetch(pathname.slice(1))
-      } else if (host === 'get-default-pic') {
+      const { host, pathname, searchParams } = new URL(request.url)
+
+      if (host === 'get-default-pic') {
         const pic = fs.readFileSync(defaultImagePath)
         return new Response(new Uint8Array(pic))
       } else if (host === 'get-pic-path') {
         const filePath = pathname.slice(1)
         const track = { matched: false, filePath, album: { picUrl: 'atom://get-default-pic' } }
-
-        const result = await getPic(track)
-        return new Response(new Uint8Array(result.pic), {
-          headers: { 'Content-Type': result.format }
-        })
-      } else if (host === 'get-playlist-pic') {
-        const ids = pathname.slice(1)
-        const res = cache.get(CacheAPIs.Track, { ids })
-        const track = res.songs[0]
-
-        const url = track.matched
-          ? track.album.picUrl + '?param=512y512'
-          : 'https://p1.music.126.net/jWE3OEZUlwdz0ARvyQ9wWw==/109951165474121408.jpg?param=512y512'
-
-        if (track.album) {
-          track.album.picUrl = url
-        } else if (track.al) {
-          track.al.picUrl = url
-        }
 
         const result = await getPic(track)
         return new Response(new Uint8Array(result.pic), {
@@ -491,89 +471,6 @@ class BackGround {
         return new Response(JSON.stringify(lyrics), {
           headers: { 'content-type': 'application/json' }
         })
-      } else if (host === 'get-track-info') {
-        const ids = pathname.slice(1)
-        let track
-        const res = cache.get(CacheAPIs.Track, { ids })
-        if (res?.songs?.length > 0) {
-          track = res.songs[0]
-        } else {
-          const res = await getTrackDetail(ids)
-          track = res.songs[0]
-          track.matched = true
-        }
-
-        let url = track.album?.picUrl || track.al?.picUrl
-        url = `${url}?param=512y512`
-
-        if (track.album) {
-          track.album.picture = url
-        } else if (track.al) {
-          track.al.picUrl = url
-        }
-
-        // 获取歌词信息
-        const lyrics = await getLyric(track)
-
-        // 获取封面
-        const { pic, format } = await getPic(track)
-
-        // 获取颜色
-        const { color, color2 } = await getPicColor(pic)
-
-        // const gain = getReplayGainFromMetadata(metadata)
-        return new Response(JSON.stringify({ pic, format, color, color2, lyrics }), {
-          headers: { 'content-type': 'application/json' }
-        })
-      } else if (host === 'get-track') {
-        // 这里获取歌曲信息，先从本地、cache里获取，获取不到则从线上获取，获取之后存入cache
-        const ids = pathname.slice(1)
-        let res = cache.get(CacheAPIs.Track, { ids })
-        if (res) {
-          const track = res.songs[0]
-          // 可能是本地歌曲，也有可能是缓存歌曲
-          if (track.type === 'local') {
-            if (!track.source) track.source = 'localTrack'
-            track.cache = false
-            return new Response(JSON.stringify(track), {
-              headers: { 'content-type': 'application/json' }
-            })
-          } else if (track.url && fs.existsSync(track.url)) {
-            track.source = `cache-${track.source}`
-            return new Response(JSON.stringify(track), {
-              headers: { 'content-type': 'application/json' }
-            })
-          }
-        }
-
-        res = await getTrackDetail(ids)
-        if (!res || !res.songs?.length) {
-          log.error('======get-track-error=====', ids)
-          return new Response(JSON.stringify({ status: 404 }), {
-            headers: { 'content-type': 'application/json' }
-          })
-        }
-        const track = res.songs[0]
-        track.cache = false
-        const { url, br, gain, peak, source } = await getAudioSource(track)
-        track.url = url
-        track.source = source
-        track.gain = gain
-        track.peak = peak
-        track.br = br
-        if (store.get('settings.autoCacheTrack.enable')) {
-          cacheOnlineTrack({ id: ids, name: track.name, url, br, win: this.win }).then((res) => {
-            track.url = res.filePath
-            track.size = res.size
-            track.cache = true
-            track.insertTime = Date.now()
-            cache.set(CacheAPIs.LocalMusic, { newTracks: [track] })
-          })
-        }
-
-        return new Response(JSON.stringify(track), {
-          headers: { 'content-type': 'application/json' }
-        })
       } else if (host === 'get-color') {
         const urlString = pathname.slice(1)
         const [url, savePic] = urlString.split('/save-pic=')
@@ -598,40 +495,127 @@ class BackGround {
         return new Response(JSON.stringify(jsonString), {
           headers: { 'content-type': 'application/json' }
         })
-      } else if (host === 'get-music') {
-        const mime = require('mime-types')
-        const filePath = decodeURI(pathname.slice(1))
-        if (!fs.existsSync(filePath)) {
-          return new Response('Not Found', { status: 404 })
+      } else if (host === 'local-asset') {
+        const type = searchParams.get('type')
+        let ids: string
+        let res: Record<string, any>
+
+        switch (type) {
+          case 'pic':
+            const size = Number(searchParams.get('size'))
+            ids = searchParams.get('id')
+            res = cache.get(CacheAPIs.Track, { ids })
+
+            const track = res.songs[0]
+            const url = new URL((track.album || track.al).picUrl)
+            url.searchParams.set('param', `${size}y${size}`)
+            ;(track.album || track.al).picUrl = track.matched
+              ? url.toString()
+              : 'atom://get-default-pic'
+
+            const result = await getPic(track)
+            let pic = result.pic
+            pic = await sharp(pic).resize(size, size, { fit: 'cover' }).toBuffer()
+            const format = result.format
+
+            return new Response(new Uint8Array(pic), { headers: { 'Content-Type': format } })
+
+          case 'stream':
+            const mime = require('mime-types')
+            const filePath = decodeURIComponent(searchParams.get('path'))
+            if (!fs.existsSync(filePath)) {
+              return new Response('Not Found', { status: 404 })
+            }
+            const fileStat = fs.statSync(filePath)
+            const range = request.headers.get('range')
+            let start = 0
+            let end = fileStat.size - 1
+            if (range) {
+              const match = range.match(/bytes=(\d*)-(\d*)/)
+              if (match) {
+                start = match[1] ? parseInt(match[1], 10) : start
+                end = match[2] ? parseInt(match[2], 10) : end
+              }
+            }
+            const chunkSize = end - start + 1
+            const stream = fs.createReadStream(filePath, { start, end })
+            const mimeType = mime.lookup(filePath)
+            // @ts-ignore
+            return new Response(stream, {
+              status: range ? 206 : 200,
+              headers: {
+                'content-type': mimeType,
+                'content-length': chunkSize.toString(),
+                'accept-ranges': 'bytes',
+                'content-range': `bytes ${start}-${end}/${fileStat.size}`
+              }
+            })
+
+          case 'track':
+            ids = searchParams.get('id')
+            res = cache.get(CacheAPIs.Track, { ids })
+            if (res) {
+              const track = res.songs[0]
+              return new Response(JSON.stringify(track), {
+                headers: { 'content-type': 'application/json' }
+              })
+            } else {
+              res = await getTrackDetail(ids)
+              if (!res || !res.songs?.length) {
+                log.error('======get-track-error=====', ids)
+                return new Response(JSON.stringify({ status: 404 }), {
+                  headers: { 'content-type': 'application/json' }
+                })
+              }
+              const track = res.songs[0]
+              const { url, br, gain, peak, source } = await getAudioSource(track)
+              track.url = url
+              track.source = source
+              track.gain = gain
+              track.peak = peak
+              track.br = br
+
+              if (store.get('settings.autoCacheTrack.enable')) {
+                cacheOnlineTrack({ id: ids, name: track.name, url, br, win: this.win }).then(
+                  (res) => {
+                    track.url = res.filePath
+                    track.size = res.size
+                    track.cache = true
+                    track.insertTime = Date.now()
+                    cache.set(CacheAPIs.LocalMusic, { newTracks: [track] })
+                    // this.win.webContents.send('')
+                  }
+                )
+              }
+
+              return new Response(JSON.stringify(track), {
+                headers: { 'content-type': 'application/json' }
+              })
+            }
+
+          case 'lyric':
+            ids = searchParams.get('id')
+            res = cache.get(CacheAPIs.Track, { ids })
+            let lyrics = {
+              lrc: { lyric: [] },
+              tlyric: { lyric: [] },
+              romalrc: { lyric: [] },
+              yrc: { lyric: [] },
+              ytlrc: { lyric: [] },
+              yromalrc: { lyric: [] }
+            }
+
+            if (res?.songs?.length > 0) {
+              const track = res.songs[0]
+              lyrics = await getLyric(track)
+            } else {
+              lyrics = await getLyricFromApi(Number(ids))
+            }
+
+            return new Response(JSON.stringify(lyrics), {
+              headers: { 'content-type': 'application/json' }
+            })
         }
-        const fileStat = fs.statSync(filePath)
-        const range = request.headers.get('range')
-        let start = 0
-        let end = fileStat.size - 1
-        if (range) {
-          const match = range.match(/bytes=(\d*)-(\d*)/)
-          if (match) {
-            start = match[1] ? parseInt(match[1], 10) : start
-            end = match[2] ? parseInt(match[2], 10) : end
-          }
-        }
-        const chunkSize = end - start + 1
-        const stream = fs.createReadStream(filePath, { start, end })
-        const mimeType = mime.lookup(filePath)
-        // @ts-ignore
-        return new Response(stream, {
-          status: range ? 206 : 200,
-          headers: {
-            'content-type': mimeType,
-            'content-length': chunkSize.toString(),
-            'accept-ranges': 'bytes',
-            'content-range': `bytes ${start}-${end}/${fileStat.size}`
-          }
-        })
-      } else if (host === 'get-online-music') {
-        const url = pathname.slice(1)
-        const headers = request.headers
-        return fetch(url, { headers })
       }
     })
   }

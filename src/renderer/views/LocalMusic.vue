@@ -19,8 +19,8 @@
               <div class="text">{{ playlists.length }}个</div>
             </div>
             <div>
-              <div class="subtitle">本地歌手</div>
-              <div class="text">{{ artists.length }}位</div>
+              <div class="subtitle">歌曲占用</div>
+              <div class="text">{{ formatedMemory }}</div>
             </div>
           </div>
         </div>
@@ -152,7 +152,7 @@
         >{{ sortOption.name }}</div
       >
       <hr v-show="!isBatchOp" />
-      <div v-show="!isBatchOp" class="item" @click="scanLocalMusic">{{
+      <div v-show="!isBatchOp" class="item" @click="scanLocalMusic(false)">{{
         $t('contextMenu.reScan')
       }}</div>
       <div v-show="!isBatchOp" class="item" @click="isBatchOp = true">{{
@@ -165,7 +165,7 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
 import { useNormalStateStore } from '../store/state'
-import { Track, useLocalMusicStore } from '../store/localMusic'
+import { Track, useLocalMusicStore, sortList } from '../store/localMusic'
 import { usePlayerStore } from '../store/player'
 import {
   computed,
@@ -231,9 +231,17 @@ const formatedTime = computed(() => {
   return `${hourse}:${minutes < 10 ? '0' + minutes : minutes}:${seconds < 10 ? '0' + seconds : seconds}`
 })
 
-const artists = computed(() => {
-  const ar = localTracks.value.map((track) => track.artists).flat()
-  return [...new Map(ar.map((ar) => [ar.name, ar])).values()]
+const formatedMemory = computed(() => {
+  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
+  let memory = defaultTracks.value
+    .map((track) => track.size!)
+    .reduce((acc, cur) => acc + cur, 0) as number
+  let i = 0
+  while (memory >= 1024 && i < units.length - 1) {
+    memory /= 1024
+    i++
+  }
+  return `${memory.toFixed(2)} ${units[i]}`
 })
 
 const pickedLyricLines = computed(() => {
@@ -332,10 +340,10 @@ provide('isBatchOp', isBatchOp)
 const { t } = useI18n()
 
 const sortOptions = [
-  { name: t('contextMenu.defaultSort'), value: 'default' },
-  { name: t('contextMenu.sortByName'), value: 'byname' },
-  { name: t('contextMenu.ascendSort'), value: 'ascend' },
-  { name: t('contextMenu.descendSort'), value: 'descend' }
+  { name: t('contextMenu.defaultSort'), value: 'default' as (typeof sortList)[number] },
+  { name: t('contextMenu.sortByName'), value: 'byname' as (typeof sortList)[number] },
+  { name: t('contextMenu.ascendSort'), value: 'ascend' as (typeof sortList)[number] },
+  { name: t('contextMenu.descendSort'), value: 'descend' as (typeof sortList)[number] }
 ]
 
 const placeHolderMap = (tab: string) => {
@@ -424,6 +432,11 @@ onMounted(() => {
     if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
   }, 100)
   getRandomTrack()
+  const tmpSort = sortBy.value
+  sortBy.value = sortList.filter((s) => s !== tmpSort)[0]
+  nextTick(() => {
+    sortBy.value = tmpSort
+  })
 })
 
 onUnmounted(() => {
