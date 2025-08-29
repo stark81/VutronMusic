@@ -103,7 +103,6 @@ export const usePlayerStore = defineStore(
       localMusicStore
     const {
       scrobble: scrobbleStream,
-      checkStreamStatus,
       fetchStreamMusic,
       getStreamLyric,
       getStreamPic,
@@ -245,7 +244,7 @@ export const usePlayerStore = defineStore(
         currentIndex.word = getLyricIndex(fontList.value.word, 0, 1000)
         currentIndex.tWord = getLyricIndex(fontList.value.tWord, 0, 1000)
         if (window.env?.isLinux) {
-          window.mainApi?.send('playerCurrentTrackTime', { progress: value })
+          window.mainApi?.send('updatePlayerState', { progress: value })
         }
         navigator.mediaSession.setPositionState({
           duration: currentTrackDuration.value,
@@ -294,7 +293,7 @@ export const usePlayerStore = defineStore(
     })
 
     watch(playbackRate, (value) => {
-      window.mainApi?.send('updateRate', {
+      window.mainApi?.send('updatePlayerState', {
         rate: value,
         progress: audioNodes.audio?.currentTime ?? 0
       })
@@ -585,7 +584,10 @@ export const usePlayerStore = defineStore(
     })
 
     watch(playing, (value) => {
-      window.mainApi?.send('updatePlayerState', { playing: value })
+      window.mainApi?.send('updatePlayerState', {
+        playing: value,
+        progress: audioNodes.audio?.currentTime || 0
+      })
       if ('mediaSession' in navigator) {
         navigator.mediaSession.playbackState = value ? 'playing' : 'paused'
         navigator.mediaSession.setPositionState({
@@ -1647,7 +1649,6 @@ export const usePlayerStore = defineStore(
     }
 
     onMounted(async () => {
-      await checkStreamStatus()
       await Promise.all([fetchLocalMusic(), fetchStreamMusic()])
       playing.value = false
       title.value = 'VutronMusic'
@@ -1664,12 +1665,15 @@ export const usePlayerStore = defineStore(
           }
         }
         replaceCurrentTrack(currentTrack.value!.id, false).then(() => {
-          window.mainApi?.send('updatePlayerState', {
-            playing: playing.value,
-            isPersonalFM: isPersonalFM.value,
-            like: isLiked.value,
-            repeatMode: repeatMode.value,
-            shuffle: shuffle.value
+          setTimeout(() => {
+            window.mainApi?.send('updatePlayerState', {
+              playing: playing.value,
+              progress: audioNodes.audio?.currentTime || 0,
+              isPersonalFM: isPersonalFM.value,
+              like: isLiked.value,
+              repeatMode: repeatMode.value,
+              shuffle: shuffle.value
+            })
           })
         })
         handleIpcRenderer()

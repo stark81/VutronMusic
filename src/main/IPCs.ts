@@ -549,14 +549,12 @@ async function initMprisIpcMain(win: BrowserWindow, mpris: MprisImpl): Promise<v
         // dbus.iface?.emit(signalNameEnum.updateLikeStatus, value)
       } else if (key === 'isPersonalFM') {
         mpris?.setPersonalFM(value)
+      } else if (key === 'progress') {
+        mpris?.setPosition({ progress: value })
+      } else if (key === 'rate') {
+        mpris?.setRate({ rate: value })
       }
     }
-  })
-  ipcMain.on('playerCurrentTrackTime', (event: IpcMainEvent, data: { progress: number }) => {
-    mpris?.setPosition(data)
-  })
-  ipcMain.on('updateRate', (event: IpcMainEvent, data: { rate: number; progress: number }) => {
-    mpris?.setRate(data)
   })
 }
 
