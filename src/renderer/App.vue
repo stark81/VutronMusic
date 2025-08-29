@@ -184,7 +184,13 @@ const handleChanelEvent = () => {
   window.mainApi?.send('updateOsdState', { show: show.value })
   getFontList()
   window.mainApi?.on('msgHandleScanLocalMusic', (_: any, data: { track: any }) => {
-    localTracks.value.push(data.track)
+    // localTracks.value.push(data.track)
+    const index = localTracks.value.findIndex((track) => track.filePath === data.track.filePath)
+    if (index !== -1) {
+      localTracks.value[index] = data.track
+    } else {
+      localTracks.value.push(data.track)
+    }
   })
   window.mainApi?.on(
     'msgHandleScanLocalMusicError',

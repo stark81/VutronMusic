@@ -101,7 +101,7 @@ const createAPlaylist = async () => {
       coverImgUrl:
         imgID === 0
           ? 'https://p1.music.126.net/jWE3OEZUlwdz0ARvyQ9wWw==/109951165474121408.jpg?param=512y512'
-          : `atom://get-playlist-pic/${imgID}`
+          : `atom://local-asset?type=pic&id=${imgID}&size=512`
     }
     const playlist = await createLocalPlaylist(params)
     if (playlist) {

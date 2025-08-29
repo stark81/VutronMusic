@@ -96,9 +96,6 @@ class DB {
   constructor() {
     try {
       createFileIfNotExist(this.dbFilePath)
-      // const root = app.isPackaged
-      //   ? path.join(process.resourcesPath, 'app.asar.unpacked')
-      //   : path.join(__dirname, '../../')
       const root = path.join(__dirname, '../../')
       this.sqlite = new SQLite3(this.dbFilePath, {
         nativeBinding: path.join(root, 'dist-native', `better_sqlite3-${process.arch}.node`)

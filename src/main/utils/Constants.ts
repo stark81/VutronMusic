@@ -19,7 +19,6 @@ export default class Constants {
   static IS_LINUX = process.platform === 'linux'
 
   static DEFAULT_WEB_PREFERENCES = {
-    // webSecurity: false,
     nodeIntegration: false,
     contextIsolation: true,
     enableRemoteModule: false,
@@ -27,7 +26,6 @@ export default class Constants {
   }
 
   static DEFAULT_OSD_PREFERENCES = {
-    // webSecurity: false,
     nodeIntegration: false,
     contextIsolation: true,
     enableRemoteModule: false,
