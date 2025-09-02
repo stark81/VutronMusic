@@ -50,7 +50,7 @@
     "NeteaseCloudMusicApi": "^4.23.2",
     "better-sqlite3": "^11.0.0",
     "change-case": "^5.4.3",
-    "color": "^4.2.3",
+    "color": "^5.0.0",
     "compare-versions": "^6.1.0",
     "crypto-js": "^4.2.0",
     "dayjs": "^1.11.10",
