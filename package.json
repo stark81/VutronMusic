@@ -92,7 +92,7 @@
     "vue3-virtual-scroll": "^0.1.10"
   },
   "devDependencies": {
-    "@playwright/test": "^1.42.0",
+    "@playwright/test": "^1.55.0",
     "@types/better-sqlite3": "^7.6.11",
     "@types/color": "^4.2.0",
     "@types/qs": "^6.9.18",
