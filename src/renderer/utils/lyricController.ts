@@ -65,6 +65,8 @@ export class LyricManager {
   fontIdx: number
   tFontIdx: number
   lineIdx: number
+  lastFontIdx: number = -1
+  lastTFontIdx: number = -1
   currentTime: number // 毫秒
   lyrics: lyrics | null = null
   rate: number
@@ -109,32 +111,50 @@ export class LyricManager {
   }
 
   updateFontIndex(type: 'lyric' | 'translation' = 'lyric', index: number) {
+    const prevIndex = type === 'lyric' ? this.lastFontIdx : this.lastTFontIdx
     if (type === 'lyric') {
+      this.lastFontIdx = this.fontIdx
       this.fontIdx = index
     } else {
+      this.lastTFontIdx = this.tFontIdx
       this.tFontIdx = index
     }
-    if (!this.animations || !this.animations[type].length) return
-    for (let i = index - 1; i > -1; i--) {
-      const font = this.animations[type][i]
 
-      if (font) {
+    if (!this.animations || !this.animations[type].length) return
+
+    const animations = this.animations[type]
+    const start = Math.min(prevIndex, index)
+    const end = Math.max(prevIndex, index)
+
+    for (let i = index - 1; i > -1; i--) {
+      const font = animations[i]
+      if (font && font.animation.playState !== 'finished' && i <= end) {
         this.handleFontPlay(font, 0, true)
       }
     }
-    for (let i = index; i < this.animations[type].length; i++) {
-      const font = this.animations[type][i]
-      if (font) {
-        font.animation.cancel()
-        font.dom.style.backgroundSize = '0 100%'
+
+    for (let i = index; i < animations.length; i++) {
+      const font = animations[i]
+      if (font && i >= start) {
+        if (font.animation.playState !== 'idle') {
+          font.animation.cancel()
+        }
+        if (font.dom.style.backgroundSize !== '0 100%') {
+          font.dom.style.backgroundSize = '0 100%'
+        }
       }
     }
-    const font = this.animations[type][index]
-    if (font) {
-      font.dom.style.backgroundSize = '100% 100%'
-      const driftTime = Math.max(this.currentTime - font.start, 0)
-      font.animation.currentTime = driftTime
-      if (this.playing) font.animation.play()
+
+    const currentFont = animations[index]
+    if (currentFont) {
+      if (currentFont.dom.style.backgroundSize !== '100% 100%') {
+        currentFont.dom.style.backgroundSize = '100% 100%'
+      }
+      const driftTime = Math.max(this.currentTime - currentFont.start, 0)
+      currentFont.animation.currentTime = driftTime
+      if (this.playing && currentFont.animation.playState !== 'running') {
+        currentFont.animation.play()
+      }
     }
   }
 
@@ -176,24 +196,23 @@ export class LyricManager {
 
   handleFontPlay(font: animation, curTime: number, toFinish: boolean) {
     if (!font) return
-    switch (font.animation.playState) {
-      case 'finished':
-        break
-      case 'idle':
+    if (font.animation.playState === 'finished') {
+      return
+    }
+
+    if (toFinish) {
+      if (font.dom.style.backgroundSize !== '100% 100%') {
         font.dom.style.backgroundSize = '100% 100%'
-        if (!toFinish) {
-          font.animation.currentTime = curTime
-          font.animation.play()
-        }
-        break
-      default:
-        if (toFinish) {
-          font.animation.cancel()
-        } else {
-          font.animation.currentTime = curTime
-          font.animation.play()
-        }
-        break
+      }
+      font.animation.finish()
+    } else {
+      if (font.dom.style.backgroundSize !== '100% 100%') {
+        font.dom.style.backgroundSize = '100% 100%'
+      }
+      font.animation.currentTime = curTime
+      if (font.animation.playState !== 'running') {
+        font.animation.play()
+      }
     }
   }
 
@@ -492,6 +511,9 @@ export class LyricManager {
   }
 
   play() {
+    if (!this.isMini) {
+      this.lyricElements[this.lineIdx]?.dom.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    }
     this.animations.lyric[this.fontIdx]?.animation.play()
     this.animations.translation[this.tFontIdx]?.animation.play()
     this.playLineAnimation(this.lineIdx)
@@ -520,10 +542,10 @@ export class LyricManager {
 
   handleWheel() {
     clearTimeout(this.scrollingTimer)
-    if (!this.isWheeling) this.isWheeling = true
     const line = this.lyricElements[this.lineIdx]
-    if (!line) return
+    if (!line || !this.playing) return
 
+    if (!this.isWheeling) this.isWheeling = true
     this.scrollingTimer = setTimeout(
       () => {
         this.isWheeling = false

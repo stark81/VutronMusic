@@ -194,7 +194,7 @@ import { useI18n } from 'vue-i18n'
 // load
 const localMusicStore = useLocalMusicStore()
 const { localTracks, playlists, sortBy } = storeToRefs(localMusicStore)
-const { scanLocalMusic } = localMusicStore
+const { scanLocalMusic, getLocalLyric } = localMusicStore
 
 const { newPlaylistModal, modalOpen } = storeToRefs(useNormalStateStore())
 const { addTrackToPlayNext } = usePlayerStore()
@@ -403,7 +403,7 @@ const getRandomTrack = async () => {
   let randomId: number
   while (i < ids.length - 1) {
     randomId = ids[randomNum(0, ids.length - 1)]
-    data = await fetch(`atom://get-lyric/${randomId}`).then((res) => res.json())
+    data = await getLocalLyric(randomId)
     if (data.lrc.lyric.length > 0) {
       const { lyric } = lyricParse(data)
       const isInstrumental = lyric.filter((l) => l.content?.includes('纯音乐，请欣赏'))

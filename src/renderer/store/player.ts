@@ -40,6 +40,18 @@ interface userBiquadType {
   [key: string]: biquadType
 }
 
+interface word {
+  start: number
+  end: number
+  word: string
+}
+
+interface lyrics {
+  lyric: { start: number; end: number; content: string; contentInfo?: word[] }[]
+  tlyric: { start: number; end: number; content: string }[]
+  rlyric: { start: number; end: number; content: string }[]
+}
+
 const delay = (ms: number) =>
   new Promise((resolve) => {
     setTimeout(() => {
@@ -76,11 +88,7 @@ export const usePlayerStore = defineStore(
       id: number | string
     }>({ type: 'album', id: 0 })
 
-    const lyrics = reactive<{
-      lyric: any[]
-      tlyric: any[]
-      rlyric: any[]
-    }>({
+    const lyrics = reactive<lyrics>({
       lyric: [],
       tlyric: [],
       rlyric: []
@@ -351,7 +359,7 @@ export const usePlayerStore = defineStore(
               (sameRlyric && settingsStore.normalLyric.nTranslationMode === 'rlyric') ||
               osdLyricStore.translationMode === 'rlyric'
             ) {
-              const words = sameRlyric.content.split(' ') as string[]
+              const words = sameRlyric?.content.split(' ') as string[]
               l.contentInfo.forEach((c, i) => {
                 rWord.push({
                   start: c.start,
@@ -544,7 +552,7 @@ export const usePlayerStore = defineStore(
 
     const currentLyric = computed(() => {
       const line = lyrics.lyric[currentIndex.line]
-      if (!line) return { content: currentTrack.value?.name || '听你想听的音乐', time: 0 }
+      if (!line) return { content: currentTrack.value?.name || '听你想听的音乐', time: 0, start: 0 }
       const nextLine = lyrics.lyric[currentIndex.line + 1]
       const diff = nextLine ? nextLine.start - line?.start : 10
       return { content: line?.content, time: diff, start: line?.start || 0 }
@@ -804,13 +812,11 @@ export const usePlayerStore = defineStore(
           const end = l.end ?? tlyric[index + 1]?.start ?? currentTrackDuration.value
           return { ...l, end }
         })
-        lyrics.tlyric = tlyric
         rlyric = rlyric.filter(({ content }) => Boolean(content))
         lyrics.rlyric = rlyric.map((l, index) => {
           const end = l.end ?? rlyric[index + 1]?.start ?? currentTrackDuration.value
           return { ...l, end }
         })
-        lyrics.rlyric = rlyric
       }
     }
 
@@ -872,11 +878,7 @@ export const usePlayerStore = defineStore(
         currentTrackIndex.value = autoPlayTrackID
         replaceCurrentTrack(list.value[autoPlayTrackID], true)
       }
-      if (!enabled.value) {
-        enabled.value = true
-        handleIpcRenderer()
-        initMediaSession()
-      }
+      if (!enabled.value) enabled.value = true
     }
 
     const replaceCurrentTrack = async (trackID: number | string, autoPlay = true) => {
@@ -986,8 +988,7 @@ export const usePlayerStore = defineStore(
         } else if (track.type === 'stream') {
           resolve(track.url)
         } else {
-          const url = track.url.replace('http:', 'https:')
-          resolve(url)
+          resolve(`atom://get-online-music/${track.url}`)
         }
       })
     }
@@ -1261,7 +1262,9 @@ export const usePlayerStore = defineStore(
       } else if (track.type === 'stream') {
         return getStreamPic(track, size)!
       } else {
-        return (track.album || track.al).picUrl + `?param=${size}y${size}`
+        let url = (track.album || track.al).picUrl
+        url = url.replace('http://', 'https://')
+        return url + `?param=${size}y${size}`
       }
     }
 
@@ -1391,6 +1394,7 @@ export const usePlayerStore = defineStore(
           if (!newLyric.lyric.length) {
             newLyric.lyric[0] = {
               start: 0,
+              end: 0,
               content: `${(currentTrack.value?.artists || currentTrack.value?.ar)[0].name} - ${currentTrack.value?.name}`
             }
           }
@@ -1567,10 +1571,7 @@ export const usePlayerStore = defineStore(
       if (currentTrack.value?.id !== _personalFMTrack.value.id) {
         playlistSource.value.type = 'personalFM'
         playlistSource.value.id = _personalFMTrack.value.id
-        replaceCurrentTrack(_personalFMTrack.value.id, true).then(() => {
-          handleIpcRenderer()
-          initMediaSession()
-        })
+        replaceCurrentTrack(_personalFMTrack.value.id, true)
       } else {
         playOrPause()
       }
@@ -1652,6 +1653,8 @@ export const usePlayerStore = defineStore(
       await Promise.all([fetchLocalMusic(), fetchStreamMusic()])
       playing.value = false
       title.value = 'VutronMusic'
+      handleIpcRenderer()
+      initMediaSession()
       if (enabled.value) {
         if (currentTrack.value?.type === 'stream') {
           if (
@@ -1676,8 +1679,6 @@ export const usePlayerStore = defineStore(
             })
           })
         })
-        handleIpcRenderer()
-        initMediaSession()
       }
       if (
         _personalFMTrack.value.id === 0 ||

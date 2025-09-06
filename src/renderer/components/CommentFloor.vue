@@ -8,12 +8,15 @@
     </div>
     <div ref="mainRef" class="comment-main" :style="mainStyle">
       <VirtualScroll
+        v-if="floorComments.length"
         :list="floorComments"
-        :height="props.type === 'mv' ? 510 : 560"
+        :height="commentHeight"
         :item-size="63"
         :padding-bottom="0"
+        :above-value="5"
+        :below-value="5"
         :show-position="false"
-        :is-end="true"
+        :is-end="false"
         :load-more="() => loadFloorComment(props.beRepliedCommentId)"
       >
         <template #default="{ item, index }">
@@ -74,7 +77,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, reactive, inject } from 'vue'
+import { ref, computed, onMounted, reactive, inject, onBeforeUnmount } from 'vue'
 import { likeComment, getFloorComment, submitComment } from '../api/comment'
 import { useNormalStateStore } from '../store/state'
 import VirtualScroll from './VirtualScrollNoHeight.vue'
@@ -111,6 +114,7 @@ const mainRef = ref()
 const selectedComment = ref()
 const floorCommentRef = ref()
 const currentPage = inject('currentPage', ref('floorComment'))
+const winHeight = ref(window.innerHeight)
 const floorCommentInfo = reactive({
   limit: 20,
   time: 0,
@@ -127,6 +131,10 @@ const containerStyle = computed(() => {
     height: props.type === 'mv' ? 'calc(100vh - 84px)' : '100vh',
     padding: props.type === 'mv' ? '0 0 0 3.5vh' : `40px 8vh 0 ${props.paddingRight}`
   }
+})
+
+const commentHeight = computed(() => {
+  return winHeight.value - (props.type === 'mv' ? 205 : 160)
 })
 
 const mainStyle = computed(() => {
@@ -154,6 +162,10 @@ const getImage = (url: string) => {
     url = url.replace('http:', 'https:')
   }
   return url + '?param=64y64'
+}
+
+const updateWindowHeight = () => {
+  winHeight.value = window.innerHeight
 }
 
 const router = useRouter()
@@ -280,7 +292,12 @@ const handleSubmitComment = () => {
 }
 
 onMounted(() => {
+  window.addEventListener('resize', updateWindowHeight)
   loadFloorComment(props.beRepliedCommentId)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateWindowHeight)
 })
 </script>
 
