@@ -172,7 +172,7 @@ export const useLocalMusicStore = defineStore(
     }
 
     const getLocalLyric = async (id: number) => {
-      const res = await fetch(`atom://get-lyric/${id}`)
+      const res = await fetch(`atom://local-asset?type=lyric&id=${id}`)
       return (await res.json()) as {
         lrc: { lyric: any[] }
         tlyric: { lyric: any[] }

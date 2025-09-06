@@ -449,28 +449,6 @@ class BackGround {
         return new Response(new Uint8Array(result.pic), {
           headers: { 'Content-Type': result.format }
         })
-      } else if (host === 'get-lyric') {
-        const ids = pathname.slice(1)
-        const res = cache.get(CacheAPIs.Track, { ids })
-        let lyrics = {
-          lrc: { lyric: [] },
-          tlyric: { lyric: [] },
-          romalrc: { lyric: [] },
-          yrc: { lyric: [] },
-          ytlrc: { lyric: [] },
-          yromalrc: { lyric: [] }
-        }
-
-        if (res?.songs?.length > 0) {
-          const track = res.songs[0]
-          lyrics = await getLyric(track)
-        } else {
-          lyrics = await getLyricFromApi(Number(ids))
-        }
-
-        return new Response(JSON.stringify(lyrics), {
-          headers: { 'content-type': 'application/json' }
-        })
       } else if (host === 'get-color') {
         const urlString = pathname.slice(1)
         const [url, savePic] = urlString.split('/save-pic=')
@@ -616,6 +594,10 @@ class BackGround {
               headers: { 'content-type': 'application/json' }
             })
         }
+      } else if (host === 'get-online-music') {
+        const url = pathname.slice(1)
+        const headers = request.headers
+        return fetch(url, { headers })
       }
     })
   }

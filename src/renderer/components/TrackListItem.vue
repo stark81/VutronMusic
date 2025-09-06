@@ -167,10 +167,9 @@ const image = computed(() => {
     url = track.value.al?.picUrl || track.value.album?.picUrl || track.value.picUrl
     return stateStore.virtualScrolling ? 'atom://get-default-pic' : url
   } else {
-    url =
-      localMusic.value.scanning && !track.value.matched
-        ? `atom://get-pic-path/${track.value.filePath}`
-        : `atom://local-asset?type=pic&id=${track.value.id}&size=64`
+    url = localMusic.value.scanning
+      ? `atom://get-pic-path/${track.value.filePath}`
+      : `atom://local-asset?type=pic&id=${track.value.id}&size=64`
     return url
   }
 })
