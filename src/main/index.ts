@@ -152,8 +152,8 @@ class BackGround {
       show: false,
       width: (store.get('window.width') as number) || 1080,
       height: (store.get('window.height') as number) || 720,
-      x: (store.get('window.x') as number) || undefined,
-      y: (store.get('window.y') as number) || undefined,
+      x: undefined,
+      y: undefined,
       minWidth: 1080,
       minHeight: 720,
       frame: !(
@@ -234,12 +234,8 @@ class BackGround {
       minWidth: type === 'small' ? 700 : 400,
       maxWidth: type === 'small' ? undefined : undefined,
       useContentSize: true,
-      x:
-        ((type === 'small' ? store.get('osdWin.x') : store.get('osdWin.x2')) as number) ||
-        undefined,
-      y:
-        ((type === 'small' ? store.get('osdWin.y') : store.get('osdWin.y2')) as number) ||
-        undefined,
+      x: undefined,
+      y: undefined,
       transparent: true,
       frame: false,
       hasShadow: false,
@@ -249,10 +245,9 @@ class BackGround {
       webPreferences: Constants.DEFAULT_OSD_PREFERENCES
     }
 
-    if (store.get('osdWin.x') && store.get('osdWin.y')) {
-      const x = store.get('osdWin.x') as number
-      const y = store.get('osdWin.y') as number
-
+    const x = (type === 'small' ? store.get('osdWin.x') : store.get('osdWin.x2')) as number
+    const y = (type === 'small' ? store.get('osdWin.y') : store.get('osdWin.y2')) as number
+    if (x && y) {
       const displays = screen.getAllDisplays()
       let isResetWindow = false
       if (displays.length === 1) {
@@ -298,13 +293,46 @@ class BackGround {
   }
 
   dragOsdWindow(data: { dx: number; dy: number; startHeight: number; startWidth: number }) {
-    const bounds = this.lyricWin?.getBounds()
-    this.lyricWin?.setBounds({
-      x: bounds.x + data.dx,
-      y: bounds.y + data.dy,
-      height: data.startHeight,
-      width: data.startWidth
-    })
+    const bds = this.lyricWin?.getBounds()
+
+    const displays = screen.getAllDisplays()
+    let x = bds.x + data.dx
+    let y = bds.y + data.dy
+    const height = data.startHeight
+    const width = data.startWidth
+    let isInside = false
+
+    if (displays.length === 1) {
+      const { bounds } = displays[0]
+      if (
+        x < bounds.x ||
+        x + width > bounds.x + bounds.width ||
+        y < bounds.y ||
+        y + height > bounds.y + bounds.height - 50
+      ) {
+        isInside = true
+      }
+    } else {
+      for (let i = 0; i < displays.length; i++) {
+        const { bounds } = displays[i]
+        if (
+          x > bounds.x &&
+          x + width < bounds.x + bounds.width &&
+          y > bounds.y &&
+          y + height < bounds.y + bounds.height
+        ) {
+          isInside = true
+          break
+        }
+      }
+    }
+
+    if (!isInside) {
+      x = bds.x
+      y = bds.y
+    }
+
+    this.lyricWin?.setBounds({ x, y, height, width })
   }
 
   toggleOSDWindow() {

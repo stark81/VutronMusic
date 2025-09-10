@@ -44,7 +44,11 @@ const createAnimation = (dom: HTMLElement, duration: number) => {
   const effect = new KeyframeEffect(
     dom,
     [{ backgroundSize: '0 100%' }, { backgroundSize: '100% 100%' }],
-    { duration: Math.max(duration, 0), easing: 'linear', fill: 'forwards' }
+    {
+      duration: Math.max(duration - Math.max(30, duration * 0.1), 0),
+      easing: 'linear',
+      fill: 'forwards'
+    }
   )
   return new Animation(effect, document.timeline)
 }
@@ -252,86 +256,58 @@ export class LyricManager {
         })
         element.appendChild(lyricLine)
 
-        if (this.mode === 'tlyric') {
-          const sameTlyric = lyrics.tlyric.find((t) => t.start === l.start)
-          if (sameTlyric) {
-            const translation = document.createElement('div')
-            translation.classList.add('translation')
-            const words = sameTlyric.content.split('')
-            const interval = (end - start) / words.length
-            words.forEach((w, index) => {
-              const span = document.createElement('span')
-              span.textContent = w
-              span.style.backgroundSize = '0 100%'
-              translation.appendChild(span)
-
-              const animation = createAnimation(span, interval)
-              animation.playbackRate = this.rate
-              this.animations.translation.push({
-                dom: span,
-                animation,
-                start: start + interval * index,
-                end: start + interval * index + interval
-              })
-            })
-            element.append(translation)
-          }
-        } else if (this.mode === 'rlyric') {
-          const sameRlyric = lyrics.rlyric.find((t) => t.start === l.start)
-          if (sameRlyric) {
-            const translation = document.createElement('div')
-            translation.classList.add('translation')
-            const words = sameRlyric.content.split(' ')
-            l.contentInfo.forEach((w, index) => {
-              const span = document.createElement('span')
-              span.textContent = `${words[index] || ' '} `
-              span.style.backgroundSize = '0 100%'
-              translation.appendChild(span)
-
-              const animation = createAnimation(span, w.end - w.start)
-              animation.playbackRate = this.rate
-              this.animations.translation.push({
-                dom: span,
-                animation,
-                start: w.start,
-                end: w.end
-              })
-            })
-            element.append(translation)
-          }
+        if (this.mode === 'none') {
+          return { dom: element, index, start, end }
         }
+
+        const sameLyric = lyrics[this.mode].find((t) => t.start === l.start)
+        if (sameLyric) {
+          const translation = document.createElement('div')
+          translation.classList.add('translation')
+          const words = sameLyric.content.split(this.mode === 'tlyric' ? '' : ' ')
+          const interval = (end - start) / words.length
+          words.forEach((w, index) => {
+            const span = document.createElement('span')
+            span.textContent = this.mode === 'tlyric' ? w : `${w || ' '} `
+            span.style.backgroundSize = '0 100%'
+            translation.appendChild(span)
+
+            const animation = createAnimation(span, interval)
+            animation.playbackRate = this.rate
+            this.animations.translation.push({
+              dom: span,
+              animation,
+              start: start + interval * index,
+              end: start + interval * index + interval
+            })
+          })
+          element.append(translation)
+        }
+        return { dom: element, index, start, end }
       } else {
         const span = document.createElement('span')
         span.textContent = l.content
         lyricLine.appendChild(span)
         element.appendChild(lyricLine)
 
-        if (this.mode === 'tlyric') {
-          const sameTlyric = lyrics.tlyric.find((t) => t.start === l.start)
-          if (sameTlyric) {
-            const translation = document.createElement('div')
-            translation.classList.add('translation')
-
-            const span = document.createElement('span')
-            span.textContent = sameTlyric.content
-            translation.appendChild(span)
-            element.appendChild(translation)
-          }
-        } else if (this.mode === 'rlyric') {
-          const sameRlyric = lyrics.rlyric.find((t) => t.start === l.start)
-          if (sameRlyric) {
-            const translation = document.createElement('div')
-            translation.classList.add('translation')
-
-            const span = document.createElement('span')
-            span.textContent = sameRlyric.content
-            translation.appendChild(span)
-            element.appendChild(translation)
-          }
+        if (this.mode === 'none') {
+          return { dom: element, index, start, end }
         }
+
+        const sameLyric = lyrics[this.mode].find((t) => t.start === l.start)
+        if (sameLyric) {
+          const translation = document.createElement('div')
+          translation.classList.add('translation')
+
+          const span = document.createElement('span')
+          span.textContent = sameLyric.content
+          translation.appendChild(span)
+          element.appendChild(translation)
+        }
+        return { dom: element, index, start, end }
       }
-      return { dom: element, start, end }
     })
+
     if (this.isMini) {
       this.buildMiniMode()
     } else {
@@ -616,10 +592,6 @@ export const updateLineIndex = (index: number) => {
 export const updateFontIndex = (index: number) => {
   if (!manager) return
   manager.updateFontIndex('lyric', index)
-  if (manager.mode === 'rlyric') {
-    const delta = manager.animations.lyric.length - manager.animations.translation.length
-    manager.updateFontIndex('translation', index - delta)
-  }
 }
 
 export const updateTFontIndex = (index: number) => {
