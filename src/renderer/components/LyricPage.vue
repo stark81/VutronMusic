@@ -298,7 +298,7 @@ onBeforeUnmount(() => {
 :deep(.line-mode.active) {
   .lyric-line {
     transform: scale(1);
-    // will-change: transform;
+    will-change: transform;
     span {
       background-color: var(--color-wbw-text-played);
     }
@@ -311,7 +311,7 @@ onBeforeUnmount(() => {
 :deep(.word-mode.active) {
   .lyric-line {
     transform: scale(1);
-    // will-change: transform;
+    will-change: transform;
     span {
       background-image: -webkit-linear-gradient(
         top,
