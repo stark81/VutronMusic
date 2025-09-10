@@ -139,6 +139,13 @@ watch(
   }
 )
 
+watch(
+  () => currentIndex.value.rWord,
+  (value) => {
+    updateTFontIndex(value)
+  }
+)
+
 watch(nTranslationMode, (value) => {
   updateMode({
     mode: value,
@@ -188,7 +195,6 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped lang="scss">
-// 此处将scoped移出，以避免Windows版本下的offset无法实时预览
 .lyric-wrapper {
   position: relative;
   height: 100vh;
@@ -198,7 +204,6 @@ onBeforeUnmount(() => {
   -webkit-mask-image: linear-gradient(to bottom, transparent, black 25%, black 75%, transparent);
 
   contain: strict;
-  // will-change: opacity;
 }
 
 .offset {
@@ -244,20 +249,13 @@ onBeforeUnmount(() => {
   padding: 12px;
   font-weight: 600;
   text-align: v-bind(textAlign);
-  transition: 0.5s;
   .lyric-line {
-    contain: layout style;
-    // will-change: transform;
     transform-origin: v-bind(transformOrigin);
-    transform: scale(0.95);
     transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
 
   .translation {
-    contain: layout style;
-    // will-change: transform;
     transform-origin: v-bind(transformOrigin);
-    transform: scale(0.95);
     transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
 
@@ -297,24 +295,22 @@ onBeforeUnmount(() => {
 
 :deep(.line-mode.active) {
   .lyric-line {
-    transform: scale(1);
+    transform: scale(1.05);
+    will-change: transform;
     span {
       background-color: var(--color-wbw-text-played);
     }
   }
-  .translation {
-    transform: scale(1);
-    span {
-      background-color: var(--color-wbw-text);
-    }
+  .translation span {
+    background-color: var(--color-wbw-text);
   }
 }
 
 :deep(.word-mode.active) {
   .lyric-line {
-    transform: scale(1);
+    transform: scale(1.05);
+    will-change: transform;
     span {
-      // will-change: background-size;
       background-image: -webkit-linear-gradient(
         top,
         var(--color-wbw-text-played),
@@ -322,12 +318,8 @@ onBeforeUnmount(() => {
       );
     }
   }
-  .translation {
-    transform: scale(1);
-    span {
-      // will-change: background-size;
-      background-image: -webkit-linear-gradient(top, var(--color-wbw-text), var(--color-wbw-text));
-    }
+  .translation span {
+    background-image: -webkit-linear-gradient(top, var(--color-wbw-text), var(--color-wbw-text));
   }
 }
 

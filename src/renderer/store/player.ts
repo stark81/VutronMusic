@@ -134,13 +134,15 @@ export const usePlayerStore = defineStore(
     const currentIndex = reactive({
       line: -1,
       word: -1,
-      tWord: -1
+      tWord: -1,
+      rWord: -1
     })
 
-    const timer = reactive<{ line: any; list: any; tList: any }>({
+    const timer = reactive<{ line: any; word: any; tWord: any; rWord: any }>({
       line: null,
-      list: null,
-      tList: null
+      word: null,
+      tWord: null,
+      rWord: null
     })
 
     const biquadParams = reactive<biquadType>({
@@ -260,8 +262,8 @@ export const usePlayerStore = defineStore(
           position: value
         })
         clearTimeout(timer.line)
-        clearTimeout(timer.list)
-        clearTimeout(timer.tList)
+        clearTimeout(timer.word)
+        clearTimeout(timer.tWord)
         updateIndex()
       }
     })
@@ -311,8 +313,8 @@ export const usePlayerStore = defineStore(
         position: seek.value > currentTrackDuration.value ? 0 : seek.value
       })
       clearTimeout(timer.line)
-      clearTimeout(timer.list)
-      clearTimeout(timer.tList)
+      clearTimeout(timer.word)
+      clearTimeout(timer.tWord)
       updateIndex()
     })
 
@@ -324,28 +326,28 @@ export const usePlayerStore = defineStore(
           break
         }
       }
-      return settingsStore.normalLyric.isNWordByWord && flag
+      return (
+        (settingsStore.normalLyric.isNWordByWord ||
+          (osdLyricStore.show && osdLyricStore.isWordByWord)) &&
+        flag
+      )
     })
 
     const fontList = computed(() => {
-      const word = [] as { start: number; end: number; word: string }[]
-      const tWord = [] as { start: number; end: number; word: string }[]
-      const rWord = [] as { start: number; end: number; word: string }[]
-      if (isWordByWord.value) {
+      if (isWordByWord.value && (osdLyricStore.show || stateStore.showLyrics)) {
+        const word = [] as { start: number; end: number; word: string }[]
+        const tWord = [] as { start: number; end: number; word: string }[]
+        const rWord = [] as { start: number; end: number; word: string }[]
         lyrics.lyric.forEach((l) => {
           if (l.contentInfo) {
             l.contentInfo.forEach((c) => {
               word.push(c)
             })
             const sameTlyric = lyrics.tlyric.find((t) => t.start === l.start)
-            if (
-              sameTlyric &&
-              (settingsStore.normalLyric.nTranslationMode === 'tlyric' ||
-                osdLyricStore.translationMode === 'tlyric')
-            ) {
+            if (sameTlyric && shouldGetTfontIndex.value) {
               const words = sameTlyric.content.split('') as string[]
+              const interval = (l.end - l.start) / words.length
               words.forEach((w, i) => {
-                const interval = (l.end - l.start) / words.length
                 tWord.push({
                   start: Math.floor((l.start + i * interval) * 1000),
                   end: Math.floor((l.start + (i + 1) * interval) * 1000),
@@ -355,23 +357,21 @@ export const usePlayerStore = defineStore(
             }
 
             const sameRlyric = lyrics.rlyric.find((r) => r.start === l.start)
-            if (
-              (sameRlyric && settingsStore.normalLyric.nTranslationMode === 'rlyric') ||
-              osdLyricStore.translationMode === 'rlyric'
-            ) {
+            if (sameRlyric && shouldGetRfontIndex.value) {
               const words = sameRlyric?.content.split(' ') as string[]
-              l.contentInfo.forEach((c, i) => {
+              const interval = (l.end - l.start) / words.length
+              words.forEach((w, i) => {
                 rWord.push({
-                  start: c.start,
-                  end: c.end,
-                  word: words[i] ?? ''
+                  start: Math.floor((l.start + i * interval) * 1000),
+                  end: Math.floor((l.start + (i + 1) * interval) * 1000),
+                  word: w
                 })
               })
             }
           }
         })
-      }
-      return { word, tWord, rWord }
+        return { word, tWord, rWord }
+      } else return { word: [], tWord: [], rWord: [] }
     })
 
     const noLyric = computed(() => lyrics.lyric.length === 0)
@@ -387,6 +387,36 @@ export const usePlayerStore = defineStore(
 
     const shouldGetFontIndex = computed(() => {
       return osdLyricStore.show || stateStore.showLyrics
+    })
+
+    const shouldGetTfontIndex = computed(() => {
+      return (
+        (stateStore.showLyrics && settingsStore.normalLyric.nTranslationMode === 'tlyric') ||
+        (osdLyricStore.show && osdLyricStore.translationMode === 'tlyric')
+      )
+    })
+
+    const shouldGetRfontIndex = computed(() => {
+      return (
+        (stateStore.showLyrics && settingsStore.normalLyric.nTranslationMode === 'rlyric') ||
+        (osdLyricStore.show && osdLyricStore.translationMode === 'rlyric')
+      )
+    })
+
+    watch(shouldGetTfontIndex, (value) => {
+      clearTimeout(timer.tWord)
+      if (value) {
+        currentIndex.tWord = getLyricIndex(fontList.value.tWord, 0, 1000)
+        _refreshFontIdx('tWord')
+      }
+    })
+
+    watch(shouldGetRfontIndex, (value) => {
+      clearTimeout(timer.rWord)
+      if (value) {
+        currentIndex.rWord = getLyricIndex(fontList.value.rWord, 0, 1000)
+        _refreshFontIdx('rWord')
+      }
     })
 
     const getLyricIndex = (
@@ -417,8 +447,8 @@ export const usePlayerStore = defineStore(
         updateIndex()
       } else {
         clearTimeout(timer.line)
-        clearTimeout(timer.list)
-        clearTimeout(timer.tList)
+        clearTimeout(timer.word)
+        clearTimeout(timer.tWord)
       }
     })
 
@@ -426,8 +456,9 @@ export const usePlayerStore = defineStore(
       if (value) {
         updateIndex()
       } else {
-        clearTimeout(timer.list)
-        clearTimeout(timer.tList)
+        clearTimeout(timer.word)
+        clearTimeout(timer.tWord)
+        clearTimeout(timer.rWord)
       }
     })
 
@@ -515,7 +546,7 @@ export const usePlayerStore = defineStore(
       }
     }
 
-    const _refreshFontIdx = (type: 'word' | 'tWord' = 'word') => {
+    const _refreshFontIdx = (type: 'word' | 'tWord' | 'rWord') => {
       if (!fontList.value[type].length || !shouldGetFontIndex.value) return
       const index = getLyricIndex(fontList.value[type], currentIndex[type], 1000)
 
@@ -541,13 +572,21 @@ export const usePlayerStore = defineStore(
       if (fontList.value.word.length) {
         currentIndex.word = getLyricIndex(fontList.value.word, 0, 1000)
       }
-      if (fontList.value.tWord.length) {
+      if (shouldGetTfontIndex.value) {
         currentIndex.tWord = getLyricIndex(fontList.value.tWord, 0, 1000)
+      }
+      if (shouldGetRfontIndex.value) {
+        currentIndex.rWord = getLyricIndex(fontList.value.rWord, 0, 1000)
       }
       if (!playing.value) return
       _refreshLineIdx()
       _refreshFontIdx('word')
-      _refreshFontIdx('tWord')
+      if (shouldGetTfontIndex.value) {
+        _refreshFontIdx('tWord')
+      }
+      if (shouldGetRfontIndex.value) {
+        _refreshFontIdx('rWord')
+      }
     }
 
     const currentLyric = computed(() => {
@@ -582,12 +621,11 @@ export const usePlayerStore = defineStore(
 
     watch(shouldGetFontIndex, (value) => {
       if (value) {
-        _refreshLineIdx()
-        _refreshFontIdx('word')
-        _refreshFontIdx('tWord')
+        updateIndex()
       } else {
-        clearTimeout(timer.list)
-        clearTimeout(timer.tList)
+        clearTimeout(timer.word)
+        clearTimeout(timer.tWord)
+        clearTimeout(timer.rWord)
       }
     })
 
@@ -613,11 +651,11 @@ export const usePlayerStore = defineStore(
         updateIndex()
       } else {
         clearTimeout(timer.line)
-        clearTimeout(timer.list)
-        clearTimeout(timer.tList)
+        clearTimeout(timer.word)
+        clearTimeout(timer.tWord)
         timer.line = null
-        timer.list = null
-        timer.tList = null
+        timer.word = null
+        timer.tWord = null
       }
     })
 
@@ -628,12 +666,12 @@ export const usePlayerStore = defineStore(
       }
     )
 
-    watch(
-      () => fontList.value.tWord,
-      (value) => {
-        if (value.length) _refreshFontIdx('tWord')
-      }
-    )
+    // watch(
+    //   () => fontList.value.tWord,
+    //   (value) => {
+    //     if (value.length) _refreshFontIdx('tWord')
+    //   }
+    // )
 
     watch(isLiked, (value) => {
       window.mainApi?.send('updatePlayerState', { like: value })
@@ -665,8 +703,8 @@ export const usePlayerStore = defineStore(
 
     watch(lyricOffset, () => {
       clearTimeout(timer.line)
-      clearTimeout(timer.list)
-      clearTimeout(timer.tList)
+      clearTimeout(timer.word)
+      clearTimeout(timer.tWord)
       updateIndex()
       if (window.env?.isLinux) {
         updateMediaSessionMetaData(currentTrack.value!)
@@ -1057,8 +1095,8 @@ export const usePlayerStore = defineStore(
     const nextTrackCallback = () => {
       seek.value = 0
       clearTimeout(timer.line)
-      clearTimeout(timer.list)
-      clearTimeout(timer.tList)
+      clearTimeout(timer.word)
+      clearTimeout(timer.tWord)
       if (!isPersonalFM.value && repeatMode.value === 'one') {
         replaceCurrentTrack(currentTrack.value!.id)
       } else {
