@@ -33,6 +33,7 @@ interface animation {
   start: number
   end: number
   animation: Animation
+  lineIdx: number
 }
 interface line {
   dom: HTMLElement
@@ -98,8 +99,55 @@ export class LyricManager {
     window.addEventListener('resize', this.createLineAnimation.bind(this))
   }
 
+  _mergeLine(index: number) {
+    if (!this.lyrics?.lyric[index]?.contentInfo) return
+    const line = this.lyricElements[index]
+    if (!line) return
+    const map = ['.lyric-line', '.translation']
+    map.forEach((selector) => {
+      const lyricContainer = line.dom?.querySelector(selector) as HTMLElement
+      if (lyricContainer) {
+        const spans = lyricContainer.querySelectorAll('span')
+        const text: string[] = []
+        spans.forEach((span) => {
+          text.push(span.textContent!)
+        })
+        lyricContainer.innerHTML = ''
+        const span = document.createElement('span')
+        span.textContent = text.join('')
+        lyricContainer.appendChild(span)
+      }
+    })
+  }
+
+  _separateLine(index: number) {
+    if (!this.lyrics?.lyric[index]?.contentInfo) return
+    const line = this.lyricElements[index]
+    if (!line) return
+    const map = [
+      ['.lyric-line', 'lyric'],
+      ['.translation', 'translation']
+    ] as [string, 'lyric' | 'translation'][]
+    map.forEach(([selector, type]) => {
+      const lyricContainer = line.dom?.querySelector(selector) as HTMLElement
+      if (!lyricContainer) return
+      const ans = this.animations[type]
+        .filter((a) => a.lineIdx === index)
+        .sort((a, b) => a.start - b.start)
+      lyricContainer.innerHTML = ''
+      ans.forEach((an) => lyricContainer.appendChild(an.dom))
+    })
+  }
+
   updateLineIndex(index: number) {
-    this.lineIdx = index
+    index = Math.max(0, Math.min(index, this.lyricElements.length - 1))
+    this.lineIdx = Math.max(0, Math.min(this.lineIdx, this.lyricElements.length - 1))
+    if (this.lineIdx !== index) {
+      this._mergeLine(this.lineIdx)
+      this._separateLine(index)
+      this.lineIdx = index
+    }
+
     this.lyricElements.forEach((line) => {
       line?.dom.classList.remove('active')
       if (index === -1 && !this.isWheeling) {
@@ -112,11 +160,6 @@ export class LyricManager {
         line?.dom.scrollIntoView({ block: 'center', behavior: this._behavior })
       }
     })
-    if (index >= this.lyricElements.length) {
-      const line = this.lyricElements.at(-1)
-      line?.dom.classList.add('active')
-      line?.dom.scrollIntoView({ block: 'center', behavior: this._behavior })
-    }
   }
 
   updateFontIndex(type: 'lyric' | 'translation' = 'lyric', index: number) {
@@ -231,6 +274,7 @@ export class LyricManager {
     const lyricFiltered = lyrics.lyric.filter(({ content }) => Boolean(content))
     if (!lyricFiltered.length) return
     let fontIndex = 0
+    this.lineIdx = Math.min(this.lineIdx, lyricFiltered.length - 1)
 
     this.lyricElements = lyricFiltered.map((l, index) => {
       const element = document.createElement('div')
@@ -252,13 +296,26 @@ export class LyricManager {
           span.textContent = w.word
           span.style.backgroundSize = '0 100%'
 
-          lyricLine.appendChild(span)
+          if (index === this.lineIdx || index === lyricFiltered.length - 1) {
+            lyricLine.appendChild(span)
+          }
           fontIndex++
 
           const animation = createAnimation(span, w.end - w.start)
           animation.playbackRate = this.rate
-          this.animations.lyric.push({ dom: span, animation, start: w.start, end: w.end })
+          this.animations.lyric.push({
+            dom: span,
+            animation,
+            lineIdx: index,
+            start: w.start,
+            end: w.end
+          })
         })
+        if (index !== this.lineIdx) {
+          const span = document.createElement('span')
+          span.textContent = l.content
+          lyricLine.appendChild(span)
+        }
         element.appendChild(lyricLine)
 
         if (this.mode === 'none') {
@@ -271,21 +328,29 @@ export class LyricManager {
           translation.classList.add('translation')
           const words = sameLyric.content.split(this.mode === 'tlyric' ? '' : ' ')
           const interval = (end - start) / words.length
-          words.forEach((w, index) => {
+          words.forEach((w, idx) => {
             const span = document.createElement('span')
             span.textContent = this.mode === 'tlyric' ? w : `${w || ' '} `
             span.style.backgroundSize = '0 100%'
-            translation.appendChild(span)
+            if (index === this.lineIdx || index === lyricFiltered.length - 1) {
+              translation.appendChild(span)
+            }
 
             const animation = createAnimation(span, interval)
             animation.playbackRate = this.rate
             this.animations.translation.push({
               dom: span,
               animation,
-              start: start + interval * index,
-              end: start + interval * index + interval
+              lineIdx: index,
+              start: start + interval * idx,
+              end: start + interval * idx + interval
             })
           })
+          if (index !== this.lineIdx) {
+            const span = document.createElement('span')
+            span.textContent = sameLyric.content
+            translation.appendChild(span)
+          }
           element.append(translation)
         }
         return { dom: element, index, start, end }
@@ -510,15 +575,25 @@ export class LyricManager {
   clearLyrics() {
     clearTimeout(this.scrollingTimer)
     this.container.removeEventListener('wheel', this.handleWheel)
-    this.animations.lyric.forEach((an) => an.animation.cancel())
-    this.animations.translation.forEach((an) => an.animation.cancel())
+    this.animations.lyric.forEach((an) => an.animation.finish())
+    this.animations.translation.forEach((an) => an.animation.finish())
 
     this.animations = { lyric: [], translation: [] }
-    this.lyricElements = []
 
     while (this.container.firstChild) {
+      ;(this.container.firstChild as HTMLElement).innerHTML = ''
       this.container.removeChild(this.container.firstChild)
     }
+    this.lyricElements = []
+    this.lineAnimation.lyric.forEach(({ animation }) => {
+      animation.finish()
+    })
+    this.lineAnimation.translation.forEach(({ animation }) => {
+      animation.finish()
+    })
+    this.lineAnimation.lyric = []
+    this.lineAnimation.translation = []
+    this.container.innerHTML = ''
   }
 
   handleWheel() {
