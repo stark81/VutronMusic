@@ -250,11 +250,13 @@ onBeforeUnmount(() => {
   font-weight: 600;
   text-align: v-bind(textAlign);
   .lyric-line {
+    transform: scale(0.95);
     transform-origin: v-bind(transformOrigin);
     transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
 
   .translation {
+    transform: scale(0.95);
     transform-origin: v-bind(transformOrigin);
     transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
@@ -295,8 +297,8 @@ onBeforeUnmount(() => {
 
 :deep(.line-mode.active) {
   .lyric-line {
-    transform: scale(1.05);
-    will-change: transform;
+    transform: scale(1);
+    // will-change: transform;
     span {
       background-color: var(--color-wbw-text-played);
     }
@@ -308,8 +310,8 @@ onBeforeUnmount(() => {
 
 :deep(.word-mode.active) {
   .lyric-line {
-    transform: scale(1.05);
-    will-change: transform;
+    transform: scale(1);
+    // will-change: transform;
     span {
       background-image: -webkit-linear-gradient(
         top,

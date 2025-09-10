@@ -112,6 +112,11 @@ export class LyricManager {
         line?.dom.scrollIntoView({ block: 'center', behavior: this._behavior })
       }
     })
+    if (index >= this.lyricElements.length) {
+      const line = this.lyricElements.at(-1)
+      line?.dom.classList.add('active')
+      line?.dom.scrollIntoView({ block: 'center', behavior: this._behavior })
+    }
   }
 
   updateFontIndex(type: 'lyric' | 'translation' = 'lyric', index: number) {
