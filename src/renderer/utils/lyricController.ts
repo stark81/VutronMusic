@@ -143,8 +143,6 @@ export class LyricManager {
     index = Math.max(0, Math.min(index, this.lyricElements.length - 1))
     this.lineIdx = Math.max(0, Math.min(this.lineIdx, this.lyricElements.length - 1))
     if (this.lineIdx !== index) {
-      this._mergeLine(this.lineIdx)
-      this._separateLine(index)
       this.lineIdx = index
     }
 
@@ -155,6 +153,7 @@ export class LyricManager {
       } else if (Number(line?.dom.dataset.index!) < index) {
         line?.dom.classList.add('played')
       } else if (Number(line?.dom.dataset.index!) === index) {
+        line?.dom.classList.remove('played')
         line?.dom.classList.add('active')
         if (this.isWheeling) return
         line?.dom.scrollIntoView({ block: 'center', behavior: this._behavior })
@@ -175,37 +174,31 @@ export class LyricManager {
     if (!this.animations || !this.animations[type].length) return
 
     const animations = this.animations[type]
-    const start = Math.min(prevIndex, index)
-    const end = Math.max(prevIndex, index)
+    const start = Math.min(prevIndex, index) - 1
+    const end = Math.max(prevIndex, index) + 1
 
-    for (let i = index - 1; i > -1; i--) {
+    for (let i = start; i < end + 1; i++) {
       const font = animations[i]
-      if (font && font.animation.playState !== 'finished' && i <= end) {
+      if (font) {
         this.handleFontPlay(font, 0, true)
-      }
-    }
-
-    for (let i = index; i < animations.length; i++) {
-      const font = animations[i]
-      if (font && i >= start) {
-        if (font.animation.playState !== 'idle') {
-          font.animation.cancel()
+        if (font.dom.style.backgroundSize !== '100% 100%') {
+          font.dom.style.backgroundSize = '100% 100%'
         }
+      }
+
+      if (font && i > index) {
         if (font.dom.style.backgroundSize !== '0 100%') {
           font.dom.style.backgroundSize = '0 100%'
         }
+        font.animation.cancel()
       }
-    }
 
-    const currentFont = animations[index]
-    if (currentFont) {
-      if (currentFont.dom.style.backgroundSize !== '100% 100%') {
-        currentFont.dom.style.backgroundSize = '100% 100%'
-      }
-      const driftTime = Math.max(this.currentTime - currentFont.start, 0)
-      currentFont.animation.currentTime = driftTime
-      if (this.playing && currentFont.animation.playState !== 'running') {
-        currentFont.animation.play()
+      if (font && i === index) {
+        const driftTime = Math.max(this.currentTime - font.start, 0)
+        font.animation.currentTime = driftTime
+        if (this.playing) {
+          font.animation.play()
+        }
       }
     }
   }
@@ -228,6 +221,8 @@ export class LyricManager {
   }) {
     this.mode = data.mode
     this.currentTime = data.currentTime
+    this.lastFontIdx = -1
+    this.lastTFontIdx = -1
     this.lineIdx = data.line
     this.fontIdx = data.fontIndex
     this.tFontIdx = data.tFontIndex
@@ -296,9 +291,7 @@ export class LyricManager {
           span.textContent = w.word
           span.style.backgroundSize = '0 100%'
 
-          if (index === this.lineIdx || index === lyricFiltered.length - 1) {
-            lyricLine.appendChild(span)
-          }
+          lyricLine.appendChild(span)
           fontIndex++
 
           const animation = createAnimation(span, w.end - w.start)
@@ -311,11 +304,6 @@ export class LyricManager {
             end: w.end
           })
         })
-        if (index !== this.lineIdx) {
-          const span = document.createElement('span')
-          span.textContent = l.content
-          lyricLine.appendChild(span)
-        }
         element.appendChild(lyricLine)
 
         if (this.mode === 'none') {
@@ -332,9 +320,7 @@ export class LyricManager {
             const span = document.createElement('span')
             span.textContent = this.mode === 'tlyric' ? w : `${w || ' '} `
             span.style.backgroundSize = '0 100%'
-            if (index === this.lineIdx || index === lyricFiltered.length - 1) {
-              translation.appendChild(span)
-            }
+            translation.appendChild(span)
 
             const animation = createAnimation(span, interval)
             animation.playbackRate = this.rate
@@ -346,11 +332,6 @@ export class LyricManager {
               end: start + interval * idx + interval
             })
           })
-          if (index !== this.lineIdx) {
-            const span = document.createElement('span')
-            span.textContent = sameLyric.content
-            translation.appendChild(span)
-          }
           element.append(translation)
         }
         return { dom: element, index, start, end }
@@ -695,6 +676,8 @@ export const destroyController = () => {
 export const updateLineMode = (isOneLine: boolean) => {
   if (!manager) return
   manager.isOneLine = isOneLine
+  manager.lastFontIdx = -1
+  manager.lastTFontIdx = -1
   setLyrics(manager.lyrics!)
   updateLineIndex(manager.lineIdx)
   updateFontIndex(manager.fontIdx)

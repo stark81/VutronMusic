@@ -1,6 +1,6 @@
 <template>
   <transition name="slide-fade">
-    <div v-show="!noLyric" :class="{ 'lyric-wrapper': useMask }">
+    <div v-show="!noLyric" class="lyric-wrapper" :class="{ 'use-mask': useMask }">
       <div v-show="hover" class="offset">
         <button-icon title="提前0.5s" @click="setOffset(-0.5)">
           <svg-icon icon-class="back5s" />
@@ -199,11 +199,12 @@ onBeforeUnmount(() => {
   position: relative;
   height: 100vh;
   overflow: hidden;
+  contain: strict;
+}
 
+.use-mask {
   mask-image: linear-gradient(to bottom, transparent, black 25%, black 75%, transparent);
   -webkit-mask-image: linear-gradient(to bottom, transparent, black 25%, black 75%, transparent);
-
-  contain: strict;
 }
 
 .offset {
@@ -252,13 +253,13 @@ onBeforeUnmount(() => {
   .lyric-line {
     transform: scale(0.95);
     transform-origin: v-bind(transformOrigin);
-    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    // transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
 
   .translation {
     transform: scale(0.95);
     transform-origin: v-bind(transformOrigin);
-    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    // transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
 
   &:hover {
@@ -281,6 +282,11 @@ onBeforeUnmount(() => {
     background-color: v-bind('`${unplayColor}`');
     -webkit-text-fill-color: transparent;
     background-clip: text;
+    background-image: -webkit-linear-gradient(
+      top,
+      var(--color-wbw-text-played),
+      var(--color-wbw-text-played)
+    );
     background-size: 0 100%;
     overflow-wrap: break-word;
   }
@@ -290,6 +296,7 @@ onBeforeUnmount(() => {
     background-color: v-bind('`${unplayColor}`');
     -webkit-text-fill-color: transparent;
     background-clip: text;
+    background-image: -webkit-linear-gradient(top, var(--color-wbw-text), var(--color-wbw-text));
     background-size: 0 100%;
     overflow-wrap: break-word;
   }
@@ -298,7 +305,7 @@ onBeforeUnmount(() => {
 :deep(.line-mode.active) {
   .lyric-line {
     transform: scale(1);
-    will-change: transform;
+    // transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     span {
       background-color: var(--color-wbw-text-played);
     }
@@ -308,20 +315,25 @@ onBeforeUnmount(() => {
   }
 }
 
+:deep(.word-mode.played) {
+  .lyric-line span {
+    background-size: 0 100% !important;
+  }
+  .translation span {
+    background-size: 0 100% !important;
+  }
+}
+
 :deep(.word-mode.active) {
   .lyric-line {
     transform: scale(1);
-    will-change: transform;
+    // transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     span {
-      background-image: -webkit-linear-gradient(
-        top,
-        var(--color-wbw-text-played),
-        var(--color-wbw-text-played)
-      );
+      will-change: background-size;
     }
   }
   .translation span {
-    background-image: -webkit-linear-gradient(top, var(--color-wbw-text), var(--color-wbw-text));
+    will-change: background-size;
   }
 }
 

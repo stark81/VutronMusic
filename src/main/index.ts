@@ -302,28 +302,16 @@ class BackGround {
     const width = data.startWidth
     let isInside = false
 
-    if (displays.length === 1) {
-      const { bounds } = displays[0]
+    for (let i = 0; i < displays.length; i++) {
+      const { bounds } = displays[i]
       if (
-        x < bounds.x ||
-        x + width > bounds.x + bounds.width ||
-        y < bounds.y ||
-        y + height > bounds.y + bounds.height - 50
+        x > bounds.x &&
+        x + width < bounds.x + bounds.width &&
+        y > bounds.y &&
+        y + height < bounds.y + bounds.height
       ) {
         isInside = true
-      }
-    } else {
-      for (let i = 0; i < displays.length; i++) {
-        const { bounds } = displays[i]
-        if (
-          x > bounds.x &&
-          x + width < bounds.x + bounds.width &&
-          y > bounds.y &&
-          y + height < bounds.y + bounds.height
-        ) {
-          isInside = true
-          break
-        }
+        break
       }
     }
 
