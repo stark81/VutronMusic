@@ -235,7 +235,7 @@ onBeforeUnmount(() => {
 
 .word-mode {
   .lyric-line span {
-    background-size: 100% 100%;
+    background-size: 0% 100%;
     background-image: -webkit-linear-gradient(
       top,
       v-bind('`${playedLrcColor}`'),
@@ -243,7 +243,7 @@ onBeforeUnmount(() => {
     );
   }
   .translation span {
-    background-size: 100% 100%;
+    background-size: 0% 100%;
     background-image: -webkit-linear-gradient(
       top,
       v-bind('`${playedLrcColor}`'),
@@ -256,9 +256,11 @@ onBeforeUnmount(() => {
 .active {
   .lyric-line span {
     background-size: 100% 100%;
+    will-change: background-size;
   }
   .translation span {
     background-size: 100% 100%;
+    will-change: background-size;
   }
 }
 </style>
