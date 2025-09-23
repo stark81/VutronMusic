@@ -201,7 +201,6 @@ export class LyricManager {
             font.animation.play()
           }
         }
-        font.animation.cancel()
       }
     })
   }

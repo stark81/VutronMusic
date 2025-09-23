@@ -191,9 +191,8 @@ const trackClass = computed(() => {
 })
 
 const artists = computed(() => {
-  const { ar, artists } = track.value
-  const useAr = ar || artists
-  useAr.map((artist: any) => {
+  const useAr = track.value.ar ?? track.value.artists
+  useAr.forEach((artist: any) => {
     if (artist && !artist.name) {
       artist.name = '未知歌手'
     }
