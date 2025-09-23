@@ -150,12 +150,22 @@ class Emby implements EmbyImpl {
           createTime: new Date(song.DateCreated).getTime(),
           alias: [],
           album: {
-            id: song.AlbumId,
-            name: song.Album,
+            id: song.AlbumId ?? '',
+            name: song.Album ?? '',
             matched: false,
             picUrl: `/stream-asset?service=emby&id=${song.Id}&primary=${song.ImageTags?.Primary}&size=64`
           },
-          artists,
+          artists: artists.length
+            ? artists
+            : [
+                {
+                  name: '',
+                  id: '',
+                  picUrl:
+                    'http://p1.music.126.net/6y-UleORITEDbvrOLV0Q8A==/5639395138885805.jpg?param=64y64',
+                  matched: false
+                }
+              ],
           picUrl: this.getPic(song.Id, song.ImageTags?.Primary, 64)
         }
         return track
