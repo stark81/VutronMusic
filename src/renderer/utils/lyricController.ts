@@ -46,7 +46,7 @@ const createAnimation = (dom: HTMLElement, duration: number) => {
     dom,
     [{ backgroundSize: '0 100%' }, { backgroundSize: '100% 100%' }],
     {
-      duration: Math.max(duration - Math.max(30, duration * 0.1), 0),
+      duration: Math.max(duration * 0.9, 0),
       easing: 'linear',
       fill: 'forwards'
     }
@@ -173,34 +173,37 @@ export class LyricManager {
 
     if (!this.animations || !this.animations[type].length) return
 
-    const animations = this.animations[type]
-    const start = Math.min(prevIndex, index) - 1
-    const end = Math.max(prevIndex, index) + 1
+    requestAnimationFrame(() => {
+      const animations = this.animations[type]
+      const start = Math.min(prevIndex, index) - 1
+      const end = Math.max(prevIndex, index) + 1
 
-    for (let i = start; i < end + 1; i++) {
-      const font = animations[i]
-      if (font) {
-        this.handleFontPlay(font, 0, true)
-        if (font.dom.style.backgroundSize !== '100% 100%') {
-          font.dom.style.backgroundSize = '100% 100%'
+      for (let i = start; i < end + 1; i++) {
+        const font = animations[i]
+        if (font) {
+          this.handleFontPlay(font, 0, true)
+          if (font.dom.style.backgroundSize !== '100% 100%') {
+            font.dom.style.backgroundSize = '100% 100%'
+          }
         }
-      }
 
-      if (font && i > index) {
-        if (font.dom.style.backgroundSize !== '0 100%') {
-          font.dom.style.backgroundSize = '0 100%'
+        if (font && i > index) {
+          if (font.dom.style.backgroundSize !== '0 100%') {
+            font.dom.style.backgroundSize = '0 100%'
+          }
+          font.animation.cancel()
+        }
+
+        if (font && i === index) {
+          const driftTime = Math.max(this.currentTime - font.start, 0)
+          font.animation.currentTime = driftTime
+          if (this.playing) {
+            font.animation.play()
+          }
         }
         font.animation.cancel()
       }
-
-      if (font && i === index) {
-        const driftTime = Math.max(this.currentTime - font.start, 0)
-        font.animation.currentTime = driftTime
-        if (this.playing) {
-          font.animation.play()
-        }
-      }
-    }
+    })
   }
 
   updateAniPlaybackRate(rate: number) {

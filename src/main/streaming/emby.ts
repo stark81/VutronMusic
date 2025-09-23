@@ -1,6 +1,6 @@
 import axios from 'axios'
 import Constants from '../utils/Constants'
-import { parseLyricString } from '../utils/utils'
+// import { parseLyricString } from '../utils/utils'
 import store from '../store'
 import log from '../log'
 
@@ -27,13 +27,13 @@ const ApiRequest = async (
   return response
 }
 
-const getLyricFromExtraData = (data: any): string | null => {
-  if (!data.MediaStreams) return null
-  for (const stream of data.MediaStreams) {
-    if (stream.Extradata) return stream.Extradata
-  }
-  return null
-}
+// const getLyricFromExtraData = (data: any): string | null => {
+//   if (!data.MediaStreams) return null
+//   for (const stream of data.MediaStreams) {
+//     if (stream.Extradata) return stream.Extradata
+//   }
+//   return null
+// }
 
 export interface EmbyImpl {
   systemPing: () => Promise<'logout' | 'login' | 'offline'>
@@ -108,7 +108,7 @@ class Emby implements EmbyImpl {
     const endpoint = 'Items'
     const params = {
       IncludeItemTypes: 'Audio',
-      Fields: 'DateCreated, Size, Bitrate, IsFavorite',
+      Fields: 'DateCreated, Size, Bitrate, IsFavorite, MediaSources',
       Recursive: true
     }
     const [response, response2] = await Promise.all([
@@ -129,6 +129,8 @@ class Emby implements EmbyImpl {
             picUrl: artUrl
           }
         })
+        const lrcItem = song.MediaSources[0].MediaStreams.find((item) => item.Codec === 'lrc')
+        const lrcId = lrcItem ? `${song.Id}/${song.MediaSources[0].Id}/${lrcItem.Index}` : ''
         const track = {
           id: song.Id,
           name: song.Name,
@@ -137,6 +139,7 @@ class Emby implements EmbyImpl {
           size: song.Size,
           source: 'emby',
           url: this.getStream(song.Id),
+          lrcId,
           gain: 0,
           peak: 1,
           br: song.Bitrate,
@@ -302,19 +305,78 @@ class Emby implements EmbyImpl {
       ytlrc: { lyric: [] },
       yromalrc: { lyric: [] }
     }
-    const userId = store.get('accounts.emby.userId') as string
+    if (!id) return result
+
     const accessToken = store.get('accounts.emby.accessToken') as string
     const baseUrl = store.get('accounts.emby.url') as string
 
-    const url = `${baseUrl}/emby/Users/${userId}/Items/${id}?fields=ShareLevel&ExcludeFields=VideoChapters%2CVideoMediaSources%2CMediaStreams&api_key=${accessToken}`
-    const response = await axios.get(url)
-    const lrc = getLyricFromExtraData(response.data)
-    if (!lrc) return result
-    const lyrics = parseLyricString(lrc)
+    const res = id.split('/') as [string, string, string]
+    const url = `${baseUrl}/Items/${res[0]}/${res[1]}/Subtitles/${res[2]}/Stream.js`
+
+    const headers = { 'X-Emby-Token': accessToken, timeout: 5000 }
+    const response = await axios({ method: 'GET', url, headers })
+    const lyrics = parseLyric(response.data?.TrackEvents ?? [])
     return lyrics
   }
 }
 
 const emby = new Emby()
+
+const parseLyric = (
+  lrcItem: { Text: string; StartPositionTicks: number; EndPositionTicks?: number }[]
+) => {
+  const result = {
+    lrc: { lyric: [] },
+    tlyric: { lyric: [] },
+    romalrc: { lyric: [] },
+    yrc: { lyric: [] },
+    ytlrc: { lyric: [] },
+    yromalrc: { lyric: [] }
+  }
+  const lyricMap = new Map()
+  const chineseRegex = /[\u4E00-\u9FFF]/
+
+  for (const line of lrcItem) {
+    const timeStamps = formatMilliseconds(line.StartPositionTicks)
+    if (!lyricMap.has(line.StartPositionTicks)) {
+      lyricMap.set(line.StartPositionTicks, [])
+    }
+    lyricMap.get(line.StartPositionTicks).push(timeStamps + line.Text)
+  }
+
+  for (const lyricArray of lyricMap.values()) {
+    for (let i = 0; i < lyricArray.length; i++) {
+      if (i === 0) {
+        result.lrc.lyric.push(lyricArray[0])
+      } else {
+        const lyric = lyricArray[i].replace(
+          /(?!^\[\d{2}:\d{2}\.\d{3}\])\[\d{2}:\d{2}\.\d{3}\]/g,
+          ''
+        )
+        if (chineseRegex.test(lyric)) {
+          result.tlyric.lyric.push(lyric)
+        } else {
+          result.romalrc.lyric.push(lyric)
+        }
+      }
+    }
+  }
+
+  return result
+}
+
+const formatMilliseconds = (num: number) => {
+  const milliseconds = num / 10000
+
+  const minutes = Math.floor(milliseconds / 60000)
+  const seconds = Math.floor((milliseconds % 60000) / 1000)
+  const remainingMilliseconds = Math.floor(milliseconds % 1000)
+
+  const formattedMinutes = minutes.toString().padStart(2, '0')
+  const formattedSeconds = seconds.toString().padStart(2, '0')
+  const formattedMilliseconds = remainingMilliseconds.toString().padStart(3, '0')
+
+  return `[${formattedMinutes}:${formattedSeconds}.${formattedMilliseconds}]`
+}
 
 export default emby

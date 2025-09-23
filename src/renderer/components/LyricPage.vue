@@ -251,15 +251,17 @@ onBeforeUnmount(() => {
   font-weight: 600;
   text-align: v-bind(textAlign);
   .lyric-line {
-    transform: scale(0.95);
+    // transform: scale(0.95);
     transform-origin: v-bind(transformOrigin);
-    // transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    // transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    // will-change: transform;
   }
 
   .translation {
-    transform: scale(0.95);
+    // transform: scale(0.95);
     transform-origin: v-bind(transformOrigin);
-    // transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    // transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    // will-change: transform;
   }
 
   &:hover {
@@ -304,7 +306,7 @@ onBeforeUnmount(() => {
 
 :deep(.line-mode.active) {
   .lyric-line {
-    transform: scale(1);
+    // transform: scale(1);
     // transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     span {
       background-color: var(--color-wbw-text-played);
@@ -326,14 +328,14 @@ onBeforeUnmount(() => {
 
 :deep(.word-mode.active) {
   .lyric-line {
-    transform: scale(1);
+    // transform: scale(1);
     // transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     span {
-      will-change: background-size;
+      // will-change: background-size;
     }
   }
   .translation span {
-    will-change: background-size;
+    // will-change: background-size;
   }
 }
 
