@@ -45,7 +45,7 @@
     "@httptoolkit/dbus-native": "^0.1.3",
     "@jellybrick/mpris-service": "^2.1.5",
     "@mdi/font": "^7.4.47",
-    "@unblockneteasemusic/server": "^0.27.8-patch.1",
+    "@unblockneteasemusic/server": "^0.28.0",
     "@vueform/multiselect": "^2.6.11",
     "NeteaseCloudMusicApi": "^4.23.2",
     "better-sqlite3": "^11.0.0",

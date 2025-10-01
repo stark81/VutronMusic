@@ -1411,10 +1411,10 @@
     "@typescript-eslint/types" "7.18.0"
     eslint-visitor-keys "^3.4.3"
 
-"@unblockneteasemusic/server@^0.27.8-patch.1":
-  version "0.27.10"
-  resolved "https://registry.yarnpkg.com/@unblockneteasemusic/server/-/server-0.27.10.tgz#bc8a81d8f537a887966ca7bccfc6b3b481e16eb4"
-  integrity sha512-qHcLT1A5DjU17JKJlJ1HrXBgmy6cYcDlBlIYocxwVtg6VYzZHt5j6LE/99XR6+kUTnDDyyVtDzR7HE7szSTztw==
+"@unblockneteasemusic/server@^0.28.0":
+  version "0.28.0"
+  resolved "https://registry.yarnpkg.com/@unblockneteasemusic/server/-/server-0.28.0.tgz#75a0cf062f26336644515da35b343b2717bca109"
+  integrity sha512-FLXNEMc9ItoAhhhemxKJzpJ+9DkWsfnxE5PYTCIzqZarYVUCxeKKEf0CwGeUeIW35z1Ekl0wFU4l10RDWVCr4A==
   dependencies:
     node-windows "^1.0.0-beta.8"
     pino "6.14.0"
