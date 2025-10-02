@@ -44,18 +44,18 @@ export const getLyricFromMetadata = (metadata: IAudioMetadata) => {
         ? common.lyrics[0].syncText[0]?.text
         : (common.lyrics[0].text ?? '')
     }
-  } else {
-    for (const tag of format.tagTypes ?? []) {
-      if (tag === 'vorbis') {
-        // flac
-        lyrics = (native.vorbis?.find((item) => item.id === 'LYRICS')?.value ?? '') as string
-      } else if (tag === 'ID3v2.3') {
-        lyrics = (native['ID3v2.3'].find((item) => item.id === 'USLT')?.value as any)?.text ?? ''
-      } else if (tag === 'ID3v2.4') {
-        lyrics = (native['ID3v2.4'].find((item) => item.id === 'USLT')?.value as any)?.text ?? ''
-      } else if (tag === 'APEv2') {
-        // APEv2好像并没有固定的歌词标签，todo...
-      }
+  }
+  if (lyrics || lyrics !== undefined) return lyrics
+  for (const tag of format.tagTypes ?? []) {
+    if (tag === 'vorbis') {
+      // flac
+      lyrics = (native.vorbis?.find((item) => item.id === 'LYRICS')?.value ?? '') as string
+    } else if (tag === 'ID3v2.3') {
+      lyrics = (native['ID3v2.3'].find((item) => item.id === 'USLT')?.value as any)?.text ?? ''
+    } else if (tag === 'ID3v2.4') {
+      lyrics = (native['ID3v2.4'].find((item) => item.id === 'USLT')?.value as any)?.text ?? ''
+    } else if (tag === 'APEv2') {
+      // APEv2好像并没有固定的歌词标签，todo...
     }
   }
   return lyrics

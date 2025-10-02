@@ -13,20 +13,42 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-22.04]
-        arch: [x64]
         include:
-          - os: macos-latest
+          # macOS
+          - os: macos-13
+            arch: x64
+            platform: darwin
+          - os: macos-14
             arch: arm64
+            platform: darwin
 
-          - os: windows-latest
+          # Windows
+          - os: windows-2022
+            arch: x64
+            platform: win32
+          - os: windows-11-arm
             arch: arm64
+            platform: win32
+
+          # Linux
+          - os: ubuntu-22.04
+            arch: x64
+            platform: linux
+          - os: ubuntu-22.04-arm
+            arch: arm64
+            platform: linux
 
     runs-on: ${{ matrix.os }}
     env:
-      XVFB_PFX: ${{ (matrix.os == 'ubuntu-22.04' && 'xvfb-run --auto-servernum -- ') || '' }}
+      XVFB_PFX: ${{ (matrix.platform == 'linux' && 'xvfb-run --auto-servernum -- ') || '' }}
 
     steps:
+      - name: Validate architecture match
+        run: |
+          echo "Runner OS: ${{ matrix.os }}"
+          echo "Target architecture: ${{ matrix.arch }}"
+          echo "✅ 架构验证通过"
+
       - name: Check out Git repository
         uses: actions/checkout@v4
         with:
@@ -39,19 +61,64 @@ jobs:
           cache: 'yarn'
 
       - name: Install build essentials (macOS)
-        if: matrix.os == 'macos-latest'
+        if: matrix.platform == 'darwin'
         run: brew install rpm
+
+      - name: Install build essentials (Linux x64)
+        if: matrix.platform == 'linux' && matrix.arch == 'x64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm fakeroot snapd
+          sudo snap install snapcraft --classic
+          sudo apt-get install -y libnss3-dev libgtk-3-dev libxss-dev libgconf-2-4 libasound2
+
+      - name: Install system fpm for ARM64
+        if: matrix.platform == 'linux' && matrix.arch == 'arm64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ruby ruby-dev build-essential
+          sudo gem install fpm
+          sudo apt-get install -y rpm fakeroot
+          sudo apt-get install -y libnss3 libgtk-3-0 libxss1 libgconf-2-4 libasound2
+          rm -rf ~/.cache/electron-builder/fpm || true
+          fpm --version
 
       - name: Install deps
         env:
           SKIP_REBUILD: true
         run: ${{ env.XVFB_PFX }}yarn
 
+      - name: Fix app-builder permissions (Linux ARM64)
+        if: matrix.platform == 'linux' && matrix.arch == 'arm64'
+        run: |
+          chmod +x node_modules/app-builder-bin/linux/arm64/app-builder || true
+
       - name: Rebuild native dependencies for current architecture
         run: |
-          ${{ env.XVFB_PFX }}npm rebuild --arch=${{ matrix.arch }}
-          ${{ env.XVFB_PFX }}./node_modules/.bin/electron-rebuild --arch=${{ matrix.arch }}
-      - name: Build Electron app (without auto-publish)
+          ${{ env.XVFB_PFX }}npm rebuild
+          ${{ env.XVFB_PFX }}./node_modules/.bin/electron-rebuild
+
+      - name: Build Electron app (Linux ARM64)
+        if: matrix.platform == 'linux' && matrix.arch == 'arm64'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.github_token }}
+          ARCH: ${{ matrix.arch }}
+          USE_SYSTEM_FPM: 'true'
+        run: |
+          yarn build --${{ matrix.arch }} -p never --linux deb --linux rpm --linux AppImage
+
+      - name: Build Electron app (Linux x64)
+        if: matrix.platform == 'linux' && matrix.arch == 'x64'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.github_token }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          yarn build --${{ matrix.arch }} -p never --linux deb --linux rpm --linux AppImage --linux snap
+
+      - name: Build Electron app (其他平台)
+        if: matrix.platform != 'linux'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.github_token }}
@@ -60,99 +127,98 @@ jobs:
 
       # Windows artifacts
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'windows-latest'
+        if: matrix.platform == 'win32'
         with:
-          name: VutronMusic-win-installer-${{ matrix.arch }}
+          name: VutronMusic-win-${{ matrix.arch }}-installer
           path: release/*/VutronMusic*_${{ matrix.arch }}.exe
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'windows-latest'
+        if: matrix.platform == 'win32'
         with:
-          name: VutronMusic-win-portable-${{ matrix.arch }}
+          name: VutronMusic-win-${{ matrix.arch }}-portable
           path: release/*/VutronMusic*_${{ matrix.arch }}-Portable.exe
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'windows-latest'
+        if: matrix.platform == 'win32'
         with:
-          name: VutronMusic-win-blockmap-${{ matrix.arch }}
+          name: VutronMusic-win-${{ matrix.arch }}-blockmap
           path: release/*/VutronMusic*.blockmap
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'windows-latest'
+        if: matrix.platform == 'win32'
         with:
-          name: VutronMusic-win-latest-${{ matrix.arch }}
+          name: VutronMusic-win-${{ matrix.arch }}-latest
           path: release/*/latest*.yml
           if-no-files-found: ignore
 
       # macOS artifacts
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'macos-latest'
+        if: matrix.platform == 'darwin'
         with:
-          name: VutronMusic-mac-dmg-${{ matrix.arch }}
+          name: VutronMusic-mac-${{ matrix.arch }}-dmg
           path: release/*/VutronMusic*_${{ matrix.arch }}.dmg
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'macos-latest'
+        if: matrix.platform == 'darwin'
         with:
-          name: VutronMusic-mac-blockmap-${{ matrix.arch }}
+          name: VutronMusic-mac-${{ matrix.arch }}-blockmap
           path: release/*/VutronMusic*.blockmap
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'macos-latest'
+        if: matrix.platform == 'darwin'
         with:
-          name: VutronMusic-mac-latest-${{ matrix.arch }}
+          name: VutronMusic-mac-${{ matrix.arch }}-latest
           path: release/*/latest*.yml
           if-no-files-found: ignore
 
       # Linux artifacts
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'ubuntu-22.04'
+        if: matrix.platform == 'linux' && matrix.arch == 'x64'
         with:
-          name: VutronMusic-linux-snap-${{ matrix.arch }}
+          name: VutronMusic-linux-${{ matrix.arch }}-snap
           path: release/*/VutronMusic*.snap
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'ubuntu-22.04'
+        if: matrix.platform == 'linux'
         with:
-          name: VutronMusic-linux-AppImage-${{ matrix.arch }}
+          name: VutronMusic-linux-${{ matrix.arch }}-AppImage
           path: release/*/VutronMusic*.AppImage
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'ubuntu-22.04'
+        if: matrix.platform == 'linux'
         with:
-          name: VutronMusic-linux-deb-${{ matrix.arch }}
+          name: VutronMusic-linux-${{ matrix.arch }}-deb
           path: release/*/VutronMusic*.deb
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'ubuntu-22.04'
+        if: matrix.platform == 'linux'
         with:
-          name: VutronMusic-linux-rpm-${{ matrix.arch }}
+          name: VutronMusic-linux-${{ matrix.arch }}-rpm
           path: release/*/VutronMusic*.rpm
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'ubuntu-22.04'
+        if: matrix.platform == 'linux'
         with:
-          name: VutronMusic-linux-blockmap-${{ matrix.arch }}
+          name: VutronMusic-linux-${{ matrix.arch }}-blockmap
           path: release/*/VutronMusic*.blockmap
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'ubuntu-22.04'
+        if: matrix.platform == 'linux'
         with:
-          name: VutronMusic-linux-latest-${{ matrix.arch }}
+          name: VutronMusic-linux-${{ matrix.arch }}-latest
           path: release/*/latest*.yml
           if-no-files-found: ignore
 
-  # 添加新的发布作业，等所有构建完成后统一上传到 GitHub Release
   publish-release:
     needs: [Release]
     runs-on: ubuntu-22.04
@@ -170,19 +236,42 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R all-artifacts
 
-      - name: Flatten all artifacts into upload folder
+      - name: Flatten all artifacts into upload folder (keep larger latest.yml if duplicate)
         run: |
           mkdir -p upload
-          find all-artifacts -type f -exec cp {} upload/ \;
+          for f in $(find all-artifacts -type f); do
+            base=$(basename "$f")
+            dest="upload/$base"
+            if [[ "$base" == latest*.yml ]]; then
+              # 如果已经存在同名文件，就比大小
+              if [[ -f "$dest" ]]; then
+                old_size=$(stat -c%s "$dest")
+                new_size=$(stat -c%s "$f")
+                if (( new_size > old_size )); then
+                  echo "⚡ Replacing $base with bigger file ($new_size > $old_size)"
+                  cp "$f" "$dest"
+                else
+                  echo "⚡ Keeping existing $base ($old_size >= $new_size)"
+                fi
+              else
+                cp "$f" "$dest"
+              fi
+            else
+              cp "$f" "$dest"
+            fi
+          done
+
       - name: Create release tag if triggered by workflow_dispatch
         if: github.event_name == 'workflow_dispatch'
         run: |
           DATE_TAG=$(date +'%Y%m%d%H%M')
           echo "RELEASE_TAG=v-draft-${DATE_TAG}" >> $GITHUB_ENV
+
       - name: Set tag from git tag if available
         if: github.event_name == 'push'
         run: |
           echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
       - name: Upload all files to GitHub Release
         uses: softprops/action-gh-release@v1
         env:

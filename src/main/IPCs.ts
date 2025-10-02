@@ -17,9 +17,13 @@ import {
   splitArtist
   // cleanFontName
 } from './utils/utils'
+import cache from './cache'
 import { registerGlobalShortcuts } from './globalShortcut'
 import { createMenu } from './menu'
 import log from './log'
+import navidrome from './streaming/navidrome'
+import emby from './streaming/emby'
+import jellyfin from './streaming/jellyfin'
 
 let isLock = store.get('osdWin.isLock') as boolean
 let blockerId: number | null = null
@@ -178,7 +182,6 @@ function initOSDWindowIpcMain(win: BrowserWindow, lrc: { [key: string]: Function
       lrc.switchOSDWindow(value)
     } else if (key === 'isLock') {
       isLock = value
-      // 当设置鼠标忽略时，同时设置窗口置顶，避免窗口不位于最上层而导致无法点击
       lrc.toggleMouseIgnore()
     }
   })
@@ -223,7 +226,6 @@ function initTaskbarIpcMain(): void {}
 
 async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
   // Get application version
-  const cache = (await import('./cache')).default
   ipcMain.handle('msgRequestGetVersion', () => {
     return Constants.APP_VERSION
   })
@@ -311,7 +313,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
   })
 
   ipcMain.on('msgScanLocalMusic', async (event, data: { filePath: string; update: boolean }) => {
-    const musicFileExtensions = /\.(mp3|aiff|flac|alac|m4a|aac|wav)$/i
+    const musicFileExtensions = /\.(mp3|aiff|flac|alac|m4a|aac|wav|opus)$/i
 
     const { songs } = cache.get(CacheAPIs.LocalMusic)
     const albums = songs.map((track: any) => track.album)
@@ -559,10 +561,6 @@ async function initMprisIpcMain(win: BrowserWindow, mpris: MprisImpl): Promise<v
 }
 
 async function initStreaming() {
-  const navidrome = (await import('./streaming/navidrome')).default
-  const emby = (await import('./streaming/emby')).default
-  const jellyfin = (await import('./streaming/jellyfin')).default
-
   ipcMain.handle('stream-login', async (event: IpcMainEvent, data: any) => {
     const { platform } = data
     store.set('accounts.selected', platform)

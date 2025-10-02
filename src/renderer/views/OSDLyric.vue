@@ -77,8 +77,8 @@ window.addEventListener('message', (event: MessageEvent) => {
   }
 })
 
-window.mainApi?.on('mouseleave-completely', () => {
-  hover.value = false
+window.mainApi?.on('mouseInWindow', (_: any, value: boolean) => {
+  hover.value = value
 })
 
 onMounted(() => {

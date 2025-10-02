@@ -97,7 +97,9 @@ export class LyricManager {
     this.isOneLine = data.isOneLine || false
     this.rate = data.rate || 1
     this.container.addEventListener('click', this.handleLyricClick.bind(this))
-    window.addEventListener('resize', this.createLineAnimation.bind(this))
+    if (this.isMini) {
+      window.addEventListener('resize', this.createLineAnimation.bind(this))
+    }
   }
 
   _mergeLine(index: number) {
@@ -141,8 +143,7 @@ export class LyricManager {
   }
 
   updateLineIndex(index: number) {
-    index = Math.max(0, Math.min(index, this.lyricElements.length - 1))
-    this.lineIdx = Math.max(0, Math.min(this.lineIdx, this.lyricElements.length - 1))
+    index = Math.min(index, this.lyricElements.length - 1)
     if (this.lineIdx !== index) {
       this.lineIdx = index
     }
@@ -158,6 +159,8 @@ export class LyricManager {
         line?.dom.classList.add('active')
         if (this.isWheeling) return
         line?.dom.scrollIntoView({ block: 'center', behavior: this._behavior })
+      } else {
+        line?.dom.classList.remove('played')
       }
     })
   }
@@ -556,27 +559,31 @@ export class LyricManager {
     this.lineAnimation.translation.forEach((an) => an.animation.pause())
   }
 
-  clearLyrics() {
+  clearLyrics(clearDom = true) {
     clearTimeout(this.scrollingTimer)
     this.container.removeEventListener('wheel', this.handleWheel)
-    this.animations.lyric.forEach((an) => an.animation.finish())
-    this.animations.translation.forEach((an) => an.animation.finish())
+
+    if (clearDom) {
+      this.animations.lyric.forEach((an) => an.animation.finish())
+      this.animations.translation.forEach((an) => an.animation.finish())
+      this.lineAnimation.lyric.forEach(({ animation }) => {
+        animation.finish()
+      })
+      this.lineAnimation.translation.forEach(({ animation }) => {
+        animation.finish()
+      })
+    }
 
     this.animations = { lyric: [], translation: [] }
+    this.lyricElements = []
+    this.lineAnimation.lyric = []
+    this.lineAnimation.translation = []
 
+    if (!clearDom) return
     while (this.container.firstChild) {
       ;(this.container.firstChild as HTMLElement).innerHTML = ''
       this.container.removeChild(this.container.firstChild)
     }
-    this.lyricElements = []
-    this.lineAnimation.lyric.forEach(({ animation }) => {
-      animation.finish()
-    })
-    this.lineAnimation.translation.forEach(({ animation }) => {
-      animation.finish()
-    })
-    this.lineAnimation.lyric = []
-    this.lineAnimation.translation = []
     this.container.innerHTML = ''
   }
 
@@ -673,7 +680,7 @@ export const updateMode = (data: {
 }
 
 export const destroyController = () => {
-  manager?.clearLyrics()
+  manager?.clearLyrics(false)
 }
 
 export const updateLineMode = (isOneLine: boolean) => {

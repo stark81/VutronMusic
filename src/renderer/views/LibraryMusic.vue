@@ -230,8 +230,6 @@ const { newPlaylistModal } = storeToRefs(useNormalStateStore())
 const show = ref(false)
 const playHistoryMode = ref('week')
 const router = useRouter()
-// const playlists = liked.value.playlists
-// const songs = liked.value.songs
 
 const lyric = ref<{ content: string }[]>([])
 const randomtrack = ref<{ [key: string]: any }>()
@@ -258,7 +256,7 @@ const pickedLyricLines = computed(() => {
 const winHeight = ref(window.innerHeight)
 
 const historyHeight = computed(() => {
-  const height = winHeight.value - 46 - (hasCustomTitleBar.value ? 84 : 64)
+  const height = winHeight.value - 72 - (hasCustomTitleBar.value ? 84 : 64)
   return height
 })
 
@@ -358,7 +356,7 @@ const openAddPlaylistModal = () => {
 const updateCurrentTab = (tab: string) => {
   currentTab.value = tab
   nextTick(() => {
-    updatePadding(0)
+    updatePadding(32)
   })
 }
 
@@ -413,7 +411,7 @@ onMounted(() => {
   loadData()
   dailyTask()
   setTimeout(() => {
-    updatePadding(0)
+    updatePadding(32)
   }, 100)
   if (tabsRowRef.value) {
     observeTab.observe(tabsRowRef.value)

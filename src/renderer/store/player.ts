@@ -114,7 +114,8 @@ export const usePlayerStore = defineStore(
       fetchStreamMusic,
       getStreamLyric,
       getStreamPic,
-      getAStreamTrack
+      getAStreamTrack,
+      likeAStreamTrack
     } = streamMusicStore
     const dataStore = useDataStore()
     const { likeATrack } = dataStore
@@ -1341,6 +1342,15 @@ export const usePlayerStore = defineStore(
         asText: lyrics.lyric.map((lrc) => `${formatTime(lrc.start)}${lrc.content}`).join('\n'),
         lyricOffset: lyricOffset.value
       }
+      if (window.env?.isWindows) {
+        metadata.artwork = [
+          {
+            src: await getPic(track, 2048),
+            type: 'image/jpg',
+            sizes: '2048x2048'
+          }
+        ]
+      }
       navigator.mediaSession.metadata = null
       navigator.mediaSession.metadata = new MediaMetadata(metadata)
       if (window.env?.isLinux) {
@@ -1480,7 +1490,11 @@ export const usePlayerStore = defineStore(
         shuffle.value = value
       })
       window.mainApi?.on('like', () => {
-        if (currentTrack.value && currentTrack.value.matched !== false) {
+        if (!currentTrack.value) return
+        if (currentTrack.value?.type === 'stream') {
+          const op = currentTrack.value.starred ? 'unstar' : 'star'
+          likeAStreamTrack(op, currentTrack.value)
+        } else if (currentTrack.value?.matched) {
           likeATrack(currentTrack.value.id)
         }
       })

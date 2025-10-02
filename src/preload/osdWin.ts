@@ -6,7 +6,7 @@ const rendererAvailChannels: string[] = [
   'set-isLock',
   'update-osd-playing-status',
   'updateLyricInfo',
-  'mouseleave-completely'
+  'mouseInWindow'
 ]
 
 let messagePort: MessagePort | null = null

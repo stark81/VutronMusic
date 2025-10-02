@@ -22,6 +22,7 @@ import httpHandler from './appServer/httpHandler'
 import IPCs from './IPCs'
 import fastifyStatic from '@fastify/static'
 import path from 'path'
+import cache from './cache'
 import sharp from 'sharp'
 import {
   getPic,
@@ -95,10 +96,10 @@ class BackGround {
   fastifyApp: FastifyInstance | null = null
   willQuitApp: boolean = !Constants.IS_MAC
   checkInterval: any = null
+  isInWindow: boolean = false
   lastKnownMousePosition = { x: 0, y: 0 }
 
   async init() {
-    // if (release().startsWith('6.1')) app.disableHardwareAcceleration()
     if (process.platform === 'win32') app.setAppUserModelId(app.getName())
     if (!app.requestSingleInstanceLock()) {
       app.quit()
@@ -353,6 +354,10 @@ class BackGround {
   }
 
   checkOsdMouseLeave(inter = 16) {
+    if (!this.isInWindow) {
+      this.lyricWin?.webContents.send('mouseInWindow', true)
+      this.isInWindow = true
+    }
     if (this.checkInterval) clearInterval(this.checkInterval)
     this.checkInterval = setInterval(() => {
       if (!this.lyricWin) {
@@ -365,16 +370,17 @@ class BackGround {
         mousePos.y !== this.lastKnownMousePosition.y
       ) {
         this.lastKnownMousePosition = { x: mousePos.x, y: mousePos.y }
-        const bounds = this.lyricWin?.getBounds()
+        const bounds = this.lyricWin?.getBounds() || { x: 0, y: 0, width: 0, height: 0 }
         const isInWindow =
-          mousePos.x >= bounds.x - 4 &&
-          mousePos.x <= bounds.x + bounds.width + 4 &&
-          mousePos.y >= bounds.y - 4 &&
-          mousePos.y <= bounds.y + bounds.height + 4
+          mousePos.x >= bounds.x - 10 &&
+          mousePos.x <= bounds.x + bounds.width + 10 &&
+          mousePos.y >= bounds.y - 10 &&
+          mousePos.y <= bounds.y + bounds.height + 10
         if (!isInWindow) {
-          this.lyricWin?.webContents.send('mouseleave-completely')
+          this.lyricWin?.webContents.send('mouseInWindow', false)
           clearInterval(this.checkInterval)
         }
+        this.isInWindow = isInWindow
       }
     }, inter)
   }
@@ -389,6 +395,7 @@ class BackGround {
     })
     this.lyricWin.webContents.on('did-finish-load', () => {
       this.initMessageChannel()
+      this.toggleMouseIgnore()
       setTimeout(() => {
         this.lyricWin.setFocusable(false)
         this.lyricWin.setAlwaysOnTop(true)
@@ -451,7 +458,6 @@ class BackGround {
 
   handleProtocol() {
     protocol.handle('atom', async (request) => {
-      const cache = (await import('./cache')).default
       const { host, pathname, searchParams } = new URL(request.url)
 
       if (host === 'get-default-pic') {
@@ -621,7 +627,6 @@ class BackGround {
   handleAppEvents() {
     this.handleProtocol()
     app.whenReady().then(async () => {
-      // create window
       this.createMainWindow().then(() => {
         // @ts-ignore
         this.fastifyApp.win = this.win
@@ -662,11 +667,15 @@ class BackGround {
       }
     })
 
-    app.on('activate', () => {
+    app.on('activate', async () => {
       if (this.win === null) {
-        this.createMainWindow()
+        await this.createMainWindow()
       } else {
         this.win.show()
+      }
+      if (Constants.IS_WINDOWS) {
+        const createThumBar = (await import('./thumBar')).createThumBar
+        createThumBar(this.win)
       }
     })
 
@@ -705,9 +714,13 @@ class BackGround {
   }
 
   handleWindowEvents() {
-    this.win.once('ready-to-show', () => {
+    this.win.once('ready-to-show', async () => {
       this.win.show()
       this.win.focus()
+      if (Constants.IS_WINDOWS) {
+        const createThumBar = (await import('./thumBar')).createThumBar
+        createThumBar(this.win)
+      }
     })
 
     this.win.on('close', (e) => {
