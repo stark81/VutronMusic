@@ -278,6 +278,7 @@ export const usePlayerStore = defineStore(
         qq: 'QQ音乐',
         kugou: '酷狗音乐',
         kuwo: '酷我音乐',
+        bodian: '波点音乐',
         bilibili: '哔哩哔哩',
         pyncmd: '第三方网易云音乐',
         migu: '咪咕音乐',
