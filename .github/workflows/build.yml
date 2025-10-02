@@ -45,7 +45,7 @@ jobs:
       - name: Install deps
         env:
           SKIP_REBUILD: true
-        run: ${{ env.XVFB_PFX }}yarn
+        run: ${{ env.XVFB_PFX }}yarn --ignore-scripts
 
       - name: Rebuild native dependencies for current architecture
         run: |
