@@ -49,8 +49,9 @@ jobs:
 
       - name: Rebuild native dependencies for current architecture
         run: |
-          ${{ env.XVFB_PFX }}npm rebuild --arch=${{ matrix.arch }}
-          ${{ env.XVFB_PFX }}./node_modules/.bin/electron-rebuild --arch=${{ matrix.arch }}
+          ${{ env.XVFB_PFX }}npm rebuild --arch=${{ matrix.arch }} --force
+          ${{ env.XVFB_PFX }}./node_modules/.bin/electron-rebuild --arch=${{ matrix.arch }} --force
+
       - name: Build Electron app (without auto-publish)
         shell: bash
         env:
