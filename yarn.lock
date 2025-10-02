@@ -1548,10 +1548,10 @@
     "@typescript-eslint/types" "7.18.0"
     eslint-visitor-keys "^3.4.3"
 
-"@unblockneteasemusic/server@^0.27.8-patch.1":
-  version "0.27.10"
-  resolved "https://registry.yarnpkg.com/@unblockneteasemusic/server/-/server-0.27.10.tgz#bc8a81d8f537a887966ca7bccfc6b3b481e16eb4"
-  integrity sha512-qHcLT1A5DjU17JKJlJ1HrXBgmy6cYcDlBlIYocxwVtg6VYzZHt5j6LE/99XR6+kUTnDDyyVtDzR7HE7szSTztw==
+"@unblockneteasemusic/server@^0.28.0":
+  version "0.28.0"
+  resolved "https://registry.npmmirror.com/@unblockneteasemusic/server/-/server-0.28.0.tgz#75a0cf062f26336644515da35b343b2717bca109"
+  integrity sha512-FLXNEMc9ItoAhhhemxKJzpJ+9DkWsfnxE5PYTCIzqZarYVUCxeKKEf0CwGeUeIW35z1Ekl0wFU4l10RDWVCr4A==
   dependencies:
     node-windows "^1.0.0-beta.8"
     pino "6.14.0"
@@ -1875,10 +1875,10 @@
   resolved "https://registry.yarnpkg.com/@xmldom/xmldom/-/xmldom-0.8.10.tgz#a1337ca426aa61cef9fe15b5b28e340a72f6fa99"
   integrity sha512-2WALfTl4xo2SkGCYRt6rDTFfk9R1czmBvUQy12gK2KuRKIpWEhcbbzy8EZXtz/jkRqHX8bFEc6FC1HjX4TUWYw==
 
-NeteaseCloudMusicApi@^4.23.2:
-  version "4.27.0"
-  resolved "https://registry.yarnpkg.com/NeteaseCloudMusicApi/-/NeteaseCloudMusicApi-4.27.0.tgz#ff21d468e053df81e3f9591bf3fcb58d30d16448"
-  integrity sha512-SRduMpAYnq5K/qyMxZ7iB/SfFPqEDLUnmForqDOGLpyJFdXKfuXBjIErRfa9gxNYN3OjxtZ5yV5H0zbPxjDkJw==
+NeteaseCloudMusicApi@^4.28.0:
+  version "4.28.0"
+  resolved "https://registry.npmmirror.com/NeteaseCloudMusicApi/-/NeteaseCloudMusicApi-4.28.0.tgz#ee9779227392492b1e3c68343348aff485ee7f31"
+  integrity sha512-cdYfANR+yEGMNFurs3WX8vNg8T8ZkqkGb8eQv2zTz/sXDY27Elu8S+nL9K4RXU4mDG8e5PF8HcJ3+EWaMSlc6A==
   dependencies:
     axios "^1.2.2"
     crypto-js "^4.2.0"

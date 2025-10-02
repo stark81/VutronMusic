@@ -12,7 +12,7 @@
           <svg-icon icon-class="forward5s" />
         </button-icon>
       </div>
-      <div ref="lyricContainer" class="lyric-container" />
+      <div ref="lyricContainer" class="main-lyric-container" :class="{ isZoom }" />
     </div>
   </transition>
 </template>
@@ -55,7 +55,7 @@ const { showToast } = stateStore
 
 const settingsStore = useSettingsStore()
 const { normalLyric } = storeToRefs(settingsStore)
-const { nFontSize, nTranslationMode, isNWordByWord, useMask } = toRefs(normalLyric.value)
+const { nFontSize, nTranslationMode, isNWordByWord, useMask, isZoom } = toRefs(normalLyric.value)
 
 const lyricContainer = ref<HTMLElement>()
 
@@ -194,7 +194,7 @@ onBeforeUnmount(() => {
 })
 </script>
 
-<style scoped lang="scss">
+<style lang="scss">
 .lyric-wrapper {
   position: relative;
   height: 100vh;
@@ -227,7 +227,7 @@ onBeforeUnmount(() => {
   }
 }
 
-.lyric-container {
+.main-lyric-container {
   height: 100vh;
   width: v-bind(containerWidth);
   display: flex;
@@ -243,25 +243,30 @@ onBeforeUnmount(() => {
   }
 }
 
-:deep(.line) {
+.isZoom .line {
+  .lyric-line,
+  .translation {
+    transform: scale(0.95);
+    transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  &.active {
+    .lyric-line {
+      transform: scale(1);
+    }
+  }
+}
+
+.line {
   border-radius: 12px;
   margin: 2px 0;
   user-select: none;
   padding: 12px;
   font-weight: 600;
   text-align: v-bind(textAlign);
-  .lyric-line {
-    // transform: scale(0.95);
-    transform-origin: v-bind(transformOrigin);
-    // transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    // will-change: transform;
-  }
-
+  .lyric-line,
   .translation {
-    // transform: scale(0.95);
     transform-origin: v-bind(transformOrigin);
-    // transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    // will-change: transform;
   }
 
   &:hover {
@@ -277,7 +282,7 @@ onBeforeUnmount(() => {
   }
 }
 
-:deep(.line) {
+.line {
   .lyric-line span {
     font-size: v-bind('`${nFontSize}px`');
     background-repeat: no-repeat;
@@ -304,20 +309,16 @@ onBeforeUnmount(() => {
   }
 }
 
-:deep(.line-mode.active) {
-  .lyric-line {
-    // transform: scale(1);
-    // transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    span {
-      background-color: var(--color-wbw-text-played);
-    }
+.line-mode.active {
+  .lyric-line span {
+    background-color: var(--color-wbw-text-played);
   }
   .translation span {
     background-color: var(--color-wbw-text);
   }
 }
 
-:deep(.word-mode.played) {
+.word-mode.played {
   .lyric-line span {
     background-size: 0 100% !important;
   }
@@ -326,23 +327,10 @@ onBeforeUnmount(() => {
   }
 }
 
-:deep(.word-mode.active) {
-  .lyric-line {
-    // transform: scale(1);
-    // transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    span {
-      // will-change: background-size;
-    }
-  }
-  .translation span {
-    // will-change: background-size;
-  }
-}
-
 @media (max-aspect-ratio: 10/9) {
-  .lyric-container {
+  .main-lyric-container {
     width: 100%;
-    :deep(.line) {
+    .line {
       text-align: center;
       .lyric-line,
       .translation {

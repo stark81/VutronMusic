@@ -1,3 +1,4 @@
+import { nextTick } from 'vue'
 import eventBus from './eventBus'
 
 type TranslationMode = 'none' | 'tlyric' | 'rlyric'
@@ -46,7 +47,7 @@ const createAnimation = (dom: HTMLElement, duration: number) => {
     dom,
     [{ backgroundSize: '0 100%' }, { backgroundSize: '100% 100%' }],
     {
-      duration: Math.max(duration * 0.9, 0),
+      duration: Math.max(duration, 0),
       easing: 'linear',
       fill: 'forwards'
     }
@@ -161,8 +162,10 @@ export class LyricManager {
     })
   }
 
-  updateFontIndex(type: 'lyric' | 'translation' = 'lyric', index: number) {
-    const prevIndex = type === 'lyric' ? this.lastFontIdx : this.lastTFontIdx
+  updateFontIndex(type: 'lyric' | 'translation' = 'lyric', index: number, restart = false) {
+    const prevIndex =
+      type === 'lyric' ? (restart ? -1 : this.lastFontIdx) : restart ? -1 : this.lastTFontIdx
+
     if (type === 'lyric') {
       this.lastFontIdx = this.fontIdx
       this.fontIdx = index
@@ -176,18 +179,18 @@ export class LyricManager {
     requestAnimationFrame(() => {
       const animations = this.animations[type]
       const start = Math.min(prevIndex, index) - 1
-      const end = Math.max(prevIndex, index) + 1
+      const end = restart ? animations.length : Math.max(prevIndex, index) + 1
 
       for (let i = start; i < end + 1; i++) {
         const font = animations[i]
-        if (font) {
+        if (font && i < index) {
           this.handleFontPlay(font, 0, true)
           if (font.dom.style.backgroundSize !== '100% 100%') {
             font.dom.style.backgroundSize = '100% 100%'
           }
         }
 
-        if (font && i > index) {
+        if (font && i >= index) {
           if (font.dom.style.backgroundSize !== '0 100%') {
             font.dom.style.backgroundSize = '0 100%'
           }
@@ -196,7 +199,7 @@ export class LyricManager {
 
         if (font && i === index) {
           const driftTime = Math.max(this.currentTime - font.start, 0)
-          font.animation.currentTime = driftTime
+          font.animation.currentTime = index < prevIndex ? 0 : driftTime
           if (this.playing) {
             font.animation.play()
           }
@@ -240,7 +243,9 @@ export class LyricManager {
     } else {
       this.createLyricsDom()
     }
-    this._behavior = 'smooth'
+    nextTick(() => {
+      this._behavior = 'smooth'
+    })
   }
 
   handleFontPlay(font: animation, curTime: number, toFinish: boolean) {
@@ -493,7 +498,6 @@ export class LyricManager {
     if (this.playing) {
       an.animation.play()
     }
-    this.currentTime = 0
   }
 
   playLineAnimation(index: number) {
@@ -526,17 +530,14 @@ export class LyricManager {
     }
 
     this.container.appendChild(fragment)
-    this.updateLineIndex(this.lineIdx)
-    if (this.isMini) {
-      this.createLineAnimation()
-    }
-    this.updateFontIndex('lyric', this.fontIdx)
-    const delta = this.animations.lyric.length - this.animations.translation.length
-    const idx = this.mode === 'tlyric' ? this.tFontIdx : this.fontIdx - delta
-    this.updateFontIndex('translation', idx)
-    if (!this.isMini) {
-      this.currentTime = 0
-    }
+    nextTick(() => {
+      this.updateLineIndex(this.lineIdx)
+      this.updateFontIndex('lyric', this.fontIdx, true)
+      this.updateFontIndex('translation', this.tFontIdx, true)
+      if (this.isMini) {
+        this.createLineAnimation()
+      }
+    })
   }
 
   play() {
@@ -652,13 +653,13 @@ export const updateLineIndex = (index: number) => {
   }
 }
 
-export const updateFontIndex = (index: number) => {
+export const updateFontIndex = (index: number, restart = false) => {
   if (!manager) return
-  manager.updateFontIndex('lyric', index)
+  manager.updateFontIndex('lyric', index, restart)
 }
 
-export const updateTFontIndex = (index: number) => {
-  manager?.updateFontIndex('translation', index)
+export const updateTFontIndex = (index: number, restart = false) => {
+  manager?.updateFontIndex('translation', index, restart)
 }
 
 export const updateMode = (data: {
@@ -682,7 +683,7 @@ export const updateLineMode = (isOneLine: boolean) => {
   manager.lastTFontIdx = -1
   setLyrics(manager.lyrics!)
   updateLineIndex(manager.lineIdx)
-  updateFontIndex(manager.fontIdx)
+  updateFontIndex(manager.fontIdx, true)
   updateTFontIndex(manager.tFontIdx)
 }
 

@@ -1,6 +1,5 @@
 import axios from 'axios'
 import Constants from '../utils/Constants'
-// import { parseLyricString } from '../utils/utils'
 import store from '../store'
 import log from '../log'
 
@@ -26,14 +25,6 @@ const ApiRequest = async (
   })
   return response
 }
-
-// const getLyricFromExtraData = (data: any): string | null => {
-//   if (!data.MediaStreams) return null
-//   for (const stream of data.MediaStreams) {
-//     if (stream.Extradata) return stream.Extradata
-//   }
-//   return null
-// }
 
 export interface EmbyImpl {
   systemPing: () => Promise<'logout' | 'login' | 'offline'>
