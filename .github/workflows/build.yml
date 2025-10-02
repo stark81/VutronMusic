@@ -42,16 +42,45 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: brew install rpm
 
-      - name: Install deps
+      # -----------------------
+      # 安装依赖
+      # -----------------------
+      - name: Install deps (skip rebuild)
         env:
           SKIP_REBUILD: true
         run: ${{ env.XVFB_PFX }}yarn --ignore-scripts
 
+      # -----------------------
+      # 预装 sharp 的本平台二进制
+      # -----------------------
+      - name: Preinstall sharp for current OS
+        run: |
+          if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+            yarn add \
+              @img/sharp-darwin-x64 \
+              @img/sharp-darwin-arm64 \
+              @img/sharp-libvips-darwin-x64 \
+              @img/sharp-libvips-darwin-arm64
+          elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            yarn add \
+              @img/sharp-win32-x64 \
+              @img/sharp-win32-arm64
+          elif [[ "${{ matrix.os }}" == "ubuntu-22.04" ]]; then
+            yarn add \
+              @img/sharp-linux-x64
+          fi
+
+      # -----------------------
+      # 重建原生依赖，排除 sharp
+      # -----------------------
       - name: Rebuild native dependencies for current architecture
         run: |
           ${{ env.XVFB_PFX }}npm rebuild --arch=${{ matrix.arch }} --force
-          ${{ env.XVFB_PFX }}./node_modules/.bin/electron-rebuild --arch=${{ matrix.arch }} --force
+          ${{ env.XVFB_PFX }}./node_modules/.bin/electron-rebuild --arch=${{ matrix.arch }} --force --exclude=sharp
 
+      # -----------------------
+      # 构建 Electron app
+      # -----------------------
       - name: Build Electron app (without auto-publish)
         shell: bash
         env:
