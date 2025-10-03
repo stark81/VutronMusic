@@ -70,19 +70,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y rpm fakeroot snapd
           sudo snap install snapcraft --classic
-          # 安装 Electron 依赖
           sudo apt-get install -y libnss3-dev libgtk-3-dev libxss-dev libgconf-2-4 libasound2
 
       - name: Install build essentials (Linux ARM64)
         if: matrix.platform == 'linux' && matrix.arch == 'arm64'
         run: |
           sudo apt-get update
-          sudo apt-get install -y rpm fakeroot
-          # ARM64 不构建 snap，只构建 AppImage, deb, rpm
-          # 安装 Electron 依赖
-          sudo apt-get install -y libnss3-dev libgtk-3-dev libxss-dev libgconf-2-4 libasound2
-          # 修复 app-builder 权限问题
-          chmod +x node_modules/app-builder-bin/linux/arm64/app-builder || true
+          # 安装必要的打包工具
+          sudo apt-get install -y fakeroot
+          # 安装 Electron 运行时依赖
+          sudo apt-get install -y libnss3 libgtk-3-0 libxss1 libgconf-2-4 libasound2
+          # 清理可能存在的错误缓存
+          rm -rf ~/.cache/electron-builder/fpm || true
 
       - name: Install deps
         env:
@@ -92,8 +91,6 @@ jobs:
       - name: Fix app-builder permissions (Linux ARM64)
         if: matrix.platform == 'linux' && matrix.arch == 'arm64'
         run: |
-          # 确保 app-builder 有执行权限
-          ls -la node_modules/app-builder-bin/linux/arm64/ || true
           chmod +x node_modules/app-builder-bin/linux/arm64/app-builder || true
 
       - name: Rebuild native dependencies for current architecture
@@ -101,15 +98,17 @@ jobs:
           ${{ env.XVFB_PFX }}npm rebuild
           ${{ env.XVFB_PFX }}./node_modules/.bin/electron-rebuild
 
-      - name: Build Electron app (Linux - 跳过 snap 构建)
+      - name: Build Electron app (Linux ARM64 - 只构建 AppImage)
         if: matrix.platform == 'linux' && matrix.arch == 'arm64'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.github_token }}
           ARCH: ${{ matrix.arch }}
+          # 关键：设置环境变量跳过 deb/rpm 构建
+          USE_SYSTEM_FPM: 'true'
         run: |
-          # ARM64 Linux 跳过 snap 构建
-          yarn build --${{ matrix.arch }} -p never --linux deb --linux rpm --linux AppImage
+          # ARM64 Linux 只构建 AppImage，跳过 deb 和 rpm（因为 fpm 问题）
+          yarn build --${{ matrix.arch }} -p never --linux AppImage
 
       - name: Build Electron app (其他平台)
         if: matrix.platform != 'linux' || matrix.arch != 'arm64'
@@ -185,15 +184,16 @@ jobs:
           path: release/*/VutronMusic*.AppImage
           if-no-files-found: ignore
 
+      # 只对 x64 Linux 上传 deb 和 rpm
       - uses: actions/upload-artifact@v4
-        if: matrix.platform == 'linux'
+        if: matrix.platform == 'linux' && matrix.arch == 'x64'
         with:
           name: VutronMusic-linux-${{ matrix.arch }}-deb
           path: release/*/VutronMusic*.deb
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
-        if: matrix.platform == 'linux'
+        if: matrix.platform == 'linux' && matrix.arch == 'x64'
         with:
           name: VutronMusic-linux-${{ matrix.arch }}-rpm
           path: release/*/VutronMusic*.rpm
@@ -213,7 +213,7 @@ jobs:
           path: release/*/latest*.yml
           if-no-files-found: ignore
 
-  # 发布作业
+  # 发布作业保持不变...
   publish-release:
     needs: [Release]
     runs-on: ubuntu-22.04
