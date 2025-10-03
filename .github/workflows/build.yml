@@ -150,7 +150,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: matrix.platform == 'win32'
         with:
-          name: VutronMusic-win-${{ matrix.arch }}-latest-yml
+          name: VutronMusic-win-${{ matrix.arch }}-latest
           path: release/*/latest*.yml
           if-no-files-found: ignore
 
@@ -172,7 +172,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: matrix.platform == 'darwin'
         with:
-          name: VutronMusic-mac-${{ matrix.arch }}-latest-yml
+          name: VutronMusic-mac-${{ matrix.arch }}-latest
           path: release/*/latest*.yml
           if-no-files-found: ignore
 
@@ -215,7 +215,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: matrix.platform == 'linux'
         with:
-          name: VutronMusic-linux-${{ matrix.arch }}-latest-yml
+          name: VutronMusic-linux-${{ matrix.arch }}-latest
           path: release/*/latest*.yml
           if-no-files-found: ignore
 
@@ -236,59 +236,30 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R all-artifacts
 
-      - name: Flatten artifacts intelligently
+      - name: Flatten all artifacts into upload folder (keep larger latest.yml if duplicate)
         run: |
           mkdir -p upload
-
-          # 复制所有非 yml 文件
-          find all-artifacts -type f ! -name "*.yml" -exec cp {} upload/ \;
-
-          # 处理 yml 文件，避免覆盖
-          for artifact_dir in all-artifacts/*/; do
-            artifact_name=$(basename "$artifact_dir")
-            
-            for yml in "$artifact_dir"*.yml; do
-              if [ -f "$yml" ]; then
-                filename=$(basename "$yml")
-                
-                # Windows x64: latest.yml 保持原名
-                if [[ "$artifact_name" == *"win-x64"* ]] && [[ "$filename" == "latest.yml" ]]; then
-                  cp "$yml" "upload/latest.yml"
-                  echo "✓ Copied Windows x64: latest.yml"
-                
-                # Windows ARM64: latest.yml 重命名为 latest-arm64.yml
-                elif [[ "$artifact_name" == *"win-arm64"* ]] && [[ "$filename" == "latest.yml" ]]; then
-                  cp "$yml" "upload/latest-arm64.yml"
-                  echo "✓ Copied Windows ARM64: latest.yml -> latest-arm64.yml"
-                
-                # macOS: 只保留一个 latest-mac.yml（任一架构）
-                elif [[ "$artifact_name" == *"mac"* ]] && [[ "$filename" == "latest-mac.yml" ]]; then
-                  if [ ! -f "upload/latest-mac.yml" ]; then
-                    cp "$yml" "upload/latest-mac.yml"
-                    echo "✓ Copied macOS: latest-mac.yml"
-                  fi
-                
-                # Linux: 直接复制（已有架构区分）
-                elif [[ "$artifact_name" == *"linux"* ]]; then
-                  cp "$yml" "upload/$filename"
-                  echo "✓ Copied Linux: $filename"
-                
-                # 其他 yml 文件
+          for f in $(find all-artifacts -type f); do
+            base=$(basename "$f")
+            dest="upload/$base"
+            if [[ "$base" == latest*.yml ]]; then
+              # 如果已经存在同名文件，就比大小
+              if [[ -f "$dest" ]]; then
+                old_size=$(stat -c%s "$dest")
+                new_size=$(stat -c%s "$f")
+                if (( new_size > old_size )); then
+                  echo "⚡ Replacing $base with bigger file ($new_size > $old_size)"
+                  cp "$f" "$dest"
                 else
-                  cp "$yml" "upload/$filename"
-                  echo "✓ Copied: $filename"
+                  echo "⚡ Keeping existing $base ($old_size >= $new_size)"
                 fi
+              else
+                cp "$f" "$dest"
               fi
-            done
+            else
+              cp "$f" "$dest"
+            fi
           done
-
-          echo ""
-          echo "=== Final upload folder contents ==="
-          ls -lah upload/
-
-          echo ""
-          echo "=== YML files in upload ==="
-          ls -lah upload/*.yml 2>/dev/null || echo "No yml files found"
 
       - name: Create release tag if triggered by workflow_dispatch
         if: github.event_name == 'workflow_dispatch'
