@@ -134,6 +134,27 @@ jobs:
         run: yarn build --${{ matrix.arch }} -p never
 
       # Windows artifacts
+      - name: Debug all Windows builds # 查看是否生成了所有文件
+        if: matrix.platform == 'win32'
+        shell: bash
+        run: |
+          echo "=== Matrix info ==="
+          echo "OS: ${{ matrix.os }}"
+          echo "Arch: ${{ matrix.arch }}"
+          echo "Platform: ${{ matrix.platform }}"
+
+          echo "=== Release directory structure ==="
+          find release -type f -ls
+
+          echo "=== YML files ==="
+          find release -name "*.yml" -type f
+
+          echo "=== EXE files ==="
+          find release -name "*.exe" -type f
+
+          echo "=== YML contents ==="
+          find release -name "*.yml" -type f -exec echo "File: {}" \; -exec cat {} \; -exec echo "" \;
+
       - uses: actions/upload-artifact@v4
         if: matrix.platform == 'win32'
         with:
