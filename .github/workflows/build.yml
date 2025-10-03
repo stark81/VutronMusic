@@ -72,20 +72,15 @@ jobs:
           sudo snap install snapcraft --classic
           sudo apt-get install -y libnss3-dev libgtk-3-dev libxss-dev libgconf-2-4 libasound2
 
-      - name: Install system fpm for ARM64 (关键步骤)
+      - name: Install system fpm for ARM64
         if: matrix.platform == 'linux' && matrix.arch == 'arm64'
         run: |
           sudo apt-get update
-          # 安装 Ruby 和开发工具（fpm 依赖）
           sudo apt-get install -y ruby ruby-dev build-essential
-          # 安装 fpm 和打包所需工具
           sudo gem install fpm
           sudo apt-get install -y rpm fakeroot
-          # 安装 Electron 运行时依赖
           sudo apt-get install -y libnss3 libgtk-3-0 libxss1 libgconf-2-4 libasound2
-          # 清理可能存在的错误缓存
           rm -rf ~/.cache/electron-builder/fpm || true
-          # 验证 fpm 安装
           fpm --version
 
       - name: Install deps
@@ -103,16 +98,14 @@ jobs:
           ${{ env.XVFB_PFX }}npm rebuild
           ${{ env.XVFB_PFX }}./node_modules/.bin/electron-rebuild
 
-      - name: Build Electron app (Linux ARM64 - 构建所有格式)
+      - name: Build Electron app (Linux ARM64)
         if: matrix.platform == 'linux' && matrix.arch == 'arm64'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.github_token }}
           ARCH: ${{ matrix.arch }}
-          # 关键：强制使用系统 fpm
           USE_SYSTEM_FPM: 'true'
         run: |
-          # ARM64 Linux 构建所有格式，使用系统 fpm
           yarn build --${{ matrix.arch }} -p never --linux deb --linux rpm --linux AppImage
 
       - name: Build Electron app (Linux x64)
@@ -122,7 +115,6 @@ jobs:
           GH_TOKEN: ${{ secrets.github_token }}
           ARCH: ${{ matrix.arch }}
         run: |
-          # x64 Linux 构建所有格式
           yarn build --${{ matrix.arch }} -p never --linux deb --linux rpm --linux AppImage --linux snap
 
       - name: Build Electron app (其他平台)
@@ -134,27 +126,6 @@ jobs:
         run: yarn build --${{ matrix.arch }} -p never
 
       # Windows artifacts
-      - name: Debug all Windows builds # 查看是否生成了所有文件
-        if: matrix.platform == 'win32'
-        shell: bash
-        run: |
-          echo "=== Matrix info ==="
-          echo "OS: ${{ matrix.os }}"
-          echo "Arch: ${{ matrix.arch }}"
-          echo "Platform: ${{ matrix.platform }}"
-
-          echo "=== Release directory structure ==="
-          find release -type f -ls
-
-          echo "=== YML files ==="
-          find release -name "*.yml" -type f
-
-          echo "=== EXE files ==="
-          find release -name "*.exe" -type f
-
-          echo "=== YML contents ==="
-          find release -name "*.yml" -type f -exec echo "File: {}" \; -exec cat {} \; -exec echo "" \;
-
       - uses: actions/upload-artifact@v4
         if: matrix.platform == 'win32'
         with:
@@ -179,7 +150,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: matrix.platform == 'win32'
         with:
-          name: VutronMusic-win-${{ matrix.arch }}-latest
+          name: VutronMusic-win-${{ matrix.arch }}-latest-yml
           path: release/*/latest*.yml
           if-no-files-found: ignore
 
@@ -201,7 +172,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: matrix.platform == 'darwin'
         with:
-          name: VutronMusic-mac-${{ matrix.arch }}-latest
+          name: VutronMusic-mac-${{ matrix.arch }}-latest-yml
           path: release/*/latest*.yml
           if-no-files-found: ignore
 
@@ -220,7 +191,6 @@ jobs:
           path: release/*/VutronMusic*.AppImage
           if-no-files-found: ignore
 
-      # 对所有 Linux 架构上传 deb 和 rpm
       - uses: actions/upload-artifact@v4
         if: matrix.platform == 'linux'
         with:
@@ -245,11 +215,10 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: matrix.platform == 'linux'
         with:
-          name: VutronMusic-linux-${{ matrix.arch }}-latest
+          name: VutronMusic-linux-${{ matrix.arch }}-latest-yml
           path: release/*/latest*.yml
           if-no-files-found: ignore
 
-  # 发布作业保持不变...
   publish-release:
     needs: [Release]
     runs-on: ubuntu-22.04
@@ -267,10 +236,59 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R all-artifacts
 
-      - name: Flatten all artifacts into upload folder
+      - name: Flatten artifacts intelligently
         run: |
           mkdir -p upload
-          find all-artifacts -type f -exec cp {} upload/ \;
+
+          # 复制所有非 yml 文件
+          find all-artifacts -type f ! -name "*.yml" -exec cp {} upload/ \;
+
+          # 处理 yml 文件，避免覆盖
+          for artifact_dir in all-artifacts/*/; do
+            artifact_name=$(basename "$artifact_dir")
+            
+            for yml in "$artifact_dir"*.yml; do
+              if [ -f "$yml" ]; then
+                filename=$(basename "$yml")
+                
+                # Windows x64: latest.yml 保持原名
+                if [[ "$artifact_name" == *"win-x64"* ]] && [[ "$filename" == "latest.yml" ]]; then
+                  cp "$yml" "upload/latest.yml"
+                  echo "✓ Copied Windows x64: latest.yml"
+                
+                # Windows ARM64: latest.yml 重命名为 latest-arm64.yml
+                elif [[ "$artifact_name" == *"win-arm64"* ]] && [[ "$filename" == "latest.yml" ]]; then
+                  cp "$yml" "upload/latest-arm64.yml"
+                  echo "✓ Copied Windows ARM64: latest.yml -> latest-arm64.yml"
+                
+                # macOS: 只保留一个 latest-mac.yml（任一架构）
+                elif [[ "$artifact_name" == *"mac"* ]] && [[ "$filename" == "latest-mac.yml" ]]; then
+                  if [ ! -f "upload/latest-mac.yml" ]; then
+                    cp "$yml" "upload/latest-mac.yml"
+                    echo "✓ Copied macOS: latest-mac.yml"
+                  fi
+                
+                # Linux: 直接复制（已有架构区分）
+                elif [[ "$artifact_name" == *"linux"* ]]; then
+                  cp "$yml" "upload/$filename"
+                  echo "✓ Copied Linux: $filename"
+                
+                # 其他 yml 文件
+                else
+                  cp "$yml" "upload/$filename"
+                  echo "✓ Copied: $filename"
+                fi
+              fi
+            done
+          done
+
+          echo ""
+          echo "=== Final upload folder contents ==="
+          ls -lah upload/
+
+          echo ""
+          echo "=== YML files in upload ==="
+          ls -lah upload/*.yml 2>/dev/null || echo "No yml files found"
 
       - name: Create release tag if triggered by workflow_dispatch
         if: github.event_name == 'workflow_dispatch'
