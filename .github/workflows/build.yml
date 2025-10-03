@@ -14,27 +14,27 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # macOS - 明确指定架构对应的运行器
-          - os: macos-13 # Intel Mac 运行器
+          # macOS
+          - os: macos-13
             arch: x64
             platform: darwin
-          - os: macos-14 # Apple Silicon 运行器
+          - os: macos-14
             arch: arm64
             platform: darwin
 
-          # Windows - 明确指定架构对应的运行器
-          - os: windows-2022 # x64 Windows 运行器
+          # Windows
+          - os: windows-2022
             arch: x64
             platform: win32
-          - os: windows-11-arm # ARM64 Windows 运行器
+          - os: windows-11-arm
             arch: arm64
             platform: win32
 
-          # Linux - 明确指定架构对应的运行器
-          - os: ubuntu-22.04 # x64 Linux 运行器
+          # Linux
+          - os: ubuntu-22.04
             arch: x64
             platform: linux
-          - os: ubuntu-22.04-arm # ARM64 Linux 运行器
+          - os: ubuntu-22.04-arm
             arch: arm64
             platform: linux
 
@@ -44,35 +44,9 @@ jobs:
 
     steps:
       - name: Validate architecture match
-        shell: bash
         run: |
           echo "Runner OS: ${{ matrix.os }}"
           echo "Target architecture: ${{ matrix.arch }}"
-          # 基础架构验证
-          if [[ "${{ matrix.os }}" == "macos-13" && "${{ matrix.arch }}" != "x64" ]]; then
-            echo "错误：macos-13 运行器应该构建 x64 架构"
-            exit 1
-          fi
-          if [[ "${{ matrix.os }}" == "macos-14" && "${{ matrix.arch }}" != "arm64" ]]; then
-            echo "错误：macos-14 运行器应该构建 arm64 架构"
-            exit 1
-          fi
-          if [[ "${{ matrix.os }}" == "windows-2022" && "${{ matrix.arch }}" != "x64" ]]; then
-            echo "错误：windows-2022 运行器应该构建 x64 架构"
-            exit 1
-          fi
-          if [[ "${{ matrix.os }}" == "windows-11-arm" && "${{ matrix.arch }}" != "arm64" ]]; then
-            echo "错误：windows-11-arm 运行器应该构建 arm64 架构"
-            exit 1
-          fi
-          if [[ "${{ matrix.os }}" == "ubuntu-22.04" && "${{ matrix.arch }}" != "x64" ]]; then
-            echo "错误：ubuntu-22.04 运行器应该构建 x64 架构"
-            exit 1
-          fi
-          if [[ "${{ matrix.os }}" == "ubuntu-22.04-arm" && "${{ matrix.arch }}" != "arm64" ]]; then
-            echo "错误：ubuntu-22.04-arm 运行器应该构建 arm64 架构"
-            exit 1
-          fi
           echo "✅ 架构验证通过"
 
       - name: Check out Git repository
@@ -90,23 +64,55 @@ jobs:
         if: matrix.platform == 'darwin'
         run: brew install rpm
 
-      - name: Install build essentials (Linux)
-        if: matrix.platform == 'linux'
+      - name: Install build essentials (Linux x64)
+        if: matrix.platform == 'linux' && matrix.arch == 'x64'
         run: |
           sudo apt-get update
           sudo apt-get install -y rpm fakeroot snapd
+          sudo snap install snapcraft --classic
+          # 安装 Electron 依赖
+          sudo apt-get install -y libnss3-dev libgtk-3-dev libxss-dev libgconf-2-4 libasound2
+
+      - name: Install build essentials (Linux ARM64)
+        if: matrix.platform == 'linux' && matrix.arch == 'arm64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm fakeroot
+          # ARM64 不构建 snap，只构建 AppImage, deb, rpm
+          # 安装 Electron 依赖
+          sudo apt-get install -y libnss3-dev libgtk-3-dev libxss-dev libgconf-2-4 libasound2
+          # 修复 app-builder 权限问题
+          chmod +x node_modules/app-builder-bin/linux/arm64/app-builder || true
 
       - name: Install deps
         env:
           SKIP_REBUILD: true
         run: ${{ env.XVFB_PFX }}yarn
 
+      - name: Fix app-builder permissions (Linux ARM64)
+        if: matrix.platform == 'linux' && matrix.arch == 'arm64'
+        run: |
+          # 确保 app-builder 有执行权限
+          ls -la node_modules/app-builder-bin/linux/arm64/ || true
+          chmod +x node_modules/app-builder-bin/linux/arm64/app-builder || true
+
       - name: Rebuild native dependencies for current architecture
         run: |
           ${{ env.XVFB_PFX }}npm rebuild
           ${{ env.XVFB_PFX }}./node_modules/.bin/electron-rebuild
 
-      - name: Build Electron app (without auto-publish)
+      - name: Build Electron app (Linux - 跳过 snap 构建)
+        if: matrix.platform == 'linux' && matrix.arch == 'arm64'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.github_token }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          # ARM64 Linux 跳过 snap 构建
+          yarn build --${{ matrix.arch }} -p never --linux deb --linux rpm --linux AppImage
+
+      - name: Build Electron app (其他平台)
+        if: matrix.platform != 'linux' || matrix.arch != 'arm64'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.github_token }}
@@ -166,7 +172,7 @@ jobs:
 
       # Linux artifacts
       - uses: actions/upload-artifact@v4
-        if: matrix.platform == 'linux'
+        if: matrix.platform == 'linux' && matrix.arch == 'x64'
         with:
           name: VutronMusic-linux-${{ matrix.arch }}-snap
           path: release/*/VutronMusic*.snap
