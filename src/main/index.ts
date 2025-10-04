@@ -627,7 +627,6 @@ class BackGround {
   handleAppEvents() {
     this.handleProtocol()
     app.whenReady().then(async () => {
-      app.setAppUserModelId('com.stark81.vutronmusic')
       this.createMainWindow().then(() => {
         // @ts-ignore
         this.fastifyApp.win = this.win
@@ -668,11 +667,15 @@ class BackGround {
       }
     })
 
-    app.on('activate', () => {
+    app.on('activate', async () => {
       if (this.win === null) {
-        this.createMainWindow()
+        await this.createMainWindow()
       } else {
         this.win.show()
+      }
+      if (Constants.IS_WINDOWS) {
+        const createThumBar = (await import('./thumBar')).createThumBar
+        createThumBar(this.win)
       }
     })
 

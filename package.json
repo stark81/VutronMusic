@@ -1,7 +1,7 @@
 {
   "name": "VutronMusic",
   "packageManager": "yarn@1.22.22",
-  "version": "2.5.0",
+  "version": "2.6.0",
   "homepage": "https://github.com/stark81",
   "author": "stark81 <qq2995734001@gmail.com>",
   "license": "MIT",

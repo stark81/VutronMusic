@@ -100,6 +100,14 @@ class ThumbarImpl implements Thumbar {
         this.updatePlayState('liked', data.like)
       }
     })
+
+    this._win.on('show', () => {
+      this._updateThumbarButtons(true)
+      setTimeout(() => {
+        this._buttons.clear()
+        this._createButtons()
+      }, 50)
+    })
   }
 
   private _createButtons() {
@@ -114,19 +122,24 @@ class ThumbarImpl implements Thumbar {
   }
 
   private _updateThumbarButtons(clear: boolean) {
-    this._win.setThumbarButtons(
-      clear ? [] : [this._likedOrUnliked, this._previous, this._playOrPause, this._next]
-    )
+    if (clear) {
+      this._win.setThumbarButtons([])
+    } else {
+      this._likedOrUnliked = this._buttons.get(playStatus.liked ? ItemKeys.Like : ItemKeys.Unlike)!
+      this._playOrPause = this._buttons.get(playStatus.play ? ItemKeys.Pause : ItemKeys.Play)!
+
+      this._win?.setThumbarButtons([
+        this._likedOrUnliked,
+        this._previous,
+        this._playOrPause,
+        this._next
+      ])
+    }
   }
 
   updatePlayState<K extends keyof typeof playStatus>(key: K, value: (typeof playStatus)[K]): void {
     playStatus[key] = value
-    if (key === 'liked') {
-      this._likedOrUnliked = this._buttons.get(value ? ItemKeys.Like : ItemKeys.Unlike)!
-    } else if (key === 'play') {
-      this._playOrPause = this._buttons.get(value ? ItemKeys.Pause : ItemKeys.Play)!
-    }
-    this._updateThumbarButtons(false)
+    this._updateThumbarButtons(!this._win.isVisible())
   }
 }
 
