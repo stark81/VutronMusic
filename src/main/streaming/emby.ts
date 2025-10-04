@@ -1,5 +1,6 @@
 import axios from 'axios'
 import Constants from '../utils/Constants'
+import { parseLyricString } from '../utils/utils'
 import store from '../store'
 import log from '../log'
 
@@ -121,7 +122,7 @@ class Emby implements EmbyImpl {
           }
         })
         const lrcItem = song.MediaSources[0].MediaStreams.find((item) => item.Codec === 'lrc')
-        const lrcId = lrcItem ? `${song.Id}/${song.MediaSources[0].Id}/${lrcItem.Index}` : ''
+        const lrcId = lrcItem ? `${song.Id}/${song.MediaSources[0].Id}/${lrcItem.Index}` : song.Id
         const track = {
           id: song.Id,
           name: song.Name,
@@ -306,22 +307,73 @@ class Emby implements EmbyImpl {
       ytlrc: { lyric: [] },
       yromalrc: { lyric: [] }
     }
-    if (!id) return result
+    const pool = [
+      { fn: getFileLyric, id },
+      { fn: getEmbeddedLyric, id }
+    ]
+    for (const { fn, id } of pool) {
+      const result = await fn(id)
+      if (result.lrc.lyric.length) return result
+    }
 
-    const accessToken = store.get('accounts.emby.accessToken') as string
-    const baseUrl = store.get('accounts.emby.url') as string
-
-    const res = id.split('/') as [string, string, string]
-    const url = `${baseUrl}/Items/${res[0]}/${res[1]}/Subtitles/${res[2]}/Stream.js`
-
-    const headers = { 'X-Emby-Token': accessToken, timeout: 5000 }
-    const response = await axios({ method: 'GET', url, headers })
-    const lyrics = parseLyric(response.data?.TrackEvents ?? [])
-    return lyrics
+    return result
   }
 }
 
 const emby = new Emby()
+
+const getLyricFromExtraData = (data: any): string | null => {
+  if (!data.MediaStreams) return null
+  for (const stream of data.MediaStreams) {
+    if (stream.Extradata) return stream.Extradata
+  }
+  return null
+}
+
+const getEmbeddedLyric = async (idString: string) => {
+  const result = {
+    lrc: { lyric: [] },
+    tlyric: { lyric: [] },
+    romalrc: { lyric: [] },
+    yrc: { lyric: [] },
+    ytlrc: { lyric: [] },
+    yromalrc: { lyric: [] }
+  }
+
+  const baseUrl = store.get('accounts.emby.url') as string
+  const userId = store.get('accounts.emby.userId') as string
+  const accessToken = store.get('accounts.emby.accessToken') as string
+
+  const res = idString.split('/')
+
+  const url = `${baseUrl}/emby/Users/${userId}/Items/${res[0]}?fields=ShareLevel&ExcludeFields=VideoChapters%2CVideoMediaSources%2CMediaStreams&api_key=${accessToken}`
+  const response = await axios.get(url)
+  const lrc = getLyricFromExtraData(response.data)
+  if (!lrc) return result
+  const lyrics = parseLyricString(lrc)
+  return lyrics
+}
+
+const getFileLyric = async (idString: string) => {
+  let result = {
+    lrc: { lyric: [] },
+    tlyric: { lyric: [] },
+    romalrc: { lyric: [] },
+    yrc: { lyric: [] },
+    ytlrc: { lyric: [] },
+    yromalrc: { lyric: [] }
+  }
+  const res = idString.split('/')
+  if (res.length !== 3) return result
+  const baseUrl = store.get('accounts.emby.url') as string
+  const accessToken = store.get('accounts.emby.accessToken') as string
+
+  const url = `${baseUrl}/Items/${res[0]}/${res[1]}/Subtitles/${res[2]}/Stream.js`
+  const headers = { 'X-Emby-Token': accessToken, timeout: 5000 }
+  const response = await axios({ method: 'GET', url, headers })
+  result = parseLyric(response.data?.TrackEvents ?? [])
+  return result
+}
 
 const parseLyric = (
   lrcItem: { Text: string; StartPositionTicks: number; EndPositionTicks?: number }[]

@@ -1,13 +1,13 @@
 import { fileURLToPath } from 'url'
-import { defineConfig, loadEnv, normalizePath } from 'vite' // normalizePath
+import { defineConfig, loadEnv } from 'vite' // normalizePath
 import ElectronPlugin, { ElectronOptions } from 'vite-plugin-electron' // ElectronPlugin
 import RendererPlugin from 'vite-plugin-electron-renderer'
 import EslintPlugin from 'vite-plugin-eslint'
 // import VuetifyPlugin from 'vite-plugin-vuetify'
 import VueJsx from '@vitejs/plugin-vue-jsx'
 import Vue from '@vitejs/plugin-vue'
-import fs, { rmSync } from 'fs' // fs
-import { resolve, dirname, posix } from 'path' // join， posix
+import { rmSync } from 'fs' // fs
+import { resolve, dirname } from 'path' // join， posix
 import { builtinModules } from 'module'
 import { createSvgIconsPlugin } from 'vite-plugin-svg-icons'
 
@@ -109,7 +109,7 @@ export default defineConfig(({ mode }) => {
       }
     },
     plugins: [
-      bindingSqlite3(),
+      // bindingSqlite3(),
       Vue(),
       createSvgIconsPlugin({
         iconDirs: [resolve(process.cwd(), 'src/renderer/assets/icons')],
@@ -150,61 +150,61 @@ export default defineConfig(({ mode }) => {
   }
 })
 
-function bindingSqlite3(
-  options: {
-    output?: string
-    better_sqlite3_node?: string
-    command?: string
-  } = {}
-) {
-  const TAG = '[vite-plugin-binding-sqlite3]'
-  options.output ??= 'dist-native'
-  options.better_sqlite3_node ??= 'better_sqlite3.node'
-  options.command ??= 'build'
+// function bindingSqlite3(
+//   options: {
+//     output?: string
+//     better_sqlite3_node?: string
+//     command?: string
+//   } = {}
+// ) {
+//   const TAG = '[vite-plugin-binding-sqlite3]'
+//   options.output ??= 'dist-native'
+//   options.better_sqlite3_node ??= 'better_sqlite3.node'
+//   options.command ??= 'build'
 
-  return {
-    name: 'vite-plugin-binding-sqlite3',
-    config(config) {
-      const arch = process.env.ARCH || process.arch
-      const destination = `better_sqlite3-${arch}.node`
+//   return {
+//     name: 'vite-plugin-binding-sqlite3',
+//     config(config) {
+//       const arch = process.env.ARCH || process.arch
+//       const destination = `better_sqlite3-${arch}.node`
 
-      const resolvedRoot = normalizePath(process.cwd())
-      const output = normalizePath(resolve(resolvedRoot, options.output as string))
-      const betterSqlite3 = normalizePath(require.resolve('better-sqlite3'))
-      const betterSqlite3Root = posix.join(
-        betterSqlite3.slice(0, betterSqlite3.lastIndexOf('node_modules')),
-        'node_modules/better-sqlite3'
-      )
-      const betterSqlite3Node = normalizePath(
-        posix.join(betterSqlite3Root, 'build/Release', options.better_sqlite3_node as string)
-      )
-      const betterSqlite3Copy = normalizePath(posix.join(output, destination))
+//       const resolvedRoot = normalizePath(process.cwd())
+//       const output = normalizePath(resolve(resolvedRoot, options.output as string))
+//       const betterSqlite3 = normalizePath(require.resolve('better-sqlite3'))
+//       const betterSqlite3Root = posix.join(
+//         betterSqlite3.slice(0, betterSqlite3.lastIndexOf('node_modules')),
+//         'node_modules/better-sqlite3'
+//       )
+//       const betterSqlite3Node = normalizePath(
+//         posix.join(betterSqlite3Root, 'build/Release', options.better_sqlite3_node as string)
+//       )
+//       const betterSqlite3Copy = normalizePath(posix.join(output, destination))
 
-      if (!fs.existsSync(betterSqlite3Node)) {
-        throw new Error(`${TAG} Can not found "${betterSqlite3Node}".`)
-      }
+//       if (!fs.existsSync(betterSqlite3Node)) {
+//         throw new Error(`${TAG} Can not found "${betterSqlite3Node}".`)
+//       }
 
-      console.log(
-        fs.existsSync(betterSqlite3Copy)
-          ? `Found "${betterSqlite3Copy}"`
-          : `Copy "${betterSqlite3Node}" to "${betterSqlite3Copy}"`
-      )
+//       console.log(
+//         fs.existsSync(betterSqlite3Copy)
+//           ? `Found "${betterSqlite3Copy}"`
+//           : `Copy "${betterSqlite3Node}" to "${betterSqlite3Copy}"`
+//       )
 
-      if (!fs.existsSync(betterSqlite3Copy)) {
-        if (!fs.existsSync(output)) {
-          fs.mkdirSync(output, { recursive: true })
-        }
-        fs.copyFileSync(betterSqlite3Node, betterSqlite3Copy)
-      }
+//       if (!fs.existsSync(betterSqlite3Copy)) {
+//         if (!fs.existsSync(output)) {
+//           fs.mkdirSync(output, { recursive: true })
+//         }
+//         fs.copyFileSync(betterSqlite3Node, betterSqlite3Copy)
+//       }
 
-      // 使用 path.join 而不是 posix.join，这样会使用系统默认的路径分隔符
-      // const BETTER_SQLITE3_BINDING = join(options.output, destination)
+//       // 使用 path.join 而不是 posix.join，这样会使用系统默认的路径分隔符
+//       // const BETTER_SQLITE3_BINDING = join(options.output, destination)
 
-      // fs.writeFileSync(
-      //   join(resolvedRoot, '.env'),
-      //   `VITE_BETTER_SQLITE3_BINDING_${process.arch}=${BETTER_SQLITE3_BINDING}`
-      // )
-      // console.log(TAG, `binding to ${BETTER_SQLITE3_BINDING}`)
-    }
-  }
-}
+//       // fs.writeFileSync(
+//       //   join(resolvedRoot, '.env'),
+//       //   `VITE_BETTER_SQLITE3_BINDING_${process.arch}=${BETTER_SQLITE3_BINDING}`
+//       // )
+//       // console.log(TAG, `binding to ${BETTER_SQLITE3_BINDING}`)
+//     }
+//   }
+// }

@@ -80,12 +80,12 @@ const getImageUrl = (item: any) => {
     let img1v1ID = item.img1v1Url.split('/')
     img1v1ID = img1v1ID[img1v1ID.length - 1]
     if (img1v1ID === '5639395138885805.jpg') {
-      return 'https://p2.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg?param=512y512'
+      return 'https://p2.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg?param=256y256'
     }
   }
   const img = item.img1v1Url || item.picUrl || item.coverImgUrl
   let url = img?.replace('http://', 'https://')
-  if (url.startsWith('https://')) url += '?param=512y512'
+  if (url.startsWith('https://')) url += '?param=256y256'
   return url
 }
 

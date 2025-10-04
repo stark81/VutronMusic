@@ -96,17 +96,10 @@ class DB {
   constructor() {
     try {
       createFileIfNotExist(this.dbFilePath)
-      const root = path.join(__dirname, '../../')
-      this.sqlite = new SQLite3(this.dbFilePath, {
-        nativeBinding: path.join(root, 'dist-native', `better_sqlite3-${process.arch}.node`)
-      })
+      this.sqlite = new SQLite3(this.dbFilePath)
       this.sqlite.pragma('auto_vacuum = FULL')
       this.initTables()
       this.migrate()
-      log.info(
-        '=== better-sqlite3 path ===',
-        path.join(root, 'dist-native', `better_sqlite3-${process.arch}.node`)
-      )
     } catch (e) {
       log.error(e)
     }

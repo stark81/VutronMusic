@@ -3,7 +3,7 @@ const dotenv = require('dotenv')
 
 const baseConfig = {
   productName: 'VutronMusic',
-  appId: '',
+  appId: 'com.stark81.vutronmusic',
   asar: true,
   asarUnpack: ['**/node_modules/sharp/**/*', '**/node_modules/@img/**/*'],
   extends: null,

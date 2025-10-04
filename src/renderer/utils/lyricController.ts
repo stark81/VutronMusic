@@ -141,8 +141,7 @@ export class LyricManager {
   }
 
   updateLineIndex(index: number) {
-    index = Math.max(0, Math.min(index, this.lyricElements.length - 1))
-    this.lineIdx = Math.max(0, Math.min(this.lineIdx, this.lyricElements.length - 1))
+    index = Math.min(index, this.lyricElements.length - 1)
     if (this.lineIdx !== index) {
       this.lineIdx = index
     }
@@ -158,6 +157,8 @@ export class LyricManager {
         line?.dom.classList.add('active')
         if (this.isWheeling) return
         line?.dom.scrollIntoView({ block: 'center', behavior: this._behavior })
+      } else {
+        line?.dom.classList.remove('played')
       }
     })
   }

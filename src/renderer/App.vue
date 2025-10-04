@@ -184,7 +184,6 @@ const handleChanelEvent = () => {
   window.mainApi?.send('updateOsdState', { show: show.value })
   getFontList()
   window.mainApi?.on('msgHandleScanLocalMusic', (_: any, data: { track: any }) => {
-    // localTracks.value.push(data.track)
     const index = localTracks.value.findIndex((track) => track.filePath === data.track.filePath)
     if (index !== -1) {
       localTracks.value[index] = data.track
@@ -216,10 +215,6 @@ const handleChanelEvent = () => {
     if (key === 'show') {
       show.value = value
     } else if (key === 'lock') {
-      if (!show.value) {
-        showToast('桌面歌词锁定/解锁功能仅在桌面歌词开启状态下可用')
-        return
-      }
       isLock.value = value
     }
   })
