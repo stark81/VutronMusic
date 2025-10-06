@@ -236,8 +236,19 @@ const scrollTocurrent = (index: number, behavior: ScrollBehavior = 'smooth') => 
       30
     scrollMainTo(elTop)
   } else {
-    const el = itemsRef.value?.find((el) => el.id === index.toString())
-    el?.scrollIntoView({ block: 'center', behavior })
+    if (index >= startRow.value) {
+      const el = itemsRef.value?.find((el) => el.id === index.toString())
+      if (el) {
+        const elTop = el.getBoundingClientRect().top
+        const dist =
+          mainRef.value!.scrollTop - (window.innerHeight / 2 - elTop - itemSize.value / 2)
+        scrollMainTo(Math.max(dist, 0))
+        nextTick(() => {
+          el?.scrollIntoView({ block: 'center', behavior })
+        })
+        return
+      }
+    }
   }
 
   let top: number
@@ -255,8 +266,7 @@ const scrollTocurrent = (index: number, behavior: ScrollBehavior = 'smooth') => 
       if (currentScrollTop === lastScrollTop) {
         if (isScrolling) {
           isScrolling = false
-          const el = document.getElementById(index.toString())
-          el?.scrollIntoView({ block: 'center', behavior })
+          scrollTocurrent(index)
         }
       } else {
         lastScrollTop = currentScrollTop
