@@ -1,3 +1,5 @@
+import { nextTick } from 'vue'
+
 type TranslationMode = 'none' | 'tlyric' | 'rlyric'
 
 interface word {
@@ -8,7 +10,7 @@ interface word {
 
 interface lyrics {
   lyric: { start: number; end: number; content: string; contentInfo?: word[] }[]
-  tlyric: { start: number; end: number; content: string }[]
+  tlyric: { start: number; end: number; content: string; contentInfo?: word[] }[]
   rlyric: { start: number; end: number; content: string }[]
 }
 
@@ -32,6 +34,7 @@ interface animation {
 }
 interface line {
   dom: HTMLElement
+  index: number
   start: number
   end: number
 }
@@ -107,21 +110,24 @@ class LyricManager {
       element.classList.add('line')
       element.classList.add(l.contentInfo && this._wByW ? 'word-mode' : 'line-mode')
       element.classList.add(this.isMini ? 'mini' : 'normal')
-      element.dataset.index = index.toString()
       const start = l.start * 1000
       const end = l.end * 1000
 
       const lyricLine = document.createElement('div')
       lyricLine.classList.add('lyric-line')
+      lyricLine.dataset.index = index.toString()
 
       const divBase = document.createElement('div')
       divBase.classList.add('div-base')
-      divBase.textContent = l.content
 
+      const span = document.createElement('span')
+      span.textContent = l.content
+
+      divBase.appendChild(span)
       lyricLine.appendChild(divBase)
       element.appendChild(lyricLine)
 
-      if (this.mode === 'none') return { dom: element, start, end }
+      if (this.mode === 'none') return { dom: element, index, start, end }
 
       const modeMap = { tlyric: 'tlyric', rlyric: 'rlyric' } as const
       const mode = modeMap[this.mode as 'tlyric' | 'rlyric']
@@ -129,6 +135,7 @@ class LyricManager {
       if (sameLyric) {
         const translation = document.createElement('div')
         translation.classList.add('translation')
+        translation.dataset.index = index.toString()
 
         const divBase = document.createElement('div')
         divBase.classList.add('div-base')
@@ -136,7 +143,7 @@ class LyricManager {
         translation.appendChild(divBase)
         element.appendChild(translation)
       }
-      return { dom: element, start, end }
+      return { dom: element, index, start, end }
     })
 
     if (this.isMini) {
@@ -210,7 +217,89 @@ class LyricManager {
     }
 
     this.container.appendChild(fragment)
-    this.updateLineIndex(this.lineIdx, this.progress)
+    nextTick(() => {
+      this.createProgressDom(index)
+    })
+    // this.updateLineIndex(this.lineIdx, this.progress)
+  }
+
+  /**
+   * 根据已经在dom树里的line，生成mask-line，并构建line-animation
+   */
+  private createProgressDom(index: number) {
+    if (!this._wByW) return
+    if (index === -1) {
+      this.lyricElements.forEach((line) => {
+        const lineDom = line.dom.querySelector('.lyric-line') as HTMLElement
+
+        const base = lineDom.querySelector('.div-base')! as HTMLElement
+        const lyric = this.lyrics?.lyric[line.index]
+
+        const spanMask = document.createElement('div')
+        spanMask.classList.add('div-mask')
+
+        // if (this._hasWrapped(lineDom)) {
+        //   this.animations.lyric.push({ dom: span, animation, start: line.start, end: line.end })
+        // } else {
+        //   const span = document.createElement('span')
+        //   span.classList.add('span-single-line')
+        //   span.textContent = base.textContent
+        //   spanMask.appendChild(span)
+        //   const keyframes = this._buildAnimation(base, line.start, line.end, lyric?.contentInfo!)
+        //   const effect = new KeyframeEffect(span, keyframes, {
+        //     duration: line.end - line.start,
+        //     easing: 'linear',
+        //     fill: 'forwards'
+        //   })
+        //   const animation = new Animation(effect, document.timeline)
+        //   this.animations.lyric.push({ dom: span, animation, start: line.start, end: line.end })
+        // }
+        const span = document.createElement('span')
+        span.classList.add('span-single-line')
+        span.textContent = base.textContent
+        spanMask.appendChild(span)
+        const keyframes = this._buildAnimation(base, line.start, line.end, lyric?.contentInfo!)
+        const effect = new KeyframeEffect(span, keyframes, {
+          duration: line.end - line.start,
+          easing: 'linear',
+          fill: 'forwards'
+        })
+        const animation = new Animation(effect, document.timeline)
+        this.animations.lyric.push({ dom: span, animation, start: line.start, end: line.end })
+        lineDom.appendChild(spanMask)
+      })
+    } else {
+      //
+    }
+  }
+
+  private _buildAnimation(dom: HTMLElement, start: number, end: number, info: word[]) {
+    const origin = dom.querySelector('span')!
+    const duration = end - start
+
+    const hiddenSpan = document.createElement('span')
+    hiddenSpan.classList.add('hidden')
+    dom.appendChild(hiddenSpan)
+    const keyframes = [] as { width: string; offset: number }[]
+
+    info.forEach((l) => {
+      const span = document.createElement('span')
+      span.textContent = l.word
+      hiddenSpan.appendChild(span)
+      const width = span.offsetLeft / origin.offsetWidth
+      const offset = (l.start - start) / duration
+      keyframes.push({ width: `${width * 100}%`, offset })
+    })
+    dom.removeChild(hiddenSpan)
+    keyframes.push({ width: '100%', offset: 1 })
+    return keyframes
+  }
+
+  private _hasWrapped(dom: HTMLElement) {
+    const range = document.createRange()
+    range.selectNodeContents(dom)
+    const rects = range.getClientRects()
+    return rects.length > 2
   }
 
   /**
@@ -221,7 +310,7 @@ class LyricManager {
    * - 对于mini模式歌词，都只创建一个覆盖一行的animation；
    */
   updateLineIndex(index: number, progress: number) {
-    if (this.lineIdx !== index) this._converseLine(this.lineIdx)
+    // if (this.lineIdx !== index) this._converseLine(this.lineIdx)
     this.lineIdx = index
     this.progress = progress
 
@@ -233,9 +322,9 @@ class LyricManager {
       lyricType.push('rlyric')
     }
     if (this._wByW) {
-      lyricType.forEach((type) => {
-        this._buildActiveLine(this.lineIdx, type)
-      })
+      // lyricType.forEach((type) => {
+      //   this._buildActiveLine(this.lineIdx, type)
+      // })
     }
     // 在桌面歌词的mini模式下，由于不存在换行的情况，直接写成一行
     // 并添加歌词左右滚动动画
@@ -243,7 +332,11 @@ class LyricManager {
       //
     }
 
-    if (this.playing) this.play()
+    const line = this.lyricElements[this.lineIdx]
+    line.dom.scrollIntoView({ behavior: 'smooth', block: 'center' })
+
+    this.animations.lyric[index].dom.style.width = '100%'
+    this.animations.lyric[index].animation.play()
   }
 
   _converseLine(index: number) {
@@ -286,6 +379,7 @@ class LyricManager {
     }
 
     const line = ans[this[map[type]]]
+    console.log('====1====', line)
     if (!line) return
 
     line.dom.style.width = '100%'
@@ -310,7 +404,7 @@ class LyricManager {
     line.dom.scrollIntoView({ block: 'center', behavior: 'smooth' })
     const lyricContainer = line.dom.querySelector(map[type]) as HTMLElement
     if (!contentInfo || !lyricContainer) return
-    const element = lyricContainer.querySelector('.div-base') as HTMLElement
+    const element = lyricContainer.querySelector('.span-base') as HTMLElement
 
     const ws = element.textContent?.split(type === 'tlyric' ? '' : ' ') || []
     const interval = Math.floor((Math.min(end, contentInfo.at(-1)?.end || 0) - start) / ws.length)

@@ -194,7 +194,7 @@ onBeforeUnmount(() => {
 })
 </script>
 
-<style lang="scss">
+<style scoped lang="scss">
 .lyric-wrapper {
   position: relative;
   height: 100vh;

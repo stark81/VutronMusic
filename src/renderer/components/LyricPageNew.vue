@@ -1,6 +1,6 @@
 <template>
   <transition name="slide-fade">
-    <div v-show="!noLyric" :class="{ 'lyric-wrapper': useMask }">
+    <div v-show="!noLyric" class="lyric-wrapper" :class="{ 'use-mask': useMask }">
       <div v-show="hover" class="offset">
         <button-icon title="提前0.5s" @click="setOffset(-0.5)">
           <svg-icon icon-class="back5s" />
@@ -172,8 +172,6 @@ onMounted(() => {
       mode: nTranslationMode.value,
       wByw: isNWordByWord.value,
       line: currentIndex.value.line,
-      // fontIdx: currentIndex.value.word,
-      // tFontIdx: currentIndex.value.tWord,
       progress: seek.value * 1000,
       rate: playbackRate.value
     })
@@ -188,17 +186,16 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped lang="scss">
-// 此处将scoped移出，以避免Windows版本下的offset无法实时预览
 .lyric-wrapper {
   position: relative;
   height: 100vh;
   overflow: hidden;
+  contain: strict;
+}
 
+.use-mask {
   mask-image: linear-gradient(to bottom, transparent, black 25%, black 75%, transparent);
   -webkit-mask-image: linear-gradient(to bottom, transparent, black 25%, black 75%, transparent);
-
-  contain: strict;
-  // will-change: opacity;
 }
 
 .offset {
@@ -235,114 +232,76 @@ onBeforeUnmount(() => {
   &::-webkit-scrollbar {
     width: 0px;
   }
-}
 
-:deep(.line) {
-  border-radius: 12px;
-  margin: 2px 0;
-  user-select: none;
-  padding: 12px;
-  font-weight: 600;
-  text-align: v-bind(textAlign);
-  transition: 0.5s;
-  .lyric-line {
-    contain: layout style;
-    position: relative;
-    transform-origin: v-bind(transformOrigin);
-    transform: scale(0.95);
-    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    font-size: v-bind('`${nFontSize}px`');
-    overflow-wrap: break-word;
-    color: v-bind('`${unplayColor}`');
-  }
+  :deep(.line) {
+    border-radius: 12px;
+    margin: 2px 0;
+    user-select: none;
+    padding: 12px;
+    font-weight: 600;
+    text-align: v-bind(textAlign);
+    transition: 0.5s;
+    .lyric-line {
+      contain: layout style;
+      position: relative;
+      transform-origin: v-bind(transformOrigin);
+      transform: scale(0.95);
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      font-size: v-bind('`${nFontSize}px`');
+      overflow-wrap: break-word;
 
-  .translation {
-    contain: layout style;
-    position: relative;
-    transform-origin: v-bind(transformOrigin);
-    transform: scale(0.95);
-    font-size: v-bind('`${nFontSize - 2}px`');
-    overflow-wrap: break-word;
-    color: v-bind('`${unplayColor}`');
-    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  }
+      .div-base {
+        color: v-bind('`${unplayColor}`');
+        position: relative;
 
-  &:hover {
-    background: var(--color-secondary-bg-for-transparent);
-  }
+        .hidden {
+          position: absolute;
+          left: 0;
+          top: 0;
+          opacity: 0;
+        }
+      }
 
-  &:first-child {
-    margin-top: 40vh;
-  }
-
-  &:last-child {
-    margin-bottom: 40vh;
-  }
-}
-
-:deep(.line) {
-  .lyric-line {
-    .single-word {
-      display: inline-block;
-      white-space: pre;
-
-      .span-progress {
+      .div-mask {
+        display: flex;
+        flex-direction: column;
         position: absolute;
-        top: 0;
         left: 0;
-        color: var(--color-wbw-text-played);
+        top: 0;
+        bottom: 0;
         overflow: hidden;
+        mix-blend-mode: lighten;
+
+        .span-single-line {
+          width: 0%;
+          will-change: width;
+          overflow: hidden;
+          white-space: nowrap;
+        }
       }
     }
-  }
-  .translation {
-    .single-word {
-      display: inline-block;
-      white-space: pre;
 
-      .span-progress {
-        position: absolute;
-        top: 0;
-        left: 0;
-        color: var(--color-wbw-text-played);
-        overflow: hidden;
-      }
+    .translation {
+      contain: layout style;
+      position: relative;
+      transform-origin: v-bind(transformOrigin);
+      transform: scale(0.95);
+      font-size: v-bind('`${nFontSize - 2}px`');
+      overflow-wrap: break-word;
+      color: v-bind('`${unplayColor}`');
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     }
-  }
-}
 
-:deep(.line-mode.active) {
-  .lyric-line {
-    transform: scale(1);
-    span {
-      background-color: var(--color-wbw-text-played);
+    &:hover {
+      background: var(--color-secondary-bg-for-transparent);
     }
-  }
-  .translation {
-    transform: scale(1);
-    span {
-      background-color: var(--color-wbw-text);
-    }
-  }
-}
 
-:deep(.word-mode.active) {
-  .lyric-line {
-    transform: scale(1);
-    span {
-      // will-change: background-size;
-      background-image: -webkit-linear-gradient(
-        top,
-        var(--color-wbw-text-played),
-        var(--color-wbw-text-played)
-      );
+    &:first-child {
+      margin-top: 40vh;
     }
-  }
-  .translation {
-    transform: scale(1);
-    span {
-      // will-change: background-size;
-      background-image: -webkit-linear-gradient(top, var(--color-wbw-text), var(--color-wbw-text));
+
+    &:last-child {
+      margin-bottom: 40vh;
     }
   }
 }
