@@ -11,8 +11,8 @@ interface word {
 
 interface lyrics {
   lyric: { start: number; end: number; content: string; contentInfo?: word[] }[]
-  tlyric: { start: number; content: string }[]
-  rlyric: { start: number; content: string }[]
+  tlyric: { start: number; content: string; end?: number; contentInfo?: word[] }[]
+  rlyric: { start: number; content: string; end?: number; contentInfo?: word[] }[]
 }
 
 interface params {
@@ -324,15 +324,25 @@ export class LyricManager {
         if (sameLyric) {
           const translation = document.createElement('div')
           translation.classList.add('translation')
-          const words = sameLyric.content.split(this.mode === 'tlyric' ? '' : ' ')
-          const interval = (end - start) / words.length
+          const strings = sameLyric.content.split(this.mode === 'tlyric' ? '' : ' ')
+          const interval = (end - start) / strings.length
+
+          const words =
+            sameLyric.contentInfo ??
+            strings.map((s, id) => ({
+              word: s,
+              start: start + interval * id,
+              end: start + interval * id + interval
+            }))
+
           words.forEach((w, idx) => {
             const span = document.createElement('span')
-            span.textContent = this.mode === 'tlyric' ? w : `${w || ' '} `
+            span.textContent = this.mode === 'tlyric' ? w.word : `${w.word || ' '} `
             span.style.backgroundSize = '0 100%'
             translation.appendChild(span)
 
-            const animation = createAnimation(span, interval)
+            const duration = w.end - w.start
+            const animation = createAnimation(span, duration)
             animation.playbackRate = this.rate
             this.animations.translation.push({
               dom: span,

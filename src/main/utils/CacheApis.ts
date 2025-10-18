@@ -19,6 +19,7 @@ export enum CacheAPIs {
   ArtistSongs = 'artist/songs',
   ListenedRecords = 'user/record',
   Unblock = 'unblock',
+  TopSong = 'top/song',
   searchMatch = 'search/match',
   loginStatus = 'login/status',
   recommendTracks = 'recommend/songs',

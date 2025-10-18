@@ -406,6 +406,10 @@ export const handleNeteaseResult = (name: string, result: any) => {
       })
       return result
     }
+    case CacheAPIs.TopSong: {
+      result.data = mapTrackPlayableStatus(result.data)
+      return result
+    }
     default:
       return result
   }

@@ -22,6 +22,7 @@ import { searchMatch, fmTrash, personalFM, songChorus } from '../api/other'
 import { getLyric as getApiLyric, getTrackDetail } from '../api/track'
 import { useI18n } from 'vue-i18n'
 import _ from 'lodash'
+import { extractExpirationFromUrl } from '../utils'
 
 interface biquadType {
   31: number
@@ -48,7 +49,7 @@ interface word {
 
 interface lyrics {
   lyric: { start: number; end: number; content: string; contentInfo?: word[] }[]
-  tlyric: { start: number; end: number; content: string }[]
+  tlyric: { start: number; end: number; content: string; contentInfo?: word[] }[]
   rlyric: { start: number; end: number; content: string }[]
 }
 
@@ -347,14 +348,19 @@ export const usePlayerStore = defineStore(
             })
             const sameTlyric = lyrics.tlyric.find((t) => t.start === l.start)
             if (sameTlyric && shouldGetTfontIndex.value) {
-              const words = sameTlyric.content.split('') as string[]
-              const interval = (l.end - l.start) / words.length
-              words.forEach((w, i) => {
-                tWord.push({
+              const strings = sameTlyric.content.split('') as string[]
+              const interval = (l.end - l.start) / strings.length
+
+              const words =
+                sameTlyric.contentInfo ??
+                strings.map((s, i) => ({
+                  word: s,
                   start: Math.floor((l.start + i * interval) * 1000),
-                  end: Math.floor((l.start + (i + 1) * interval) * 1000),
-                  word: w
-                })
+                  end: Math.floor((l.start + (i + 1) * interval) * 1000)
+                }))
+
+              words.forEach((w) => {
+                tWord.push(w)
               })
             }
 
@@ -404,6 +410,19 @@ export const usePlayerStore = defineStore(
         (osdLyricStore.show && osdLyricStore.translationMode === 'rlyric')
       )
     })
+
+    // 对于网易云官方的歌曲链接，其有效时间只有 25 分钟，过期后需要重新获取链接
+    const isValidUrl = (url: string) => {
+      if (!currentTrack.value || !audioNodes.audio) return false
+      if (currentTrack.value.source === 'netease') {
+        const expiration = extractExpirationFromUrl(url)
+        if (!expiration) return true
+        const now = new Date()
+        if (now >= expiration) return false
+        return true
+      }
+      return true
+    }
 
     watch(shouldGetTfontIndex, (value) => {
       clearTimeout(timer.tWord)
@@ -930,7 +949,7 @@ export const usePlayerStore = defineStore(
       return getLocalMusic(trackID as number).then(async (track) => {
         if (!track) {
           nextTrackCallback()
-          return
+          return false
         }
         currentTrack.value = track
         await searchMatchForLocal(track!)
@@ -1108,16 +1127,39 @@ export const usePlayerStore = defineStore(
 
     const play = async () => {
       if (!audioNodes.audio) return
-      const arts = currentTrack.value?.artists ?? currentTrack.value?.ar
-      audioNodes.audio.playbackRate = playbackRate.value
-      await audioNodes.audio.play()
-      title.value = `${currentTrack.value?.name} · ${arts[0].name} - VutronMusic`
-      if (!window.env?.isMac) {
-        window.mainApi?.send('updateTooltip', title.value)
+
+      try {
+        if (!isValidUrl(currentTrack.value?.url || '')) {
+          const savedProgress = _progress.value
+          await replaceCurrentTrack(currentTrack.value!.id, false)
+          audioNodes.audio!.src = currentTrack.value!.url!
+          audioNodes.audio!.load()
+          seek.value = savedProgress
+
+          setTimeout(() => {
+            if (!isValidUrl(currentTrack.value?.url || '')) {
+              throw new Error('刷新后 URL 仍然无效')
+            }
+          }, 20)
+        }
+
+        const arts = currentTrack.value?.artists ?? currentTrack.value?.ar
+        audioNodes.audio.playbackRate = playbackRate.value
+
+        await audioNodes.audio.play()
+
+        title.value = `${currentTrack.value?.name} · ${arts[0].name} - VutronMusic`
+        if (!window.env?.isMac) {
+          window.mainApi?.send('updateTooltip', title.value)
+        }
+        document.title = title.value
+
+        const fade = getFadeDuration()
+        await smoothGain(0, volume.value, fade, audioNodes.audio!)
+      } catch (error) {
+        showToast(`歌曲 ${currentTrack.value?.name} 的音乐链接已过期，正在重新获取...`)
+        replaceCurrentTrack(currentTrack.value!.id, true)
       }
-      document.title = title.value
-      const fade = getFadeDuration()
-      await smoothGain(0, volume.value, fade, audioNodes.audio!)
     }
 
     const pause = () => {

@@ -8,7 +8,11 @@ export const lyricParse = (lrc: any) => {
   return {
     lyric:
       parsewBywLrc(lrc?.lrc?.lyric) ?? parseyrc(lrc.yrc?.lyric) ?? parseLyric(lrc.lrc?.lyric) ?? [],
-    tlyric: parseLyric(lrc.ytlrc?.lyric) ?? parseLyric(lrc.tlyric?.lyric) ?? [],
+    tlyric:
+      parsewBywLrc(lrc.tlyric?.lyric) ??
+      parseLyric(lrc.ytlrc?.lyric) ??
+      parseLyric(lrc.tlyric?.lyric) ??
+      [],
     rlyric: parseLyric(lrc.yromalrc?.lyric) ?? parseLyric(lrc.romalrc?.lyric) ?? []
   }
 }

@@ -137,9 +137,14 @@ class TrayLyric {
         width: 0,
         time: value.time * 1000
       }
-      this._lyric?.updateLyric()
+      this._lyric?.updateLyric(!playing.value)
     })
     watch(playing, async (value) => {
+      if (value) {
+        this._lyric?.resume()
+      } else {
+        this._lyric?.pause()
+      }
       this._control?.updateImage(1, value ? pause : play)
       await this._control?.draw()
       this.buildTray()
@@ -172,7 +177,7 @@ class TrayLyric {
         this.getIcons()
         this.getCombineIcon()
         this._lyric!.lyric = currentLyric
-        this._lyric!.updateLyric()
+        this._lyric!.updateLyric(!playing.value)
         await this.drawTray()
         this.buildTray()
       }
@@ -233,7 +238,7 @@ class TouchBarLyric {
         width: 0,
         time: value.time * 1000
       }
-      this._lyric.updateLyric()
+      this._lyric.updateLyric(!playing.value)
     })
     eventBus.on('lyric-draw', () => {
       this.buildTouchBar()

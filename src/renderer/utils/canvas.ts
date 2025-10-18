@@ -74,13 +74,18 @@ export class Lyric extends Canvas {
   private dynamicFrameInterval: number = 33
   private lastRenderX: number = Infinity
 
+  // 新增：暂停相关的状态
+  private isPaused: boolean = true
+  private animationStartTime: number = 0
+  private staticEndTime: number = 0
+
   constructor({ width = 195, height = 22, fontSize = 14 } = {}) {
     super({ width, height, devicePixelRatio: 2 })
     this.fontSize = fontSize
     this.lyric = {
       text: '听你想听的音乐',
       width: 0,
-      time: 0 // 单句歌词的播放时间
+      time: 0
     }
     this.x = 0
     this.timer = null
@@ -98,10 +103,14 @@ export class Lyric extends Canvas {
     this.offscreenCtx.textBaseline = 'middle'
   }
 
-  updateLyric(arg = this.lyric) {
+  updateLyric(isPaused = false, arg = this.lyric) {
     this.clearAllTimes()
     this.x = 0
     this.lastDrawTime = 0
+    this.isPaused = isPaused
+    this.animationStartTime = 0
+    this.staticEndTime = 0
+
     const measureText = this.ctx.measureText(arg.text)
     this.lyric = {
       text: arg.text,
@@ -121,23 +130,78 @@ export class Lyric extends Canvas {
     }
   }
 
+  // 新增：暂停方法
+  pause() {
+    if (!this.isPaused) {
+      this.isPaused = true
+      this.clearAllTimes()
+    }
+  }
+
+  // 新增：恢复方法
+  resume() {
+    if (this.isPaused) {
+      this.isPaused = false
+
+      // 如果歌词需要滚动且已经开始动画
+      if (this.lyric.width > this.canvas.width && this.animationStartTime > 0) {
+        const now = performance.now()
+
+        // 检查是否还在静态显示期间
+        if (now < this.staticEndTime) {
+          // 还在静态期，重新设置静态期结束的定时器
+          const remainingStaticTime = this.staticEndTime - now
+          this.moveTimer = setTimeout(() => {
+            if (!this.isPaused) {
+              this.startTimeoutLoop()
+            }
+          }, remainingStaticTime)
+        } else {
+          // 已经在滚动期间，直接恢复滚动
+          this.startTimeoutLoop()
+        }
+
+        // 重新设置总时长的定时器
+        const totalElapsed = now - this.animationStartTime
+        const remainingTime = this.lyric.time - totalElapsed
+        if (remainingTime > 0) {
+          this.timeoutTimer = setTimeout(() => {
+            if (!this.isPaused) {
+              this.clearAllTimes()
+            }
+          }, remainingTime)
+        }
+      }
+    }
+  }
+
   private startAnimation(staticTime: number) {
+    this.animationStartTime = performance.now()
+    this.staticEndTime = this.animationStartTime + staticTime
     this.draw()
 
     this.moveTimer = setTimeout(() => {
-      this.startTimeoutLoop()
+      if (!this.isPaused) {
+        this.startTimeoutLoop()
+      }
     }, staticTime)
 
     this.timeoutTimer = setTimeout(() => {
-      this.clearAllTimes()
+      if (!this.isPaused) {
+        this.clearAllTimes()
+      }
     }, this.lyric.time)
   }
 
   private startTimeoutLoop() {
+    if (this.isPaused) return
+
     let lastTime = performance.now()
     let accumulatedTime = 0
 
     const animate = () => {
+      if (this.isPaused) return
+
       const currentTime = performance.now()
       const delta = currentTime - lastTime
       lastTime = currentTime
@@ -158,6 +222,8 @@ export class Lyric extends Canvas {
   }
 
   private calculatePosition(delta: number): boolean {
+    if (this.isPaused) return false
+
     const prevX = this.x
     if (-this.x < this.lyric.width - this.canvas.width) {
       this.x -= this.scrollPixelsPerMS * delta * this.devicePixelRatio

@@ -84,7 +84,8 @@ const getImageUrl = (item: any) => {
     }
   }
   const img = item.img1v1Url || item.picUrl || item.coverImgUrl
-  let url = img?.replace('http://', 'https://')
+  let url = img?.replace('size=512', 'size=256')
+  url = url?.replace('http://', 'https://')
   if (url.startsWith('https://')) url += '?param=256y256'
   return url
 }

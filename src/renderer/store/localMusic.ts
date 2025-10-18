@@ -115,7 +115,7 @@ export const useLocalMusicStore = defineStore(
         if (newIDs.length === 0) return resolve(false)
         const idx = tracks.length - 1
         const imgID = tracks[idx]
-        playlist.coverImgUrl = `atom://local-asset?type=pic&id=${imgID}`
+        playlist.coverImgUrl = `atom://local-asset?type=pic&id=${imgID}&size=512`
         playlist.trackIds = [...playlist.trackIds, ...newIDs]
         playlist.trackCount = playlist.trackIds.length
         window.mainApi?.invoke('upsertLocalPlaylist', toRaw(playlist))

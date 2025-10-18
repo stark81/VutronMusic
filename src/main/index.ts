@@ -619,7 +619,24 @@ class BackGround {
       } else if (host === 'get-online-music') {
         const url = pathname.slice(1)
         const headers = request.headers
-        return fetch(url, { headers })
+        try {
+          const response = await fetch(url, { headers })
+          if (!response.ok) {
+            return new Response(null, {
+              status: response.status,
+              statusText: response.statusText,
+              headers: {
+                'Content-Type': 'text/plain'
+              }
+            })
+          }
+          return response
+        } catch (error) {
+          return new Response(null, {
+            status: 500,
+            statusText: 'Internal Server Error'
+          })
+        }
       }
     })
   }
