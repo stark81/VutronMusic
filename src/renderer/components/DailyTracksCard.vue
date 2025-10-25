@@ -18,7 +18,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onActivated } from 'vue'
 import SvgIcon from './SvgIcon.vue'
 import { useRouter } from 'vue-router'
 import { useNormalStateStore } from '../store/state'
@@ -70,10 +70,8 @@ const loadDailyTracks = () => {
   })
 }
 
-onMounted(() => {
-  if (dailyTracks.value.length === 0) {
-    loadDailyTracks()
-  }
+onActivated(() => {
+  loadDailyTracks()
 })
 </script>
 

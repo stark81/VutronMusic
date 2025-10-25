@@ -43,7 +43,7 @@
   </div>
   <ContextMenu ref="trackListMenuRef" @close-menu="closeMenu">
     <div v-show="type !== 'cloudDisk'" class="item-info">
-      <img :src="image" loading="lazy" />
+      <img v-if="image" :src="image" loading="lazy" />
       <div class="info">
         <div class="title">{{ rightClickedTrackComputed.name }}</div>
         <div class="subtitle">{{ rightClickedTrackComputed.artists[0].name }}</div>
@@ -227,7 +227,7 @@ const image = computed(() => {
     url =
       rightClickedTrackComputed.value.al?.picUrl || rightClickedTrackComputed.value.album?.picUrl
     if (url && url.startsWith('http')) url = url.replace('http:', 'https:')
-    url += '?param=64y64'
+    if (url) url += '?param=64y64'
     return url
   } else if (rightClickedTrackComputed.value.type === 'stream') {
     url =
