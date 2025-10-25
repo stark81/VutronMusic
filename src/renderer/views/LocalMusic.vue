@@ -165,7 +165,7 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
 import { useNormalStateStore } from '../store/state'
-import { Track, useLocalMusicStore, sortList } from '../store/localMusic'
+import { useLocalMusicStore, sortList } from '../store/localMusic'
 import { usePlayerStore } from '../store/player'
 import {
   computed,
@@ -188,8 +188,9 @@ import SearchBox from '../components/SearchBox.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import AccurateMatchModal from '../components/ModalAccurateMatch.vue'
 import { randomNum } from '../utils/index'
-import { lyricParse, pickedLyric } from '../utils/lyric'
+import { pickedLyric } from '../utils/lyric'
 import { useI18n } from 'vue-i18n'
+import { lyricLine, Track } from '@/types/music.d'
 
 // load
 const localMusicStore = useLocalMusicStore()
@@ -399,19 +400,16 @@ const handleResize = () => {
 const getRandomTrack = async () => {
   const ids = defaultTracks.value.map((t) => t.id)
   let i = 0
-  let data: any
+  let data: lyricLine[]
   let randomId: number
   while (i < ids.length - 1) {
     randomId = ids[randomNum(0, ids.length - 1)]
     data = await getLocalLyric(randomId)
-    if (data.lrc.lyric.length > 0) {
-      const { lyric } = lyricParse(data)
-      const isInstrumental = lyric.filter((l) => l.content?.includes('纯音乐，请欣赏'))
-      if (!isInstrumental.length) {
-        randomLyric.value = lyric
-        randomID.value = randomId
-        break
-      }
+    const isInstrumental = data.map((l) => l.lyric.text).filter((l) => l.includes('纯音乐，请欣赏'))
+    if (!isInstrumental.length) {
+      randomLyric.value = data.map((l) => ({ content: l.lyric.text }))
+      randomID.value = randomId
+      break
     }
     i++
   }
@@ -424,6 +422,10 @@ watch(currentTab, () => {
   nextTick(() => {
     updatePadding(0)
   })
+})
+
+window.mainApi?.on('scanLocalMusicDone', (_: any) => {
+  getRandomTrack()
 })
 
 onMounted(() => {

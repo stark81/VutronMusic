@@ -189,8 +189,8 @@
 <script setup lang="ts">
 import { computed, ref, provide, onMounted } from 'vue'
 import { useDataStore } from '../store/data'
-import { Playlist, useLocalMusicStore, Track } from '../store/localMusic'
-import { useStreamMusicStore, StreamPlaylist, serviceName } from '../store/streamingMusic'
+import { useLocalMusicStore } from '../store/localMusic'
+import { useStreamMusicStore } from '../store/streamingMusic'
 import { useNormalStateStore } from '../store/state'
 import { usePlayerStore } from '../store/player'
 import { storeToRefs } from 'pinia'
@@ -214,6 +214,7 @@ import {
   intelligencePlaylist,
   deletePlaylist
 } from '../api/playlist'
+import { Playlist, Track, StreamPlaylist, serviceName } from '@/types/music.d'
 import _ from 'lodash'
 
 const specialPlaylist = {

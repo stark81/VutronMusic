@@ -31,13 +31,14 @@
 import BaseModal from './BaseModal.vue'
 import SvgIcon from './SvgIcon.vue'
 import { useNormalStateStore } from '../store/state'
-import { useLocalMusicStore, Playlist } from '../store/localMusic'
-import { serviceName, StreamPlaylist, useStreamMusicStore } from '../store/streamingMusic'
+import { useLocalMusicStore } from '../store/localMusic'
+import { useStreamMusicStore } from '../store/streamingMusic'
 import { useDataStore } from '../store/data'
 import { storeToRefs } from 'pinia'
 import { computed, toRaw, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { addOrRemoveTrackFromPlaylist } from '../api/playlist'
+import { serviceName, StreamPlaylist, Playlist } from '@/types/music.d'
 
 const { t } = useI18n()
 

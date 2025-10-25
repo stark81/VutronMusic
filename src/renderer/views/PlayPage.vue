@@ -38,11 +38,12 @@ import PlayerThemeModal from '../components/ModalPlayerTheme.vue'
 import PlayerFontModal from '../components/ModalPlayerFont.vue'
 import CommonPlayer from '../components/CommonPlayer.vue'
 import LottiePlayer from '../components/CreativePlayer.vue'
-import { TrackType, useNormalStateStore } from '../store/state'
+import { useNormalStateStore } from '../store/state'
 import { useSettingsStore } from '../store/settings'
 import { usePlayerStore } from '../store/player'
 import { storeToRefs } from 'pinia'
 import { ref, watch, provide, computed } from 'vue'
+import { TrackSourceType } from '@/types/music.d'
 
 const playPageContextMenu = ref<InstanceType<typeof ContextMenu>>()
 const show = ref('lyric')
@@ -75,8 +76,8 @@ const addTrackToPlaylist = () => {
     selectedTrackID: [currentTrack.value.id],
     type:
       currentTrack.value.type === 'stream'
-        ? (currentTrack.value.source as TrackType)
-        : (currentTrack.value.type as TrackType)
+        ? (currentTrack.value.source as TrackSourceType)
+        : (currentTrack.value.type as TrackSourceType)
   }
 }
 

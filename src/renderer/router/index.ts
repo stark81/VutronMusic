@@ -1,7 +1,6 @@
 import {
   LocalMusicScreen,
   SystemSettings,
-  ErrorScreen,
   LoginAccount,
   LibraryMusic,
   AlbumPage,
@@ -113,14 +112,6 @@ const routes = [
     component: DailyTracks,
     meta: {
       requireLogin: true
-    }
-  },
-  {
-    path: '/error',
-    name: 'error',
-    component: ErrorScreen,
-    meta: {
-      titleKey: 'title.error'
     }
   },
   {

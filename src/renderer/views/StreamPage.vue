@@ -169,7 +169,7 @@
 <script setup lang="ts">
 import { ref, onMounted, inject, computed, provide, watch, shallowRef, onBeforeUnmount } from 'vue'
 import { storeToRefs } from 'pinia'
-import { serviceName, useStreamMusicStore } from '../store/streamingMusic'
+import { useStreamMusicStore } from '../store/streamingMusic'
 import { useNormalStateStore } from '../store/state'
 import { useRouter } from 'vue-router'
 import InfoBG from '../components/InfoBG.vue'
@@ -182,8 +182,8 @@ import CoverRow from '../components/VirtualCoverRow.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import { useI18n } from 'vue-i18n'
 import { randomNum } from '../utils'
-import { lyricParse, pickedLyric } from '../utils/lyric'
-import { Track } from '../store/localMusic'
+import { pickedLyric } from '../utils/lyric'
+import { Track, lyricLine, serviceName } from '@/types/music.d'
 import _ from 'lodash'
 
 const stateStore = useNormalStateStore()
@@ -365,16 +365,17 @@ const openAddPlaylistModal = () => {
 
 const getRandomTrack = async () => {
   let i = 0
-  let data: any
+  let data: lyricLine[]
   let randomT: Track
   while (i < likedTracks.value.length - 1) {
     randomT = likedTracks.value[randomNum(0, likedTracks.value.length - 1)]
     data = await getStreamLyric(randomT)
-    if (Array.isArray(data) || data.lrc.lyric.length > 0) {
-      const { lyric } = lyricParse(data)
-      const isInstrumental = lyric.filter((l) => l.content?.includes('纯音乐，请欣赏'))
+    if (data.length > 0) {
+      const isInstrumental = data
+        .map((lien) => lien.lyric)
+        .filter((l) => l.text.includes('纯音乐，请欣赏'))
       if (!isInstrumental.length) {
-        randomLyric.value = lyric
+        randomLyric.value = data.map((l) => ({ content: l.lyric.text }))
         randomTrack.value = randomT
         break
       }

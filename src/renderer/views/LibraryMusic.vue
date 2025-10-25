@@ -113,6 +113,7 @@
             sub-text="creator"
             :colunm-number="5"
             :is-end="true"
+            :padding-bottom="96"
           />
         </div>
 
@@ -123,6 +124,7 @@
             sub-text="artist"
             :colunm-number="5"
             :is-end="true"
+            :padding-bottom="96"
           />
         </div>
 
@@ -138,6 +140,7 @@
             :item-height="230"
             :colunm-number="5"
             :is-end="true"
+            :padding-bottom="96"
           />
         </div>
 
@@ -256,7 +259,7 @@ const pickedLyricLines = computed(() => {
 const winHeight = ref(window.innerHeight)
 
 const historyHeight = computed(() => {
-  const height = winHeight.value - 72 - (hasCustomTitleBar.value ? 84 : 64)
+  const height = winHeight.value - 42 - (hasCustomTitleBar.value ? 84 : 64)
   return height
 })
 
@@ -356,7 +359,7 @@ const openAddPlaylistModal = () => {
 const updateCurrentTab = (tab: string) => {
   currentTab.value = tab
   nextTick(() => {
-    updatePadding(32)
+    updatePadding(0)
   })
 }
 
@@ -405,17 +408,17 @@ const handleResize = () => {
 
 onMounted(() => {
   window.addEventListener('resize', handleResize)
+  if (tabsRowRef.value) {
+    observeTab.observe(tabsRowRef.value)
+  }
   setTimeout(() => {
     if (!show.value) tricklingProgress.start()
   }, 1000)
   loadData()
   dailyTask()
   setTimeout(() => {
-    updatePadding(32)
+    updatePadding(0)
   }, 100)
-  if (tabsRowRef.value) {
-    observeTab.observe(tabsRowRef.value)
-  }
 })
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)

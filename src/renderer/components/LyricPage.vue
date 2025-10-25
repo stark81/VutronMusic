@@ -12,31 +12,45 @@
           <svg-icon icon-class="forward5s" />
         </button-icon>
       </div>
-      <div ref="lyricContainer" class="main-lyric-container" :class="{ isZoom }" />
+      <div
+        ref="lyricContainer"
+        class="main-lyric-container"
+        :class="{ 'is-zoom': isZoom, 'line-mode': lineMode }"
+        @wheel="handleWheel"
+      >
+        <div
+          v-for="(lyric, index) in lyrics"
+          :id="`lyric${index}`"
+          :key="index"
+          class="lyric"
+          :class="{ active: index === highlight }"
+          @click="seek = lyric.start - lyricOffset"
+        >
+          <LyricLine
+            ref="lyricRefs"
+            :item="lyric"
+            :idx="index"
+            :current-index="currentIndex"
+            :translation-mode="nTranslationMode"
+            :playing="playing"
+            :is-word-by-word="!lineMode"
+            :playback-rate="playbackRate"
+          />
+        </div>
+      </div>
     </div>
   </transition>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, toRefs, onBeforeUnmount } from 'vue'
+import { computed, nextTick, onMounted, ref, toRefs, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
 import { useNormalStateStore } from '../store/state'
 import { useSettingsStore } from '../store/settings'
 import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
-import eventBus from '../utils/eventBus'
-import {
-  initLyric,
-  setLyrics,
-  updatePlayStatus,
-  destroyController,
-  updateLineIndex,
-  updateFontIndex,
-  updateTFontIndex,
-  updateMode,
-  updateRate
-} from '../utils/lyricController'
+import LyricLine from './LyricLine.vue'
 
 const props = defineProps({
   hover: { type: Boolean, default: false },
@@ -47,17 +61,30 @@ const props = defineProps({
 })
 
 const playerStore = usePlayerStore()
-const { noLyric, currentTrack, lyrics, seek, playing, currentIndex, lyricOffset, playbackRate } =
-  storeToRefs(playerStore)
+const {
+  noLyric,
+  currentTrack,
+  lyrics,
+  playing,
+  currentIndex,
+  playbackRate,
+  seek,
+  lyricOffset,
+  progress
+} = storeToRefs(playerStore)
 
 const stateStore = useNormalStateStore()
 const { showToast } = stateStore
 
 const settingsStore = useSettingsStore()
 const { normalLyric } = storeToRefs(settingsStore)
-const { nFontSize, nTranslationMode, isNWordByWord, useMask, isZoom } = toRefs(normalLyric.value)
+const { nFontSize, useMask, nTranslationMode, isNWordByWord, isZoom } = toRefs(normalLyric.value)
 
-const lyricContainer = ref<HTMLElement>()
+const lineMode = computed(() => {
+  return !isNWordByWord.value || lyrics.value.every((line) => !line.lyric?.info)
+})
+
+const highlight = computed(() => Math.min(currentIndex.value, lyrics.value.length - 1))
 
 const offset = computed(() => {
   const lrcOffset = currentTrack.value!.offset || 0
@@ -76,9 +103,10 @@ const map = {
   end: 'right'
 }
 
-const transformOrigin = computed(() => {
-  return `center ${map[props.textAlign]}`
-})
+const transformOrigin = computed(() => `center ${map[props.textAlign]}`)
+const lyricRefs = ref<InstanceType<typeof LyricLine>[]>([])
+const isWheeling = ref(false)
+let scrollingTimer: any = null
 
 const setOffset = (offset: number) => {
   if (!currentTrack.value!.offset) {
@@ -103,98 +131,155 @@ const setOffset = (offset: number) => {
   )
 }
 
-watch(
-  lyrics,
-  (value) => {
-    if (!value.lyric.length) return
-    setTimeout(() => {
-      setLyrics(value)
-    }, 50)
-  },
-  { immediate: true, deep: true }
-)
+const scheduleAnimation = async (type: 'all' | 'translation' = 'all') => {
+  if (!lyricRefs.value?.length) return
+
+  const BATCH_SIZE = 3
+  const BATCH_DELAY_MS = 50
+
+  for (let index = 0; index < lyrics.value.length; index++) {
+    const instance = lyricRefs.value[index]
+    if (!instance) continue
+    const idx =
+      index +
+      (index < Math.min(currentIndex.value, lyrics.value.length - 1) ? lyrics.value.length : 0)
+    const diff = idx - currentIndex.value
+    const delayMs = Math.floor(diff / BATCH_SIZE) * BATCH_DELAY_MS
+
+    if (delayMs > 0) {
+      setTimeout(() => {
+        instance?.createAnimations(type)
+      }, delayMs)
+    } else {
+      await instance.createAnimations(type)
+    }
+
+    if (index === highlight.value) {
+      const currentTime = (seek.value + lyricOffset.value) * 1000
+      instance.updateCurrentTime(currentTime)
+      let op: 'play' | 'pause' | 'finish' | 'reset' = playing.value ? 'play' : 'pause'
+      if (currentTime >= lyrics.value[index].end * 1000) op = 'finish'
+      instance.updatePlayStatus(op)
+    }
+  }
+}
+
+const clearAnimations = (clearAll = true) => {
+  lyricRefs.value.forEach((instance) => {
+    instance.clearAnimation(clearAll)
+  })
+}
+
+const handleWheel = () => {
+  clearTimeout(scrollingTimer)
+
+  if (!isWheeling.value) isWheeling.value = true
+  const idx = Math.max(0, highlight.value)
+
+  scrollingTimer = setTimeout(
+    () => {
+      isWheeling.value = false
+      const idx = Math.max(0, highlight.value)
+      const line = document.getElementById(`lyric${idx}`)
+      line?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    },
+    playing.value
+      ? Math.min(300, (lyrics.value[idx]?.end - lyrics.value[idx]?.start) * 1000 * 0.4)
+      : 1500
+  )
+}
 
 watch(playing, (value) => {
-  updatePlayStatus(value)
-})
-
-watch(
-  () => currentIndex.value.line,
-  (value) => {
-    updateLineIndex(value)
-  }
-)
-
-watch(
-  () => currentIndex.value.word,
-  (value) => {
-    updateFontIndex(value)
-  }
-)
-
-watch(
-  () => currentIndex.value.tWord,
-  (value) => {
-    updateTFontIndex(value)
-  }
-)
-
-watch(
-  () => currentIndex.value.rWord,
-  (value) => {
-    updateTFontIndex(value)
-  }
-)
-
-watch(nTranslationMode, (value) => {
-  updateMode({
-    mode: value,
-    currentTime: seek.value * 1000,
-    line: currentIndex.value.line,
-    fontIndex: currentIndex.value.word,
-    tFontIndex: currentIndex.value.tWord
-  })
-})
-
-watch(seek, (value) => {
-  eventBus.emit('update-process', value)
+  const instance = lyricRefs.value[highlight.value]
+  if (!instance) return
+  const currentTime = (seek.value + lyricOffset.value) * 1000
+  let op: 'play' | 'pause' | 'finish' | 'reset' = value ? 'play' : 'pause'
+  if (currentTime >= lyrics.value[highlight.value].end * 1000) op = 'finish'
+  instance.updatePlayStatus(op)
 })
 
 watch(playbackRate, (value) => {
-  updateRate(value)
+  lyricRefs.value?.forEach((instance) => {
+    instance.updatePlaybackRate(value)
+  })
 })
 
-// @ts-ignore
-eventBus.on('updateSeek', (start: number) => {
-  seek.value = start - lyricOffset.value
+watch(lyrics, async () => {
+  clearAnimations()
+  await nextTick()
+  scheduleAnimation()
 })
 
-onMounted(() => {
-  if (!currentTrack.value) return
-
-  if (lyricContainer.value) {
-    initLyric({
-      container: lyricContainer.value,
-      playing: playing.value,
-      mode: nTranslationMode.value,
-      wByw: isNWordByWord.value,
-      line: currentIndex.value.line,
-      fontIdx: currentIndex.value.word,
-      tFontIdx: currentIndex.value.tWord,
-      currentTime: seek.value * 1000,
-      rate: playbackRate.value
-    })
-  }
+watch(nTranslationMode, async () => {
+  clearAnimations(false)
+  await nextTick()
+  scheduleAnimation('translation')
+  const idx = Math.max(0, highlight.value)
+  const el = document.getElementById(`lyric${idx}`)
+  el?.scrollIntoView({ behavior: 'instant', block: 'center' })
 })
 
-onBeforeUnmount(() => {
-  eventBus.off('update-process')
-  eventBus.off('updateSeek')
-  destroyController()
+watch(
+  () => [progress.value, lyricOffset.value, highlight.value],
+  async (value, oldValue) => {
+    await nextTick()
+    if (!lyricRefs.value.length) return
+    if ((oldValue && value[2] !== oldValue[2]) || !oldValue) {
+      if (!isWheeling.value) {
+        const idx = Math.max(0, value[2])
+        const el = document.getElementById(`lyric${idx}`)
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+
+      const old = !oldValue ? -1 : oldValue[2]
+      const start = Math.min(old, value[2])
+      const end = Math.max(old, value[2]) + 1
+
+      for (let i = start; i < end; i++) {
+        if (i < value[2]) {
+          const instance = lyricRefs.value[i]
+          instance?.updatePlayStatus('finish')
+        } else if (i === value[2]) {
+          const instance = lyricRefs.value[i]
+          const currentTime = (seek.value + value[1]) * 1000
+          instance?.updateCurrentTime(currentTime)
+          let op: 'play' | 'pause' | 'finish' | 'reset' = playing.value ? 'play' : 'pause'
+          if (currentTime >= (lyrics.value[i]?.end || 0) * 1000) op = 'finish'
+          instance?.updatePlayStatus(op)
+        } else {
+          const instance = lyricRefs.value[i]
+          instance?.updatePlayStatus('reset')
+        }
+      }
+    } else if (oldValue && value[0] !== oldValue[0]) {
+      const instance = lyricRefs.value[highlight.value]
+      const currentTime = (seek.value + lyricOffset.value) * 1000
+      instance?.updateCurrentTime(currentTime)
+      let op: 'play' | 'pause' | 'finish' | 'reset' = playing.value ? 'play' : 'pause'
+      if (currentTime >= (lyrics.value[highlight.value]?.end || 0) * 1000) op = 'finish'
+      instance?.updatePlayStatus(op)
+    } else if (oldValue && value[1] !== oldValue[1]) {
+      const instance = lyricRefs.value[highlight.value]
+      const deltaTime = (value[1] - oldValue[1]) * 1000
+      instance?.adjustCurrentTimeByDelta(deltaTime)
+      let op: 'play' | 'pause' | 'finish' | 'reset' = playing.value ? 'play' : 'pause'
+      const currentTime = (value[1] + seek.value) * 1000
+      if (currentTime >= (lyrics.value[highlight.value]?.end || 0) * 1000) op = 'finish'
+      instance?.updatePlayStatus(op)
+    }
+  },
+  { immediate: true }
+)
+
+onMounted(async () => {
+  scheduleAnimation()
+  const idx = Math.max(0, highlight.value)
+  const el = document.getElementById(`lyric${idx}`)
+  el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 })
 </script>
 
-<style lang="scss">
+<style scoped lang="scss">
 .lyric-wrapper {
   position: relative;
   height: 100vh;
@@ -236,104 +321,112 @@ onBeforeUnmount(() => {
   scrollbar-width: none;
   position: relative;
   margin: 0 auto;
-  contain: content;
+  contain: strict;
 
   &::-webkit-scrollbar {
     width: 0px;
   }
-}
 
-.isZoom .line {
-  .lyric-line,
-  .translation {
-    transform: scale(0.95);
-    transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  :deep(.lyric) {
+    border-radius: 12px;
+    margin: 2px 0;
+    user-select: none;
+    padding: 12px;
+    font-weight: 600;
+
+    &:hover {
+      background: var(--color-secondary-bg-for-transparent);
+    }
+
+    &.active {
+      .lyric-line span,
+      .translation span {
+        will-change: background-position;
+      }
+    }
+
+    &:not(.active) {
+      .lyric-line span,
+      .translation span {
+        background-position: 100% 0% !important;
+      }
+    }
+
+    .lyric-line {
+      text-align: v-bind(textAlign);
+      transform-origin: v-bind(transformOrigin);
+
+      transform: scale(0.95);
+      transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      span {
+        font-size: v-bind('`${nFontSize}px`');
+        background: linear-gradient(
+          to right,
+          var(--color-wbw-text-played) 50%,
+          v-bind('`${unplayColor}`') 50%
+        );
+        background-clip: text;
+        color: transparent;
+        background-size: 200% 100%;
+        background-position: 100% 0%;
+        overflow-wrap: break-word;
+      }
+    }
+
+    .translation {
+      text-align: v-bind(textAlign);
+      transform-origin: v-bind(transformOrigin);
+
+      transform: scale(0.95);
+      span {
+        font-size: v-bind('`${nFontSize - 2}px`');
+        background: linear-gradient(
+          to right,
+          var(--color-wbw-text) 50%,
+          v-bind('`${unplayColor}`') 50%
+        );
+        background-clip: text;
+        color: transparent;
+        background-size: 200% 100%;
+        background-position: 100% 0%;
+        overflow-wrap: break-word;
+      }
+    }
   }
 
-  &.active {
+  :deep(.lyric:first-of-type) {
+    margin-top: 40vh !important;
+  }
+
+  :deep(.lyric:last-child) {
+    margin-bottom: 40vh;
+  }
+}
+
+.main-lyric-container.is-zoom {
+  :deep(.lyric.active) {
     .lyric-line {
       transform: scale(1);
     }
   }
 }
 
-.line {
-  border-radius: 12px;
-  margin: 2px 0;
-  user-select: none;
-  padding: 12px;
-  font-weight: 600;
-  text-align: v-bind(textAlign);
-  .lyric-line,
-  .translation {
-    transform-origin: v-bind(transformOrigin);
-  }
-
-  &:hover {
-    background: var(--color-secondary-bg-for-transparent);
-  }
-
-  &:first-child {
-    margin-top: 40vh;
-  }
-
-  &:last-child {
-    margin-bottom: 40vh;
-  }
-}
-
-.line {
-  .lyric-line span {
-    font-size: v-bind('`${nFontSize}px`');
-    background-repeat: no-repeat;
-    background-color: v-bind('`${unplayColor}`');
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    background-image: -webkit-linear-gradient(
-      top,
-      var(--color-wbw-text-played),
-      var(--color-wbw-text-played)
-    );
-    background-size: 0 100%;
-    overflow-wrap: break-word;
-  }
-  .translation span {
-    font-size: v-bind('`${nFontSize - 2}px`');
-    background-repeat: no-repeat;
-    background-color: v-bind('`${unplayColor}`');
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    background-image: -webkit-linear-gradient(top, var(--color-wbw-text), var(--color-wbw-text));
-    background-size: 0 100%;
-    overflow-wrap: break-word;
-  }
-}
-
-.line-mode.active {
-  .lyric-line span {
-    background-color: var(--color-wbw-text-played);
-  }
-  .translation span {
-    background-color: var(--color-wbw-text);
-  }
-}
-
-.word-mode.played {
-  .lyric-line span {
-    background-size: 0 100% !important;
-  }
-  .translation span {
-    background-size: 0 100% !important;
+.main-lyric-container.line-mode {
+  :deep(.lyric.active) {
+    .lyric-line span,
+    .translation span {
+      background-position: 0% 0% !important;
+    }
   }
 }
 
 @media (max-aspect-ratio: 10/9) {
   .main-lyric-container {
     width: 100%;
-    .line {
-      text-align: center;
+    :deep(.lyric) {
       .lyric-line,
       .translation {
+        text-align: center;
         transform-origin: center center;
       }
     }
@@ -350,7 +443,6 @@ onBeforeUnmount(() => {
 
 .slide-fade-enter-from,
 .slide-fade-leave-to {
-  // transform: translateX(25vw);
   opacity: 0;
 }
 </style>

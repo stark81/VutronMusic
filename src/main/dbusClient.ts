@@ -3,7 +3,7 @@ import type { DBusClient } from '@httptoolkit/dbus-native'
 import type { DBusNativeImport } from './dbus'
 import log from './log'
 
-export interface Iface {
+interface Iface {
   UpdateLyric: (lrcObj: string) => void
   LikeThisTrack: (liked: boolean) => void
 }

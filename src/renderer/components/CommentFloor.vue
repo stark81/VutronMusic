@@ -45,8 +45,8 @@
               </div>
               <div class="comment-ex">
                 <div class="time-ip">
-                  <div class="time">{{ formatDate(item.time, 'YYYY年MM月DD日 H:mm') }}</div>
-                  <div v-if="item.ipLocation?.location">来自{{ item.ipLocation.location }}</div>
+                  <span class="time">{{ formatDate(item.time, 'YYYY年MM月DD日 H:mm') }}</span>
+                  <span v-if="item.ipLocation?.location">来自{{ item.ipLocation.location }}</span>
                 </div>
                 <div class="comment-btns">
                   <button
@@ -313,7 +313,7 @@ onBeforeUnmount(() => {
 .comment-head {
   display: flex;
   font-size: 16px;
-  font-weight: bold;
+  font-weight: 600;
   margin-bottom: 20px;
   justify-content: space-between;
   -webkit-user-select: none;
@@ -327,7 +327,7 @@ onBeforeUnmount(() => {
     justify-items: center;
     .btn {
       font-size: 16px;
-      font-weight: bold;
+      font-weight: 600;
       color: var(--color-text);
       padding: 0 10px;
       opacity: 0.5;
@@ -377,7 +377,7 @@ onBeforeUnmount(() => {
 
   .comment-nickname {
     cursor: pointer;
-    font-weight: bold;
+    font-weight: 600;
   }
 }
 .comment-beReplied {
@@ -388,7 +388,7 @@ onBeforeUnmount(() => {
   background-color: rgba(0, 0, 0, 0.1);
 
   .comment-nickname {
-    font-weight: bold;
+    font-weight: 600;
   }
 }
 .comment-ex {
@@ -397,24 +397,19 @@ onBeforeUnmount(() => {
   padding-bottom: 10px;
   width: 100%;
   font-size: 14px;
-  opacity: 0.7;
+  opacity: 0.8;
   text-align: center;
   justify-content: center;
   justify-content: space-between;
 
-  .time-ip {
-    display: flex;
-
-    .time {
-      margin-right: 10px;
-    }
+  .time-ip .time {
+    margin-right: 10px;
   }
   .comment-btns {
     display: flex;
   }
   button {
     display: flex;
-    margin-left: 10px;
     align-items: center;
     color: var(--color-text);
 

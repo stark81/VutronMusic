@@ -202,7 +202,7 @@ import { useStreamMusicStore } from '../store/streamingMusic'
 import { useNormalStateStore } from '../store/state'
 import { storeToRefs } from 'pinia'
 import { gsap } from 'gsap'
-import VueSlider from 'vue-3-slider-component'
+import VueSlider from './VueSlider.vue'
 import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
 import LyricPage from './LyricPage.vue'
@@ -362,8 +362,8 @@ const position = computed({
       seek.value = value
       return
     }
-    const line = lyrics.value.lyric.find((l, index) => {
-      const nextLine = lyrics.value.lyric[index + 1]
+    const line = lyrics.value.find((l, index) => {
+      const nextLine = lyrics.value[index + 1]
       if (nextLine) {
         return nextLine.start > value && l.start <= value
       } else {
@@ -713,7 +713,7 @@ onBeforeUnmount(() => {
   top: 28px;
   left: 15vw;
   right: 15vw;
-  font-weight: bold;
+  font-weight: 600;
   line-height: 50px;
 
   span {
@@ -828,7 +828,7 @@ onBeforeUnmount(() => {
     transform: unset;
   }
 }
-:deep(.player-progress-bar) {
+.player-progress-bar {
   width: 22vw;
   display: flex;
   align-items: center;
@@ -837,12 +837,14 @@ onBeforeUnmount(() => {
   .slider {
     flex: 1;
     padding: 0 10px;
+    contain: content;
   }
 
   .time {
     font-size: 15px;
     font-weight: 600;
     width: 34px;
+    contain: content;
   }
 }
 

@@ -69,6 +69,7 @@
         <TrackList
           :id="album.id"
           :items="item.tracks"
+          :all-items="tracks"
           :item-height="48"
           :colunm-number="1"
           :is-end="false"
@@ -168,7 +169,9 @@ import { isAccountLoggedIn } from '../utils/auth'
 import { storeToRefs } from 'pinia'
 
 const show = ref(false)
-const album = ref<{ [key: string]: any }>({})
+const album = ref<{ artist: { name: string; id: number }; [key: string]: any }>({
+  artist: { name: '', id: 0 }
+})
 const tracks = ref<any[]>([])
 const dynamicDetail = ref<{ [key: string]: any }>({})
 const moreAlbums = ref<any[]>([])

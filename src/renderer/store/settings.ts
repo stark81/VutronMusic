@@ -1,12 +1,11 @@
 import { defineStore } from 'pinia'
-import { ref, reactive, watch, onMounted, toRaw } from 'vue'
+import { ref, reactive, watch, toRaw } from 'vue'
 import DefaultShortcuts from '../utils/shortcuts'
 import { playlistCategories } from '../utils/common'
 import cloneDeep from 'lodash/cloneDeep'
 import { useLocalMusicStore } from './localMusic'
+import { TranslationMode, TrackInfoOrder } from '@/types/music'
 
-export type TranslationMode = 'none' | 'tlyric' | 'rlyric'
-export type TrackInfoOrder = 'path' | 'online' | 'embedded'
 type TextAlign = 'start' | 'center' | 'end'
 type BackgroundEffect = 'none' | 'true' | 'blur' | 'dynamic'
 
@@ -32,6 +31,8 @@ export const useSettingsStore = defineStore(
       scanDir: '',
       replayGain: false,
       useInnerInfoFirst: false,
+      embedCoverArt: 0, // 0: 不嵌入, 1: 内嵌, 2: 歌曲路径下, 3: 两者都嵌入
+      embedStyle: 0, // 0: 跳过，1：覆盖
       trackInfoOrder: ['online', 'path', 'embedded'] as TrackInfoOrder[],
       scanning: false
     })
@@ -48,6 +49,7 @@ export const useSettingsStore = defineStore(
       enabledPlaylistCategories,
       fadeDuration: 0.2, // 音频淡入淡出时长（秒）
       showBanner: true,
+      autoUpdate: true,
       jumpToLyricBegin: true,
       trayColor: 0 // 0: 彩色, 1: 白色, 2: 黑色, 3: 跟随系统
     })
@@ -64,7 +66,6 @@ export const useSettingsStore = defineStore(
     const normalLyric = reactive<{
       nFontSize: number
       isNWordByWord: boolean
-      isTWordByWord: boolean
       nTranslationMode: TranslationMode
       textAlign: TextAlign
       useMask: boolean
@@ -72,7 +73,6 @@ export const useSettingsStore = defineStore(
     }>({
       nFontSize: 28,
       isNWordByWord: true,
-      isTWordByWord: true,
       nTranslationMode: 'tlyric',
       textAlign: 'start',
       useMask: true,
@@ -144,6 +144,20 @@ export const useSettingsStore = defineStore(
     )
 
     watch(
+      () => localMusic.embedCoverArt,
+      (value) => {
+        window.mainApi?.send('setStoreSettings', { embedCoverArt: value })
+      }
+    )
+
+    watch(
+      () => localMusic.embedStyle,
+      (value) => {
+        window.mainApi?.send('setStoreSettings', { embedStyle: value })
+      }
+    )
+
+    watch(
       unblockNeteaseMusic,
       (value) => {
         window.mainApi?.send('setStoreSettings', { unblockNeteaseMusic: cloneDeep(toRaw(value)) })
@@ -176,9 +190,9 @@ export const useSettingsStore = defineStore(
     )
 
     watch(
-      () => tray.showControl || tray.showLyric,
+      () => !(tray.showControl || tray.showLyric),
       (newValue) => {
-        window.mainApi?.send('setStoreSettings', { enableTrayMenu: !newValue })
+        window.mainApi?.send('setStoreSettings', { enableTrayMenu: newValue })
       }
     )
 
@@ -267,29 +281,6 @@ export const useSettingsStore = defineStore(
       }, 5000)
     })
 
-    onMounted(() => {
-      const trayMenu = !(tray.showControl || tray.showLyric)
-      window.mainApi?.send('setStoreSettings', {
-        lang: general.language,
-        enableGlobalShortcut: enableGlobalShortcut.value,
-        shortcuts: toRaw(shortcuts.value),
-        enableTrayMenu: trayMenu,
-        trayColor: general.trayColor,
-        innerFirst: localMusic.useInnerInfoFirst,
-        musicQuality: general.musicQuality,
-        closeAppOption: general.closeAppOption,
-        useCustomTitlebar: general.useCustomTitlebar,
-        trackInfoOrder: toRaw(localMusic.trackInfoOrder),
-        enableAmuseServer: misc.enableAmuseServer
-      })
-      if (window.env?.isWindows) return
-      setInterval(() => {
-        const trayMenu = !(tray.showControl || tray.showLyric)
-        window.mainApi?.send('setStoreSettings', {
-          enableTrayMenu: trayMenu
-        })
-      }, 60000)
-    })
     return {
       theme,
       general,

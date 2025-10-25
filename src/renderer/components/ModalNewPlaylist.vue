@@ -33,10 +33,11 @@ import { computed, ref, toRaw } from 'vue'
 import BaseModal from './BaseModal.vue'
 import { useNormalStateStore } from '../store/state'
 import { useLocalMusicStore } from '../store/localMusic'
-import { serviceName, useStreamMusicStore } from '../store/streamingMusic'
+import { useStreamMusicStore } from '../store/streamingMusic'
 import { useDataStore } from '../store/data'
 import { createPlaylist, addOrRemoveTrackFromPlaylist } from '../api/playlist'
 import { useI18n } from 'vue-i18n'
+import { serviceName } from '@/types/music.d'
 
 const stateStore = useNormalStateStore()
 const { newPlaylistModal } = storeToRefs(stateStore)

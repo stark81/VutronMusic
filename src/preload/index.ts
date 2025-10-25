@@ -26,6 +26,7 @@ const mainAvailChannels: string[] = [
   'updateStreamingAccount',
   'clearCacheTracks',
   'getCacheTracksInfo',
+  'deleteACacheTrack',
   'updateLyricInfo',
   'clearDeletedMusic',
   'minimize',
@@ -49,7 +50,9 @@ const mainAvailChannels: string[] = [
   'update-powersave',
   'openLogFile',
   'updateTooltip',
-  'getFontList'
+  'write-cover',
+  'getFontList',
+  'cacheATrack'
 ]
 const rendererAvailChannels: string[] = [
   'msgHandleScanLocalMusic',
@@ -75,7 +78,8 @@ const rendererAvailChannels: string[] = [
   'download-progress',
   'setPosition',
   'changeRouteTo',
-  'updateAmuseServerStatus'
+  'updateAmuseServerStatus',
+  'receiveCacheInfo'
 ]
 
 let messagePort: MessagePort | null = null

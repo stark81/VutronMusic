@@ -76,9 +76,10 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import SvgIcon from '../components/SvgIcon.vue'
-import { useStreamMusicStore, serviceName } from '../store/streamingMusic'
+import { useStreamMusicStore } from '../store/streamingMusic'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
+import { serviceName } from '@/types/music.d'
 
 const iconWrappers = ref<HTMLElement[]>([])
 const indicatorStyle = ref({ width: '0px', left: '0px' })

@@ -102,6 +102,19 @@
       "online": "從線上獲取",
       "embedded": "從歌曲內嵌資訊中獲取"
     },
+    "embedCoverArt": {
+      "text": "嵌入封面圖片到本地音樂檔案",
+      "desc": "寫入封面時會覆蓋原有的封面圖片",
+      "none": "不嵌入",
+      "embedded": "內嵌",
+      "path": "歌曲路徑下",
+      "both": "兩者都嵌入"
+    },
+    "embedStyle": {
+      "text": "封面圖片已存在時的寫入方式",
+      "ignore": "跳過",
+      "rewrite": "覆蓋"
+    },
     "positionTrack": "定位歌曲"
   },
   "artist": {
@@ -444,6 +457,7 @@
       "offline": "伺服器離線"
     },
     "update": {
+      "autoUpdate": "自動檢查更新",
       "currentVersion": "目前版本",
       "updateCheck": "檢查更新",
       "downloadUpdate": "下載更新",

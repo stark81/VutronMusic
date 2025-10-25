@@ -5,7 +5,12 @@ const baseConfig = {
   productName: 'VutronMusic',
   appId: '',
   asar: true,
-  asarUnpack: ['**/node_modules/sharp/**/*', '**/node_modules/@img/**/*'],
+  asarUnpack: [
+    '**/node_modules/sharp/**/*',
+    '**/node_modules/@img/**/*',
+    'dist/main/workers/*.js',
+    '**/node_modules/taglib-wasm/**/*'
+  ],
   extends: null,
   artifactName: '${productName}-${version}_${os}_${arch}.${ext}',
   directories: {

@@ -8,7 +8,7 @@ const createNativeImage = (name: string) => {
   return nativeImage.createFromPath(
     Constants.IS_DEV_ENV
       ? path.join(process.cwd(), `./src/public/images/touchBar/${name}`)
-      : path.join(__dirname, `../images/touchbar/${name}`) // 此处在于打包后，原来路径里的大写字母被转成了小写字母
+      : path.join(__dirname, `../images/touchbar/${name}`)
   )
 }
 

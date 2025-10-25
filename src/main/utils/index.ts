@@ -1,7 +1,6 @@
 import { app, net } from 'electron'
 import fs from 'fs'
 import path from 'path'
-import crypto from 'crypto'
 import jschardet from 'jschardet'
 import iconv from 'iconv-lite'
 import { fileTypeFromBuffer } from 'file-type'
@@ -9,11 +8,12 @@ import { IAudioMetadata, parseFile } from 'music-metadata'
 import request from '../appServer/request'
 import { CacheAPIs } from './CacheApis'
 import Cache from '../cache'
-import store, { TrackInfoOrder } from '../store'
+import store from '../store'
 
-import { Readable } from 'stream'
 import { db, Tables } from '../db'
 import log from '../log'
+import { Worker } from 'worker_threads'
+import { TrackInfoOrder, lyricLine } from '@/types/music'
 
 export const isFileExist = (file: string) => {
   return fs.existsSync(file)
@@ -61,37 +61,58 @@ export const getLyricFromMetadata = (metadata: IAudioMetadata) => {
   return lyrics
 }
 
-export const parseLyricString = (lyrics: string) => {
-  const extractLrcRegex = /^(?<lyricTimestamps>(?:\[.+?\])+)(?!\[)(?<content>.+)$/gm
+export const parseLyricString = (lyrics: string): lyricLine[] => {
+  if (!lyrics) return []
 
-  const lyricMap = new Map()
+  const extractLrcRegex = /^(?<lyricTimestamps>(?:\[.+?\])+)(?!\[)(?<content>.+)$/gm
   const chineseRegex = /[\u4E00-\u9FFF]/
-  const result = {
-    lrc: { lyric: [] },
-    tlyric: { lyric: [] },
-    romalrc: { lyric: [] },
-    yrc: { lyric: [] },
-    ytlrc: { lyric: [] },
-    yromalrc: { lyric: [] }
-  }
+  const result: lyricLine[] = []
+  const lyricMap = new Map<number, lyricLine[]>()
+  const lrcResult: lyricLine[] = []
 
   for (const line of lyrics.trim().matchAll(extractLrcRegex)) {
-    const { lyricTimestamps, content } = line.groups
-    if (!lyricMap.has(lyricTimestamps)) {
-      lyricMap.set(lyricTimestamps, [])
+    const { content } = line.groups
+    if (/\(\d+,\d+,\d+\)/.test(content)) {
+      const lyric = _parseYrcLine(line)
+      if (!lyricMap.has(lyric.start)) {
+        lyricMap.set(lyric.start, [])
+      }
+      lyricMap.get(lyric.start).push(lyric)
+    } else if (/\[\d{2}:\d{2}\.\d{3}\]/.test(content)) {
+      const lyric = _parseWrcLine(line)
+      if (!lyricMap.has(lyric.start)) {
+        lyricMap.set(lyric.start, [])
+      }
+      lyricMap.get(lyric.start).push(lyric)
+    } else {
+      const _line = _parseLrcLine(line)
+      const lyric = { start: _line.start, end: 0, lyric: { text: _line.cInfo } }
+      lrcResult.push(lyric)
     }
-    lyricMap.get(lyricTimestamps).push(lyricTimestamps + content)
   }
+
+  lrcResult.forEach((line, index) => {
+    const nextLine = lrcResult[index + 1]
+    if (nextLine) line.end = nextLine.start
+
+    if (!lyricMap.has(line.start)) {
+      lyricMap.set(line.start, [])
+    }
+    lyricMap.get(line.start).push(line)
+  })
 
   for (const lyricArray of lyricMap.values()) {
     for (let i = 0; i < lyricArray.length; i++) {
       if (i === 0) {
-        result.lrc.lyric.push(lyricArray[0])
+        result.push(lyricArray[0])
       } else {
-        if (chineseRegex.test(lyricArray[i])) {
-          result.tlyric.lyric.push(lyricArray[i])
-        } else {
-          result.romalrc.lyric.push(lyricArray[i])
+        const line = result.find((item) => item.start === lyricArray[i].start)
+        if (line) {
+          if (chineseRegex.test(lyricArray[i].lyric.text)) {
+            line.tlyric = line.tlyric ?? lyricArray[i].lyric
+          } else {
+            line.rlyric = lyricArray[i].lyric
+          }
         }
       }
     }
@@ -100,14 +121,7 @@ export const parseLyricString = (lyrics: string) => {
 }
 
 const getLyricFromEmbedded = async (filePath: string) => {
-  let result = {
-    lrc: { lyric: [] },
-    tlyric: { lyric: [] },
-    romalrc: { lyric: [] },
-    yrc: { lyric: [] },
-    ytlrc: { lyric: [] },
-    yromalrc: { lyric: [] }
-  }
+  let result: lyricLine[] = []
 
   const metadata = await parseFile(decodeURI(filePath))
 
@@ -120,55 +134,12 @@ const getLyricFromEmbedded = async (filePath: string) => {
 }
 
 const getLyricFromPath = async (filePath: string) => {
-  let result = {
-    lrc: { lyric: [] },
-    tlyric: { lyric: [] },
-    romalrc: { lyric: [] },
-    yrc: { lyric: [] },
-    ytlrc: { lyric: [] },
-    yromalrc: { lyric: [] }
-  }
+  let result: lyricLine[] = []
   const buffer = await fs.promises.readFile(filePath)
   const detected = jschardet.detect(buffer)
   const lyrics = iconv.decode(buffer, detected.encoding)
   if (lyrics) {
     result = parseLyricString(lyrics)
-  }
-  return result
-}
-
-export const getReplayGainFromMetadata = (metadata: IAudioMetadata) => {
-  if (!metadata) return 0
-  let gain: number = metadata.format.trackGain ?? metadata.common.replaygain_track_gain?.dB ?? 0
-  if (gain) return Number(gain)
-  metadata.native.iTunes?.forEach(({ id, value }) => {
-    if (id.includes('replaygain_track_gain')) {
-      gain = Number(value)
-    }
-  })
-  return gain
-}
-
-export const createMD5 = (filePath: string) => {
-  const hash = crypto.createHash('md5')
-  const data = fs.readFileSync(filePath)
-  hash.update(data)
-  return hash.digest('hex')
-}
-
-export const splitArtist = (artist: string | undefined) => {
-  if (!artist) return ['未知歌手']
-  let result: string[]
-  if (artist.includes('&')) {
-    result = artist.split('&')
-  } else if (artist.includes('、')) {
-    result = artist.split('、')
-  } else if (artist.includes(',')) {
-    result = artist.split(',')
-  } else if (artist.includes('/')) {
-    result = artist.split('/')
-  } else {
-    result = [artist]
   }
   return result
 }
@@ -265,60 +236,26 @@ export const getPicColor = async (pic: Buffer) => {
   }
 }
 
-export const getLyricFromApi = async (
-  id: number
-): Promise<{
-  lrc: { lyric: any[] }
-  tlyric: { lyric: any[] }
-  romalrc: { lyric: any[] }
-  yrc: { lyric: any[] }
-  ytlrc: { lyric: any[] }
-  yromalrc: { lyric: any[] }
-}> => {
-  try {
-    return await request({
-      url: '/lyric/new',
-      method: 'get',
-      params: { id }
-    })
-  } catch {
-    return {
-      lrc: { lyric: [] },
-      tlyric: { lyric: [] },
-      romalrc: { lyric: [] },
-      yrc: { lyric: [] },
-      ytlrc: { lyric: [] },
-      yromalrc: { lyric: [] }
-    }
-  }
+export const getLyricFromApi = async (id: number): Promise<lyricLine[]> => {
+  return await request({
+    url: '/lyric/new',
+    method: 'get',
+    params: { id }
+  }).catch(() => [])
 }
 
 export const getLyric = async (track: {
   id: number
   matched: boolean
   filePath?: string
-}): Promise<{
-  lrc: { lyric: any[] }
-  tlyric: { lyric: any[] }
-  romalrc: { lyric: any[] }
-  yrc: { lyric: any[] }
-  ytlrc: { lyric: any[] }
-  yromalrc: { lyric: any[] }
-}> => {
+}): Promise<lyricLine[]> => {
   const trackInfoOrder = (store.get('settings.trackInfoOrder') as TrackInfoOrder[]) || [
     'path',
     'online',
     'embedded'
   ]
 
-  let lyrics = {
-    lrc: { lyric: [] },
-    tlyric: { lyric: [] },
-    romalrc: { lyric: [] },
-    yrc: { lyric: [] },
-    ytlrc: { lyric: [] },
-    yromalrc: { lyric: [] }
-  }
+  let lyrics: lyricLine[] = null
 
   for (const order of trackInfoOrder) {
     if (order === 'online') {
@@ -337,22 +274,15 @@ export const getLyric = async (track: {
           .then(async () => {
             return await getLyricFromPath(filePath)
           })
-          .catch(() => ({
-            lrc: { lyric: [] },
-            tlyric: { lyric: [] },
-            romalrc: { lyric: [] },
-            yrc: { lyric: [] },
-            ytlrc: { lyric: [] },
-            yromalrc: { lyric: [] }
-          }))
+          .catch(() => [])
       }
     }
-    if (lyrics?.lrc?.lyric?.length) return lyrics
+    if (lyrics.length) return lyrics
   }
   return lyrics
 }
 
-export const handleNeteaseResult = (name: string, result: any) => {
+export const handleNeteaseResult = async (name: string, result: any, localID: null | string) => {
   switch (name) {
     case CacheAPIs.Playlist: {
       if (result.playlist) {
@@ -410,9 +340,195 @@ export const handleNeteaseResult = (name: string, result: any) => {
       result.data = mapTrackPlayableStatus(result.data)
       return result
     }
+    case CacheAPIs.LyricNew: {
+      if (result.yrc?.lyric) {
+        return yrcLyricParse(result)
+      } else if (result.lrc.lyric) {
+        return lrcLyricParse(result)
+      }
+      return result
+    }
     default:
       return result
   }
+}
+
+const _parseYrcLine = (line: RegExpExecArray) => {
+  const timestampRegex = /\[(\d+),(\d+)\]/g
+  const extractTimestampRegex = /\((\d+),(\d+),\d+\)([^(]+)/g
+
+  const { lyricTimestamps, content } = line.groups
+  const startTime = lyricTimestamps.match(timestampRegex)
+  const times = startTime
+    ? startTime.flatMap((match) => {
+        const [, num1, num2] = match.match(/\[(\d+),(\d+)\]/) || []
+        return [Number(num1) / 1000, Number(num2) / 1000]
+      })
+    : []
+  if (times.length === 0) return
+  const matched = content.matchAll(extractTimestampRegex)
+  const info = [...matched].map((match) => {
+    let [, start, duration, word] = match
+    start = Math.max(parseInt(start), 100).toString()
+    return { start: parseInt(start), end: parseInt(start) + parseInt(duration), word }
+  })
+  const text = info.map((item) => item.word).join('')
+  return { start: times[0], end: times[0] + times[1], lyric: { info, text } }
+}
+
+const _parseLrcLine = (line: RegExpExecArray) => {
+  const extractTimestampRegex = /\[(?<min>\d+):(?<sec>\d+)(?:\.|:)*(?<ms>\d+)*\]/g
+
+  const { lyricTimestamps, content } = line.groups
+  let start: number = 0
+
+  const match = extractTimestampRegex.exec(lyricTimestamps)
+  if (match?.groups) {
+    const { min, sec, ms } = match.groups
+    start = Number(min) * 60 + Number(sec) + Number(ms?.padEnd(3, '0') ?? 0) * 0.001
+    start = Number(start.toFixed(3))
+  }
+  const cInfo = content.replace(/\[(\d+):(\d+)(?:\.|:)*(\d+)]/g, '').trim()
+  return { start, cInfo }
+}
+
+const _switchTime = (str: string, regex: RegExp) => {
+  const match = str.matchAll(regex)
+  const [, min, sec, ms] = [...match].flat()
+  return Number(
+    Math.round(
+      (Number(min) * 60 + Number(sec) + Number(ms?.padEnd(3, '0') ?? 0) * 0.001) * 1000
+    ).toFixed(3)
+  )
+}
+
+const _parseWrcLine = (line: RegExpExecArray) => {
+  const regex = /(\[\d{2}:\d{2}\.\d{1,3}\])([^[]*?)(?=(\[\d{2}:\d{2}\.\d{2,3}\]))/g
+  const extractTimestampRegex = /\[(?<min>\d+):(?<sec>\d+)(?:\.|:)*(?<ms>\d+)*\]/g
+
+  const { lyricTimestamps, content } = line.groups
+  const lineText = lyricTimestamps + content
+  const words = lineText.trim().matchAll(regex)
+  const ws = [...words]
+  if (!ws.length) return
+  const info = ws.map((word) => {
+    const start = Math.max(50, _switchTime(word[1], extractTimestampRegex))
+    const end = _switchTime(word[3], extractTimestampRegex)
+    return { start, end, word: word[2] }
+  })
+
+  const start = Number((info[0].start / 1000).toFixed(3))
+  const end = Number((info.at(-1)!.end / 1000).toFixed(3))
+  const text = info.map((item) => item.word).join('')
+  return { start, end, lyric: { info, text } }
+}
+
+export const yrcLyricParse = (data: {
+  yrc: { lyric: string }
+  ytlrc: { lyric: string }
+  yromalrc: { lyric: string }
+}) => {
+  if (!data.yrc?.lyric) return
+  const result: lyricLine[] = []
+  const extractyrcRegex = /^(?<lyricTimestamps>(?:\[.+?\])+)(?!\[)(?<content>.+)$/gm
+
+  const binarySearch = (lyric: Partial<lyricLine>) => {
+    const time = lyric.start!
+
+    let low = 0
+    let high = result.length - 1
+
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2)
+      const midTime = result[mid].start!
+
+      if (midTime === time) return mid
+      else if (midTime < time) low = mid + 1
+      else high = mid - 1
+    }
+    return low
+  }
+
+  for (const line of data.yrc.lyric.trim().matchAll(extractyrcRegex)) {
+    const lyric = _parseYrcLine(line)
+    result.splice(binarySearch(lyric), 0, lyric)
+  }
+
+  const lrcList = ['ytlrc', 'yromalrc'] as const
+  const lrcMap = { ytlrc: ['tlyric', ''], yromalrc: ['rlyric', ' '] }
+  lrcList.forEach((lrc) => {
+    if (data[lrc]) {
+      for (const line of data[lrc]?.lyric.trim().matchAll(extractyrcRegex)) {
+        const { start, cInfo } = _parseLrcLine(line)
+        const matchedLyric = result.find((lyric) => lyric.start === start)
+        if (!matchedLyric) continue
+        const _start = matchedLyric.lyric.info
+          ? matchedLyric.lyric.info[0].start
+          : matchedLyric.start * 1000
+        const end = matchedLyric.lyric.info
+          ? matchedLyric.lyric.info.at(-1).end
+          : matchedLyric.end * 1000
+        const info = [{ start: Math.max(100, _start), end, word: cInfo }]
+        matchedLyric[lrcMap[lrc][0]] = { info, text: cInfo }
+      }
+    }
+  })
+
+  return result
+}
+
+export const lrcLyricParse = (data: {
+  lrc: { lyric: string }
+  tlyric: { lyric: string }
+  romalrc: { lyric: string }
+}) => {
+  const result: lyricLine[] = []
+
+  const extractyrcRegex = /^(?<lyricTimestamps>(?:\[.+?\])+)(?!\[)(?<content>.+)$/gm
+
+  const binarySearch = (lyric: Partial<lyricLine>) => {
+    const time = lyric.start!
+
+    let low = 0
+    let high = result.length - 1
+
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2)
+      const midTime = result[mid].start!
+
+      if (midTime === time) return mid
+      else if (midTime < time) low = mid + 1
+      else high = mid - 1
+    }
+    return low
+  }
+
+  for (const line of data.lrc.lyric.trim().matchAll(extractyrcRegex)) {
+    const _line = _parseLrcLine(line)
+    const lyric = { start: _line.start, end: 0, lyric: { text: _line.cInfo } }
+    result.splice(binarySearch(lyric), 0, lyric)
+  }
+
+  const lrcList = ['tlyric', 'romalrc']
+  const lrcMap = { tlyric: ['tlyric', ''], romalrc: ['rlyric', ' '] }
+
+  lrcList.forEach((lrc) => {
+    if (data[lrc]) {
+      for (const line of data[lrc]?.lyric.trim().matchAll(extractyrcRegex)) {
+        const { start, cInfo } = _parseLrcLine(line)
+        const matchedLyric = result.find((lyric) => lyric.start === start)
+        if (!matchedLyric) continue
+        matchedLyric[lrcMap[lrc][0]] = { text: cInfo }
+      }
+    }
+  })
+
+  result.forEach((line, index) => {
+    const nextLine = result[index + 1]
+    if (nextLine) line.end = nextLine.start
+  })
+
+  return result
 }
 
 const mapTrackPlayableStatus = (tracks: any[], privileges: any[] = []) => {
@@ -548,46 +664,6 @@ export const getAudioSourceFromUnblock = async (track: any) => {
   return match(track.id, sourceList)
 }
 
-export const cacheOnlineTrack = async (track: any) => {
-  return new Promise<{ filePath: string; size: string }>((resolve) => {
-    fetch(track.url).then((response) => {
-      const typeMap = {
-        'audio/mpeg': 'mp3',
-        'audio/ogg': 'ogg',
-        'audio/wav': 'wav',
-        'audio/flac': 'flac',
-        'audio/x-m4a': 'm4a',
-        'audio/m4a': 'm4a',
-        'audio/aac': 'aac',
-        'audio/mp4': 'mp4'
-      }
-
-      const contentType = response.headers.get('Content-Type')
-      const size = response.headers.get('Content-Length')
-      const audioCachePath = app.getPath('userData') + '/audioCache'
-      if (!fs.existsSync(audioCachePath)) {
-        fs.mkdirSync(audioCachePath)
-      }
-
-      const name = track.name.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
-      const filePath = `${audioCachePath}/${track.id}-${track.br}-${name}.${typeMap[contentType!] || 'mp3'}`
-      resolve({ filePath, size })
-
-      const writeStream = fs.createWriteStream(filePath)
-      const readableStream = response.body
-
-      // @ts-ignore
-      const nodeReadable = Readable.fromWeb(readableStream)
-      nodeReadable.pipe(writeStream)
-
-      writeStream.on('finish', () => {
-        // 检测缓存文件的占用是否大于缓存尺寸，是则清理最开始的数据
-        deleteExcessCache()
-      })
-    })
-  })
-}
-
 export const deleteExcessCache = (deleteAll = false) => {
   const tracks = Cache.get(CacheAPIs.LocalMusic, { sql: "type = 'online'" })
   if (deleteAll) {
@@ -618,25 +694,17 @@ export const deleteExcessCache = (deleteAll = false) => {
   }
 }
 
-export const formatTime = (ms: number) => {
-  const totalSeconds = ms / 1000 // 将毫秒转换为秒
-  const minutes = Math.floor(totalSeconds / 60) // 计算分钟
-  const seconds = totalSeconds - minutes * 60 // 计算剩余的秒数（含小数部分）
-  // 保留一位小数，并确保秒数部分总是两位（比如 "05.0"）
+export const formatTime = (time: number, rate: number = 1000) => {
+  const totalSeconds = time / rate
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds - minutes * 60
   let secondsStr = seconds.toFixed(1)
   if (seconds < 10 && secondsStr.length < 4) {
     secondsStr = '0' + secondsStr
   }
-  // 格式化分钟，确保两位
+
   const minutesStr = String(minutes).padStart(2, '0')
   return `[${minutesStr}:${secondsStr}]`
-}
-
-export const getFileName = (filePath: string) => {
-  const fileExt = path.extname(filePath)
-  const fileNameWithExt = path.basename(filePath)
-  const fileName = fileNameWithExt.replace(fileExt, '')
-  return fileName
 }
 
 export const cleanFontName = (fontName: string) => {
@@ -645,4 +713,14 @@ export const cleanFontName = (fontName: string) => {
     .replace(/^['"]|['"]$/g, '')
     .replace(/\s+/g, ' ')
     .replace(/^\./, '')
+}
+
+export const createWorker = (name: string) => {
+  const workerPath = path.join(__dirname, `workers/${name}.js`)
+  const worker = new Worker(workerPath)
+
+  worker.on('error', (error) => log.error(`[Worker ${name}] error: `, error))
+  worker.on('exit', (code) => log.info(`[Worker ${name}] exited with code ${code}`))
+
+  return worker
 }

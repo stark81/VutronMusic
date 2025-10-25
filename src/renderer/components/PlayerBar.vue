@@ -1,19 +1,17 @@
 <template>
   <div class="player">
-    <div class="progress-bar" @mouseenter="setHover" @mousemove="getPosition" @mouseleave="blur">
+    <div class="progress-bar">
       <vue-slider
         ref="playerBarRef"
         v-model="position"
         :min="0"
-        :contained="false"
-        tooltip="none"
+        tooltip-pos="hoverValue"
+        :tooltip="hoverText"
         :max="currentTrackDuration"
-        :interval="1"
-        :drag-on-click="false"
-        :use-keyboard="false"
         :marks="marks"
         :rail-style="{ backgroundColor: 'rgba(128, 128, 128, 0.18)' }"
-        :process-style="{ background: 'var(--color-primary)', transition: 'background 0.3s' }"
+        :process-style="{ background: 'var(--color-primary)' }"
+        :tooltip-style="{ background: 'var(--color-primary)' }"
         :step-style="{
           display: 'block',
           height: '6px',
@@ -22,13 +20,10 @@
           backgroundColor: 'var(--color-primary)',
           opacy: 0.8
         }"
-        :dot-style="{ display: 'none' }"
         :height="2"
         :dot-size="10"
-        :lazy="false"
-        :silent="true"
+        @update:hover-position="handleHover"
       />
-      <div v-show="hover" class="progress-tooltip" :data-tip="hoverText"></div>
     </div>
     <div class="controls" @click="showLyrics = !showLyrics">
       <div class="left">
@@ -118,7 +113,7 @@
         /></button-icon>
         <div class="volume" @wheel="updateVolume">
           <div class="volume-slider" @click.stop>
-            <vue-slider
+            <slider-vue
               v-model="volume"
               :min="0"
               :max="1"
@@ -137,7 +132,7 @@
               :height="130"
               :dot-size="12"
               :silent="true"
-            ></vue-slider>
+            ></slider-vue>
           </div>
           <button-icon
             ><svg-icon v-show="volume > 0.5" icon-class="volume" />
@@ -158,7 +153,8 @@
 </template>
 
 <script setup lang="ts">
-import VueSlider from 'vue-3-slider-component'
+import SliderVue from 'vue-3-slider-component'
+import VueSlider from './VueSlider.vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
 import { useDataStore } from '../store/data'
@@ -194,11 +190,8 @@ const {
 } = storeToRefs(playerStore)
 
 const playerBarRef = ref()
-const hover = ref(false)
-const hoverValue = ref(0)
 const hoverX = ref('0')
-const hoverText = ref<string>()
-let hoverTimeout
+const hoverText = ref('')
 
 const osdLyric = useOsdLyricStore()
 const { show } = storeToRefs(osdLyric)
@@ -210,7 +203,6 @@ const stateStore = useNormalStateStore()
 const { showLyrics, enableScrolling } = storeToRefs(stateStore)
 
 const dataStore = useDataStore()
-// const { liked } = storeToRefs(dataStore)
 const { likeATrack } = dataStore
 
 const streamMusicStore = useStreamMusicStore()
@@ -218,7 +210,7 @@ const { likeAStreamTrack } = streamMusicStore
 
 const formatTime = (time: number) => {
   const minutes = Math.floor(time / 60)
-  const remainingSeconds = Math.ceil(time % 60)
+  const remainingSeconds = Math.round(time % 60)
   return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
 }
 
@@ -235,8 +227,8 @@ const position = computed({
       seek.value = value
       return
     }
-    const line = lyrics.value.lyric.find((l, index) => {
-      const nextLine = lyrics.value.lyric[index + 1]
+    const line = lyrics.value.find((l, index) => {
+      const nextLine = lyrics.value[index + 1]
       if (nextLine) {
         return nextLine.start > value && l.start <= value
       } else {
@@ -250,7 +242,7 @@ const position = computed({
 const marks = computed(() => {
   const result: Record<string, any> = {}
   if (chorus.value === 0) return result
-  result[chorus.value.toString()] = { labelStyle: { display: 'none' } }
+  result[chorus.value] = { labelStyle: { display: 'none' } }
   return result
 })
 
@@ -281,45 +273,27 @@ const goToList = () => {
   router.push(path)
 }
 
-const setHover = (e: MouseEvent) => {
-  hoverTimeout = setTimeout(() => {
-    hover.value = true
-    hoverX.value = e.clientX + 'px'
-    clearTimeout(hoverTimeout)
-  }, 100)
-}
-
 const updateVolume = (e: WheelEvent) => {
   e.preventDefault()
-  const delta = e.deltaY < 0 ? 0.02 : -0.02
+  const delta = e.deltaY < 0 ? -0.02 : +0.02
   volume.value = Math.min(Math.max(volume.value + delta, 0), 1)
 }
 
-const getPosition = (e: MouseEvent) => {
-  if (!hover.value) return
-  hoverX.value = e.clientX + 'px'
-  const percent = e.clientX / playerBarRef.value?.$el?.clientWidth
-  hoverValue.value = currentTrackDuration.value * percent
-  const time = formatTime(hoverValue.value)
-  if (!lyrics.value.lyric?.length) {
-    hoverText.value = time
+const handleHover = (position: number) => {
+  if (!lyrics.value.length) {
+    hoverText.value = `${Math.round(position)}`
     return
   }
-  const hoverLyric = lyrics.value.lyric?.find((l, index) => {
-    const nextLine = lyrics.value.lyric[index + 1]
-    if (nextLine) {
-      return nextLine.start > hoverValue.value && l.start <= hoverValue.value
+  const time = formatTime(position)
+  const lyric = lyrics.value.find((line, index) => {
+    const next = lyrics.value[index + 1]
+    if (next) {
+      return next.start > position && line.start <= position
     } else {
-      return hoverValue.value >= l.start && hoverValue.value < currentTrackDuration.value
+      return position >= line.start && position < currentTrackDuration.value
     }
   })
-  hoverText.value = hoverLyric ? `[${time}] ${hoverLyric?.content}` : time
-}
-
-const blur = () => {
-  if (hoverTimeout) clearTimeout(hoverTimeout)
-  hover.value = false
-  hoverValue.value = 0
+  hoverText.value = lyric ? `[${time}] ${lyric.lyric.text}` : `${Math.round(position)}`
 }
 
 const goToNextTracksPage = () => {
@@ -357,7 +331,6 @@ watch(showLyrics, (value) => {
   margin-bottom: -6px !important;
   width: 100%;
   position: relative;
-  // will-change: transform;
 
   .progress-tooltip {
     position: absolute;
@@ -386,10 +359,6 @@ watch(showLyrics, (value) => {
     transform: translate(-50%, -81%);
   }
 }
-
-// :deep(.player-bar *) {
-//   will-change: transform;
-// }
 
 .controls {
   display: grid;
@@ -474,8 +443,8 @@ watch(showLyrics, (value) => {
     .volume {
       position: relative;
       .volume-slider {
-        opacity: 0;
-        height: 0;
+        display: none;
+        height: 130px;
         position: absolute;
         border-radius: 6px;
         bottom: 40px;
@@ -485,11 +454,10 @@ watch(showLyrics, (value) => {
         z-index: 10;
         font-size: 10px;
         padding: 12px 10px;
+        box-sizing: content-box;
       }
       &:hover .volume-slider {
-        opacity: 1;
-        height: 150px;
-        transform: translateX(-50%);
+        display: block;
       }
     }
 

@@ -43,7 +43,7 @@
   </div>
   <ContextMenu ref="trackListMenuRef" @close-menu="closeMenu">
     <div v-show="type !== 'cloudDisk'" class="item-info">
-      <img :src="image" loading="lazy" />
+      <img v-if="image" :src="image" loading="lazy" />
       <div class="info">
         <div class="title">{{ rightClickedTrackComputed.name }}</div>
         <div class="subtitle">{{ rightClickedTrackComputed.artists[0].name }}</div>
@@ -102,7 +102,6 @@
 
 <script setup lang="ts">
 import {
-  PropType,
   toRefs,
   provide,
   ref,
@@ -125,49 +124,59 @@ import { useI18n } from 'vue-i18n'
 import { addOrRemoveTrackFromPlaylist } from '../api/playlist'
 import _ from 'lodash'
 import { isAccountLoggedIn } from '../utils/auth'
-import { serviceName, useStreamMusicStore } from '../store/streamingMusic'
+import { useStreamMusicStore } from '../store/streamingMusic'
 import SvgIcon from './SvgIcon.vue'
+import { serviceName, Track } from '@/types/music.d'
 
-const props = defineProps({
-  items: {
-    type: Array as PropType<{ [key: string]: any }[]>,
-    required: true
-  },
-  type: { type: String, required: true },
-  groupBy: { type: String as PropType<'' | 'all' | serviceName>, default: '' },
-  isLyric: { type: Boolean, default: false },
-  showPosition: { type: Boolean, default: true },
-  showService: { type: Boolean, default: false },
-  showTrackPosition: { type: Boolean, default: true },
-  colunmNumber: { type: Number, required: true },
-  gap: { type: Number, default: 20 },
-  extraContextMenuItem: {
-    type: Array,
-    default: () => []
-  },
-  id: { type: [Number, String], default: 0 },
-  height: { type: Number, default: 0 },
-  albumObject: {
-    type: Object,
-    default: () => {
-      return {
-        artist: {
-          name: ''
-        }
-      }
+const props = withDefaults(
+  defineProps<{
+    items: Track[]
+    allItems?: Track[]
+    type: string
+    groupBy?: '' | 'all' | serviceName
+    isLyric?: boolean
+    showPosition?: boolean
+    showService?: boolean
+    showTrackPosition?: boolean
+    colunmNumber: number
+    gap?: number
+    extraContextMenuItem?: any[]
+    id?: number | string
+    height?: number
+    albumObject?: {
+      artist: { name: string }
     }
-  },
-  itemHeight: { type: Number, default: 64 },
-  dbclickEnable: { type: Boolean, default: true },
-  loadMore: {
-    type: Function as PropType<() => void>,
-    default: () => {}
-  },
-  highlightPlayingTrack: { type: Boolean, default: true },
-  isEnd: { type: Boolean, required: true },
-  paddingBottom: { type: Number, default: 96 },
-  enableVirtualScroll: { type: Boolean, default: true }
-})
+    itemHeight?: number
+    dbclickEnable?: boolean
+    loadMore?: () => void
+    highlightPlayingTrack?: boolean
+    isEnd: boolean
+    paddingBottom?: number
+    enableVirtualScroll?: boolean
+  }>(),
+  {
+    allItems: () => [],
+    groupBy: '',
+    isLyric: false,
+    showPosition: true,
+    showService: false,
+    showTrackPosition: true,
+    gap: 20,
+    extraContextMenuItem: () => [],
+    id: 0,
+    height: 0,
+    albumObject: () => ({
+      artist: { name: '' }
+    }),
+    itemHeight: 64,
+    dbclickEnable: true,
+    loadMore: () => {},
+    highlightPlayingTrack: true,
+    paddingBottom: 96,
+    enableVirtualScroll: true
+  }
+)
+
 const { items, colunmNumber, id } = toRefs(props)
 const trackListMenuRef = ref<InstanceType<typeof ContextMenu>>()
 const selectedList = ref<number[]>([])
@@ -220,14 +229,11 @@ const rightClickedTrackComputed = computed(() => {
 
 const image = computed(() => {
   let url: string
-  if (
-    rightClickedTrackComputed.value.type === 'online' ||
-    rightClickedTrackComputed.value.matched
-  ) {
+  if (rightClickedTrackComputed.value.type === 'online') {
     url =
       rightClickedTrackComputed.value.al?.picUrl || rightClickedTrackComputed.value.album?.picUrl
     if (url && url.startsWith('http')) url = url.replace('http:', 'https:')
-    url += '?param=64y64'
+    if (url) url += '?param=64y64'
     return url
   } else if (rightClickedTrackComputed.value.type === 'stream') {
     url =
@@ -263,7 +269,9 @@ const currentIndex = computed(() => {
 
 const playThisList = (index: number) => {
   if (!props.dbclickEnable) return
-  const IDs = items.value.map((track) => track.id || track.songId)
+  const IDs = (props.allItems?.length ? props.allItems : items.value).map(
+    (track) => track.id || track.songId
+  )
   const idx = items.value.findIndex((item) => (item.id || item.songId) === index)
   replacePlaylist(props.type, id.value, IDs, idx)
 }
@@ -335,7 +343,7 @@ const rmTrackFromPlaylist = () => {
     }
   } else if (typeType.value === 'online') {
     if (!isAccountLoggedIn()) {
-      showToast(t('toast.loginRequired'))
+      showToast(t('toast.needToLogin'))
       return
     }
     if (confirm(`确定要从歌单删除 ${rightClickedTrackComputed.value.name}？`)) {
@@ -417,7 +425,7 @@ const copyId = () => {
 
 const addTrackToPlaylist = () => {
   if (!isAccountLoggedIn()) {
-    showToast(t('toast.loginRequired'))
+    showToast(t('toast.needToLogin'))
     return
   }
   const trackIDs = [rightClickedTrack.value?.id]

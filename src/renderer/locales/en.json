@@ -102,6 +102,19 @@
       "online": "From online sources",
       "embedded": "From embedded information"
     },
+    "embedCoverArt": {
+      "text": "Embed Cover Art into Local Music Files",
+      "desc": "Embedding cover art will overwrite any existing cover images.",
+      "none": "Do Not Embed",
+      "embedded": "Embedded",
+      "path": "In Song Directory",
+      "both": "Both"
+    },
+    "embedStyle": {
+      "text": "Method For Writing when A Cover Image Already Exists",
+      "ignore": "Ignore",
+      "rewrite": "Rewrite"
+    },
     "positionTrack": "Locate Track"
   },
   "artist": {
@@ -444,6 +457,7 @@
       "offline": "Offline"
     },
     "update": {
+      "autoUpdate": "Enable Automatic Update Checks",
       "currentVersion": "Current Version",
       "updateCheck": "Check For Update",
       "downloadUpdate": "Download Update",

@@ -3,58 +3,9 @@ import { ref, toRaw, toRefs } from 'vue'
 import { useSettingsStore } from './settings'
 import { compare } from 'compare-versions'
 import _ from 'lodash'
+import { Track, Playlist, lyricLine } from '@/types/music'
 
-type TrackType = 'online' | 'local' | 'stream'
 export const sortList = ['default', 'byname', 'ascend', 'descend'] as const
-
-export interface Artist {
-  id: number
-  name: string
-  picUrl: string
-  matched: boolean
-  [key: string]: any
-}
-
-export interface Album {
-  id: number
-  name: string
-  artist: Artist
-  picUrl: string
-  matched: boolean
-  [key: string]: any
-}
-
-export interface Track {
-  id: number
-  name: string
-  dt: number
-  filePath: string
-  type?: TrackType
-  matched?: boolean
-  offset?: number
-  md5?: string
-  createTime: number
-  alias: string[]
-  album: Album
-  artists: Artist[]
-  picUrl: string
-  source?: string
-  size?: number
-  gain: number
-  peak: number
-  [key: string]: any
-}
-
-export interface Playlist {
-  id: number
-  name: string
-  description: string
-  coverImgUrl: string
-  updateTime: number
-  trackCount: number
-  trackIds: number[]
-  creator?: any
-}
 
 export const useLocalMusicStore = defineStore(
   'localMusic',
@@ -173,14 +124,7 @@ export const useLocalMusicStore = defineStore(
 
     const getLocalLyric = async (id: number) => {
       const res = await fetch(`atom://local-asset?type=lyric&id=${id}`)
-      return (await res.json()) as {
-        lrc: { lyric: any[] }
-        tlyric: { lyric: any[] }
-        romalrc: { lyric: any[] }
-        yrc: { lyric: any[] }
-        ytlrc: { lyric: any[] }
-        yromalrc: { lyric: any[] }
-      }
+      return (await res.json()) as lyricLine[]
     }
 
     const getALocalTrack = (query: Partial<Track>) => {
@@ -200,11 +144,11 @@ export const useLocalMusicStore = defineStore(
 
     const scanLocalMusic = async (update = false) => {
       const settingsStore = useSettingsStore()
-      const { scanDir, scanning } = toRefs(settingsStore.localMusic)
+      const { scanDir, scanning, enble } = toRefs(settingsStore.localMusic)
 
       window.mainApi?.send('clearDeletedMusic')
 
-      if (!scanDir.value) return
+      if (!scanDir.value || !enble.value) return
       const isExist = await window.mainApi?.invoke('msgCheckFileExist', scanDir.value)
       if (!isExist) return
       scanning.value = true

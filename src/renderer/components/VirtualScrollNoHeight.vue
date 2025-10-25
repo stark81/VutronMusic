@@ -13,14 +13,12 @@
     <div :style="listStyles" class="infinite-list">
       <div
         v-for="row in visibleData"
-        :id="row._key"
+        :id="row._key.toString()"
         ref="itemsRef"
         :key="row._key"
         class="infinite-list-item-container"
       >
-        <div class="infinite-item">
-          <slot name="default" :index="row._key" :item="row.value"></slot>
-        </div>
+        <slot name="default" :index="row._key" :item="row.value"></slot>
       </div>
       <div v-if="showFooter" ref="footerRef">
         <slot name="footer"></slot>
@@ -29,13 +27,12 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script setup lang="ts" generic="T">
 import { storeToRefs } from 'pinia'
 import { useNormalStateStore } from '../store/state'
 import {
   ref,
   toRefs,
-  PropType,
   onMounted,
   computed,
   nextTick,
@@ -51,21 +48,36 @@ import eventBus from '../utils/eventBus'
 
 type ScrollBehavior = 'auto' | 'instant' | 'smooth'
 
-const props = defineProps({
-  list: { type: Array as PropType<any[]>, required: true },
-  itemSize: { type: Number, default: 65 },
-  columnNumber: { type: Number, default: 1 },
-  aboveValue: { type: Number, default: 2 },
-  belowValue: { type: Number, default: 2 },
-  paddingBottom: { type: Number, default: 64 },
-  showPosition: { type: Boolean, default: true },
-  isEnd: { type: Boolean, required: true },
-  showFooter: { type: Boolean, default: true },
-  gap: { type: Number, default: 4 },
-  height: { type: Number, default: 0 },
-  enableVirtualScroll: { type: Boolean, default: true },
-  loadMore: { type: Function as PropType<() => void>, default: () => {} }
-})
+const props = withDefaults(
+  defineProps<{
+    list: T[]
+    itemSize?: number
+    columnNumber?: number
+    aboveValue?: number
+    belowValue?: number
+    paddingBottom?: number
+    showPosition?: boolean
+    isEnd: boolean
+    showFooter?: boolean
+    gap?: number
+    height?: number
+    enableVirtualScroll?: boolean
+    loadMore?: () => void
+  }>(),
+  {
+    itemSize: 65,
+    columnNumber: 1,
+    aboveValue: 2,
+    belowValue: 2,
+    paddingBottom: 64,
+    showPosition: true,
+    showFooter: true,
+    gap: 4,
+    height: 0,
+    enableVirtualScroll: true,
+    loadMore: () => {}
+  }
+)
 
 const lock = ref(false)
 const listRef = ref()
@@ -85,7 +97,7 @@ const { enableScrolling, virtualScrolling } = storeToRefs(normalState)
 const { registerInstance, unregisterInstance, updateScroll } = normalState
 
 const _listData = computed(() => {
-  return list.value.reduce((init, cur, index) => {
+  return list.value.reduce<{ _key: number; value: T }[]>((init, cur, index) => {
     init.push({
       _key: index,
       value: cur
@@ -469,15 +481,12 @@ eventBus.on('update-scroll-bar', updateEvent)
 eventBus.on('update-done', startEvent)
 
 onActivated(() => {
-  observer.observe(listRef.value)
-  setTimeout(() => {
-    // 恢复虚拟列表的位置
-    // scrollTocurrent(
-    //   startRow.value * props.columnNumber + Math.ceil(visibleCount.value / 2),
-    //   'instant'
-    // )
-    updateItemsSize()
-  }, 100)
+  nextTick(() => {
+    observer.observe(listRef.value)
+    setTimeout(() => {
+      updateItemsSize()
+    }, 100)
+  })
 })
 
 onDeactivated(() => {
@@ -492,10 +501,12 @@ onMounted(() => {
   instanceId.value = Math.random().toString(36).substring(2, 9)
   registerInstance(instanceId.value)
   window.addEventListener('resize', updateWindowHeight)
-  observer.observe(listRef.value)
-  setTimeout(() => {
-    updateItemsSize()
-  }, 100)
+  nextTick(() => {
+    observer.observe(listRef.value)
+    setTimeout(() => {
+      updateItemsSize()
+    }, 100)
+  })
 })
 
 onUpdated(() => {

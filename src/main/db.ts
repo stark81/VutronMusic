@@ -4,7 +4,7 @@ import fs from 'fs'
 import path from 'path'
 import log from './log'
 import { app } from 'electron'
-import { createFileIfNotExist } from './utils/utils'
+import { createFileIfNotExist } from './utils'
 import Constants from './utils/Constants'
 import { compare, validate } from 'compare-versions'
 

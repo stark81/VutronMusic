@@ -2,7 +2,8 @@ import store from '../store'
 import axios from 'axios'
 import crypto from 'crypto'
 import qs from 'qs'
-import { formatTime } from '../utils/utils'
+import { formatTime, parseLyricString } from '../utils'
+import { streamStatus } from '@/types/music'
 
 const apiVersion = '1.16.1'
 const client = 'VutronMusic'
@@ -28,10 +29,13 @@ const doLogin = async (baseUrl: string, username: string, password: string) => {
     return { code: 200 }
   } catch (error) {
     const dialog = (await import('electron')).dialog
-    dialog.showErrorBox(
-      'Navidrome 接口请求失败',
-      JSON.stringify(error?.response?.data || error.message)
-    )
+    const msg = error?.response?.data || error.message
+    if (!msg.includes('socket hang up')) {
+      dialog.showErrorBox(
+        'Navidrome 接口请求失败',
+        JSON.stringify(error?.response?.data || error.message)
+      )
+    }
     return { code: 404, message: error?.response?.data?.error || '登录失败' }
   }
 }
@@ -59,12 +63,26 @@ const ApiRequest = async (endpoint: string, params?: Record<string, string>) => 
       return { code: 200, message: res.statusText, data: res.data }
     })
     .catch(async (error) => {
-      const dialog = (await import('electron')).dialog
-      dialog.showErrorBox(
-        'Navidrome 接口请求失败',
-        JSON.stringify(error?.response?.data || error.message)
-      )
-      return error
+      if (error.code === 'ERR_BAD_REQUEST') {
+        const baseUrl = store.get('accounts.navidrome.url') as string
+        const username = store.get('accounts.navidrome.username') as string
+        const password = store.get('accounts.navidrome.password') as string
+        return doLogin(baseUrl, username, password).then((result) => {
+          if (result.code === 200) {
+            return axios.get(url, { headers }).then((res) => {
+              return { code: 200, message: res.statusText, data: res.data }
+            })
+          }
+          return { code: 401, message: error.response.data.error, data: undefined }
+        })
+      } else {
+        const dialog = (await import('electron')).dialog
+        dialog.showErrorBox(
+          'Navidrome 接口请求失败',
+          JSON.stringify(error?.response?.data || error.message)
+        )
+        return error
+      }
     })
 }
 
@@ -92,7 +110,7 @@ const getRestUrl = (endpoint: string, params?: Record<string, any>) => {
 }
 
 interface NavidromeImpl {
-  systemPing: () => Promise<'logout' | 'login' | 'offline'>
+  systemPing: () => Promise<streamStatus>
   doLogin: (baseURL: string, username: string, password: string) => Promise<any>
   getTracks: () => Promise<{ code: number; message: string; data: any }>
   getPlaylists: () => Promise<{ code: number; message: string; data: any }>
@@ -109,7 +127,7 @@ interface NavidromeImpl {
 class Navidrome implements NavidromeImpl {
   async systemPing() {
     const baseURL = (store.get('accounts.navidrome.url') as string) || ''
-    const status = store.get('accounts.navidrome.status') as 'logout' | 'login' | 'offline'
+    const status = store.get('accounts.navidrome.status') as streamStatus
     if (!baseURL || status === 'logout') return 'logout'
 
     const url = getRestUrl('ping')
@@ -224,14 +242,6 @@ class Navidrome implements NavidromeImpl {
   }
 
   async getLyric(id: string) {
-    const result = {
-      lrc: { lyric: [] },
-      tlyric: { lyric: [] },
-      romalrc: { lyric: [] },
-      yrc: { lyric: [] },
-      ytlrc: { lyric: [] },
-      yromalrc: { lyric: [] }
-    }
     const url = getRestUrl('getLyricsBySongId.view', { id })
     const lyricRaw: any[] = await fetch(url)
       .then((res) => res.json())
@@ -239,34 +249,14 @@ class Navidrome implements NavidromeImpl {
         const lyricArray = data['subsonic-response'].lyricsList.structuredLyrics
         return lyricArray ? lyricArray[0].line : []
       })
-    if (lyricRaw.length) {
-      const map = new Map()
-      const chineseRegex = /[\u4E00-\u9FFF]/
-      lyricRaw.forEach(({ start, value }) => {
-        if (!map.has(start)) {
-          map.set(start, [])
-        }
-        map.get(start).push(value)
-      })
-
-      const sortedStarts = Array.from(map.keys()).sort((a, b) => a - b)
-      for (const start of sortedStarts) {
-        const values = map.get(start)
+    if (!lyricRaw.length) return []
+    const lrc = lyricRaw
+      .map(({ start, value }) => {
         const timeStr = formatTime(start)
-        for (let i = 0; i < values.length; i++) {
-          if (i === 0) {
-            result.lrc.lyric.push(`${timeStr}${values[0]}`)
-          } else {
-            if (chineseRegex.test(values[i])) {
-              result.tlyric.lyric.push(`${timeStr}${values[i]}`)
-            } else {
-              result.romalrc.lyric.push(`${timeStr}${values[i]}`)
-            }
-          }
-        }
-      }
-    }
-    return result
+        return `${timeStr}${value}`
+      })
+      .join('\n')
+    return parseLyricString(lrc)
   }
 
   async createPlaylist(name: string) {

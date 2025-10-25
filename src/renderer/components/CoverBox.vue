@@ -26,11 +26,12 @@ import { ref, computed, PropType } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePlayerStore } from '../store/player'
 import { useLocalMusicStore } from '../store/localMusic'
-import { useStreamMusicStore, serviceName } from '../store/streamingMusic'
+import { useStreamMusicStore } from '../store/streamingMusic'
 import { storeToRefs } from 'pinia'
 import { getPlaylistDetail } from '../api/playlist'
 import { getArtist } from '../api/artist'
 import { getAlbum } from '../api/album'
+import { serviceName } from '@/types/music.d'
 
 const props = defineProps({
   id: { type: [Number, String], required: true },

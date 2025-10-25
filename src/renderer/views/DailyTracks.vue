@@ -3,11 +3,17 @@
     <div class="special-playlist1">
       <div class="title gradient"> 每日歌曲推荐 </div>
       <div class="subtitle">根据你的音乐口味生成 · 每天6:00更新</div>
+      <div class="buttons">
+        <ButtonTwoTone class="play-button" icon-class="play" color="grey" @click="play">
+          {{ $t('common.play') }}
+        </ButtonTwoTone>
+        <SearchBox ref="pSearchBoxRef" :placeholder="$t('playlist.search')" />
+      </div>
     </div>
 
     <TrackList
       id="/daily/songs"
-      :items="dailyTracks"
+      :items="filterTracks"
       :colunm-number="1"
       type="url"
       :is-end="true"
@@ -16,20 +22,51 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useNormalStateStore } from '../store/state'
 import { storeToRefs } from 'pinia'
 import TrackList from '../components/VirtualTrackList.vue'
+import ButtonTwoTone from '../components/ButtonTwoTone.vue'
+import SearchBox from '../components/SearchBox.vue'
 import { dailyRecommendTracks } from '../api/playlist'
+import { usePlayerStore } from '../store/player'
 
 const show = ref(false)
 const { dailyTracks } = storeToRefs(useNormalStateStore())
+
+const playerStore = usePlayerStore()
+const { _shuffle } = storeToRefs(playerStore)
+const { replacePlaylist } = playerStore
+
+const pSearchBoxRef = ref<InstanceType<typeof SearchBox>>()
+
+const keyword = computed(() => pSearchBoxRef.value?.keywords || '')
+const filterTracks = computed(() => {
+  return dailyTracks.value.filter(
+    (track) =>
+      (track.name && track.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
+      (track.alia || track.alias)?.find((al) =>
+        al.toLowerCase().includes(keyword.value?.toLowerCase())
+      ) ||
+      (track.album?.name &&
+        track.album.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
+      (track.artists || track.ar).find(
+        (ar) => ar.name && ar.name.toLowerCase().includes(keyword.value?.toLowerCase())
+      )
+  )
+})
 
 const loadDailyTracks = () => {
   dailyRecommendTracks().then((result) => {
     dailyTracks.value = result.data.dailySongs
     show.value = true
   })
+}
+
+const play = () => {
+  const trackIDs = dailyTracks.value.map((t) => t.id)
+  const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
+  replacePlaylist('url', '/daily/songs', trackIDs, idx)
 }
 
 onMounted(() => {

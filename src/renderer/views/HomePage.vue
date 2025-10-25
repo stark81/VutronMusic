@@ -30,7 +30,6 @@
       <div class="title">
         {{ $t('home.newAlbum') }}
         <a @click="toExplore('newAlbum')">{{ $t('home.seeMore') }}</a>
-        <!-- <router-link to="/new-album">{{ $t('home.seeMore') }}</router-link> -->
       </div>
       <CoverRow :items="newReleasesAlbum.items" type="album" sub-text="artist" />
     </div>
@@ -38,7 +37,6 @@
       <div class="title">
         {{ $t('home.charts') }}
         <a @click="toExplore('chart')">{{ $t('home.seeMore') }}</a>
-        <!-- <router-link :to="toExplore('排行榜')">{{ $t('home.seeMore') }}</router-link> -->
       </div>
       <CoverRow :items="topList.items" type="playlist" sub-text="updateFrequency" />
     </div>
@@ -46,7 +44,7 @@
 </template>
 
 <script setup lang="ts">
-import { onActivated, ref, onBeforeUnmount } from 'vue'
+import { onActivated, ref, onBeforeUnmount, onDeactivated, watch } from 'vue'
 import { getBanner } from '../api/other'
 import { toplistOfArtists } from '../api/artist'
 import { newAlbums } from '../api/album'
@@ -71,7 +69,7 @@ const toplistOfArtistsAreaTable = {
   kr: 3
 }
 const { general } = storeToRefs(useSettingsStore())
-const { exploreTab } = storeToRefs(useNormalStateStore())
+const { exploreTab, showLyrics } = storeToRefs(useNormalStateStore())
 const { addTrackToPlayNext } = usePlayerStore()
 
 const router = useRouter()
@@ -112,7 +110,7 @@ const bannerChange = () => {
     (current.value - 1 + bannerRef.value!.children.length) % bannerRef.value!.children.length
   const right = (current.value + 1) % bannerRef.value!.children.length
   if (bannerRef.value) {
-    Array.from(bannerRef.value.children).forEach((item, index) => {
+    Array.from(bannerRef.value.children).forEach((item) => {
       item.className = 'banner-item'
     })
     bannerRef.value.children[left.value].className = 'banner-item left'
@@ -127,6 +125,10 @@ const bannerChange = () => {
 const bannerNext = () => {
   current.value = (current.value + 1) % banner.value.length
   bannerChange()
+  setTimeout(() => {
+    const newNode = bannerRef.value!.children[left.value].cloneNode(true)
+    bannerRef.value!.children[left.value].replaceWith(newNode)
+  }, 800)
 }
 
 const handleBannerClick = (banner: any) => {
@@ -160,16 +162,7 @@ const loadData = () => {
     getBanner({ type: 0 }).then((res) => {
       banner.value = res.banners.filter((item: any) => item.typeTitle !== '广告')
       setTimeout(bannerChange)
-
-      if (timer.value) clearInterval(timer.value)
-      timer.value = setInterval(() => {
-        bannerNext()
-        // 轮播后，需要把左边那一张图的点击事件取消掉，这里直接使用节点替换的方式更为彻底，需要在切换动画结束后再进行
-        setTimeout(() => {
-          const newNode = bannerRef.value!.children[left.value].cloneNode(true)
-          bannerRef.value!.children[left.value].replaceWith(newNode)
-        }, 800)
-      }, 8000)
+      handleBanner()
     })
   }
 
@@ -201,12 +194,42 @@ const loadData = () => {
   })
 }
 
+const handleBanner = () => {
+  if (timer.value) clearInterval(timer.value)
+  timer.value = setInterval(() => {
+    bannerNext()
+  }, 8000)
+}
+
+const handleVisibleChange = () => {
+  if (document.hidden) {
+    clearInterval(timer.value)
+  } else {
+    handleBanner()
+  }
+}
+
+watch(showLyrics, (value) => {
+  if (value) {
+    handleBanner()
+  } else {
+    clearInterval(timer.value)
+  }
+})
+
+document.addEventListener('visibilitychange', handleVisibleChange)
+
 onActivated(() => {
   loadData()
 })
 
+onDeactivated(() => {
+  clearInterval(timer.value)
+})
+
 onBeforeUnmount(() => {
   clearInterval(timer.value)
+  document.removeEventListener('visibilitychange', handleVisibleChange)
 })
 </script>
 
@@ -236,7 +259,7 @@ onBeforeUnmount(() => {
       bottom: 0;
       right: 0;
       font-size: 10px;
-      font-weight: bold;
+      font-weight: 600;
       color: white;
       padding: 2px 4px;
       border-radius: 8px 0 8px 0;

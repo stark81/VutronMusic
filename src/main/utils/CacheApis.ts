@@ -6,6 +6,7 @@ export enum CacheAPIs {
   ArtistAlbum = 'artist/album',
   Likelist = 'likelist',
   Lyric = 'lyric',
+  LyricNew = 'lyric/new',
   Personalized = 'personalized',
   Playlist = 'playlist/detail',
   RecommendResource = 'recommend/resource',

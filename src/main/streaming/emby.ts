@@ -1,8 +1,9 @@
 import axios from 'axios'
 import Constants from '../utils/Constants'
-import { parseLyricString } from '../utils/utils'
+import { parseLyricString } from '../utils'
 import store from '../store'
 import log from '../log'
+import { streamStatus } from '@/types/music'
 
 const client = 'VutronMusic'
 const version = Constants.APP_VERSION
@@ -28,7 +29,7 @@ const ApiRequest = async (
 }
 
 export interface EmbyImpl {
-  systemPing: () => Promise<'logout' | 'login' | 'offline'>
+  systemPing: () => Promise<streamStatus>
   doLogin: (
     baseUrl: string,
     username: string,
@@ -49,7 +50,7 @@ export interface EmbyImpl {
 class Emby implements EmbyImpl {
   async systemPing() {
     const baseUrl = store.get('accounts.emby.url') as string
-    const status = store.get('accounts.emby.status') as 'logout' | 'login' | 'offline'
+    const status = store.get('accounts.emby.status') as streamStatus
     if (!baseUrl || status === 'logout') return 'logout'
     const response = await axios
       .get(`${baseUrl}/System/Ping`, { timeout: 5000 })
@@ -299,24 +300,16 @@ class Emby implements EmbyImpl {
   }
 
   async getLyric(id: string) {
-    const result = {
-      lrc: { lyric: [] },
-      tlyric: { lyric: [] },
-      romalrc: { lyric: [] },
-      yrc: { lyric: [] },
-      ytlrc: { lyric: [] },
-      yromalrc: { lyric: [] }
-    }
     const pool = [
       { fn: getFileLyric, id },
       { fn: getEmbeddedLyric, id }
     ]
     for (const { fn, id } of pool) {
       const result = await fn(id)
-      if (result.lrc.lyric.length) return result
+      if (result.length) return result
     }
 
-    return result
+    return []
   }
 }
 
@@ -331,15 +324,6 @@ const getLyricFromExtraData = (data: any): string | null => {
 }
 
 const getEmbeddedLyric = async (idString: string) => {
-  const result = {
-    lrc: { lyric: [] },
-    tlyric: { lyric: [] },
-    romalrc: { lyric: [] },
-    yrc: { lyric: [] },
-    ytlrc: { lyric: [] },
-    yromalrc: { lyric: [] }
-  }
-
   const baseUrl = store.get('accounts.emby.url') as string
   const userId = store.get('accounts.emby.userId') as string
   const accessToken = store.get('accounts.emby.accessToken') as string
@@ -349,73 +333,34 @@ const getEmbeddedLyric = async (idString: string) => {
   const url = `${baseUrl}/emby/Users/${userId}/Items/${res[0]}?fields=ShareLevel&ExcludeFields=VideoChapters%2CVideoMediaSources%2CMediaStreams&api_key=${accessToken}`
   const response = await axios.get(url)
   const lrc = getLyricFromExtraData(response.data)
-  if (!lrc) return result
+  if (!lrc) return []
   const lyrics = parseLyricString(lrc)
   return lyrics
 }
 
 const getFileLyric = async (idString: string) => {
-  let result = {
-    lrc: { lyric: [] },
-    tlyric: { lyric: [] },
-    romalrc: { lyric: [] },
-    yrc: { lyric: [] },
-    ytlrc: { lyric: [] },
-    yromalrc: { lyric: [] }
-  }
   const res = idString.split('/')
-  if (res.length !== 3) return result
+  if (res.length !== 3) return []
   const baseUrl = store.get('accounts.emby.url') as string
   const accessToken = store.get('accounts.emby.accessToken') as string
 
   const url = `${baseUrl}/Items/${res[0]}/${res[1]}/Subtitles/${res[2]}/Stream.js`
   const headers = { 'X-Emby-Token': accessToken, timeout: 5000 }
   const response = await axios({ method: 'GET', url, headers })
-  result = parseLyric(response.data?.TrackEvents ?? [])
-  return result
-}
-
-const parseLyric = (
-  lrcItem: { Text: string; StartPositionTicks: number; EndPositionTicks?: number }[]
-) => {
-  const result = {
-    lrc: { lyric: [] },
-    tlyric: { lyric: [] },
-    romalrc: { lyric: [] },
-    yrc: { lyric: [] },
-    ytlrc: { lyric: [] },
-    yromalrc: { lyric: [] }
-  }
-  const lyricMap = new Map()
-  const chineseRegex = /[\u4E00-\u9FFF]/
-
-  for (const line of lrcItem) {
-    const timeStamps = formatMilliseconds(line.StartPositionTicks)
-    if (!lyricMap.has(line.StartPositionTicks)) {
-      lyricMap.set(line.StartPositionTicks, [])
-    }
-    lyricMap.get(line.StartPositionTicks).push(timeStamps + line.Text)
-  }
-
-  for (const lyricArray of lyricMap.values()) {
-    for (let i = 0; i < lyricArray.length; i++) {
-      if (i === 0) {
-        result.lrc.lyric.push(lyricArray[0])
-      } else {
-        const lyric = lyricArray[i].replace(
-          /(?!^\[\d{2}:\d{2}\.\d{3}\])\[\d{2}:\d{2}\.\d{3}\]/g,
-          ''
-        )
-        if (chineseRegex.test(lyric)) {
-          result.tlyric.lyric.push(lyric)
-        } else {
-          result.romalrc.lyric.push(lyric)
-        }
-      }
-    }
-  }
-
-  return result
+  const lrc = (
+    response.data?.TrackEvents as {
+      Text: string
+      StartPositionTicks: number
+      EndPositionTicks?: number
+    }[]
+  )
+    .map((line) => {
+      const timeStamps = formatMilliseconds(line.StartPositionTicks)
+      return timeStamps + line.Text
+    })
+    .join('\n')
+  if (!lrc) return []
+  return parseLyricString(lrc)
 }
 
 const formatMilliseconds = (num: number) => {

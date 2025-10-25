@@ -1,20 +1,14 @@
 import { defineStore } from 'pinia'
 import { computed, reactive, ref } from 'vue'
-import { Track, Playlist } from './localMusic'
 import _ from 'lodash'
-
-export interface StreamPlaylist extends Omit<Playlist, 'id'> {
-  id: string
-  trackItemIds: Record<number, number>
-}
-
-export type serviceName = 'navidrome' | 'jellyfin' | 'emby'
-export type streamStatus = 'logout' | 'login' | 'offline'
-
-export type serviceType = {
-  name: serviceName
-  status: streamStatus
-}
+import {
+  Track,
+  StreamPlaylist,
+  serviceType,
+  serviceName,
+  streamStatus,
+  lyricLine
+} from '@/types/music'
 
 export const useStreamMusicStore = defineStore(
   'streamMusic',
@@ -111,18 +105,10 @@ export const useStreamMusicStore = defineStore(
     }
 
     const getStreamLyric = async (track: Track) => {
-      if (!enable.value) return
+      if (!enable.value) return []
       const service = track.source as serviceName
 
-      let data = {
-        lrc: { lyric: [] as any[] },
-        tlyric: { lyric: [] as any[] },
-        romalrc: { lyric: [] as any[] },
-        yrc: { lyric: [] as any[] },
-        ytlrc: { lyric: [] as any[] },
-        yromalrc: { lyric: [] as any[] }
-      }
-      data = await window.mainApi?.invoke('get-stream-lyric', {
+      const data: lyricLine[] = await window.mainApi?.invoke('get-stream-lyric', {
         platform: service,
         id: track.source === 'emby' ? track.lrcId : track.id
       })

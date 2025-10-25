@@ -22,6 +22,7 @@ import { getTrackDetail } from '../api/track'
 import BaseModal from './BaseModal.vue'
 import { useLocalMusicStore } from '../store/localMusic'
 import { useNormalStateStore } from '../store/state'
+import { usePlayerStore } from '../store/player'
 
 const localMusicStore = useLocalMusicStore()
 const { updateTrack } = localMusicStore
@@ -29,6 +30,8 @@ const { localTracks } = storeToRefs(localMusicStore)
 
 const stateStore = useNormalStateStore()
 const { accurateMatchModal } = storeToRefs(stateStore)
+
+const { updateLocalID2OnlineID } = usePlayerStore()
 
 const title = ref('')
 
@@ -57,7 +60,12 @@ const accurateMatchTrack = () => {
     track.artists = track.ar
     const result = await window.mainApi?.invoke('accurateMatch', track, selectedTrack.value.id)
     if (result) {
+      updateLocalID2OnlineID(selectedTrack.value.id, track.id)
       updateTrack(filePath, track)
+      window.mainApi?.send('write-cover', {
+        filePath,
+        picUrl: track.album?.picUrl || track.al?.picUrl
+      })
       close()
     }
   })

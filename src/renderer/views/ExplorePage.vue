@@ -123,7 +123,7 @@
     </div>
     <div v-else-if="exploreTab === 'newAlbum'" class="playlists">
       <div v-if="albumType === '热门' && newAlbumInfo.topAlbum.weekData.length !== 0">
-        <div :style="{ margin: '20px 0', fontSize: '20px', fontWeight: 'bold' }">本周新碟</div>
+        <div :style="{ margin: '20px 0', fontSize: '20px', fontWeight: '600' }">本周新碟</div>
         <CoverRow
           v-if="show"
           :items="newAlbumInfo.topAlbum.weekData"
@@ -138,7 +138,7 @@
         />
       </div>
       <div>
-        <div :style="{ margin: '20px 0', fontSize: '20px', fontWeight: 'bold' }">本月新碟</div>
+        <div :style="{ margin: '20px 0', fontSize: '20px', fontWeight: '600' }">本月新碟</div>
         <CoverRow
           v-if="show"
           :items="

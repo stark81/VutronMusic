@@ -1,6 +1,8 @@
 import axios from 'axios'
 import store from '../store'
 import log from '../log'
+import { streamStatus } from '@/types/music'
+import { formatTime, parseLyricString } from '../utils'
 
 const client = 'VutronMusic'
 const version = '1.6.5'
@@ -30,7 +32,7 @@ const sendItemsList = async (
 }
 
 interface JellyfinImpl {
-  systemPing: () => Promise<'logout' | 'login' | 'offline'>
+  systemPing: () => Promise<streamStatus>
   doLogin: (baseURL: string, username: string, password: string) => Promise<any>
   getTracks: () => Promise<{ code: number; message?: string; data?: any }>
   getPlaylists: () => Promise<{ code: number; message: string; data: any }>
@@ -47,7 +49,7 @@ interface JellyfinImpl {
 class Jellyfin implements JellyfinImpl {
   async systemPing() {
     const baseUrl = store.get('accounts.jellyfin.url') as string
-    const status = store.get('accounts.jellyfin.status') as 'logout' | 'login' | 'offline'
+    const status = store.get('accounts.jellyfin.status') as streamStatus
     if (!baseUrl || status === 'logout') return 'logout'
     const response = await axios
       .get(`${baseUrl}/System/Ping`, { timeout: 5000 })
@@ -167,7 +169,10 @@ class Jellyfin implements JellyfinImpl {
   async getLyric(id: string) {
     const endpoint = `Audio/${id}/Lyrics`
     const response = await sendItemsList(endpoint)
-    return response.data?.Lyrics || []
+    if (!response.data) return []
+    const lyrics = response.data.Lyrics as { Start: number; Text: string }[]
+    const lrc = lyrics.map(({ Start, Text }) => `${formatTime(Start, 10000000)}${Text}`).join('\n')
+    return parseLyricString(lrc)
   }
 
   async createPlaylist(name: string) {

@@ -99,7 +99,7 @@
 import SvgIcon from './SvgIcon.vue'
 import ArtistsInLine from './ArtistsInLine.vue'
 import ExplicitSymbol from './ExplicitSymbol.vue'
-import { PropType, computed, ref, toRefs, inject } from 'vue'
+import { computed, ref, toRefs, inject } from 'vue'
 import { useNormalStateStore } from '../store/state'
 import { useSettingsStore } from '../store/settings'
 import { useStreamMusicStore } from '../store/streamingMusic'
@@ -108,24 +108,26 @@ import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { Track } from '../store/localMusic'
+import { Track } from '@/types/music.d'
 
 const router = useRouter()
-const props = defineProps({
-  trackProp: {
-    type: Object as PropType<Record<string, any>>,
-    required: true
-  },
-  trackNo: { type: Number, required: true },
-  typeProp: { type: String, required: true },
-  isLyric: { type: Boolean, default: false },
-  showService: { type: Boolean, default: false },
-  albumObject: {
-    type: Object,
-    default: () => ({ artist: { name: '' } })
-  },
-  highlightPlayingTrack: { type: Boolean, default: true }
-})
+const props = withDefaults(
+  defineProps<{
+    trackProp: Track
+    trackNo: number
+    typeProp: string
+    isLyric?: boolean
+    showService?: boolean
+    albumObject?: { artist: { name: string } }
+    highlightPlayingTrack?: boolean
+  }>(),
+  {
+    isLyric: false,
+    showService: false,
+    albumObject: () => ({ artist: { name: '' } }),
+    highlightPlayingTrack: true
+  }
+)
 
 const settingsStore = useSettingsStore()
 const { general, localMusic } = storeToRefs(settingsStore)
@@ -151,14 +153,12 @@ const track = computed(
   () =>
     (type.value === 'cloudDisk'
       ? props.trackProp.simpleSong || props.trackProp
-      : props.trackProp) as {
-      [key: string]: any
-    }
+      : props.trackProp) as Track
 )
 
 const image = computed(() => {
   let url: string
-  if (track.value.type === 'online' || track.value.matched) {
+  if (track.value.type === 'online') {
     url = track.value.al?.picUrl || track.value.album?.picUrl || track.value.picUrl
     if (url && url.startsWith('http')) url = url.replace('http:', 'https:')
     url += '?param=64y64'
@@ -527,7 +527,7 @@ button {
     color: var(--color-text);
   }
   .count {
-    font-weight: bold;
+    font-weight: 600;
     font-size: 22px;
     line-height: 22px;
   }

@@ -62,17 +62,11 @@
             <div class="top-right">
               <div class="buttons">
                 <div class="transPro" @click="switchTransitionMode">
-                  <label
-                    v-show="lyrics.tlyric.length"
-                    :class="{ active: nTranslationMode === 'tlyric' }"
+                  <label v-show="hasTLyric" :class="{ active: nTranslationMode === 'tlyric' }"
                     >译</label
                   >
-                  <label v-if="lyrics.tlyric.length && lyrics.rlyric.length" class="m-label"
-                    >|</label
-                  >
-                  <label
-                    v-show="lyrics.rlyric.length"
-                    :class="{ active: nTranslationMode === 'rlyric' }"
+                  <label v-if="hasTLyric && hasRLyric" class="m-label">|</label>
+                  <label v-show="hasRLyric" :class="{ active: nTranslationMode === 'rlyric' }"
                     >音</label
                   >
                 </div>
@@ -120,13 +114,9 @@
                 v-model="position"
                 :min="0"
                 :max="currentTrackDuration"
-                :interval="1"
-                :duration="0.5"
                 :dot-size="12"
                 :height="4"
                 :marks="marks"
-                :use-keyboard="false"
-                :drag-on-click="false"
                 :step-style="{
                   display: 'block',
                   height: '8px',
@@ -137,10 +127,7 @@
                 }"
                 :rail-style="{ backgroundColor: 'rgba(128, 128, 128, 0.18)' }"
                 :process-style="{ backgroundColor: 'var(--color-text)', opacity: 0.8 }"
-                :dot-style="{ display: 'none' }"
                 tooltip="none"
-                :lazy="false"
-                :silent="true"
               ></vue-slider>
             </div>
             <div class="time">{{ formatTime(currentTrackDuration) }}</div>
@@ -187,22 +174,11 @@
                 v-model="volume"
                 :min="0"
                 :max="1"
-                :interval="0.01"
-                :duration="0.5"
                 :dot-size="12"
                 :height="4"
-                :use-keyboard="false"
-                :drag-on-click="false"
-                :tooltip-formatter="Math.round(volume * 100).toString()"
                 :rail-style="{ backgroundColor: 'rgba(128, 128, 128, 0.18)' }"
                 :process-style="{ backgroundColor: 'var(--color-text)', opacity: 0.8 }"
-                :dot-style="{
-                  display: 'none',
-                  backgroundColor: 'var(--color-text)',
-                  boxshadow: '0.5px 0.5px 2px 1px rgba(0, 0, 0, 0.18)'
-                }"
                 tooltip="none"
-                :silent="true"
               />
             </div>
             <div class="time">
@@ -230,18 +206,19 @@ import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
-import VueSlider from 'vue-3-slider-component'
+import VueSlider from './VueSlider.vue'
 import LyricPage from './LyricPage.vue'
 import Comment from './CommentPage.vue'
 import { usePlayerStore } from '../store/player'
 import ContextMenu from './ContextMenu.vue'
-import { useSettingsStore, TranslationMode } from '../store/settings'
+import { useSettingsStore } from '../store/settings'
 import { hasListSource, getListSourcePath } from '../utils/playlist'
-import { useNormalStateStore, TrackType } from '../store/state'
+import { useNormalStateStore } from '../store/state'
 import { useStreamMusicStore } from '../store/streamingMusic'
 import { useDataStore } from '../store/data'
 import { Vibrant } from 'node-vibrant/browser'
 import Color from 'color'
+import { TranslationMode, TrackSourceType } from '@/types/music.d'
 
 const router = useRouter()
 const playPageContextMenu = inject('playPageContextMenu', ref<InstanceType<typeof ContextMenu>>())
@@ -281,6 +258,9 @@ const color = ref('')
 const color2 = ref('')
 let animation: Animation | null = null
 
+const hasTLyric = computed(() => lyrics.value.some((l) => l.tlyric))
+const hasRLyric = computed(() => lyrics.value.some((l) => l.rlyric))
+
 const currentTheme = computed(() => playerTheme.value.common.find((theme) => theme.selected)!)
 
 const theme = computed(() => {
@@ -312,10 +292,10 @@ const marks = computed(() => {
 
 const tags = computed(() => {
   const lst = ['none']
-  if (lyrics.value.tlyric.length) {
+  if (hasTLyric.value) {
     lst.splice(1, 0, 'tlyric')
   }
-  if (lyrics.value.rlyric.length) {
+  if (hasRLyric.value) {
     lst.push('rlyric')
   }
   return lst as TranslationMode[]
@@ -330,8 +310,8 @@ const position = computed({
       seek.value = value
       return
     }
-    const line = lyrics.value.lyric.find((l, index) => {
-      const nextLine = lyrics.value.lyric[index + 1]
+    const line = lyrics.value.find((l, index) => {
+      const nextLine = lyrics.value[index + 1]
       if (nextLine) {
         return nextLine.start > value && l.start <= value
       } else {
@@ -414,8 +394,8 @@ const addTrackToPlaylist = () => {
     selectedTrackID: [currentTrack.value.id],
     type:
       currentTrack.value.type === 'stream'
-        ? (currentTrack.value.source as TrackType)
-        : (currentTrack.value.type as TrackType)
+        ? (currentTrack.value.source as TrackSourceType)
+        : (currentTrack.value.type as TrackSourceType)
   }
 }
 
@@ -664,6 +644,7 @@ onMounted(() => {
       .slider {
         flex: 1;
         padding: 0 10px;
+        contain: content;
       }
 
       .time {
@@ -671,6 +652,7 @@ onMounted(() => {
         font-weight: 600;
         opacity: 0.58;
         width: 34px;
+        contain: content;
       }
     }
     .media-controls {

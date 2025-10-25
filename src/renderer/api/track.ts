@@ -1,20 +1,12 @@
+import { lyricLine } from '@/types/music'
 import request from '../utils/request'
 
 export function getLyric(id: number) {
   return request({
-    url: '/lyric',
+    url: '/lyric/new',
     method: 'get',
-    params: {
-      id
-    }
-  }) as Promise<{
-    lrc: { lyric: any[] }
-    tlyric: { lyric: any[] }
-    romalrc: { lyric: any[] }
-    yrc: { lyric: any[] }
-    ytlrc: { lyric: any[] }
-    yromalrc: { lyric: any[] }
-  }>
+    params: { id }
+  }) as Promise<lyricLine[]>
 }
 
 /**

@@ -13,7 +13,7 @@
 
 <script setup lang="ts">
 import { PropType, computed } from 'vue'
-import { Artist } from '../store/localMusic'
+import { Artist } from '@/types/music.d'
 
 const props = defineProps({
   artists: {

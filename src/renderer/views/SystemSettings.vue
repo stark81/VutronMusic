@@ -614,6 +614,22 @@
                 <button @click="deleteLocalMusic">确定</button>
               </div>
             </div>
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('localMusic.embedCoverArt.text') }}</div>
+              </div>
+              <div class="right">
+                <CustomSelect v-model="localMusic.embedCoverArt" :options="embedCoverArtOption" />
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('localMusic.embedStyle.text') }}</div>
+              </div>
+              <div class="right">
+                <CustomSelect v-model="localMusic.embedStyle" :options="embedStyleOption" />
+              </div>
+            </div>
             <div class="item no-flex">
               <div class="left">
                 <div class="title">{{ $t('localMusic.trackInfoOrder.text') }}</div>
@@ -948,6 +964,22 @@
         <div v-if="isElectron" v-show="tab === 'update'" key="update">
           <div class="item">
             <div class="left">
+              <div class="title"> {{ $t('settings.update.autoUpdate') }} </div>
+            </div>
+            <div class="right">
+              <div class="toggle">
+                <input
+                  id="autoUpdate"
+                  v-model="general.autoUpdate"
+                  type="checkbox"
+                  name="autoUpdate"
+                />
+                <label for="autoUpdate"></label>
+              </div>
+            </div>
+          </div>
+          <div class="item">
+            <div class="left">
               <div class="title"
                 >{{ $t('settings.update.currentVersion') + '：' + appVersion }}
                 <label v-if="latestVersion?.isUpdateAvailable" class="update-ext">{{
@@ -1009,7 +1041,7 @@ import { usePlayerStore } from '../store/player'
 import { useLocalMusicStore } from '../store/localMusic'
 import { useNormalStateStore } from '../store/state'
 import { useOsdLyricStore } from '../store/osdLyric'
-import { useStreamMusicStore, serviceType, serviceName } from '../store/streamingMusic'
+import { useStreamMusicStore } from '../store/streamingMusic'
 import { useDataStore } from '../store/data'
 import { storeToRefs } from 'pinia'
 import { doLogout } from '../utils/auth'
@@ -1021,6 +1053,7 @@ import { VueDraggable } from 'vue-draggable-plus'
 // @ts-ignore
 import imageUrl from '../utils/settingImg.dataurl?raw'
 import { useRouter } from 'vue-router'
+import { serviceType, serviceName } from '@/types/music.d'
 
 const router = useRouter()
 
@@ -1249,6 +1282,18 @@ const musicQualityOptions = computed(() => [
   { label: 'Hi-Res', value: 999000 }
 ])
 
+const embedCoverArtOption = computed(() => [
+  { label: t('localMusic.embedCoverArt.none'), value: 0 },
+  { label: t('localMusic.embedCoverArt.embedded'), value: 1 },
+  { label: t('localMusic.embedCoverArt.path'), value: 2 },
+  { label: t('localMusic.embedCoverArt.both'), value: 3 }
+])
+
+const embedStyleOption = computed(() => [
+  { label: t('localMusic.embedStyle.ignore'), value: 0 },
+  { label: t('localMusic.embedStyle.rewrite'), value: 1 }
+])
+
 const trackInfoOptions = computed(() => [
   { label: t('settings.general.showTimeOrID.time'), value: 'time' },
   { label: t('settings.general.showTimeOrID.ID'), value: 'ID' }
@@ -1329,6 +1374,11 @@ const getCacheTracksInfo = () => {
 
 watch(currentTrack, () => {
   setTimeout(getCacheTracksInfo, 5000)
+})
+
+window.mainApi?.on('receiveCacheInfo', (_: any, data: { length: number; size: number }) => {
+  cacheTracksInfo.length = data.length
+  cacheTracksInfo.size = data.size
 })
 
 const chooseDir = () => {

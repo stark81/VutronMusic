@@ -2,7 +2,7 @@ import { pathCase } from 'change-case'
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import cache from '../cache'
 import { CacheAPIs } from '../utils/CacheApis'
-import { handleNeteaseResult } from '../utils/utils'
+import { handleNeteaseResult } from '../utils'
 import log from '../log'
 
 async function netease(fastify: FastifyInstance) {
@@ -17,7 +17,7 @@ async function netease(fastify: FastifyInstance) {
         if (!params.cookie) params.cookie = (req as any).cookies
         const result = await neteaseApi(params)
 
-        result.body = handleNeteaseResult(name as CacheAPIs, result.body)
+        result.body = await handleNeteaseResult(name as CacheAPIs, result.body, localID)
         cache.set(name as CacheAPIs, result.body, req.query)
         return reply.send(result.body)
       } catch (error: any) {

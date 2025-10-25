@@ -32,13 +32,13 @@ import {
   getLyricFromApi,
   getPicColor,
   getTrackDetail,
-  getAudioSource,
-  cacheOnlineTrack
-} from './utils/utils'
+  getAudioSource
+} from './utils'
 import { CacheAPIs } from './utils/CacheApis'
 import { registerGlobalShortcuts } from './globalShortcut'
 import { initAutoUpdater } from './checkUpdate'
 import log from './log'
+import { lyricLine } from '@/types/music'
 
 const closeOnLinux = (e: any, win: BrowserWindow) => {
   const closeOpt = store.get('settings.closeAppOption') || 'ask'
@@ -234,7 +234,7 @@ class BackGround {
           ? ((store.get('osdWin.height') || 140) as number)
           : ((store.get('osdWin.height2') || 600) as number),
       minHeight: type === 'small' ? 140 : 400,
-      maxHeight: type === 'small' ? 220 : undefined,
+      // maxHeight: type === 'small' ? 220 : undefined,
       minWidth: type === 'small' ? 700 : 400,
       maxWidth: type === 'small' ? undefined : undefined,
       useContentSize: true,
@@ -461,7 +461,7 @@ class BackGround {
 
   handleProtocol() {
     protocol.handle('atom', async (request) => {
-      const { host, pathname, searchParams } = new URL(request.url)
+      const { host, pathname, searchParams, search } = new URL(request.url)
 
       if (host === 'get-default-pic') {
         const pic = fs.readFileSync(defaultImagePath)
@@ -578,19 +578,6 @@ class BackGround {
               track.peak = peak
               track.br = br
 
-              if (store.get('settings.autoCacheTrack.enable')) {
-                cacheOnlineTrack({ id: ids, name: track.name, url, br, win: this.win }).then(
-                  (res) => {
-                    track.url = res.filePath
-                    track.size = res.size
-                    track.cache = true
-                    track.insertTime = Date.now()
-                    cache.set(CacheAPIs.LocalMusic, { newTracks: [track] })
-                    // this.win.webContents.send('')
-                  }
-                )
-              }
-
               return new Response(JSON.stringify(track), {
                 headers: { 'content-type': 'application/json' }
               })
@@ -599,14 +586,7 @@ class BackGround {
           case 'lyric':
             ids = searchParams.get('id')
             res = cache.get(CacheAPIs.Track, { ids })
-            let lyrics = {
-              lrc: { lyric: [] },
-              tlyric: { lyric: [] },
-              romalrc: { lyric: [] },
-              yrc: { lyric: [] },
-              ytlrc: { lyric: [] },
-              yromalrc: { lyric: [] }
-            }
+            let lyrics: lyricLine[] = []
 
             if (res?.songs?.length > 0) {
               const track = res.songs[0]
@@ -620,8 +600,9 @@ class BackGround {
             })
         }
       } else if (host === 'get-online-music') {
-        const url = pathname.slice(1)
+        let url = pathname.slice(1)
         const headers = request.headers
+        url += search
         try {
           const response = await fetch(url, { headers })
           if (!response.ok) {
@@ -709,16 +690,14 @@ class BackGround {
     })
 
     app.on('quit', () => {
+      globalShortcut.unregisterAll()
       this.fastifyApp?.close()
+      this.amuseFastifyApp?.close()
     })
 
     powerMonitor.on('resume', () => {
       setTimeout(() => this.initMessageChannel(), 1000)
       this.win.webContents.send('resume')
-    })
-
-    app.on('will-quit', () => {
-      globalShortcut.unregisterAll()
     })
 
     if (!Constants.IS_MAC) {
@@ -805,5 +784,11 @@ class BackGround {
   }
 }
 
-const bgProcess = new BackGround()
-bgProcess.init()
+const MAIN_PROCESS_INITIALIZED_KEY = '__VUTRON_MAIN_INITIALIZED__'
+
+if (!global[MAIN_PROCESS_INITIALIZED_KEY]) {
+  global[MAIN_PROCESS_INITIALIZED_KEY] = true
+
+  const bgProcess = new BackGround()
+  bgProcess.init()
+}

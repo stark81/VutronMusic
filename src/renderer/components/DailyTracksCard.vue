@@ -1,6 +1,6 @@
 <template>
   <div class="daily-recommend-card" @click="goToDailyTracks">
-    <img :src="coverUrl" loading="lazy" />
+    <img :src="coverUrl" :class="{ paused }" loading="lazy" />
     <div class="container">
       <div class="title-box">
         <div class="title">
@@ -18,7 +18,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onActivated, onDeactivated, ref, watch } from 'vue'
 import SvgIcon from './SvgIcon.vue'
 import { useRouter } from 'vue-router'
 import { useNormalStateStore } from '../store/state'
@@ -36,16 +36,17 @@ const defaultCovers = [
 ]
 
 const stateStore = useNormalStateStore()
-const { dailyTracks } = storeToRefs(stateStore)
+const { dailyTracks, showLyrics } = storeToRefs(stateStore)
 const { showToast } = stateStore
 const { t } = useI18n()
 
 const playerStore = usePlayerStore()
 const { _shuffle } = storeToRefs(playerStore)
 const { replacePlaylist } = playerStore
+const paused = ref(document.visibilityState === 'hidden')
 
 const coverUrl = computed(() => {
-  return `${dailyTracks.value[0]?.al.picUrl || _.sample(defaultCovers)}?param=1024y1024`
+  return `${dailyTracks.value[0]?.al.picUrl || _.sample(defaultCovers)}?param=256y256`
 })
 
 const router = useRouter()
@@ -70,10 +71,22 @@ const loadDailyTracks = () => {
   })
 }
 
-onMounted(() => {
-  if (dailyTracks.value.length === 0) {
-    loadDailyTracks()
-  }
+watch(showLyrics, (value) => {
+  paused.value = value
+})
+
+const handleVisibleChange = () => {
+  paused.value = document.visibilityState === 'hidden'
+}
+
+document.addEventListener('visibilitychange', handleVisibleChange)
+
+onActivated(() => {
+  loadDailyTracks()
+})
+
+onDeactivated(() => {
+  paused.value = true
 })
 </script>
 
@@ -94,7 +107,12 @@ img {
   width: 100%;
   animation: move 38s infinite;
   animation-direction: alternate;
+  animation-play-state: running;
   z-index: -1;
+
+  &.paused {
+    animation-play-state: paused;
+  }
 }
 
 .container {
