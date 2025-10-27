@@ -189,7 +189,7 @@ const createMenuTemplate = (win: BrowserWindow) => {
     {
       label: t('quit'),
       icon: createNativeImage('quit'),
-      click: () => app.exit()
+      click: () => app.quit()
     }
   ])
 }

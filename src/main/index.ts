@@ -33,7 +33,7 @@ import {
   getTrackDetail,
   getAudioSource,
   cacheOnlineTrack
-} from './utils/utils'
+} from './utils'
 import { CacheAPIs } from './utils/CacheApis'
 import { registerGlobalShortcuts } from './globalShortcut'
 import { initAutoUpdater } from './checkUpdate'
@@ -779,5 +779,11 @@ class BackGround {
   }
 }
 
-const bgProcess = new BackGround()
-bgProcess.init()
+const MAIN_PROCESS_INITIALIZED_KEY = '__VUTRON_MAIN_INITIALIZED__'
+
+if (!global[MAIN_PROCESS_INITIALIZED_KEY]) {
+  global[MAIN_PROCESS_INITIALIZED_KEY] = true
+
+  const bgProcess = new BackGround()
+  bgProcess.init()
+}

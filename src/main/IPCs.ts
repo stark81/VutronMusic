@@ -14,9 +14,9 @@ import {
   createMD5,
   getFileName,
   getReplayGainFromMetadata,
-  splitArtist
-  // cleanFontName
-} from './utils/utils'
+  splitArtist,
+  createWorker
+} from './utils'
 import cache from './cache'
 import { registerGlobalShortcuts } from './globalShortcut'
 import { createMenu } from './menu'
@@ -24,9 +24,12 @@ import log from './log'
 import navidrome from './streaming/navidrome'
 import emby from './streaming/emby'
 import jellyfin from './streaming/jellyfin'
+import { Worker } from 'worker_threads'
 
 let isLock = store.get('osdWin.isLock') as boolean
 let blockerId: number | null = null
+let coverWorker: Worker
+
 /*
  * IPC Communications
  * */
@@ -44,6 +47,18 @@ export default class IPCs {
     initMprisIpcMain(win, mpris)
     initOtherIpcMain(win)
     initStreaming()
+
+    coverWorker = createWorker('writeCover')
+    coverWorker.on('message', (msg) => {
+      if (msg.status === 'done') app.exit(0)
+    })
+
+    app.on('before-quit', async (event) => {
+      event.preventDefault()
+      win.hide()
+      coverWorker.postMessage({ type: 'finished' })
+      console.log('正在写入内嵌封面图片，稍后退出')
+    })
   }
 }
 
@@ -504,6 +519,11 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
       log.error('获取字体列表失败:', error)
       return ['system-ui']
     }
+  })
+
+  ipcMain.on('write-cover', (event, data: { filePath: null | string; picUrl: string | null }) => {
+    const embedOption = (store.get('settings.embedCoverArt') as number) || 0
+    coverWorker.postMessage({ type: 'normal', ...data, embedOption })
   })
 }
 

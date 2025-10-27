@@ -611,6 +611,15 @@
                 <button @click="deleteLocalMusic">确定</button>
               </div>
             </div>
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('localMusic.embedCoverArt.text') }}</div>
+                <div class="description">{{ $t('localMusic.embedCoverArt.desc') }}</div>
+              </div>
+              <div class="right">
+                <CustomSelect v-model="localMusic.embedCoverArt" :options="embedCoverArtOption" />
+              </div>
+            </div>
             <div class="item no-flex">
               <div class="left">
                 <div class="title">{{ $t('localMusic.trackInfoOrder.text') }}</div>
@@ -918,6 +927,22 @@
         <div v-if="isElectron" v-show="tab === 'update'" key="update">
           <div class="item">
             <div class="left">
+              <div class="title"> {{ $t('settings.update.autoUpdate') }} </div>
+            </div>
+            <div class="right">
+              <div class="toggle">
+                <input
+                  id="autoUpdate"
+                  v-model="general.autoUpdate"
+                  type="checkbox"
+                  name="autoUpdate"
+                />
+                <label for="autoUpdate"></label>
+              </div>
+            </div>
+          </div>
+          <div class="item">
+            <div class="left">
               <div class="title"
                 >{{ $t('settings.update.currentVersion') + '：' + appVersion }}
                 <label v-if="latestVersion?.isUpdateAvailable" class="update-ext">{{
@@ -1216,6 +1241,13 @@ const musicQualityOptions = computed(() => [
   { label: t('settings.general.musicQuality.high') + ' - 320Kbps', value: 320000 },
   { label: t('settings.general.musicQuality.lossless') + ' - FLAC', value: 'flac' },
   { label: 'Hi-Res', value: 999000 }
+])
+
+const embedCoverArtOption = computed(() => [
+  { label: t('localMusic.embedCoverArt.none'), value: 0 },
+  { label: t('localMusic.embedCoverArt.embedded'), value: 1 },
+  { label: t('localMusic.embedCoverArt.path'), value: 2 },
+  { label: t('localMusic.embedCoverArt.both'), value: 3 }
 ])
 
 const trackInfoOptions = computed(() => [

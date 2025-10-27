@@ -71,6 +71,7 @@ const store = new Store<TypeElectronStore>({
       useCustomTitlebar: false,
       showTray: true,
       trayColor: 0, // 0: 彩色, 1: 白色, 2: 黑色, 3: 跟随系统
+      embedCoverArt: 0, // 0: 不嵌入, 1: 内嵌, 2: 歌曲路径下, 3: 两者都嵌入
       enableGlobalShortcut: false,
       unblockNeteaseMusic: {
         enable: true,

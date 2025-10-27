@@ -32,6 +32,7 @@ export const useSettingsStore = defineStore(
       scanDir: '',
       replayGain: false,
       useInnerInfoFirst: false,
+      embedCoverArt: 0, // 0: 不嵌入, 1: 内嵌, 2: 歌曲路径下, 3: 两者都嵌入
       trackInfoOrder: ['online', 'path', 'embedded'] as TrackInfoOrder[],
       scanning: false
     })
@@ -48,6 +49,7 @@ export const useSettingsStore = defineStore(
       enabledPlaylistCategories,
       fadeDuration: 0.2, // 音频淡入淡出时长（秒）
       showBanner: true,
+      autoUpdate: true,
       jumpToLyricBegin: true,
       trayColor: 0 // 0: 彩色, 1: 白色, 2: 黑色, 3: 跟随系统
     })
@@ -136,6 +138,13 @@ export const useSettingsStore = defineStore(
       () => localMusic.scanDir,
       () => {
         scanLocalMusic()
+      }
+    )
+
+    watch(
+      () => localMusic.embedCoverArt,
+      (value) => {
+        window.mainApi?.send('setStoreSettings', { embedCoverArt: value })
       }
     )
 
@@ -265,6 +274,7 @@ export const useSettingsStore = defineStore(
         enableTrayMenu: trayMenu,
         trayColor: general.trayColor,
         innerFirst: localMusic.useInnerInfoFirst,
+        embedCoverArt: localMusic.embedCoverArt,
         musicQuality: general.musicQuality,
         closeAppOption: general.closeAppOption,
         useCustomTitlebar: general.useCustomTitlebar,

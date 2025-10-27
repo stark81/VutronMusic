@@ -236,7 +236,7 @@ onBeforeUnmount(() => {
       bottom: 0;
       right: 0;
       font-size: 10px;
-      font-weight: bold;
+      font-weight: 600;
       color: white;
       padding: 2px 4px;
       border-radius: 8px 0 8px 0;

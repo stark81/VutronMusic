@@ -69,7 +69,7 @@ const closeFn = () => {
 
 .title {
   font-size: 18px;
-  font-weight: bold;
+  font-weight: 600;
   margin-bottom: 8px;
 }
 

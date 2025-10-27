@@ -14,6 +14,8 @@ import store, { TrackInfoOrder } from '../store'
 import { Readable } from 'stream'
 import { db, Tables } from '../db'
 import log from '../log'
+import Constants from './Constants'
+import { Worker } from 'worker_threads'
 
 export const isFileExist = (file: string) => {
   return fs.existsSync(file)
@@ -352,7 +354,7 @@ export const getLyric = async (track: {
   return lyrics
 }
 
-export const handleNeteaseResult = (name: string, result: any) => {
+export const handleNeteaseResult = async (name: string, result: any, localID: null | string) => {
   switch (name) {
     case CacheAPIs.Playlist: {
       if (result.playlist) {
@@ -412,6 +414,43 @@ export const handleNeteaseResult = (name: string, result: any) => {
     }
     default:
       return result
+  }
+}
+
+export const writeCoverToEmbedded = async (
+  filePath: string,
+  image: { pic: Buffer<ArrayBufferLike>; format: string }
+) => {
+  try {
+    const { replacePictureByType, readPictures } = await import('taglib-wasm')
+
+    const decodedPath = decodeURI(filePath)
+
+    const picture = (await readPictures(decodedPath)).find((p) => p.type === 3)
+    if (picture) return
+
+    const modifiedBuffer = await replacePictureByType(decodedPath, {
+      mimeType: image.format,
+      data: image.pic,
+      type: 3
+    })
+    await fs.promises.writeFile(decodedPath, Buffer.from(modifiedBuffer))
+  } catch (error) {
+    log.error(`写入封面图片 ${filePath} 失败:`, error)
+  }
+}
+
+export const writeCoverToFile = async (
+  filePath: string,
+  image: { pic: Buffer<ArrayBufferLike>; format: string }
+) => {
+  try {
+    const prefix = image.format.includes('image/png') ? '.png' : '.jpg'
+    filePath = filePath.replace(/\.[^/.]+$/, prefix)
+
+    await fs.promises.writeFile(filePath, image.pic)
+  } catch (error) {
+    log.error(`写入封面图片 ${filePath} 失败:`, error)
   }
 }
 
@@ -645,4 +684,18 @@ export const cleanFontName = (fontName: string) => {
     .replace(/^['"]|['"]$/g, '')
     .replace(/\s+/g, ' ')
     .replace(/^\./, '')
+}
+
+export const createWorker = (name: string) => {
+  const workerPath = Constants.IS_DEV_ENV
+    ? `./src/main/workers/${name}.ts`
+    : path.join(__dirname, `workers/${name}.js`)
+  const worker = new Worker(workerPath, {
+    execArgv: Constants.IS_DEV_ENV ? ['-r', 'ts-node/register'] : []
+  })
+
+  worker.on('error', (error) => log.error(`[Worker ${name}] error: `, error))
+  worker.on('exit', (code) => log.info(`[Worker ${name}] exited with code ${code}`))
+
+  return worker
 }

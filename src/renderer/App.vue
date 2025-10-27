@@ -260,7 +260,9 @@ onMounted(async () => {
   )
   fetchData()
   handleChanelEvent()
-  checkUpdate()
+  if (general.value.autoUpdate) {
+    checkUpdate()
+  }
 })
 
 onBeforeUnmount(() => {

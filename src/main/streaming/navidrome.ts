@@ -2,7 +2,7 @@ import store from '../store'
 import axios from 'axios'
 import crypto from 'crypto'
 import qs from 'qs'
-import { formatTime } from '../utils/utils'
+import { formatTime } from '../utils'
 
 const apiVersion = '1.16.1'
 const client = 'VutronMusic'

@@ -88,6 +88,9 @@ jobs:
           SKIP_REBUILD: true
         run: ${{ env.XVFB_PFX }}yarn
 
+      - name: Fix taglib-wasm
+        run: ${{ env.XVFB_PFX }}npm run fix-taglib
+
       - name: Fix app-builder permissions (Linux ARM64)
         if: matrix.platform == 'linux' && matrix.arch == 'arm64'
         run: |

@@ -6,12 +6,26 @@ import EslintPlugin from 'vite-plugin-eslint'
 // import VuetifyPlugin from 'vite-plugin-vuetify'
 import VueJsx from '@vitejs/plugin-vue-jsx'
 import Vue from '@vitejs/plugin-vue'
-import { rmSync } from 'fs' // fs
+import fs, { rmSync } from 'fs' // fs
 import { resolve, dirname } from 'path' // join， posix
 import { builtinModules } from 'module'
 import { createSvgIconsPlugin } from 'vite-plugin-svg-icons'
 
 const isDevEnv = process.env.NODE_ENV === 'development'
+
+const getWorkerEntries = () => {
+  const workersDir = resolve('src/main/workers')
+  if (!fs.existsSync(workersDir)) return {}
+
+  const entries: Record<string, string> = {}
+  for (const file of fs.readdirSync(workersDir)) {
+    if (file.endsWith('.ts')) {
+      const name = file.replace(/\.ts$/, '')
+      entries[name] = resolve(workersDir, file)
+    }
+  }
+  return entries
+}
 
 export default defineConfig(({ mode }) => {
   process.env = {
@@ -38,7 +52,16 @@ export default defineConfig(({ mode }) => {
           assetsDir: '.',
           outDir: 'dist/main',
           rollupOptions: {
-            external: ['electron', ...builtinModules, 'better-sqlite3']
+            input: {
+              main: resolve('src/main/index.ts'),
+              ...getWorkerEntries()
+            },
+            external: ['electron', 'better-sqlite3', 'taglib-wasm', ...builtinModules],
+            output: {
+              entryFileNames: (chunk) => {
+                return chunk.name === 'main' ? 'index.js' : 'workers/[name].js'
+              }
+            }
           },
           commonjsOptions: {
             ignoreDynamicRequires: true

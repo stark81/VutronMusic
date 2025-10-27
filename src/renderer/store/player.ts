@@ -763,6 +763,10 @@ export const usePlayerStore = defineStore(
           })
         if (result) track = result
       }
+      window.mainApi?.send('write-cover', {
+        filePath: track.filePath,
+        picUrl: track.matched ? track.album?.picUrl || track.al?.picUrl : null
+      })
       await getCurrentTrackInfo(track)
       await updateMediaSessionMetaData(track)
       if (osdLyricStore.show) {
@@ -1339,7 +1343,7 @@ export const usePlayerStore = defineStore(
     }
 
     const getPic = async (track: Track, size: number = 128) => {
-      if (track.type === 'local' && !track.matched) {
+      if (track.type === 'local') {
         return await getLocalPic(track.id, size)
       } else if (track.type === 'stream') {
         return getStreamPic(track, size)!

@@ -18,7 +18,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, toRefs, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, toRefs, onBeforeUnmount, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
 import { useNormalStateStore } from '../store/state'
@@ -169,9 +169,10 @@ eventBus.on('updateSeek', (start: number) => {
   seek.value = start - lyricOffset.value
 })
 
-onMounted(() => {
+onMounted(async () => {
   if (!currentTrack.value) return
 
+  await nextTick()
   if (lyricContainer.value) {
     initLyric({
       container: lyricContainer.value,

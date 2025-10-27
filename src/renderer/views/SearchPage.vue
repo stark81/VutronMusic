@@ -203,7 +203,7 @@ onBeforeUnmount(() => {
   display: -webkit-box;
   .title {
     font-size: 30px;
-    font-weight: bold;
+    font-weight: 600;
     overflow: hidden;
     text-overflow: ellipsis;
     -webkit-box-orient: vertical;

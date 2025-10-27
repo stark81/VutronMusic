@@ -713,7 +713,7 @@ onBeforeUnmount(() => {
   top: 28px;
   left: 15vw;
   right: 15vw;
-  font-weight: bold;
+  font-weight: 600;
   line-height: 50px;
 
   span {

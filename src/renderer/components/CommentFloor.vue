@@ -313,7 +313,7 @@ onBeforeUnmount(() => {
 .comment-head {
   display: flex;
   font-size: 16px;
-  font-weight: bold;
+  font-weight: 600;
   margin-bottom: 20px;
   justify-content: space-between;
   -webkit-user-select: none;
@@ -327,7 +327,7 @@ onBeforeUnmount(() => {
     justify-items: center;
     .btn {
       font-size: 16px;
-      font-weight: bold;
+      font-weight: 600;
       color: var(--color-text);
       padding: 0 10px;
       opacity: 0.5;
@@ -377,7 +377,7 @@ onBeforeUnmount(() => {
 
   .comment-nickname {
     cursor: pointer;
-    font-weight: bold;
+    font-weight: 600;
   }
 }
 .comment-beReplied {
@@ -388,7 +388,7 @@ onBeforeUnmount(() => {
   background-color: rgba(0, 0, 0, 0.1);
 
   .comment-nickname {
-    font-weight: bold;
+    font-weight: 600;
   }
 }
 .comment-ex {

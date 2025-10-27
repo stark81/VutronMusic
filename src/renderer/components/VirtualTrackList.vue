@@ -220,10 +220,7 @@ const rightClickedTrackComputed = computed(() => {
 
 const image = computed(() => {
   let url: string
-  if (
-    rightClickedTrackComputed.value.type === 'online' ||
-    rightClickedTrackComputed.value.matched
-  ) {
+  if (rightClickedTrackComputed.value.type === 'online') {
     url =
       rightClickedTrackComputed.value.al?.picUrl || rightClickedTrackComputed.value.album?.picUrl
     if (url && url.startsWith('http')) url = url.replace('http:', 'https:')
@@ -335,7 +332,7 @@ const rmTrackFromPlaylist = () => {
     }
   } else if (typeType.value === 'online') {
     if (!isAccountLoggedIn()) {
-      showToast(t('toast.loginRequired'))
+      showToast(t('toast.needToLogin'))
       return
     }
     if (confirm(`确定要从歌单删除 ${rightClickedTrackComputed.value.name}？`)) {
@@ -417,7 +414,7 @@ const copyId = () => {
 
 const addTrackToPlaylist = () => {
   if (!isAccountLoggedIn()) {
-    showToast(t('toast.loginRequired'))
+    showToast(t('toast.needToLogin'))
     return
   }
   const trackIDs = [rightClickedTrack.value?.id]

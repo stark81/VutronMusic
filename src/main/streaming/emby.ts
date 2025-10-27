@@ -1,6 +1,6 @@
 import axios from 'axios'
 import Constants from '../utils/Constants'
-import { parseLyricString } from '../utils/utils'
+import { parseLyricString } from '../utils'
 import store from '../store'
 import log from '../log'
 

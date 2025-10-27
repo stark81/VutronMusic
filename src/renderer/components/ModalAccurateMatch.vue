@@ -58,6 +58,10 @@ const accurateMatchTrack = () => {
     const result = await window.mainApi?.invoke('accurateMatch', track, selectedTrack.value.id)
     if (result) {
       updateTrack(filePath, track)
+      window.mainApi?.send('write-cover', {
+        filePath,
+        picUrl: track.album?.picUrl || track.al?.picUrl
+      })
       close()
     }
   })

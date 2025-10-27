@@ -158,7 +158,7 @@ const track = computed(
 
 const image = computed(() => {
   let url: string
-  if (track.value.type === 'online' || track.value.matched) {
+  if (track.value.type === 'online') {
     url = track.value.al?.picUrl || track.value.album?.picUrl || track.value.picUrl
     if (url && url.startsWith('http')) url = url.replace('http:', 'https:')
     url += '?param=64y64'
@@ -527,7 +527,7 @@ button {
     color: var(--color-text);
   }
   .count {
-    font-weight: bold;
+    font-weight: 600;
     font-size: 22px;
     line-height: 22px;
   }
