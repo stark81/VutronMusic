@@ -30,7 +30,6 @@
       <div class="title">
         {{ $t('home.newAlbum') }}
         <a @click="toExplore('newAlbum')">{{ $t('home.seeMore') }}</a>
-        <!-- <router-link to="/new-album">{{ $t('home.seeMore') }}</router-link> -->
       </div>
       <CoverRow :items="newReleasesAlbum.items" type="album" sub-text="artist" />
     </div>
@@ -38,7 +37,6 @@
       <div class="title">
         {{ $t('home.charts') }}
         <a @click="toExplore('chart')">{{ $t('home.seeMore') }}</a>
-        <!-- <router-link :to="toExplore('排行榜')">{{ $t('home.seeMore') }}</router-link> -->
       </div>
       <CoverRow :items="topList.items" type="playlist" sub-text="updateFrequency" />
     </div>

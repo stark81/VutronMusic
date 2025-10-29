@@ -7,7 +7,19 @@
     "composite": true,
     "resolveJsonModule": true,
     "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "sourceMap": true
   },
-  "include": ["src/main", "src/preload", "package.json", "vite.config.ts", "buildAssets/builder"]
+  "include": [
+    "src/main",
+    "src/preload",
+    "src/types",
+    "package.json",
+    "vite.config.ts",
+    "buildAssets/builder"
+  ]
 }

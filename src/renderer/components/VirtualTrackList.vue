@@ -125,8 +125,9 @@ import { useI18n } from 'vue-i18n'
 import { addOrRemoveTrackFromPlaylist } from '../api/playlist'
 import _ from 'lodash'
 import { isAccountLoggedIn } from '../utils/auth'
-import { serviceName, useStreamMusicStore } from '../store/streamingMusic'
+import { useStreamMusicStore } from '../store/streamingMusic'
 import SvgIcon from './SvgIcon.vue'
+import { serviceName } from '@/types/music.d'
 
 const props = defineProps({
   items: {

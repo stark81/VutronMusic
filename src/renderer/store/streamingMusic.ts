@@ -1,20 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, reactive, ref } from 'vue'
-import { Track, Playlist } from './localMusic'
 import _ from 'lodash'
-
-export interface StreamPlaylist extends Omit<Playlist, 'id'> {
-  id: string
-  trackItemIds: Record<number, number>
-}
-
-export type serviceName = 'navidrome' | 'jellyfin' | 'emby'
-export type streamStatus = 'logout' | 'login' | 'offline'
-
-export type serviceType = {
-  name: serviceName
-  status: streamStatus
-}
+import { Track, StreamPlaylist, serviceType, serviceName, streamStatus } from '@/types/music'
 
 export const useStreamMusicStore = defineStore(
   'streamMusic',

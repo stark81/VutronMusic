@@ -4,9 +4,8 @@ import DefaultShortcuts from '../utils/shortcuts'
 import { playlistCategories } from '../utils/common'
 import cloneDeep from 'lodash/cloneDeep'
 import { useLocalMusicStore } from './localMusic'
+import { TranslationMode, TrackInfoOrder } from '@/types/music'
 
-export type TranslationMode = 'none' | 'tlyric' | 'rlyric'
-export type TrackInfoOrder = 'path' | 'online' | 'embedded'
 type TextAlign = 'start' | 'center' | 'end'
 type BackgroundEffect = 'none' | 'true' | 'blur' | 'dynamic'
 

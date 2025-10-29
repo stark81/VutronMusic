@@ -11,7 +11,7 @@
 </template>
 <script setup lang="ts">
 import { PropType, computed } from 'vue'
-import { Track, Artist } from '../store/localMusic'
+import { Track, Artist } from '@/types/music.d'
 
 const props = defineProps({
   trackProp: {

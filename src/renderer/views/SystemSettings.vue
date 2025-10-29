@@ -1004,7 +1004,7 @@ import { usePlayerStore } from '../store/player'
 import { useLocalMusicStore } from '../store/localMusic'
 import { useNormalStateStore } from '../store/state'
 import { useOsdLyricStore } from '../store/osdLyric'
-import { useStreamMusicStore, serviceType, serviceName } from '../store/streamingMusic'
+import { useStreamMusicStore } from '../store/streamingMusic'
 import { useDataStore } from '../store/data'
 import { storeToRefs } from 'pinia'
 import { doLogout } from '../utils/auth'
@@ -1016,6 +1016,7 @@ import { VueDraggable } from 'vue-draggable-plus'
 // @ts-ignore
 import imageUrl from '../utils/settingImg.dataurl?raw'
 import { useRouter } from 'vue-router'
+import { serviceType, serviceName } from '@/types/music'
 
 const router = useRouter()
 

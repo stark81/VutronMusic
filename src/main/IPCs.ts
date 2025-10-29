@@ -7,16 +7,8 @@ import store from './store'
 import fs from 'fs'
 import path from 'path'
 import { db, Tables } from './db'
-import { parseFile } from 'music-metadata'
 import { CacheAPIs } from './utils/CacheApis'
-import {
-  deleteExcessCache,
-  createMD5,
-  getFileName,
-  getReplayGainFromMetadata,
-  splitArtist,
-  createWorker
-} from './utils'
+import { deleteExcessCache, createWorker } from './utils'
 import cache from './cache'
 import { registerGlobalShortcuts } from './globalShortcut'
 import { createMenu } from './menu'
@@ -25,6 +17,8 @@ import navidrome from './streaming/navidrome'
 import emby from './streaming/emby'
 import jellyfin from './streaming/jellyfin'
 import { Worker } from 'worker_threads'
+import { Track, Album, Artist, scanTrack } from '@/types/music'
+import _ from 'lodash'
 
 let isLock = store.get('osdWin.isLock') as boolean
 let blockerId: number | null = null
@@ -57,7 +51,6 @@ export default class IPCs {
       event.preventDefault()
       win.hide()
       coverWorker.postMessage({ type: 'finished' })
-      console.log('正在写入内嵌封面图片，稍后退出')
     })
   }
 }
@@ -328,101 +321,113 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
   })
 
   ipcMain.on('msgScanLocalMusic', async (event, data: { filePath: string; update: boolean }) => {
-    const musicFileExtensions = /\.(mp3|aiff|flac|alac|m4a|aac|wav|opus)$/i
+    try {
+      const { default: Piscina } = (await import('piscina')) as typeof import('piscina')
+      const fg = await import('fast-glob')
+      const os = await import('os')
 
-    const { songs } = cache.get(CacheAPIs.LocalMusic)
-    const albums = songs.map((track: any) => track.album)
-    const artists = songs.map((track: any) => track.artists).flat()
-    const newTracks = []
-    const newAlbums = []
-    const newArtists = []
+      const existingTracks = new Map<string, Track>()
+      const existingAlbums = new Map<string, Album>()
+      const existingArtists = new Map<string, Artist>()
 
-    const walk = async (dir: string) => {
-      const files = await fs.promises.readdir(dir)
-      for (const file of files) {
-        const filePath = path.join(dir, file)
-        try {
-          const stat = fs.statSync(filePath)
+      const newTracks: Track[] = []
 
-          if (stat.isFile() && musicFileExtensions.test(filePath)) {
-            const foundtrack = songs.find((track) => track.filePath === filePath)
-            if (!foundtrack || data.update) {
-              const md5 = createMD5(filePath)
-              const metadata = await parseFile(filePath)
-              const birthDate = new Date(stat.birthtime).getTime()
-              const { common, format } = metadata
+      const { songs } = cache.get(CacheAPIs.LocalMusic)
+      const existingPaths = songs.map((song: Track) => {
+        if (!existingTracks.has(song.filePath)) {
+          existingTracks.set(song.filePath, song)
 
-              // 获取艺术家信息
-              const arIDsResult: any[] = []
-              const arts = splitArtist(common.albumartist ?? common.artist)
-              for (const art of arts) {
-                const foundArtist = [...artists, ...newArtists].find(
-                  (artist) => artist.name === art
-                )
-                if (foundArtist) {
-                  arIDsResult.push(foundArtist)
-                } else {
-                  const artist = {
-                    id: artists.length + newArtists.length + 1,
-                    name: art,
-                    matched: false,
-                    picUrl:
-                      'https://p1.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg'
-                  }
-                  arIDsResult.push(artist)
-                  newArtists.push(artist)
-                }
-              }
-
-              // 获取专辑信息
-              const id = foundtrack?.id || songs.length + newTracks.length + 1
-              let album = [...albums, ...newAlbums].find((album) => album.name === common.album)
-              if (!album) {
-                album = {
-                  id: albums.length + newAlbums.length + 1,
-                  name: common.album ?? '未知专辑',
-                  matched: false,
-                  picUrl: `atom://local-asset?type=pic&id=${id}`
-                }
-                newAlbums.push(album)
-              }
-
-              // 获取音乐信息
-              const track = {
-                id,
-                name: common.title ?? getFileName(filePath) ?? '错误文件',
-                dt: (format.duration ?? 0) * 1000,
-                source: 'localTrack',
-                gain: getReplayGainFromMetadata(metadata),
-                peak: 1,
-                br: format.bitrate ?? 320000,
-                filePath,
-                type: 'local',
-                matched: foundtrack?.matched || false,
-                offset: 0,
-                md5,
-                createTime: birthDate,
-                alias: [],
-                album: foundtrack?.album || album,
-                artists: foundtrack?.artists || arIDsResult,
-                size: stat.size,
-                cache: false,
-                picUrl: `atom://local-asset?type=pic&id=${id}`
-              }
-              win.webContents.send('msgHandleScanLocalMusic', { track })
-              newTracks.push(track)
-            }
-          } else if (stat.isDirectory()) {
-            await walk(filePath)
+          if (!existingAlbums.has(song.album.name) || song.album.matched) {
+            existingAlbums.set(song.album.name, song.album)
           }
-        } catch (err) {
-          win.webContents.send('msgHandleScanLocalMusicError', { err, filePath })
+
+          song.artists.forEach((artist) => {
+            if (!existingArtists.has(artist.name) || artist.matched) {
+              existingArtists.set(artist.name, artist)
+            }
+          })
         }
+        return song.filePath
+      }) as string[]
+
+      const allFiles = await fg.glob(['**/*.{mp3,aiff,flac,alac,m4a,aac,wav,opus}'], {
+        cwd: data.filePath,
+        absolute: true,
+        onlyFiles: true
+      })
+
+      const newFiles = data.update ? allFiles : allFiles.filter((f) => !existingPaths.includes(f))
+
+      const workerPath = path.join(__dirname, 'workers/scanMusic.js')
+      const piscina = new Piscina({
+        filename: workerPath,
+        minThreads: 2,
+        maxThreads: Math.min(os.cpus().length - 1, 6)
+      })
+
+      const batchSize = 100
+      for (let i = 0; i < newFiles.length; i += batchSize) {
+        const batch = newFiles.slice(i, i + batchSize)
+        const batchResults: scanTrack[] = await Promise.all(
+          batch.map((file) => piscina.run({ filePath: file }))
+        )
+
+        batchResults.forEach((track) => {
+          if (!existingTracks.has(track.filePath)) {
+            // @ts-ignore
+            let newTrack: Track = {}
+            const id = existingTracks.size + 1
+            newTrack.id = id
+            newTrack.picUrl = `atom://local-asset?type=pic&id=${id}`
+
+            if (existingAlbums.has(track.album)) {
+              newTrack.album = existingAlbums.get(track.album)
+            } else {
+              const newAl = {
+                id: existingAlbums.size + 1,
+                name: track.album,
+                picUrl: `atom://local-asset?type=pic&id=${id}`,
+                matched: false
+              }
+              newTrack.album = newAl
+              existingAlbums.set(track.album, newAl)
+            }
+            newTrack.artists = track.artists.map((artist) => {
+              let newAr: Artist
+              if (existingArtists.has(artist)) {
+                newAr = existingArtists.get(artist)
+              } else {
+                newAr = {
+                  id: existingArtists.size + 1,
+                  name: artist,
+                  matched: false,
+                  picUrl: 'https://p1.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg'
+                }
+                existingArtists.set(artist, newAr)
+              }
+              return newAr
+            })
+
+            newTrack = _.merge({}, track, newTrack)
+
+            win.webContents.send('msgHandleScanLocalMusic', { track: newTrack })
+            existingTracks.set(track.filePath, newTrack)
+            newTracks.push(newTrack)
+          } else {
+            const originTrack = existingTracks.get(track.filePath)
+            const updatedTrack = _.merge({}, track, originTrack)
+            existingTracks.set(updatedTrack.filePath, updatedTrack)
+          }
+        })
       }
+
+      if (newTracks.length > 0) {
+        await cache.set(CacheAPIs.LocalMusic, { newTracks })
+      }
+      win.webContents.send('scanLocalMusicDone')
+    } catch (error) {
+      log.error('+++++++++++++++++++++++++++++', error.stack || error)
     }
-    await walk(data.filePath)
-    if (newTracks.length > 0) cache.set(CacheAPIs.LocalMusic, { newTracks })
-    win.webContents.send('scanLocalMusicDone')
   })
 
   ipcMain.on('msgShowInFolder', (event, path: string) => {
@@ -438,7 +443,6 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     const playlistIDs = cache.get(CacheAPIs.LocalPlaylist)?.map((playlist) => playlist.id)
     if (!playlistIDs.length) return
     db.deleteMany(Tables.Playlist, playlistIDs)
-    // db.vacuum()
   })
 
   ipcMain.handle('clearCacheTracks', async (event) => {
@@ -521,10 +525,16 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     }
   })
 
-  ipcMain.on('write-cover', (event, data: { filePath: null | string; picUrl: string | null }) => {
-    const embedOption = (store.get('settings.embedCoverArt') as number) || 0
-    coverWorker.postMessage({ type: 'normal', ...data, embedOption })
-  })
+  ipcMain.on(
+    'write-cover',
+    (
+      event,
+      data: { filePath: null | string; picUrl: string | null; currentPlayingPath?: string }
+    ) => {
+      const embedOption = (store.get('settings.embedCoverArt') as number) || 0
+      coverWorker.postMessage({ type: 'normal', ...data, embedOption })
+    }
+  )
 }
 
 async function initMprisIpcMain(win: BrowserWindow, mpris: MprisImpl): Promise<void> {

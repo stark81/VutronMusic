@@ -1,7 +1,6 @@
 import { app, net } from 'electron'
 import fs from 'fs'
 import path from 'path'
-import crypto from 'crypto'
 import jschardet from 'jschardet'
 import iconv from 'iconv-lite'
 import { fileTypeFromBuffer } from 'file-type'
@@ -9,13 +8,13 @@ import { IAudioMetadata, parseFile } from 'music-metadata'
 import request from '../appServer/request'
 import { CacheAPIs } from './CacheApis'
 import Cache from '../cache'
-import store, { TrackInfoOrder } from '../store'
+import store from '../store'
 
 import { Readable } from 'stream'
 import { db, Tables } from '../db'
 import log from '../log'
-import Constants from './Constants'
 import { Worker } from 'worker_threads'
+import { TrackInfoOrder } from '@/types/music'
 
 export const isFileExist = (file: string) => {
   return fs.existsSync(file)
@@ -135,42 +134,6 @@ const getLyricFromPath = async (filePath: string) => {
   const lyrics = iconv.decode(buffer, detected.encoding)
   if (lyrics) {
     result = parseLyricString(lyrics)
-  }
-  return result
-}
-
-export const getReplayGainFromMetadata = (metadata: IAudioMetadata) => {
-  if (!metadata) return 0
-  let gain: number = metadata.format.trackGain ?? metadata.common.replaygain_track_gain?.dB ?? 0
-  if (gain) return Number(gain)
-  metadata.native.iTunes?.forEach(({ id, value }) => {
-    if (id.includes('replaygain_track_gain')) {
-      gain = Number(value)
-    }
-  })
-  return gain
-}
-
-export const createMD5 = (filePath: string) => {
-  const hash = crypto.createHash('md5')
-  const data = fs.readFileSync(filePath)
-  hash.update(data)
-  return hash.digest('hex')
-}
-
-export const splitArtist = (artist: string | undefined) => {
-  if (!artist) return ['未知歌手']
-  let result: string[]
-  if (artist.includes('&')) {
-    result = artist.split('&')
-  } else if (artist.includes('、')) {
-    result = artist.split('、')
-  } else if (artist.includes(',')) {
-    result = artist.split(',')
-  } else if (artist.includes('/')) {
-    result = artist.split('/')
-  } else {
-    result = [artist]
   }
   return result
 }
@@ -417,43 +380,6 @@ export const handleNeteaseResult = async (name: string, result: any, localID: nu
   }
 }
 
-export const writeCoverToEmbedded = async (
-  filePath: string,
-  image: { pic: Buffer<ArrayBufferLike>; format: string }
-) => {
-  try {
-    const { replacePictureByType, readPictures } = await import('taglib-wasm')
-
-    const decodedPath = decodeURI(filePath)
-
-    const picture = (await readPictures(decodedPath)).find((p) => p.type === 3)
-    if (picture) return
-
-    const modifiedBuffer = await replacePictureByType(decodedPath, {
-      mimeType: image.format,
-      data: image.pic,
-      type: 3
-    })
-    await fs.promises.writeFile(decodedPath, Buffer.from(modifiedBuffer))
-  } catch (error) {
-    log.error(`写入封面图片 ${filePath} 失败:`, error)
-  }
-}
-
-export const writeCoverToFile = async (
-  filePath: string,
-  image: { pic: Buffer<ArrayBufferLike>; format: string }
-) => {
-  try {
-    const prefix = image.format.includes('image/png') ? '.png' : '.jpg'
-    filePath = filePath.replace(/\.[^/.]+$/, prefix)
-
-    await fs.promises.writeFile(filePath, image.pic)
-  } catch (error) {
-    log.error(`写入封面图片 ${filePath} 失败:`, error)
-  }
-}
-
 const mapTrackPlayableStatus = (tracks: any[], privileges: any[] = []) => {
   if (tracks?.length === undefined) return tracks
   return tracks.map((t) => {
@@ -671,13 +597,6 @@ export const formatTime = (ms: number) => {
   return `[${minutesStr}:${secondsStr}]`
 }
 
-export const getFileName = (filePath: string) => {
-  const fileExt = path.extname(filePath)
-  const fileNameWithExt = path.basename(filePath)
-  const fileName = fileNameWithExt.replace(fileExt, '')
-  return fileName
-}
-
 export const cleanFontName = (fontName: string) => {
   return fontName
     .trim()
@@ -687,12 +606,8 @@ export const cleanFontName = (fontName: string) => {
 }
 
 export const createWorker = (name: string) => {
-  const workerPath = Constants.IS_DEV_ENV
-    ? `./src/main/workers/${name}.ts`
-    : path.join(__dirname, `workers/${name}.js`)
-  const worker = new Worker(workerPath, {
-    execArgv: Constants.IS_DEV_ENV ? ['-r', 'ts-node/register'] : []
-  })
+  const workerPath = path.join(__dirname, `workers/${name}.js`)
+  const worker = new Worker(workerPath)
 
   worker.on('error', (error) => log.error(`[Worker ${name}] error: `, error))
   worker.on('exit', (code) => log.info(`[Worker ${name}] exited with code ${code}`))

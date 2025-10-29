@@ -1,6 +1,5 @@
 import Store from 'electron-store'
-
-export type TrackInfoOrder = 'path' | 'online' | 'embedded'
+import { TrackInfoOrder, streamStatus } from '@/types/music'
 
 export interface TypeElectronStore {
   window: {
@@ -31,7 +30,7 @@ export interface TypeElectronStore {
       username: string
       password: string
       salt: string
-      status: 'logout' | 'login' | 'offline'
+      status: streamStatus
     }
     emby: {
       url: string
@@ -39,7 +38,7 @@ export interface TypeElectronStore {
       password: string
       userId: string
       accessToken: string
-      status: 'logout' | 'login' | 'offline'
+      status: streamStatus
     }
     jellyfin: {
       url: string
@@ -47,7 +46,7 @@ export interface TypeElectronStore {
       password: string
       userId: string
       accessToken: string
-      status: 'logout' | 'login' | 'offline'
+      status: streamStatus
     }
   }
 }

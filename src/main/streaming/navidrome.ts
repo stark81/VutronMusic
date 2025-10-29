@@ -3,6 +3,7 @@ import axios from 'axios'
 import crypto from 'crypto'
 import qs from 'qs'
 import { formatTime } from '../utils'
+import { streamStatus } from '@/types/music'
 
 const apiVersion = '1.16.1'
 const client = 'VutronMusic'
@@ -92,7 +93,7 @@ const getRestUrl = (endpoint: string, params?: Record<string, any>) => {
 }
 
 interface NavidromeImpl {
-  systemPing: () => Promise<'logout' | 'login' | 'offline'>
+  systemPing: () => Promise<streamStatus>
   doLogin: (baseURL: string, username: string, password: string) => Promise<any>
   getTracks: () => Promise<{ code: number; message: string; data: any }>
   getPlaylists: () => Promise<{ code: number; message: string; data: any }>
@@ -109,7 +110,7 @@ interface NavidromeImpl {
 class Navidrome implements NavidromeImpl {
   async systemPing() {
     const baseURL = (store.get('accounts.navidrome.url') as string) || ''
-    const status = store.get('accounts.navidrome.status') as 'logout' | 'login' | 'offline'
+    const status = store.get('accounts.navidrome.status') as streamStatus
     if (!baseURL || status === 'logout') return 'logout'
 
     const url = getRestUrl('ping')

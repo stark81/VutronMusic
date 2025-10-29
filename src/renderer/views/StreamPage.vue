@@ -169,7 +169,7 @@
 <script setup lang="ts">
 import { ref, onMounted, inject, computed, provide, watch, shallowRef, onBeforeUnmount } from 'vue'
 import { storeToRefs } from 'pinia'
-import { serviceName, useStreamMusicStore } from '../store/streamingMusic'
+import { useStreamMusicStore } from '../store/streamingMusic'
 import { useNormalStateStore } from '../store/state'
 import { useRouter } from 'vue-router'
 import InfoBG from '../components/InfoBG.vue'
@@ -183,7 +183,7 @@ import ContextMenu from '../components/ContextMenu.vue'
 import { useI18n } from 'vue-i18n'
 import { randomNum } from '../utils'
 import { lyricParse, pickedLyric } from '../utils/lyric'
-import { Track } from '../store/localMusic'
+import { Track, serviceName } from '@/types/music'
 import _ from 'lodash'
 
 const stateStore = useNormalStateStore()

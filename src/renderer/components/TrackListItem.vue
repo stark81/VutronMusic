@@ -108,7 +108,7 @@ import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { Track } from '../store/localMusic'
+import { Track } from '@/types/music.d'
 
 const router = useRouter()
 const props = defineProps({

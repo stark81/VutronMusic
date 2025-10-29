@@ -3,6 +3,7 @@ const { parentPort } = require('node:worker_threads')
 const fs = require('node:fs')
 const https = require('node:https')
 const http = require('node:http')
+const sharp = require('sharp')
 
 let currentPlayingPath: string | null = null
 let running = false
@@ -12,12 +13,9 @@ const writeCoverToEmbedded = async (
   image: { pic: Buffer<ArrayBufferLike>; format: string }
 ) => {
   try {
-    const { replacePictureByType, readPictures } = await import('taglib-wasm')
+    const { replacePictureByType } = await import('taglib-wasm')
 
     const decodedPath = decodeURI(filePath)
-
-    const picture = (await readPictures(decodedPath)).find((p) => p.type === 3)
-    if (picture) return
 
     const modifiedBuffer = await replacePictureByType(decodedPath, {
       mimeType: image.format,
@@ -98,6 +96,7 @@ const runEmbedTasks = async () => {
 
       try {
         const image = await getPicFromApi(task.url)
+        image.pic = await sharp(image.pic).resize(512, 512, { fit: 'cover' }).toBuffer()
         for (const fn of task.func) {
           await fn(filePath, image)
         }
@@ -121,12 +120,13 @@ parentPort?.on(
   async (data: {
     type: 'finished' | 'normal'
     filePath: string | null
+    currentPlayingPath?: string
     picUrl: string | null
     embedOption: number
   }) => {
     try {
       if (data.type === 'normal') {
-        currentPlayingPath = data.filePath
+        currentPlayingPath = data.currentPlayingPath ?? currentPlayingPath
 
         if (data.filePath && data.picUrl) {
           const func: (typeof writeCoverToEmbedded | typeof writeCoverToFile)[] = []

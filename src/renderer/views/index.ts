@@ -1,5 +1,3 @@
-import ErrorScreen from './ErrorScreen.vue'
-import MainScreen from './MainScreen.vue'
 import ExplorePage from './ExplorePage.vue'
 import LocalMusicScreen from './LocalMusic.vue'
 import SystemSettings from './SystemSettings.vue'
@@ -19,8 +17,6 @@ import StreamLogin from './StreamLogin.vue'
 import StreamPage from './StreamPage.vue'
 
 export {
-  ErrorScreen,
-  MainScreen,
   ExplorePage,
   LocalMusicScreen,
   SystemSettings,

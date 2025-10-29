@@ -1,9 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-
-export type Type = 'small' | 'normal'
-export type Mode = 'oneLine' | 'twoLines'
-export type TranslationMode = 'none' | 'tlyric' | 'rlyric'
+import { Type, Mode, TranslationMode } from '@/types/music'
 
 export const useOsdLyricStore = defineStore(
   'osdLyric',

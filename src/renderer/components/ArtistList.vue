@@ -55,7 +55,7 @@
 <script setup lang="ts">
 import { computed, ref, toRefs, onMounted, onBeforeUnmount, provide, inject } from 'vue'
 import VirtualScroll from './VirtualScrollNoHeight.vue'
-import { Track } from '../store/localMusic'
+import { Track } from '@/types/music.d'
 import ArtistListItem from './ArtistListItem.vue'
 import TrackListItem from './TrackListItem.vue'
 import { usePlayerStore } from '../store/player'

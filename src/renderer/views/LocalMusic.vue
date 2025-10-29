@@ -165,7 +165,7 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
 import { useNormalStateStore } from '../store/state'
-import { Track, useLocalMusicStore, sortList } from '../store/localMusic'
+import { useLocalMusicStore, sortList } from '../store/localMusic'
 import { usePlayerStore } from '../store/player'
 import {
   computed,
@@ -190,6 +190,7 @@ import AccurateMatchModal from '../components/ModalAccurateMatch.vue'
 import { randomNum } from '../utils/index'
 import { lyricParse, pickedLyric } from '../utils/lyric'
 import { useI18n } from 'vue-i18n'
+import { Track } from '@/types/music'
 
 // load
 const localMusicStore = useLocalMusicStore()
@@ -424,6 +425,10 @@ watch(currentTab, () => {
   nextTick(() => {
     updatePadding(0)
   })
+})
+
+window.mainApi?.on('scanLocalMusicDone', (_: any) => {
+  getRandomTrack()
 })
 
 onMounted(() => {

@@ -1,19 +1,6 @@
 import { nextTick } from 'vue'
 import eventBus from './eventBus'
-
-type TranslationMode = 'none' | 'tlyric' | 'rlyric'
-
-interface word {
-  start: number
-  end: number
-  word: string
-}
-
-interface lyrics {
-  lyric: { start: number; end: number; content: string; contentInfo?: word[] }[]
-  tlyric: { start: number; content: string; end?: number; contentInfo?: word[] }[]
-  rlyric: { start: number; content: string; end?: number; contentInfo?: word[] }[]
-}
+import { lyrics, TranslationMode } from '@/types/music'
 
 interface params {
   container: HTMLElement

@@ -12,8 +12,8 @@ import {
   toRaw,
   nextTick
 } from 'vue'
-import { Track, useLocalMusicStore } from './localMusic'
-import { serviceName, useStreamMusicStore } from './streamingMusic'
+import { useLocalMusicStore } from './localMusic'
+import { useStreamMusicStore } from './streamingMusic'
 import { useSettingsStore } from './settings'
 import { useNormalStateStore } from './state'
 import { useOsdLyricStore } from './osdLyric'
@@ -23,6 +23,7 @@ import { getLyric as getApiLyric, getTrackDetail } from '../api/track'
 import { useI18n } from 'vue-i18n'
 import _ from 'lodash'
 import { extractExpirationFromUrl } from '../utils'
+import { Track, serviceName, lyrics } from '@/types/music'
 
 interface biquadType {
   31: number
@@ -39,18 +40,6 @@ interface biquadType {
 
 interface userBiquadType {
   [key: string]: biquadType
-}
-
-interface word {
-  start: number
-  end: number
-  word: string
-}
-
-interface lyrics {
-  lyric: { start: number; end: number; content: string; contentInfo?: word[] }[]
-  tlyric: { start: number; end: number; content: string; contentInfo?: word[] }[]
-  rlyric: { start: number; end: number; content: string }[]
 }
 
 const delay = (ms: number) =>
@@ -732,6 +721,14 @@ export const usePlayerStore = defineStore(
       }
     })
 
+    const updateLocalID2OnlineID = (localID: number, onlineID: number) => {
+      _list.value = _list.value.map((id) => (id === localID ? onlineID : id))
+      if (_shuffle.value) {
+        _shuffleList.value = _shuffleList.value.map((id) => (id === localID ? onlineID : id))
+        _playNextList.value = _playNextList.value.map((id) => (id === localID ? onlineID : id))
+      }
+    }
+
     const searchMatchForLocal = async (track: Track) => {
       if (track.type === 'local' && !track.matched) {
         const params = {
@@ -746,13 +743,7 @@ export const usePlayerStore = defineStore(
           .then((res: any) => {
             if (res.result.songs.length > 0) {
               const newTrack = res.result.songs[0]
-              _list.value[currentTrackIndex.value] = newTrack.id
-              if (_shuffle.value) {
-                const idx = _shuffleList.value.indexOf(track.id)
-                _shuffleList.value[idx] = newTrack.id
-              }
-              const index = _playNextList.value.indexOf(track.id)
-              if (index !== -1) _playNextList.value[index] = newTrack.id
+              updateLocalID2OnlineID(track.id, newTrack.id)
               updateTrack(track.filePath, newTrack)
               return getALocalTrack({ filePath: track.filePath })
             }
@@ -765,7 +756,8 @@ export const usePlayerStore = defineStore(
       }
       window.mainApi?.send('write-cover', {
         filePath: track.filePath,
-        picUrl: track.matched ? track.album?.picUrl || track.al?.picUrl : null
+        picUrl: track.matched ? track.album?.picUrl || track.al?.picUrl : null,
+        currentPlayingPath: track.filePath
       })
       await getCurrentTrackInfo(track)
       await updateMediaSessionMetaData(track)
@@ -1841,6 +1833,7 @@ export const usePlayerStore = defineStore(
       playPrev,
       _playNextTrack,
       clearPlayNextList,
+      updateLocalID2OnlineID,
       playOrPause,
       resetPlayer,
       setDevice,

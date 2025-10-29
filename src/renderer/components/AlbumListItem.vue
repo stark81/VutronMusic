@@ -17,7 +17,7 @@
 <script setup lang="ts">
 import { PropType, computed } from 'vue'
 import ArtistsInLine from './ArtistsInLine.vue'
-import { Track } from '../store/localMusic'
+import { Track } from '@/types/music.d'
 
 const props = defineProps({
   trackProp: {

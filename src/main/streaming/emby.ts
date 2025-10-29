@@ -3,6 +3,7 @@ import Constants from '../utils/Constants'
 import { parseLyricString } from '../utils'
 import store from '../store'
 import log from '../log'
+import { streamStatus } from '@/types/music'
 
 const client = 'VutronMusic'
 const version = Constants.APP_VERSION
@@ -28,7 +29,7 @@ const ApiRequest = async (
 }
 
 export interface EmbyImpl {
-  systemPing: () => Promise<'logout' | 'login' | 'offline'>
+  systemPing: () => Promise<streamStatus>
   doLogin: (
     baseUrl: string,
     username: string,
@@ -49,7 +50,7 @@ export interface EmbyImpl {
 class Emby implements EmbyImpl {
   async systemPing() {
     const baseUrl = store.get('accounts.emby.url') as string
-    const status = store.get('accounts.emby.status') as 'logout' | 'login' | 'offline'
+    const status = store.get('accounts.emby.status') as streamStatus
     if (!baseUrl || status === 'logout') return 'logout'
     const response = await axios
       .get(`${baseUrl}/System/Ping`, { timeout: 5000 })

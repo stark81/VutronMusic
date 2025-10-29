@@ -1,7 +1,7 @@
 import Dexie, { Table } from 'dexie'
-import { serviceName } from '../store/streamingMusic'
+import { serviceName } from '@/types/music'
 
-export interface StreamInfo {
+interface StreamInfo {
   name: serviceName
   stream: {
     url: string

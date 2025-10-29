@@ -235,13 +235,14 @@ import LyricPage from './LyricPage.vue'
 import Comment from './CommentPage.vue'
 import { usePlayerStore } from '../store/player'
 import ContextMenu from './ContextMenu.vue'
-import { useSettingsStore, TranslationMode } from '../store/settings'
+import { useSettingsStore } from '../store/settings'
 import { hasListSource, getListSourcePath } from '../utils/playlist'
-import { useNormalStateStore, TrackType } from '../store/state'
+import { useNormalStateStore } from '../store/state'
 import { useStreamMusicStore } from '../store/streamingMusic'
 import { useDataStore } from '../store/data'
 import { Vibrant } from 'node-vibrant/browser'
 import Color from 'color'
+import { TranslationMode, TrackSourceType } from '@/types/music.d'
 
 const router = useRouter()
 const playPageContextMenu = inject('playPageContextMenu', ref<InstanceType<typeof ContextMenu>>())
@@ -414,8 +415,8 @@ const addTrackToPlaylist = () => {
     selectedTrackID: [currentTrack.value.id],
     type:
       currentTrack.value.type === 'stream'
-        ? (currentTrack.value.source as TrackType)
-        : (currentTrack.value.type as TrackType)
+        ? (currentTrack.value.source as TrackSourceType)
+        : (currentTrack.value.type as TrackSourceType)
   }
 }
 
