@@ -183,7 +183,7 @@ import ContextMenu from '../components/ContextMenu.vue'
 import { useI18n } from 'vue-i18n'
 import { randomNum } from '../utils'
 import { lyricParse, pickedLyric } from '../utils/lyric'
-import { Track, serviceName } from '@/types/music'
+import { Track, serviceName } from '@/types/music.d'
 import _ from 'lodash'
 
 const stateStore = useNormalStateStore()

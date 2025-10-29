@@ -532,7 +532,8 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
       data: { filePath: null | string; picUrl: string | null; currentPlayingPath?: string }
     ) => {
       const embedOption = (store.get('settings.embedCoverArt') as number) || 0
-      coverWorker.postMessage({ type: 'normal', ...data, embedOption })
+      const embedStyle = (store.get('settings.embedStyle') as number) || 0
+      coverWorker.postMessage({ type: 'normal', ...data, embedOption, embedStyle })
     }
   )
 }

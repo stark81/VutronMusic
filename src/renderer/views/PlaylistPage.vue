@@ -214,7 +214,7 @@ import {
   intelligencePlaylist,
   deletePlaylist
 } from '../api/playlist'
-import { Playlist, Track, StreamPlaylist, serviceName } from '@/types/music'
+import { Playlist, Track, StreamPlaylist, serviceName } from '@/types/music.d'
 import _ from 'lodash'
 
 const specialPlaylist = {

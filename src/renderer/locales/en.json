@@ -110,6 +110,11 @@
       "path": "In Song Directory",
       "both": "Both"
     },
+    "embedStyle": {
+      "text": "Method For Writing when A Cover Image Already Exists",
+      "ignore": "Ignore",
+      "rewrite": "Rewrite"
+    },
     "positionTrack": "Locate Track"
   },
   "artist": {

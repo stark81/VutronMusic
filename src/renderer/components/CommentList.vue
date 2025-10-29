@@ -62,8 +62,8 @@
               </div>
               <div class="comment-ex">
                 <div class="time-ip">
-                  <div class="time">{{ formatDate(item.time, 'YYYY年MM月DD日 H:mm') }}</div>
-                  <div v-if="item.ipLocation?.location">来自{{ item.ipLocation.location }}</div>
+                  <span class="time">{{ formatDate(item.time, 'YYYY年MM月DD日 H:mm') }}</span>
+                  <span v-if="item.ipLocation?.location">来自{{ item.ipLocation.location }}</span>
                 </div>
                 <div class="comment-btns">
                   <button v-if="isAccountLoggedIn && item.owner" @click="handleDeleteComment(item)"
@@ -454,24 +454,19 @@ onBeforeUnmount(() => {
   padding-bottom: 10px;
   width: 100%;
   font-size: 14px;
-  opacity: 0.7;
+  opacity: 0.8;
   text-align: center;
   justify-content: center;
   justify-content: space-between;
 
-  .time-ip {
-    display: flex;
-
-    .time {
-      margin-right: 6px;
-    }
+  .time-ip .time {
+    margin-right: 6px;
   }
   .comment-btns {
     display: flex;
   }
   button {
     display: flex;
-    margin-left: 10px;
     align-items: center;
     color: var(--color-text);
 

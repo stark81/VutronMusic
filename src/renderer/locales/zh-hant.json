@@ -110,6 +110,11 @@
       "path": "歌曲路徑下",
       "both": "兩者都嵌入"
     },
+    "embedStyle": {
+      "text": "封面圖片已存在時的寫入方式",
+      "ignore": "跳過",
+      "rewrite": "覆蓋"
+    },
     "positionTrack": "定位歌曲"
   },
   "artist": {

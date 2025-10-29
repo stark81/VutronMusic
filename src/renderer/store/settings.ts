@@ -32,6 +32,7 @@ export const useSettingsStore = defineStore(
       replayGain: false,
       useInnerInfoFirst: false,
       embedCoverArt: 0, // 0: 不嵌入, 1: 内嵌, 2: 歌曲路径下, 3: 两者都嵌入
+      embedStyle: 0, // 0: 跳过，1：覆盖
       trackInfoOrder: ['online', 'path', 'embedded'] as TrackInfoOrder[],
       scanning: false
     })
@@ -144,6 +145,13 @@ export const useSettingsStore = defineStore(
       () => localMusic.embedCoverArt,
       (value) => {
         window.mainApi?.send('setStoreSettings', { embedCoverArt: value })
+      }
+    )
+
+    watch(
+      () => localMusic.embedStyle,
+      (value) => {
+        window.mainApi?.send('setStoreSettings', { embedStyle: value })
       }
     )
 
@@ -274,6 +282,7 @@ export const useSettingsStore = defineStore(
         trayColor: general.trayColor,
         innerFirst: localMusic.useInnerInfoFirst,
         embedCoverArt: localMusic.embedCoverArt,
+        embedStyle: localMusic.embedStyle,
         musicQuality: general.musicQuality,
         closeAppOption: general.closeAppOption,
         useCustomTitlebar: general.useCustomTitlebar,

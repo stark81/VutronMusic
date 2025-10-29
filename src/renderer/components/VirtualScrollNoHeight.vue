@@ -471,11 +471,6 @@ eventBus.on('update-done', startEvent)
 onActivated(() => {
   observer.observe(listRef.value)
   setTimeout(() => {
-    // 恢复虚拟列表的位置
-    // scrollTocurrent(
-    //   startRow.value * props.columnNumber + Math.ceil(visibleCount.value / 2),
-    //   'instant'
-    // )
     updateItemsSize()
   }, 100)
 })

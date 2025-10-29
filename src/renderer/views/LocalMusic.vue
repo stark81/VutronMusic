@@ -190,7 +190,7 @@ import AccurateMatchModal from '../components/ModalAccurateMatch.vue'
 import { randomNum } from '../utils/index'
 import { lyricParse, pickedLyric } from '../utils/lyric'
 import { useI18n } from 'vue-i18n'
-import { Track } from '@/types/music'
+import { Track } from '@/types/music.d'
 
 // load
 const localMusicStore = useLocalMusicStore()

@@ -43,7 +43,7 @@ import { useSettingsStore } from '../store/settings'
 import { usePlayerStore } from '../store/player'
 import { storeToRefs } from 'pinia'
 import { ref, watch, provide, computed } from 'vue'
-import { TrackSourceType } from '@/types/music'
+import { TrackSourceType } from '@/types/music.d'
 
 const playPageContextMenu = ref<InstanceType<typeof ContextMenu>>()
 const show = ref('lyric')

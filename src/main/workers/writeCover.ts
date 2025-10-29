@@ -10,12 +10,18 @@ let running = false
 
 const writeCoverToEmbedded = async (
   filePath: string,
-  image: { pic: Buffer<ArrayBufferLike>; format: string }
+  image: { pic: Buffer<ArrayBufferLike>; format: string },
+  embedStyle: number
 ) => {
   try {
-    const { replacePictureByType } = await import('taglib-wasm')
+    const { replacePictureByType, readPictures } = await import('taglib-wasm')
 
     const decodedPath = decodeURI(filePath)
+
+    if (embedStyle === 0) {
+      const picture = (await readPictures(decodedPath)).find((p) => p.type === 3)
+      if (picture) return
+    }
 
     const modifiedBuffer = await replacePictureByType(decodedPath, {
       mimeType: image.format,
@@ -30,13 +36,27 @@ const writeCoverToEmbedded = async (
 
 const writeCoverToFile = async (
   filePath: string,
-  image: { pic: Buffer<ArrayBufferLike>; format: string }
+  image: { pic: Buffer<ArrayBufferLike>; format: string },
+  embedStyle: number
 ) => {
   try {
-    const prefix = image.format.includes('image/png') ? '.png' : '.jpg'
-    filePath = filePath.replace(/\.[^/.]+$/, prefix)
+    if (embedStyle === 0) {
+      let flag = false
+      const prefixs = ['.jpg', '.png', '.jpeg', '.webp']
+      for (const prefix of prefixs) {
+        const possibleFile = filePath.replace(/\.[^/.]+$/, prefix)
+        flag = await fs.promises
+          .access(possibleFile, fs.constants.F_OK)
+          .then(() => true)
+          .catch(() => false)
+        if (flag) return
+      }
+    }
 
-    await fs.promises.writeFile(filePath, image.pic)
+    const prefix = image.format.includes('image/png') ? '.png' : '.jpg'
+    const coverPath = filePath.replace(/\.[^/.]+$/, prefix)
+
+    await fs.promises.writeFile(coverPath, image.pic)
   } catch (error) {
     console.error(`写入封面图片 ${filePath} 失败:`, error)
   }
@@ -80,7 +100,11 @@ const getPicFromApi = async (url: string): Promise<{ pic: Buffer; format: string
 
 const embeddedMap = new Map<
   string,
-  { url: string; func: (typeof writeCoverToEmbedded | typeof writeCoverToFile)[] }
+  {
+    url: string
+    func: (typeof writeCoverToEmbedded | typeof writeCoverToFile)[]
+    embedStyle: number
+  }
 >()
 
 const runEmbedTasks = async () => {
@@ -98,7 +122,7 @@ const runEmbedTasks = async () => {
         const image = await getPicFromApi(task.url)
         image.pic = await sharp(image.pic).resize(512, 512, { fit: 'cover' }).toBuffer()
         for (const fn of task.func) {
-          await fn(filePath, image)
+          await fn(filePath, image, task.embedStyle)
         }
         embeddedMap.delete(filePath)
         taskProcessed = true
@@ -123,6 +147,7 @@ parentPort?.on(
     currentPlayingPath?: string
     picUrl: string | null
     embedOption: number
+    embedStyle: number
   }) => {
     try {
       if (data.type === 'normal') {
@@ -139,7 +164,7 @@ parentPort?.on(
           }
 
           if (func.length > 0) {
-            embeddedMap.set(data.filePath, { url: data.picUrl, func })
+            embeddedMap.set(data.filePath, { url: data.picUrl, func, embedStyle: data.embedStyle })
           }
         }
       } else {

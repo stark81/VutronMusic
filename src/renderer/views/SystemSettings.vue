@@ -614,10 +614,17 @@
             <div class="item">
               <div class="left">
                 <div class="title">{{ $t('localMusic.embedCoverArt.text') }}</div>
-                <div class="description">{{ $t('localMusic.embedCoverArt.desc') }}</div>
               </div>
               <div class="right">
                 <CustomSelect v-model="localMusic.embedCoverArt" :options="embedCoverArtOption" />
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('localMusic.embedStyle.text') }}</div>
+              </div>
+              <div class="right">
+                <CustomSelect v-model="localMusic.embedStyle" :options="embedStyleOption" />
               </div>
             </div>
             <div class="item no-flex">
@@ -1016,7 +1023,7 @@ import { VueDraggable } from 'vue-draggable-plus'
 // @ts-ignore
 import imageUrl from '../utils/settingImg.dataurl?raw'
 import { useRouter } from 'vue-router'
-import { serviceType, serviceName } from '@/types/music'
+import { serviceType, serviceName } from '@/types/music.d'
 
 const router = useRouter()
 
@@ -1249,6 +1256,11 @@ const embedCoverArtOption = computed(() => [
   { label: t('localMusic.embedCoverArt.embedded'), value: 1 },
   { label: t('localMusic.embedCoverArt.path'), value: 2 },
   { label: t('localMusic.embedCoverArt.both'), value: 3 }
+])
+
+const embedStyleOption = computed(() => [
+  { label: t('localMusic.embedStyle.ignore'), value: 0 },
+  { label: t('localMusic.embedStyle.rewrite'), value: 1 }
 ])
 
 const trackInfoOptions = computed(() => [
