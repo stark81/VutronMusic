@@ -705,16 +705,13 @@ class BackGround {
     })
 
     app.on('quit', () => {
+      globalShortcut.unregisterAll()
       this.fastifyApp?.close()
     })
 
     powerMonitor.on('resume', () => {
       setTimeout(() => this.initMessageChannel(), 1000)
       this.win.webContents.send('resume')
-    })
-
-    app.on('will-quit', () => {
-      globalShortcut.unregisterAll()
     })
 
     if (!Constants.IS_MAC) {

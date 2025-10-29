@@ -47,7 +47,7 @@ export default class IPCs {
       if (msg.status === 'done') app.exit(0)
     })
 
-    app.on('before-quit', async (event) => {
+    app.on('before-quit', (event) => {
       event.preventDefault()
       win.hide()
       coverWorker.postMessage({ type: 'finished' })
@@ -362,7 +362,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
       const piscina = new Piscina({
         filename: workerPath,
         minThreads: 2,
-        maxThreads: Math.min(os.cpus().length - 1, 6)
+        maxThreads: Math.min(os.cpus().length / 2, 6)
       })
 
       const batchSize = 100
