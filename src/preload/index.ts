@@ -50,7 +50,8 @@ const mainAvailChannels: string[] = [
   'openLogFile',
   'updateTooltip',
   'write-cover',
-  'getFontList'
+  'getFontList',
+  'cacheATrack'
 ]
 const rendererAvailChannels: string[] = [
   'msgHandleScanLocalMusic',

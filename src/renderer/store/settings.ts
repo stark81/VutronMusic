@@ -273,22 +273,7 @@ export const useSettingsStore = defineStore(
     })
 
     onMounted(() => {
-      const trayMenu = !(tray.showControl || tray.showLyric)
-      window.mainApi?.send('setStoreSettings', {
-        lang: general.language,
-        enableGlobalShortcut: enableGlobalShortcut.value,
-        shortcuts: toRaw(shortcuts.value),
-        enableTrayMenu: trayMenu,
-        trayColor: general.trayColor,
-        innerFirst: localMusic.useInnerInfoFirst,
-        embedCoverArt: localMusic.embedCoverArt,
-        embedStyle: localMusic.embedStyle,
-        musicQuality: general.musicQuality,
-        closeAppOption: general.closeAppOption,
-        useCustomTitlebar: general.useCustomTitlebar,
-        trackInfoOrder: toRaw(localMusic.trackInfoOrder)
-      })
-      if (window.env?.isWindows) return
+      if (!window.env?.isMac) return
       setInterval(() => {
         const trayMenu = !(tray.showControl || tray.showLyric)
         window.mainApi?.send('setStoreSettings', {

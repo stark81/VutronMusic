@@ -10,7 +10,6 @@ import { CacheAPIs } from './CacheApis'
 import Cache from '../cache'
 import store from '../store'
 
-import { Readable } from 'stream'
 import { db, Tables } from '../db'
 import log from '../log'
 import { Worker } from 'worker_threads'
@@ -511,46 +510,6 @@ export const getAudioSourceFromUnblock = async (track: any) => {
 
   const match = require('@unblockneteasemusic/server')
   return match(track.id, sourceList)
-}
-
-export const cacheOnlineTrack = async (track: any) => {
-  return new Promise<{ filePath: string; size: string }>((resolve) => {
-    fetch(track.url).then((response) => {
-      const typeMap = {
-        'audio/mpeg': 'mp3',
-        'audio/ogg': 'ogg',
-        'audio/wav': 'wav',
-        'audio/flac': 'flac',
-        'audio/x-m4a': 'm4a',
-        'audio/m4a': 'm4a',
-        'audio/aac': 'aac',
-        'audio/mp4': 'mp4'
-      }
-
-      const contentType = response.headers.get('Content-Type')
-      const size = response.headers.get('Content-Length')
-      const audioCachePath = app.getPath('userData') + '/audioCache'
-      if (!fs.existsSync(audioCachePath)) {
-        fs.mkdirSync(audioCachePath)
-      }
-
-      const name = track.name.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
-      const filePath = `${audioCachePath}/${track.id}-${track.br}-${name}.${typeMap[contentType!] || 'mp3'}`
-      resolve({ filePath, size })
-
-      const writeStream = fs.createWriteStream(filePath)
-      const readableStream = response.body
-
-      // @ts-ignore
-      const nodeReadable = Readable.fromWeb(readableStream)
-      nodeReadable.pipe(writeStream)
-
-      writeStream.on('finish', () => {
-        // 检测缓存文件的占用是否大于缓存尺寸，是则清理最开始的数据
-        deleteExcessCache()
-      })
-    })
-  })
 }
 
 export const deleteExcessCache = (deleteAll = false) => {

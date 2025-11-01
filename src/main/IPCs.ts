@@ -8,7 +8,7 @@ import fs from 'fs'
 import path from 'path'
 import { db, Tables } from './db'
 import { CacheAPIs } from './utils/CacheApis'
-import { deleteExcessCache, createWorker } from './utils'
+import { deleteExcessCache, createWorker, getTrackDetail } from './utils'
 import cache from './cache'
 import { registerGlobalShortcuts } from './globalShortcut'
 import { createMenu } from './menu'
@@ -23,6 +23,12 @@ import _ from 'lodash'
 let isLock = store.get('osdWin.isLock') as boolean
 let blockerId: number | null = null
 let coverWorker: Worker
+let cacheWorker: Worker | null = null
+
+const closeCacheWorker = async () => {
+  await cacheWorker.terminate()
+  cacheWorker = null
+}
 
 /*
  * IPC Communications
@@ -161,6 +167,21 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
           const { globalShortcut } = require('electron')
           globalShortcut.unregisterAll()
           registerGlobalShortcuts(win)
+        }
+      } else if (key === 'autoCacheTrack') {
+        const autoCache = (store.get('settings.autoCacheTrack.enable') as boolean) || false
+        if (autoCache) {
+          cacheWorker = createWorker('cacheTrack')
+          cacheWorker?.on('message', (msg) => {
+            if (msg.type === 'task-done') {
+              const track = msg.data
+              cache.set(CacheAPIs.LocalMusic, { newTracks: [track] })
+            } else if (msg.type === 'finished') {
+              closeCacheWorker()
+            }
+          })
+        } else {
+          cacheWorker?.postMessage({ type: 'quit' })
         }
       }
     }
@@ -456,6 +477,24 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
       .map((track: any) => track.size)
       .reduce((acc: string, cur: string) => Number(acc) + Number(cur), 0)
     return { length: tracks.songs.length, size }
+  })
+
+  /**
+   * 歌曲id，用来获取track信息，url 是歌曲链接，可能是官方链接也可能是解灰链接，
+   * 用来获取歌曲音频流
+   */
+  ipcMain.on('cacheATrack', async (event, da: { id: number; url: string }) => {
+    const res = await getTrackDetail(da.id.toString())
+    if (!res || !res.songs?.length) {
+      log.error('Get track failed, id = ', da.id)
+      return
+    }
+    const track = res.songs[0]
+    const audioCachePath = app.getPath('userData') + '/audioCache'
+    if (!fs.existsSync(audioCachePath)) {
+      fs.mkdirSync(audioCachePath)
+    }
+    cacheWorker?.postMessage({ type: 'task', track, url: da.url, audioCachePath })
   })
 
   ipcMain.handle('accurateMatch', (event, track, id) => {

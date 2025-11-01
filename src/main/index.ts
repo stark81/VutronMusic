@@ -31,8 +31,7 @@ import {
   getLyricFromApi,
   getPicColor,
   getTrackDetail,
-  getAudioSource,
-  cacheOnlineTrack
+  getAudioSource
 } from './utils'
 import { CacheAPIs } from './utils/CacheApis'
 import { registerGlobalShortcuts } from './globalShortcut'
@@ -574,19 +573,6 @@ class BackGround {
               track.gain = gain
               track.peak = peak
               track.br = br
-
-              if (store.get('settings.autoCacheTrack.enable')) {
-                cacheOnlineTrack({ id: ids, name: track.name, url, br, win: this.win }).then(
-                  (res) => {
-                    track.url = res.filePath
-                    track.size = res.size
-                    track.cache = true
-                    track.insertTime = Date.now()
-                    cache.set(CacheAPIs.LocalMusic, { newTracks: [track] })
-                    // this.win.webContents.send('')
-                  }
-                )
-              }
 
               return new Response(JSON.stringify(track), {
                 headers: { 'content-type': 'application/json' }

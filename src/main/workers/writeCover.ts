@@ -1,5 +1,5 @@
 // 这里必须使用require的导包方式，否则会报错
-const { parentPort } = require('node:worker_threads')
+const { parentPort: coverPort } = require('node:worker_threads')
 const fs = require('node:fs')
 const https = require('node:https')
 const http = require('node:http')
@@ -15,7 +15,6 @@ const writeCoverToEmbedded = async (
 ) => {
   try {
     const { replacePictureByType, readPictures } = await import('taglib-wasm')
-
     const decodedPath = decodeURI(filePath)
 
     if (embedStyle === 0) {
@@ -69,7 +68,7 @@ const getPicFromApi = async (url: string): Promise<{ pic: Buffer; format: string
       url = url + '?param=512y512'
       const req = client.get(url, (res) => {
         if (res.statusCode !== 200) {
-          res.resume() // 防止 socket 泄漏
+          res.resume()
           return reject(new Error(`Request Failed: ${res.statusCode}`))
         }
 
@@ -139,7 +138,7 @@ const runEmbedTasks = async () => {
   running = false
 }
 
-parentPort?.on(
+coverPort?.on(
   'message',
   async (data: {
     type: 'finished' | 'normal'
@@ -172,7 +171,7 @@ parentPort?.on(
       }
       await runEmbedTasks()
       if (data.type === 'finished') {
-        parentPort.postMessage({ status: 'done' })
+        coverPort.postMessage({ status: 'done' })
       }
     } catch (err) {
       console.error('[Worker writeCover] message handler error:', err)

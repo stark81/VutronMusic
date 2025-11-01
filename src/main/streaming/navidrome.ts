@@ -60,12 +60,26 @@ const ApiRequest = async (endpoint: string, params?: Record<string, string>) => 
       return { code: 200, message: res.statusText, data: res.data }
     })
     .catch(async (error) => {
-      const dialog = (await import('electron')).dialog
-      dialog.showErrorBox(
-        'Navidrome 接口请求失败',
-        JSON.stringify(error?.response?.data || error.message)
-      )
-      return error
+      if (error.code === 'ERR_BAD_REQUEST') {
+        const baseUrl = store.get('accounts.navidrome.url') as string
+        const username = store.get('accounts.navidrome.username') as string
+        const password = store.get('accounts.navidrome.password') as string
+        return doLogin(baseUrl, username, password).then((result) => {
+          if (result.code === 200) {
+            return axios.get(url, { headers }).then((res) => {
+              return { code: 200, message: res.statusText, data: res.data }
+            })
+          }
+          return { code: 401, message: error.response.data.error, data: undefined }
+        })
+      } else {
+        const dialog = (await import('electron')).dialog
+        dialog.showErrorBox(
+          'Navidrome 接口请求失败',
+          JSON.stringify(error?.response?.data || error.message)
+        )
+        return error
+      }
     })
 }
 

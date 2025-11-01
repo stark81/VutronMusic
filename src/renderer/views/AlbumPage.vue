@@ -69,6 +69,7 @@
         <TrackList
           :id="album.id"
           :items="item.tracks"
+          :all-items="tracks"
           :item-height="48"
           :colunm-number="1"
           :is-end="false"

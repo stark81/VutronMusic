@@ -134,6 +134,11 @@ const props = defineProps({
     type: Array as PropType<{ [key: string]: any }[]>,
     required: true
   },
+  allItems: {
+    type: Array as PropType<{ [key: string]: any }[]>,
+    required: false,
+    default: () => []
+  },
   type: { type: String, required: true },
   groupBy: { type: String as PropType<'' | 'all' | serviceName>, default: '' },
   isLyric: { type: Boolean, default: false },
@@ -261,7 +266,9 @@ const currentIndex = computed(() => {
 
 const playThisList = (index: number) => {
   if (!props.dbclickEnable) return
-  const IDs = items.value.map((track) => track.id || track.songId)
+  const IDs = (props.allItems?.length ? props.allItems : items.value).map(
+    (track) => track.id || track.songId
+  )
   const idx = items.value.findIndex((item) => (item.id || item.songId) === index)
   replacePlaylist(props.type, id.value, IDs, idx)
 }

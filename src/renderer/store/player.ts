@@ -759,6 +759,9 @@ export const usePlayerStore = defineStore(
         picUrl: track.matched ? track.album?.picUrl || track.al?.picUrl : null,
         currentPlayingPath: track.filePath
       })
+      if (track.type === 'online' && !track.cache && settingsStore.autoCacheTrack.enable) {
+        window.mainApi?.send('cacheATrack', { id: track.id, url: track.url })
+      }
       await getCurrentTrackInfo(track)
       await updateMediaSessionMetaData(track)
       if (osdLyricStore.show) {
