@@ -37,6 +37,7 @@ import { CacheAPIs } from './utils/CacheApis'
 import { registerGlobalShortcuts } from './globalShortcut'
 import { initAutoUpdater } from './checkUpdate'
 import log from './log'
+import { lyricLine } from '@/types/music'
 
 const closeOnLinux = (e: any, win: BrowserWindow) => {
   const closeOpt = store.get('settings.closeAppOption') || 'ask'
@@ -582,14 +583,7 @@ class BackGround {
           case 'lyric':
             ids = searchParams.get('id')
             res = cache.get(CacheAPIs.Track, { ids })
-            let lyrics = {
-              lrc: { lyric: [] },
-              tlyric: { lyric: [] },
-              romalrc: { lyric: [] },
-              yrc: { lyric: [] },
-              ytlrc: { lyric: [] },
-              yromalrc: { lyric: [] }
-            }
+            let lyrics: lyricLine[] = []
 
             if (res?.songs?.length > 0) {
               const track = res.songs[0]

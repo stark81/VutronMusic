@@ -3,7 +3,7 @@ import { ref, toRaw, toRefs } from 'vue'
 import { useSettingsStore } from './settings'
 import { compare } from 'compare-versions'
 import _ from 'lodash'
-import { Track, Playlist } from '@/types/music'
+import { Track, Playlist, lyricLine } from '@/types/music'
 
 export const sortList = ['default', 'byname', 'ascend', 'descend'] as const
 
@@ -124,14 +124,7 @@ export const useLocalMusicStore = defineStore(
 
     const getLocalLyric = async (id: number) => {
       const res = await fetch(`atom://local-asset?type=lyric&id=${id}`)
-      return (await res.json()) as {
-        lrc: { lyric: any[] }
-        tlyric: { lyric: any[] }
-        romalrc: { lyric: any[] }
-        yrc: { lyric: any[] }
-        ytlrc: { lyric: any[] }
-        yromalrc: { lyric: any[] }
-      }
+      return (await res.json()) as lyricLine[]
     }
 
     const getALocalTrack = (query: Partial<Track>) => {

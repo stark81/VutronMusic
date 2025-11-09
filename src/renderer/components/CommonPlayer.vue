@@ -62,17 +62,11 @@
             <div class="top-right">
               <div class="buttons">
                 <div class="transPro" @click="switchTransitionMode">
-                  <label
-                    v-show="lyrics.tlyric.length"
-                    :class="{ active: nTranslationMode === 'tlyric' }"
+                  <label v-show="lyrics.length" :class="{ active: nTranslationMode === 'tlyric' }"
                     >译</label
                   >
-                  <label v-if="lyrics.tlyric.length && lyrics.rlyric.length" class="m-label"
-                    >|</label
-                  >
-                  <label
-                    v-show="lyrics.rlyric.length"
-                    :class="{ active: nTranslationMode === 'rlyric' }"
+                  <label v-if="lyrics.length && lyrics.length" class="m-label">|</label>
+                  <label v-show="lyrics.length" :class="{ active: nTranslationMode === 'rlyric' }"
                     >音</label
                   >
                 </div>
@@ -313,10 +307,10 @@ const marks = computed(() => {
 
 const tags = computed(() => {
   const lst = ['none']
-  if (lyrics.value.tlyric.length) {
+  if (lyrics.value.length) {
     lst.splice(1, 0, 'tlyric')
   }
-  if (lyrics.value.rlyric.length) {
+  if (lyrics.value.length) {
     lst.push('rlyric')
   }
   return lst as TranslationMode[]
@@ -331,8 +325,8 @@ const position = computed({
       seek.value = value
       return
     }
-    const line = lyrics.value.lyric.find((l, index) => {
-      const nextLine = lyrics.value.lyric[index + 1]
+    const line = lyrics.value.find((l, index) => {
+      const nextLine = lyrics.value[index + 1]
       if (nextLine) {
         return nextLine.start > value && l.start <= value
       } else {

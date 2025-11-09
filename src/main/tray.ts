@@ -200,7 +200,7 @@ export interface YPMTray {
   updateTrayColor: () => void
   destroyTray: () => void
   show: () => void
-  setContextMenu: (setMenu: boolean) => void
+  setContextMenu: () => void
   setPlayState: (isPlaying: boolean) => void
   setLikeState: (isLiked: boolean) => void
   setRepeatMode: (repeat: string) => void
@@ -227,7 +227,7 @@ class TrayImpl implements YPMTray {
 
     nativeTheme.on('updated', () => {
       this.updateTrayColor()
-      this.setContextMenu(true)
+      this.setContextMenu()
     })
   }
 
@@ -273,7 +273,8 @@ class TrayImpl implements YPMTray {
     this._win.show()
   }
 
-  setContextMenu(setMenu: boolean = true) {
+  setContextMenu() {
+    const setMenu = store.get('settings.enableTrayMenu') as boolean
     if (setMenu) {
       const template = createMenuTemplate(this._win)
       this._contextMenu = Menu.buildFromTemplate(template)

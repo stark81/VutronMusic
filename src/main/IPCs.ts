@@ -147,10 +147,9 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
     for (const [key, value] of Object.entries(data) as [string, any]) {
       store.set(`settings.${key}`, value)
       if (key === 'enableTrayMenu') {
-        tray.setContextMenu(Constants.IS_MAC ? value : true)
+        tray.setContextMenu()
       } else if (key === 'lang') {
-        const showMenu = Constants.IS_MAC ? (store.get('settings.enableTrayMenu') as boolean) : true
-        tray.setContextMenu(showMenu)
+        tray.setContextMenu()
       } else if (key === 'trayColor') {
         tray.updateTrayColor()
       } else if (key === 'enableGlobalShortcut') {

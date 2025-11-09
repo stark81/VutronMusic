@@ -50,7 +50,7 @@ export default defineConfig(({ mode }) => {
         build: {
           assetsDir: '.',
           outDir: 'dist/main',
-          sourcemap: true,
+          sourcemap: isDevEnv,
           rollupOptions: {
             input: {
               main: resolve('src/main/index.ts'),

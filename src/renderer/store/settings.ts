@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, reactive, watch, onMounted, toRaw } from 'vue'
+import { ref, reactive, watch, toRaw } from 'vue'
 import DefaultShortcuts from '../utils/shortcuts'
 import { playlistCategories } from '../utils/common'
 import cloneDeep from 'lodash/cloneDeep'
@@ -66,7 +66,6 @@ export const useSettingsStore = defineStore(
     const normalLyric = reactive<{
       nFontSize: number
       isNWordByWord: boolean
-      isTWordByWord: boolean
       nTranslationMode: TranslationMode
       textAlign: TextAlign
       useMask: boolean
@@ -74,7 +73,6 @@ export const useSettingsStore = defineStore(
     }>({
       nFontSize: 28,
       isNWordByWord: true,
-      isTWordByWord: true,
       nTranslationMode: 'tlyric',
       textAlign: 'start',
       useMask: true,
@@ -188,9 +186,9 @@ export const useSettingsStore = defineStore(
     )
 
     watch(
-      () => tray.showControl || tray.showLyric,
+      () => !(tray.showControl || tray.showLyric),
       (newValue) => {
-        window.mainApi?.send('setStoreSettings', { enableTrayMenu: !newValue })
+        window.mainApi?.send('setStoreSettings', { enableTrayMenu: newValue })
       }
     )
 
@@ -272,15 +270,6 @@ export const useSettingsStore = defineStore(
       }, 5000)
     })
 
-    onMounted(() => {
-      if (!window.env?.isMac) return
-      setInterval(() => {
-        const trayMenu = !(tray.showControl || tray.showLyric)
-        window.mainApi?.send('setStoreSettings', {
-          enableTrayMenu: trayMenu
-        })
-      }, 60000)
-    })
     return {
       theme,
       general,

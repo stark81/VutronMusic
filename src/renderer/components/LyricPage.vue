@@ -12,31 +12,64 @@
           <svg-icon icon-class="forward5s" />
         </button-icon>
       </div>
-      <div ref="lyricContainer" class="main-lyric-container" :class="{ isZoom }" />
+      <div ref="lyricContainer" class="main-lyric-container" @wheel="handleWheel">
+        <div id="line-1" class="lyric"></div>
+        <div
+          v-for="(lyric, index) in lyrics"
+          :id="`line${index}`"
+          :key="lyric.start"
+          class="lyric"
+          @click="seek = lyric.start"
+        >
+          <WordLyric
+            v-if="isNWordByWord && lyric.lyric?.info && index === currentIndex.line"
+            :key="`${lyric.start}-${index}`"
+            :item="lyric"
+            :playing="playing"
+            :background-color="unplayColor"
+            :playback-rate="playbackRate"
+            :font-size="nFontSize"
+            :unplayed-color="unplayColor"
+            :fade-duration="fadeDuration"
+            :font-index="currentIndex.lyric"
+            :t-font-index="tFontIndex"
+            :is-active="isZoom"
+            :playing-color="'var(--color-wbw-text-played)'"
+            :translation-mode="nTranslationMode"
+          ></WordLyric>
+          <LineLyric
+            v-else
+            :item="lyric"
+            :translation-mode="nTranslationMode"
+            :background-color="index === highlight ? 'var(--color-wbw-text-played)' : unplayColor"
+            :is-active="isZoom && index === highlight"
+            :font-size="nFontSize"
+          ></LineLyric>
+        </div>
+      </div>
     </div>
   </transition>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, toRefs, onBeforeUnmount, nextTick } from 'vue'
+import {
+  computed,
+  watch,
+  onMounted,
+  toRefs,
+  // onBeforeUnmount,
+  nextTick,
+  // useTemplateRef,
+  ref
+} from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
 import { useNormalStateStore } from '../store/state'
 import { useSettingsStore } from '../store/settings'
 import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
-import eventBus from '../utils/eventBus'
-import {
-  initLyric,
-  setLyrics,
-  updatePlayStatus,
-  destroyController,
-  updateLineIndex,
-  updateFontIndex,
-  updateTFontIndex,
-  updateMode,
-  updateRate
-} from '../utils/lyricController'
+import LineLyric from './LyricLine.vue'
+import WordLyric from './LyricLineWord.vue'
 
 const props = defineProps({
   hover: { type: Boolean, default: false },
@@ -47,7 +80,7 @@ const props = defineProps({
 })
 
 const playerStore = usePlayerStore()
-const { noLyric, currentTrack, lyrics, seek, playing, currentIndex, lyricOffset, playbackRate } =
+const { noLyric, currentTrack, lyrics, seek, playing, currentIndex, playbackRate, fadeDuration } =
   storeToRefs(playerStore)
 
 const stateStore = useNormalStateStore()
@@ -55,9 +88,10 @@ const { showToast } = stateStore
 
 const settingsStore = useSettingsStore()
 const { normalLyric } = storeToRefs(settingsStore)
-const { nFontSize, nTranslationMode, isNWordByWord, useMask, isZoom } = toRefs(normalLyric.value)
+const { nFontSize, isNWordByWord, useMask, nTranslationMode, isZoom } = toRefs(normalLyric.value)
 
-const lyricContainer = ref<HTMLElement>()
+const isWheeling = ref(false)
+let scrollingTimer: any = null
 
 const offset = computed(() => {
   const lrcOffset = currentTrack.value!.offset || 0
@@ -76,8 +110,21 @@ const map = {
   end: 'right'
 }
 
-const transformOrigin = computed(() => {
-  return `center ${map[props.textAlign]}`
+const transformOrigin = computed(() => `center ${map[props.textAlign]}`)
+const highlight = computed(() => {
+  const idx = currentIndex.value.line
+  if (idx >= lyrics.value.length) return lyrics.value.length - 1
+  return idx
+})
+
+const tFontIndex = computed(() => {
+  let result = -1
+  if (nTranslationMode.value === 'tlyric') {
+    result = currentIndex.value.tlyric
+  } else if (nTranslationMode.value === 'rlyric') {
+    result = currentIndex.value.rlyric
+  }
+  return result
 })
 
 const setOffset = (offset: number) => {
@@ -103,99 +150,35 @@ const setOffset = (offset: number) => {
   )
 }
 
-watch(
-  lyrics,
-  (value) => {
-    if (!value.lyric.length) return
-    setTimeout(() => {
-      setLyrics(value)
-    }, 50)
-  },
-  { immediate: true, deep: true }
-)
-
-watch(playing, (value) => {
-  updatePlayStatus(value)
-})
+const handleWheel = () => {
+  clearTimeout(scrollingTimer)
+  const line = document.getElementById(`line${currentIndex.value.line}`)
+  if (!line || !playing.value) return
+  if (!isWheeling.value) isWheeling.value = true
+  scrollingTimer = setTimeout(() => {
+    clearTimeout(scrollingTimer)
+    isWheeling.value = false
+  }, 1500)
+}
 
 watch(
-  () => currentIndex.value.line,
+  () => !isWheeling.value && currentIndex.value.line,
   (value) => {
-    updateLineIndex(value)
+    const line = document.getElementById(`line${value}`)
+    line?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 )
-
-watch(
-  () => currentIndex.value.word,
-  (value) => {
-    updateFontIndex(value)
-  }
-)
-
-watch(
-  () => currentIndex.value.tWord,
-  (value) => {
-    updateTFontIndex(value)
-  }
-)
-
-watch(
-  () => currentIndex.value.rWord,
-  (value) => {
-    updateTFontIndex(value)
-  }
-)
-
-watch(nTranslationMode, (value) => {
-  updateMode({
-    mode: value,
-    currentTime: seek.value * 1000,
-    line: currentIndex.value.line,
-    fontIndex: currentIndex.value.word,
-    tFontIndex: currentIndex.value.tWord
-  })
-})
-
-watch(seek, (value) => {
-  eventBus.emit('update-process', value)
-})
-
-watch(playbackRate, (value) => {
-  updateRate(value)
-})
-
-// @ts-ignore
-eventBus.on('updateSeek', (start: number) => {
-  seek.value = start - lyricOffset.value
-})
 
 onMounted(async () => {
   if (!currentTrack.value) return
 
   await nextTick()
-  if (lyricContainer.value) {
-    initLyric({
-      container: lyricContainer.value,
-      playing: playing.value,
-      mode: nTranslationMode.value,
-      wByw: isNWordByWord.value,
-      line: currentIndex.value.line,
-      fontIdx: currentIndex.value.word,
-      tFontIdx: currentIndex.value.tWord,
-      currentTime: seek.value * 1000,
-      rate: playbackRate.value
-    })
-  }
-})
-
-onBeforeUnmount(() => {
-  eventBus.off('update-process')
-  eventBus.off('updateSeek')
-  destroyController()
+  const line = document.getElementById(`line${highlight.value}`)
+  line?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 })
 </script>
 
-<style lang="scss">
+<style scoped lang="scss">
 .lyric-wrapper {
   position: relative;
   height: 100vh;
@@ -242,99 +225,31 @@ onBeforeUnmount(() => {
   &::-webkit-scrollbar {
     width: 0px;
   }
-}
 
-.isZoom .line {
-  .lyric-line,
-  .translation {
-    transform: scale(0.95);
-    transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  }
-
-  &.active {
-    .lyric-line {
-      transform: scale(1);
+  .lyric {
+    :deep(.lyric-line),
+    :deep(.translation) {
+      text-align: v-bind(textAlign);
+      transform-origin: v-bind(transformOrigin);
     }
   }
-}
 
-.line {
-  border-radius: 12px;
-  margin: 2px 0;
-  user-select: none;
-  padding: 12px;
-  font-weight: 600;
-  text-align: v-bind(textAlign);
-  .lyric-line,
-  .translation {
-    transform-origin: v-bind(transformOrigin);
-  }
-
-  &:hover {
-    background: var(--color-secondary-bg-for-transparent);
-  }
-
-  &:first-child {
+  .lyric:first-child {
     margin-top: 40vh;
   }
 
-  &:last-child {
+  .lyric:last-child {
     margin-bottom: 40vh;
-  }
-}
-
-.line {
-  .lyric-line span {
-    font-size: v-bind('`${nFontSize}px`');
-    background-repeat: no-repeat;
-    background-color: v-bind('`${unplayColor}`');
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    background-image: -webkit-linear-gradient(
-      top,
-      var(--color-wbw-text-played),
-      var(--color-wbw-text-played)
-    );
-    background-size: 0 100%;
-    overflow-wrap: break-word;
-  }
-  .translation span {
-    font-size: v-bind('`${nFontSize - 2}px`');
-    background-repeat: no-repeat;
-    background-color: v-bind('`${unplayColor}`');
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    background-image: -webkit-linear-gradient(top, var(--color-wbw-text), var(--color-wbw-text));
-    background-size: 0 100%;
-    overflow-wrap: break-word;
-  }
-}
-
-.line-mode.active {
-  .lyric-line span {
-    background-color: var(--color-wbw-text-played);
-  }
-  .translation span {
-    background-color: var(--color-wbw-text);
-  }
-}
-
-.word-mode.played {
-  .lyric-line span {
-    background-size: 0 100% !important;
-  }
-  .translation span {
-    background-size: 0 100% !important;
   }
 }
 
 @media (max-aspect-ratio: 10/9) {
   .main-lyric-container {
     width: 100%;
-    .line {
-      text-align: center;
-      .lyric-line,
-      .translation {
+    .lyric {
+      :deep(.lyric-line),
+      :deep(.translation) {
+        text-align: center;
         transform-origin: center center;
       }
     }
@@ -351,7 +266,6 @@ onBeforeUnmount(() => {
 
 .slide-fade-enter-from,
 .slide-fade-leave-to {
-  // transform: translateX(25vw);
   opacity: 0;
 }
 </style>

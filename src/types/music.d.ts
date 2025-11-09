@@ -94,6 +94,14 @@ export interface lyrics {
   rlyric: { start: number; end: number; content: string; contentInfo?: word[] }[]
 }
 
+export type lyricLine = {
+  start: number
+  end: number
+  lyric: { text: string; info?: word[] }
+  tlyric?: { text: string; info?: word[] }
+  rlyric?: { text: string; info?: word[] }
+}
+
 export type Type = 'small' | 'normal'
 export type Mode = 'oneLine' | 'twoLines'
 export type TranslationMode = 'none' | 'tlyric' | 'rlyric'
