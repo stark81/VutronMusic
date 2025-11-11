@@ -117,19 +117,9 @@ export const usePlayerStore = defineStore(
     const _playNextList = ref<number[]>([])
     const currentTrackIndex = ref(0)
 
-    const currentIndex = reactive({
-      line: -1,
-      lyric: -1,
-      tlyric: -1,
-      rlyric: -1
-    })
+    const currentIndex = ref(-1)
 
-    const timer = reactive<{ line: any; lyric: any; tlyric: any; rlyric: any }>({
-      line: null,
-      lyric: null,
-      tlyric: null,
-      rlyric: null
-    })
+    let timer: any = null
 
     const biquadParams = reactive<biquadType>({
       31: 0,
@@ -236,7 +226,7 @@ export const usePlayerStore = defineStore(
         _progress.value = value
         progress.value = value
         lastUpdateTime = value
-        currentIndex.line = getLyricIndex(lyrics.value, 0, 1)
+        currentIndex.value = getLyricIndex(lyrics.value, 0, 1)
         if (window.env?.isLinux) {
           window.mainApi?.send('updatePlayerState', { progress: value })
         }
@@ -245,7 +235,7 @@ export const usePlayerStore = defineStore(
           playbackRate: playbackRate.value,
           position: value
         })
-        clearTimeout(timer.line)
+        clearTimeout(timer)
         updateIndex()
       }
     })
@@ -300,7 +290,7 @@ export const usePlayerStore = defineStore(
         playbackRate: value,
         position: seek.value > currentTrackDuration.value ? 0 : seek.value
       })
-      clearTimeout(timer.line)
+      clearTimeout(timer)
       updateIndex()
     })
 
@@ -314,52 +304,6 @@ export const usePlayerStore = defineStore(
     })
 
     const noLyric = computed(() => lyrics.value.length === 0)
-    const hasWbyW = computed(() => lyrics.value.some((l) => l.lyric?.info))
-    const hasTLyric = computed(() => lyrics.value.some((l) => l.tlyric))
-    const hasRLyric = computed(() => lyrics.value.some((l) => l.rlyric))
-
-    const enableFontIndex = computed(
-      () =>
-        hasWbyW.value &&
-        ((stateStore.showLyrics && settingsStore.normalLyric.isNWordByWord) ||
-          (osdLyricStore.show && osdLyricStore.isWordByWord))
-    )
-
-    watch(
-      () => enableFontIndex.value && currentIndex.line,
-      (value) => {
-        if (typeof value === 'number') {
-          const line = lyrics.value[value]
-          if (!line || !line.lyric.info) return
-          currentIndex.lyric = getLyricIndex(line.lyric.info, 0, 1000)
-          refreshFontIdx('lyric')
-
-          if (
-            hasTLyric.value &&
-            (settingsStore.normalLyric.nTranslationMode === 'tlyric' ||
-              osdLyricStore.translationMode === 'tlyric') &&
-            line.tlyric?.info
-          ) {
-            currentIndex.tlyric = getLyricIndex(line.tlyric?.info, 0, 1000)
-            refreshFontIdx('tlyric')
-          }
-
-          if (
-            hasRLyric.value &&
-            (settingsStore.normalLyric.nTranslationMode === 'rlyric' ||
-              osdLyricStore.translationMode === 'rlyric') &&
-            line.rlyric?.info
-          ) {
-            currentIndex.rlyric = getLyricIndex(line.rlyric?.info, 0, 1000)
-            refreshFontIdx('rlyric')
-          }
-        } else {
-          clearTimeout(timer.lyric)
-          clearTimeout(timer.tlyric)
-          clearTimeout(timer.rlyric)
-        }
-      }
-    )
 
     // 对于网易云官方的歌曲链接，其有效时间只有 25 分钟，过期后需要重新获取链接
     const isValidUrl = (url: string) => {
@@ -401,7 +345,7 @@ export const usePlayerStore = defineStore(
       if (value) {
         updateIndex()
       } else {
-        clearTimeout(timer.line)
+        clearTimeout(timer)
       }
     })
 
@@ -470,16 +414,16 @@ export const usePlayerStore = defineStore(
 
     const _refreshLineIdx = () => {
       if (!lyrics.value.length || !shouldGetLrcIndex.value) return
-      currentIndex.line = getLyricIndex(lyrics.value, 0, 1)
-      const nextLine = lyrics.value[currentIndex.line + 1]
+      currentIndex.value = getLyricIndex(lyrics.value, 0, 1)
+      const nextLine = lyrics.value[currentIndex.value + 1]
 
       if (nextLine) {
         const driftTime =
           nextLine.start - ((audioNodes.audio?.currentTime || 0) + lyricOffset.value)
         if (playing.value) {
-          timer.line = setTimeout(
+          timer = setTimeout(
             () => {
-              clearTimeout(timer.line)
+              clearTimeout(timer)
               if (!playing.value) return
               _refreshLineIdx()
             },
@@ -488,65 +432,18 @@ export const usePlayerStore = defineStore(
         }
       }
     }
-
-    const refreshFontIdx = (type: 'lyric' | 'tlyric' | 'rlyric') => {
-      const lyric = lyrics.value[currentIndex.line] && lyrics.value[currentIndex.line][type]
-      if (!lyric || !lyric?.info) return
-      const index = getLyricIndex(lyric.info, currentIndex[type], 1000)
-
-      currentIndex[type] = index
-      const nextFont = lyric.info[index + 1]
-      if (nextFont) {
-        const driftTime =
-          nextFont.start + 16 - ((audioNodes.audio?.currentTime || 0) + lyricOffset.value) * 1000 // 添加一帧的延迟，以避免出现
-        if (playing.value) {
-          timer[type] = setTimeout(() => {
-            clearTimeout(timer[type])
-            if (!playing.value) return
-            refreshFontIdx(type)
-          }, driftTime / playbackRate.value)
-        }
-      }
-    }
-
     const updateIndex = () => {
       if (!lyrics.value.length || !shouldGetLrcIndex.value) return
-      currentIndex.line = getLyricIndex(lyrics.value, 0, 1)
+      currentIndex.value = getLyricIndex(lyrics.value, 0, 1)
       if (!shouldGetLrcIndex.value) return
       if (!playing.value) return
       _refreshLineIdx()
-
-      if (!enableFontIndex.value) return
-      const line = lyrics.value[currentIndex.line]
-      if (!line || !line.lyric.info) return
-      currentIndex.lyric = getLyricIndex(line.lyric.info, 0, 1000)
-      refreshFontIdx('lyric')
-
-      if (
-        hasTLyric.value &&
-        (settingsStore.normalLyric.nTranslationMode === 'tlyric' ||
-          osdLyricStore.translationMode === 'tlyric') &&
-        line.tlyric?.info
-      ) {
-        currentIndex.tlyric = getLyricIndex(line.tlyric?.info, 0, 1000)
-        refreshFontIdx('tlyric')
-      }
-
-      if (
-        hasRLyric.value &&
-        (settingsStore.normalLyric.nTranslationMode === 'rlyric' ||
-          osdLyricStore.translationMode === 'rlyric') &&
-        line.rlyric?.info
-      ) {
-        currentIndex.rlyric = getLyricIndex(line.rlyric?.info, 0, 1000)
-        refreshFontIdx('tlyric')
-      }
     }
 
     const currentLyric = computed(() => {
-      const line = lyrics.value[currentIndex.line]
+      const line = lyrics.value[currentIndex.value]
       if (!line) return { content: currentTrack.value?.name || '听你想听的音乐', time: 0, start: 0 }
-      const nextLine = lyrics.value[currentIndex.line + 1]
+      const nextLine = lyrics.value[currentIndex.value + 1]
       const diff = nextLine ? nextLine.start - line?.start : 10
       return { content: line?.lyric?.text || '', time: diff, start: line?.start || 0 }
     })
@@ -594,8 +491,8 @@ export const usePlayerStore = defineStore(
       if (value) {
         updateIndex()
       } else {
-        clearTimeout(timer.line)
-        timer.line = null
+        clearTimeout(timer)
+        timer = null
       }
     })
 
@@ -642,7 +539,7 @@ export const usePlayerStore = defineStore(
     })
 
     watch(lyricOffset, () => {
-      clearTimeout(timer.line)
+      clearTimeout(timer)
       updateIndex()
       if (window.env?.isLinux) {
         updateMediaSessionMetaData(currentTrack.value!)
@@ -1008,10 +905,7 @@ export const usePlayerStore = defineStore(
 
     const nextTrackCallback = () => {
       seek.value = 0
-      clearTimeout(timer.line)
-      clearTimeout(timer.lyric)
-      clearTimeout(timer.tlyric)
-      clearTimeout(timer.rlyric)
+      clearTimeout(timer)
       if (!isPersonalFM.value && repeatMode.value === 'one') {
         replaceCurrentTrack(currentTrack.value!.id)
       } else {
@@ -1336,12 +1230,7 @@ export const usePlayerStore = defineStore(
           window.mainApi?.sendMessage({
             type: 'update-osd-status',
             data: {
-              line: currentIndex.line,
-              font: currentIndex.lyric,
-              tfont:
-                osdLyricStore.translationMode === 'tlyric'
-                  ? currentIndex.tlyric
-                  : currentIndex.rlyric,
+              line: currentIndex.value,
               playing: playing.value,
               progress: audioNodes.audio?.currentTime || 0,
               title: `${(currentTrack.value?.artists || currentTrack.value?.ar)[0]?.name} - ${currentTrack.value?.name}`
@@ -1350,46 +1239,10 @@ export const usePlayerStore = defineStore(
         }
       })
 
-      watch(
-        () => currentIndex.line,
-        (value) => {
-          if (osdLyricStore.show)
-            window.mainApi?.sendMessage({ type: 'update-osd-status', data: { line: value } })
-        }
-      )
-
-      watch(
-        () => currentIndex.lyric,
-        (value) => {
-          if (osdLyricStore.show)
-            window.mainApi?.sendMessage({ type: 'update-osd-status', data: { font: value } })
-        }
-      )
-
-      watch(
-        () => currentIndex.tlyric,
-        (value) => {
-          if (osdLyricStore.show)
-            window.mainApi?.sendMessage({ type: 'update-osd-status', data: { tfont: value } })
-        }
-      )
-
-      // watch(lyrics, (value) => {
-      //   if (osdLyricStore.show) {
-      //     const newLyric = _.cloneDeep(value)
-      //     if (!newLyric.lyric.length) {
-      //       newLyric.lyric[0] = {
-      //         start: 0,
-      //         end: 0,
-      //         content: `${(currentTrack.value?.artists || currentTrack.value?.ar)[0].name} - ${currentTrack.value?.name}`
-      //       }
-      //     }
-      //     window.mainApi?.sendMessage({
-      //       type: 'update-osd-status',
-      //       data: { lyrics: toRaw(newLyric) }
-      //     })
-      //   }
-      // })
+      watch(currentIndex, (value) => {
+        if (osdLyricStore.show)
+          window.mainApi?.sendMessage({ type: 'update-osd-status', data: { line: value } })
+      })
 
       watch(
         () => osdLyricStore.show,
@@ -1722,8 +1575,6 @@ export const usePlayerStore = defineStore(
       isLocalList,
       lyrics,
       noLyric,
-      hasTLyric,
-      hasRLyric,
       personalFMTrack,
       personalFMNextTrack,
       playlistSource,
@@ -1746,14 +1597,7 @@ export const usePlayerStore = defineStore(
   },
   {
     persist: {
-      omit: [
-        'currentIndex.tWord',
-        'currentIndex.word',
-        'pic',
-        'title',
-        'currentLyricIndex',
-        'outputDevice'
-      ]
+      omit: ['pic', 'title', 'outputDevice']
     }
   }
 )

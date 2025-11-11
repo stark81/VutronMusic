@@ -221,7 +221,7 @@ export const parseJellyfinLyric = (lyric: { Text: string; Start: number }[]) => 
   return result
 }
 
-export const pickedLyric = (lyric: any[], number = 3) => {
+export const pickedLyric = (lyric: { content: string }[], number = 3) => {
   if (!lyric.length) return []
 
   const filterWords =

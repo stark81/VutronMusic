@@ -277,7 +277,7 @@ export const getLyric = async (track: {
           .catch(() => [])
       }
     }
-    if (lyrics.length) return lyrics
+    if (lyrics) return lyrics
   }
   return lyrics
 }
@@ -462,13 +462,13 @@ export const yrcLyricParse = (data: {
         const { start, cInfo } = _parseLrcLine(line)
         const matchedLyric = result.find((lyric) => lyric.start === start)
         if (!matchedLyric) continue
-        const chars = cInfo.split(lrcMap[lrc][1])
-        const duration = (matchedLyric.end - matchedLyric.start) / chars.length
-        const info = chars.map((c, index) => ({
-          start: (start + duration * index) * 1000,
-          end: (start + duration * index + duration) * 1000,
-          word: lrc === 'ytlrc' ? c : `${c} `
-        }))
+        const _start = matchedLyric.lyric.info
+          ? matchedLyric.lyric.info[0].start
+          : matchedLyric.start * 1000
+        const end = matchedLyric.lyric.info
+          ? matchedLyric.lyric.info.at(-1).end
+          : matchedLyric.end * 1000
+        const info = { start: _start, end, word: cInfo }
         matchedLyric[lrcMap[lrc][0]] = { info, text: cInfo }
       }
     }

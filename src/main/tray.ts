@@ -274,7 +274,7 @@ class TrayImpl implements YPMTray {
   }
 
   setContextMenu() {
-    const setMenu = store.get('settings.enableTrayMenu') as boolean
+    const setMenu = Constants.IS_MAC ? (store.get('settings.enableTrayMenu') as boolean) : true
     if (setMenu) {
       const template = createMenuTemplate(this._win)
       this._contextMenu = Menu.buildFromTemplate(template)

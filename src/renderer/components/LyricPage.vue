@@ -12,39 +12,32 @@
           <svg-icon icon-class="forward5s" />
         </button-icon>
       </div>
-      <div ref="lyricContainer" class="main-lyric-container" @wheel="handleWheel">
+      <div ref="lyricContainer" class="main-lyric-container" :class="{}" @wheel="handleWheel">
         <div id="line-1" class="lyric"></div>
+        <div ref="hidden-measure" class="lyric hidden-measure">
+          <div class="lyric-line"></div>
+          <div v-if="isTWordMode" class="translation"></div>
+        </div>
         <div
-          v-for="(lyric, index) in lyrics"
+          v-for="(line, index) in lyrics"
           :id="`line${index}`"
-          :key="lyric.start"
+          :key="line.start"
+          ref="lyric"
           class="lyric"
-          @click="seek = lyric.start"
+          :class="{
+            active: index === highlight,
+            isZoom,
+            'word-mode': isWordMode,
+            'translation-mode': nTranslationMode
+          }"
+          @click="seek = line.start"
         >
-          <WordLyric
-            v-if="isNWordByWord && lyric.lyric?.info && index === currentIndex.line"
-            :key="`${lyric.start}-${index}`"
-            :item="lyric"
-            :playing="playing"
-            :background-color="unplayColor"
-            :playback-rate="playbackRate"
-            :font-size="nFontSize"
-            :unplayed-color="unplayColor"
-            :fade-duration="fadeDuration"
-            :font-index="currentIndex.lyric"
-            :t-font-index="tFontIndex"
-            :is-active="isZoom"
-            :playing-color="'var(--color-wbw-text-played)'"
-            :translation-mode="nTranslationMode"
-          ></WordLyric>
-          <LineLyric
-            v-else
-            :item="lyric"
-            :translation-mode="nTranslationMode"
-            :background-color="index === highlight ? 'var(--color-wbw-text-played)' : unplayColor"
-            :is-active="isZoom && index === highlight"
-            :font-size="nFontSize"
-          ></LineLyric>
+          <div class="lyric-line">
+            <span>{{ line.lyric.text }}</span>
+          </div>
+          <div v-if="isTWordMode" class="translation">
+            <span>{{ line[nTranslationMode as 'tlyric' | 'rlyric']?.text }}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -52,24 +45,14 @@
 </template>
 
 <script setup lang="ts">
-import {
-  computed,
-  watch,
-  onMounted,
-  toRefs,
-  // onBeforeUnmount,
-  nextTick,
-  // useTemplateRef,
-  ref
-} from 'vue'
+import { computed, onMounted, toRefs, nextTick, ref, watch, useTemplateRef } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
 import { useNormalStateStore } from '../store/state'
 import { useSettingsStore } from '../store/settings'
 import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
-import LineLyric from './LyricLine.vue'
-import WordLyric from './LyricLineWord.vue'
+import { lyricLine } from '@/types/music.d'
 
 const props = defineProps({
   hover: { type: Boolean, default: false },
@@ -80,18 +63,20 @@ const props = defineProps({
 })
 
 const playerStore = usePlayerStore()
-const { noLyric, currentTrack, lyrics, seek, playing, currentIndex, playbackRate, fadeDuration } =
-  storeToRefs(playerStore)
+const { noLyric, currentTrack, lyrics, seek, playing, currentIndex } = storeToRefs(playerStore) // playbackRate, fadeDuration, lyricOffset
 
 const stateStore = useNormalStateStore()
 const { showToast } = stateStore
 
 const settingsStore = useSettingsStore()
 const { normalLyric } = storeToRefs(settingsStore)
-const { nFontSize, isNWordByWord, useMask, nTranslationMode, isZoom } = toRefs(normalLyric.value)
+const { nFontSize, useMask, nTranslationMode, isZoom, isNWordByWord } = toRefs(normalLyric.value)
 
 const isWheeling = ref(false)
 let scrollingTimer: any = null
+const animations = new Map<number, { lyric: Animation; translation: Animation | null }>()
+const lyricLines = useTemplateRef('lyric')
+const measure = useTemplateRef('hidden-measure')
 
 const offset = computed(() => {
   const lrcOffset = currentTrack.value!.offset || 0
@@ -104,6 +89,51 @@ const offset = computed(() => {
   }
 })
 
+const isWordMode = computed(() => isNWordByWord.value && lyrics.value.some((l) => l.lyric.info))
+
+const isTWordMode = computed(
+  () =>
+    isWordMode.value &&
+    nTranslationMode.value !== 'none' &&
+    lyrics.value.some((l) => l[nTranslationMode.value as 'tlyric' | 'rlyric'])
+)
+
+// const animations = computed(() => {
+//   if (!isNWordByWord.value || !isWordMode.value) return null
+//   return lyrics.value.map((line, index) => {
+//     if (!line.lyric.info) return null
+//     const result: Animation[] = []
+//     const start = line.lyric.info[0].start
+//     const end = line.lyric.info.at(-1)?.end || line.end
+//     const duration = end - start
+
+//     const keyframes = line.lyric.info.map((info) => {
+//       const offset = (info.end - start) / duration
+//       return { backgroundSize: `${offset * 100}% 100%`, offset }
+//     })
+//     keyframes.unshift({ backgroundSize: '0% 100%', offset: 0 })
+//     const effect = new KeyframeEffect(font.value![index], keyframes, {
+//       duration,
+//       easing: 'linear',
+//       fill: 'forwards'
+//     })
+//     const an = new Animation(effect, document.timeline)
+//     result.push(an)
+
+//     // if (isTWordMode.value) {
+//     //   const mode = nTranslationMode.value as 'rlyric' | 'tlyric'
+//     //   const info = line[mode]?.info
+//     //   // 翻译/音译的info的列表都只有一个元素
+//     //   if (info) {
+//     //     const start = info[0].start
+//     //     const end = info[0].end || line.end
+//     //     const duration = end - start
+//     //   }
+//     // }
+//     return an
+//   })
+// })
+
 const map = {
   start: 'left',
   center: 'center',
@@ -112,19 +142,9 @@ const map = {
 
 const transformOrigin = computed(() => `center ${map[props.textAlign]}`)
 const highlight = computed(() => {
-  const idx = currentIndex.value.line
+  const idx = currentIndex.value
   if (idx >= lyrics.value.length) return lyrics.value.length - 1
   return idx
-})
-
-const tFontIndex = computed(() => {
-  let result = -1
-  if (nTranslationMode.value === 'tlyric') {
-    result = currentIndex.value.tlyric
-  } else if (nTranslationMode.value === 'rlyric') {
-    result = currentIndex.value.rlyric
-  }
-  return result
 })
 
 const setOffset = (offset: number) => {
@@ -152,7 +172,7 @@ const setOffset = (offset: number) => {
 
 const handleWheel = () => {
   clearTimeout(scrollingTimer)
-  const line = document.getElementById(`line${currentIndex.value.line}`)
+  const line = document.getElementById(`line${currentIndex.value}`)
   if (!line || !playing.value) return
   if (!isWheeling.value) isWheeling.value = true
   scrollingTimer = setTimeout(() => {
@@ -161,11 +181,114 @@ const handleWheel = () => {
   }, 1500)
 }
 
+const _createAnimation = async (
+  type: 'lyric' | 'translation',
+  dom: HTMLElement,
+  line: lyricLine
+) => {
+  const map = {
+    lyric: ['.lyric-line', 'lyric', '.lyric-line span'],
+    translation: [
+      '.translation',
+      nTranslationMode.value as 'tlyric' | 'rlyric',
+      '.translation span'
+    ]
+  }
+  const lineContainer = measure.value!.querySelector(map[type][0]) as HTMLElement
+
+  const a = map[type][1] as 'lyric' | 'tlyric' | 'rlyric'
+  if (!line[a]?.info) return null
+  for (const info of line[a].info) {
+    const span = document.createElement('span')
+    span.textContent = info.word
+    lineContainer.appendChild(span)
+  }
+  await nextTick()
+  const spans = lineContainer.querySelectorAll('span')
+  const start = line[a]!.info![0].start
+  const end = line[a]!.info!.at(-1)!.end
+
+  const duration = end - start
+  let width = 0
+  let curWidth = 0
+  spans.forEach((span) => (width += span.offsetWidth))
+
+  const keyframes = line[a]!.info!.map((info, index) => {
+    const span = spans[index]
+    curWidth += span.offsetWidth
+    const _end = info.end
+    const offset = (_end - start) / duration
+    return { backgroundSize: `${(100 * curWidth) / width}% 100%`, offset }
+  })
+  keyframes.unshift({ backgroundSize: '0% 100%', offset: 0 })
+  lineContainer.innerHTML = ''
+
+  const container = dom.querySelector(map[type][2]) as HTMLElement
+  const effect = new KeyframeEffect(container, keyframes, {
+    duration: end - start,
+    easing: 'linear',
+    fill: 'forwards'
+  })
+  const an = new Animation(effect, document.timeline)
+
+  return an
+}
+
+const createLineAnimation = async (dom: HTMLElement, line: lyricLine) => {
+  const hiddenEl = measure.value!
+  hiddenEl.style.padding = '12px'
+
+  const an = await _createAnimation('lyric', dom, line)
+  let _an: Animation | null = null
+  if (isTWordMode.value) {
+    _an = await _createAnimation('translation', dom, line)
+  }
+
+  hiddenEl.style.padding = '0px'
+
+  return { lyric: an!, translation: _an }
+}
+
+const createAllAnimation = async () => {
+  for (let i = currentIndex.value + 1; i < lyrics.value.length; i++) {
+    const dom = lyricLines.value![i]
+    const line = lyrics.value[i]
+    const result = await createLineAnimation(dom, line)
+    animations.set(i, result)
+  }
+
+  for (let i = 0; i < currentIndex.value; i++) {
+    const dom = lyricLines.value![i]
+    const line = lyrics.value[i]
+    const result = await createLineAnimation(dom, line)
+    animations.set(i, result)
+  }
+}
+
 watch(
-  () => !isWheeling.value && currentIndex.value.line,
+  () => !isWheeling.value && currentIndex.value,
   (value) => {
     const line = document.getElementById(`line${value}`)
     line?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    if (playing.value) {
+      const ans = animations.get(currentIndex.value)
+      ans?.lyric.play()
+      ans?.translation?.play()
+    }
+  }
+)
+
+watch(
+  () => lyricLines.value && nTranslationMode.value,
+  async (value) => {
+    if (value && lyricLines.value) {
+      const result = await createLineAnimation(
+        lyricLines.value[currentIndex.value],
+        lyrics.value[currentIndex.value]
+      )
+      animations.set(currentIndex.value, result)
+      createAllAnimation()
+    }
   }
 )
 
@@ -226,16 +349,82 @@ onMounted(async () => {
     width: 0px;
   }
 
+  .hidden-measure {
+    // position: absolute;
+  }
+
   .lyric {
-    :deep(.lyric-line),
-    :deep(.translation) {
+    border-radius: 12px;
+    margin: 2px 0;
+    user-select: none;
+    padding: 12px;
+    font-weight: 600;
+
+    &:hover {
+      background: var(--color-secondary-bg-for-transparent);
+    }
+
+    &.active.isZoom {
+      .lyric-line,
+      :deep(.lyric-line) {
+        transform: scale(1);
+      }
+    }
+
+    &:not(.active) {
+      .lyric-line span,
+      .translation span {
+        background-size: 0% 100% !important;
+      }
+    }
+
+    .lyric-line {
       text-align: v-bind(textAlign);
       transform-origin: v-bind(transformOrigin);
+
+      transform: scale(0.95);
+      transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      span {
+        font-size: v-bind('`${nFontSize}px`');
+        background-repeat: no-repeat;
+        background-color: v-bind('`${unplayColor}`');
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        background-image: -webkit-linear-gradient(
+          top,
+          var(--color-wbw-text-played),
+          var(--color-wbw-text-played)
+        );
+        background-size: 0% 100%;
+        overflow-wrap: break-word;
+      }
+    }
+
+    .translation {
+      text-align: v-bind(textAlign);
+      transform-origin: v-bind(transformOrigin);
+
+      transform: scale(0.95);
+      span {
+        font-size: v-bind('`${nFontSize - 2}px`');
+        background-repeat: no-repeat;
+        background-color: v-bind('`${unplayColor}`');
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        background-image: -webkit-linear-gradient(
+          top,
+          var(--color-wbw-text),
+          var(--color-wbw-text)
+        );
+        background-size: 0% 100%;
+        overflow-wrap: break-word;
+      }
     }
   }
 
   .lyric:first-child {
     margin-top: 40vh;
+    padding: 0;
   }
 
   .lyric:last-child {
