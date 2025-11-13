@@ -710,6 +710,23 @@ export const usePlayerStore = defineStore(
       window.mainApi?.send('updatePlayerState', { shuffle: value })
     })
 
+    if (window.env?.isLinux) {
+      // in Linux, we should update mpris timeline continuously
+      // to let Waylyrics get correct timeline data
+      let updateTimelineTimer: number | null
+      onMounted(() => {
+        updateTimelineTimer = window.setInterval(() => {
+          if (!playing.value || !audioNodes.audio) return
+          const { currentTime } = audioNodes.audio
+          progress.value = currentTime
+          window.mainApi?.send('updatePlayerState', { progress: currentTime })
+        }, 100)
+      })
+      onBeforeUnmount(() => {
+        if (updateTimelineTimer) clearInterval(updateTimelineTimer)
+      })
+    }
+
     watchEffect(() => {
       for (const biquad of biquadParamsKeys) {
         const value = biquadParams[biquad]
