@@ -1730,8 +1730,20 @@ export const usePlayerStore = defineStore(
         get progress() {
           return audioNodes.audio?.currentTime || 0
         },
+        get playing() {
+          return playing.value
+        },
+        get volume() {
+          return currentTrack.value?.volume || 0
+        },
         get currentTrack() {
           return toRaw(currentTrack.value || {})
+        },
+        get isLiked() {
+          return isLiked.value
+        },
+        get repeatMode() {
+          return repeatMode.value
         },
         get lyric() {
           const result = {

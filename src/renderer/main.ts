@@ -34,8 +34,12 @@ declare global {
       isDev: boolean
     }
     vutronmusic?: {
-      currentTrack: Record<string, any>
       progress: number
+      playing: boolean
+      volume: number
+      currentTrack: Record<string, any>
+      isLiked: boolean
+      repeatMode: string
       lyric: { lrc: string; tlyric: string; romalrc: string }
     }
     LottieAnimation: (typeof import('vue3-lottie'))['Vue3Lottie']

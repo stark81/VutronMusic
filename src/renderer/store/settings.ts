@@ -118,6 +118,10 @@ export const useSettingsStore = defineStore(
         DefaultShortcuts
       )
 
+    const misc = reactive({
+      enableAmuseServer: true
+    })
+
     watch(
       () => theme.colors,
       (newValue) => {
@@ -224,6 +228,13 @@ export const useSettingsStore = defineStore(
       }
     )
 
+    watch(
+      () => misc.enableAmuseServer,
+      (val) => {
+        window.mainApi?.send('setStoreSettings', { enableAmuseServer: val })
+      }
+    )
+
     const togglePlaylistCategory = (name: string) => {
       const index = general.enabledPlaylistCategories.findIndex((c) => c === name)
       if (index !== -1) {
@@ -268,7 +279,8 @@ export const useSettingsStore = defineStore(
         musicQuality: general.musicQuality,
         closeAppOption: general.closeAppOption,
         useCustomTitlebar: general.useCustomTitlebar,
-        trackInfoOrder: toRaw(localMusic.trackInfoOrder)
+        trackInfoOrder: toRaw(localMusic.trackInfoOrder),
+        enableAmuseServer: misc.enableAmuseServer
       })
       if (window.env?.isWindows) return
       setInterval(() => {
@@ -286,6 +298,7 @@ export const useSettingsStore = defineStore(
       playerTheme,
       enableGlobalShortcut,
       shortcuts,
+      misc,
       normalLyric,
       autoCacheTrack,
       unblockNeteaseMusic,

@@ -58,6 +58,9 @@ export const useNormalStateStore = defineStore('state', () => {
   const isDownloading = ref(false)
   const latestVersion = ref<UpdateCheckResult | null>(null)
 
+  const amuseServerRunning = ref(false)
+  const amuseServerErrorMsg = ref<string | null>(null)
+
   const registerInstance = (tabId: string) => {
     if (!scrollbar.instances[tabId]) {
       scrollbar.instances[tabId] = {
@@ -126,6 +129,14 @@ export const useNormalStateStore = defineStore('state', () => {
     { immediate: true }
   )
 
+  window.mainApi?.on(
+    'updateAmuseServerStatus',
+    (event: any, running: boolean, err: string | null) => {
+      amuseServerRunning.value = running
+      amuseServerErrorMsg.value = err
+    }
+  )
+
   return {
     enableScrolling,
     virtualScrolling,
@@ -149,6 +160,8 @@ export const useNormalStateStore = defineStore('state', () => {
     updateStatus,
     latestVersion,
     isDownloading,
+    amuseServerRunning,
+    amuseServerErrorMsg,
     showToast,
     getFontList,
     registerInstance,

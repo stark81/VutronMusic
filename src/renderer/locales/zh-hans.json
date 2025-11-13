@@ -256,6 +256,7 @@
       "local": "本地音乐",
       "unblock": "音源设置",
       "shortcut": "快捷键设置",
+      "misc": "杂项设置",
       "update": "软件更新"
     },
     "general": {
@@ -432,6 +433,9 @@
       "like": "喜欢",
       "minimize": "显示/隐藏播放器"
     },
+    "misc": {
+      "enableAmuseServer": "启用 6K Amuse Youtube Music 信息源兼容服务器"
+    },
     "stream": {
       "enable": "启用流媒体音乐",
       "service": "流媒体服务",
@@ -455,6 +459,11 @@
       "title": "播放器样式",
       "common": "经典模式",
       "creative": "创意模式"
+    },
+    "amuseServer": {
+      "running": "服务正常运行中",
+      "error": "服务启动失败：{0}",
+      "notRunning": "服务未启动"
     }
   },
   "toast": {

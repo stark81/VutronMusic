@@ -256,6 +256,7 @@
       "local": "本地音樂",
       "unblock": "音源設定",
       "shortcut": "快捷鍵設定",
+      "misc": "雜項設定",
       "update": "軟體更新"
     },
     "general": {
@@ -432,6 +433,9 @@
       "like": "喜歡",
       "minimize": "顯示/隱藏播放器"
     },
+    "misc": {
+      "enableAmuseServer": "啟用 6K Amuse Youtube Music 信息源兼容伺服器"
+    },
     "stream": {
       "enable": "啟用串流媒體音樂",
       "service": "串流媒體服務",
@@ -455,6 +459,11 @@
       "title": "播放器樣式",
       "common": "經典模式",
       "creative": "創意模式"
+    },
+    "amuseServer": {
+      "running": "服務正常運行中",
+      "error": "服務啟動失敗：{0}",
+      "notRunning": "服務未啟動"
     }
   },
   "toast": {

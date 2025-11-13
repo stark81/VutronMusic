@@ -1,0 +1,12 @@
+{
+  "configurations": [
+    {
+      "name": "VutronMusic",
+      "type": "node-terminal",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "command": "yarn dev",
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ]
+}

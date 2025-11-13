@@ -19,6 +19,7 @@ import fastify, { FastifyInstance } from 'fastify'
 import fastifyCookie from '@fastify/cookie'
 import netease from './appServer/netease'
 import httpHandler from './appServer/httpHandler'
+import { startInstance as startAmuseFastifyInstance } from './appServer/6kLabsAmuse'
 import IPCs from './IPCs'
 import fastifyStatic from '@fastify/static'
 import path from 'path'
@@ -94,6 +95,8 @@ class BackGround {
   menu: Menu | null = null
   mpris: MprisImpl | null = null
   fastifyApp: FastifyInstance | null = null
+  amuseFastifyApp: FastifyInstance | null = null
+  createAmuseFastifyAppPromise: Promise<void> = Promise.resolve()
   willQuitApp: boolean = !Constants.IS_MAC
   checkInterval: any = null
   isInWindow: boolean = false
@@ -651,6 +654,7 @@ class BackGround {
 
       // window events
       this.handleWindowEvents()
+      this.handleAmuseServer()
 
       initAutoUpdater(this.win)
       this.tray = createTray(this.win)
@@ -776,6 +780,28 @@ class BackGround {
         store.set('window', this.win.getBounds())
       }, 500)
     })
+  }
+
+  handleAmuseServer() {
+    const storeCallback = (x: (typeof store)['store']) => {
+      if (x.settings.enableAmuseServer) {
+        this.createAmuseFastifyAppPromise.then(async () => {
+          try {
+            this.amuseFastifyApp = await startAmuseFastifyInstance(this.win)
+          } catch (e) {
+            console.error('Failed to start Amuse Fastify App:', e)
+            this.win.webContents.send('updateAmuseServerStatus', false, `${e}`)
+          }
+          this.win.webContents.send('updateAmuseServerStatus', true, null)
+        })
+      } else {
+        this.createAmuseFastifyAppPromise
+          .then(() => this.amuseFastifyApp?.close())
+          .then(() => this.win.webContents.send('updateAmuseServerStatus', false, null))
+      }
+    }
+    store.onDidAnyChange(storeCallback)
+    storeCallback(store.store)
   }
 }
 

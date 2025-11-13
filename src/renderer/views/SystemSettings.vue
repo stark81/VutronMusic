@@ -39,7 +39,10 @@
         <div class="tab" :class="{ active: tab === 'shortcut' }" @click="updateTab(4)">{{
           $t('settings.nav.shortcut')
         }}</div>
-        <div class="tab" :class="{ active: tab === 'update' }" @click="updateTab(5)">{{
+        <div class="tab" :class="{ active: tab === 'misc' }" @click="updateTab(5)">{{
+          $t('settings.nav.misc')
+        }}</div>
+        <div class="tab" :class="{ active: tab === 'update' }" @click="updateTab(6)">{{
           $t('settings.nav.update')
         }}</div>
       </div>
@@ -915,6 +918,33 @@
             $t('settings.shortcut.resetShortcut')
           }}</button>
         </div>
+        <div v-if="isElectron" v-show="tab === 'misc'" key="misc">
+          <div class="item">
+            <div class="left">
+              <div class="title">{{ $t('settings.misc.enableAmuseServer') }}</div>
+              <div v-if="stateStore.amuseServerRunning" class="description">
+                {{ $t('settings.amuseServer.running') }}
+              </div>
+              <div v-else-if="stateStore.amuseServerErrorMsg" class="description">
+                {{ $t('settings.amuseServer.error', [stateStore.amuseServerErrorMsg]) }}
+              </div>
+              <div v-else class="description">
+                {{ $t('settings.amuseServer.notRunning') }}
+              </div>
+            </div>
+            <div class="right">
+              <div class="toggle">
+                <input
+                  id="enableAmuseServer"
+                  v-model="misc.enableAmuseServer"
+                  type="checkbox"
+                  name="enableAmuseServer"
+                />
+                <label for="enableAmuseServer"></label>
+              </div>
+            </div>
+          </div>
+        </div>
         <div v-if="isElectron" v-show="tab === 'update'" key="update">
           <div class="item">
             <div class="left">
@@ -1001,6 +1031,7 @@ const {
   tray,
   theme,
   shortcuts,
+  misc,
   autoCacheTrack,
   unblockNeteaseMusic,
   enableGlobalShortcut,
@@ -1282,7 +1313,7 @@ const tab = ref('general')
 const lyricTab = ref(isWindows ? 'lyric' : 'trayLyric')
 const musicTab = ref('netease')
 const updateTab = (index: number) => {
-  const tabs = ['general', 'lyric', 'music', 'unblock', 'shortcut', 'update'] // 'appearance'
+  const tabs = ['general', 'lyric', 'music', 'unblock', 'shortcut', 'misc', 'update'] // 'appearance'
   const tabName = tabs[index]
   tab.value = tabName
   slideTop.value = index * 40

@@ -17,7 +17,7 @@
   "globals": {
     "__static": true
   },
-  "plugins": ["vue"],
+  "plugins": ["vue", "@typescript-eslint"],
   "rules": {
     "arrow-parens": 0,
     "generator-star-spacing": 0,
@@ -26,6 +26,8 @@
     "no-trailing-spaces": 1,
     "no-control-regex": 0,
     "no-useless-constructor": 0,
-    "node/no-deprecated-api": 0
+    "node/no-deprecated-api": 0,
+    "no-unused-vars": 0,
+    "@typescript-eslint/no-unused-vars": 1
   }
 }

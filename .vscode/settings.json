@@ -15,5 +15,6 @@
   "eslint.workingDirectories": [{ "mode": "auto" }],
   // "files.autoSave": "off",
   "i18n-ally.localesPaths": ["src/renderer/locales"],
-  "workbench.settings.useSplitJSON": true
+  "workbench.settings.useSplitJSON": true,
+  "i18n-ally.keystyle": "nested"
 }
