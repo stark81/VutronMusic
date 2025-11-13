@@ -256,6 +256,7 @@
       "local": "Local Music",
       "unblock": "Unblock",
       "shortcut": "Shortcuts",
+      "misc": "Miscellaneous",
       "update": "Update"
     },
     "general": {
@@ -432,6 +433,9 @@
       "like": "Like",
       "minimize": "Show/Hide Player"
     },
+    "misc": {
+      "enableAmuseServer": "Enable 6K Amuse Youtube Music Source Compatibility Server"
+    },
     "stream": {
       "enable": "Enable Stream Music",
       "service": "Servers",
@@ -455,6 +459,11 @@
       "title": "Player Theme",
       "common": "Classic Mode",
       "creative": "Creative Mode"
+    },
+    "amuseServer": {
+      "running": "Server is running normally",
+      "error": "Server failed to start: {0}",
+      "notRunning": "Server is not running"
     }
   },
   "toast": {

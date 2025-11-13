@@ -74,7 +74,8 @@ const rendererAvailChannels: string[] = [
   'update-error',
   'download-progress',
   'setPosition',
-  'changeRouteTo'
+  'changeRouteTo',
+  'updateAmuseServerStatus'
 ]
 
 let messagePort: MessagePort | null = null
