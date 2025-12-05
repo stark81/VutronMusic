@@ -1,5 +1,5 @@
 <template>
-  <div class="play-page" :class="{ 'no-lyric': noLyric && show === 'lyric' }" :data-theme="theme">
+  <div class="play-page" :data-theme="theme">
     <button-icon
       v-show="show === 'lyric'"
       class="player-button theme-button"
@@ -10,16 +10,9 @@
     <button-icon class="player-button close-button" @click="showLyrics = !showLyrics">
       <SvgIcon icon-class="arrow-down" />
     </button-icon>
-    <div
-      class="lyrics-container"
-      :style="{
-        '--bg-blur': `${backgroundBlur}px`,
-        '--bg-opacity': backgroundOpacity / 100,
-        '--lyric-font': fontFamily || 'inherit'
-      }"
-    >
+    <div class="lyrics-container">
       <!-- 自定义背景 -->
-      <template v-if="backgroundType !== 'default' && customBgUrl">
+      <template v-if="lyricBackground === 'customize'">
         <video
           v-if="customBgType === 'video'"
           class="custom-background custom-video"
@@ -38,20 +31,20 @@
       <!-- 默认背景 -->
       <template v-else>
         <div
-          v-if="['blur', 'dynamic'].includes(general.lyricBackground)"
+          v-if="['blur', 'dynamic'].includes(lyricBackground)"
           class="lyrics-background"
-          :class="{ 'dynamic-background': general.lyricBackground === 'dynamic' }"
+          :class="{ 'dynamic-background': lyricBackground === 'dynamic' }"
           :style="{ '--cover-url': `url(${pic})` }"
         />
         <div
-          v-else-if="general.lyricBackground === 'true'"
+          v-else-if="lyricBackground === 'true'"
           class="graditent-background"
           :style="{ background }"
         />
       </template>
     </div>
-    <div class="left-side">
-      <div>
+    <div class="lyric-container" :class="{ isMobile, 'no-lyric': noLyric && show === 'lyric' }">
+      <div class="left-side">
         <div class="cover" :class="{ rotate: currentTheme.name === '旋转封面' }">
           <img ref="imgRef" :src="pic" loading="lazy" />
           <div class="shadow" :style="{ backgroundImage: `url(${pic})` }"></div>
@@ -214,21 +207,32 @@
           </div>
         </div>
       </div>
-    </div>
-    <div class="right-side" @mouseenter="hover = true" @mouseleave="hover = false">
-      <LyricPage
-        v-if="show === 'lyric'"
-        :text-align="textAlign"
-        :container-width="'80%'"
-        :hover="hover"
-      />
-      <Comment v-else :id="currentTrack!.id" type="music" />
+      <div class="right-side" @mouseenter="hover = true" @mouseleave="hover = false">
+        <LyricPage
+          v-if="show === 'lyric'"
+          :text-align="isMobile ? 'center' : textAlign"
+          :container-width="isMobile ? '50vw' : '90%'"
+          :container-margin="isMobile ? '0 auto' : '0 0 0 auto'"
+          :hover="hover"
+          :offset-padding="isMobile ? '10vw' : '0'"
+          :margin="isMobile ? '4vh' : '40vh'"
+        />
+        <Comment
+          v-else
+          :id="currentTrack!.id"
+          type="music"
+          :style="{
+            width: isMobile ? '50vw' : '100%',
+            padding: isMobile ? '0' : '40px 0 10px 4vh'
+          }"
+        />
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, inject, nextTick, onMounted, ref, toRefs, watch } from 'vue'
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, toRefs, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import ButtonIcon from './ButtonIcon.vue'
@@ -255,9 +259,7 @@ const { normalLyric, general, playerTheme } = storeToRefs(settingsStore)
 const {
   nTranslationMode,
   textAlign,
-  fontFamily,
-  backgroundType,
-  backgroundSource,
+  customBackground,
   backgroundBlur,
   backgroundOpacity,
   apiRefreshMode,
@@ -289,6 +291,7 @@ const { likeAStreamTrack } = useStreamMusicStore()
 const stateStore = useNormalStateStore()
 const { showLyrics, addTrackToPlaylistModal, setThemeModal } = storeToRefs(stateStore)
 
+const isMobile = ref(false)
 const show = ref('lyric')
 const imgRef = ref<HTMLElement>()
 const color = ref('')
@@ -301,36 +304,39 @@ const hasRLyric = computed(() => lyrics.value.some((l) => l.rlyric))
 const currentTheme = computed(() => playerTheme.value.common.find((theme) => theme.selected)!)
 
 const theme = computed(() => {
-  return general.value.lyricBackground === 'true' ? 'dark' : 'auto'
+  return lyricBackground.value === 'true' ? 'dark' : 'auto'
 })
 
 const background = computed(() => {
   return `linear-gradient(to top left, ${color.value}, ${color2.value})`
 })
 
+const lyricBackground = computed(() => {
+  if (general.value.lyricBackground === 'customize') {
+    return customBgUrl.value ? general.value.lyricBackground : general.value.savedBackground
+  }
+  return general.value.lyricBackground
+})
+
 // 自定义背景
 const customBgUrl = ref('')
 const customBgType = ref<'image' | 'video'>('image')
+const currentBG = computed(() => customBackground.value.find((bg) => bg.active)!)
 
 const loadCustomBackground = async () => {
-  if (backgroundType.value === 'default') {
-    customBgUrl.value = ''
-    return
-  }
-
-  if (backgroundType.value === 'api') {
+  if (currentBG.value.type === 'api') {
     // API 随机背景
-    if (backgroundSource.value) {
-      customBgUrl.value = `${backgroundSource.value}${backgroundSource.value.includes('?') ? '&' : '?'}t=${Date.now()}`
+    if (currentBG.value.source) {
+      customBgUrl.value = `${currentBG.value.source}${currentBG.value.source.includes('?') ? '&' : '?'}t=${Date.now()}`
       customBgType.value = 'image'
     }
     return
   }
 
-  if (backgroundType.value === 'folder') {
+  if (currentBG.value.type === 'folder') {
     // 文件夹随机
-    if (backgroundSource.value) {
-      const files = await window.mainApi?.invoke('getFilesInFolder', backgroundSource.value, [
+    if (currentBG.value.source) {
+      const files = await window.mainApi?.invoke('getFilesInFolder', currentBG.value.source, [
         'png',
         'jpg',
         'jpeg',
@@ -349,9 +355,9 @@ const loadCustomBackground = async () => {
   }
 
   // 单个图片或视频
-  if (backgroundSource.value) {
-    customBgUrl.value = `atom://local-resource/${encodeURIComponent(backgroundSource.value)}`
-    customBgType.value = backgroundType.value === 'video' ? 'video' : 'image'
+  if (currentBG.value.source) {
+    customBgUrl.value = `atom://local-resource/${encodeURIComponent(currentBG.value.source)}`
+    customBgType.value = currentBG.value.type === 'video' ? 'video' : 'image'
   }
 }
 
@@ -360,7 +366,7 @@ let apiRefreshTimer: ReturnType<typeof setInterval> | null = null
 
 const startApiRefreshTimer = () => {
   stopApiRefreshTimer()
-  if (backgroundType.value === 'api' && apiRefreshMode.value === 'time') {
+  if (currentBG.value.type === 'api' && apiRefreshMode.value === 'time') {
     apiRefreshTimer = setInterval(
       () => {
         loadCustomBackground()
@@ -381,9 +387,9 @@ const stopApiRefreshTimer = () => {
 watch(
   () => currentTrack.value?.id,
   () => {
-    if (backgroundType.value === 'folder') {
+    if (currentBG.value.type === 'folder') {
       loadCustomBackground()
-    } else if (backgroundType.value === 'api' && apiRefreshMode.value === 'song') {
+    } else if (currentBG.value.type === 'api' && apiRefreshMode.value === 'song') {
       loadCustomBackground()
     }
   }
@@ -391,15 +397,10 @@ watch(
 
 // 背景类型或来源变化时更新
 watch(
-  [backgroundType, backgroundSource],
+  currentBG,
   () => {
-    if (backgroundType.value === 'default') {
-      customBgUrl.value = ''
-      stopApiRefreshTimer()
-    } else {
-      loadCustomBackground()
-      startApiRefreshTimer()
-    }
+    loadCustomBackground()
+    startApiRefreshTimer()
   },
   { immediate: true }
 )
@@ -558,8 +559,18 @@ const switchRightPage = (name: string) => {
     show.value = name
   }
 }
+
+const aspect = window.matchMedia('(max-aspect-ratio: 9/10)')
+
+aspect.addEventListener('change', (e) => (isMobile.value = e.matches))
+
 onMounted(() => {
   setTimeout(getColor)
+  isMobile.value = aspect.matches
+})
+
+onBeforeUnmount(() => {
+  aspect.removeEventListener('change', (e) => (isMobile.value = e.matches))
 })
 </script>
 
@@ -575,289 +586,286 @@ onMounted(() => {
   overflow: hidden;
   display: flex;
   background: var(--color-body-bg);
-}
 
-.play-page.no-lyric {
-  .left-side {
-    flex: 1;
-    transition: all 0.35s;
-    justify-content: center;
-    transform: translateX(25vw);
-    padding: 0 calc((50vw - min(50vh, 33.33vw)) / 6);
-  }
-}
-
-.lyrics-container {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  overflow: hidden;
-  z-index: -1;
-}
-
-.custom-background {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  filter: blur(var(--bg-blur, 50px));
-  opacity: var(--bg-opacity, 0.6);
-}
-
-.custom-image {
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-}
-
-.custom-video {
-  object-fit: cover;
-}
-
-.lyrics-background {
-  --contrast-lyrics-background: 50%;
-  --brightness-lyrics-background: 130%;
-}
-
-[data-theme='dark'] .lyrics-background {
-  --contrast-lyrics-background: 105%;
-  --brightness-lyrics-background: 60%;
-}
-
-.lyrics-background {
-  position: absolute;
-  height: 100vh;
-  width: 100vw;
-  filter: blur(50px) contrast(var(--contrast-lyrics-background))
-    brightness(var(--brightness-lyrics-background));
-
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    width: 140vw;
-    height: 140vw;
-    background-image: var(--cover-url);
-    background-size: cover;
-    opacity: 0.6;
-    will-change: transform;
-  }
-
-  &::before {
+  .lyrics-container {
+    position: fixed;
     top: 0;
-    right: 0;
-    mix-blend-mode: luminosity;
-  }
-
-  &::after {
-    bottom: 0;
     left: 0;
-    animation-direction: reverse;
-    animation-delay: 10s;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+    z-index: -1;
   }
-}
 
-.dynamic-background {
-  &::before,
-  &::after {
-    animation: rotate 90s linear infinite;
-    will-change: transform;
+  .custom-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    filter: blur(v-bind('`${backgroundBlur}px`'));
+    opacity: v-bind('`${backgroundOpacity / 100}`');
   }
-}
 
-.graditent-background {
-  position: absolute;
-  width: 100vw;
-  height: 100vh;
-}
+  .custom-image {
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
 
-.left-side {
-  flex: 1;
-  display: flex;
-  justify-content: right;
-  padding-right: calc((50vw - min(50vh, 33.33vw)) / 6);
-  align-items: center;
-  transition: all 0.35s;
-  z-index: 10;
+  .custom-video {
+    object-fit: cover;
+  }
 
-  .cover {
-    position: relative;
-    img {
-      height: min(50vh, 33.33vw);
-      width: min(50vh, 33.33vw);
-      user-select: none;
-      object-fit: cover;
-      border-radius: 0.75rem;
-    }
-    .shadow {
+  .lyrics-background {
+    --contrast-lyrics-background: 50%;
+    --brightness-lyrics-background: 130%;
+    position: absolute;
+    height: 100vh;
+    width: 100vw;
+    filter: blur(50px) contrast(var(--contrast-lyrics-background))
+      brightness(var(--brightness-lyrics-background));
+
+    &::before,
+    &::after {
+      content: '';
       position: absolute;
-      top: 12px;
-      height: min(50vh, 33.33vw);
-      width: min(50vh, 33.33vw);
-      filter: blur(16px) opacity(0.6);
-      transform: scale(0.92, 0.96);
-      z-index: -1;
+      width: 140vw;
+      height: 140vw;
+      background-image: var(--cover-url);
       background-size: cover;
-      border-radius: 0.75em;
+      opacity: 0.6;
+      will-change: transform;
+    }
+
+    &::before {
+      top: 0;
+      right: 0;
+      mix-blend-mode: luminosity;
+    }
+
+    &::after {
+      bottom: 0;
+      left: 0;
+      animation-direction: reverse;
+      animation-delay: 10s;
     }
   }
 
-  .cover.rotate {
-    img,
-    .shadow {
-      border-radius: 50%;
+  [data-theme='dark'] .lyrics-background {
+    --contrast-lyrics-background: 105%;
+    --brightness-lyrics-background: 60%;
+  }
+
+  .dynamic-background {
+    &::before,
+    &::after {
+      animation: rotate 90s linear infinite;
       will-change: transform;
     }
   }
 
-  .controls {
-    color: var(--color-text);
-    max-width: min(50vh, 33.33vw);
-    margin-top: 3vh;
-    position: relative;
+  .graditent-background {
+    position: absolute;
+    width: 100vw;
+    height: 100vh;
+  }
+}
 
-    .top-part {
-      display: flex;
-      justify-content: space-between;
+.lyric-container {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  padding: 0 calc((50vw - min(50vh, 33.33vw)) / 2.3);
 
-      .title {
-        // margin-top: 8px;
-        font-size: 20px;
-        font-weight: 600;
-        opacity: 0.88;
-        display: -webkit-box;
-        -webkit-box-orient: vertical;
-        -webkit-line-clamp: 1;
-        line-clamp: 1;
-        overflow: hidden;
+  .left-side {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.35s;
+    z-index: 10;
+
+    .cover {
+      position: relative;
+      img {
+        height: min(50vh, 33.33vw);
+        width: min(50vh, 33.33vw);
+        user-select: none;
+        object-fit: cover;
+        border-radius: 0.75rem;
       }
-      .haslist {
-        cursor: pointer;
-        &:hover {
-          text-decoration: underline;
+      .shadow {
+        position: absolute;
+        top: 12px;
+        height: min(50vh, 33.33vw);
+        width: min(50vh, 33.33vw);
+        filter: blur(16px) opacity(0.6);
+        transform: scale(0.92, 0.96);
+        z-index: -1;
+        background-size: cover;
+        border-radius: 0.75em;
+      }
+    }
+
+    .cover.rotate {
+      img,
+      .shadow {
+        border-radius: 50%;
+        will-change: transform;
+      }
+    }
+
+    .controls {
+      color: var(--color-text);
+      width: min(50vh, 33.33vw);
+      margin-top: 3vh;
+      position: relative;
+
+      .top-part {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 18px;
+
+        .title {
+          // margin-top: 8px;
+          font-size: 20px;
+          font-weight: 600;
+          opacity: 0.88;
+          display: -webkit-box;
+          -webkit-box-orient: vertical;
+          -webkit-line-clamp: 1;
+          line-clamp: 1;
+          overflow: hidden;
+        }
+        .haslist {
+          cursor: pointer;
+          &:hover {
+            text-decoration: underline;
+          }
+        }
+        .subtitle {
+          // margin-top: 4px;
+          font-size: 14px;
+          opacity: 0.7;
+          display: -webkit-box;
+          -webkit-box-orient: vertical;
+          -webkit-line-clamp: 1;
+          line-clamp: 1;
+          overflow: hidden;
+        }
+
+        .top-right {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+
+          .buttons {
+            height: 34px;
+            display: flex;
+            justify-content: space-between;
+            button {
+              margin: 0 0 0 4px;
+            }
+            .svg-icon {
+              height: 18px;
+              width: 18px;
+            }
+            .comment {
+              height: 22px;
+              width: 22px;
+            }
+          }
+
+          .transPro {
+            cursor: pointer;
+            line-height: 34px;
+            padding: 0 6px;
+            margin: 0 2px;
+            display: flex;
+
+            label {
+              cursor: pointer;
+              opacity: 0.5;
+            }
+            .active {
+              opacity: 0.95;
+            }
+            .m-label {
+              margin: 0 2px;
+            }
+          }
         }
       }
-      .subtitle {
-        // margin-top: 4px;
-        font-size: 14px;
-        opacity: 0.7;
-        display: -webkit-box;
-        -webkit-box-orient: vertical;
-        -webkit-line-clamp: 1;
-        line-clamp: 1;
-        overflow: hidden;
-      }
-
-      .top-right {
+      :deep(.progress-bar) {
         display: flex;
         align-items: center;
         justify-content: space-between;
 
-        .buttons {
-          height: 34px;
+        .slider {
+          flex: 1;
+          padding: 0 10px;
+          contain: content;
+        }
+
+        .time {
+          font-size: 15px;
+          font-weight: 600;
+          opacity: 0.58;
+          width: 34px;
+          contain: content;
+        }
+      }
+      .media-controls {
+        display: flex;
+        justify-content: center;
+        margin: 1.9vh 0 1.1vh 0;
+        align-items: center;
+
+        .svg-icon {
+          opacity: 0.38;
+          height: 14px;
+          width: 14px;
+        }
+
+        .active .svg-icon {
+          opacity: 0.88;
+        }
+
+        .middle {
+          padding: 0 2.2vw;
           display: flex;
-          justify-content: space-between;
+          align-items: center;
+
           button {
-            margin: 0 0 0 4px;
+            margin: 0 1.2vw;
           }
+
+          button#play .svg-icon {
+            height: 28px;
+            width: 28px;
+            padding: 2px;
+          }
+
           .svg-icon {
-            height: 18px;
-            width: 18px;
-          }
-          .comment {
+            opacity: 0.88;
             height: 22px;
             width: 22px;
           }
         }
-
-        .transPro {
-          cursor: pointer;
-          line-height: 34px;
-          padding: 0 6px;
-          margin: 0 2px;
-          display: flex;
-
-          label {
-            cursor: pointer;
-            opacity: 0.5;
-          }
-          .active {
-            opacity: 0.95;
-          }
-          .m-label {
-            margin: 0 2px;
-          }
-        }
-      }
-    }
-    :deep(.progress-bar) {
-      margin-top: 18px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-
-      .slider {
-        flex: 1;
-        padding: 0 10px;
-        contain: content;
-      }
-
-      .time {
-        font-size: 15px;
-        font-weight: 600;
-        opacity: 0.58;
-        width: 34px;
-        contain: content;
-      }
-    }
-    .media-controls {
-      display: flex;
-      justify-content: center;
-      margin-top: 3vh;
-      align-items: center;
-
-      .svg-icon {
-        opacity: 0.38;
-        height: 14px;
-        width: 14px;
-      }
-
-      .active .svg-icon {
-        opacity: 0.88;
-      }
-
-      .middle {
-        padding: 0 2.2vw;
-        display: flex;
-        align-items: center;
-
-        button {
-          margin: 0 1.2vw;
-        }
-
-        button#play .svg-icon {
-          height: 28px;
-          width: 28px;
-          padding: 2px;
-        }
-
-        .svg-icon {
-          opacity: 0.88;
-          height: 22px;
-          width: 22px;
-        }
       }
     }
   }
-}
 
-.right-side {
-  flex: 1;
-  justify-self: center;
-  padding: 0 calc((50vw - min(50vh, 33.33vw)) / 6);
+  .right-side {
+    flex: 1;
+    justify-self: center;
+    align-items: center;
+    height: 100vh;
+    box-sizing: border-box;
+    transition: all 0.35s;
+  }
 }
 
 .player-button {
@@ -907,26 +915,61 @@ onMounted(() => {
   }
 }
 
-@keyframes rotate {
-  from {
-    transform: rotate(0deg) translateZ(0);
-  } // 触发GPU加速
-  to {
-    transform: rotate(360deg) translateZ(0);
+.lyric-container {
+  &.no-lyric {
+    justify-content: center;
+
+    .left-side {
+      padding: 0;
+    }
+    .right-side {
+      flex: 0;
+      padding: 0;
+    }
+  }
+
+  &.isMobile {
+    flex-direction: column;
+    justify-content: center;
+    box-sizing: border-box;
+    .left-side {
+      flex: unset;
+      justify-content: unset;
+      padding: 0;
+      margin-bottom: 4vh;
+
+      .cover {
+        img,
+        .shadow {
+          height: 50vw;
+          width: 50vw;
+        }
+      }
+      .controls {
+        width: 50vw;
+        max-width: 50vw;
+      }
+    }
+    .right-side {
+      flex: unset;
+      padding: 0;
+      height: max(calc(100vh - 105vw), 20vh);
+      transition: all 0.35s;
+    }
+    &.no-lyric .right-side {
+      height: 0;
+      margin-top: 0;
+      transition: all 0.35s;
+    }
   }
 }
 
-@media (max-aspect-ratio: 10/9) {
-  .left-side {
-    display: none;
+@keyframes rotate {
+  from {
+    transform: rotate(0deg) translateZ(0);
   }
-  .right-side {
-    max-width: 100%;
-  }
-  .play-page.no-lyric {
-    .left-side {
-      display: flex;
-    }
+  to {
+    transform: rotate(360deg) translateZ(0);
   }
 }
 </style>

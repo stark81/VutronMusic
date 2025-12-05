@@ -151,6 +151,7 @@
     "showComment": "查看评论",
     "showLyric": "显示歌词",
     "setConvolver": "音效设置",
+    "setLyricBG": "歌词背景设置",
     "playBackSpeed": "倍速播放",
     "pitch": "音调调整",
     "lyricOffset": "歌词时间调整",
@@ -308,7 +309,8 @@
         "close": "关闭",
         "true": "打开",
         "blur": "模糊封面",
-        "dynamic": "动态"
+        "dynamic": "动态封面",
+        "customize": "自定义背景"
       },
       "trayColor": {
         "text": "托盘图标颜色",
@@ -400,7 +402,7 @@
       "defaultFont": "系统默认",
       "backgroundType": "背景类型",
       "backgroundSource": "背景来源",
-      "backgroundBlur": "背景模糊度",
+      "backgroundBlur": "背景模糊",
       "backgroundOpacity": "背景亮度",
       "browse": "浏览",
       "reset": "重置",
@@ -478,7 +480,12 @@
       "minimize": "显示/隐藏播放器"
     },
     "misc": {
-      "enableAmuseServer": "启用 6K Amuse Youtube Music 信息源兼容服务器"
+      "enableAmuseServer": "启用 6K Amuse Youtube Music 信息源兼容服务器",
+      "enableDiscordRichPresence": "启用 Discord Rich Presence",
+      "FmStatusConnected": "已连接到 Lst.fm ({username})",
+      "connectToFM": "连接 Last.fm ",
+      "disconnectToFM": "断开连接",
+      "authToFM": "授权连接"
     },
     "stream": {
       "enable": "启用流媒体音乐",

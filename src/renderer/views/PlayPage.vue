@@ -13,6 +13,7 @@
     <PlaybackModal />
     <PlayerFontModal />
     <PlayerThemeModal />
+    <BGModal />
     <ContextMenu ref="playPageContextMenu">
       <div v-show="currentPlayerTheme === 'creative'" class="item" @click="addTrackToPlaylist">{{
         $t('player.addToPlaylist')
@@ -25,6 +26,9 @@
       }}</div>
       <div class="item" @click="setPitchModal = true">{{ $t('contextMenu.pitch') }}</div>
       <div class="item" @click="setConvolverModal = true">{{ $t('contextMenu.setConvolver') }}</div>
+      <div v-if="lyricBackground === 'customize'" class="item" @click="setBGModal = true">{{
+        $t('contextMenu.setLyricBG')
+      }}</div>
     </ContextMenu>
   </div>
 </template>
@@ -36,6 +40,7 @@ import PlaybackModal from '../components/ModalPlayback.vue'
 import PitchModal from '../components/ModalPitch.vue'
 import PlayerThemeModal from '../components/ModalPlayerTheme.vue'
 import PlayerFontModal from '../components/ModalPlayerFont.vue'
+import BGModal from '../components/ModalCustomize.vue'
 import CommonPlayer from '../components/CommonPlayer.vue'
 import LottiePlayer from '../components/CreativePlayer.vue'
 import { useNormalStateStore } from '../store/state'
@@ -55,11 +60,12 @@ const {
   setPitchModal,
   setFontModal,
   setPlaybackRateModal,
+  setBGModal,
   addTrackToPlaylistModal
 } = storeToRefs(stateStore)
 
 const settingsStore = useSettingsStore()
-const { playerTheme } = storeToRefs(settingsStore)
+const { playerTheme, general, normalLyric } = storeToRefs(settingsStore)
 
 const playerStore = usePlayerStore()
 const { currentTrack } = storeToRefs(playerStore)
@@ -68,6 +74,15 @@ const currentPlayerTheme = computed(
   () =>
     Object.entries(playerTheme.value).find(([_, items]) => items.some((item) => item.selected))?.[0]
 )
+
+const currentBG = computed(() => normalLyric.value.customBackground.find((bg) => bg.active)!)
+
+const lyricBackground = computed(() => {
+  if (general.value.lyricBackground === 'customize') {
+    return currentBG.value.source ? general.value.lyricBackground : general.value.savedBackground
+  }
+  return general.value.lyricBackground
+})
 
 const addTrackToPlaylist = () => {
   if (!currentTrack.value) return

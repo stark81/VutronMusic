@@ -409,101 +409,79 @@
             </div>
             <div class="item">
               <div class="left">
+                <div class="title">{{ $t('settings.lyric.fontFamily') }}</div>
+              </div>
+              <div class="right">
+                <CustomSelect v-model="fontFamily" :options="fontList" :searchable="true">
+                  <template #option="{ option }">
+                    <div :style="{ fontFamily: option.value as string }">{{ option.label }}</div>
+                  </template>
+                </CustomSelect>
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
                 <div class="title">{{ $t('settings.general.lyricBackground.text') }}</div>
               </div>
               <div class="right">
                 <CustomSelect v-model="lyricBackground" :options="lrcBgOptions" />
               </div>
             </div>
-            <div class="item">
-              <div class="left">
-                <div class="title">{{ $t('settings.lyric.fontFamily') }}</div>
+            <template v-if="lyricBackground === 'customize'">
+              <div class="item">
+                <div class="left">
+                  <div class="title">{{ $t('settings.lyric.backgroundType') }}</div>
+                </div>
+                <div class="right">
+                  <CustomSelect v-model="backgroundType" :options="bgTypeOptions" />
+                </div>
               </div>
-              <div class="right">
-                <CustomSelect v-model="fontFamily" :options="fontFamilyOptions" />
+              <div class="item">
+                <div>{{ $t('settings.lyric.backgroundSource') }}：</div>
               </div>
-            </div>
-            <div class="item">
-              <div class="left">
-                <div class="title">{{ $t('settings.lyric.backgroundType') }}</div>
-              </div>
-              <div class="right">
-                <CustomSelect v-model="backgroundType" :options="bgTypeOptions" />
-              </div>
-            </div>
-            <div v-if="backgroundType !== 'default'" class="item">
-              <div class="left">
-                <div class="title">{{ $t('settings.lyric.backgroundSource') }}</div>
-              </div>
-              <div class="right">
+              <div class="item lyric-source">
                 <input
-                  v-model="backgroundSource"
+                  v-model="currentBG.source"
                   type="text"
                   class="text-input"
                   :placeholder="bgSourcePlaceholder"
                 />
-                <button v-if="['image', 'video', 'folder'].includes(backgroundType)" class="primary" @click="selectBackgroundSource">
-                  {{ $t('settings.lyric.browse') }}
-                </button>
-              </div>
-            </div>
-            <div class="item">
-              <div class="left">
-                <div class="title">{{ $t('settings.lyric.backgroundBlur') }}</div>
-              </div>
-              <div class="right">
-                <VueSlider
-                  v-model="backgroundBlur"
-                  :min="0"
-                  :max="100"
-                  :height="4"
-                  :dot-size="12"
-                  :rail-style="{ backgroundColor: 'rgba(128, 128, 128, 0.18)' }"
-                  :process-style="{ backgroundColor: 'var(--color-primary)', opacity: 0.8 }"
-                  style="width: 120px"
-                  @update:model-value="(v: number) => backgroundBlur = Math.round(v)"
-                />
-                <span class="slider-value">{{ Math.round(backgroundBlur) }}px</span>
-                <button class="reset-btn" @click="backgroundBlur = 50">{{ $t('settings.lyric.reset') }}</button>
-              </div>
-            </div>
-            <div class="item">
-              <div class="left">
-                <div class="title">{{ $t('settings.lyric.backgroundOpacity') }}</div>
-              </div>
-              <div class="right">
-                <VueSlider
-                  v-model="backgroundOpacity"
-                  :min="0"
-                  :max="100"
-                  :height="4"
-                  :dot-size="12"
-                  :rail-style="{ backgroundColor: 'rgba(128, 128, 128, 0.18)' }"
-                  :process-style="{ backgroundColor: 'var(--color-primary)', opacity: 0.8 }"
-                  style="width: 120px"
-                  @update:model-value="(v: number) => backgroundOpacity = Math.round(v)"
-                />
-                <span class="slider-value">{{ Math.round(backgroundOpacity) }}%</span>
-                <button class="reset-btn" @click="backgroundOpacity = 60">{{ $t('settings.lyric.reset') }}</button>
-              </div>
-            </div>
-            <template v-if="backgroundType === 'api'">
-              <div class="item">
-                <div class="left">
-                  <div class="title">{{ $t('settings.lyric.apiRefreshMode') }}</div>
-                </div>
                 <div class="right">
-                  <CustomSelect v-model="apiRefreshMode" :options="apiRefreshModeOptions" />
+                  <button
+                    v-if="['image', 'video', 'folder'].includes(currentBG.type)"
+                    @click="selectBackgroundSource"
+                  >
+                    {{ $t('settings.lyric.browse') }}
+                  </button>
+                  <button
+                    v-if="['image', 'video', 'folder', 'api'].includes(currentBG.type)"
+                    @click="currentBG.source = ''"
+                  >
+                    {{ $t('settings.lyric.reset') }}
+                  </button>
                 </div>
               </div>
-              <div v-if="apiRefreshMode === 'time'" class="item">
-                <div class="left">
-                  <div class="title">{{ $t('settings.lyric.apiRefreshInterval') }}</div>
+              <template v-if="currentBG.type === 'api'">
+                <div class="item">
+                  <div class="left">
+                    <div class="title">{{ $t('settings.lyric.apiRefreshMode') }}</div>
+                  </div>
+                  <div class="right">
+                    <CustomSelect v-model="apiRefreshMode" :options="apiRefreshModeOptions" />
+                  </div>
                 </div>
-                <div class="right">
-                  <CustomSelect v-model="apiRefreshInterval" :options="apiRefreshIntervalOptions" />
+                <div v-if="apiRefreshMode === 'time'" class="item">
+                  <div class="left">
+                    <div class="title">{{ $t('settings.lyric.apiRefreshInterval') }}</div>
+                  </div>
+                  <div class="right">
+                    <CustomSelect
+                      v-model="apiRefreshInterval"
+                      :options="apiRefreshIntervalOptions"
+                    />
+                  </div>
                 </div>
-              </div>
+              </template>
             </template>
           </div>
           <div v-if="!isWindows" v-show="lyricTab === 'trayLyric'">
@@ -549,22 +527,6 @@
                     type="number"
                     class="text-input margin-right-0"
                     @input="inputDebounce()"
-                  />
-                </div>
-              </div>
-              <div class="item">
-                <div class="left">
-                  <div class="title"> {{ $t('settings.tray.lyricScrollFrameRate.text') }} </div>
-                  <div class="description">
-                    {{ $t('settings.tray.lyricScrollFrameRate.desc') }}</div
-                  >
-                </div>
-                <div class="right">
-                  <input
-                    v-model="inputRateValue"
-                    type="number"
-                    class="text-input margin-right-0"
-                    @input="inputRateDebounce()"
                   />
                 </div>
               </div>
@@ -1024,30 +986,65 @@
             $t('settings.shortcut.resetShortcut')
           }}</button>
         </div>
-        <div v-if="isElectron" v-show="tab === 'misc'" key="misc">
+        <div v-show="tab === 'misc'" key="misc">
+          <template v-if="isElectron">
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('settings.misc.enableAmuseServer') }}</div>
+                <div v-if="stateStore.amuseServerRunning" class="description">
+                  {{ $t('settings.amuseServer.running') }}
+                </div>
+                <div v-else-if="stateStore.amuseServerErrorMsg" class="description">
+                  {{ $t('settings.amuseServer.error', [stateStore.amuseServerErrorMsg]) }}
+                </div>
+                <div v-else class="description">
+                  {{ $t('settings.amuseServer.notRunning') }}
+                </div>
+              </div>
+              <div class="right">
+                <div class="toggle">
+                  <input
+                    id="enableAmuseServer"
+                    v-model="misc.enableAmuseServer"
+                    type="checkbox"
+                    name="enableAmuseServer"
+                  />
+                  <label for="enableAmuseServer"></label>
+                </div>
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('settings.misc.enableDiscordRichPresence') }}</div>
+              </div>
+              <div class="right">
+                <div class="toggle">
+                  <input
+                    id="enableDiscordRichPresence"
+                    v-model="misc.enableDiscordRichPresence"
+                    type="checkbox"
+                    name="enableDiscordRichPresence"
+                  />
+                  <label for="enableDiscordRichPresence"></label>
+                </div>
+              </div>
+            </div>
+          </template>
           <div class="item">
             <div class="left">
-              <div class="title">{{ $t('settings.misc.enableAmuseServer') }}</div>
-              <div v-if="stateStore.amuseServerRunning" class="description">
-                {{ $t('settings.amuseServer.running') }}
-              </div>
-              <div v-else-if="stateStore.amuseServerErrorMsg" class="description">
-                {{ $t('settings.amuseServer.error', [stateStore.amuseServerErrorMsg]) }}
-              </div>
-              <div v-else class="description">
-                {{ $t('settings.amuseServer.notRunning') }}
+              <div class="title">
+                {{
+                  misc.lastfm.enable
+                    ? $t('settings.misc.FmStatusConnected', { username: misc.lastfm.name })
+                    : $t('settings.misc.connectToFM')
+                }}
               </div>
             </div>
             <div class="right">
-              <div class="toggle">
-                <input
-                  id="enableAmuseServer"
-                  v-model="misc.enableAmuseServer"
-                  type="checkbox"
-                  name="enableAmuseServer"
-                />
-                <label for="enableAmuseServer"></label>
-              </div>
+              <button v-if="misc.lastfm.enable" @click="lastfmDisconnect">{{
+                $t('settings.misc.disconnectToFM')
+              }}</button>
+              <button v-else @click="lastfmConnect">{{ $t('settings.misc.authToFM') }}</button>
             </div>
           </div>
         </div>
@@ -1138,7 +1135,6 @@ import { doLogout } from '../utils/auth'
 import SvgIcon from '../components/SvgIcon.vue'
 import CustomSelect from '../components/CustomSelect.vue'
 import LatestVersion from '../components/LatestVersion.vue'
-import VueSlider from '../components/VueSlider.vue'
 import Utils from '../utils'
 import { VueDraggable } from 'vue-draggable-plus'
 // @ts-ignore
@@ -1173,7 +1169,7 @@ const {
 } = toRefs(general.value)
 const { appearance, colors } = toRefs(theme.value)
 const customizeColor = computed(() => colors.value[4])
-const { showLyric, showControl, lyricWidth, scrollRate, enableExtension } = toRefs(tray.value)
+const { showLyric, showControl, lyricWidth, enableExtension } = toRefs(tray.value)
 const {
   nFontSize,
   isNWordByWord,
@@ -1182,10 +1178,7 @@ const {
   useMask,
   isZoom,
   fontFamily,
-  backgroundType,
-  backgroundSource,
-  backgroundBlur,
-  backgroundOpacity,
+  customBackground,
   apiRefreshMode,
   apiRefreshInterval
 } = toRefs(normalLyric.value)
@@ -1226,7 +1219,8 @@ const { outputDevice, currentTrack } = storeToRefs(playerStore)
 const localMusicStore = useLocalMusicStore()
 const { resetLocalMusic } = localMusicStore
 
-const { restoreDefaultShortcuts, updateShortcut } = useSettingsStore()
+const { restoreDefaultShortcuts, updateShortcut, lastfmConnect, lastfmDisconnect } =
+  useSettingsStore()
 
 const cacheTracksInfo = reactive({ length: 0, size: 0 })
 
@@ -1262,16 +1256,6 @@ const serviceTitle = (platform: serviceType) => {
   return `单击选择，右击选择并${title}`
 }
 
-// const handleSelect = (platform: serviceType) => {
-//   services.value.forEach((s) => {
-//     if (s.name === platform.name) {
-//       platform.selected = true
-//     } else {
-//       s.selected = false
-//     }
-//   })
-// }
-
 const handleUpdate = () => {
   if (isDownloading.value) return
   if (latestVersion.value?.isUpdateAvailable) {
@@ -1300,6 +1284,14 @@ const shortcutInput = ref({
   id: '',
   type: '',
   recording: false
+})
+const backgroundType = computed({
+  get: () => currentBG.value.type,
+  set: (value) => {
+    customBackground.value.forEach((item) => {
+      item.active = item.type === value
+    })
+  }
 })
 
 const recordedShortcut = ref<any[]>([])
@@ -1365,16 +1357,11 @@ const lrcBgOptions = computed(() => [
   { label: t('settings.general.lyricBackground.close'), value: 'none' },
   { label: t('settings.general.lyricBackground.true'), value: 'true' },
   { label: t('settings.general.lyricBackground.blur'), value: 'blur' },
-  { label: t('settings.general.lyricBackground.dynamic'), value: 'dynamic' }
+  { label: t('settings.general.lyricBackground.dynamic'), value: 'dynamic' },
+  { label: t('settings.general.lyricBackground.customize'), value: 'customize' }
 ])
 
-const fontFamilyOptions = computed(() => {
-  const defaultOption = { label: t('settings.lyric.defaultFont'), value: '' }
-  return [defaultOption, ...(fontList.value || [])]
-})
-
 const bgTypeOptions = computed(() => [
-  { label: t('settings.lyric.bgType.default'), value: 'default' },
   { label: t('settings.lyric.bgType.image'), value: 'image' },
   { label: t('settings.lyric.bgType.video'), value: 'video' },
   { label: t('settings.lyric.bgType.folder'), value: 'folder' },
@@ -1395,8 +1382,10 @@ const apiRefreshIntervalOptions = computed(() => [
   { label: '30 ' + t('settings.lyric.minutes'), value: 30 }
 ])
 
+const currentBG = computed(() => customBackground.value.find((bg) => bg.active)!)
+
 const bgSourcePlaceholder = computed(() => {
-  switch (backgroundType.value) {
+  switch (currentBG.value.type) {
     case 'image':
       return t('settings.lyric.placeholder.image')
     case 'video':
@@ -1411,10 +1400,11 @@ const bgSourcePlaceholder = computed(() => {
 })
 
 const selectBackgroundSource = async () => {
-  const isFolder = backgroundType.value === 'folder'
-  const filters = backgroundType.value === 'video'
-    ? [{ name: 'Video', extensions: ['mp4', 'webm'] }]
-    : [{ name: 'Image', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }]
+  const isFolder = currentBG.value.type === 'folder'
+  const filters =
+    currentBG.value.type === 'video'
+      ? [{ name: 'Video', extensions: ['mp4', 'webm'] }]
+      : [{ name: 'Image', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }]
 
   const result = await window.mainApi?.invoke('showOpenDialog', {
     properties: isFolder ? ['openDirectory'] : ['openFile'],
@@ -1422,7 +1412,7 @@ const selectBackgroundSource = async () => {
   })
 
   if (result && !result.canceled && result.filePaths.length > 0) {
-    backgroundSource.value = result.filePaths[0]
+    currentBG.value.source = result.filePaths[0]
   }
 }
 
@@ -1577,15 +1567,6 @@ const inputDebounce = () => {
   if (debounceTimeout) clearTimeout(debounceTimeout)
   debounceTimeout = setTimeout(() => {
     if (inputValue.value >= 100) lyricWidth.value = inputValue.value
-  }, 500)
-}
-
-const inputRateValue = ref<number>(scrollRate.value)
-let debounceTimeoutRate
-const inputRateDebounce = () => {
-  if (debounceTimeoutRate) clearTimeout(debounceTimeoutRate)
-  debounceTimeoutRate = setTimeout(() => {
-    scrollRate.value = inputRateValue.value
   }, 500)
 }
 
@@ -2087,6 +2068,33 @@ onBeforeUnmount(() => {
   }
   .itemSelected {
     border: 4px solid var(--color-primary);
+  }
+  .item-row {
+    padding-right: unset;
+    display: flex;
+    gap: 0 20px;
+    justify-content: space-between;
+
+    &.disabled {
+      input {
+        opacity: 0.5;
+      }
+    }
+  }
+}
+.item.lyric-source {
+  input {
+    width: 300px;
+  }
+  .right button {
+    height: 35px;
+    width: 56px;
+    margin-left: 12px;
+  }
+}
+.item.disabled {
+  input {
+    opacity: 0.5;
   }
 }
 button {

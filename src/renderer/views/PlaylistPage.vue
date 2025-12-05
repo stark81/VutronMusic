@@ -181,7 +181,12 @@
   <div v-show="showComment" class="comment" @click="closeComment">
     <div></div>
     <div class="comment-container" @click.stop>
-      <CommentPage v-if="showComment" :id="playlist.id" type="playlist" />
+      <CommentPage
+        v-if="showComment"
+        :id="playlist.id"
+        type="playlist"
+        :style="{ width: '100%', padding: '40px 4vh 10px 4vh' }"
+      />
     </div>
   </div>
 </template>
@@ -958,6 +963,8 @@ onMounted(() => {
 }
 
 .comment-container {
+  height: 100vh;
+  box-sizing: border-box;
   background-color: var(--color-body-bg);
 }
 </style>

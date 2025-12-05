@@ -56,8 +56,10 @@ export interface Artist {
 export interface Track {
   name: string
   id: number
-  ar: Artist[]
-  al: Album
+  ar?: Artist[]
+  artists?: Artist[]
+  al?: Album
+  album?: Album
   dt: number // milliseconds
   alia: string[]
   tns?: string[]
@@ -126,7 +128,7 @@ export async function getAmuseInfo(win: BrowserWindow): Promise<AmuseInfo> {
 
   const { playing, volume, progress, isLiked, repeatMode, currentTrack: track } = info
   const trackDurationSeconds = track.dt / 1000
-  const thumbnailUrl = new URL(track.al.picUrl)
+  const thumbnailUrl = new URL((track.al || track.album)!.picUrl)
   thumbnailUrl.searchParams.set('param', '256y256')
   return {
     player: {
@@ -140,9 +142,9 @@ export async function getAmuseInfo(win: BrowserWindow): Promise<AmuseInfo> {
       repeatType: transformRepeatMode(repeatMode)
     },
     track: {
-      author: track.ar.map((x) => x.name).join(', '),
+      author: (track.ar || track.artists)!.map((x) => x.name).join(', '),
       title: `${track.name}${track.tns?.length ? ` (${track.tns[0]})` : ''}`,
-      album: track.al.name,
+      album: (track.al || track.album)!.name,
       cover: thumbnailUrl.toString(),
       duration: trackDurationSeconds,
       durationHuman: toDurationHuman(trackDurationSeconds),

@@ -655,6 +655,7 @@ class BackGround {
           }
           return response
         } catch (error) {
+          log.error('== get-online-music error ==', error)
           return new Response(null, {
             status: 500,
             statusText: 'Internal Server Error'
@@ -698,6 +699,7 @@ class BackGround {
         windowMouseleave: () => this.checkOsdMouseLeave()
       }
       IPCs.initialize(this.win, this.tray, this.mpris, lrc)
+
       createMenu(this.win)
       if (Constants.IS_MAC) {
         const createDockMenu = (await import('./dock')).createDockMenu
@@ -803,6 +805,7 @@ class BackGround {
   handleAmuseServer() {
     const storeCallback = (x: (typeof store)['store']) => {
       if (x.settings.enableAmuseServer) {
+        if (this.amuseFastifyApp) return
         this.createAmuseFastifyAppPromise.then(async () => {
           try {
             this.amuseFastifyApp = await startAmuseFastifyInstance(this.win)
@@ -814,7 +817,10 @@ class BackGround {
         })
       } else {
         this.createAmuseFastifyAppPromise
-          .then(() => this.amuseFastifyApp?.close())
+          .then(() => {
+            this.amuseFastifyApp?.close()
+            this.amuseFastifyApp = null
+          })
           .then(() => this.win.webContents.send('updateAmuseServerStatus', false, null))
       }
     }

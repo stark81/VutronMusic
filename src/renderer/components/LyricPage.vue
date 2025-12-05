@@ -57,7 +57,9 @@ const props = defineProps({
   textAlign: { type: String, default: 'left' },
   unplayColor: { type: String, default: 'var(--color-wbw-text-unplay)' },
   containerWidth: { type: String, default: 'calc(min(50vh, 33.33vw))' },
-  offsetPadding: { type: String, default: '3vw' }
+  offsetPadding: { type: String, default: '2vw' },
+  margin: { type: String, default: '40vh' },
+  containerMargin: { type: String, default: '0 auto' }
 })
 
 const playerStore = usePlayerStore()
@@ -78,7 +80,9 @@ const { showToast } = stateStore
 
 const settingsStore = useSettingsStore()
 const { normalLyric } = storeToRefs(settingsStore)
-const { nFontSize, useMask, nTranslationMode, isNWordByWord, isZoom, fontFamily } = toRefs(normalLyric.value)
+const { nFontSize, useMask, nTranslationMode, isNWordByWord, isZoom, fontFamily } = toRefs(
+  normalLyric.value
+)
 
 const lineMode = computed(() => {
   return !isNWordByWord.value || lyrics.value.every((line) => !line.lyric?.info)
@@ -272,7 +276,8 @@ watch(
 )
 
 onMounted(async () => {
-  scheduleAnimation()
+  await scheduleAnimation()
+  await nextTick()
   const idx = Math.max(0, highlight.value)
   const el = document.getElementById(`lyric${idx}`)
   el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -282,7 +287,8 @@ onMounted(async () => {
 <style scoped lang="scss">
 .lyric-wrapper {
   position: relative;
-  height: 100vh;
+  height: 100%;
+  width: 100%;
   overflow: hidden;
   contain: strict;
 }
@@ -293,7 +299,7 @@ onMounted(async () => {
 }
 
 .offset {
-  position: fixed;
+  position: absolute;
   background-color: rgba(0, 0, 0, 0.05);
   padding: 10px 6px;
   top: 50%;
@@ -313,14 +319,14 @@ onMounted(async () => {
 }
 
 .main-lyric-container {
-  height: 100vh;
+  height: 100%;
   width: v-bind(containerWidth);
   display: flex;
   flex-direction: column;
   overflow-y: scroll;
   scrollbar-width: none;
   position: relative;
-  margin: 0 auto;
+  margin: v-bind(containerMargin);
   contain: strict;
 
   &::-webkit-scrollbar {
@@ -396,11 +402,11 @@ onMounted(async () => {
   }
 
   :deep(.lyric:first-of-type) {
-    margin-top: 40vh !important;
+    margin-top: v-bind(margin) !important;
   }
 
   :deep(.lyric:last-child) {
-    margin-bottom: 40vh;
+    margin-bottom: v-bind(margin);
   }
 }
 
@@ -416,20 +422,13 @@ onMounted(async () => {
   :deep(.lyric.active) {
     .lyric-line span,
     .translation span {
-      background-position: 0% 0% !important;
+      color: var(--color-wbw-text-played);
     }
   }
-}
-
-@media (max-aspect-ratio: 10/9) {
-  .main-lyric-container {
-    width: 100%;
-    :deep(.lyric) {
-      .lyric-line,
-      .translation {
-        text-align: center;
-        transform-origin: center center;
-      }
+  :deep(.lyric) {
+    .lyric-line span,
+    .translation span {
+      transition: all 0.4s;
     }
   }
 }

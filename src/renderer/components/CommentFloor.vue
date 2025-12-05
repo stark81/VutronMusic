@@ -1,12 +1,12 @@
 <template>
-  <div v-if="show" class="comment-container" :style="containerStyle">
+  <div v-if="show" class="comment-container">
     <div class="comment-head">
       <label>回复({{ floorCommentInfo.totalCount }})</label>
       <div class="btns">
         <button class="btn" @click="switchToCommentPage">关闭</button>
       </div>
     </div>
-    <div ref="mainRef" class="comment-main" :style="mainStyle">
+    <div ref="mainRef" class="comment-main">
       <VirtualScroll
         v-if="floorComments.length"
         :list="floorComments"
@@ -77,7 +77,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, reactive, inject, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, reactive, inject, onBeforeUnmount, nextTick } from 'vue'
 import { likeComment, getFloorComment, submitComment } from '../api/comment'
 import { useNormalStateStore } from '../store/state'
 import VirtualScroll from './VirtualScrollNoHeight.vue'
@@ -88,6 +88,7 @@ import { useI18n } from 'vue-i18n'
 import { formatDate } from '../utils'
 import { isAccountLoggedIn } from '../utils/auth'
 import { storeToRefs } from 'pinia'
+import { debounce } from 'lodash'
 
 const props = defineProps({
   beRepliedCommentId: {
@@ -110,11 +111,10 @@ const props = defineProps({
 
 const show = ref(false)
 const floorComments = ref<any[]>([])
-const mainRef = ref()
+const mainRef = ref<HTMLElement>()
 const selectedComment = ref()
 const floorCommentRef = ref()
 const currentPage = inject('currentPage', ref('floorComment'))
-const winHeight = ref(window.innerHeight)
 const floorCommentInfo = reactive({
   limit: 20,
   time: 0,
@@ -126,22 +126,7 @@ const placeholder = computed(() => {
   return `回复${selectedComment.value.user.nickname}:`
 })
 
-const containerStyle = computed(() => {
-  return {
-    height: props.type === 'mv' ? 'calc(100vh - 84px)' : '100vh',
-    padding: props.type === 'mv' ? '0 0 0 3.5vh' : `40px 8vh 0 ${props.paddingRight}`
-  }
-})
-
-const commentHeight = computed(() => {
-  return winHeight.value - (props.type === 'mv' ? 205 : 160)
-})
-
-const mainStyle = computed(() => {
-  return {
-    height: props.type === 'mv' ? 'calc(100vh - 205px)' : 'calc(100vh - 160px)'
-  }
-})
+const commentHeight = ref(mainRef.value?.offsetHeight || 0)
 
 const typeMap = {
   music: 0,
@@ -165,7 +150,8 @@ const getImage = (url: string) => {
 }
 
 const updateWindowHeight = () => {
-  winHeight.value = window.innerHeight
+  if (!mainRef.value) return
+  commentHeight.value = mainRef.value?.offsetHeight || commentHeight.value
 }
 
 const router = useRouter()
@@ -202,6 +188,9 @@ const loadFloorComment = (pid: number) => {
       floorComments.value.push(...res.data.comments)
     }
     show.value = true
+    nextTick(() => {
+      commentHeight.value = mainRef.value?.offsetHeight || commentHeight.value
+    })
   })
 }
 
@@ -292,21 +281,29 @@ const handleSubmitComment = () => {
 }
 
 onMounted(() => {
-  window.addEventListener('resize', updateWindowHeight)
+  window.addEventListener(
+    'resize',
+    debounce(() => updateWindowHeight(), 200)
+  )
   loadFloorComment(props.beRepliedCommentId)
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('resize', updateWindowHeight)
+  window.removeEventListener(
+    'resize',
+    debounce(() => updateWindowHeight(), 200)
+  )
 })
 </script>
 
 <style scoped lang="scss">
 .comment-container {
+  height: 100%;
   display: flex;
   flex-direction: column;
   overflow-y: hidden;
   scrollbar-width: none;
+  box-sizing: border-box;
   transition: all 0.5s;
 }
 
@@ -320,6 +317,7 @@ onBeforeUnmount(() => {
   -moz-user-select: none;
   -ms-user-select: none;
   user-select: none;
+  box-sizing: border-box;
 
   .btns {
     display: flex;
@@ -342,7 +340,8 @@ onBeforeUnmount(() => {
 
 .comment-main {
   width: 100%;
-  // height: calc(100vh - 160px);
+  height: calc(100% - 108px);
+  box-sizing: border-box;
 }
 
 .comment-item {
@@ -419,6 +418,7 @@ onBeforeUnmount(() => {
   }
 }
 .write-comment {
-  padding-top: 8px;
+  padding: 8px 0;
+  box-sizing: border-box;
 }
 </style>

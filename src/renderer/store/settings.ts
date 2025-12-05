@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, reactive, watch, toRaw } from 'vue'
+import { ref, reactive, watch, toRaw, onMounted } from 'vue'
 import DefaultShortcuts from '../utils/shortcuts'
 import { playlistCategories } from '../utils/common'
 import cloneDeep from 'lodash/cloneDeep'
@@ -7,7 +7,10 @@ import { useLocalMusicStore } from './localMusic'
 import { TranslationMode, TrackInfoOrder } from '@/types/music'
 
 type TextAlign = 'start' | 'center' | 'end'
-type BackgroundEffect = 'none' | 'true' | 'blur' | 'dynamic'
+type BackgroundEffect = 'none' | 'true' | 'blur' | 'dynamic' | 'customize'
+type StandardBackgroundEffect = Exclude<BackgroundEffect, 'customize'>
+export type bgType = 'image' | 'video' | 'folder' | 'api'
+type customizeBackground = { type: bgType; active: boolean; source: string }
 
 export const useSettingsStore = defineStore(
   'settings',
@@ -46,6 +49,7 @@ export const useSettingsStore = defineStore(
       useCustomTitlebar: false,
       preventSuspension: false,
       lyricBackground: 'true' as BackgroundEffect,
+      savedBackground: 'true' as StandardBackgroundEffect,
       enabledPlaylistCategories,
       fadeDuration: 0.2, // 音频淡入淡出时长（秒）
       showBanner: true,
@@ -71,8 +75,7 @@ export const useSettingsStore = defineStore(
       useMask: boolean
       isZoom: boolean
       fontFamily: string
-      backgroundType: 'default' | 'image' | 'video' | 'folder' | 'api'
-      backgroundSource: string
+      customBackground: customizeBackground[]
       backgroundBlur: number
       backgroundOpacity: number
       apiRefreshMode: 'song' | 'time'
@@ -84,9 +87,13 @@ export const useSettingsStore = defineStore(
       textAlign: 'start',
       useMask: true,
       isZoom: true,
-      fontFamily: '',
-      backgroundType: 'default',
-      backgroundSource: '',
+      fontFamily: 'system-ui',
+      customBackground: [
+        { type: 'image', active: true, source: '' },
+        { type: 'video', active: false, source: '' },
+        { type: 'folder', active: false, source: '' },
+        { type: 'api', active: false, source: '' }
+      ],
       backgroundBlur: 50,
       backgroundOpacity: 60,
       apiRefreshMode: 'song',
@@ -133,7 +140,9 @@ export const useSettingsStore = defineStore(
       )
 
     const misc = reactive({
-      enableAmuseServer: true
+      enableAmuseServer: true,
+      enableDiscordRichPresence: false,
+      lastfm: { enable: false, name: '' }
     })
 
     watch(
@@ -222,6 +231,15 @@ export const useSettingsStore = defineStore(
     })
 
     watch(
+      () => general.lyricBackground,
+      (value, oldValue) => {
+        if (oldValue !== 'customize') {
+          general.savedBackground = oldValue
+        }
+      }
+    )
+
+    watch(
       () => general.language,
       (newValue) => {
         window.mainApi?.send('setStoreSettings', { lang: newValue })
@@ -263,6 +281,21 @@ export const useSettingsStore = defineStore(
       }
     )
 
+    const lastfmConnect = () => {
+      if (misc.lastfm.enable) return
+      window.mainApi?.invoke('lastfm-auth').then((result: { name: string }) => {
+        misc.lastfm.enable = result.name !== ''
+        misc.lastfm.name = result.name
+      })
+    }
+
+    const lastfmDisconnect = () => {
+      if (!misc.lastfm.enable) return
+      misc.lastfm.enable = false
+      misc.lastfm.name = ''
+      window.mainApi?.send('disconnect-lastfm')
+    }
+
     const togglePlaylistCategory = (name: string) => {
       const index = general.enabledPlaylistCategories.findIndex((c) => c === name)
       if (index !== -1) {
@@ -295,6 +328,13 @@ export const useSettingsStore = defineStore(
       }, 5000)
     })
 
+    onMounted(() => {
+      window.mainApi?.invoke('get-lastfm-session').then((result: { name: string }) => {
+        misc.lastfm.name = result.name
+        misc.lastfm.enable = result.name !== ''
+      })
+    })
+
     return {
       theme,
       general,
@@ -309,7 +349,9 @@ export const useSettingsStore = defineStore(
       unblockNeteaseMusic,
       updateShortcut,
       togglePlaylistCategory,
-      restoreDefaultShortcuts
+      restoreDefaultShortcuts,
+      lastfmConnect,
+      lastfmDisconnect
     }
   },
   { persist: true }

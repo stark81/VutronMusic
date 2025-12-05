@@ -21,6 +21,7 @@ export const useNormalStateStore = defineStore('state', () => {
   const setPitchModal = ref(false)
   const setThemeModal = ref(false)
   const setFontModal = ref(false)
+  const setBGModal = ref(false)
   const fontList = ref<{ label: string; value: string }[]>([
     { label: '系统默认', value: 'system-ui' }
   ])
@@ -147,6 +148,7 @@ export const useNormalStateStore = defineStore('state', () => {
     setPitchModal,
     setThemeModal,
     setFontModal,
+    setBGModal,
     fontList,
     extensionCheckResult,
     addTrackToPlaylistModal,

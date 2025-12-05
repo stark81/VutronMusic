@@ -15,7 +15,7 @@ jobs:
       matrix:
         include:
           # macOS
-          - os: macos-13
+          - os: macos-15-intel
             arch: x64
             platform: darwin
           - os: macos-14

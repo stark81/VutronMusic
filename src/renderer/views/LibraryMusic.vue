@@ -214,16 +214,16 @@ import { storeToRefs } from 'pinia'
 import { useDataStore } from '../store/data'
 import { useNormalStateStore } from '../store/state'
 import { ref, computed, onMounted, onUnmounted, inject, nextTick } from 'vue'
-import { dailyTask, randomNum } from '../utils'
+import { dailyTask, randomNum, pickedLyric } from '../utils'
 import { tricklingProgress } from '../utils/tricklingProgress'
 import { getTrackDetail } from '../api/track'
-import { lyricParse, pickedLyric } from '../utils/lyric'
 import SvgIcon from '../components/SvgIcon.vue'
 import TrackList from '../components/VirtualTrackList.vue'
 import CoverRow from '../components/VirtualCoverRow.vue'
 import Mvrow from '../components/MvRow.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import { useRouter } from 'vue-router'
+import { lyricLine } from '@/types/music'
 
 const dataStore = useDataStore()
 const { liked, libraryPlaylistFilter, user } = storeToRefs(dataStore)
@@ -323,23 +323,25 @@ const loadData = async () => {
   fetchCloudDisk()
 }
 
-const getRandomLyric = () => {
+const getRandomLyric = async () => {
   if (liked.value.songs.length === 0) return
-  const id = liked.value.songs[randomNum(0, liked.value.songs.length - 1)]
-  fetch(`atom://local-asset?type=lyric&id=${id}`)
-    .then((res) => res.json())
-    .then((data) => {
-      if (data?.lrc?.lyric?.length) {
-        const lyricObj = lyricParse(data)
-        const isInstrumental = lyricObj.lyric.filter((l) => l.content?.includes('纯音乐，请欣赏'))
-        if (isInstrumental.length === 0) {
-          lyric.value = lyricObj.lyric
-          getTrackDetail(id.toString()).then((data) => {
-            randomtrack.value = data.songs[0]
-          })
-        }
-      }
-    })
+
+  let i = 0
+  let data: lyricLine[]
+  let randomId: number
+  while (i < liked.value.songs.length) {
+    randomId = liked.value.songs[randomNum(0, liked.value.songs.length - 1)]
+    data = await fetch(`atom://local-asset?type=lyric&id=${randomId}`).then((res) => res.json())
+    const isInstrumental = data.map((l) => l.lyric.text).filter((l) => l.includes('纯音乐，请欣赏'))
+    if (!isInstrumental.length) {
+      lyric.value = data.map((l) => ({ content: l.lyric.text }))
+      getTrackDetail(randomId.toString()).then((data) => {
+        randomtrack.value = data.songs[0]
+      })
+      break
+    }
+    i++
+  }
 }
 
 const goToLikedSongsList = () => {

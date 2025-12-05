@@ -108,3 +108,13 @@ export type TranslationMode = 'none' | 'tlyric' | 'rlyric'
 export type TrackInfoOrder = 'path' | 'online' | 'embedded'
 
 export type TrackSourceType = 'online' | 'local' | 'navidrome' | 'emby' | 'jellyfin'
+
+export enum ProxyType {
+  Disable = 0,
+  Http = 1,
+  Https = 2
+}
+
+export interface MiscSettings {
+  enableAmuseServer: boolean
+}

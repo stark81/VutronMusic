@@ -2,6 +2,7 @@ import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } f
 import Constants from '../utils/Constants'
 import { session } from 'electron'
 import log from '../log'
+import store from '../store'
 
 const port = Number(
   Constants.IS_DEV_ENV

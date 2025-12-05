@@ -3,29 +3,23 @@ import fs from 'fs'
 import crypto from 'crypto'
 import path from 'path'
 
-const createMD5 = (filePath: string) => {
-  const hash = crypto.createHash('md5')
-  const data = fs.readFileSync(filePath)
-  hash.update(data)
-  return hash.digest('hex')
-}
+const createMD5 = (filePath: string) =>
+  new Promise<string>((resolve, reject) => {
+    const hash = crypto.createHash('md5')
+    const stream = fs.createReadStream(filePath)
 
-const splitArtist = (artist: string | undefined) => {
-  if (!artist) return ['未知歌手']
-  let result: string[]
-  if (artist.includes('&')) {
-    result = artist.split('&')
-  } else if (artist.includes('、')) {
-    result = artist.split('、')
-  } else if (artist.includes(',')) {
-    result = artist.split(',')
-  } else if (artist.includes('/')) {
-    result = artist.split('/')
-  } else {
-    result = [artist]
-  }
-  return result
-}
+    stream.on('data', (chunk) => hash.update(chunk))
+    stream.once('end', () => resolve(hash.digest('hex')))
+    stream.once('error', (err) => reject(err))
+  })
+
+const splitArtist = (artist?: string) =>
+  artist
+    ? artist
+        .split(/\s*[,/&、]\s*/)
+        .filter(Boolean)
+        .map((s) => s.trim())
+    : ['未知歌手']
 
 const getFileName = (filePath: string) => {
   const fileExt = path.extname(filePath)
@@ -47,8 +41,15 @@ const getReplayGainFromMetadata = (metadata: IAudioMetadata) => {
 }
 
 const parseMusicFile = async (data: { filePath: string }) => {
-  const md5 = createMD5(data.filePath)
-  const metadata = await parseFile(data.filePath)
+  let metadata: IAudioMetadata | null = null
+
+  try {
+    metadata = await parseFile(data.filePath)
+  } catch (e) {
+    metadata = null
+  }
+
+  const md5 = await createMD5(data.filePath)
   const stat = await fs.promises.stat(data.filePath)
 
   const birthDate = new Date(stat.birthtime).getTime()

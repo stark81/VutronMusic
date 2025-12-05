@@ -282,7 +282,7 @@ export const getLyric = async (track: {
   return lyrics
 }
 
-export const handleNeteaseResult = async (name: string, result: any, localID: null | string) => {
+export const handleNeteaseResult = async (name: string, result: any) => {
   switch (name) {
     case CacheAPIs.Playlist: {
       if (result.playlist) {
@@ -346,7 +346,7 @@ export const handleNeteaseResult = async (name: string, result: any, localID: nu
       } else if (result.lrc.lyric) {
         return lrcLyricParse(result)
       }
-      return result
+      return []
     }
     default:
       return result

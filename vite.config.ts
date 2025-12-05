@@ -167,6 +167,10 @@ export default defineConfig(({ mode }) => {
         '/stream-asset': {
           target: `http://127.0.0.1:40001`,
           changeOrigin: true
+        },
+        '/lastfm-callback': {
+          target: `http://127.0.0.1:40001`,
+          changeOrigin: true
         }
       }
     }

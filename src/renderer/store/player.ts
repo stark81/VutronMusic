@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import shuffleFn from 'lodash/shuffle'
+import cloneDeep from 'lodash/cloneDeep'
 import {
   ref,
   computed,
@@ -195,7 +196,6 @@ export const usePlayerStore = defineStore(
       if (!audioNodes.masterGain) return
       const fade = fadeDuration.value
       smoothGain(value, fade)
-      // audioNodes.audio.volume = value
     })
 
     watch(pitch, (value) => {
@@ -240,6 +240,20 @@ export const usePlayerStore = defineStore(
     const usePitch = computed(() => {
       return pitch.value !== 1.0
     })
+
+    const enableDRP = computed(() => settingsStore.misc.enableDiscordRichPresence)
+
+    watch(enableDRP, (value) => {
+      if (value) {
+        playing.value
+          ? playDiscordPresence(currentTrack.value!, audioNodes.audio?.currentTime || 0)
+          : pauseDiscordPresence(currentTrack.value!)
+      } else {
+        pauseDiscordPresence(currentTrack.value!)
+      }
+    })
+
+    const enableFM = computed(() => settingsStore.misc.lastfm.enable)
 
     watch(
       () => [audioNodes.audioSource, useBiquad.value, useConvolver.value, usePitch.value],
@@ -337,7 +351,10 @@ export const usePlayerStore = defineStore(
         const expiration = extractExpirationFromUrl(url)
         if (!expiration) return true
         const now = new Date()
-        if (now >= expiration) return false
+        const endTime = (now.getTime() +
+          (currentTrack.value.dt || currentTrack.value.duration || 0)) as number
+        const validTime = new Date(endTime)
+        if (validTime >= expiration) return false
         return true
       }
       return true
@@ -359,7 +376,8 @@ export const usePlayerStore = defineStore(
         }
       }
 
-      if (audioNodes.audio.currentTime + lyricOffset.value > lst[lst.length - 1].end / rate) {
+      const end = lst.at(-1)!.end
+      if (audioNodes.audio.currentTime + lyricOffset.value > end / rate) {
         return lst.length
       } else {
         return lst.length - 1
@@ -677,9 +695,8 @@ export const usePlayerStore = defineStore(
         })
       }
       await getLyric(track)
-      nextTick(() => {
-        seek.value = playing.value ? 0 : progress.value
-      })
+      seek.value = playing.value ? 0 : progress.value
+      currentIndex.value = getLyricIndex(lyrics.value, 0, 1)
     }
 
     const getLyric = async (track: Track) => {
@@ -699,6 +716,9 @@ export const usePlayerStore = defineStore(
       }
 
       data = data.filter((l) => !/^作(词|曲)\s*(:|：)\s*无$/.exec(l.lyric.text))
+      if (data.length) {
+        data.at(-1)!.end = data.at(-1)!.end || currentTrackDuration.value
+      }
       const includeAM =
         data.length <= 10 && data.map((l) => l.lyric.text).includes('纯音乐，请欣赏')
       if (includeAM) {
@@ -711,7 +731,6 @@ export const usePlayerStore = defineStore(
         })
       }
       lyrics.value = data.length === 1 && includeAM ? [] : data
-      currentIndex.value = -1
     }
 
     const _getLocalLyric = async (track: Track) => {
@@ -769,7 +788,10 @@ export const usePlayerStore = defineStore(
     }
 
     const replaceCurrentTrack = async (trackID: number | string, autoPlay = true) => {
-      // 切歌时先淡出
+      if (autoPlay && currentTrack.value?.name) {
+        scrobbleFM(currentTrack.value, seek.value)
+      }
+
       const fade = fadeDuration.value
       await smoothGain(0, fade)
       return getLocalMusic(trackID as number).then(async (track) => {
@@ -790,9 +812,7 @@ export const usePlayerStore = defineStore(
           showToast(track?.reason)
           _playNextTrack(isPersonalFM.value)
         }
-        if (autoPlay && track.name && track.matched !== false) {
-          // _scrobble(currentTrack.value, seek.value)
-        } else if (autoPlay && currentTrack.value?.type === 'stream') {
+        if (autoPlay && currentTrack.value?.type === 'stream') {
           scrobbleStream(track)
         }
         return replaced
@@ -806,6 +826,36 @@ export const usePlayerStore = defineStore(
     //     playlistSource.value.id === 0 ? track.al?.id || track.album?.id : playlistSource.value.id
     //   scrobble({ id: track.id, sourceid: sourceID, time })
     // }
+
+    const scrobbleFM = (track: Track, time: number, completed = false) => {
+      if (!enableFM.value) return
+      const trackDuration = ~~(track.dt / 1000)
+      time = completed ? trackDuration : ~~time
+      if (time >= trackDuration / 2 || time >= 240) {
+        const timestamp = ~~(new Date().getTime() / 1000) - time
+        const info = {
+          artist: (track.artists || track.ar)[0]?.name || '未知歌手',
+          track: track.name,
+          timestamp,
+          album: track.album?.name || (track.al?.name as string) || '未知专辑',
+          tracnNumber: track.no || 1,
+          duration: trackDuration
+        }
+        window.mainApi?.send('track-scrobble', info)
+      }
+    }
+
+    const updateNowPlaying = () => {
+      if (!enableFM.value) return
+      const track = currentTrack.value!
+      const info = {
+        artist: (track.artists || track.ar)[0]?.name || '未知歌手',
+        track: track!.name,
+        album: track.album?.name || (track.al?.name as string) || '未知专辑',
+        duration: ~~((track.dt || track.duration) / 1000)
+      }
+      window.mainApi?.send('update-now-playing', info)
+    }
 
     const playAudioSource = async (source: string, autoPlay = true) => {
       // 切歌时先淡出
@@ -867,7 +917,10 @@ export const usePlayerStore = defineStore(
             `atom://local-asset?type=stream&path=${encodeURIComponent(track.cache ? track.url : track.filePath)}`
           )
         } else {
-          resolve(`atom://get-online-music/${track.url}`)
+          // 设置了代理的歌曲链接好像是 https，直通
+          resolve(
+            track.url.startsWith('https') ? track.url : `atom://get-online-music/${track.url}`
+          )
         }
       })
     }
@@ -936,11 +989,25 @@ export const usePlayerStore = defineStore(
     const nextTrackCallback = () => {
       seek.value = 0
       clearTimeout(timer)
+      scrobbleFM(currentTrack.value!, 0, true)
+
       if (!isPersonalFM.value && repeatMode.value === 'one') {
         replaceCurrentTrack(currentTrack.value!.id)
       } else {
         _playNextTrack(isPersonalFM.value)
       }
+    }
+
+    const playDiscordPresence = (track: Track, seekTime = 0) => {
+      if (!enableDRP.value) return
+      const copyTrack = { ...track }
+      copyTrack.dt -= seekTime * 1000
+      window.mainApi?.send('playDiscordPresence', cloneDeep(copyTrack))
+    }
+
+    const pauseDiscordPresence = (track: Track) => {
+      if (!enableDRP.value) return
+      window.mainApi?.send('pauseDiscordPresence', cloneDeep(track))
     }
 
     const play = async () => {
@@ -978,6 +1045,9 @@ export const usePlayerStore = defineStore(
           window.mainApi?.send('updateTooltip', title.value)
         }
         document.title = title.value
+
+        playDiscordPresence(currentTrack.value!, audioNodes.audio.currentTime)
+        updateNowPlaying()
       } catch (error) {
         if (currentTrack.value?.cache) {
           const isOk = (await window.mainApi?.invoke(
@@ -1008,6 +1078,7 @@ export const usePlayerStore = defineStore(
         window.mainApi?.send('updateTooltip', title.value)
       }
       document.title = title.value
+      pauseDiscordPresence(currentTrack.value!)
     }
 
     const playOrPause = async () => {
@@ -1212,7 +1283,7 @@ export const usePlayerStore = defineStore(
       if (pic.value?.startsWith('blob:')) {
         URL.revokeObjectURL(pic.value)
       }
-      pic.value = await getPic(track, 512)
+      pic.value = await getPic(track, 1024)
 
       const arts = track.artists ?? track.ar
       const artists = arts.map((a) => a.name)
@@ -1222,14 +1293,14 @@ export const usePlayerStore = defineStore(
         album: track.album?.name ?? track.al?.name,
         artwork: [
           {
-            src: await getPic(track, 224),
-            type: 'image/jpg',
-            sizes: '224x224'
-          },
-          {
             src: await getPic(track, 512),
             type: 'image/jpg',
             sizes: '512x512'
+          },
+          {
+            src: await getPic(track, 1024),
+            type: 'image/jpg',
+            sizes: '1024x1024'
           }
         ],
         length: currentTrackDuration.value,
@@ -1624,6 +1695,7 @@ export const usePlayerStore = defineStore(
           }
         }
         replaceCurrentTrack(currentTrack.value!.id, false).then(() => {
+          playDiscordPresence(currentTrack.value!, audioNodes.audio!.currentTime)
           setTimeout(() => {
             window.mainApi?.send('updatePlayerState', {
               playing: playing.value,

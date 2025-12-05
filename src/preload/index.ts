@@ -54,7 +54,14 @@ const mainAvailChannels: string[] = [
   'updateTooltip',
   'write-cover',
   'getFontList',
-  'cacheATrack'
+  'cacheATrack',
+  'playDiscordPresence',
+  'pauseDiscordPresence',
+  'lastfm-auth',
+  'get-lastfm-session',
+  'disconnect-lastfm',
+  'update-now-playing',
+  'track-scrobble'
 ]
 const rendererAvailChannels: string[] = [
   'msgHandleScanLocalMusic',

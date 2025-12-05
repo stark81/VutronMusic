@@ -37,7 +37,7 @@
   </VirtualScroll>
   <div v-show="showComment" class="comment" @click="closeComment">
     <div></div>
-    <div class="comment-container" @click.stop>
+    <div class="comment-container-parent" @click.stop>
       <CommentPage v-if="showComment" :id="rightClickedTrackComputed.id" type="music" />
     </div>
   </div>
@@ -506,7 +506,10 @@ onBeforeUnmount(() => {
   grid-template-columns: repeat(2, 1fr);
 }
 
-.comment-container {
+.comment-container-parent {
   background-color: var(--color-body-bg);
+  padding: 40px 4vw 10px 4vw;
+  height: 100vh;
+  box-sizing: border-box;
 }
 </style>

@@ -130,7 +130,8 @@ const store = new Store<TypeElectronStore>({
           globalShortcut: 'Alt+CommandOrControl+M'
         }
       ],
-      enableAmuseServer: true
+      enableAmuseServer: true,
+      lastfmSession: { name: '', key: '', subscriber: 0 }
     },
     accounts: {
       selected: 'navidrome',

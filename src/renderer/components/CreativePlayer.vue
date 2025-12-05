@@ -155,7 +155,7 @@
             v-if="tabs[index] === 'fullLyric'"
             text-align="center"
             unplay-color="var(--color-full-text-unplay)"
-            :container-width="'100%'"
+            :container-width="'90%'"
             :offset-padding="'0'"
             :hover="hover"
           />
@@ -163,7 +163,8 @@
             v-else-if="tabs[index] === 'comment'"
             :id="currentTrack!.id"
             type="music"
-            padding-right="8vh"
+            padding-right="0vh"
+            :style="{ width: '90%', paddingTop: '4vw' }"
           />
         </div>
       </div>
@@ -706,6 +707,9 @@ onBeforeUnmount(() => {
 .lyric-container-1 {
   width: 60vw;
   margin: 0 auto;
+  height: 100vh;
+  padding-bottom: 10px;
+  box-sizing: border-box;
 }
 
 .title-name {

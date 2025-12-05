@@ -19,6 +19,7 @@ import jellyfin from './streaming/jellyfin'
 import { Worker } from 'worker_threads'
 import { Track, Album, Artist, scanTrack } from '@/types/music'
 import _ from 'lodash'
+import { requestUserAuth, scrobbleTrack, updateNowPlaying } from './utils/lastfm'
 
 let isLock = store.get('osdWin.isLock') as boolean
 let blockerId: number | null = null
@@ -95,11 +96,11 @@ function exitAsk(event: IpcMainEvent, win: BrowserWindow) {
 }
 
 function initWindowIpcMain(win: BrowserWindow): void {
-  ipcMain.on('minimize', (event: IpcMainEvent) => {
+  ipcMain.on('minimize', () => {
     win.minimize()
   })
 
-  ipcMain.handle('maximizeOrUnmaximize', (event: IpcMainEvent) => {
+  ipcMain.handle('maximizeOrUnmaximize', () => {
     win.isMaximized() ? win.unmaximize() : win.maximize()
     return !win.isMaximized()
   })
@@ -260,7 +261,59 @@ function initOSDWindowIpcMain(win: BrowserWindow, lrc: { [key: string]: Function
 function initTaskbarIpcMain(): void {}
 
 async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
-  // Get application version
+  const client = require('discord-rich-presence')('1450799847962574868')
+
+  ipcMain.on('playDiscordPresence', (event: IpcMainEvent, track: Track) => {
+    client.updatePresence({
+      details: track.name + ' - ' + (track.ar || track.artists).map((ar) => ar.name).join(','),
+      state: (track.al || track.album).name,
+      endTimestamp: Date.now() + track.dt,
+      largeImageKey: (track.al || track.album).picUrl + '?param=256y256',
+      largeImageText: (track.al || track.album).name,
+      smallImageKey: 'play',
+      smallImageText: '正在播放',
+      instance: true
+    })
+  })
+
+  ipcMain.on('pauseDiscordPresence', (event: IpcMainEvent, track: Track) => {
+    client.updatePresence({
+      details: track.name + ' - ' + (track.ar || track.artists).map((ar) => ar.name).join(','),
+      state: (track.al || track.album).name,
+      largeImageKey: (track.al || track.album).picUrl + '?param=256y256',
+      largeImageText: (track.al || track.album).name,
+      smallImageKey: 'pause',
+      smallImageText: '已暂停',
+      instance: true
+    })
+  })
+
+  ipcMain.handle('lastfm-auth', async () => {
+    const result = await requestUserAuth()
+    return result
+  })
+
+  ipcMain.handle('get-lastfm-session', () => {
+    const session = store.get('settings.lastfmSession') as {
+      name: string
+      key: string
+      subscriber: number
+    }
+    return { name: session?.name || '' }
+  })
+
+  ipcMain.on('disconnect-lastfm', () => {
+    store.set('settings.lastfmSession', { name: '', key: '', subscriber: 0 })
+  })
+
+  ipcMain.on('track-scrobble', (event, params: Record<string, any>) => {
+    scrobbleTrack(params)
+  })
+
+  ipcMain.on('update-now-playing', (event, params: Record<string, any>) => {
+    updateNowPlaying(params)
+  })
+
   ipcMain.handle('msgRequestGetVersion', () => {
     return Constants.APP_VERSION
   })
@@ -302,7 +355,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     }
   })
 
-  ipcMain.handle('selecteFolder', async (event) => {
+  ipcMain.handle('selecteFolder', async () => {
     const { dialog } = require('electron')
     const result = await dialog.showOpenDialog({
       properties: ['openDirectory']
@@ -332,7 +385,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     }
   })
 
-  ipcMain.handle('getLocalMusic', (event) => {
+  ipcMain.handle('getLocalMusic', () => {
     const { songs } = cache.get(CacheAPIs.LocalMusic)
     const playlists = cache.get(CacheAPIs.LocalPlaylist)
     return { songs, playlists }
@@ -343,7 +396,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     return result
   })
 
-  ipcMain.on('clearDeletedMusic', (event) => {
+  ipcMain.on('clearDeletedMusic', () => {
     const { songs } = cache.get(CacheAPIs.LocalMusic)
     const deletedTracks = []
     if (songs.length === 0) return
@@ -481,7 +534,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     shell.showItemInFolder(path)
   })
 
-  ipcMain.on('deleteLocalMusicDB', (event) => {
+  ipcMain.on('deleteLocalMusicDB', () => {
     const trackIDs = cache.get(CacheAPIs.LocalMusic)?.songs.map((track: any) => track.id)
     if (!trackIDs.length) return
     db.deleteMany(Tables.Track, trackIDs)
@@ -491,12 +544,12 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     db.deleteMany(Tables.Playlist, playlistIDs)
   })
 
-  ipcMain.handle('clearCacheTracks', async (event) => {
+  ipcMain.handle('clearCacheTracks', async () => {
     const result = deleteExcessCache(true)
     return result
   })
 
-  ipcMain.handle('getCacheTracksInfo', (event) => {
+  ipcMain.handle('getCacheTracksInfo', () => {
     const tracks = cache.get(CacheAPIs.LocalMusic, { sql: "type = 'online'" })
     const size = tracks.songs
       .map((track: any) => track.size)
@@ -562,11 +615,11 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     }
   })
 
-  ipcMain.handle('check-update', async (event) => {
+  ipcMain.handle('check-update', async () => {
     const info = await checkUpdate()
     return info
   })
-  ipcMain.on('downloadUpdate', (event) => {
+  ipcMain.on('downloadUpdate', () => {
     downloadUpdate()
   })
 
@@ -582,7 +635,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     }
   })
 
-  ipcMain.handle('getFontList', async (event) => {
+  ipcMain.handle('getFontList', async () => {
     try {
       const { getFonts2 } = require('font-list') as typeof import('font-list')
       const fonts = await getFonts2({ disableQuoting: true })
@@ -627,7 +680,7 @@ async function initMprisIpcMain(win: BrowserWindow, mpris: MprisImpl): Promise<v
   const busName = 'org.gnome.Shell.TrayLyric'
   const dbus = createDBus(busName, win)
 
-  ipcMain.handle('askExtensionStatus', async (event) => {
+  ipcMain.handle('askExtensionStatus', async () => {
     return dbus.status
   })
 
@@ -810,7 +863,7 @@ async function initStreaming() {
     }
   })
 
-  ipcMain.handle('systemPing', async (event) => {
+  ipcMain.handle('systemPing', async () => {
     const res = await Promise.all([
       navidrome.systemPing(),
       emby.systemPing(),

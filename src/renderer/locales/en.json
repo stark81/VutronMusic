@@ -69,8 +69,8 @@
       "addToPlaylist": "Add to Stream Playlist",
       "newPlaylist": "New Stream Playlist"
     },
-    "album": "專輯",
-    "artist": "藝人"
+    "album": "Album",
+    "artist": "Artist"
   },
   "localMusic": {
     "latedAdd": "Recently Added",
@@ -151,6 +151,7 @@
     "showComment": "View Comments",
     "showLyric": "Show Lyrics",
     "setConvolver": "Sound Effects",
+    "setLyricBG": "Lyric Background Settings",
     "playBackSpeed": "Playback Speed",
     "pitch": "Pitch",
     "lyricOffset": "Lyric Offset Adjustment",
@@ -308,7 +309,8 @@
         "close": "Close",
         "true": "Open",
         "blur": "Blur cover",
-        "dynamic": "Dynamic"
+        "dynamic": "Dynamic",
+        "customize": "Customize background"
       },
       "trayColor": {
         "text": "Tray Icon Color",
@@ -395,6 +397,37 @@
       },
       "lyricZoom": "Zoom The Playing Lyric"
     },
+    "lyric": {
+      "fontFamily": "Lyric Font Family",
+      "defaultFont": "System Default",
+      "backgroundType": "Background Type",
+      "backgroundSource": "Background Source",
+      "backgroundBlur": "Background Blur",
+      "backgroundOpacity": "Background Opacity",
+      "browse": "Browse",
+      "reset": "Reset",
+      "bgType": {
+        "default": "Default (Album Cover)",
+        "image": "Custom Image",
+        "video": "Custom Video",
+        "folder": "Folder Random",
+        "api": "API Random"
+      },
+      "placeholder": {
+        "image": "Select image file (png/jpg/webp)",
+        "video": "Select video file (mp4/webm)",
+        "folder": "Select folder containing images/videos",
+        "api": "Enter API URL that returns an image"
+      },
+      "apiRefreshMode": "Background Refresh Mode",
+      "apiRefreshInterval": "Refresh Interval",
+      "refreshMode": {
+        "song": "On Song Change",
+        "time": "Timed Refresh"
+      },
+      "minute": "Minute",
+      "minutes": "Minutes"
+    },
     "unblock": {
       "enable": "Enable UnblockMusic",
       "source": {
@@ -447,7 +480,12 @@
       "minimize": "Show/Hide Player"
     },
     "misc": {
-      "enableAmuseServer": "Enable 6K Amuse Youtube Music Source Compatibility Server"
+      "enableAmuseServer": "Enable 6K Amuse Youtube Music Source Compatibility Server",
+      "enableDiscordRichPresence": "Enable Discord Rich Presence",
+      "FmStatusConnected": "Connected to Last.fm ({username})",
+      "connectToFM": "Connect to Last.fm",
+      "disconnectToFM": "Disconnect",
+      "authToFM": "Authorize Connection"
     },
     "stream": {
       "enable": "Enable Stream Music",

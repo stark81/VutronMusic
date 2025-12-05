@@ -280,11 +280,12 @@ const updateVolume = (e: WheelEvent) => {
 }
 
 const handleHover = (position: number) => {
+  const time = formatTime(position)
   if (!lyrics.value.length) {
-    hoverText.value = `${Math.round(position)}`
+    hoverText.value = `${time}`
     return
   }
-  const time = formatTime(position)
+
   const lyric = lyrics.value.find((line, index) => {
     const next = lyrics.value[index + 1]
     if (next) {
@@ -293,7 +294,7 @@ const handleHover = (position: number) => {
       return position >= line.start && position < currentTrackDuration.value
     }
   })
-  hoverText.value = lyric ? `[${time}] ${lyric.lyric.text}` : `${Math.round(position)}`
+  hoverText.value = lyric ? `[${time}] ${lyric.lyric.text}` : `${time}`
 }
 
 const goToNextTracksPage = () => {

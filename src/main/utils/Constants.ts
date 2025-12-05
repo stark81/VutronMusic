@@ -32,6 +32,13 @@ export default class Constants {
     preload: join(__dirname, '../preload/osdWin.js')
   }
 
+  static DEFAULT_AUTH_PREFERENCES = {
+    nodeIntegration: false,
+    contextIsolation: true,
+    enableRemoteModule: false,
+    preload: join(__dirname, '../preload/authWin.js')
+  }
+
   static ELECTRON_WEB_SERVER_PORT = 41830
   static ELECTRON_DEV_NETEASE_API_PORT = 40001
 

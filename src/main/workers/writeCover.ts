@@ -65,7 +65,7 @@ const getPicFromApi = async (url: string): Promise<{ pic: Buffer; format: string
   return new Promise((resolve, reject) => {
     try {
       const client = url.startsWith('https') ? https : http
-      url = url + '?param=512y512'
+      url = url + '?param=1024y1024'
       const req = client.get(url, (res) => {
         if (res.statusCode !== 200) {
           res.resume()

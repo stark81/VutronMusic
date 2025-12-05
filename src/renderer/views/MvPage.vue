@@ -1,5 +1,5 @@
 <template>
-  <div class="mv-page">
+  <div class="mv-page" :style="mainStyle">
     <div class="left">
       <div class="current-video">
         <div class="video">
@@ -42,7 +42,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, inject, onBeforeUnmount } from 'vue'
+import { ref, onMounted, inject, onBeforeUnmount, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { mvDetail, mvDetailInfo, likeAMV, subAMV, mvUrl, simiMv } from '../api/mv'
 import { tricklingProgress } from '../utils/tricklingProgress'
@@ -71,6 +71,14 @@ const mv = ref<{ [key: string]: any }>({
 const simiMvs = ref<any[]>([])
 const videoPlayer = ref()
 const player = ref()
+
+const hasCustomTitleBar = inject('hasCustomTitleBar', ref(true))
+
+const mainStyle = computed(() => {
+  return {
+    height: `calc(100vh - ${hasCustomTitleBar.value ? 84 : 64}px)`
+  }
+})
 
 const playerStore = usePlayerStore()
 const { playing, volume } = storeToRefs(playerStore)
@@ -191,9 +199,7 @@ onBeforeUnmount(() => {
 
 <style lang="scss" scoped>
 .mv-page {
-  // margin-top: 20px;
   width: 100%;
-  height: calc(100vh - 84px);
   display: flex;
 }
 
@@ -278,5 +284,6 @@ onBeforeUnmount(() => {
 
 .right {
   width: 44%;
+  padding: 0 0 10px 4vw;
 }
 </style>

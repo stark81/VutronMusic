@@ -1,5 +1,5 @@
 <template>
-  <div class="comment-page">
+  <div ref="commentPageRef" class="comment-page">
     <CommentList
       v-show="currentPage === 'comment'"
       :id="props.id"
@@ -53,5 +53,9 @@ provide('beRepliedCommentId', beRepliedCommentId)
 <style scoped lang="scss">
 .comment-page {
   width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  margin: 0 auto;
+  // background-color: red;
 }
 </style>

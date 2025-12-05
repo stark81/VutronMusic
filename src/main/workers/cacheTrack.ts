@@ -41,7 +41,7 @@ const getPic = (url: string): Promise<{ pic: Buffer; format: string }> =>
   new Promise((resolve, reject) => {
     try {
       const client = url.startsWith('https') ? _https : _http
-      const fullUrl = url + '?param=512y512'
+      const fullUrl = url + '?param=1024y1024'
       const req = client.get(fullUrl, (res) => {
         if (res.statusCode !== 200) {
           res.resume()

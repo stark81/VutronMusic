@@ -7,7 +7,7 @@ import navidrome from '../streaming/navidrome'
 import jellyfin from '../streaming/jellyfin'
 import emby from '../streaming/emby'
 
-const httpHandler: FastifyPluginAsync = async (fastify: FastifyInstance, options) => {
+const httpHandler: FastifyPluginAsync = async (fastify: FastifyInstance) => {
   fastify.get(
     '/local-asset',
     async (req: FastifyRequest<{ Querystring: Record<string, string> }>) => {
