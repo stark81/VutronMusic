@@ -1292,7 +1292,7 @@ export const usePlayerStore = defineStore(
       if (pic.value?.startsWith('blob:')) {
         URL.revokeObjectURL(pic.value)
       }
-      pic.value = await getPic(track, 512)
+      pic.value = await getPic(track, 1024)
 
       const arts = track.artists ?? track.ar
       const artists = arts.map((a) => a.name)

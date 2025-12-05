@@ -35,6 +35,7 @@ import {
   getAudioSource
 } from './utils'
 import { CacheAPIs } from './utils/CacheApis'
+import { proxyFetch } from './utils/proxyFetch'
 import { registerGlobalShortcuts } from './globalShortcut'
 import { initAutoUpdater } from './checkUpdate'
 import log from './log'
@@ -670,7 +671,7 @@ class BackGround {
         const headers = request.headers
         url += search
         try {
-          const response = await fetch(url, { headers })
+          const response = await proxyFetch(url, { headers })
           if (!response.ok) {
             return new Response(null, {
               status: response.status,
@@ -726,6 +727,20 @@ class BackGround {
         windowMouseleave: () => this.checkOsdMouseLeave()
       }
       IPCs.initialize(this.win, this.tray, this.mpris, lrc)
+
+      const proxy = (store.get('settings.proxy') || { type: 0, address: '', port: '' }) as {
+        type: 0 | 1 | 2
+        address: string
+        port: string
+      }
+
+      if (proxy.type === 0) {
+        this.win.webContents.session.setProxy({})
+      } else {
+        const map = { 1: 'http', 2: 'https' }
+        const proxyRules = `${map[proxy.type]}://${proxy.address}:${proxy.port}`
+        this.win.webContents.session.setProxy({ proxyRules })
+      }
 
       createMenu(this.win)
       if (Constants.IS_MAC) {

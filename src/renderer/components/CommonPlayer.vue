@@ -595,50 +595,46 @@ onBeforeUnmount(() => {
   }
 }
 
-.player-button {
-  z-index: 300;
-  border-radius: 0.75rem;
-  height: 44px;
-  width: 44px;
-  display: flex;
+.left-side {
+  padding: 0;
+}
+.right-side {
+  flex: 0;
+  padding: 0;
+}
+
+&.isMobile {
+  flex-direction: column;
   justify-content: center;
-  align-items: center;
-  opacity: 0.48;
-  transition: 0.2s;
-  -webkit-app-region: no-drag;
+  box-sizing: border-box;
+  .left-side {
+    flex: unset;
+    justify-content: unset;
+    padding: 0;
+    margin-bottom: 4vh;
 
-  .svg-icon {
-    color: var(--color-text);
-    height: 22px;
-    width: 22px;
+    .cover {
+      img,
+      .shadow {
+        height: 50vw;
+        width: 50vw;
+      }
+    }
+    .controls {
+      width: 50vw;
+      max-width: 50vw;
+    }
   }
-
-  &:hover {
-    background: var(--color-secondary-bg-for-transparent);
-    opacity: 0.88;
+  .right-side {
+    flex: unset;
+    padding: 0;
+    height: max(calc(100vh - 105vw), 20vh);
+    transition: all 0.35s;
   }
-}
-
-.theme-button {
-  position: fixed;
-  top: 24px;
-  right: 74px;
-}
-
-.close-button {
-  position: fixed;
-  top: 24px;
-  right: 24px;
-}
-
-.button-icon.disabled {
-  cursor: default;
-  opacity: 0.48;
-  &:hover {
-    background: none;
-  }
-  &:active {
-    transform: unset;
+  &.no-lyric .right-side {
+    height: 0;
+    margin-top: 0;
+    transition: all 0.35s;
   }
 }
 
