@@ -29,6 +29,9 @@
           <img ref="imgRef" :src="pic" loading="lazy" />
           <div class="shadow" :style="{ backgroundImage: `url(${pic})` }"></div>
         </div>
+        <div v-if="show === 'lyric'" class="portrait-lyric-section">
+          <LyricPage :text-align="'center'" :container-width="'100%'" :hover="false" />
+        </div>
         <div class="controls">
           <div class="top-part">
             <div class="track-info">
@@ -257,6 +260,7 @@ const imgRef = ref<HTMLElement>()
 const color = ref('')
 const color2 = ref('')
 let animation: Animation | null = null
+
 
 const hasTLyric = computed(() => lyrics.value.some((l) => l.tlyric))
 const hasRLyric = computed(() => lyrics.value.some((l) => l.rlyric))
@@ -761,40 +765,110 @@ onMounted(() => {
 @media (max-aspect-ratio: 10/9) {
   .play-page {
     flex-direction: column;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden;
   }
 
   .left-side {
-    flex: none !important;
+    flex: 1 !important;
     display: flex !important;
-    justify-content: center;
-    align-items: flex-start;
-    padding: 50px 20px 0;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 50px 20px 20px;
     width: 100%;
     z-index: 20;
+    overflow: hidden;
 
     > div {
       display: flex;
       flex-direction: column;
       align-items: center;
       width: 100%;
+      height: 100%;
     }
 
     .cover {
       display: block !important;
+      flex-shrink: 0;
 
       img,
       .shadow {
-        height: min(35vw, 180px) !important;
-        width: min(35vw, 180px) !important;
+        height: min(40vw, 200px) !important;
+        width: min(40vw, 200px) !important;
+      }
+    }
+
+    .portrait-lyric-section {
+      display: block;
+      flex: 1;
+      width: 100%;
+      max-width: min(90vw, 400px);
+      margin: 8px 0;
+      overflow: hidden;
+      position: relative;
+      min-height: 120px;
+
+      :deep(.lyric-wrapper) {
+        height: 100% !important;
+        overflow: hidden;
+        mask-image: linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%);
+        -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%);
+      }
+
+      :deep(.main-lyric-container) {
+        height: 100% !important;
+        width: 100% !important;
+        overflow-y: scroll;
+
+        .lyric {
+          padding: 6px 10px;
+          margin: 0;
+          border-radius: 6px;
+
+          .lyric-line,
+          .translation {
+            text-align: center;
+            transform-origin: center center;
+            transform: scale(0.92);
+          }
+
+          .lyric-line span {
+            font-size: 28px !important;
+            line-height: 1.4;
+          }
+
+          .translation span {
+            font-size: 25px !important;
+            line-height: 1.4;
+          }
+
+          &.active {
+            .lyric-line,
+            .translation {
+              transform: scale(1);
+            }
+          }
+        }
+
+        .lyric:first-of-type {
+          margin-top: 20% !important;
+        }
+
+        .lyric:last-child {
+          margin-bottom: 20% !important;
+        }
+      }
+
+      :deep(.offset) {
+        display: none;
       }
     }
 
     .controls {
       max-width: min(90vw, 400px);
       width: 100%;
-      margin-top: 1vh;
+      margin-top: 0;
+      flex-shrink: 0;
 
       .top-part {
         flex-direction: column;
@@ -832,20 +906,26 @@ onMounted(() => {
     }
   }
 
+  // 竖屏模式下隐藏右侧歌词区域
   .right-side {
-    flex: none;
-    max-width: 100%;
-    padding: 0 20px 20px;
-    overflow: visible;
+    display: none !important;
   }
 
   .play-page.no-lyric {
     .left-side {
-      flex: 1 !important;
-      transform: none;
-      position: relative;
-      align-items: center;
+      justify-content: center;
+
+      .portrait-lyric-section {
+        display: none;
+      }
     }
+  }
+}
+
+// 横屏模式下隐藏竖屏歌词区域
+@media (min-aspect-ratio: 10/9) {
+  .portrait-lyric-section {
+    display: none !important;
   }
 }
 </style>

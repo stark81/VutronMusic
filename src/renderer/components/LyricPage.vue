@@ -395,7 +395,7 @@ onMounted(async () => {
   }
 
   :deep(.lyric:first-of-type) {
-    margin-top: 40vh !important;
+    margin-top: 15vh !important;
   }
 
   :deep(.lyric:last-child) {
