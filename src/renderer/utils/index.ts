@@ -180,15 +180,6 @@ export default class Utils {
       // 验证日期对象是否有效
       if (isNaN(date.getTime())) return null
 
-      // 额外验证：时间戳应该是未来的（或最近的过去）
-      const now = Date.now()
-      const timeDiff = date.getTime() - now
-
-      // 如果时间戳在过去超过 1 小时，或未来超过 48 小时，认为不合理
-      if (timeDiff < -60 * 60 * 1000 || timeDiff > 48 * 60 * 60 * 1000) {
-        return null
-      }
-
       return date
     } catch (error) {
       console.error('解析 URL 时间戳失败:', error)

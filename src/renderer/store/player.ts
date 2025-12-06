@@ -331,15 +331,23 @@ export const usePlayerStore = defineStore(
     const noLyric = computed(() => lyrics.value.length === 0)
 
     // 对于网易云官方的歌曲链接，其有效时间只有 25 分钟，过期后需要重新获取链接
+    // 只对网易云在线歌曲进行 URL 有效性检查
     const isValidUrl = (url: string) => {
-      if (!currentTrack.value || !audioNodes.audio) return false
-      if (currentTrack.value.source === 'netease') {
-        const expiration = extractExpirationFromUrl(url)
-        if (!expiration) return true
-        const now = new Date()
-        if (now >= expiration) return false
-        return true
-      }
+      // 没有 track 或没有 url 时认为有效（不触发重新获取）
+      if (!currentTrack.value || !url) return true
+      // 只检查网易云在线歌曲
+      if (currentTrack.value.source !== 'netease') return true
+      // 本地歌曲不检查
+      if (currentTrack.value.type === 'local') return true
+
+      const expiration = extractExpirationFromUrl(url)
+      if (!expiration) return true
+
+      const now = new Date()
+      // 计算剩余播放时长（秒转毫秒）
+      const remainingDuration = Math.max(0, currentTrackDuration.value - seek.value)
+      const nowPlusRemaining = new Date(now.getTime() + remainingDuration * 1000)
+      if (nowPlusRemaining >= expiration) return false
       return true
     }
 

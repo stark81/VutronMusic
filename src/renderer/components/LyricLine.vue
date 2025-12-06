@@ -98,6 +98,11 @@ const buildWordKeyFrame = (info: word[], spanWidths: number[]) => {
   let curWidth = 0
   const totalWidth = spanWidths.reduce((acc, cur) => acc + cur, 0)
 
+  // 防止 totalWidth 为 0 导致 NaN
+  if (totalWidth === 0) {
+    return { duration, keyframes: [{ backgroundPosition: '0% 0%', offset: 1 }], start }
+  }
+
   const keyframes = info.map((font, index) => {
     const _start = font.start
     const offset = Math.min(Math.max(0, (_start - start) / duration), 1)
