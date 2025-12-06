@@ -953,9 +953,25 @@ onUnmounted(() => {
   .play-page.no-lyric {
     .left-side {
       justify-content: center;
+      // 覆盖横屏模式的偏移
+      transform: none !important;
+      padding: 50px 20px 20px !important;
+
+      > div {
+        height: auto;
+        justify-content: center;
+      }
 
       .portrait-lyric-section {
-        display: none;
+        display: none !important;
+      }
+
+      .cover {
+        margin-bottom: 20px;
+      }
+
+      .controls {
+        margin-top: 0;
       }
     }
   }
