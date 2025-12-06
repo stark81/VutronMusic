@@ -421,8 +421,31 @@ onMounted(async () => {
 }
 
 @media (max-aspect-ratio: 10/9) {
+  .lyric-wrapper {
+    height: auto;
+    overflow: visible;
+    contain: none;
+  }
+
+  .use-mask {
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+
   .main-lyric-container {
     width: 100%;
+    height: auto;
+    overflow: visible;
+    contain: none;
+
+    :deep(.lyric:first-of-type) {
+      margin-top: 10px !important;
+    }
+
+    :deep(.lyric:last-child) {
+      margin-bottom: 50px;
+    }
+
     :deep(.lyric) {
       .lyric-line,
       .translation {
