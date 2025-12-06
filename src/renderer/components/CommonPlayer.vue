@@ -209,7 +209,7 @@
         :container-width="'80%'"
         :hover="hover"
       />
-      <Comment v-else :id="currentTrack!.id" type="music" />
+      <Comment v-else-if="currentTrack?.id" :id="currentTrack.id" type="music" />
     </div>
   </div>
 </template>

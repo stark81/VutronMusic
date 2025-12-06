@@ -87,7 +87,7 @@ const lineMode = computed(() => {
 const highlight = computed(() => Math.min(currentIndex.value, lyrics.value.length - 1))
 
 const offset = computed(() => {
-  const lrcOffset = currentTrack.value!.offset || 0
+  const lrcOffset = currentTrack.value?.offset || 0
   if (lrcOffset === 0) {
     return '未调整'
   } else if (lrcOffset > 0) {
@@ -109,25 +109,26 @@ const isWheeling = ref(false)
 let scrollingTimer: any = null
 
 const setOffset = (offset: number) => {
-  if (!currentTrack.value!.offset) {
-    currentTrack.value!.offset = 0
+  if (!currentTrack.value) return
+  if (!currentTrack.value.offset) {
+    currentTrack.value.offset = 0
   }
-  if (currentTrack.value!.type === 'local') {
+  if (currentTrack.value.type === 'local') {
     window.mainApi
-      ?.invoke('updateLocalTrackInfo', currentTrack.value!.id, {
-        offset: currentTrack.value!.offset + offset
+      ?.invoke('updateLocalTrackInfo', currentTrack.value.id, {
+        offset: currentTrack.value.offset + offset
       })
       .then((isSussess: boolean) => {
         if (!isSussess) showToast('歌词延迟信息未保存至数据库，下次启动程序后需要重置歌词延迟')
       })
   }
   if (offset === 0) {
-    currentTrack.value!.offset = 0
+    currentTrack.value.offset = 0
   } else {
-    currentTrack.value!.offset += offset
+    currentTrack.value.offset += offset
   }
   showToast(
-    `当前歌曲的歌词延迟为: ${currentTrack.value!.offset > 0 ? '延迟' : '提前'}${Math.abs(currentTrack.value!.offset)}s`
+    `当前歌曲的歌词延迟为: ${currentTrack.value.offset > 0 ? '延迟' : '提前'}${Math.abs(currentTrack.value.offset)}s`
   )
 }
 
