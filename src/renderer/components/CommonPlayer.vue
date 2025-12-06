@@ -23,7 +23,18 @@
         :style="{ background }"
       />
     </div>
-    <div class="left-side">
+    <div
+      class="left-side"
+      :style="
+        isPortrait
+          ? {
+              '--portrait-lyric-height': `${portraitLyricHeight}px`,
+              '--portrait-cover-size': `${portraitCoverSize}px`,
+              '--portrait-controls-height': `${portraitControlsHeight}px`
+            }
+          : {}
+      "
+    >
       <div>
         <div class="cover" :class="{ rotate: currentTheme.name === '旋转封面' }">
           <img ref="imgRef" :src="pic" loading="lazy" />
@@ -204,7 +215,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject, nextTick, onMounted, ref, toRefs, watch } from 'vue'
+import { computed, inject, nextTick, onMounted, onUnmounted, ref, toRefs, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import ButtonIcon from './ButtonIcon.vue'
@@ -261,6 +272,17 @@ const color = ref('')
 const color2 = ref('')
 let animation: Animation | null = null
 
+const windowWidth = ref(window.innerWidth)
+const windowHeight = ref(window.innerHeight)
+const isPortrait = computed(() => windowWidth.value / windowHeight.value < 10 / 9)
+const baseSize = computed(() => Math.min(windowWidth.value, windowHeight.value))
+const portraitCoverSize = computed(() => Math.floor(baseSize.value * 0.32))
+const portraitControlsHeight = computed(() => 200)
+// https://github.com/stark81/VutronMusic/pull/336#issuecomment-3619792759
+const portraitLyricHeight = computed(() => {
+  const remaining = windowHeight.value - portraitCoverSize.value - portraitControlsHeight.value - 86
+  return Math.max(120, remaining)
+})
 
 const hasTLyric = computed(() => lyrics.value.some((l) => l.tlyric))
 const hasRLyric = computed(() => lyrics.value.some((l) => l.rlyric))
@@ -424,8 +446,18 @@ const switchRightPage = (name: string) => {
     show.value = name
   }
 }
+const handleResize = () => {
+  windowWidth.value = window.innerWidth
+  windowHeight.value = window.innerHeight
+}
+
 onMounted(() => {
   setTimeout(getColor)
+  window.addEventListener('resize', handleResize)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
 })
 </script>
 
@@ -772,7 +804,7 @@ onMounted(() => {
     flex: 1 !important;
     display: flex !important;
     flex-direction: column;
-    justify-content: flex-start;
+    justify-content: space-between;
     align-items: center;
     padding: 50px 20px 20px;
     width: 100%;
@@ -793,23 +825,26 @@ onMounted(() => {
 
       img,
       .shadow {
-        height: min(40vw, 200px) !important;
-        width: min(40vw, 200px) !important;
+        height: var(--portrait-cover-size, 150px) !important;
+        width: var(--portrait-cover-size, 150px) !important;
       }
     }
 
     .portrait-lyric-section {
       display: block;
-      flex: 1;
       width: 100%;
-      max-width: min(90vw, 400px);
+      max-width: 92vw;
       margin: 8px 0;
       overflow: hidden;
       position: relative;
-      min-height: 120px;
+      height: var(--portrait-lyric-height, 200px) !important;
+      max-height: var(--portrait-lyric-height, 200px) !important;
+      flex-shrink: 0;
+      flex-grow: 0;
 
       :deep(.lyric-wrapper) {
         height: 100% !important;
+        max-height: 100% !important;
         overflow: hidden;
         mask-image: linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%);
         -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%);
@@ -817,28 +852,31 @@ onMounted(() => {
 
       :deep(.main-lyric-container) {
         height: 100% !important;
+        max-height: 100% !important;
         width: 100% !important;
         overflow-y: scroll;
+        contain: strict;
 
         .lyric {
-          padding: 6px 10px;
+          padding: 8px 12px;
           margin: 0;
-          border-radius: 6px;
+          border-radius: 8px;
 
           .lyric-line,
           .translation {
             text-align: center;
             transform-origin: center center;
             transform: scale(0.92);
+            transition: transform 0.2s ease;
           }
 
           .lyric-line span {
-            font-size: 28px !important;
+            font-size: 22px !important;
             line-height: 1.4;
           }
 
           .translation span {
-            font-size: 25px !important;
+            font-size: 18px !important;
             line-height: 1.4;
           }
 
@@ -851,11 +889,11 @@ onMounted(() => {
         }
 
         .lyric:first-of-type {
-          margin-top: 20% !important;
+          margin-top: 45% !important;
         }
 
         .lyric:last-child {
-          margin-bottom: 20% !important;
+          margin-bottom: 45% !important;
         }
       }
 
@@ -865,10 +903,11 @@ onMounted(() => {
     }
 
     .controls {
-      max-width: min(90vw, 400px);
+      max-width: 92vw;
       width: 100%;
-      margin-top: 0;
+      margin-top: auto;
       flex-shrink: 0;
+      padding-bottom: 10px;
 
       .top-part {
         flex-direction: column;
