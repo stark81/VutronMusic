@@ -706,6 +706,11 @@ export const usePlayerStore = defineStore(
           break
       }
 
+      // 确保 data 是数组
+      if (!Array.isArray(data)) {
+        data = []
+      }
+
       data = data.filter((l) => !/^作(词|曲)\s*(:|：)\s*无$/.exec(l.lyric.text))
       const includeAM =
         data.length <= 10 && data.map((l) => l.lyric.text).includes('纯音乐，请欣赏')
