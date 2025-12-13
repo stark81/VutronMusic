@@ -10,18 +10,45 @@
     <button-icon class="player-button close-button" @click="showLyrics = !showLyrics">
       <SvgIcon icon-class="arrow-down" />
     </button-icon>
-    <div class="lyrics-container">
-      <div
-        v-if="['blur', 'dynamic'].includes(general.lyricBackground)"
-        class="lyrics-background"
-        :class="{ 'dynamic-background': general.lyricBackground === 'dynamic' }"
-        :style="{ '--cover-url': `url(${pic})` }"
-      />
-      <div
-        v-else-if="general.lyricBackground === 'true'"
-        class="graditent-background"
-        :style="{ background }"
-      />
+    <div
+      class="lyrics-container"
+      :style="{
+        '--bg-blur': `${backgroundBlur}px`,
+        '--bg-opacity': backgroundOpacity / 100,
+        '--lyric-font': fontFamily || 'inherit'
+      }"
+    >
+      <!-- 自定义背景 -->
+      <template v-if="backgroundType !== 'default' && customBgUrl">
+        <video
+          v-if="customBgType === 'video'"
+          class="custom-background custom-video"
+          :src="customBgUrl"
+          autoplay
+          loop
+          muted
+          playsinline
+        />
+        <div
+          v-else
+          class="custom-background custom-image"
+          :style="{ backgroundImage: `url(${customBgUrl})` }"
+        />
+      </template>
+      <!-- 默认背景 -->
+      <template v-else>
+        <div
+          v-if="['blur', 'dynamic'].includes(general.lyricBackground)"
+          class="lyrics-background"
+          :class="{ 'dynamic-background': general.lyricBackground === 'dynamic' }"
+          :style="{ '--cover-url': `url(${pic})` }"
+        />
+        <div
+          v-else-if="general.lyricBackground === 'true'"
+          class="graditent-background"
+          :style="{ background }"
+        />
+      </template>
     </div>
     <div class="left-side">
       <div>
@@ -225,7 +252,17 @@ const playPageContextMenu = inject('playPageContextMenu', ref<InstanceType<typeo
 
 const settingsStore = useSettingsStore()
 const { normalLyric, general, playerTheme } = storeToRefs(settingsStore)
-const { nTranslationMode, textAlign } = toRefs(normalLyric.value)
+const {
+  nTranslationMode,
+  textAlign,
+  fontFamily,
+  backgroundType,
+  backgroundSource,
+  backgroundBlur,
+  backgroundOpacity,
+  apiRefreshMode,
+  apiRefreshInterval
+} = toRefs(normalLyric.value)
 
 const playerStore = usePlayerStore()
 const {
@@ -269,6 +306,107 @@ const theme = computed(() => {
 
 const background = computed(() => {
   return `linear-gradient(to top left, ${color.value}, ${color2.value})`
+})
+
+// 自定义背景
+const customBgUrl = ref('')
+const customBgType = ref<'image' | 'video'>('image')
+
+const loadCustomBackground = async () => {
+  if (backgroundType.value === 'default') {
+    customBgUrl.value = ''
+    return
+  }
+
+  if (backgroundType.value === 'api') {
+    // API 随机背景
+    if (backgroundSource.value) {
+      customBgUrl.value = `${backgroundSource.value}${backgroundSource.value.includes('?') ? '&' : '?'}t=${Date.now()}`
+      customBgType.value = 'image'
+    }
+    return
+  }
+
+  if (backgroundType.value === 'folder') {
+    // 文件夹随机
+    if (backgroundSource.value) {
+      const files = await window.mainApi?.invoke('getFilesInFolder', backgroundSource.value, [
+        'png',
+        'jpg',
+        'jpeg',
+        'webp',
+        'gif',
+        'mp4',
+        'webm'
+      ])
+      if (files && files.length > 0) {
+        const randomFile = files[Math.floor(Math.random() * files.length)]
+        customBgUrl.value = `atom://local-resource/${encodeURIComponent(randomFile)}`
+        customBgType.value = randomFile.match(/\.(mp4|webm)$/i) ? 'video' : 'image'
+      }
+    }
+    return
+  }
+
+  // 单个图片或视频
+  if (backgroundSource.value) {
+    customBgUrl.value = `atom://local-resource/${encodeURIComponent(backgroundSource.value)}`
+    customBgType.value = backgroundType.value === 'video' ? 'video' : 'image'
+  }
+}
+
+// API 定时刷新
+let apiRefreshTimer: ReturnType<typeof setInterval> | null = null
+
+const startApiRefreshTimer = () => {
+  stopApiRefreshTimer()
+  if (backgroundType.value === 'api' && apiRefreshMode.value === 'time') {
+    apiRefreshTimer = setInterval(
+      () => {
+        loadCustomBackground()
+      },
+      apiRefreshInterval.value * 60 * 1000
+    )
+  }
+}
+
+const stopApiRefreshTimer = () => {
+  if (apiRefreshTimer) {
+    clearInterval(apiRefreshTimer)
+    apiRefreshTimer = null
+  }
+}
+
+// 切歌时更新背景（仅当模式为 song 时）
+watch(
+  () => currentTrack.value?.id,
+  () => {
+    if (backgroundType.value === 'folder') {
+      loadCustomBackground()
+    } else if (backgroundType.value === 'api' && apiRefreshMode.value === 'song') {
+      loadCustomBackground()
+    }
+  }
+)
+
+// 背景类型或来源变化时更新
+watch(
+  [backgroundType, backgroundSource],
+  () => {
+    if (backgroundType.value === 'default') {
+      customBgUrl.value = ''
+      stopApiRefreshTimer()
+    } else {
+      loadCustomBackground()
+      startApiRefreshTimer()
+    }
+  },
+  { immediate: true }
+)
+
+// API 刷新模式或间隔变化时重启定时器
+watch([apiRefreshMode, apiRefreshInterval], () => {
+  startApiRefreshTimer()
 })
 
 const heartDisabled = computed(() => {
@@ -457,6 +595,26 @@ onMounted(() => {
   bottom: 0;
   overflow: hidden;
   z-index: -1;
+}
+
+.custom-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  filter: blur(var(--bg-blur, 50px));
+  opacity: var(--bg-opacity, 0.6);
+}
+
+.custom-image {
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.custom-video {
+  object-fit: cover;
 }
 
 .lyrics-background {

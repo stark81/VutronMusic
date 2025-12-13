@@ -599,6 +599,45 @@ class BackGround {
               headers: { 'content-type': 'application/json' }
             })
         }
+      } else if (host === 'local-resource') {
+        const mime = require('mime-types')
+        let filePath = decodeURIComponent(pathname.slice(1))
+        if (process.platform === 'win32' && filePath.match(/^\/[A-Za-z]:/)) {
+          filePath = filePath.slice(1)
+        }
+        if (!fs.existsSync(filePath)) {
+          return new Response('Not Found', { status: 404 })
+        }
+        const fileStat = fs.statSync(filePath)
+        const mimeType = mime.lookup(filePath) || 'application/octet-stream'
+
+        const range = request.headers.get('range')
+        if (range) {
+          const match = range.match(/bytes=(\d*)-(\d*)/)
+          let start = 0
+          let end = fileStat.size - 1
+          if (match) {
+            start = match[1] ? parseInt(match[1], 10) : start
+            end = match[2] ? parseInt(match[2], 10) : end
+          }
+          const chunkSize = end - start + 1
+          const stream = fs.createReadStream(filePath, { start, end })
+          // @ts-ignore
+          return new Response(stream, {
+            status: 206,
+            headers: {
+              'content-type': mimeType,
+              'content-length': chunkSize.toString(),
+              'accept-ranges': 'bytes',
+              'content-range': `bytes ${start}-${end}/${fileStat.size}`
+            }
+          })
+        }
+
+        const fileBuffer = fs.readFileSync(filePath)
+        return new Response(new Uint8Array(fileBuffer), {
+          headers: { 'Content-Type': mimeType }
+        })
       } else if (host === 'get-online-music') {
         let url = pathname.slice(1)
         const headers = request.headers

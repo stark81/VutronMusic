@@ -70,13 +70,27 @@ export const useSettingsStore = defineStore(
       textAlign: TextAlign
       useMask: boolean
       isZoom: boolean
+      fontFamily: string
+      backgroundType: 'default' | 'image' | 'video' | 'folder' | 'api'
+      backgroundSource: string
+      backgroundBlur: number
+      backgroundOpacity: number
+      apiRefreshMode: 'song' | 'time'
+      apiRefreshInterval: number
     }>({
       nFontSize: 28,
       isNWordByWord: true,
       nTranslationMode: 'tlyric',
       textAlign: 'start',
       useMask: true,
-      isZoom: true
+      isZoom: true,
+      fontFamily: '',
+      backgroundType: 'default',
+      backgroundSource: '',
+      backgroundBlur: 50,
+      backgroundOpacity: 60,
+      apiRefreshMode: 'song',
+      apiRefreshInterval: 5
     })
 
     const unblockNeteaseMusic = reactive({
