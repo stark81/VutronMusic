@@ -313,6 +313,25 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     return null
   })
 
+  ipcMain.handle('showOpenDialog', async (event, options) => {
+    const { dialog } = require('electron')
+    return await dialog.showOpenDialog(options)
+  })
+
+  ipcMain.handle('getFilesInFolder', async (event, folderPath: string, extensions: string[]) => {
+    try {
+      const files = fs.readdirSync(folderPath)
+      const filteredFiles = files.filter((file: string) => {
+        const ext = file.split('.').pop()?.toLowerCase()
+        return ext && extensions.includes(ext)
+      })
+      return filteredFiles.map((file: string) => path.join(folderPath, file))
+    } catch (error) {
+      console.error('Error reading folder:', error)
+      return []
+    }
+  })
+
   ipcMain.handle('getLocalMusic', (event) => {
     const { songs } = cache.get(CacheAPIs.LocalMusic)
     const playlists = cache.get(CacheAPIs.LocalPlaylist)

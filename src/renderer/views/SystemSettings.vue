@@ -415,6 +415,96 @@
                 <CustomSelect v-model="lyricBackground" :options="lrcBgOptions" />
               </div>
             </div>
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('settings.lyric.fontFamily') }}</div>
+              </div>
+              <div class="right">
+                <CustomSelect v-model="fontFamily" :options="fontFamilyOptions" />
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('settings.lyric.backgroundType') }}</div>
+              </div>
+              <div class="right">
+                <CustomSelect v-model="backgroundType" :options="bgTypeOptions" />
+              </div>
+            </div>
+            <div v-if="backgroundType !== 'default'" class="item">
+              <div class="left">
+                <div class="title">{{ $t('settings.lyric.backgroundSource') }}</div>
+              </div>
+              <div class="right">
+                <input
+                  v-model="backgroundSource"
+                  type="text"
+                  class="text-input"
+                  :placeholder="bgSourcePlaceholder"
+                />
+                <button v-if="['image', 'video', 'folder'].includes(backgroundType)" class="primary" @click="selectBackgroundSource">
+                  {{ $t('settings.lyric.browse') }}
+                </button>
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('settings.lyric.backgroundBlur') }}</div>
+              </div>
+              <div class="right">
+                <VueSlider
+                  v-model="backgroundBlur"
+                  :min="0"
+                  :max="100"
+                  :height="4"
+                  :dot-size="12"
+                  :rail-style="{ backgroundColor: 'rgba(128, 128, 128, 0.18)' }"
+                  :process-style="{ backgroundColor: 'var(--color-primary)', opacity: 0.8 }"
+                  style="width: 120px"
+                  @update:model-value="(v: number) => backgroundBlur = Math.round(v)"
+                />
+                <span class="slider-value">{{ Math.round(backgroundBlur) }}px</span>
+                <button class="reset-btn" @click="backgroundBlur = 50">{{ $t('settings.lyric.reset') }}</button>
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('settings.lyric.backgroundOpacity') }}</div>
+              </div>
+              <div class="right">
+                <VueSlider
+                  v-model="backgroundOpacity"
+                  :min="0"
+                  :max="100"
+                  :height="4"
+                  :dot-size="12"
+                  :rail-style="{ backgroundColor: 'rgba(128, 128, 128, 0.18)' }"
+                  :process-style="{ backgroundColor: 'var(--color-primary)', opacity: 0.8 }"
+                  style="width: 120px"
+                  @update:model-value="(v: number) => backgroundOpacity = Math.round(v)"
+                />
+                <span class="slider-value">{{ Math.round(backgroundOpacity) }}%</span>
+                <button class="reset-btn" @click="backgroundOpacity = 60">{{ $t('settings.lyric.reset') }}</button>
+              </div>
+            </div>
+            <template v-if="backgroundType === 'api'">
+              <div class="item">
+                <div class="left">
+                  <div class="title">{{ $t('settings.lyric.apiRefreshMode') }}</div>
+                </div>
+                <div class="right">
+                  <CustomSelect v-model="apiRefreshMode" :options="apiRefreshModeOptions" />
+                </div>
+              </div>
+              <div v-if="apiRefreshMode === 'time'" class="item">
+                <div class="left">
+                  <div class="title">{{ $t('settings.lyric.apiRefreshInterval') }}</div>
+                </div>
+                <div class="right">
+                  <CustomSelect v-model="apiRefreshInterval" :options="apiRefreshIntervalOptions" />
+                </div>
+              </div>
+            </template>
           </div>
           <div v-if="!isWindows" v-show="lyricTab === 'trayLyric'">
             <div v-if="isMac">
@@ -1048,6 +1138,7 @@ import { doLogout } from '../utils/auth'
 import SvgIcon from '../components/SvgIcon.vue'
 import CustomSelect from '../components/CustomSelect.vue'
 import LatestVersion from '../components/LatestVersion.vue'
+import VueSlider from '../components/VueSlider.vue'
 import Utils from '../utils'
 import { VueDraggable } from 'vue-draggable-plus'
 // @ts-ignore
@@ -1083,9 +1174,21 @@ const {
 const { appearance, colors } = toRefs(theme.value)
 const customizeColor = computed(() => colors.value[4])
 const { showLyric, showControl, lyricWidth, scrollRate, enableExtension } = toRefs(tray.value)
-const { nFontSize, isNWordByWord, nTranslationMode, textAlign, useMask, isZoom } = toRefs(
-  normalLyric.value
-)
+const {
+  nFontSize,
+  isNWordByWord,
+  nTranslationMode,
+  textAlign,
+  useMask,
+  isZoom,
+  fontFamily,
+  backgroundType,
+  backgroundSource,
+  backgroundBlur,
+  backgroundOpacity,
+  apiRefreshMode,
+  apiRefreshInterval
+} = toRefs(normalLyric.value)
 
 const streamMusicStore = useStreamMusicStore()
 const { enable, services } = storeToRefs(streamMusicStore)
@@ -1264,6 +1367,64 @@ const lrcBgOptions = computed(() => [
   { label: t('settings.general.lyricBackground.blur'), value: 'blur' },
   { label: t('settings.general.lyricBackground.dynamic'), value: 'dynamic' }
 ])
+
+const fontFamilyOptions = computed(() => {
+  const defaultOption = { label: t('settings.lyric.defaultFont'), value: '' }
+  return [defaultOption, ...(fontList.value || [])]
+})
+
+const bgTypeOptions = computed(() => [
+  { label: t('settings.lyric.bgType.default'), value: 'default' },
+  { label: t('settings.lyric.bgType.image'), value: 'image' },
+  { label: t('settings.lyric.bgType.video'), value: 'video' },
+  { label: t('settings.lyric.bgType.folder'), value: 'folder' },
+  { label: t('settings.lyric.bgType.api'), value: 'api' }
+])
+
+const apiRefreshModeOptions = computed(() => [
+  { label: t('settings.lyric.refreshMode.song'), value: 'song' },
+  { label: t('settings.lyric.refreshMode.time'), value: 'time' }
+])
+
+const apiRefreshIntervalOptions = computed(() => [
+  { label: '1 ' + t('settings.lyric.minute'), value: 1 },
+  { label: '3 ' + t('settings.lyric.minutes'), value: 3 },
+  { label: '5 ' + t('settings.lyric.minutes'), value: 5 },
+  { label: '10 ' + t('settings.lyric.minutes'), value: 10 },
+  { label: '15 ' + t('settings.lyric.minutes'), value: 15 },
+  { label: '30 ' + t('settings.lyric.minutes'), value: 30 }
+])
+
+const bgSourcePlaceholder = computed(() => {
+  switch (backgroundType.value) {
+    case 'image':
+      return t('settings.lyric.placeholder.image')
+    case 'video':
+      return t('settings.lyric.placeholder.video')
+    case 'folder':
+      return t('settings.lyric.placeholder.folder')
+    case 'api':
+      return t('settings.lyric.placeholder.api')
+    default:
+      return ''
+  }
+})
+
+const selectBackgroundSource = async () => {
+  const isFolder = backgroundType.value === 'folder'
+  const filters = backgroundType.value === 'video'
+    ? [{ name: 'Video', extensions: ['mp4', 'webm'] }]
+    : [{ name: 'Image', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }]
+
+  const result = await window.mainApi?.invoke('showOpenDialog', {
+    properties: isFolder ? ['openDirectory'] : ['openFile'],
+    filters: isFolder ? undefined : filters
+  })
+
+  if (result && !result.canceled && result.filePaths.length > 0) {
+    backgroundSource.value = result.filePaths[0]
+  }
+}
 
 const sizeLimitOptions = computed(() => [
   { label: t('settings.autoCacheTrack.noLimit'), value: false },
@@ -2102,6 +2263,33 @@ input.text-input {
   }
   100% {
     transform: translateY(-50%) rotate(360deg);
+  }
+}
+
+.slider-value {
+  min-width: 50px;
+  text-align: right;
+  margin-left: 8px;
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.reset-btn {
+  margin-left: 8px;
+  padding: 4px 10px;
+  font-size: 12px;
+  border: none;
+  border-radius: 6px;
+  background: var(--color-secondary-bg);
+  color: var(--color-text);
+  cursor: pointer;
+  opacity: 0.7;
+  transition: all 0.2s;
+
+  &:hover {
+    opacity: 1;
+    background: var(--color-primary);
+    color: white;
   }
 }
 </style>

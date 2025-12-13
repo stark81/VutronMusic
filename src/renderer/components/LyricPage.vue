@@ -79,7 +79,7 @@ const { showToast } = stateStore
 
 const settingsStore = useSettingsStore()
 const { normalLyric } = storeToRefs(settingsStore)
-const { nFontSize, useMask, nTranslationMode, isNWordByWord, isZoom } = toRefs(normalLyric.value)
+const { nFontSize, useMask, nTranslationMode, isNWordByWord, isZoom, fontFamily } = toRefs(normalLyric.value)
 
 const lineMode = computed(() => {
   return !isNWordByWord.value || lyrics.value.every((line) => !line.lyric?.info)
@@ -337,6 +337,7 @@ onMounted(async () => {
     user-select: none;
     padding: 12px;
     font-weight: 600;
+    font-family: v-bind('fontFamily || "inherit"');
 
     &:hover {
       background: var(--color-secondary-bg-for-transparent);

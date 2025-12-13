@@ -395,6 +395,37 @@
       },
       "lyricZoom": "放缩当前播放的歌词"
     },
+    "lyric": {
+      "fontFamily": "歌词字体",
+      "defaultFont": "系统默认",
+      "backgroundType": "背景类型",
+      "backgroundSource": "背景来源",
+      "backgroundBlur": "背景模糊度",
+      "backgroundOpacity": "背景亮度",
+      "browse": "浏览",
+      "reset": "重置",
+      "bgType": {
+        "default": "默认（封面）",
+        "image": "自定义图片",
+        "video": "自定义视频",
+        "folder": "文件夹随机",
+        "api": "API随机"
+      },
+      "placeholder": {
+        "image": "选择图片文件 (png/jpg/webp)",
+        "video": "选择视频文件 (mp4/webm)",
+        "folder": "选择包含图片/视频的文件夹",
+        "api": "输入返回图片的API地址"
+      },
+      "apiRefreshMode": "背景切换时机",
+      "apiRefreshInterval": "切换间隔",
+      "refreshMode": {
+        "song": "切换歌曲时",
+        "time": "定时切换"
+      },
+      "minute": "分钟",
+      "minutes": "分钟"
+    },
     "unblock": {
       "enable": "启用音源替换",
       "source": {

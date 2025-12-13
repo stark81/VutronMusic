@@ -10,6 +10,8 @@ const mainAvailChannels: string[] = [
   'msgScanLocalMusic',
   'getLocalMusic',
   'selecteFolder',
+  'showOpenDialog',
+  'getFilesInFolder',
   'updateTray',
   'metadata',
   'updateOsdState',
