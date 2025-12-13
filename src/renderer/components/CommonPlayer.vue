@@ -41,7 +41,7 @@
           <div class="shadow" :style="{ backgroundImage: `url(${pic})` }"></div>
         </div>
         <div v-if="show === 'lyric'" class="portrait-lyric-section">
-          <LyricPage :text-align="'center'" :container-width="'100%'" :hover="false" />
+          <LyricPage :text-align="'center'" :container-width="'100%'" :hover="false" id-prefix="portrait-" />
         </div>
         <div class="controls">
           <div class="top-part">
@@ -256,7 +256,8 @@ const {
   source,
   chorus,
   repeatMode,
-  pic
+  pic,
+  currentIndex
 } = storeToRefs(playerStore)
 const { playPrev, playOrPause, _playNextTrack, switchRepeatMode, moveToFMTrash } = playerStore
 
@@ -450,6 +451,19 @@ const handleResize = () => {
   windowWidth.value = window.innerWidth
   windowHeight.value = window.innerHeight
 }
+
+// 监听横竖屏切换，触发歌词滚动到当前位置
+watch(isPortrait, (newVal) => {
+  nextTick(() => {
+    setTimeout(() => {
+      const idx = Math.max(0, currentIndex.value)
+      // 根据当前模式选择正确的 ID 前缀
+      const prefix = newVal ? 'portrait-' : ''
+      const el = document.getElementById(`${prefix}lyric${idx}`)
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 100)
+  })
+})
 
 onMounted(() => {
   setTimeout(getColor)
@@ -817,11 +831,13 @@ onUnmounted(() => {
       align-items: center;
       width: 100%;
       height: 100%;
+      overflow: hidden;
     }
 
     .cover {
       display: block !important;
-      flex-shrink: 0;
+      flex-shrink: 0 !important;
+      flex-grow: 0 !important;
 
       img,
       .shadow {
@@ -837,10 +853,9 @@ onUnmounted(() => {
       margin: 8px 0;
       overflow: hidden;
       position: relative;
-      height: var(--portrait-lyric-height, 200px) !important;
-      max-height: var(--portrait-lyric-height, 200px) !important;
-      flex-shrink: 0;
-      flex-grow: 0;
+      flex: 1 1 auto;
+      min-height: 60px;
+      max-height: var(--portrait-lyric-height, 200px);
 
       :deep(.lyric-wrapper) {
         height: 100% !important;
@@ -871,12 +886,10 @@ onUnmounted(() => {
           }
 
           .lyric-line span {
-            font-size: 22px !important;
             line-height: 1.4;
           }
 
           .translation span {
-            font-size: 18px !important;
             line-height: 1.4;
           }
 
@@ -906,7 +919,8 @@ onUnmounted(() => {
       max-width: 92vw;
       width: 100%;
       margin-top: auto;
-      flex-shrink: 0;
+      flex-shrink: 0 !important;
+      flex-grow: 0 !important;
       padding-bottom: 10px;
 
       .top-part {

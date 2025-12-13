@@ -20,7 +20,7 @@
       >
         <div
           v-for="(lyric, index) in lyrics"
-          :id="`lyric${index}`"
+          :id="`${idPrefix}lyric${index}`"
           :key="index"
           class="lyric"
           :class="{ active: index === highlight }"
@@ -57,7 +57,8 @@ const props = defineProps({
   textAlign: { type: String, default: 'left' },
   unplayColor: { type: String, default: 'var(--color-wbw-text-unplay)' },
   containerWidth: { type: String, default: 'calc(min(50vh, 33.33vw))' },
-  offsetPadding: { type: String, default: '3vw' }
+  offsetPadding: { type: String, default: '3vw' },
+  idPrefix: { type: String, default: '' }
 })
 
 const playerStore = usePlayerStore()
@@ -85,6 +86,8 @@ const lineMode = computed(() => {
 })
 
 const highlight = computed(() => Math.min(currentIndex.value, lyrics.value.length - 1))
+
+const idPrefix = computed(() => props.idPrefix)
 
 const offset = computed(() => {
   const lrcOffset = currentTrack.value?.offset || 0
@@ -181,7 +184,7 @@ const handleWheel = () => {
     () => {
       isWheeling.value = false
       const idx = Math.max(0, highlight.value)
-      const line = document.getElementById(`lyric${idx}`)
+      const line = document.getElementById(`${idPrefix.value}lyric${idx}`)
       line?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     },
     playing.value
@@ -216,7 +219,7 @@ watch(nTranslationMode, async () => {
   await nextTick()
   scheduleAnimation('translation')
   const idx = Math.max(0, highlight.value)
-  const el = document.getElementById(`lyric${idx}`)
+  const el = document.getElementById(`${idPrefix.value}lyric${idx}`)
   el?.scrollIntoView({ behavior: 'instant', block: 'center' })
 })
 
@@ -228,7 +231,7 @@ watch(
     if ((oldValue && value[2] !== oldValue[2]) || !oldValue) {
       if (!isWheeling.value) {
         const idx = Math.max(0, value[2])
-        const el = document.getElementById(`lyric${idx}`)
+        const el = document.getElementById(`${idPrefix.value}lyric${idx}`)
         el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
       }
 
@@ -275,7 +278,7 @@ watch(
 onMounted(async () => {
   scheduleAnimation()
   const idx = Math.max(0, highlight.value)
-  const el = document.getElementById(`lyric${idx}`)
+  const el = document.getElementById(`${idPrefix.value}lyric${idx}`)
   el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 })
 </script>
