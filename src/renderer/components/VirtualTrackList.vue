@@ -272,7 +272,8 @@ const playThisList = (index: number) => {
   const IDs = (props.allItems?.length ? props.allItems : items.value).map(
     (track) => track.id || track.songId
   )
-  const idx = items.value.findIndex((item) => (item.id || item.songId) === index)
+  const tracksList = props.allItems?.length ? props.allItems : items.value
+  const idx = tracksList.findIndex((item) => (item.id || item.songId) === index)
   replacePlaylist(props.type, id.value, IDs, idx)
 }
 

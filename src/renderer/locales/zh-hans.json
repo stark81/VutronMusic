@@ -482,7 +482,7 @@
     "misc": {
       "enableAmuseServer": "启用 6K Amuse Youtube Music 信息源兼容服务器",
       "enableDiscordRichPresence": "启用 Discord Rich Presence",
-      "FmStatusConnected": "已连接到 Lst.fm ({username})",
+      "FmStatusConnected": "已连接到 Last.fm ({username})",
       "connectToFM": "连接 Last.fm ",
       "disconnectToFM": "断开连接",
       "authToFM": "授权连接"

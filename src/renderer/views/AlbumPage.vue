@@ -172,14 +172,15 @@ import { useNormalStateStore } from '../store/state'
 import { usePlayerStore } from '../store/player'
 import { isAccountLoggedIn } from '../utils/auth'
 import { storeToRefs } from 'pinia'
+import { Track, Album } from '@/types/music'
 
 const show = ref(false)
 const album = ref<{ artist: { name: string; id: number }; [key: string]: any }>({
   artist: { name: '', id: 0 }
 })
-const tracks = ref<any[]>([])
+const tracks = ref<Track[]>([])
 const dynamicDetail = ref<{ [key: string]: any }>({})
-const moreAlbums = ref<any[]>([])
+const moreAlbums = ref<Album[]>([])
 const title = ref('')
 const subtitle = ref('')
 const albumMenu = ref()
