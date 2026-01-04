@@ -509,8 +509,9 @@
     },
     "playerTheme": {
       "title": "Player Theme",
-      "common": "Classic Mode",
-      "creative": "Creative Mode"
+      "Classic": "Classic Mode",
+      "Creative": "Creative Mode",
+      "Customize": "Customize Mode"
     },
     "amuseServer": {
       "running": "Server is running normally",

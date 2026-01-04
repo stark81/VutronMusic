@@ -4,7 +4,7 @@ import DefaultShortcuts from '../utils/shortcuts'
 import { playlistCategories } from '../utils/common'
 import cloneDeep from 'lodash/cloneDeep'
 import { useLocalMusicStore } from './localMusic'
-import { TranslationMode, TrackInfoOrder } from '@/types/music'
+import { TranslationMode, TrackInfoOrder, Appearance } from '@/types/music'
 
 type TextAlign = 'start' | 'center' | 'end'
 type BackgroundEffect = 'none' | 'true' | 'blur' | 'dynamic' | 'customize'
@@ -20,7 +20,7 @@ export const useSettingsStore = defineStore(
 
     const enabledPlaylistCategories = playlistCategories.filter((c) => c.enable).map((c) => c.name)
     const theme = reactive({
-      appearance: 'auto', // as 'auto' | 'dark' | 'light',
+      appearance: 'auto' as Appearance,
       colors: [
         { name: 'blue', color: 'rgba(51, 94, 234, 1)', selected: true },
         { name: 'purple', color: 'rgba(136, 84, 208, 1)', selected: false },
@@ -74,6 +74,8 @@ export const useSettingsStore = defineStore(
       textAlign: TextAlign
       useMask: boolean
       isZoom: boolean
+      lyricBackground: BackgroundEffect
+      savedBackground: StandardBackgroundEffect
       fontFamily: string
       customBackground: customizeBackground[]
       backgroundBlur: number
@@ -87,6 +89,8 @@ export const useSettingsStore = defineStore(
       textAlign: 'start',
       useMask: true,
       isZoom: true,
+      lyricBackground: 'true',
+      savedBackground: 'true',
       fontFamily: 'system-ui',
       customBackground: [
         { type: 'image', active: true, source: '' },
@@ -129,6 +133,28 @@ export const useSettingsStore = defineStore(
           senseIndex: 0,
           img: 'creative_snow'
         }
+      ]
+    })
+
+    const playerThemeNew = reactive({
+      background: [
+        { type: 'color', active: false, source: '', blur: 50, opacity: 60 },
+        { type: 'image', active: true, source: '', blur: 50, opacity: 60 }, // source为空时，显示player里的pic，且此时图片大小为140%，如果为字符串则显示对应路径图片,大小为100%
+        { type: 'video', active: false, source: '', blur: 50, opacity: 60 },
+        {
+          type: 'lottie',
+          active: false,
+          source: 'creative_snow',
+          blur: 0,
+          opacity: 100
+        },
+        { type: 'folder', active: false, source: '', blur: 50, opacity: 60 },
+        { type: 'api', active: false, source: '', blur: 50, opacity: 60 }
+      ],
+      saveBackground: 'image',
+      layer: [
+        { mode: 'normal', active: true, sense: 0, top: '0%', left: '0%' }, // sense 0 代表矩形封面，1 代表圆形滚动封面
+        { mode: 'creative', active: false, sense: 0, top: '30%', left: '30%' } // sense 0 代表歌词环游里的纯净雪域，1 代表歌词环游里的落日余晖，2 代表信笺歌词
       ]
     })
 
@@ -314,6 +340,10 @@ export const useSettingsStore = defineStore(
       window.mainApi?.send('setStoreSettings', { shortcuts: cloneDeep(toRaw(shortcuts.value)) })
     }
 
+    const deleteCacheTracks = async (clearAll: boolean = false): Promise<boolean> => {
+      return await window.mainApi?.invoke('clearCacheTracks', clearAll)
+    }
+
     const restoreDefaultShortcuts = () => {
       shortcuts.value = cloneDeep(DefaultShortcuts)
       window.mainApi?.send('setStoreSettings', { shortcuts: cloneDeep(toRaw(shortcuts.value)) })
@@ -333,6 +363,7 @@ export const useSettingsStore = defineStore(
         misc.lastfm.name = result.name
         misc.lastfm.enable = result.name !== ''
       })
+      deleteCacheTracks(false)
     })
 
     return {
@@ -341,6 +372,7 @@ export const useSettingsStore = defineStore(
       localMusic,
       tray,
       playerTheme,
+      playerThemeNew,
       enableGlobalShortcut,
       shortcuts,
       misc,
@@ -348,11 +380,16 @@ export const useSettingsStore = defineStore(
       autoCacheTrack,
       unblockNeteaseMusic,
       updateShortcut,
+      deleteCacheTracks,
       togglePlaylistCategory,
       restoreDefaultShortcuts,
       lastfmConnect,
       lastfmDisconnect
     }
   },
-  { persist: true }
+  {
+    persist: {
+      omit: ['playerThemeNew']
+    }
+  }
 )

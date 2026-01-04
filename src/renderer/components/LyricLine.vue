@@ -213,9 +213,6 @@ const buildScrollAnimation = (
  * @param type all在全新创建时使用，translation在切换翻译模式时使用
  */
 const createAnimations = async (type: 'all' | 'translation' = 'all') => {
-  // if (!isWordByWord.value) return
-
-  // await new Promise(requestAnimationFrame)
   const lst: lyricType[] = []
   if (type === 'all') {
     lst.push('lyric')
@@ -246,7 +243,7 @@ const createAnimations = async (type: 'all' | 'translation' = 'all') => {
 }
 
 /**
- * 高频驱动动画方法：由父组件调用，用于修改当前动画的 currentTime。
+ * 由父组件调用，用于修改当前动画的 currentTime。
  * @param timeMs 已经包含 offset 修正的歌曲绝对播放进度 (毫秒)。
  */
 const updateCurrentTime = (timeMs: number) => {

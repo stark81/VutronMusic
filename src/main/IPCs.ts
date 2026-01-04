@@ -172,11 +172,11 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
         const autoCache = (store.get('settings.autoCacheTrack.enable') as boolean) || false
         if (autoCache) {
           cacheWorker = createWorker('cacheTrack')
-          cacheWorker?.on('message', (msg) => {
+          cacheWorker?.on('message', async (msg) => {
             if (msg.type === 'task-done') {
               const track = msg.data
-              cache.set(CacheAPIs.LocalMusic, { newTracks: [track] })
-
+              await cache.set(CacheAPIs.LocalMusic, { newTracks: [track] })
+              await deleteExcessCache()
               const tracks = cache.get(CacheAPIs.LocalMusic, { sql: "type = 'online'" })
               const size = tracks.songs
                 .map((track: any) => track.size)
@@ -544,8 +544,8 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     db.deleteMany(Tables.Playlist, playlistIDs)
   })
 
-  ipcMain.handle('clearCacheTracks', async () => {
-    const result = deleteExcessCache(true)
+  ipcMain.handle('clearCacheTracks', async (event, clearAll: boolean) => {
+    const result = await deleteExcessCache(clearAll)
     return result
   })
 

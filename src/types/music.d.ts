@@ -118,3 +118,22 @@ export enum ProxyType {
 export interface MiscSettings {
   enableAmuseServer: boolean
 }
+
+type CommonName = '默认' | '旋转封面' | '信笺歌词' | '歌词环游'
+type LyricType = 'common' | 'creative' | 'customize'
+type LyricLayer = 'Normal' | 'Creative'
+export type Appearance = 'auto' | 'light' | 'dark'
+
+export interface CommonTheme {
+  name: CommonName
+  selected: boolean
+  type: LyricType
+  layer: LyricLayer
+  senseInfo: {
+    index: number
+    font: string
+    appearance: Appearance
+    background?: string
+    lyricPosition?: { top: string; left: string }
+  }
+}

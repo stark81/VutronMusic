@@ -7,18 +7,18 @@
   >
     <template #default>
       <div class="theme-container">
-        <div v-for="(theme, type) in playerTheme" :key="type" class="type-group">
+        <div v-for="(theme, type) in themes" :key="type" class="type-group">
           <div class="title">{{ $t(`settings.playerTheme.${type}`) }}</div>
           <div class="theme-list">
             <div
-              v-for="item in theme"
+              v-for="(item, index) in theme"
               :key="item.name"
               class="theme-item"
-              :class="{ selected: item.selected }"
-              @click="selectTheme(item)"
+              :class="{ selected: currentPath.mode === type && currentPath.index === index }"
+              @click="selectTheme(type, index)"
             >
               <div class="theme-img">
-                <img :src="getThemeImg(item)" loading="lazy" />
+                <img :src="getThemeImg(item.img)" loading="lazy" />
               </div>
               <div class="name">{{ item.name }}</div>
             </div>
@@ -32,25 +32,22 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
 import { useNormalStateStore } from '../store/state'
-import { useSettingsStore } from '../store/settings'
+import { usePlayerThemeStore } from '../store/playerTheme'
 import Modal from './BaseModal.vue'
 
 const stateStore = useNormalStateStore()
 const { setThemeModal } = storeToRefs(stateStore)
 
-const settingsStore = useSettingsStore()
-const { playerTheme } = storeToRefs(settingsStore)
+const playerTheme = usePlayerThemeStore()
+const { themes, currentPath } = storeToRefs(playerTheme)
 
-const selectTheme = (theme: any) => {
-  Object.entries(playerTheme.value).forEach(([, themes]) => {
-    themes.forEach((item: any) => {
-      item.selected = item.name === theme.name
-    })
-  })
+const getThemeImg = (name: string) => {
+  return new URL(`../assets/images/${name}.png`, import.meta.url).href
 }
 
-const getThemeImg = (theme: { img: string }) => {
-  return new URL(`../assets/images/${theme.img}.png`, import.meta.url).href
+const selectTheme = (type: 'Classic' | 'Creative' | 'Customize', index: number) => {
+  currentPath.value.mode = type
+  currentPath.value.index = index
 }
 
 const closeFn = () => {

@@ -631,7 +631,7 @@
                 >
               </div>
               <div class="right">
-                <button class="clear-cache" @click="deleteCacheTracks">{{
+                <button class="clear-cache" @click="clearCache">{{
                   $t('settings.autoCacheTrack.clearCache')
                 }}</button>
               </div>
@@ -1140,7 +1140,7 @@ import { VueDraggable } from 'vue-draggable-plus'
 // @ts-ignore
 import imageUrl from '../utils/settingImg.dataurl?raw'
 import { useRouter } from 'vue-router'
-import { serviceType, serviceName } from '@/types/music.d'
+import { serviceType, serviceName, Appearance } from '@/types/music.d'
 
 const router = useRouter()
 
@@ -1157,6 +1157,9 @@ const {
   enableGlobalShortcut,
   normalLyric
 } = storeToRefs(settingsStore)
+
+const { deleteCacheTracks } = settingsStore
+
 const { scanDir, enble, trackInfoOrder } = toRefs(localMusic.value)
 const {
   showTrackTimeOrID,
@@ -1547,8 +1550,8 @@ const getVersion = () => {
   })
 }
 
-const deleteCacheTracks = () => {
-  window.mainApi?.invoke('clearCacheTracks').then((res: boolean) => {
+const clearCache = () => {
+  deleteCacheTracks(true).then((res) => {
     if (res) {
       showToast('清除缓存成功')
       getCacheTracksInfo()
@@ -1556,7 +1559,7 @@ const deleteCacheTracks = () => {
   })
 }
 
-const updateAppearance = (mode: string) => {
+const updateAppearance = (mode: Appearance) => {
   appearance.value = mode
   Utils.changeAppearance(mode)
 }

@@ -1,43 +1,21 @@
 <template>
-  <div class="lottie-page">
-    <Vue3Lottie
-      v-if="currentTheme.name === '歌词环游'"
-      ref="lottieContainer"
-      class="lottie-container"
-      :animation-data="lottieList[currentTheme.senseIndex]"
-      :auto-play="false"
-      height="100%"
-      width="100%"
-      renderer="canvas"
-      @on-animation-loaded="playLottie"
-    />
-    <div class="lt-background" data-theme="auto"></div>
-    <div class="context-container" data-theme="dark">
-      <div class="buttons-icons">
-        <button-icon class="player-button theme-button" @click="setThemeModal = !setThemeModal">
-          <SvgIcon icon-class="theme" />
-        </button-icon>
-        <button-icon class="player-button close-button" @click="showLyrics = !showLyrics">
-          <SvgIcon icon-class="arrow-down" />
-        </button-icon>
-        <button-icon
-          title="换场景"
-          class="player-button sense-button"
-          @click="showSenseSelector = true"
-        >
-          <SvgIcon icon-class="sense" />
-        </button-icon>
-        <button-icon
-          class="player-button lyric-button-1"
-          :title="$t('contextMenu.showLyric')"
-          @click="switchCurrentTab"
-        >
-          <SvgIcon :icon-class="getIcon()" />
-        </button-icon>
-      </div>
-      <div class="title-name" :class="{ right: currentTheme.senseIndex % 2 === 1 }">
-        <span class="title">{{ currentTrack?.name }}</span>
-        <span>&nbsp;-&nbsp;{{ artist.name }}</span>
+  <div
+    class="creative-page"
+    :class="{ letter: activeTheme.theme.activeLayout === 'Letter' }"
+    :data-theme="activeBG.color"
+  >
+    <div class="context-container" :class="{ 'is-full': show !== 'pickLyric' }">
+      <div class="title-name" :style="titleStyle">
+        <div v-if="activeTheme.theme.activeLayout === 'Letter'" class="fan-container">
+          <img
+            v-for="track in selectedTracks"
+            :key="track.name"
+            :src="getImg(track)"
+            :alt="track.name"
+            loading="lazy"
+          />
+        </div>
+        <span class="title">{{ currentTrack?.name }}&nbsp;-&nbsp;{{ artist.name }}</span>
       </div>
       <div class="play-bar">
         <div class="player-progress-bar">
@@ -142,17 +120,11 @@
           ></div>
         </div>
       </div>
-      <div
-        v-if="tabs[index] === 'pickLyric'"
-        ref="pickLyricRef"
-        class="pick-lyric"
-        :class="{ right: currentTheme.senseIndex % 2 === 1 }"
-        :style="{ fontFamily: currentTheme.font }"
-      />
+      <div v-if="show === 'pickLyric'" ref="pickLyricRef" class="pick-lyric" :style="style" />
       <div v-else class="full-lyric-container">
         <div class="lyric-container-1" @mouseenter="hover = true" @mouseleave="hover = false">
           <LyricPage
-            v-if="tabs[index] === 'fullLyric'"
+            v-if="show === 'fullLyric'"
             text-align="center"
             unplay-color="var(--color-full-text-unplay)"
             :container-width="'90%'"
@@ -160,7 +132,7 @@
             :hover="hover"
           />
           <Comment
-            v-else-if="tabs[index] === 'comment'"
+            v-else-if="show === 'comment'"
             :id="currentTrack!.id"
             type="music"
             padding-right="0vh"
@@ -169,38 +141,17 @@
         </div>
       </div>
     </div>
-    <Transition name="slide-up">
-      <div v-if="showSenseSelector" class="sense-modal" @click="showSenseSelector = false">
-        <div class="sense-content" @click.stop>
-          <div class="sense-title">切换场景</div>
-          <div class="sense-list">
-            <div
-              v-for="(sense, idx) in senses"
-              :key="idx"
-              :index="idx"
-              class="sense-item"
-              :class="{ active: idx === currentTheme.senseIndex }"
-              @click="updateSense(idx)"
-            >
-              <div class="sense-active">使用中</div>
-              <img :src="senseImg(idx)" loading="lazy" />
-              <div>{{ sense.name }}</div></div
-            ></div
-          >
-        </div>
-      </div>
-    </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch, onBeforeUnmount, computed, onMounted, nextTick, inject } from 'vue'
-import { Vue3Lottie } from 'vue3-lottie'
 import { useDataStore } from '../store/data'
 import { usePlayerStore } from '../store/player'
 import { useSettingsStore } from '../store/settings'
 import { useStreamMusicStore } from '../store/streamingMusic'
-import { useNormalStateStore } from '../store/state'
+import { useLocalMusicStore } from '../store/localMusic'
+import { usePlayerThemeStore } from '../store/playerTheme'
 import { storeToRefs } from 'pinia'
 import { gsap } from 'gsap'
 import VueSlider from './VueSlider.vue'
@@ -209,8 +160,13 @@ import SvgIcon from './SvgIcon.vue'
 import LyricPage from './LyricPage.vue'
 import Comment from './CommentPage.vue'
 import ContextMenu from './ContextMenu.vue'
-import snow from '../assets/lottie/snow.json'
-import sunshine from '../assets/lottie/sunshine.json'
+import { Track } from '@/types/music'
+import { getTrackDetail } from '../api/track'
+import { AniName } from '@/types/theme'
+
+const props = withDefaults(defineProps<{ show: 'fullLyric' | 'pickLyric' | 'comment' }>(), {
+  show: 'fullLyric'
+})
 
 const playerStore = usePlayerStore()
 const {
@@ -225,58 +181,34 @@ const {
   isPersonalFM,
   isLiked,
   shuffle,
+  list,
+  _playNextList,
+  currentTrackIndex,
   volume
 } = storeToRefs(playerStore)
 
 const { playPrev, playOrPause, _playNextTrack, switchRepeatMode, moveToFMTrash } = playerStore
 
 const settingsStore = useSettingsStore()
-const { playerTheme, general } = storeToRefs(settingsStore)
+const { general } = storeToRefs(settingsStore)
+
+const localMusicStore = useLocalMusicStore()
+const { getALocalTrack } = localMusicStore
+
+const streamMusicStore = useStreamMusicStore()
+const { likeAStreamTrack, getAStreamTrack } = streamMusicStore
+
+const playerTheme = usePlayerThemeStore()
+const { activeTheme, activeBG, senses } = storeToRefs(playerTheme)
 
 const { likeATrack } = useDataStore()
-const { likeAStreamTrack } = useStreamMusicStore()
 
-const stateStore = useNormalStateStore()
-const { showLyrics, setThemeModal } = storeToRefs(stateStore)
-
-const lottieContainer = ref()
-const index = ref(0)
 const hover = ref(false)
-const showSenseSelector = ref(false)
 const pickLyricRef = ref<HTMLElement>()
 const playPageContextMenu = inject('playPageContextMenu', ref<InstanceType<typeof ContextMenu>>())
-const senses = [
-  { name: '纯净雪域', img: 'creative_snow' },
-  { name: '落日余晖', img: 'sunshine' }
-]
+const selectedTracks = ref<Track[]>([])
 
 let tl: gsap.core.Timeline | null = null
-
-const tabs = computed(() => {
-  const result = ['pickLyric', 'fullLyric']
-  if (currentTrack.value?.matched) {
-    result.push('comment')
-  }
-  return result
-})
-
-const switchCurrentTab = () => {
-  index.value = (index.value + 1) % tabs.value.length
-}
-
-const senseImg = (index: number) => {
-  return new URL(`../assets/images/${senses[index].img}.png`, import.meta.url).href
-}
-
-const getIcon = () => {
-  if (tabs.value[index.value] === 'pickLyric') {
-    return 'lyric-half'
-  } else if (tabs.value[index.value] === 'fullLyric') {
-    return 'lyric'
-  } else {
-    return 'comment'
-  }
-}
 
 const pickedLyric = computed(() => {
   const result = [] as string[][]
@@ -294,6 +226,56 @@ const pickedLyric = computed(() => {
     }
   })
   return result
+})
+
+const senseMap = {
+  0: 'left',
+  1: 'center',
+  2: 'right'
+}
+
+const titleStyle = computed(() => {
+  if (activeTheme.value.theme.activeLayout === 'Creative') {
+    const sense = senses.value[activeTheme.value.theme.activeLayout]
+    const pos = sense.region
+    const result: Record<string, any> = { left: pos.left, right: pos.right }
+    result.textAlign = senseMap[sense.active]
+    return result
+  }
+  return { left: '15vw', right: '15vw', top: '10vh', bottom: '55vh', textAlign: 'center' }
+})
+
+const style = computed(() => {
+  if (activeTheme.value.theme.activeLayout === 'Creative') {
+    const sense = senses.value[activeTheme.value.theme.activeLayout]
+    const pos = sense.region
+    const result: Record<string, any> = { ...pos }
+    result.textAlign = senseMap[sense.active]
+    result.fontFamily = sense.font
+    return result
+  }
+  const sense = senses.value[activeTheme.value.theme.activeLayout]
+  return {
+    fontFamily: sense.font,
+    textAlign: 'center',
+    left: '15vw',
+    right: '15vw',
+    top: '55vh',
+    bottom: '20vh'
+  }
+})
+
+const selectedIdx = computed(() => {
+  const pre = list.value.slice(-2)
+  const next = list.value.slice(0, 2)
+
+  const index = currentTrackIndex.value
+  const list1 = list.value.slice(0, index + 1)
+  const list2 = list.value.slice(index + 1)
+
+  const result = pre.concat(list1).concat(_playNextList.value).concat(list2).concat(next)
+  const idx = currentTrackIndex.value + 2
+  return result.slice(idx - 2, idx + 3)
 })
 
 const splitWithSpaces = (str: string) => {
@@ -329,27 +311,6 @@ const splitWithSpaces = (str: string) => {
   return result
 }
 
-const currentTheme = computed(() => playerTheme.value.creative.find((theme) => theme.selected)!)
-const lottieList = [snow, sunshine]
-
-const updateSense = async (idx: number) => {
-  currentTheme.value.senseIndex = idx
-  tl?.kill()
-  await nextTick()
-  if (tabs.value[index.value] === 'pickLyric' && playing.value) {
-    lottieContainer.value?.play()
-    clearLyricElements()
-    buildLyricElements()
-    enterAnimation()
-    if (playing.value) {
-      const currentTime = (seek.value + 1 - currentLyric.value.start) / playbackRate.value
-      tl?.play(currentTime)
-    }
-  } else {
-    clearLyricElements()
-  }
-}
-
 const artist = computed(() => {
   return currentTrack.value?.artists ? currentTrack.value.artists[0] : currentTrack.value?.ar[0]
 })
@@ -379,6 +340,213 @@ const heartDisabled = computed(() => {
   return currentTrack.value?.type === 'local' && !currentTrack.value?.matched
 })
 
+/**
+ * 判断当句歌词是否存在文字进入/退出动画
+ */
+const shouldAni = computed(() => {
+  const position = 'left' as 'left' | 'center' | 'right'
+  const length = pickedLyric.value.flat().length
+  if (position === 'left') {
+    // 0.7s动画进入时间，0.1 * (length - 1)是这些字依次间隔0.1s
+    // 0.5s是动画退场时间，0.25s是这些字在着个时间段内随机退场完成
+    const duration = 0.7 + 0.1 * (length - 1) + 0.5 + 0.25 // + 0.35
+    return currentLyric.value.time > duration
+  } else if (position === 'center') {
+    //
+    return true
+  } else {
+    // 0.5s动画进入时间，0.35s是这些字在这个时间段内随机进入完成
+    // 0.5s是动画退场时间，0.5 / (length - 1)是这些字依次间隔退场
+    const duration = 0.5 + 0.35 + 0.5 + 0.5 / (length - 1) // + 0.35
+    return currentLyric.value.time > duration
+  }
+})
+
+const animations = computed(() => ({
+  // 0.75s
+  splitAndMerge: [
+    {
+      opacity: 0,
+      x: (i: number) => {
+        const totalChars = pickedLyric.value.flat().length
+        const midIndex = Math.floor(totalChars / 2)
+        return i < midIndex ? -150 : 150
+      },
+      y: 0,
+      scale: 0.8,
+      filter: 'blur(10px)',
+      transformPerspective: 600
+    },
+    {
+      opacity: 1,
+      x: 0,
+      y: 0,
+      scale: 1,
+      filter: 'blur(0px)',
+      duration: 0.8,
+      ease: 'power3.out',
+      stagger: {
+        each: 0.07,
+        from: 'edges'
+      }
+    },
+    {
+      opacity: 0,
+      z: -200,
+      scale: 0.5,
+      rotateX: 30,
+      rotateY: 60,
+      filter: 'blur(10px)',
+      duration: 0.5,
+      ease: 'power2.in',
+      stagger: { amount: 0.25, from: 'random' }
+    }
+  ],
+  // 0.75s
+  hingeFlyIn: [
+    {
+      opacity: 0,
+      x: 250,
+      y: 20,
+      rotateX: 90,
+      rotateY: 45,
+      filter: 'blur(0px)',
+      transformPerspective: 400
+    },
+    {
+      opacity: 1,
+      x: 0,
+      y: 0,
+      rotateX: 0,
+      rotateY: 0,
+      filter: 'blur(0px)',
+      duration: 0.7,
+      ease: 'power2.out',
+      stagger: 0.1
+    },
+    {
+      opacity: 0,
+      filter: `blur(15px)`,
+      y: -20,
+      scale: 0.8,
+      ease: 'power2.out',
+      duration: 0.5,
+      stagger: { amount: 0.25, from: 'random' }
+    }
+  ],
+  // 0.75
+  focusRise: [
+    {
+      opacity: 0,
+      y: 100,
+      scale: 0.9,
+      filter: 'blur(10px)',
+      transformPerspective: 500
+    },
+    {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      filter: 'blur(0px)',
+      duration: 0.7,
+      ease: 'back.out(1.7)',
+      stagger: 0.05
+    },
+    {
+      opacity: 0,
+      y: -80,
+      scaleY: 1.2,
+      filter: 'blur(20px)',
+      duration: 0.5,
+      ease: 'power3.in',
+      stagger: { amount: 0.25, from: 'center' }
+    }
+  ],
+  // 1s
+  scatterThrow: [
+    {
+      opacity: 0,
+      x: -250,
+      y: 10,
+      filter: 'blur(15px)',
+      transformPerspective: 400
+    },
+    {
+      opacity: 1,
+      x: 0,
+      y: 0,
+      filter: 'blur(0px)',
+      duration: 0.5,
+      stagger: { amount: 0.35, from: 'random' }
+    },
+    {
+      opacity: 0,
+      filter: `blur(0px)`,
+      x: 300,
+      y: -150,
+      rotateX: -45,
+      rotateY: 30,
+      ease: 'power2.in',
+      transformPerspective: 200,
+      duration: 0.5,
+      stagger: 0.5 / (pickedLyric.value.flat().length - 1)
+    }
+  ],
+  // 0.75s
+  flipReveal: [
+    {
+      opacity: 0,
+      rotateY: -90,
+      x: -50,
+      transformPerspective: 800,
+      transformOrigin: '50% 50% -100px'
+    },
+    {
+      opacity: 1,
+      rotateY: 0,
+      x: 0,
+      duration: 0.9,
+      ease: 'power3.out',
+      stagger: 0.1
+    },
+    {
+      opacity: 0,
+      rotateX: 45,
+      y: 50,
+      filter: 'blur(10px)',
+      duration: 0.5,
+      ease: 'power2.in',
+      stagger: { amount: 0.25, from: 'random' }
+    }
+  ],
+  // 0.75
+  waveDrift: [
+    {
+      opacity: 0,
+      y: 30,
+      filter: 'blur(8px)'
+    },
+    {
+      opacity: 1,
+      y: 0,
+      filter: 'blur(0px)',
+      duration: 0.9,
+      ease: 'sine.out',
+      stagger: {
+        each: 0.06,
+        from: 'start'
+      }
+    },
+    {
+      opacity: 0,
+      y: -20,
+      filter: 'blur(12px)',
+      duration: 0.75,
+      ease: 'sine.in'
+    }
+  ]
+}))
+
 const likeTrack = () => {
   if (currentTrack.value?.type === 'stream') {
     const op = currentTrack.value.starred ? 'unstar' : 'star'
@@ -393,45 +561,59 @@ const showContextMenu = (e: MouseEvent): void => {
 }
 
 const splitLine = (length: number) => {
-  if (length <= 5) {
-    return [length]
-  } else if (length < 10) {
-    const rate = (-2 / 15) * length + 1.5
-    const secondLength = Math.random() < rate ? 2 : 3
-    return [length - secondLength, length]
-  } else if (length < 38) {
-    const firstRatio = Math.random() < 0.6 ? 0.5 : 0.4
-    const firstLength = Math.floor(length * firstRatio)
-    const rate = (-4 / 300) * length + 254 / 300
-    const secondRatio = Math.random() < rate ? 0.2 : 0.3
-    const secondLength = Math.max(2, Math.floor(length * secondRatio))
-    return [firstLength, firstLength + secondLength, length]
-  } else {
-    const n = Math.ceil(length / 19) + 1
-    const minVal = 1 / (n + 1)
+  switch (activeTheme.value.theme.activeLayout) {
+    case 'Creative': {
+      if (length <= 5) {
+        return [length]
+      } else if (length < 10) {
+        const rate = (-2 / 15) * length + 1.5
+        const secondLength = Math.random() < rate ? 2 : 3
+        return [length - secondLength, length]
+      } else if (length < 38) {
+        const firstRatio = Math.random() < 0.6 ? 0.5 : 0.4
+        const firstLength = Math.floor(length * firstRatio)
+        const rate = (-4 / 300) * length + 254 / 300
+        const secondRatio = Math.random() < rate ? 0.2 : 0.3
+        const secondLength = Math.max(2, Math.floor(length * secondRatio))
+        return [firstLength, firstLength + secondLength, length]
+      } else {
+        const n = Math.ceil(length / 19) + 1
+        const minVal = 1 / (n + 1)
 
-    const midCount = n - 2
+        const midCount = n - 2
 
-    const maxMid = (1 - 2 * minVal) / midCount
-    const midVal = minVal + Math.random() * (maxMid - minVal) * 0.8
+        const maxMid = (1 - 2 * minVal) / midCount
+        const midVal = minVal + Math.random() * (maxMid - minVal) * 0.8
 
-    const endVal = (1 - midCount * midVal) / 2
+        const endVal = (1 - midCount * midVal) / 2
 
-    const original = new Array(n)
-    original[0] = endVal
-    original[n - 1] = endVal
-    for (let i = 1; i < n - 1; i++) {
-      original[i] = midVal
+        const original = new Array(n)
+        original[0] = endVal
+        original[n - 1] = endVal
+        for (let i = 1; i < n - 1; i++) {
+          original[i] = midVal
+        }
+
+        const cumulative = [] as number[]
+        let sum = 0
+        for (let i = 0; i < n; i++) {
+          sum += original[i]
+          cumulative.push((i === n - 1 ? 1.0 : sum) * length)
+        }
+
+        return cumulative
+      }
     }
-
-    const cumulative = [] as number[]
-    let sum = 0
-    for (let i = 0; i < n; i++) {
-      sum += original[i]
-      cumulative.push((i === n - 1 ? 1.0 : sum) * length)
+    case 'Letter': {
+      if (length <= 6) {
+        return [length]
+      } else {
+        const numb = Math.ceil(length / 2)
+        return [numb, length]
+      }
     }
-
-    return cumulative
+    default:
+      return []
   }
 }
 
@@ -459,15 +641,23 @@ const buildLyricElements = () => {
   pickLyricRef.value?.appendChild(fragment)
 }
 
+/**
+ * 创建动画。需要定义三种动画：
+ * 1. 依次进入、随机同时退出：每个字的动画时长为0.7s，依次间隔0.1s开始，所需时间为0.7 + 0.1 * (wordLength - 1)，退出的动画时长为0.5s，随机间隔时间为0.25s；
+ * 2. 随机同时进入，依次退出：每个字的动画时长为0.5s，随机间隔时间为0.35s，所需的总时间为0.5 + 0.35 = 0.85s，退出动画时长为0.5s，依次间隔0.5 / wordLength开始退出；
+ * 3. 从上到下再回到中间，然后透明度降到0
+ *
+ * 所以，在创建动画的时候需要：
+ * 1. 在不同场景的动画下，本句歌词持续时间是否大于动画进入+退出的时长，如果不大于的话则直接不创建，大于才创建；
+ * 2. 播放时直接把(当前播放进度 - 本句歌词开始时间)传入
+ */
 const enterAnimation = () => {
   if (tl) {
     tl.kill()
     tl = null
   }
-  const spanLength = pickLyricRef.value?.querySelectorAll('.ani-char').length || 0
 
-  const duration0 = currentLyric.value.time / playbackRate.value - 0.5 - spanLength * 0.15
-  if (duration0 < 0.45 || tabs.value[index.value] !== 'pickLyric') {
+  if (!shouldAni.value || props.show !== 'pickLyric') {
     pickLyricRef.value?.querySelectorAll('.ani-char').forEach((el) => {
       // @ts-ignore
       el.style.opacity = '1'
@@ -475,85 +665,26 @@ const enterAnimation = () => {
     return
   }
 
-  const duration =
-    currentTheme.value.senseIndex % 2 === 0
-      ? Math.min(currentLyric.value.time / playbackRate.value - 0.7 - spanLength * 0.15, 0.7)
-      : 0.35
+  if (activeTheme.value.theme.activeLayout === 'Classic') return
+
   tl = gsap.timeline({ paused: true })
 
-  const enterAns = {
-    snow: [
-      {
-        opacity: 0,
-        x: 250,
-        y: 10,
-        rotateX: 90,
-        rotateY: 45,
-        filter: 'blur(0px)',
-        transformPerspective: 400
-      },
-      {
-        opacity: 1,
-        x: 0,
-        y: 0,
-        rotateX: 0,
-        rotateY: 0,
-        filter: 'blur(0px)',
-        duration,
-        ease: 'power2.out',
-        stagger: 0.1
-      },
-      {
-        opacity: 0,
-        filter: `blur(15px)`,
-        y: -20,
-        scale: 0.8,
-        ease: 'power2.out',
-        duration: 0.5,
-        stagger: { amount: 0.25, from: 'random' }
-      }
-    ],
-    sunshine: [
-      {
-        opacity: 0,
-        x: -250,
-        y: 10,
-        filter: 'blur(15px)',
-        transformPerspective: 400
-      },
-      {
-        opacity: 1,
-        x: 0,
-        y: 0,
-        filter: 'blur(0px)',
-        duration: 0.5,
-        stagger: { amount: 0.35, from: 'random' }
-      },
-      {
-        opacity: 0,
-        filter: `blur(0px)`,
-        x: 300,
-        y: -80,
-        rotateX: -30,
-        rotateY: 30,
-        ease: 'power2.in',
-        transformPerspective: 200,
-        duration: 0.5,
-        stagger: 0.5 / spanLength
-      }
-    ]
-  }
+  const sense = senses.value[activeTheme.value.theme.activeLayout]
 
-  const aniType = currentTheme.value.senseIndex % 2 === 0 ? 'snow' : 'sunshine'
+  const enterAns = animations.value
+  const aniType = sense.animation[sense.active] as AniName
   // @ts-ignore
   tl.set('.ani-char', enterAns[aniType][0])
   const delay =
-    currentTheme.value.senseIndex % 2 === 0
-      ? currentLyric.value.time / playbackRate.value - 0.75
-      : currentLyric.value.time / playbackRate.value - 1
+    aniType === 'scatterThrow'
+      ? currentLyric.value.time / playbackRate.value - 1.05
+      : currentLyric.value.time / playbackRate.value - 0.8
 
   // @ts-ignore
   tl.to('.ani-char', enterAns[aniType][1]).to('.ani-char', enterAns[aniType][2], delay)
+
+  const currentTime = Math.max((seek.value - currentLyric.value.start) / playbackRate.value, 0)
+  tl.time(currentTime)
 }
 
 const formatTime = (time: number) => {
@@ -563,20 +694,58 @@ const formatTime = (time: number) => {
   return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
 }
 
+const loadTracks = async () => {
+  const tracks: Track[] = []
+  const onlineIDs: number[] = []
+
+  for (const id of selectedIdx.value) {
+    let track = getALocalTrack({ id })
+    if (track) {
+      tracks.push(track)
+      continue
+    }
+    track = getAStreamTrack(id)
+    if (track) {
+      tracks.push(track)
+      continue
+    }
+    onlineIDs.push(id)
+  }
+
+  if (onlineIDs.length) {
+    const data = await getTrackDetail(onlineIDs.join(','))
+    tracks.push(...data.songs)
+  }
+
+  selectedTracks.value = selectedIdx.value.map((id) => tracks.find((track) => track.id === id)!)
+}
+
+const getImg = (track: Track) => {
+  let url: string
+  if (track.type === 'online') {
+    url = track.al?.picUrl || track.album?.picUrl || track.picUrl
+    if (url && url.startsWith('http')) url = url.replace('http:', 'https:')
+    url += '?param=256y256'
+    return url
+  } else if (track.type === 'stream') {
+    url = track.al?.picUrl || track.album?.picUrl || track.picUrl
+    return url
+  } else {
+    url = `atom://local-asset?type=pic&id=${track.id}&size=256`
+    return url
+  }
+}
+
 watch(
-  () => tabs.value[index.value],
+  () => props.show,
   async (value) => {
-    lottieContainer.value?.pause()
     tl?.kill()
     await nextTick()
-    if (value === 'pickLyric' && playing.value) {
-      lottieContainer.value?.play()
-      clearLyricElements()
+    if (value === 'pickLyric') {
       buildLyricElements()
       enterAnimation()
       if (playing.value) {
-        const currentTime = (seek.value + 1 - currentLyric.value.start) / playbackRate.value
-        tl?.play(currentTime)
+        tl?.play()
       }
     } else {
       clearLyricElements()
@@ -585,7 +754,7 @@ watch(
 )
 
 watch(playing, (value) => {
-  if (tabs.value[index.value] !== 'pickLyric') {
+  if (props.show !== 'pickLyric') {
     if (tl) {
       tl.kill()
       tl = null
@@ -593,22 +762,44 @@ watch(playing, (value) => {
     return
   }
   if (value) {
-    lottieContainer.value?.play()
     tl?.play()
   } else {
-    lottieContainer.value?.pause()
     tl?.pause()
   }
 })
 
+watch(
+  () => [
+    activeTheme.value.theme.activeLayout,
+    senses.value[activeTheme.value.theme.activeLayout].active
+  ],
+  async (value, oldValue) => {
+    if (value[0] !== oldValue[0]) return
+    if (props.show !== 'pickLyric') {
+      tl?.kill()
+      tl = null
+      return
+    }
+    clearLyricElements()
+    if (pickedLyric.value.length > 0) {
+      await nextTick()
+      buildLyricElements()
+      enterAnimation()
+      if (playing.value) {
+        tl?.play()
+      }
+    }
+  }
+)
+
 watch(pickedLyric, async (value) => {
   clearLyricElements()
-  if (tabs.value[index.value] !== 'pickLyric') {
+  if (props.show !== 'pickLyric') {
     tl?.kill()
     tl = null
     return
   }
-  if (value.length > 0 && playing.value) {
+  if (value.length > 0) {
     await nextTick()
     buildLyricElements()
     enterAnimation()
@@ -618,17 +809,22 @@ watch(pickedLyric, async (value) => {
   }
 })
 
-const playLottie = () => {
-  if (playing.value && tabs.value[index.value] === 'pickLyric') lottieContainer.value?.play()
+watch(
+  () => [currentTrack.value, activeTheme.value.theme.activeLayout],
+  async (value) => {
+    if (value[1] === 'Letter') {
+      loadTracks()
+    }
+  }
+)
+
+onMounted(async () => {
+  loadTracks()
+  buildLyricElements()
   enterAnimation()
   if (playing.value) {
-    const currentTime = (seek.value + 1 - currentLyric.value.start) / playbackRate.value
-    tl?.play(currentTime)
+    tl?.play()
   }
-}
-
-onMounted(() => {
-  buildLyricElements()
 })
 
 onBeforeUnmount(() => {
@@ -636,342 +832,329 @@ onBeforeUnmount(() => {
     tl.kill()
     tl = null
   }
-  lottieContainer.value?.stop()
-  setTimeout(() => {
-    lottieContainer.value?.destroy()
-  }, 390)
 })
 </script>
 
 <style scoped lang="scss">
-.lottie-page {
+@use 'sass:math';
+$count: 5;
+$step: 10deg;
+$mid: math.ceil(math.div($count, 2));
+
+.creative-page {
   position: fixed;
   top: 0;
   left: 0;
   bottom: 0;
   right: 0;
   z-index: 100;
-  color: #fff;
+  color: var(--color-text);
   overflow: hidden;
   display: flex;
-  background: var(--color-body-bg);
-}
 
-:deep(.lottie-container) {
-  will-change: transform;
-  z-index: -1;
-  position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  right: 0;
-  width: 100%;
-  height: 100%;
+  .context-container {
+    height: 100%;
+    width: 100%;
+    position: relative;
+    z-index: 11;
+  }
 
-  * {
+  .full-lyric-container {
+    backdrop-filter: blur(30px) saturate(130%);
+    height: 100%;
+    width: 100%;
+    background-color: rgba(0, 0, 0, 0.2);
+    position: absolute;
+    z-index: 10;
+  }
+
+  .lyric-container-1 {
+    width: 60vw;
+    margin: 0 auto;
+    height: 100vh;
+    padding-bottom: 10px;
+    box-sizing: border-box;
+  }
+
+  .title-name {
+    position: fixed;
+    top: 28px;
+    font-weight: 600;
+    line-height: 50px;
+
+    span {
+      font-size: 26px;
+    }
+    .title {
+      display: block;
+      font-size: 30px;
+    }
+  }
+
+  .title-name.right {
+    text-align: right;
+  }
+
+  .pick-lyric {
+    position: absolute;
+    letter-spacing: 1px;
+  }
+
+  :deep(.lyric-item) {
+    container-type: inline-size;
+    font-size: 3.4cqw;
+    user-select: none;
     will-change: transform;
   }
-}
 
-.context-container {
-  height: 100%;
-  width: 100%;
-  position: relative;
-  z-index: 11;
-}
-
-.lt-background {
-  position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  right: 0;
-  background-color: transparent;
-  z-index: -1;
-  transition: background-color 0.3s;
-}
-
-[data-theme='dark'] .lt-background {
-  background-color: rgba(20, 20, 20, 0.25);
-}
-
-.full-lyric-container {
-  backdrop-filter: blur(30px); // saturate(130%)
-  height: 100%;
-  width: 100%;
-  background-color: rgba(0, 0, 0, 0.2);
-  position: absolute;
-  z-index: 10;
-}
-
-.lyric-container-1 {
-  width: 60vw;
-  margin: 0 auto;
-  height: 100vh;
-  padding-bottom: 10px;
-  box-sizing: border-box;
-}
-
-.title-name {
-  position: fixed;
-  top: 28px;
-  left: 15vw;
-  right: 15vw;
-  font-weight: 600;
-  line-height: 50px;
-
-  span {
-    font-size: 26px;
-  }
-  .title {
-    font-size: 30px;
-  }
-}
-
-.title-name.right {
-  text-align: right;
-}
-
-.pick-lyric {
-  position: absolute;
-  top: 15vh;
-  left: 15vw;
-  right: 15vw;
-  letter-spacing: 1px;
-}
-
-.pick-lyric.right {
-  text-align: right;
-}
-
-:deep(.lyric-item) {
-  container-type: inline-size;
-  height: 10%;
-  max-width: 70vw;
-  font-size: 3.5cqw;
-  will-change: transform;
-}
-
-:deep(.ani-char) {
-  opacity: 0;
-  display: inline-block;
-  white-space: pre;
-  will-change: transform;
-}
-
-:deep(.lyric-item *) {
-  will-change: transform;
-}
-
-.theme-button {
-  position: fixed;
-  top: 24px;
-  right: 74px;
-}
-
-.close-button {
-  position: fixed;
-  top: 24px;
-  right: 24px;
-}
-
-.sense-button {
-  position: fixed;
-  bottom: 124px;
-  right: 24px;
-}
-
-.lyric-button-1 {
-  position: fixed;
-  bottom: 60px;
-  right: 24px;
-}
-
-.player-button {
-  z-index: 300;
-  border-radius: 0.75rem;
-  height: 44px;
-  width: 44px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  // opacity: 0.88;
-  transition: 0.2s;
-  -webkit-app-region: no-drag;
-
-  .svg-icon {
-    color: var(--color-text);
-    height: 22px;
-    width: 22px;
+  :deep(.ani-char) {
+    opacity: 0;
+    display: inline-block;
+    white-space: pre;
+    will-change: transform;
   }
 
-  &:hover {
-    background: var(--color-secondary-bg-for-transparent);
-    opacity: 0.88;
-  }
-}
-
-.play-bar {
-  display: flex;
-  justify-content: space-between;
-  width: 100%;
-  box-sizing: border-box;
-  height: 50px;
-  position: absolute;
-  bottom: 10px;
-  padding: 0 24px;
-}
-
-.button-icon.disabled {
-  cursor: default;
-  opacity: 0.48;
-  &:hover {
-    background: none;
-  }
-  &:active {
-    transform: unset;
-  }
-}
-.player-progress-bar {
-  width: 22vw;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-
-  .slider {
-    flex: 1;
-    padding: 0 10px;
-    contain: content;
+  :deep(.lyric-item *) {
+    will-change: transform;
   }
 
-  .time {
-    font-size: 15px;
-    font-weight: 600;
-    width: 34px;
-    contain: content;
-  }
-}
-
-.player-media-control {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-
-  .svg-icon {
-    height: 20px;
-    width: 20px;
-    opacity: 0.88;
+  .play-bar {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    box-sizing: border-box;
+    height: 50px;
+    position: absolute;
+    bottom: 10px;
+    padding: 0 24px;
   }
 
-  .middle {
+  .button-icon.disabled {
+    cursor: default;
+    opacity: 0.48;
+    &:hover {
+      background: none;
+    }
+    &:active {
+      transform: unset;
+    }
+  }
+  .player-progress-bar {
+    width: 22vw;
     display: flex;
     align-items: center;
+    justify-content: space-between;
 
-    button {
-      margin: 0 0.6vw;
-
-      &:hover {
-        background: var(--color-secondary-bg-for-transparent);
-        opacity: 0.88;
-      }
+    .slider {
+      flex: 1;
+      padding: 0 10px;
+      contain: content;
     }
 
-    button#play .svg-icon {
-      height: 30px;
-      width: 30px;
-      padding: 2px;
+    .time {
+      font-size: 15px;
+      font-weight: 600;
+      width: 34px;
+      contain: content;
     }
+  }
+
+  .player-media-control {
+    display: flex;
+    justify-content: center;
+    align-items: center;
 
     .svg-icon {
-      height: 22px;
-      width: 22px;
+      height: 20px;
+      width: 20px;
+      opacity: 0.88;
+    }
+
+    .middle {
+      display: flex;
+      align-items: center;
+
+      button {
+        margin: 0 0.6vw;
+
+        &:hover {
+          background: var(--color-secondary-bg-for-transparent);
+          opacity: 0.88;
+        }
+      }
+
+      button#play .svg-icon {
+        height: 30px;
+        width: 30px;
+        padding: 2px;
+      }
+
+      .svg-icon {
+        height: 22px;
+        width: 22px;
+      }
     }
   }
-}
 
-.sense-modal {
-  position: fixed;
-  transition: opacity 0.3s ease-in-out;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 1000;
-}
-
-.sense-content {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  padding-bottom: 10px;
-  width: 100%;
-  border-radius: 12px 12px 0 0;
-  background: rgba(255, 255, 255, 0.78);
-  backdrop-filter: blur(12px) opacity(1);
-  color: var(--color-text);
-}
-
-[data-theme='dark'] .sense-content {
-  background: rgba(36, 36, 36, 0.88);
-}
-
-.sense-title {
-  text-align: center;
-  font-size: 20px;
-  font-weight: 600;
-  padding: 20px 0;
-}
-
-.sense-list {
-  display: flex;
-  height: 200px;
-  padding: 0 10px;
-  overflow: auto hidden;
-  scrollbar-width: none;
-}
-
-.sense-item {
-  height: 100%;
-  margin: 0 10px;
-  border-radius: 8px;
-  text-align: center;
-  position: relative;
-
-  img {
-    height: 80%;
-    border-radius: 8px;
-    padding: 4px;
-  }
-
-  .sense-active {
-    display: none;
-    position: absolute;
+  .sense-modal {
+    position: fixed;
+    transition: opacity 0.3s ease-in-out;
     top: 0;
     left: 0;
-    font-size: 16px;
-    border-radius: 8px 0;
-    padding: 4px 10px;
+    width: 100%;
+    height: 100%;
+    z-index: 1000;
+  }
+
+  .sense-content {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    padding-bottom: 10px;
+    width: 100%;
+    border-radius: 12px 12px 0 0;
+    background: rgba(255, 255, 255, 0.78);
+    backdrop-filter: blur(12px) opacity(1);
+    color: var(--color-text);
+  }
+
+  [data-theme='dark'] .sense-content {
+    background: rgba(36, 36, 36, 0.88);
+  }
+
+  .sense-title {
+    text-align: center;
+    font-size: 20px;
+    font-weight: 600;
+    padding: 20px 0;
+  }
+
+  .sense-list {
+    display: flex;
+    height: 200px;
+    padding: 0 10px;
+    overflow: auto hidden;
+    scrollbar-width: none;
+  }
+
+  .sense-item {
+    height: 100%;
+    margin: 0 10px;
+    border-radius: 8px;
+    text-align: center;
+    position: relative;
+
+    img {
+      height: 80%;
+      border-radius: 8px;
+      padding: 4px;
+    }
+
+    .sense-active {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      font-size: 16px;
+      border-radius: 8px 0;
+      padding: 4px 10px;
+    }
+  }
+
+  .sense-item.active {
+    .sense-active {
+      display: block;
+      background-color: var(--color-primary);
+      color: white;
+    }
+    img {
+      background-color: var(--color-primary);
+    }
+  }
+
+  .slide-up-enter-active,
+  .slide-up-leave-active {
+    transition: all 0.4s ease-out;
+  }
+
+  .slide-up-enter-from,
+  .slide-up-leave-to {
+    transform: translateY(100%);
   }
 }
 
-.sense-item.active {
-  .sense-active {
-    display: block;
-    background-color: var(--color-primary);
-    color: white;
-  }
-  img {
-    background-color: var(--color-primary);
-  }
-}
+.letter {
+  .title-name {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 11;
+    transition: all 1s cubic-bezier(0.16, 1, 0.3, 1);
 
-.slide-up-enter-active,
-.slide-up-leave-active {
-  transition: all 0.4s ease-out;
-}
+    .fan-container {
+      position: relative;
+      width: 150px;
+      height: 150px;
+      margin-bottom: 150px;
+      // border-radius: 12px;
+      transition: all 1s cubic-bezier(0.16, 1, 0.3, 1);
 
-.slide-up-enter-from,
-.slide-up-leave-to {
-  transform: translateY(100%);
+      img {
+        width: 100%;
+        position: absolute;
+        inset: 0;
+        scale: 1;
+        border-radius: 12px;
+        border: 8px solid white;
+        box-sizing: border-box;
+        transform-origin: 50% 600%;
+        transition:
+          transform 1s cubic-bezier(0.16, 1, 0.3, 1),
+          z-index 0.1s;
+
+        @for $i from 1 through $count {
+          &:nth-child(#{$i}) {
+            $distance: abs($i - $mid);
+            $angle: ($i - $mid) * $step;
+
+            z-index: $mid - $distance;
+            transform: rotate($angle);
+            opacity: max(1 - $distance * 0.4, 0.2);
+          }
+        }
+      }
+    }
+  }
+
+  .is-full .title-name {
+    top: 60px !important;
+    left: 20px !important;
+    bottom: calc(100vh - 230px) !important;
+    right: calc(100vw - 230px) !important;
+
+    .title {
+      display: none;
+    }
+    .fan-container {
+      margin-bottom: 60px;
+      height: 100px;
+      width: 100px;
+      background-image: url(../assets/images/stamp.png);
+
+      img {
+        margin: 2px;
+        height: 96%;
+        width: 96%;
+        border-radius: 0;
+        border: 4px solid white;
+        @for $i from 1 through $count {
+          &:nth-child(#{$i}) {
+            transform: rotate(0);
+          }
+        }
+      }
+    }
+  }
 }
 </style>

@@ -2,7 +2,8 @@ import { defineStore } from 'pinia'
 import { ref, toRaw, toRefs } from 'vue'
 import { useSettingsStore } from './settings'
 import { compare } from 'compare-versions'
-import _ from 'lodash'
+import difference from 'lodash/difference'
+import merge from 'lodash/merge'
 import { Track, Playlist, lyricLine } from '@/types/music'
 
 export const sortList = ['default', 'byname', 'ascend', 'descend'] as const
@@ -30,7 +31,7 @@ export const useLocalMusicStore = defineStore(
         }
       })
 
-      _.merge(localTrack, track)
+      merge(localTrack, track)
       localTrack.matched = true
       localTrack.type = 'local'
       localTrack.album.matched = true
@@ -62,7 +63,7 @@ export const useLocalMusicStore = defineStore(
       return new Promise((resolve) => {
         const playlist = playlists.value.find((p) => p.id === playlistId)
         if (!playlist) return
-        const newIDs = _.difference(tracks, playlist.trackIds) as number[]
+        const newIDs = difference(tracks, playlist.trackIds) as number[]
         if (newIDs.length === 0) return resolve(false)
         const idx = tracks.length - 1
         const imgID = tracks[idx]
@@ -127,7 +128,7 @@ export const useLocalMusicStore = defineStore(
       return (await res.json()) as lyricLine[]
     }
 
-    const getALocalTrack = (query: Partial<Track>) => {
+    const getALocalTrack = (query: Partial<Track>): Track | undefined => {
       return localTracks.value.find((track) =>
         Object.entries(query).every(([key, value]) => track[key as keyof Track] === value)
       )

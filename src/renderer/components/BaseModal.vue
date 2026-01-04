@@ -87,7 +87,7 @@ watch(
   z-index: 100;
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 128px - 64px);
+  max-height: calc(100vh - 100px);
 
   ::-webkit-scrollbar {
     width: 4px;

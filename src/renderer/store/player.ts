@@ -488,7 +488,7 @@ export const usePlayerStore = defineStore(
       const line = lyrics.value[currentIndex.value]
       if (!line) return { content: currentTrack.value?.name || '听你想听的音乐', time: 0, start: 0 }
       const nextLine = lyrics.value[currentIndex.value + 1]
-      const diff = nextLine ? nextLine.start - line?.start : 10
+      const diff = (nextLine ? nextLine.start : currentTrackDuration.value) - line?.start
       return { content: line?.lyric?.text || '', time: diff, start: line?.start || 0 }
     })
 
@@ -717,7 +717,8 @@ export const usePlayerStore = defineStore(
 
       data = data.filter((l) => !/^作(词|曲)\s*(:|：)\s*无$/.exec(l.lyric.text))
       if (data.length) {
-        data.at(-1)!.end = data.at(-1)!.end || currentTrackDuration.value
+        data.at(-1)!.end =
+          data.at(-1)!.end || Math.min(currentTrackDuration.value, data.at(-1)!.start + 10)
       }
       const includeAM =
         data.length <= 10 && data.map((l) => l.lyric.text).includes('纯音乐，请欣赏')
@@ -1428,12 +1429,13 @@ export const usePlayerStore = defineStore(
         }
       )
 
-      window.mainApi?.on('resume', () => {
+      window.mainApi?.on('resume', async () => {
         if (!currentTrack.value) return
         const t = _progress.value
-        replaceCurrentTrack(currentTrack.value.id, false).then((res) => {
-          if (res) seek.value = t
-        })
+        await replaceCurrentTrack(currentTrack.value.id, false)
+        audioNodes.audio!.src = currentTrack.value!.url!
+        audioNodes.audio!.load()
+        seek.value = t
       })
 
       window.mainApi?.on('play', () => {

@@ -1,52 +1,18 @@
 <template>
-  <div class="play-page" :data-theme="theme">
-    <button-icon
-      v-show="show === 'lyric'"
-      class="player-button theme-button"
-      @click="setThemeModal = !setThemeModal"
-    >
-      <SvgIcon icon-class="theme" />
-    </button-icon>
-    <button-icon class="player-button close-button" @click="showLyrics = !showLyrics">
-      <SvgIcon icon-class="arrow-down" />
-    </button-icon>
-    <div class="lyrics-container">
-      <!-- 自定义背景 -->
-      <template v-if="lyricBackground === 'customize'">
-        <video
-          v-if="customBgType === 'video'"
-          class="custom-background custom-video"
-          :src="customBgUrl"
-          autoplay
-          loop
-          muted
-          playsinline
-        />
-        <div
-          v-else
-          class="custom-background custom-image"
-          :style="{ backgroundImage: `url(${customBgUrl})` }"
-        />
-      </template>
-      <!-- 默认背景 -->
-      <template v-else>
-        <div
-          v-if="['blur', 'dynamic'].includes(lyricBackground)"
-          class="lyrics-background"
-          :class="{ 'dynamic-background': lyricBackground === 'dynamic' }"
-          :style="{ '--cover-url': `url(${pic})` }"
-        />
-        <div
-          v-else-if="lyricBackground === 'true'"
-          class="graditent-background"
-          :style="{ background }"
-        />
-      </template>
-    </div>
-    <div class="lyric-container" :class="{ isMobile, 'no-lyric': noLyric && show === 'lyric' }">
+  <div class="play-page">
+    <div class="lyric-container" :class="{ isMobile, 'no-lyric': noLyric && show === 'fullLyric' }">
       <div class="left-side">
-        <div class="cover" :class="{ rotate: currentTheme.name === '旋转封面' }">
-          <img ref="imgRef" :src="pic" loading="lazy" />
+        <div
+          class="cover"
+          :class="{
+            rotate: senses[activeTheme.theme.activeLayout].active === 2,
+            circle: senses[activeTheme.theme.activeLayout].active === 1,
+            paused: !playing
+          }"
+        >
+          <div class="img-wrap">
+            <img :src="pic" loading="lazy" />
+          </div>
           <div class="shadow" :style="{ backgroundImage: `url(${pic})` }"></div>
         </div>
         <div class="controls">
@@ -103,20 +69,6 @@
                   @click="likeTrack"
                 >
                   <SvgIcon :icon-class="isLiked ? 'heart-solid' : 'heart'" />
-                </button-icon>
-                <button-icon
-                  class="button"
-                  :title="
-                    heartDisabled && show === 'lyric'
-                      ? $t('player.noAllowCauseLocal')
-                      : show === 'lyric'
-                        ? $t('contextMenu.showComment')
-                        : $t('contextMenu.showLyric')
-                  "
-                  :class="{ disabled: currentTrack?.matched === false && show === 'lyric' }"
-                  @click="switchRightPage(show === 'lyric' ? 'comment' : 'lyric')"
-                >
-                  <SvgIcon class="comment" :icon-class="show === 'lyric' ? 'comment' : 'lyric'" />
                 </button-icon>
                 <button-icon class="button" @click="addTrackToPlaylist"
                   ><SvgIcon icon-class="plus"
@@ -209,7 +161,7 @@
       </div>
       <div class="right-side" @mouseenter="hover = true" @mouseleave="hover = false">
         <LyricPage
-          v-if="show === 'lyric'"
+          v-if="show === 'fullLyric'"
           :text-align="isMobile ? 'center' : textAlign"
           :container-width="isMobile ? '50vw' : '90%'"
           :container-margin="isMobile ? '0 auto' : '0 0 0 auto'"
@@ -232,7 +184,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, toRefs, watch } from 'vue'
+import { computed, inject, onBeforeUnmount, onMounted, ref, toRefs, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import ButtonIcon from './ButtonIcon.vue'
@@ -247,24 +199,20 @@ import { hasListSource, getListSourcePath } from '../utils/playlist'
 import { useNormalStateStore } from '../store/state'
 import { useStreamMusicStore } from '../store/streamingMusic'
 import { useDataStore } from '../store/data'
-import { Vibrant } from 'node-vibrant/browser'
-import Color from 'color'
+import { usePlayerThemeStore } from '../store/playerTheme'
 import { TranslationMode, TrackSourceType } from '@/types/music.d'
+
+withDefaults(defineProps<{ show: 'fullLyric' | 'pickLyric' | 'comment' }>(), {
+  show: 'fullLyric'
+})
 
 const router = useRouter()
 const playPageContextMenu = inject('playPageContextMenu', ref<InstanceType<typeof ContextMenu>>())
 
 const settingsStore = useSettingsStore()
-const { normalLyric, general, playerTheme } = storeToRefs(settingsStore)
-const {
-  nTranslationMode,
-  textAlign,
-  customBackground,
-  backgroundBlur,
-  backgroundOpacity,
-  apiRefreshMode,
-  apiRefreshInterval
-} = toRefs(normalLyric.value)
+const { normalLyric, general } = storeToRefs(settingsStore)
+const { nTranslationMode, textAlign, customBackground, apiRefreshMode, apiRefreshInterval } =
+  toRefs(normalLyric.value)
 
 const playerStore = usePlayerStore()
 const {
@@ -285,38 +233,20 @@ const {
 } = storeToRefs(playerStore)
 const { playPrev, playOrPause, _playNextTrack, switchRepeatMode, moveToFMTrash } = playerStore
 
+const playerTheme = usePlayerThemeStore()
+const { activeTheme, senses } = storeToRefs(playerTheme)
+
 const { likeATrack } = useDataStore()
 const { likeAStreamTrack } = useStreamMusicStore()
 
 const stateStore = useNormalStateStore()
-const { showLyrics, addTrackToPlaylistModal, setThemeModal } = storeToRefs(stateStore)
+const { showLyrics, addTrackToPlaylistModal } = storeToRefs(stateStore)
 
 const isMobile = ref(false)
-const show = ref('lyric')
-const imgRef = ref<HTMLElement>()
-const color = ref('')
-const color2 = ref('')
-let animation: Animation | null = null
+// const show = ref('lyric')
 
 const hasTLyric = computed(() => lyrics.value.some((l) => l.tlyric))
 const hasRLyric = computed(() => lyrics.value.some((l) => l.rlyric))
-
-const currentTheme = computed(() => playerTheme.value.common.find((theme) => theme.selected)!)
-
-const theme = computed(() => {
-  return lyricBackground.value === 'true' ? 'dark' : 'auto'
-})
-
-const background = computed(() => {
-  return `linear-gradient(to top left, ${color.value}, ${color2.value})`
-})
-
-const lyricBackground = computed(() => {
-  if (general.value.lyricBackground === 'customize') {
-    return customBgUrl.value ? general.value.lyricBackground : general.value.savedBackground
-  }
-  return general.value.lyricBackground
-})
 
 // 自定义背景
 const customBgUrl = ref('')
@@ -410,10 +340,6 @@ watch([apiRefreshMode, apiRefreshInterval], () => {
   startApiRefreshTimer()
 })
 
-const heartDisabled = computed(() => {
-  return currentTrack.value?.type !== 'online' && !currentTrack.value?.matched
-})
-
 const artist = computed(() => {
   return currentTrack.value?.artists ? currentTrack.value.artists[0] : currentTrack.value?.ar[0]
 })
@@ -464,51 +390,6 @@ const position = computed({
 const idx = ref(tags.value.indexOf(nTranslationMode.value))
 const hover = ref(false)
 
-watch(pic, () => {
-  getColor()
-})
-
-watch(playing, (value) => {
-  value ? animation?.play() : animation?.pause()
-})
-
-watch(
-  currentTheme,
-  async (value) => {
-    if (value.name === '旋转封面') {
-      await nextTick()
-      if (!imgRef.value) return
-      const effect = new KeyframeEffect(
-        imgRef.value!,
-        [{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }],
-        { duration: 10000, iterations: Infinity }
-      )
-      animation = new Animation(effect, document.timeline)
-      playing.value ? animation?.play() : animation?.pause()
-    } else {
-      animation?.cancel()
-      animation = null
-    }
-  },
-  { immediate: true }
-)
-
-const getColor = () => {
-  if (!pic.value) return
-  Vibrant.from(pic.value)
-    .getPalette()
-    .then((palette) => {
-      const swatch = palette.DarkMuted
-      if (swatch) {
-        const originColor = Color.rgb(swatch.rgb)
-        color.value = originColor.darken(0.1).rgb().string()
-        color2.value = originColor.lighten(0.28).rotate(-30).rgb().string()
-      } else {
-        console.log('未找到 DarkMuted 颜色')
-      }
-    })
-}
-
 const formatTime = (time: number) => {
   time = Math.round(time)
   const minutes = Math.floor(time / 60)
@@ -554,18 +435,11 @@ const showContextMenu = (e: MouseEvent): void => {
   playPageContextMenu.value?.openMenu(e)
 }
 
-const switchRightPage = (name: string) => {
-  if (show.value === 'comment' || currentTrack.value?.matched) {
-    show.value = name
-  }
-}
-
 const aspect = window.matchMedia('(max-aspect-ratio: 9/10)')
 
 aspect.addEventListener('change', (e) => (isMobile.value = e.matches))
 
 onMounted(() => {
-  setTimeout(getColor)
   isMobile.value = aspect.matches
 })
 
@@ -585,91 +459,6 @@ onBeforeUnmount(() => {
   color: var(--color-text);
   overflow: hidden;
   display: flex;
-  background: var(--color-body-bg);
-
-  .lyrics-container {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    overflow: hidden;
-    z-index: -1;
-  }
-
-  .custom-background {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    filter: blur(v-bind('`${backgroundBlur}px`'));
-    opacity: v-bind('`${backgroundOpacity / 100}`');
-  }
-
-  .custom-image {
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-  }
-
-  .custom-video {
-    object-fit: cover;
-  }
-
-  .lyrics-background {
-    --contrast-lyrics-background: 50%;
-    --brightness-lyrics-background: 130%;
-    position: absolute;
-    height: 100vh;
-    width: 100vw;
-    filter: blur(50px) contrast(var(--contrast-lyrics-background))
-      brightness(var(--brightness-lyrics-background));
-
-    &::before,
-    &::after {
-      content: '';
-      position: absolute;
-      width: 140vw;
-      height: 140vw;
-      background-image: var(--cover-url);
-      background-size: cover;
-      opacity: 0.6;
-      will-change: transform;
-    }
-
-    &::before {
-      top: 0;
-      right: 0;
-      mix-blend-mode: luminosity;
-    }
-
-    &::after {
-      bottom: 0;
-      left: 0;
-      animation-direction: reverse;
-      animation-delay: 10s;
-    }
-  }
-
-  [data-theme='dark'] .lyrics-background {
-    --contrast-lyrics-background: 105%;
-    --brightness-lyrics-background: 60%;
-  }
-
-  .dynamic-background {
-    &::before,
-    &::after {
-      animation: rotate 90s linear infinite;
-      will-change: transform;
-    }
-  }
-
-  .graditent-background {
-    position: absolute;
-    width: 100vw;
-    height: 100vh;
-  }
 }
 
 .lyric-container {
@@ -689,7 +478,7 @@ onBeforeUnmount(() => {
 
     .cover {
       position: relative;
-      img {
+      .img-wrap img {
         height: min(50vh, 33.33vw);
         width: min(50vh, 33.33vw);
         user-select: none;
@@ -709,12 +498,22 @@ onBeforeUnmount(() => {
       }
     }
 
+    .cover.circle,
     .cover.rotate {
       img,
       .shadow {
         border-radius: 50%;
         will-change: transform;
       }
+    }
+
+    .cover.rotate .img-wrap {
+      animation: circleRotate 15s linear infinite;
+      will-change: transform;
+    }
+
+    .cover.rotate.paused .img-wrap {
+      animation-play-state: paused;
     }
 
     .controls {
@@ -964,7 +763,7 @@ onBeforeUnmount(() => {
   }
 }
 
-@keyframes rotate {
+@keyframes circleRotate {
   from {
     transform: rotate(0deg) translateZ(0);
   }

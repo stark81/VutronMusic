@@ -509,8 +509,9 @@
     },
     "playerTheme": {
       "title": "播放器样式",
-      "common": "经典模式",
-      "creative": "创意模式"
+      "Classic": "经典模式",
+      "Creative": "创意模式",
+      "Customize": "自定义模式"
     },
     "amuseServer": {
       "running": "服务正常运行中",
