@@ -1,9 +1,16 @@
 <template>
   <BaseModal title="主题设置" :show="show" :show-footer="false" :close-fn="close" width="60vw">
     <template #default>
-      <div class="layout">{{ activeTheme }}</div>
+      <div class="item">
+        <div class="left">
+          <div class="title">播放页背景设置</div>
+        </div>
+        <div class="right">
+          <CustomSelect v-model="updateColor" :options="colorOptions" />
+        </div>
+      </div>
       <br />
-      <div class="background">{{ activeBG }} - {{ senses }}</div>
+      <div class="item">{{ activeBG }}</div>
       <br />
       <div>背景设置 - 自定义路径等</div>
       <div>如果是经典布局，则设置封面类型、是否旋转等</div>
@@ -18,15 +25,63 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
-
 import BaseModal from './BaseModal.vue'
+import CustomSelect from './CustomSelect.vue'
 import { useNormalStateStore } from '../store/state'
 import { usePlayerThemeStore } from '../store/playerTheme'
+import { BgSource, ColorOption } from '@/types/theme'
 
 const stateStore = useNormalStateStore()
 const { backgroundModal } = storeToRefs(stateStore)
 const playerThemeStore = usePlayerThemeStore()
-const { activeBG, activeTheme } = storeToRefs(playerThemeStore)
+const { activeBG } = storeToRefs(playerThemeStore)
+
+const colorOptionByType: Record<BgSource['type'], { label: ColorOption; value: ColorOption }[]> = {
+  gradient: [{ label: 'dark', value: 'dark' }],
+  'blur-image': [
+    { label: 'light', value: 'light' },
+    { label: 'dark', value: 'dark' },
+    { label: 'auto', value: 'auto' }
+  ],
+  'dynamic-image': [
+    { label: 'light', value: 'light' },
+    { label: 'dark', value: 'dark' },
+    { label: 'auto', value: 'auto' }
+  ],
+  'letter-image': [
+    { label: 'light', value: 'light' },
+    { label: 'dark', value: 'dark' },
+    { label: 'auto', value: 'auto' }
+  ],
+  'custom-image': [
+    { label: 'light', value: 'light' },
+    { label: 'dark', value: 'dark' },
+    { label: 'auto', value: 'auto' }
+  ],
+  lottie: [
+    { label: 'light', value: 'light' },
+    { label: 'dark', value: 'dark' }
+  ],
+  'custom-video': [
+    { label: 'light', value: 'light' },
+    { label: 'dark', value: 'dark' },
+    { label: 'auto', value: 'auto' }
+  ],
+  api: [
+    { label: 'light', value: 'light' },
+    { label: 'dark', value: 'dark' },
+    { label: 'auto', value: 'auto' }
+  ],
+  'random-folder': [
+    { label: 'light', value: 'light' },
+    { label: 'dark', value: 'dark' },
+    { label: 'auto', value: 'auto' }
+  ]
+}
+
+const colorOptions = computed(() => {
+  return colorOptionByType[activeBG.value.type]
+})
 
 const show = computed({
   get: () => backgroundModal.value.show,
@@ -42,18 +97,11 @@ const type = computed({
   }
 })
 
-const senses = computed(() => {
-  if (activeTheme.value.theme.activeLayout === 'Classic') {
-    return [
-      { name: '默认', img: 'common' },
-      { name: '圆形封面', img: 'circle' },
-      { name: '旋转封面', img: 'rotate' }
-    ]
+const updateColor = computed({
+  get: () => activeBG.value.color,
+  set: (value) => {
+    activeBG.value.color = value
   }
-  return [
-    { name: '纯净雪域', img: 'creative_snow' },
-    { name: '落日余晖', img: 'sunshine' }
-  ]
 })
 
 const close = () => {
@@ -62,4 +110,23 @@ const close = () => {
 }
 </script>
 
-<style scoped lang="scss"></style>
+<style scoped lang="scss">
+.item {
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--color-text);
+  padding-bottom: 10px;
+
+  .left {
+    padding-right: 6vw;
+
+    .title {
+      font-size: 16px;
+      font-weight: 500;
+      opacity: 0.78;
+    }
+  }
+}
+</style>

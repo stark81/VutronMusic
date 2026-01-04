@@ -1,116 +1,119 @@
 <template>
-  <div>
-    <transition name="slide-up">
-      <div v-if="showLyrics" class="player-container" :data-theme="activeBG.color">
-        <BackgroundPage />
-        <div
-          class="buttons-icons"
-          :class="{ opacity: activeTheme.theme.activeLayout === 'Creative' }"
-        >
-          <button-icon
-            v-show="tabs[tabIdx] !== 'comment'"
-            class="player-button theme-button"
-            @click="setThemeModal = !setThemeModal"
+  <div :data-theme="theme">
+    <div>
+      <transition name="slide-up">
+        <div v-if="showLyrics" class="player-container">
+          <BackgroundPage />
+          <div
+            class="buttons-icons"
+            :class="{ opacity: activeTheme.theme.activeLayout === 'Creative' }"
           >
-            <SvgIcon icon-class="theme" />
-          </button-icon>
-          <button-icon class="player-button close-button" @click="showLyrics = !showLyrics">
-            <SvgIcon icon-class="arrow-down" />
-          </button-icon>
-          <button-icon
-            title="换场景"
-            class="player-button sense-button"
-            @click="showSenseSelector = true"
-          >
-            <SvgIcon icon-class="sense" />
-          </button-icon>
-          <button-icon
-            class="player-button lyric-button-1"
-            :title="$t('contextMenu.showLyric')"
-            @click="switchCurrentTab"
-          >
-            <SvgIcon :icon-class="getIcon()" />
-          </button-icon>
-        </div>
-        <CommonPlayer v-if="activeTheme.theme.activeLayout === 'Classic'" :show="tabs[tabIdx]" />
-        <CreativePlayer v-else :show="tabs[tabIdx]" />
-      </div>
-    </transition>
-  </div>
-  <div>
-    <ConvolverModal />
-    <PitchModal />
-    <PlaybackModal />
-    <PlayerFontModal />
-    <PlayerThemeModal />
-    <BGModal />
-    <BackgroundModal />
-    <transition name="slide-up">
-      <div v-if="showSenseSelector" class="sense-modal" @click="showSenseSelector = false">
-        <div class="sense-content" @click.stop>
-          <div class="sense-title" :class="{ multi: activeSense.title.length === 2 }">
-            <span
-              v-for="(name, idx) in activeSense.title"
-              :key="name"
-              :class="{ active: idx === titleIdx }"
-              @click="titleIdx = idx"
-              >{{ name }}</span
+            <button-icon
+              v-show="tabs[tabIdx] !== 'comment'"
+              class="player-button theme-button"
+              @click="setThemeModal = !setThemeModal"
             >
+              <SvgIcon icon-class="theme" />
+            </button-icon>
+            <button-icon class="player-button close-button" @click="showLyrics = !showLyrics">
+              <SvgIcon icon-class="arrow-down" />
+            </button-icon>
+            <button-icon
+              title="换场景"
+              class="player-button sense-button"
+              @click="showSenseSelector = true"
+            >
+              <SvgIcon icon-class="sense" />
+            </button-icon>
+            <button-icon
+              class="player-button lyric-button-1"
+              :title="$t('contextMenu.showLyric')"
+              @click="switchCurrentTab"
+            >
+              <SvgIcon :icon-class="getIcon()" />
+            </button-icon>
           </div>
-          <div class="sense-list">
-            <template v-if="activeSense.title[titleIdx] === '切换场景'">
-              <div
-                v-for="(sense, idx) in activeSense.sense"
-                :key="idx"
-                :index="idx"
-                class="sense-item"
-                :class="{
-                  active: idx === activeTheme.theme.senses[activeTheme.theme.activeLayout].active
-                }"
-                @click="updateSense(idx as 0 | 1 | 2)"
+          <CommonPlayer v-if="activeTheme.theme.activeLayout === 'Classic'" :show="tabs[tabIdx]" />
+          <CreativePlayer v-else :show="tabs[tabIdx]" />
+        </div>
+      </transition>
+    </div>
+    <div>
+      <ConvolverModal />
+      <PitchModal />
+      <PlaybackModal />
+      <PlayerFontModal />
+      <PlayerThemeModal />
+      <BGModal />
+      <BackgroundModal />
+      <transition name="slide-up">
+        <div v-if="showSenseSelector" class="sense-modal" @click="showSenseSelector = false">
+          <div class="sense-content" @click.stop>
+            <div class="sense-title" :class="{ multi: activeSense.title.length === 2 }">
+              <span
+                v-for="(name, idx) in activeSense.title"
+                :key="name"
+                :class="{ active: idx === titleIdx }"
+                @click="titleIdx = idx"
+                >{{ name }}</span
               >
-                <div class="sense-active">使用中</div>
-                <img :src="senseImg(idx)" loading="lazy" />
-                <div>{{ sense.name }}</div>
-              </div>
-            </template>
-            <template v-else>
-              <div
-                v-for="ani in animation"
-                :key="ani"
-                class="sense-item"
-                :class="{
-                  active: currentThemeSense?.animation[currentThemeSense.active] === ani
-                }"
-                @click="updateAnimation(ani)"
-              >
-                <div class="sense-active">使用中</div>
-                <div class="ani">
-                  {{ aniMap[ani] }}
+            </div>
+            <div class="sense-list">
+              <template v-if="activeSense.title[titleIdx] === '切换场景'">
+                <div
+                  v-for="(sense, idx) in activeSense.sense"
+                  :key="idx"
+                  :index="idx"
+                  class="sense-item"
+                  :class="{
+                    active: idx === activeTheme.theme.senses[activeTheme.theme.activeLayout].active
+                  }"
+                  @click="updateSense(idx as 0 | 1 | 2)"
+                >
+                  <div class="sense-active">使用中</div>
+                  <img :src="senseImg(idx)" loading="lazy" />
+                  <div>{{ sense.name }}</div>
                 </div>
-              </div>
-            </template>
+              </template>
+              <template v-else>
+                <div
+                  v-for="ani in animation"
+                  :key="ani"
+                  class="sense-item"
+                  :class="{
+                    active: currentThemeSense?.animation[currentThemeSense.active] === ani
+                  }"
+                  @click="updateAnimation(ani)"
+                >
+                  <div class="sense-active">使用中</div>
+                  <div class="ani">
+                    {{ aniMap[ani] }}
+                  </div>
+                </div>
+              </template>
+            </div>
           </div>
         </div>
-      </div>
-    </transition>
-    <ContextMenu ref="playPageContextMenu">
-      <div
-        v-show="activeTheme.theme.activeLayout === 'Creative'"
-        class="item"
-        @click="addTrackToPlaylist"
-        >{{ $t('player.addToPlaylist') }}</div
-      >
-      <div class="item" @click="setPlaybackRateModal = true">{{
-        $t('contextMenu.playBackSpeed')
-      }}</div>
-      <div class="item" @click="setPitchModal = true">{{ $t('contextMenu.pitch') }}</div>
-      <div class="item" @click="setConvolverModal = true">{{ $t('contextMenu.setConvolver') }}</div>
-      <hr />
-      <div class="item">场景切换</div>
-      <div class="item" @click="() => (backgroundModal.show = true)">背景设置</div>
-      <div class="item" @click="setFontModal = true">{{ $t('contextMenu.setFont') }}</div>
-    </ContextMenu>
+      </transition>
+      <ContextMenu ref="playPageContextMenu">
+        <div
+          v-show="activeTheme.theme.activeLayout === 'Creative'"
+          class="item"
+          @click="addTrackToPlaylist"
+          >{{ $t('player.addToPlaylist') }}</div
+        >
+        <div class="item" @click="setPlaybackRateModal = true">{{
+          $t('contextMenu.playBackSpeed')
+        }}</div>
+        <div class="item" @click="setPitchModal = true">{{ $t('contextMenu.pitch') }}</div>
+        <div class="item" @click="setConvolverModal = true">{{
+          $t('contextMenu.setConvolver')
+        }}</div>
+        <hr />
+        <div class="item" @click="() => (backgroundModal.show = true)">背景设置</div>
+        <div class="item" @click="setFontModal = true">{{ $t('contextMenu.setFont') }}</div>
+      </ContextMenu>
+    </div>
   </div>
 </template>
 
@@ -193,6 +196,14 @@ const currentThemeSense = computed(() => {
   return senses.value[activeTheme.value.theme.activeLayout]
 })
 
+const theme = computed(() => {
+  let appearance = activeBG.value.color
+  if (appearance === 'auto' || appearance === undefined) {
+    appearance = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  }
+  return appearance
+})
+
 const animation: AniName[] = [
   'hingeFlyIn',
   'focusRise',
@@ -266,8 +277,12 @@ const updateAnimation = (name: AniName) => {
   currentThemeSense.value.animation[currentThemeSense.value.active] = name
 }
 
+watch(showSenseSelector, () => {
+  titleIdx.value = 0
+})
+
 watch(
-  () => showSenseSelector.value && activeTheme.value.theme.activeLayout,
+  () => activeTheme.value.theme.activeLayout,
   () => {
     tabIdx.value = 0
     titleIdx.value = 0

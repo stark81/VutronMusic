@@ -31,6 +31,7 @@
         renderer="canvas"
         @on-animation-loaded="() => (playing ? play() : pause())"
       />
+      <div class="lt-mask" :data-theme="theme"></div>
     </template>
   </div>
 </template>
@@ -90,6 +91,14 @@ const containerBGColor = computed(() => {
     }
   }
   return `var(--color-body-bg)`
+})
+
+const theme = computed(() => {
+  let appearance = activeBG.value.color
+  if (appearance === 'auto' || appearance === undefined) {
+    appearance = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  }
+  return appearance
 })
 
 const getImage = async (pic: string) => {
@@ -254,6 +263,20 @@ onUnmounted(() => {
 .lottie-container {
   width: 100%;
   height: 100%;
+}
+
+.lt-mask {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: transparent;
+  transition: background-color 0.3s;
+}
+
+.lt-mask[data-theme='dark'] {
+  background-color: rgba(20, 20, 20, 0.25);
 }
 
 @keyframes rotate {

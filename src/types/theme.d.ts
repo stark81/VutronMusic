@@ -1,5 +1,7 @@
 export type LayoutMode = 'Classic' | 'Creative' | 'Letter'
 
+export type ColorOption = 'light' | 'dark' | 'auto'
+
 export type AniName =
   | 'hingeFlyIn'
   | 'focusRise'
@@ -41,7 +43,7 @@ type BgSource =
       src: string
       blur?: number
       bright?: number
-      color?: 'light' | 'dark' | 'auto'
+      color?: 'light' | 'dark'
       preset?: ['snow', 'sunshine']
     }
   | {
@@ -55,7 +57,7 @@ type BgSource =
   | {
       type: 'random-folder'
       src: string
-      color?: 'auto'
+      color?: 'light' | 'dark' | 'auto'
     }
   | {
       type: 'api'

@@ -5,6 +5,7 @@
     :data-theme="activeBG.color"
   >
     <div class="context-container" :class="{ 'is-full': show !== 'pickLyric' }">
+      <img class="post-mark" src="../assets/images/postmark.png" loading="lazy" />
       <div class="title-name" :style="titleStyle">
         <div v-if="activeTheme.theme.activeLayout === 'Letter'" class="fan-container">
           <img
@@ -199,7 +200,7 @@ const streamMusicStore = useStreamMusicStore()
 const { likeAStreamTrack, getAStreamTrack } = streamMusicStore
 
 const playerTheme = usePlayerThemeStore()
-const { activeTheme, activeBG, senses } = storeToRefs(playerTheme)
+const { activeTheme, senses, activeBG } = storeToRefs(playerTheme)
 
 const { likeATrack } = useDataStore()
 
@@ -207,6 +208,7 @@ const hover = ref(false)
 const pickLyricRef = ref<HTMLElement>()
 const playPageContextMenu = inject('playPageContextMenu', ref<InstanceType<typeof ContextMenu>>())
 const selectedTracks = ref<Track[]>([])
+const loading = ref(false)
 
 let tl: gsap.core.Timeline | null = null
 
@@ -739,6 +741,8 @@ const getImg = (track: Track) => {
 watch(
   () => props.show,
   async (value) => {
+    if (loading.value) return
+    loading.value = true
     tl?.kill()
     await nextTick()
     if (value === 'pickLyric') {
@@ -750,6 +754,7 @@ watch(
     } else {
       clearLyricElements()
     }
+    loading.value = false
   }
 )
 
@@ -780,6 +785,8 @@ watch(
       tl = null
       return
     }
+    if (loading.value) return
+    loading.value = true
     clearLyricElements()
     if (pickedLyric.value.length > 0) {
       await nextTick()
@@ -789,16 +796,19 @@ watch(
         tl?.play()
       }
     }
+    loading.value = false
   }
 )
 
 watch(pickedLyric, async (value) => {
+  if (loading.value) return
   clearLyricElements()
   if (props.show !== 'pickLyric') {
     tl?.kill()
     tl = null
     return
   }
+  loading.value = true
   if (value.length > 0) {
     await nextTick()
     buildLyricElements()
@@ -807,6 +817,7 @@ watch(pickedLyric, async (value) => {
       tl?.play()
     }
   }
+  loading.value = false
 })
 
 watch(
@@ -820,8 +831,12 @@ watch(
 
 onMounted(async () => {
   loadTracks()
-  buildLyricElements()
-  enterAnimation()
+  if (!loading.value) {
+    loading.value = true
+    buildLyricElements()
+    enterAnimation()
+    loading.value = false
+  }
   if (playing.value) {
     tl?.play()
   }
@@ -857,6 +872,17 @@ $mid: math.ceil(math.div($count, 2));
     width: 100%;
     position: relative;
     z-index: 11;
+
+    .post-mark {
+      position: absolute;
+      left: 50%;
+      top: 30%;
+      height: 0px;
+      width: 0px;
+      z-index: 12;
+      opacity: 0.8;
+      transition: all 1s cubic-bezier(0.16, 1, 0.3, 1);
+    }
   }
 
   .full-lyric-container {
@@ -995,92 +1021,6 @@ $mid: math.ceil(math.div($count, 2));
       }
     }
   }
-
-  .sense-modal {
-    position: fixed;
-    transition: opacity 0.3s ease-in-out;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 1000;
-  }
-
-  .sense-content {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    padding-bottom: 10px;
-    width: 100%;
-    border-radius: 12px 12px 0 0;
-    background: rgba(255, 255, 255, 0.78);
-    backdrop-filter: blur(12px) opacity(1);
-    color: var(--color-text);
-  }
-
-  [data-theme='dark'] .sense-content {
-    background: rgba(36, 36, 36, 0.88);
-  }
-
-  .sense-title {
-    text-align: center;
-    font-size: 20px;
-    font-weight: 600;
-    padding: 20px 0;
-  }
-
-  .sense-list {
-    display: flex;
-    height: 200px;
-    padding: 0 10px;
-    overflow: auto hidden;
-    scrollbar-width: none;
-  }
-
-  .sense-item {
-    height: 100%;
-    margin: 0 10px;
-    border-radius: 8px;
-    text-align: center;
-    position: relative;
-
-    img {
-      height: 80%;
-      border-radius: 8px;
-      padding: 4px;
-    }
-
-    .sense-active {
-      display: none;
-      position: absolute;
-      top: 0;
-      left: 0;
-      font-size: 16px;
-      border-radius: 8px 0;
-      padding: 4px 10px;
-    }
-  }
-
-  .sense-item.active {
-    .sense-active {
-      display: block;
-      background-color: var(--color-primary);
-      color: white;
-    }
-    img {
-      background-color: var(--color-primary);
-    }
-  }
-
-  .slide-up-enter-active,
-  .slide-up-leave-active {
-    transition: all 0.4s ease-out;
-  }
-
-  .slide-up-enter-from,
-  .slide-up-leave-to {
-    transform: translateY(100%);
-  }
 }
 
 .letter {
@@ -1097,7 +1037,6 @@ $mid: math.ceil(math.div($count, 2));
       width: 150px;
       height: 150px;
       margin-bottom: 150px;
-      // border-radius: 12px;
       transition: all 1s cubic-bezier(0.16, 1, 0.3, 1);
 
       img {
@@ -1127,30 +1066,38 @@ $mid: math.ceil(math.div($count, 2));
     }
   }
 
-  .is-full .title-name {
-    top: 60px !important;
-    left: 20px !important;
-    bottom: calc(100vh - 230px) !important;
-    right: calc(100vw - 230px) !important;
-
-    .title {
-      display: none;
+  .is-full {
+    .post-mark {
+      left: 10%;
+      top: 2%;
+      height: 120px;
+      width: 120px;
     }
-    .fan-container {
-      margin-bottom: 60px;
-      height: 100px;
-      width: 100px;
-      background-image: url(../assets/images/stamp.png);
+    .title-name {
+      top: 40px !important;
+      left: 0px !important;
+      bottom: calc(100vh - 230px) !important;
+      right: calc(100vw - 230px) !important;
 
-      img {
-        margin: 2px;
-        height: 96%;
-        width: 96%;
-        border-radius: 0;
-        border: 4px solid white;
-        @for $i from 1 through $count {
-          &:nth-child(#{$i}) {
-            transform: rotate(0);
+      .title {
+        display: none;
+      }
+      .fan-container {
+        margin-bottom: 60px;
+        height: 100px;
+        width: 100px;
+        background-image: url(../assets/images/stamp.png);
+
+        img {
+          margin: 2px;
+          height: 96%;
+          width: 96%;
+          border-radius: 0;
+          border: 4px solid white;
+          @for $i from 1 through $count {
+            &:nth-child(#{$i}) {
+              transform: rotate(0);
+            }
           }
         }
       }

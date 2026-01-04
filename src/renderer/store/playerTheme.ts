@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, reactive } from 'vue'
-import type { BgSource, Theme, Option } from '@/types/theme'
+import type { BgSource, Theme, Option, ColorOption } from '@/types/theme'
 
 const createBG = () => {
   const result: BgSource[] = [
@@ -32,7 +32,7 @@ const createBG = () => {
   return result
 }
 
-export const createTheme = (name: 'default' | 'snow' | 'letter') => {
+const createTheme = (name: 'default' | 'snow' | 'letter') => {
   let layout: Option['layout'] = 'Creative'
   if (name === 'default') {
     layout = 'Classic'
