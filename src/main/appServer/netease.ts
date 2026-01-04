@@ -13,11 +13,10 @@ async function netease(fastify: FastifyInstance) {
       reply: FastifyReply
     ) => {
       try {
-        const { localID, ...params } = req.query
+        const { ...params } = req.query
         if (!params.cookie) params.cookie = (req as any).cookies
         const result = await neteaseApi(params)
-
-        result.body = await handleNeteaseResult(name as CacheAPIs, result.body, localID)
+        result.body = await handleNeteaseResult(name as CacheAPIs, result?.body)
         cache.set(name as CacheAPIs, result.body, req.query)
         return reply.send(result.body)
       } catch (error: any) {

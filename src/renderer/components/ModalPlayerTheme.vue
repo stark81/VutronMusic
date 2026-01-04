@@ -7,22 +7,26 @@
   >
     <template #default>
       <div class="theme-container">
-        <div v-for="(theme, type) in playerTheme" :key="type" class="type-group">
-          <div class="title">{{ $t(`settings.playerTheme.${type}`) }}</div>
-          <div class="theme-list">
-            <div
-              v-for="item in theme"
-              :key="item.name"
-              class="theme-item"
-              :class="{ selected: item.selected }"
-              @click="selectTheme(item)"
-            >
-              <div class="theme-img">
-                <img :src="getThemeImg(item)" loading="lazy" />
+        <div v-for="(theme, type) in themes" :key="type" class="type-group">
+          <template v-if="type !== 'Copy' && theme.length">
+            <div class="title">{{ $t(`settings.playerTheme.${type}`) }}</div>
+            <div class="theme-list">
+              <div
+                v-for="(item, index) in theme"
+                :key="item.name"
+                class="theme-item"
+                :class="{ selected: currentPath.mode === type && currentPath.index === index }"
+                :title="type === 'Customize' ? '单击选择，右击删除' : ''"
+                @click="selectTheme(type, index)"
+                @click.right="deleteTheme(type, item.name)"
+              >
+                <div class="theme-img">
+                  <img :src="getThemeImg(type, item.img)" loading="lazy" />
+                </div>
+                <div class="name">{{ item.name }}</div>
               </div>
-              <div class="name">{{ item.name }}</div>
             </div>
-          </div>
+          </template>
         </div>
       </div>
     </template>
@@ -32,25 +36,47 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
 import { useNormalStateStore } from '../store/state'
-import { useSettingsStore } from '../store/settings'
+import { usePlayerThemeStore } from '../store/playerTheme'
 import Modal from './BaseModal.vue'
 
 const stateStore = useNormalStateStore()
 const { setThemeModal } = storeToRefs(stateStore)
+const { showToast } = stateStore
 
-const settingsStore = useSettingsStore()
-const { playerTheme } = storeToRefs(settingsStore)
+const playerTheme = usePlayerThemeStore()
+const { themes, currentPath } = storeToRefs(playerTheme)
 
-const selectTheme = (theme: any) => {
-  Object.entries(playerTheme.value).forEach(([, themes]) => {
-    themes.forEach((item: any) => {
-      item.selected = item.name === theme.name
-    })
-  })
+const getThemeImg = (type: 'Classic' | 'Creative' | 'Customize', name: string) => {
+  if (type === 'Customize') {
+    return `atom://local-resource/${encodeURIComponent(name)}`
+  }
+  return new URL(`../assets/images/${name}.png`, import.meta.url).href
 }
 
-const getThemeImg = (theme: { img: string }) => {
-  return new URL(`../assets/images/${theme.img}.png`, import.meta.url).href
+const selectTheme = (type: 'Classic' | 'Creative' | 'Customize', index: number) => {
+  currentPath.value.mode = type
+  currentPath.value.index = index
+}
+
+const deleteTheme = (type: 'Classic' | 'Creative' | 'Customize', name: string) => {
+  if (type !== 'Customize') return
+  const cThemes = themes.value.Customize
+  const copyThemes = themes.value.Copy
+  const idx = cThemes.findIndex((t) => t.name === name)
+  if (idx === -1) return
+  if (currentPath.value.mode === 'Customize' && currentPath.value.index === idx) {
+    if (idx === 0) {
+      currentPath.value.mode = 'Classic'
+      currentPath.value.index = 0
+    } else {
+      currentPath.value.index = 0
+    }
+  }
+  const image = cThemes[idx].img
+  window.mainApi?.send('delete-screenshot', image)
+  cThemes.splice(idx, 1)
+  copyThemes.splice(idx, 1)
+  showToast('自定义主题删除成功')
 }
 
 const closeFn = () => {
@@ -74,22 +100,20 @@ const closeFn = () => {
 }
 
 .theme-list {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
 }
 
 .theme-item {
   border-radius: 8px;
   padding: 4px;
-  margin-right: 16px;
+  box-sizing: border-box;
 
   &:last-child {
     margin-right: 0;
   }
 
   .theme-img {
-    width: 224px;
-    height: 132px;
-
     img {
       height: 100%;
       width: 100%;

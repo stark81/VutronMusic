@@ -3,7 +3,7 @@
     <VirtualScroll
       :list="albums"
       class="album-list"
-      :item-height="60"
+      :item-size="60"
       :show-position="false"
       :is-end="true"
     >
@@ -21,7 +21,7 @@
     </VirtualScroll>
     <VirtualScroll
       :list="showTracks"
-      :item-height="48"
+      :item-size="48"
       class="track-list"
       :above-value="5"
       :below-value="5"

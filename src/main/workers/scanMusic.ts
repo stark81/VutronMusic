@@ -55,7 +55,8 @@ const parseMusicFile = async (data: { filePath: string }) => {
   const birthDate = new Date(stat.birthtime).getTime()
   const { common, format } = metadata
 
-  const artists = splitArtist(common.artist ?? common.albumartist)
+  const artists = splitArtist(common.artist)
+  const albumArtist = splitArtist(common.albumartist || common.artist)
   const album = common.album
 
   const track = {
@@ -73,6 +74,7 @@ const parseMusicFile = async (data: { filePath: string }) => {
     alias: [],
     album,
     artists,
+    albumArtist,
     size: stat.size,
     cache: false,
     matched: false

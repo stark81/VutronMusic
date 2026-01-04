@@ -1,4 +1,5 @@
-:root {
+:root,
+[data-theme='light'] {
   --color-body-bg: #ffffff;
   --color-text: #000000;
   --bg-alpha: 10%;
@@ -9,7 +10,7 @@
   --color-secondary-bg-for-transparent: rgba(180, 180, 180, 0.4);
   --html-overflow-y: overlay;
   --color-wbw-text-unplay: rgba(0, 0, 0, 0.28);
-  --color-full-text-unplay: rgba(255, 255, 255, 0.48);
+  --color-full-text-unplay: rgba(0, 0, 0, 0.48);
   --color-wbw-text: rgba(0, 0, 0, 0.75);
   --color-wbw-text-played: rgba(0, 0, 0, 0.95);
   --color-border: rgba(0, 0, 0, 0.2);
@@ -25,6 +26,7 @@
   --color-primary-bg-for-transparent: rgba(255, 255, 255, 0.12);
   --color-secondary-bg-for-transparent: rgba(255, 255, 255, 0.08);
   --color-wbw-text-unplay: rgba(255, 255, 255, 0.28);
+  --color-full-text-unplay: rgba(255, 255, 255, 0.48);
   --color-wbw-text: rgba(255, 255, 255, 0.75);
   --color-wbw-text-played: rgba(255, 255, 255, 0.95);
   --color-border: rgba(255, 255, 255, 0.2);

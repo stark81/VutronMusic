@@ -488,7 +488,7 @@ export const usePlayerStore = defineStore(
       const line = lyrics.value[currentIndex.value]
       if (!line) return { content: currentTrack.value?.name || '听你想听的音乐', time: 0, start: 0 }
       const nextLine = lyrics.value[currentIndex.value + 1]
-      const diff = nextLine ? nextLine.start - line?.start : 10
+      const diff = (nextLine ? nextLine.start : currentTrackDuration.value) - line?.start
       return { content: line?.lyric?.text || '', time: diff, start: line?.start || 0 }
     })
 
@@ -717,7 +717,8 @@ export const usePlayerStore = defineStore(
 
       data = data.filter((l) => !/^作(词|曲)\s*(:|：)\s*无$/.exec(l.lyric.text))
       if (data.length) {
-        data.at(-1)!.end = data.at(-1)!.end || currentTrackDuration.value
+        data.at(-1)!.end =
+          data.at(-1)!.end || Math.min(currentTrackDuration.value, data.at(-1)!.start + 10)
       }
       const includeAM =
         data.length <= 10 && data.map((l) => l.lyric.text).includes('纯音乐，请欣赏')
@@ -800,7 +801,7 @@ export const usePlayerStore = defineStore(
           return false
         }
         currentTrack.value = track
-        await searchMatchForLocal(track!)
+        searchMatchForLocal(track!)
         const source = await getTrackSource(track!)
         let replaced = false
         if (source) {
@@ -861,6 +862,8 @@ export const usePlayerStore = defineStore(
       // 切歌时先淡出
       const fade = fadeDuration.value
       await smoothGain(0, fade)
+      audioNodes.audio!.removeAttribute('src')
+      audioNodes.audio!.load()
       audioNodes.audio!.src = source
       audioNodes.audio!.load()
       if (autoPlay) {
@@ -955,7 +958,7 @@ export const usePlayerStore = defineStore(
 
       if (_playNextList.value.length > 0) {
         const trackID = _playNextList.value.shift()
-        return [trackID!, currentTrackIndex.value, true]
+        return [trackID!, next, true]
       }
 
       if (repeatMode.value === 'on') {
@@ -976,6 +979,9 @@ export const usePlayerStore = defineStore(
     }
 
     const playNext = async () => {
+      if (playingNext.value) {
+        list.value.splice(currentTrackIndex.value, 0, currentTrack.value!.id)
+      }
       const [trackID, index, isPlayingNext] = getNextTrack()
       playingNext.value = isPlayingNext
       if (!trackID) {
@@ -1017,6 +1023,8 @@ export const usePlayerStore = defineStore(
         if (!isValidUrl(currentTrack.value?.url || '')) {
           const savedProgress = _progress.value
           await replaceCurrentTrack(currentTrack.value!.id, false)
+          audioNodes.audio!.removeAttribute('src')
+          audioNodes.audio!.load()
           audioNodes.audio!.src = currentTrack.value!.url!
           audioNodes.audio!.load()
           seek.value = savedProgress
@@ -1191,6 +1199,7 @@ export const usePlayerStore = defineStore(
     const setupAudioNode = async () => {
       const audio = new Audio()
       audio.crossOrigin = 'anonymous'
+      audio.preload = 'metadata'
       audio.preservesPitch = true
       audio.volume = 1
       audio.onended = null
@@ -1283,7 +1292,7 @@ export const usePlayerStore = defineStore(
       if (pic.value?.startsWith('blob:')) {
         URL.revokeObjectURL(pic.value)
       }
-      pic.value = await getPic(track, 1024)
+      pic.value = await getPic(track, 512)
 
       const arts = track.artists ?? track.ar
       const artists = arts.map((a) => a.name)
@@ -1428,12 +1437,15 @@ export const usePlayerStore = defineStore(
         }
       )
 
-      window.mainApi?.on('resume', () => {
+      window.mainApi?.on('resume', async () => {
         if (!currentTrack.value) return
         const t = _progress.value
-        replaceCurrentTrack(currentTrack.value.id, false).then((res) => {
-          if (res) seek.value = t
-        })
+        await replaceCurrentTrack(currentTrack.value.id, false)
+        audioNodes.audio!.removeAttribute('src')
+        audioNodes.audio!.load()
+        audioNodes.audio!.src = currentTrack.value!.url!
+        audioNodes.audio!.load()
+        seek.value = t
       })
 
       window.mainApi?.on('play', () => {
@@ -1546,7 +1558,7 @@ export const usePlayerStore = defineStore(
       if (_personalFMLoading.value) return false
 
       isPersonalFM.value = true
-      if (_personalFMNextTrack.value.id === 0) {
+      if (!_personalFMNextTrack.value) {
         _personalFMLoading.value = true
         let result: any = null
         let retryCount = 5
@@ -1570,12 +1582,15 @@ export const usePlayerStore = defineStore(
         }
         _personalFMTrack.value = result.data[0]
       } else {
-        if (_personalFMNextTrack.value.id === _personalFMTrack.value.id) {
+        if (
+          _personalFMNextTrack.value &&
+          _personalFMNextTrack.value.id === _personalFMTrack.value.id
+        ) {
           return false
         }
         _personalFMTrack.value = _personalFMNextTrack.value
       }
-      if (isPersonalFM.value) {
+      if (isPersonalFM.value && _personalFMTrack.value) {
         replaceCurrentTrack(_personalFMTrack.value.id)
       }
       loadPersonalFMNextTrack()
@@ -1639,7 +1654,7 @@ export const usePlayerStore = defineStore(
           return playing.value
         },
         get volume() {
-          return currentTrack.value?.volume || 0
+          return audioNodes.audio?.volume || 0
         },
         get currentTrack() {
           return toRaw(currentTrack.value || {})

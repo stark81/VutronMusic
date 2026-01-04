@@ -1,22 +1,4 @@
-import {
-  LocalMusicScreen,
-  SystemSettings,
-  LoginAccount,
-  LibraryMusic,
-  AlbumPage,
-  ArtistPage,
-  UserPage,
-  MvPage,
-  ArtistMv,
-  SearchPage,
-  HomePage,
-  ExplorePage,
-  PlaylistPage,
-  DailyTracks,
-  NextUp,
-  StreamLogin,
-  StreamPage
-} from '../views'
+import { HomePage } from '../views'
 import { createRouter, createWebHashHistory, createWebHistory } from 'vue-router'
 import { isAccountLoggedIn } from '../utils/auth'
 
@@ -34,7 +16,7 @@ const routes = [
   {
     path: '/explore',
     name: 'explore',
-    component: ExplorePage,
+    component: () => import('../views/ExplorePage.vue'),
     meta: {
       titleKey: 'nav.search',
       keepAlive: true,
@@ -44,7 +26,7 @@ const routes = [
   {
     path: '/library',
     name: 'library',
-    component: LibraryMusic,
+    component: () => import(/* webpackPrefetch: true */ '../views/LibraryMusic.vue'),
     meta: {
       titleKey: 'nav.library',
       requireLogin: true
@@ -53,22 +35,22 @@ const routes = [
   {
     path: '/streamLogin/:service',
     name: 'streamLogin',
-    component: StreamLogin
+    component: () => import('../views/StreamLogin.vue')
   },
   {
     path: '/stream',
     name: 'stream',
-    component: StreamPage
+    component: () => import(/* webpackPrefetch: true */ '../views/StreamPage.vue')
   },
   {
     path: '/streamPlaylist/:service/:id',
     name: 'streamPlaylist',
-    component: PlaylistPage
+    component: () => import('../views/PlaylistPage.vue')
   },
   {
     path: '/library/liked-songs',
     name: 'likedSongs',
-    component: PlaylistPage,
+    component: () => import('../views/PlaylistPage.vue'),
     meta: {
       requireLogin: true
     }
@@ -76,12 +58,12 @@ const routes = [
   {
     path: '/stream-liked-songs/:service',
     name: 'streamLikedSongs',
-    component: PlaylistPage
+    component: () => import('../views/PlaylistPage.vue')
   },
   {
     path: '/localMusic',
     name: 'localMusic',
-    component: LocalMusicScreen,
+    component: () => import(/* webpackPrefetch: true */ '../views/LocalMusic.vue'),
     meta: {
       titleKey: 'nav.localMusic'
       // keepAlive: true,
@@ -91,17 +73,17 @@ const routes = [
   {
     path: '/playlist/:id',
     name: 'playlist',
-    component: PlaylistPage
+    component: () => import('../views/PlaylistPage.vue')
   },
   {
     path: '/localPlaylist/:id',
     name: 'localPlaylist',
-    component: PlaylistPage
+    component: () => import('../views/PlaylistPage.vue')
   },
   {
     path: '/settings',
     name: 'settings',
-    component: SystemSettings,
+    component: () => import('../views/SystemSettings.vue'),
     meta: {
       titleKey: 'nav.settings'
     }
@@ -109,7 +91,7 @@ const routes = [
   {
     path: '/daily/songs',
     name: 'dailySongs',
-    component: DailyTracks,
+    component: () => import('../views/DailyTracks.vue'),
     meta: {
       requireLogin: true
     }
@@ -117,7 +99,7 @@ const routes = [
   {
     path: '/login/account',
     name: 'loginAccount',
-    component: LoginAccount,
+    component: () => import('../views/LoginAccount.vue'),
     meta: {
       titleKey: 'title.login'
     }
@@ -125,12 +107,12 @@ const routes = [
   {
     path: '/album/:id',
     name: 'album',
-    component: AlbumPage
+    component: () => import('../views/AlbumPage.vue')
   },
   {
     path: '/artist/:id',
     name: 'ArtistPage',
-    component: ArtistPage,
+    component: () => import('../views/ArtistPage.vue'),
     meta: {
       keepAlive: true
     }
@@ -138,7 +120,7 @@ const routes = [
   {
     path: '/artist/:id/mv',
     name: 'artistMV',
-    component: ArtistMv,
+    component: () => import('../views/ArtistMv.vue'),
     meta: {
       keepAlive: true
     }
@@ -146,7 +128,7 @@ const routes = [
   {
     path: '/search',
     name: 'search',
-    component: SearchPage,
+    component: () => import('../views/SearchPage.vue'),
     meta: {
       keepAlive: true
     }
@@ -154,17 +136,17 @@ const routes = [
   {
     path: '/user/:id',
     name: 'user',
-    component: UserPage
+    component: () => import('../views/UserPage.vue')
   },
   {
     path: '/mv/:id',
     name: 'mv',
-    component: MvPage
+    component: () => import('../views/MvPage.vue')
   },
   {
     path: '/next',
     name: 'next',
-    component: NextUp
+    component: () => import('../views/NextUp.vue')
   },
   {
     path: '/:pathMatch(.*)*',

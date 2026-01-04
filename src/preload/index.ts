@@ -61,7 +61,10 @@ const mainAvailChannels: string[] = [
   'get-lastfm-session',
   'disconnect-lastfm',
   'update-now-playing',
-  'track-scrobble'
+  'track-scrobble',
+  'get-screenshot',
+  'delete-screenshot',
+  'get-cache-path'
 ]
 const rendererAvailChannels: string[] = [
   'msgHandleScanLocalMusic',
@@ -88,7 +91,8 @@ const rendererAvailChannels: string[] = [
   'setPosition',
   'changeRouteTo',
   'updateAmuseServerStatus',
-  'receiveCacheInfo'
+  'receiveCacheInfo',
+  'updateLocalMusic'
 ]
 
 let messagePort: MessagePort | null = null

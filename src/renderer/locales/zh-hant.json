@@ -82,6 +82,8 @@
     },
     "albums": "專輯",
     "artists": "藝人",
+    "albumArtist": "專輯藝人",
+    "dirName": "資料夾名",
     "placeholder": "搜尋本地歌曲",
     "scrollToTop": "回到頂部",
     "localMusicFolderPath": "本地音樂資料夾路徑",
@@ -162,6 +164,8 @@
     "removeTrackFromPlaylist": "從歌單中刪除",
     "showInFolder": "在檔案管理員中開啟",
     "deletePlaylist": "刪除歌單",
+    "removeFromPlaylist": "從歌單中刪除",
+    "removeFromQueue": "從佇列刪除",
     "finish": "完成",
     "allPlaylists": "全部歌單",
     "minePlaylists": "建立的歌單",
@@ -310,7 +314,12 @@
         "true": "開啟",
         "blur": "模糊封面",
         "dynamic": "動態封面",
-        "customize": "自訂背景"
+        "customize": "自訂背景",
+        "colorMode": "背景頁顏色模式",
+        "extractdColor": {
+          "text": "使用封面漸層色作為背景",
+          "desc": "當背景透明度降低時顯示的背景顏色"
+        }
       },
       "trayColor": {
         "text": "系統匣圖示顏色",
@@ -392,10 +401,11 @@
       },
       "showButtonWhenLock": {
         "text": "鎖定後顯示解鎖按鈕",
-        "desc": "啟用後，鎖定桌面歌詞視窗時仍然顯示解鎖按鈕，",
+        "desc": "啟用後，鎖定桌面歌詞視窗時仍然顯示解鎖按鈕",
         "desc2": "並啟用鼠標停留降低視窗透明度功能"
       },
-      "lyricZoom": "放縮當前播放的歌詞"
+      "lyricZoom": "放縮當前播放的歌詞",
+      "lyricBold": "字體加粗"
     },
     "lyric": {
       "fontFamily": "歌詞字型",
@@ -403,7 +413,7 @@
       "backgroundType": "背景類型",
       "backgroundSource": "背景來源",
       "backgroundBlur": "背景模糊",
-      "backgroundOpacity": "背景亮度",
+      "backgroundOpacity": "背景透明度",
       "browse": "瀏覽",
       "reset": "重設",
       "bgType": {
@@ -460,6 +470,7 @@
     },
     "autoCacheTrack": {
       "enable": "啟用自動快取歌曲",
+      "path": "快取路徑",
       "sizeLimit": "歌曲快取上限",
       "noLimit": "無限制",
       "sizeCached": "已快取歌曲 { song } 首",
@@ -509,8 +520,9 @@
     },
     "playerTheme": {
       "title": "播放器樣式",
-      "common": "經典模式",
-      "creative": "創意模式"
+      "Classic": "經典模式",
+      "Creative": "創意模式",
+      "Customize": "自訂模式"
     },
     "amuseServer": {
       "running": "服務正常運行中",

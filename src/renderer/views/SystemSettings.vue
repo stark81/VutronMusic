@@ -28,7 +28,7 @@
           $t('settings.nav.general')
         }}</div>
         <div class="tab" :class="{ active: tab === 'lyric' }" @click="updateTab(1)">{{
-          $t('settings.nav.lyricSetting')
+          isWindows ? $t('settings.nav.osdLyric') : $t('settings.nav.lyricSetting')
         }}</div>
         <div class="tab" :class="{ active: tab === 'music' }" @click="updateTab(2)">{{
           $t('settings.nav.music')
@@ -157,17 +157,12 @@
           </div>
         </div>
         <div v-show="tab === 'lyric'" key="lyric">
-          <div class="lyric-tab">
+          <div v-if="!isWindows" class="lyric-tab">
             <button
               v-if="isElectron && !isWindows"
               :class="{ 'lyric-button': true, 'lyric-button--selected': lyricTab === 'trayLyric' }"
               @click="lyricTab = 'trayLyric'"
               >{{ $t('settings.nav.trayLyric') }}</button
-            >
-            <button
-              :class="{ 'lyric-button': true, 'lyric-button--selected': lyricTab === 'lyric' }"
-              @click="lyricTab = 'lyric'"
-              >{{ $t('settings.nav.lyric') }}</button
             >
             <button
               :class="{ 'lyric-button': true, 'lyric-button--selected': lyricTab === 'osdLyric' }"
@@ -208,9 +203,6 @@
                 <div class="title">{{ $t('settings.osdLyric.showButtonWhenLock.text') }}</div>
                 <div class="description">
                   {{ $t('settings.osdLyric.showButtonWhenLock.desc') }}
-                </div>
-                <div class="description">
-                  {{ $t('settings.osdLyric.showButtonWhenLock.desc2') }}
                 </div>
               </div>
               <div class="right">
@@ -338,152 +330,6 @@
               </div>
             </div>
           </div>
-          <div v-show="lyricTab === 'lyric'">
-            <div class="item">
-              <div class="left">
-                <div class="title">{{ $t('settings.osdLyric.useMask.text') }}</div>
-                <div class="description">{{ $t('settings.osdLyric.useMask.desc') }}</div>
-              </div>
-              <div class="right">
-                <div class="toggle">
-                  <input id="useMask" v-model="useMask" type="checkbox" name="useMask" />
-                  <label for="useMask"></label>
-                </div>
-              </div>
-            </div>
-            <div class="item">
-              <div class="left">
-                <div class="title">{{ $t('settings.osdLyric.isWordByWord') }}</div>
-              </div>
-              <div class="right">
-                <div class="toggle">
-                  <input
-                    id="isNWordByWord"
-                    v-model="isNWordByWord"
-                    type="checkbox"
-                    name="isNWordByWord"
-                  />
-                  <label for="isNWordByWord"></label>
-                </div>
-              </div>
-            </div>
-            <div class="item">
-              <div class="left">
-                <div class="title">{{ $t('settings.osdLyric.lyricZoom') }}</div>
-              </div>
-              <div class="right">
-                <div class="toggle">
-                  <input id="isZoom" v-model="isZoom" type="checkbox" name="isZoom" />
-                  <label for="isZoom"></label>
-                </div>
-              </div>
-            </div>
-            <div class="item">
-              <div class="left">
-                <div class="title">{{ $t('settings.osdLyric.fontSize') }}</div>
-              </div>
-              <div class="right">
-                <input
-                  v-model="inputNFontSizeValue"
-                  type="number"
-                  class="text-input margin-right-0"
-                  @input="inputNValue"
-                />
-              </div>
-            </div>
-            <div class="item">
-              <div class="left">
-                <div class="title">{{ $t('settings.osdLyric.textAlign.text') }}</div>
-              </div>
-              <div class="right">
-                <CustomSelect v-model="textAlign" :options="alignOptions" />
-              </div>
-            </div>
-            <div class="item">
-              <div class="left">
-                <div class="title">{{ $t('settings.osdLyric.translationMode.text') }}</div>
-              </div>
-              <div class="right">
-                <CustomSelect v-model="nTranslationMode" :options="nTranslateOptions" />
-              </div>
-            </div>
-            <div class="item">
-              <div class="left">
-                <div class="title">{{ $t('settings.lyric.fontFamily') }}</div>
-              </div>
-              <div class="right">
-                <CustomSelect v-model="fontFamily" :options="fontList" :searchable="true">
-                  <template #option="{ option }">
-                    <div :style="{ fontFamily: option.value as string }">{{ option.label }}</div>
-                  </template>
-                </CustomSelect>
-              </div>
-            </div>
-            <div class="item">
-              <div class="left">
-                <div class="title">{{ $t('settings.general.lyricBackground.text') }}</div>
-              </div>
-              <div class="right">
-                <CustomSelect v-model="lyricBackground" :options="lrcBgOptions" />
-              </div>
-            </div>
-            <template v-if="lyricBackground === 'customize'">
-              <div class="item">
-                <div class="left">
-                  <div class="title">{{ $t('settings.lyric.backgroundType') }}</div>
-                </div>
-                <div class="right">
-                  <CustomSelect v-model="backgroundType" :options="bgTypeOptions" />
-                </div>
-              </div>
-              <div class="item">
-                <div>{{ $t('settings.lyric.backgroundSource') }}：</div>
-              </div>
-              <div class="item lyric-source">
-                <input
-                  v-model="currentBG.source"
-                  type="text"
-                  class="text-input"
-                  :placeholder="bgSourcePlaceholder"
-                />
-                <div class="right">
-                  <button
-                    v-if="['image', 'video', 'folder'].includes(currentBG.type)"
-                    @click="selectBackgroundSource"
-                  >
-                    {{ $t('settings.lyric.browse') }}
-                  </button>
-                  <button
-                    v-if="['image', 'video', 'folder', 'api'].includes(currentBG.type)"
-                    @click="currentBG.source = ''"
-                  >
-                    {{ $t('settings.lyric.reset') }}
-                  </button>
-                </div>
-              </div>
-              <template v-if="currentBG.type === 'api'">
-                <div class="item">
-                  <div class="left">
-                    <div class="title">{{ $t('settings.lyric.apiRefreshMode') }}</div>
-                  </div>
-                  <div class="right">
-                    <CustomSelect v-model="apiRefreshMode" :options="apiRefreshModeOptions" />
-                  </div>
-                </div>
-                <div v-if="apiRefreshMode === 'time'" class="item">
-                  <div class="left">
-                    <div class="title">{{ $t('settings.lyric.apiRefreshInterval') }}</div>
-                  </div>
-                  <div class="right">
-                    <CustomSelect
-                      v-model="apiRefreshInterval"
-                      :options="apiRefreshIntervalOptions"
-                    />
-                  </div>
-                </div>
-              </template>
-            </template>
-          </div>
           <div v-if="!isWindows" v-show="lyricTab === 'trayLyric'">
             <div v-if="isMac">
               <div class="item">
@@ -609,6 +455,21 @@
             </div>
             <div class="item">
               <div class="left">
+                <div class="title"
+                  >{{ $t('settings.autoCacheTrack.path') }}: {{ autoCacheTrack.path }}</div
+                >
+              </div>
+              <div class="right" :style="{ minWidth: '120px' }">
+                <button :style="{ marginRight: '16px' }" @click="autoCacheTrack.path = ''"
+                  >重置</button
+                >
+                <button @click="chooseDir(false)">{{
+                  autoCacheTrack.path ? '更改' : '选择'
+                }}</button>
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
                 <div class="title">{{ $t('settings.autoCacheTrack.sizeLimit') }}</div>
               </div>
               <div class="right">
@@ -631,7 +492,7 @@
                 >
               </div>
               <div class="right">
-                <button class="clear-cache" @click="deleteCacheTracks">{{
+                <button class="clear-cache" @click="clearCache">{{
                   $t('settings.autoCacheTrack.clearCache')
                 }}</button>
               </div>
@@ -654,7 +515,7 @@
                 <div class="title">{{ $t('localMusic.localMusicFolderPath') }}: {{ scanDir }}</div>
               </div>
               <div class="right">
-                <button @click="chooseDir">{{ scanDir ? '更改' : '选择' }}</button>
+                <button @click="chooseDir(true)">{{ scanDir ? '更改' : '选择' }}</button>
               </div>
             </div>
             <div class="item">
@@ -1140,7 +1001,7 @@ import { VueDraggable } from 'vue-draggable-plus'
 // @ts-ignore
 import imageUrl from '../utils/settingImg.dataurl?raw'
 import { useRouter } from 'vue-router'
-import { serviceType, serviceName } from '@/types/music.d'
+import { serviceType, serviceName, Appearance } from '@/types/music.d'
 
 const router = useRouter()
 
@@ -1154,34 +1015,17 @@ const {
   misc,
   autoCacheTrack,
   unblockNeteaseMusic,
-  enableGlobalShortcut,
-  normalLyric
+  enableGlobalShortcut
 } = storeToRefs(settingsStore)
+
+const { deleteCacheTracks } = settingsStore
+
 const { scanDir, enble, trackInfoOrder } = toRefs(localMusic.value)
-const {
-  showTrackTimeOrID,
-  useCustomTitlebar,
-  language,
-  musicQuality,
-  closeAppOption,
-  trayColor,
-  lyricBackground
-} = toRefs(general.value)
+const { showTrackTimeOrID, useCustomTitlebar, language, musicQuality, closeAppOption, trayColor } =
+  toRefs(general.value)
 const { appearance, colors } = toRefs(theme.value)
 const customizeColor = computed(() => colors.value[4])
 const { showLyric, showControl, lyricWidth, enableExtension } = toRefs(tray.value)
-const {
-  nFontSize,
-  isNWordByWord,
-  nTranslationMode,
-  textAlign,
-  useMask,
-  isZoom,
-  fontFamily,
-  customBackground,
-  apiRefreshMode,
-  apiRefreshInterval
-} = toRefs(normalLyric.value)
 
 const streamMusicStore = useStreamMusicStore()
 const { enable, services } = storeToRefs(streamMusicStore)
@@ -1252,7 +1096,7 @@ const cacheSize = computed(() => {
 })
 
 const serviceTitle = (platform: serviceType) => {
-  const title = platform.status === 'logout' ? '登陆' : '登出'
+  const title = platform.status === 'logout' ? '登录' : '登出'
   return `单击选择，右击选择并${title}`
 }
 
@@ -1285,14 +1129,6 @@ const shortcutInput = ref({
   type: '',
   recording: false
 })
-const backgroundType = computed({
-  get: () => currentBG.value.type,
-  set: (value) => {
-    customBackground.value.forEach((item) => {
-      item.active = item.type === value
-    })
-  }
-})
 
 const recordedShortcut = ref<any[]>([])
 const mainStyle = ref({})
@@ -1306,149 +1142,74 @@ const selectLanguage = computed({
   }
 })
 
-const languageOption = computed(() => [
+const languageOption = [
   { label: t('settings.general.language.zhHans'), value: 'zh' },
   { label: t('settings.general.language.zhHant'), value: 'zht' },
   { label: t('settings.general.language.en'), value: 'en' }
-])
+]
 
-const closeOptions = computed(() => [
+const closeOptions = [
   { label: t('settings.general.closeAppOption.ask'), value: 'ask' },
   { label: t('settings.general.closeAppOption.minimizeToTray'), value: 'minimizeToTray' },
   { label: t('settings.general.closeAppOption.exit'), value: 'exit' }
-])
+]
 
-const trayColorOptions = computed(() => [
+const trayColorOptions = [
   { label: t('settings.general.trayColor.color'), value: 0 },
   { label: t('settings.general.trayColor.white'), value: 1 },
   { label: t('settings.general.trayColor.black'), value: 2 },
   { label: t('settings.general.trayColor.auto'), value: 3 }
-])
+]
 
-const typeOptions = computed(() => [
+const typeOptions = [
   { label: t('settings.osdLyric.type.small'), value: 'small' },
   { label: t('settings.osdLyric.type.normal'), value: 'normal' }
-])
+]
 
-const modeOptions = computed(() => [
+const modeOptions = [
   { label: t('settings.osdLyric.mode.oneLine'), value: 'oneLine' },
   { label: t('settings.osdLyric.mode.twoLines'), value: 'twoLines' }
-])
+]
 
-const translateOptions = computed(() => [
+const translateOptions = [
   { label: t('settings.osdLyric.translationMode.none'), value: 'none' },
   { label: t('settings.osdLyric.translationMode.tlyric'), value: 'tlyric' },
   { label: t('settings.osdLyric.translationMode.romalrc'), value: 'rlyric' }
-])
+]
 
-const alignOptions = computed(() => [
-  { label: t('settings.osdLyric.textAlign.start'), value: 'start' },
-  { label: t('settings.osdLyric.textAlign.center'), value: 'center' },
-  { label: t('settings.osdLyric.textAlign.end'), value: 'end' }
-])
-
-const nTranslateOptions = computed(() => [
-  { label: t('settings.osdLyric.translationMode.none'), value: 'none' },
-  { label: t('settings.osdLyric.translationMode.tlyric'), value: 'tlyric' },
-  { label: t('settings.osdLyric.translationMode.romalrc'), value: 'rlyric' }
-])
-
-const lrcBgOptions = computed(() => [
-  { label: t('settings.general.lyricBackground.close'), value: 'none' },
-  { label: t('settings.general.lyricBackground.true'), value: 'true' },
-  { label: t('settings.general.lyricBackground.blur'), value: 'blur' },
-  { label: t('settings.general.lyricBackground.dynamic'), value: 'dynamic' },
-  { label: t('settings.general.lyricBackground.customize'), value: 'customize' }
-])
-
-const bgTypeOptions = computed(() => [
-  { label: t('settings.lyric.bgType.image'), value: 'image' },
-  { label: t('settings.lyric.bgType.video'), value: 'video' },
-  { label: t('settings.lyric.bgType.folder'), value: 'folder' },
-  { label: t('settings.lyric.bgType.api'), value: 'api' }
-])
-
-const apiRefreshModeOptions = computed(() => [
-  { label: t('settings.lyric.refreshMode.song'), value: 'song' },
-  { label: t('settings.lyric.refreshMode.time'), value: 'time' }
-])
-
-const apiRefreshIntervalOptions = computed(() => [
-  { label: '1 ' + t('settings.lyric.minute'), value: 1 },
-  { label: '3 ' + t('settings.lyric.minutes'), value: 3 },
-  { label: '5 ' + t('settings.lyric.minutes'), value: 5 },
-  { label: '10 ' + t('settings.lyric.minutes'), value: 10 },
-  { label: '15 ' + t('settings.lyric.minutes'), value: 15 },
-  { label: '30 ' + t('settings.lyric.minutes'), value: 30 }
-])
-
-const currentBG = computed(() => customBackground.value.find((bg) => bg.active)!)
-
-const bgSourcePlaceholder = computed(() => {
-  switch (currentBG.value.type) {
-    case 'image':
-      return t('settings.lyric.placeholder.image')
-    case 'video':
-      return t('settings.lyric.placeholder.video')
-    case 'folder':
-      return t('settings.lyric.placeholder.folder')
-    case 'api':
-      return t('settings.lyric.placeholder.api')
-    default:
-      return ''
-  }
-})
-
-const selectBackgroundSource = async () => {
-  const isFolder = currentBG.value.type === 'folder'
-  const filters =
-    currentBG.value.type === 'video'
-      ? [{ name: 'Video', extensions: ['mp4', 'webm'] }]
-      : [{ name: 'Image', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }]
-
-  const result = await window.mainApi?.invoke('showOpenDialog', {
-    properties: isFolder ? ['openDirectory'] : ['openFile'],
-    filters: isFolder ? undefined : filters
-  })
-
-  if (result && !result.canceled && result.filePaths.length > 0) {
-    currentBG.value.source = result.filePaths[0]
-  }
-}
-
-const sizeLimitOptions = computed(() => [
+const sizeLimitOptions = [
   { label: t('settings.autoCacheTrack.noLimit'), value: false },
   { label: '500M', value: 512 },
   { label: '1G', value: 1024 },
   { label: '2G', value: 2048 },
   { label: '4G', value: 4096 },
   { label: '8G', value: 8192 }
-])
+]
 
-const musicQualityOptions = computed(() => [
+const musicQualityOptions = [
   { label: t('settings.general.musicQuality.low') + ' - 128Kbps', value: 128000 },
   { label: t('settings.general.musicQuality.medium') + ' - 192Kbps', value: 192000 },
   { label: t('settings.general.musicQuality.high') + ' - 320Kbps', value: 320000 },
   { label: t('settings.general.musicQuality.lossless') + ' - FLAC', value: 'flac' },
   { label: 'Hi-Res', value: 999000 }
-])
+]
 
-const embedCoverArtOption = computed(() => [
+const embedCoverArtOption = [
   { label: t('localMusic.embedCoverArt.none'), value: 0 },
   { label: t('localMusic.embedCoverArt.embedded'), value: 1 },
   { label: t('localMusic.embedCoverArt.path'), value: 2 },
   { label: t('localMusic.embedCoverArt.both'), value: 3 }
-])
+]
 
-const embedStyleOption = computed(() => [
+const embedStyleOption = [
   { label: t('localMusic.embedStyle.ignore'), value: 0 },
   { label: t('localMusic.embedStyle.rewrite'), value: 1 }
-])
+]
 
-const trackInfoOptions = computed(() => [
+const trackInfoOptions = [
   { label: t('settings.general.showTimeOrID.time'), value: 'time' },
   { label: t('settings.general.showTimeOrID.ID'), value: 'ID' }
-])
+]
 
 const devicesOptions = computed(() => {
   return allOutputDevices.value.map((device) => ({
@@ -1457,10 +1218,10 @@ const devicesOptions = computed(() => {
   }))
 })
 
-const orderFirstOptions = computed(() => [
+const orderFirstOptions = [
   { label: t('settings.unblock.sourceSearchMode.orderFirst'), value: true },
   { label: t('settings.unblock.sourceSearchMode.speedFirst'), value: false }
-])
+]
 
 const currentTheme = ref(
   (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') as Theme
@@ -1506,7 +1267,7 @@ const getAllOutputDevices = () => {
 }
 
 const tab = ref('general')
-const lyricTab = ref(isWindows ? 'lyric' : 'trayLyric')
+const lyricTab = ref(isWindows ? 'osdLyric' : 'trayLyric')
 const musicTab = ref('netease')
 const updateTab = (index: number) => {
   const tabs = ['general', 'lyric', 'music', 'unblock', 'shortcut', 'misc', 'update'] // 'appearance'
@@ -1532,9 +1293,14 @@ window.mainApi?.on('receiveCacheInfo', (_: any, data: { length: number; size: nu
   cacheTracksInfo.size = data.size
 })
 
-const chooseDir = () => {
+const chooseDir = (scan = true) => {
   window.mainApi?.invoke('selecteFolder').then((folderPath: string | null) => {
-    if (folderPath) scanDir.value = folderPath
+    if (!folderPath) return
+    if (scan) {
+      scanDir.value = folderPath
+    } else {
+      autoCacheTrack.value.path = folderPath
+    }
   })
 }
 
@@ -1547,8 +1313,8 @@ const getVersion = () => {
   })
 }
 
-const deleteCacheTracks = () => {
-  window.mainApi?.invoke('clearCacheTracks').then((res: boolean) => {
+const clearCache = () => {
+  deleteCacheTracks(true).then((res) => {
     if (res) {
       showToast('清除缓存成功')
       getCacheTracksInfo()
@@ -1556,7 +1322,7 @@ const deleteCacheTracks = () => {
   })
 }
 
-const updateAppearance = (mode: string) => {
+const updateAppearance = (mode: Appearance) => {
   appearance.value = mode
   Utils.changeAppearance(mode)
 }
@@ -1583,14 +1349,6 @@ const updateUnblockSource = () => {
   if (debounceTimeout) clearTimeout(debounceTimeout)
   debounceTimeout = setTimeout(() => {
     unblockNeteaseMusic.value.source = unblockSource.value
-  }, 500)
-}
-
-const inputNFontSizeValue = ref<number>(nFontSize.value)
-const inputNValue = () => {
-  if (debounceTimeout) clearTimeout(debounceTimeout)
-  debounceTimeout = setTimeout(() => {
-    nFontSize.value = inputNFontSizeValue.value
   }, 500)
 }
 
@@ -1993,6 +1751,9 @@ onBeforeUnmount(() => {
     font-size: 16px;
     font-weight: 500;
     opacity: 0.78;
+    overflow: hidden;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
 
     .update-ext {
       margin-left: 20px;
@@ -2110,7 +1871,6 @@ button.lyric-button {
   color: var(--color-text);
   background: unset;
   border-radius: 8px;
-  // padding: 6px 8px;
   margin-bottom: 12px;
   margin-right: 10px;
   transition: 0.2s;

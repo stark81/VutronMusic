@@ -40,6 +40,7 @@ import { useRoute } from 'vue-router'
 import { type ProgressInfo } from 'electron-updater'
 import router from './router'
 import eventBus from './utils/eventBus'
+import { Track } from '@/types/music'
 
 const localMusicStore = useLocalMusicStore()
 const { localTracks } = storeToRefs(localMusicStore)
@@ -186,11 +187,17 @@ const handleChanelEvent = () => {
   window.mainApi?.on('msgHandleScanLocalMusic', (_: any, data: { track: any }) => {
     const index = localTracks.value.findIndex((track) => track.filePath === data.track.filePath)
     if (index !== -1) {
-      localTracks.value[index] = data.track
+      localTracks.value.splice(index, 1, data.track)
     } else {
       localTracks.value.push(data.track)
     }
   })
+
+  window.mainApi?.on('updateLocalMusic', (event, data: { tracks: Track[] }) => {
+    showToast('更新本地歌曲成功')
+    localTracks.value = data.tracks
+  })
+
   window.mainApi?.on(
     'msgHandleScanLocalMusicError',
     (_: any, data: { err: any; filePath: string }) => {
@@ -238,6 +245,7 @@ watchOsdEvent()
 onMounted(async () => {
   registerInstance(instanceId.value)
   handleEventBus()
+  handleChanelEvent()
   hasCustomTitleBar.value =
     (window.env?.isLinux && general.value.useCustomTitlebar) || window.env?.isWindows || false
   if (isMac.value) {
@@ -259,7 +267,6 @@ onMounted(async () => {
     theme.value.colors.find((c) => c.selected)?.color || 'rgba(51, 94, 234, 1)'
   )
   fetchData()
-  handleChanelEvent()
   if (general.value.autoUpdate) {
     checkUpdate()
   }

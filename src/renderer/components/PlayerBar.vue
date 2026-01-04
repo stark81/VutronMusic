@@ -275,7 +275,7 @@ const goToList = () => {
 
 const updateVolume = (e: WheelEvent) => {
   e.preventDefault()
-  const delta = e.deltaY < 0 ? -0.02 : +0.02
+  const delta = e.deltaY < 0 ? 0.02 : -0.02
   volume.value = Math.min(Math.max(volume.value + delta, 0), 1)
 }
 

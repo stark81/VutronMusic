@@ -27,7 +27,7 @@ const image = computed(() => artist.value.img1v1Url + '?param=512y512')
 
 const route = useRoute()
 
-const loadData = (id: string, next: any = undefined) => {
+const loadData = (id: string) => {
   setTimeout(() => {
     if (!show.value) tricklingProgress.start()
   }, 1000)

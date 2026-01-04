@@ -1,5 +1,5 @@
 <template>
-  <div v-show="show" class="shade" :style="{ background: showLyrics ? 'rgba(0, 0, 0, 0.38)' : '' }">
+  <div v-if="show" class="shade" :style="{ background: showLyrics ? 'rgba(0, 0, 0, 0.38)' : '' }">
     <div class="modal" :style="modalStyle" @click.stop>
       <div class="header">
         <div class="title">{{ title }}</div>

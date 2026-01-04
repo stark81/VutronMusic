@@ -122,6 +122,18 @@ class Emby implements EmbyImpl {
             picUrl: artUrl
           }
         })
+        const albumArtist = song.AlbumArtists.map((t) => {
+          const art = response2.find((a) => a.Id === t.Id)!
+          const artUrl = art?.ImageTags?.Primary
+            ? this.getPic(t.Id, art.ImageTags.Primary, 64)
+            : 'http://p1.music.126.net/6y-UleORITEDbvrOLV0Q8A==/5639395138885805.jpg?param=64y64'
+          return {
+            name: t.Name || '未知艺人',
+            id: t.Id || '',
+            matched: false,
+            picUrl: artUrl
+          }
+        })
         const lrcItem = song.MediaSources[0].MediaStreams.find((item) => item.Codec === 'lrc')
         const lrcId = lrcItem ? `${song.Id}/${song.MediaSources[0].Id}/${lrcItem.Index}` : song.Id
         const track = {
@@ -152,7 +164,18 @@ class Emby implements EmbyImpl {
             ? artists
             : [
                 {
-                  name: '',
+                  name: '未知艺人',
+                  id: '',
+                  picUrl:
+                    'http://p1.music.126.net/6y-UleORITEDbvrOLV0Q8A==/5639395138885805.jpg?param=64y64',
+                  matched: false
+                }
+              ],
+          albumArtist: albumArtist.length
+            ? albumArtist
+            : [
+                {
+                  name: '未知艺人',
                   id: '',
                   picUrl:
                     'http://p1.music.126.net/6y-UleORITEDbvrOLV0Q8A==/5639395138885805.jpg?param=64y64',

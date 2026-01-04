@@ -2,7 +2,8 @@ import { defineStore } from 'pinia'
 import { nextTick, reactive, ref, watch } from 'vue'
 import { type UpdateCheckResult } from 'electron-updater'
 import { type IFontInfo } from 'font-list'
-import { TrackSourceType } from '@/types/music'
+import type { TrackSourceType } from '@/types/music'
+import type { LayoutMode } from '@/types/theme'
 
 type ScrollState = {
   scrollTop: number
@@ -21,7 +22,7 @@ export const useNormalStateStore = defineStore('state', () => {
   const setPitchModal = ref(false)
   const setThemeModal = ref(false)
   const setFontModal = ref(false)
-  const setBGModal = ref(false)
+  const setSaveThemeModal = ref(false)
   const fontList = ref<{ label: string; value: string }[]>([
     { label: '系统默认', value: 'system-ui' }
   ])
@@ -40,6 +41,10 @@ export const useNormalStateStore = defineStore('state', () => {
   const accurateMatchModal = ref({
     show: false,
     selectedTrackID: 0
+  })
+  const backgroundModal = ref({
+    show: false,
+    type: 'Classic' as LayoutMode
   })
 
   const toast = reactive({
@@ -148,12 +153,13 @@ export const useNormalStateStore = defineStore('state', () => {
     setPitchModal,
     setThemeModal,
     setFontModal,
-    setBGModal,
+    setSaveThemeModal,
     fontList,
     extensionCheckResult,
     addTrackToPlaylistModal,
     newPlaylistModal,
     accurateMatchModal,
+    backgroundModal,
     dailyTracks,
     toast,
     modalOpen,

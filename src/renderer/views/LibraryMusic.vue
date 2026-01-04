@@ -333,7 +333,7 @@ const getRandomLyric = async () => {
     randomId = liked.value.songs[randomNum(0, liked.value.songs.length - 1)]
     data = await fetch(`atom://local-asset?type=lyric&id=${randomId}`).then((res) => res.json())
     const isInstrumental = data.map((l) => l.lyric.text).filter((l) => l.includes('纯音乐，请欣赏'))
-    if (!isInstrumental.length) {
+    if (data.length && !isInstrumental.length) {
       lyric.value = data.map((l) => ({ content: l.lyric.text }))
       getTrackDetail(randomId.toString()).then((data) => {
         randomtrack.value = data.songs[0]

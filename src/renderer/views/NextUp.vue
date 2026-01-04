@@ -25,7 +25,7 @@
       :show-service="true"
       :highlight-playing-track="false"
       :show-position="false"
-      :extra-context-menu-item="['removeTrackFromQueue']"
+      :extra-context-menu-item="['removeTrackFromInsert']"
       :is-end="filteredTracks.length === 0"
     />
 
@@ -40,6 +40,7 @@
       :show-track-position="false"
       :highlight-playing-track="false"
       :colunm-number="1"
+      :extra-context-menu-item="['removeTrackFromNext']"
       :is-end="true"
     />
   </div>

@@ -1,4 +1,4 @@
-import { app, net } from 'electron'
+import { net } from 'electron'
 import fs from 'fs'
 import path from 'path'
 import jschardet from 'jschardet'
@@ -285,6 +285,7 @@ export const getLyric = async (track: {
 export const handleNeteaseResult = async (name: string, result: any) => {
   switch (name) {
     case CacheAPIs.Playlist: {
+      if (!result) return result
       if (result.playlist) {
         result.playlist.tracks = mapTrackPlayableStatus(
           result.playlist.tracks,
@@ -664,33 +665,60 @@ export const getAudioSourceFromUnblock = async (track: any) => {
   return match(track.id, sourceList)
 }
 
-export const deleteExcessCache = (deleteAll = false) => {
+export const deleteExcessCache = async (deleteAll = false): Promise<boolean> => {
   const tracks = Cache.get(CacheAPIs.LocalMusic, { sql: "type = 'online'" })
+
   if (deleteAll) {
     try {
-      const ids = tracks.songs.map((s: any) => s.id)
+      const ids = tracks.songs.map((s: any) => {
+        fs.promises.rm(s.url, { force: true })
+        return s.id
+      })
       if (ids.length > 0) db.deleteMany(Tables.Track, ids)
-      const audioCachePath = app.getPath('userData') + '/audioCache'
-      if (fs.existsSync(audioCachePath)) {
-        fs.rmSync(audioCachePath, { recursive: true })
-      }
       return true
     } catch (error) {
-      log.error('清理在线歌曲缓存失败:', error)
+      log.error('清理全量缓存失败:', error)
       return false
     }
   }
+
   const sizeLimit = store.get('settings.autoCacheTrack.sizeLimit') as boolean | number
-  if (sizeLimit === false) return
-  const songs = tracks.songs.sort((a: any, b: any) => a.insertTime - b.insertTime) as any[]
-  const urls = songs.map((s: any) => s.url) as string[]
-  const size = songs
-    .map((s: any) => s.size)
-    .reduce((acc: any, cur: any) => Number(acc) + Number(cur), 0)
-  if (size > (sizeLimit as number) * 1000 * 1000) {
-    fs.unlink(urls[0], () => {
-      db.deleteMany(Tables.Track, [songs[0].id])
-    })
+  if (sizeLimit === false) return true
+
+  const songs = [...tracks.songs].sort((a: any, b: any) => a.insertTime - b.insertTime)
+
+  let currentTotalSize = songs.reduce((acc: number, cur: any) => acc + Number(cur.size), 0)
+  const limitInBytes = (sizeLimit as number) * 1024 * 1024
+
+  try {
+    const deletedIds: number[] = []
+
+    while (currentTotalSize > limitInBytes && songs.length > 0) {
+      const target = songs.shift()
+      if (!target) break
+
+      try {
+        await fs.promises.unlink(target.url)
+        deletedIds.push(target.id)
+        currentTotalSize -= Number(target.size)
+      } catch (fileError: any) {
+        if (fileError.code === 'ENOENT') {
+          deletedIds.push(target.id)
+        } else {
+          log.error(`文件删除失败: ${target.url}`, fileError)
+        }
+      }
+    }
+
+    if (deletedIds.length > 0) {
+      db.deleteMany(Tables.Track, deletedIds)
+      log.info(`自动清理完成，共删除 ${deletedIds.length} 首缓存歌曲`)
+    }
+
+    return true
+  } catch (error) {
+    log.error('循环清理超额缓存失败:', error)
+    return false
   }
 }
 

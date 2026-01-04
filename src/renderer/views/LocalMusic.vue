@@ -48,13 +48,9 @@
         }"
       >
         <div class="tabs">
-          <div
-            class="tab dropdown"
-            :class="{ active: currentTab === 'localTracks' }"
-            @click="updateTab('localTracks')"
-          >
+          <div class="tab dropdown" :class="{ active: idx === 0 }" @click="updateTab(0)">
             <span class="text">{{ $t('localMusic.songs') }}</span>
-            <span class="icon" @click.stop="openLocalTracksTabMenu"
+            <span class="icon" @click.stop="(e) => openLocalTracksTabMenu('playlist', e)"
               ><svg-icon icon-class="dropdown"
             /></span>
           </div>
@@ -64,49 +60,42 @@
           <div v-if="isBatchOp" class="tab" @click="addToPlaylist">{{
             $t('localMusic.playlist.addToPlaylist')
           }}</div>
-          <div
-            v-else
-            class="tab"
-            :class="{ active: currentTab === 'localPlaylist' }"
-            @click="updateTab('localPlaylist')"
-          >
+          <div v-else class="tab" :class="{ active: idx === 1 }" @click="updateTab(1)">
             {{ $t('localMusic.playlist.text') }}
           </div>
           <div v-if="isBatchOp" class="tab" @click="addTracksToQueue">{{
             $t('contextMenu.addToQueue')
           }}</div>
-          <div
-            v-else
-            class="tab"
-            :class="{ active: currentTab === 'album' }"
-            @click="updateTab('album')"
-          >
+          <div v-else class="tab" :class="{ active: idx === 2 }" @click="updateTab(2)">
             {{ $t('localMusic.albums') }}
           </div>
           <div v-if="isBatchOp" class="tab" @click="finishBatchOp">{{
             $t('contextMenu.finish')
           }}</div>
-          <div
-            v-else
-            class="tab"
-            :class="{ active: currentTab === 'artist' }"
-            @click="updateTab('artist')"
-          >
-            {{ $t('localMusic.artists') }}
+          <div v-else class="tab dropdown" :class="{ active: idx === 3 }" @click="updateTab(3)">
+            <span class="text">{{
+              $t(artistBy === 0 ? 'localMusic.artists' : 'localMusic.albumArtist')
+            }}</span>
+            <span class="icon" @click.stop="(e) => openLocalTracksTabMenu('artist', e)"
+              ><svg-icon icon-class="dropdown"
+            /></span>
           </div>
+          <div v-if="!isBatchOp" class="tab" :class="{ active: idx === 4 }" @click="updateTab(4)">{{
+            $t('localMusic.dirName')
+          }}</div>
         </div>
-        <div v-if="currentTab !== 'localPlaylist'" class="search-box">
-          <SearchBox ref="localSearchBoxRef" :placeholder="`搜索${placeHolderMap(currentTab)}`" />
+        <div v-if="idx !== 1" class="search-box">
+          <SearchBox
+            ref="localSearchBoxRef"
+            :placeholder="`搜索${placeHolderMap(idx === 3 ? (tabs[idx][artistBy] as string) : (tabs[idx] as string))}`"
+          />
         </div>
-        <button
-          v-show="currentTab === 'localPlaylist'"
-          class="tab-button"
-          @click="openAddPlaylistModal"
+        <button v-show="idx === 1" class="tab-button" @click="openAddPlaylistModal"
           ><svg-icon icon-class="plus" />{{ $t('library.playlist.newPlaylist') }}
         </button>
       </div>
       <div class="section-two-content" :style="tabStyle">
-        <div v-show="currentTab === 'localTracks'">
+        <div v-show="idx === 0">
           <TrackList
             :id="0"
             ref="trackListRef"
@@ -123,19 +112,25 @@
           ></TrackList>
         </div>
 
-        <div v-show="currentTab === 'localPlaylist'">
+        <div v-show="idx === 1">
           <CoverRow
             v-if="playlists.length"
             :items="playlists"
-            :type="currentTab"
+            type="localPlaylist"
             :style="{ paddingBottom: '96px' }"
           />
         </div>
-        <div v-show="currentTab === 'album'">
+
+        <div v-show="idx === 2">
           <AlbumList :tracks="sortedLocalTracks" />
         </div>
-        <div v-show="currentTab === 'artist'">
-          <ArtistList :tracks="sortedLocalTracks" />
+
+        <div v-show="idx === 3">
+          <ArtistList :tracks="sortedLocalTracks" :type="tabs[3][artistBy]" />
+        </div>
+
+        <div v-show="idx === 4">
+          <DirList :tracks="sortedLocalTracks" />
         </div>
       </div>
     </div>
@@ -159,6 +154,11 @@
         $t('contextMenu.batchOperation')
       }}</div>
     </ContextMenu>
+
+    <ContextMenu ref="artistTabMenu">
+      <div class="item" @click="artistBy = 0">{{ $t('localMusic.artists') }}</div>
+      <div class="item" @click="artistBy = 1">{{ $t('localMusic.albumArtist') }}</div>
+    </ContextMenu>
   </div>
 </template>
 
@@ -166,6 +166,7 @@
 import { storeToRefs } from 'pinia'
 import { useNormalStateStore } from '../store/state'
 import { useLocalMusicStore, sortList } from '../store/localMusic'
+import { useSettingsStore } from '../store/settings'
 import { usePlayerStore } from '../store/player'
 import {
   computed,
@@ -176,12 +177,14 @@ import {
   onMounted,
   onUnmounted,
   watch,
-  nextTick
+  nextTick,
+  toRefs
 } from 'vue'
 import TrackList from '../components/VirtualTrackList.vue'
 import InfoBG from '../components/InfoBG.vue'
 import AlbumList from '../components/AlbumList.vue'
 import ArtistList from '../components/ArtistList.vue'
+import DirList from '../components/DirList.vue'
 import CoverRow from '../components/CoverRow.vue'
 import SvgIcon from '../components/SvgIcon.vue'
 import SearchBox from '../components/SearchBox.vue'
@@ -193,22 +196,33 @@ import { lyricLine, Track } from '@/types/music.d'
 
 // load
 const localMusicStore = useLocalMusicStore()
-const { localTracks, playlists, sortBy } = storeToRefs(localMusicStore)
+const { localTracks, playlists, sortBy, artistBy } = storeToRefs(localMusicStore)
 const { scanLocalMusic, getLocalLyric } = localMusicStore
 
 const { newPlaylistModal, modalOpen } = storeToRefs(useNormalStateStore())
 const { addTrackToPlayNext } = usePlayerStore()
 
+const { scanDir } = toRefs(useSettingsStore().localMusic)
+
 // ref
-const currentTab = ref('localTracks')
+const idx = ref(0)
 const localSearchBoxRef = ref<InstanceType<typeof SearchBox>>()
 const playlistTabMenu = ref<InstanceType<typeof ContextMenu>>()
+const artistTabMenu = ref<InstanceType<typeof ContextMenu>>()
 const trackListRef = shallowRef<InstanceType<typeof TrackList>>()
 const tabsRowRef = ref()
 const randomID = ref<number>(1)
 const randomLyric = ref<{ content: string }[]>([])
 const randomTrack = ref<Track>()
 const isBatchOp = ref(false)
+
+const tabs = [
+  'localTracks',
+  'localPlaylist',
+  'album',
+  ['artist', 'albumArtist'],
+  'dirName'
+] as const
 
 const hasCustomTitleBar = inject('hasCustomTitleBar', ref(true))
 
@@ -256,8 +270,8 @@ watch(modalOpen, (value) => {
   }
 })
 
-const updateTab = (val: string) => {
-  currentTab.value = val
+const updateTab = (index: number) => {
+  idx.value = index
   observeTab.disconnect()
   observeTab.observe(tabsRowRef.value!)
 }
@@ -298,10 +312,12 @@ const sortedLocalTracks = computed(() => {
 })
 
 const defaultTracks = computed(() => {
-  return localTracks.value.map((track, index) => ({
+  const tracks = localTracks.value.map((track, index) => ({
     ...track,
-    index
+    index,
+    dirName: getFirstDirName(scanDir.value, track.filePath)
   }))
+  return tracks
 })
 
 const filterLocalTracks = computed(() => {
@@ -313,9 +329,26 @@ const filterLocalTracks = computed(() => {
         track.album.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
       track.artists.find(
         (ar) => ar.name && ar.name.toLowerCase().includes(keyword.value?.toLowerCase())
-      )
+      ) ||
+      track.albumArtist.find(
+        (ar) => ar.name && ar.name.toLowerCase().includes(keyword.value?.toLowerCase())
+      ) ||
+      track.dirName.toLowerCase().includes(keyword.value?.toLowerCase())
   )
 })
+
+const normalizePath = (p: string) => p.replace(/\\/g, '/').replace(/\/+/g, '/').replace(/\/$/, '')
+
+const getFirstDirName = (baseDir: string, filePath: string) => {
+  const base = normalizePath(baseDir)
+  const path = normalizePath(filePath)
+
+  if (!path.startsWith(base + '/')) {
+    return ''
+  }
+  const relative = path.slice(base.length + 1)
+  return relative.split('/')[0]
+}
 
 // const scrollToItem = inject('scrollToItem') as (idx: number) => void
 
@@ -323,8 +356,12 @@ const playThisTrack = () => {
   addTrackToPlayNext(randomID.value, true, true)
 }
 
-const openLocalTracksTabMenu = (e: MouseEvent): void => {
-  playlistTabMenu.value?.openMenu(e)
+const openLocalTracksTabMenu = (ref: 'playlist' | 'artist', e: MouseEvent): void => {
+  const map = {
+    playlist: playlistTabMenu.value,
+    artist: artistTabMenu.value
+  }
+  map[ref]?.openMenu(e)
 }
 
 const openAddPlaylistModal = () => {
@@ -351,7 +388,9 @@ const placeHolderMap = (tab: string) => {
   const pMap = {
     localTracks: t('localMusic.songs'),
     album: t('localMusic.albums'),
-    artist: t('localMusic.artists')
+    albumArtist: t('localMusic.albumArtist'),
+    artist: t('localMusic.artists'),
+    dirName: t('localMusic.dirName')
   }
   return pMap[tab]
 }
@@ -405,7 +444,7 @@ const getRandomTrack = async () => {
     randomId = ids[randomNum(0, ids.length - 1)]
     data = await getLocalLyric(randomId)
     const isInstrumental = data.map((l) => l.lyric.text).filter((l) => l.includes('纯音乐，请欣赏'))
-    if (!isInstrumental.length) {
+    if (data.length && !isInstrumental.length) {
       randomLyric.value = data.map((l) => ({ content: l.lyric.text }))
       randomID.value = randomId
       break
@@ -417,7 +456,7 @@ const getRandomTrack = async () => {
 
 const updatePadding = inject('updatePadding') as (padding: number) => void
 
-watch(currentTab, () => {
+watch(idx, () => {
   nextTick(() => {
     updatePadding(0)
   })

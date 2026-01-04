@@ -4,13 +4,11 @@ import DefaultShortcuts from '../utils/shortcuts'
 import { playlistCategories } from '../utils/common'
 import cloneDeep from 'lodash/cloneDeep'
 import { useLocalMusicStore } from './localMusic'
-import { TranslationMode, TrackInfoOrder } from '@/types/music'
+import { TrackInfoOrder, Appearance } from '@/types/music'
 
-type TextAlign = 'start' | 'center' | 'end'
 type BackgroundEffect = 'none' | 'true' | 'blur' | 'dynamic' | 'customize'
 type StandardBackgroundEffect = Exclude<BackgroundEffect, 'customize'>
 export type bgType = 'image' | 'video' | 'folder' | 'api'
-type customizeBackground = { type: bgType; active: boolean; source: string }
 
 export const useSettingsStore = defineStore(
   'settings',
@@ -20,7 +18,7 @@ export const useSettingsStore = defineStore(
 
     const enabledPlaylistCategories = playlistCategories.filter((c) => c.enable).map((c) => c.name)
     const theme = reactive({
-      appearance: 'auto', // as 'auto' | 'dark' | 'light',
+      appearance: 'auto' as Appearance,
       colors: [
         { name: 'blue', color: 'rgba(51, 94, 234, 1)', selected: true },
         { name: 'purple', color: 'rgba(136, 84, 208, 1)', selected: false },
@@ -67,39 +65,6 @@ export const useSettingsStore = defineStore(
       showTray: true
     })
 
-    const normalLyric = reactive<{
-      nFontSize: number
-      isNWordByWord: boolean
-      nTranslationMode: TranslationMode
-      textAlign: TextAlign
-      useMask: boolean
-      isZoom: boolean
-      fontFamily: string
-      customBackground: customizeBackground[]
-      backgroundBlur: number
-      backgroundOpacity: number
-      apiRefreshMode: 'song' | 'time'
-      apiRefreshInterval: number
-    }>({
-      nFontSize: 28,
-      isNWordByWord: true,
-      nTranslationMode: 'tlyric',
-      textAlign: 'start',
-      useMask: true,
-      isZoom: true,
-      fontFamily: 'system-ui',
-      customBackground: [
-        { type: 'image', active: true, source: '' },
-        { type: 'video', active: false, source: '' },
-        { type: 'folder', active: false, source: '' },
-        { type: 'api', active: false, source: '' }
-      ],
-      backgroundBlur: 50,
-      backgroundOpacity: 60,
-      apiRefreshMode: 'song',
-      apiRefreshInterval: 5
-    })
-
     const unblockNeteaseMusic = reactive({
       enable: true,
       source: 'bodian, kuwo, kugou, ytdlp, qq, bilibili, pyncmd, migu',
@@ -111,25 +76,9 @@ export const useSettingsStore = defineStore(
 
     const autoCacheTrack = reactive({
       enable: false,
+      path: '',
       sizeLimit: 512 as boolean | number,
       number: 0
-    })
-
-    const playerTheme = reactive({
-      common: [
-        { name: '默认' as const, selected: true, font: '', img: 'common' },
-        { name: '旋转封面' as const, selected: false, font: '', img: 'rotate' }
-      ],
-      creative: [
-        // { name: '信笺歌词' as const, selected: false, font: '' },
-        {
-          name: '歌词环游' as const,
-          selected: false,
-          font: '',
-          senseIndex: 0,
-          img: 'creative_snow'
-        }
-      ]
     })
 
     const enableGlobalShortcut = ref(false)
@@ -192,7 +141,12 @@ export const useSettingsStore = defineStore(
 
     watch(
       autoCacheTrack,
-      (value) => {
+      async (value) => {
+        if (!value.path) {
+          await window.mainApi?.invoke('get-cache-path').then((result: string) => {
+            value.path = result
+          })
+        }
         window.mainApi?.send('setStoreSettings', { autoCacheTrack: cloneDeep(toRaw(value)) })
       },
       { deep: true }
@@ -314,6 +268,10 @@ export const useSettingsStore = defineStore(
       window.mainApi?.send('setStoreSettings', { shortcuts: cloneDeep(toRaw(shortcuts.value)) })
     }
 
+    const deleteCacheTracks = async (clearAll: boolean = false): Promise<boolean> => {
+      return await window.mainApi?.invoke('clearCacheTracks', clearAll)
+    }
+
     const restoreDefaultShortcuts = () => {
       shortcuts.value = cloneDeep(DefaultShortcuts)
       window.mainApi?.send('setStoreSettings', { shortcuts: cloneDeep(toRaw(shortcuts.value)) })
@@ -333,6 +291,12 @@ export const useSettingsStore = defineStore(
         misc.lastfm.name = result.name
         misc.lastfm.enable = result.name !== ''
       })
+      if (!autoCacheTrack.path) {
+        window.mainApi?.invoke('get-cache-path').then((result: string) => {
+          autoCacheTrack.path = result
+        })
+      }
+      deleteCacheTracks(false)
     })
 
     return {
@@ -340,19 +304,22 @@ export const useSettingsStore = defineStore(
       general,
       localMusic,
       tray,
-      playerTheme,
       enableGlobalShortcut,
       shortcuts,
       misc,
-      normalLyric,
       autoCacheTrack,
       unblockNeteaseMusic,
       updateShortcut,
+      deleteCacheTracks,
       togglePlaylistCategory,
       restoreDefaultShortcuts,
       lastfmConnect,
       lastfmDisconnect
     }
   },
-  { persist: true }
+  {
+    persist: {
+      omit: ['playerThemeNew']
+    }
+  }
 )

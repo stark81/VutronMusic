@@ -172,11 +172,11 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
         const autoCache = (store.get('settings.autoCacheTrack.enable') as boolean) || false
         if (autoCache) {
           cacheWorker = createWorker('cacheTrack')
-          cacheWorker?.on('message', (msg) => {
+          cacheWorker?.on('message', async (msg) => {
             if (msg.type === 'task-done') {
               const track = msg.data
-              cache.set(CacheAPIs.LocalMusic, { newTracks: [track] })
-
+              await cache.set(CacheAPIs.LocalMusic, { newTracks: [track] })
+              await deleteExcessCache()
               const tracks = cache.get(CacheAPIs.LocalMusic, { sql: "type = 'online'" })
               const size = tracks.songs
                 .map((track: any) => track.size)
@@ -428,6 +428,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
       const existingTracks = new Map<string, Track>()
       const existingAlbums = new Map<string, Album>()
       const existingArtists = new Map<string, Artist>()
+      const existingAlArtists = new Map<string, Artist>()
 
       const newTracks: Track[] = []
 
@@ -507,6 +508,22 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
               return newAr
             })
 
+            newTrack.albumArtist = track.albumArtist.map((artist) => {
+              let newAr: Artist
+              if (existingAlArtists.has(artist)) {
+                newAr = existingAlArtists.get(artist)
+              } else {
+                newAr = {
+                  id: existingAlArtists.size + 1,
+                  name: artist,
+                  matched: false,
+                  picUrl: 'https://p1.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg'
+                }
+                existingAlArtists.set(artist, newAr)
+              }
+              return newAr
+            })
+
             newTrack = _.merge({}, track, newTrack)
 
             win.webContents.send('msgHandleScanLocalMusic', { track: newTrack })
@@ -514,6 +531,39 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
             newTracks.push(newTrack)
           } else {
             const originTrack = existingTracks.get(track.filePath)
+
+            originTrack.artists = track.artists.map((artist) => {
+              let newAr: Artist
+              if (existingArtists.has(artist)) {
+                newAr = existingArtists.get(artist)
+              } else {
+                newAr = {
+                  id: existingArtists.size + 1,
+                  name: artist,
+                  matched: false,
+                  picUrl: 'https://p1.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg'
+                }
+                existingArtists.set(artist, newAr)
+              }
+              return newAr
+            })
+
+            originTrack.albumArtist = track.albumArtist.map((artist) => {
+              let newAr: Artist
+              if (existingAlArtists.has(artist)) {
+                newAr = existingAlArtists.get(artist)
+              } else {
+                newAr = {
+                  id: existingAlArtists.size + 1,
+                  name: artist,
+                  matched: false,
+                  picUrl: 'https://p1.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg'
+                }
+                existingAlArtists.set(artist, newAr)
+              }
+              return newAr
+            })
+
             const updatedTrack = _.merge({}, track, originTrack)
             existingTracks.set(updatedTrack.filePath, updatedTrack)
           }
@@ -522,6 +572,10 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
 
       if (newTracks.length > 0) {
         await cache.set(CacheAPIs.LocalMusic, { newTracks })
+      }
+      if (data.update) {
+        cache.set(CacheAPIs.LocalMusic, { newTracks: [...existingTracks.values()] })
+        win.webContents.send('updateLocalMusic', { tracks: [...existingTracks.values()] })
       }
       win.webContents.send('scanLocalMusicDone')
     } catch (error) {
@@ -544,8 +598,8 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     db.deleteMany(Tables.Playlist, playlistIDs)
   })
 
-  ipcMain.handle('clearCacheTracks', async () => {
-    const result = deleteExcessCache(true)
+  ipcMain.handle('clearCacheTracks', async (event, clearAll: boolean) => {
+    const result = await deleteExcessCache(clearAll)
     return result
   })
 
@@ -568,7 +622,9 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
       return
     }
     const track = res.songs[0]
-    const audioCachePath = app.getPath('userData') + '/audioCache'
+    const audioCachePath =
+      (store.get('settings.autoCacheTrack.path') as string) ||
+      path.join(app.getPath('userData'), 'audioCache')
     if (!fs.existsSync(audioCachePath)) {
       fs.mkdirSync(audioCachePath)
     }
@@ -662,6 +718,41 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
       coverWorker.postMessage({ type: 'normal', ...data, embedOption, embedStyle })
     }
   )
+
+  ipcMain.handle('get-screenshot', async (event, name: string) => {
+    const image = await win.capturePage()
+    const buffer = image.toPNG()
+
+    const userDataPath = app.getPath('userData')
+    const screenshotsDir = path.join(userDataPath, 'screenshots')
+
+    if (!fs.existsSync(screenshotsDir)) {
+      fs.mkdirSync(screenshotsDir, { recursive: true })
+    }
+
+    const fileName = `screenshot_${name}.png`
+    const filePath = path.join(screenshotsDir, fileName)
+
+    try {
+      fs.writeFileSync(filePath, buffer)
+      return filePath
+    } catch (err) {
+      console.error('保存失败:', err)
+      return ''
+    }
+  })
+
+  ipcMain.on('delete-screenshot', (event, name: string) => {
+    try {
+      if (fs.existsSync(name)) {
+        fs.unlinkSync(name)
+      }
+    } catch (error) {}
+  })
+
+  ipcMain.handle('get-cache-path', () => {
+    return path.join(app.getPath('userData'), 'audioCache')
+  })
 }
 
 async function initMprisIpcMain(win: BrowserWindow, mpris: MprisImpl): Promise<void> {

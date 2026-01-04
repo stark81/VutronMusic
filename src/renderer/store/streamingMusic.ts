@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
 import { computed, reactive, ref } from 'vue'
-import _ from 'lodash'
+import difference from 'lodash/difference'
+import cloneDeep from 'lodash/cloneDeep'
+import flatten from 'lodash/flatten'
 import {
   Track,
   StreamPlaylist,
@@ -30,6 +32,7 @@ export const useStreamMusicStore = defineStore(
       emby: []
     })
     const sortBy = ref('default')
+    const artistBy = ref(0)
     const groundBy = ref<serviceName | 'all'>('all')
     const message = ref('')
 
@@ -82,7 +85,7 @@ export const useStreamMusicStore = defineStore(
       let newIDs: any[] = []
       if (op === 'add') {
         const playlist = playlists[service].find((p) => p.id === playlistId)
-        newIDs = _.difference(ids, (playlist?.trackIds || []) as unknown as string[])
+        newIDs = difference(ids, (playlist?.trackIds || []) as unknown as string[])
         if (!newIDs.length) return false
       }
 
@@ -151,8 +154,10 @@ export const useStreamMusicStore = defineStore(
         })
     }
 
-    const getAStreamTrack = (id: string | number) => {
-      return _.cloneDeep(_.flatten(Object.values(streamTracks)).find((track) => track.id === id)!)
+    const getAStreamTrack = (id: string | number): Track | undefined => {
+      return cloneDeep(
+        (flatten(Object.values(streamTracks)) as Track[]).find((track) => track.id === id)
+      )
     }
 
     const checkStreamStatus = async () => {
@@ -176,6 +181,7 @@ export const useStreamMusicStore = defineStore(
       streamLikedTracks,
       playlists,
       sortBy,
+      artistBy,
       groundBy,
       message,
       scrobble,

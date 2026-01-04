@@ -262,6 +262,21 @@ class Jellyfin implements JellyfinImpl {
           : 'http://p1.music.126.net/6y-UleORITEDbvrOLV0Q8A==/5639395138885805.jpg?param=64y64'
         return { name: artist.Name, id: artist.Id, picUrl: artUrl, matched: false }
       })
+
+      const albumArtist = (song.AlbumArtists as any[])?.map((artist: any) => {
+        const art = res2.data.Items.find((a: any) => a.Id === artist.Id)
+        if (!art) {
+          const picUrl =
+            'http://p1.music.126.net/6y-UleORITEDbvrOLV0Q8A==/5639395138885805.jpg?param=64y64'
+          return { name: '未知艺人', id: '', picUrl, matched: false }
+        } else {
+          const artUrl = art.ImageTags?.Primary
+            ? this.getPic(artist.Id, 64)
+            : 'http://p1.music.126.net/6y-UleORITEDbvrOLV0Q8A==/5639395138885805.jpg?param=64y64'
+          return { name: artist.Name, id: artist.Id, picUrl: artUrl, matched: false }
+        }
+      })
+
       const track = {
         id: song.Id,
         name: song.Name,
@@ -291,13 +306,14 @@ class Jellyfin implements JellyfinImpl {
           ? artists
           : [
               {
-                name: '',
+                name: '未知艺人',
                 id: '',
                 picUrl:
                   'http://p1.music.126.net/6y-UleORITEDbvrOLV0Q8A==/5639395138885805.jpg?param=64y64',
                 matched: false
               }
             ],
+        albumArtist,
         picUrl: this.getPic(song.Id, 64)
       }
       return track

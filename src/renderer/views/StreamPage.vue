@@ -53,13 +53,11 @@
         }"
       >
         <div class="tabs">
-          <div
-            class="tab dropdown"
-            :class="{ active: currentTab === 'track' }"
-            @click="currentTab = 'track'"
-          >
+          <div class="tab dropdown" :class="{ active: idx === 0 }" @click="idx = 0">
             <span class="text">{{ $t('streamMusic.track') }}</span>
-            <span class="icon" @click.stop="openTabMenu"><svg-icon icon-class="dropdown" /></span>
+            <span class="icon" @click.stop="(e) => openTabMenu('track', e)"
+              ><svg-icon icon-class="dropdown"
+            /></span>
           </div>
           <div v-if="isBatchOp" class="tab" @click="selectAll">{{
             $t('contextMenu.selectAll')
@@ -67,47 +65,40 @@
           <div v-if="isBatchOp" class="tab" @click="addToPlaylist">{{
             $t('streamMusic.playlist.addToPlaylist')
           }}</div>
-          <div
-            v-else
-            class="tab"
-            :class="{ active: currentTab === 'playlist' }"
-            @click="currentTab = 'playlist'"
-          >
+          <div v-else class="tab" :class="{ active: idx === 1 }" @click="idx = 1">
             {{ $t('streamMusic.playlist.text') }}
           </div>
           <div v-if="isBatchOp" class="tab" @click="addTracksToQueue">{{
             $t('contextMenu.addToQueue')
           }}</div>
-          <div
-            v-else
-            class="tab"
-            :class="{ active: currentTab === 'album' }"
-            @click="currentTab = 'album'"
-          >
+          <div v-else class="tab" :class="{ active: idx === 2 }" @click="idx = 2">
             {{ $t('streamMusic.album') }}
           </div>
           <div v-if="isBatchOp" class="tab" @click="finishBatchOp">{{
             $t('contextMenu.finish')
           }}</div>
-          <div
-            v-else
-            class="tab"
-            :class="{ active: currentTab === 'artist' }"
-            @click="currentTab = 'artist'"
-          >
-            {{ $t('streamMusic.artist') }}
+          <div v-else class="tab dropdown" :class="{ active: idx === 3 }" @click="idx = 3">
+            <span class="text">{{
+              $t(artistBy === 0 ? 'streamMusic.artist' : 'localMusic.albumArtist')
+            }}</span>
+            <span class="icon" @click.stop="(e) => openTabMenu('artist', e)"
+              ><svg-icon icon-class="dropdown"
+            /></span>
           </div>
         </div>
-        <div v-show="currentTab !== 'playlist'" class="search-box">
-          <SearchBox ref="streamSearchBoxRef" :placeholder="`搜索${placeHolderMap(currentTab)}`" />
+        <div v-show="idx !== 1" class="search-box">
+          <SearchBox
+            ref="streamSearchBoxRef"
+            :placeholder="`搜索${placeHolderMap(idx === 3 ? (tabs[idx][artistBy] as string) : (tabs[idx] as string))}`"
+          />
         </div>
-        <button v-show="currentTab === 'playlist'" class="tab-button" @click="openAddPlaylistModal"
+        <button v-show="idx === 1" class="tab-button" @click="openAddPlaylistModal"
           ><svg-icon icon-class="plus" />{{ $t('library.playlist.newPlaylist') }}</button
         >
       </div>
       <div v-if="!loginedServices.length" class="errorInfo">{{ streamMessage }}</div>
       <div v-if="show" class="section-two-content" :style="tabStyle">
-        <div v-show="currentTab === 'track'">
+        <div v-show="idx === 0">
           <TrackList
             :id="0"
             ref="streamListRef"
@@ -120,7 +111,7 @@
             :extra-context-menu-item="['addToStreamList']"
           />
         </div>
-        <div v-show="currentTab === 'playlist'">
+        <div v-show="idx === 1">
           <CoverRow
             :items="defaultPlaylists"
             type="streamPlaylist"
@@ -129,11 +120,11 @@
             :is-end="true"
           />
         </div>
-        <div v-show="currentTab === 'album'">
+        <div v-show="idx === 2">
           <AlbumList :tracks="sortedLocalTracks" />
         </div>
-        <div v-show="currentTab === 'artist'">
-          <ArtistList :tracks="sortedLocalTracks" />
+        <div v-show="idx === 3">
+          <ArtistList :tracks="sortedLocalTracks" :type="tabs[3][artistBy]" />
         </div>
       </div>
     </div>
@@ -163,6 +154,11 @@
         $t('contextMenu.batchOperation')
       }}</div>
     </ContextMenu>
+
+    <ContextMenu ref="artistTabMenu">
+      <div class="item" @click="artistBy = 0">{{ $t('localMusic.artists') }}</div>
+      <div class="item" @click="artistBy = 1">{{ $t('localMusic.albumArtist') }}</div>
+    </ContextMenu>
   </div>
 </template>
 
@@ -190,8 +186,16 @@ const { newPlaylistModal, modalOpen } = storeToRefs(stateStore)
 const { showToast } = stateStore
 
 const streamMusicStore = useStreamMusicStore()
-const { sortBy, streamTracks, playlists, message, streamLikedTracks, loginedServices, groundBy } =
-  storeToRefs(streamMusicStore)
+const {
+  sortBy,
+  streamTracks,
+  playlists,
+  message,
+  streamLikedTracks,
+  loginedServices,
+  groundBy,
+  artistBy
+} = storeToRefs(streamMusicStore)
 const { fetchStreamMusic, fetchStreamPlaylist, getStreamLyric, checkStreamStatus } =
   streamMusicStore
 
@@ -199,15 +203,18 @@ const router = useRouter()
 
 const hasCustomTitleBar = inject('hasCustomTitleBar', ref(true))
 const streamTabMenu = ref<InstanceType<typeof ContextMenu>>()
+const artistTabMenu = ref<InstanceType<typeof ContextMenu>>()
 const streamSearchBoxRef = ref<InstanceType<typeof SearchBox>>()
 const streamListRef = shallowRef<InstanceType<typeof TrackList>>()
 const tabsRowRef = ref()
 const isBatchOp = ref(false)
 const show = ref(false)
 
-const currentTab = ref('track')
+const idx = ref(0)
 const randomTrack = ref<Track>()
 const randomLyric = ref<{ content: string }[]>([])
+
+const tabs = ['track', 'playlist', 'album', ['artist', 'albumArtist']] as const
 
 const { t } = useI18n()
 const sortOptions = [
@@ -269,6 +276,9 @@ const filterStreamTracks = computed(() => {
       (track.album?.name &&
         track.album.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
       track.artists.find(
+        (ar) => ar.name && ar.name.toLowerCase().includes(keyword.value?.toLowerCase())
+      ) ||
+      track.albumArtist.find(
         (ar) => ar.name && ar.name.toLowerCase().includes(keyword.value?.toLowerCase())
       )
   )
@@ -332,8 +342,12 @@ const finishBatchOp = () => {
   streamListRef.value?.doFinish()
 }
 
-const openTabMenu = (e: MouseEvent): void => {
-  streamTabMenu.value?.openMenu(e)
+const openTabMenu = (ref: 'track' | 'artist', e: MouseEvent): void => {
+  const map = {
+    track: streamTabMenu.value,
+    artist: artistTabMenu.value
+  }
+  map[ref]?.openMenu(e)
 }
 
 const placeHolderMap = (tab: string) => {

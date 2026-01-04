@@ -82,6 +82,8 @@
     },
     "albums": "专辑",
     "artists": "艺人",
+    "albumArtist": "专辑艺人",
+    "dirName": "文件夹名",
     "placeholder": "搜索本地歌曲",
     "scrollToTop": "回到顶部",
     "localMusicFolderPath": "本地音乐文件夹路径",
@@ -162,6 +164,8 @@
     "removeTrackFromPlaylist": "从歌单里删除",
     "showInFolder": "在文件管理器中打开",
     "deletePlaylist": "删除歌单",
+    "removeFromPlaylist": "从歌单中删除",
+    "removeFromQueue": "从队列删除",
     "finish": "完成",
     "allPlaylists": "全部歌单",
     "minePlaylists": "创建的歌单",
@@ -182,8 +186,8 @@
     "usernameLogin": "用户名登录",
     "loginWithEmail": "邮箱登录",
     "loginWithPhone": "手机号登录",
-    "loginWithQr": "二维码登陆",
-    "loginWithCookie": "Cookie登陆",
+    "loginWithQr": "二维码登录",
+    "loginWithCookie": "Cookie登录",
     "noticeElectron": "你的密码会在本地进行MD5加密后再传输到网易云API。VutronMusic 不会传输你的账号数据到任何非网易云音乐官方的服务器。"
   },
   "player": {
@@ -310,7 +314,12 @@
         "true": "打开",
         "blur": "模糊封面",
         "dynamic": "动态封面",
-        "customize": "自定义背景"
+        "customize": "自定义背景",
+        "colorMode": "背景页颜色模式",
+        "extractdColor": {
+          "text": "使用封面渐变色作为背景",
+          "desc": "当背景透明度降低时显示的背景颜色"
+        }
       },
       "trayColor": {
         "text": "托盘图标颜色",
@@ -374,7 +383,14 @@
         "romalrc": "音译"
       },
       "font": "字体设置",
-      "fontSize": "字体大小（px）",
+      "fontSize": "字体大小（单位：{dw}）",
+      "lineGap": "歌词行间隔（单位：{dw}）",
+      "position": {
+        "text": "歌词垂直位置",
+        "top": "靠上",
+        "center": "居中",
+        "bottom": "靠下"
+      },
       "textAlign": {
         "text": "字体对齐方式",
         "start": "居左",
@@ -392,10 +408,11 @@
       },
       "showButtonWhenLock": {
         "text": "锁定后显示解锁按钮",
-        "desc": "启用后，锁定桌面歌词窗口时仍然显示解锁按钮，",
+        "desc": "启用后，锁定桌面歌词窗口时仍然显示解锁按钮",
         "desc2": "并启用鼠标停留降低窗体透明度功能"
       },
-      "lyricZoom": "放缩当前播放的歌词"
+      "lyricZoom": "放缩当前播放的歌词",
+      "lyricBold": "字体加粗"
     },
     "lyric": {
       "fontFamily": "歌词字体",
@@ -403,7 +420,7 @@
       "backgroundType": "背景类型",
       "backgroundSource": "背景来源",
       "backgroundBlur": "背景模糊",
-      "backgroundOpacity": "背景亮度",
+      "backgroundOpacity": "背景透明度",
       "browse": "浏览",
       "reset": "重置",
       "bgType": {
@@ -460,6 +477,7 @@
     },
     "autoCacheTrack": {
       "enable": "启用自动缓存歌曲",
+      "path": "缓存路径",
       "sizeLimit": "歌曲缓存上限",
       "noLimit": "无限制",
       "sizeCached": "已缓存歌曲 { song } 首",
@@ -491,7 +509,7 @@
       "enable": "启用流媒体音乐",
       "service": "流媒体服务",
       "login": "已登录",
-      "logout": "未登陆",
+      "logout": "未登录",
       "offline": "服务器离线"
     },
     "update": {
@@ -509,8 +527,9 @@
     },
     "playerTheme": {
       "title": "播放器样式",
-      "common": "经典模式",
-      "creative": "创意模式"
+      "Classic": "经典模式",
+      "Creative": "创意模式",
+      "Customize": "自定义模式"
     },
     "amuseServer": {
       "running": "服务正常运行中",
