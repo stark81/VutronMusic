@@ -240,7 +240,7 @@ const titleStyle = computed(() => {
   if (activeTheme.value.theme.activeLayout === 'Creative') {
     const sense = senses.value[activeTheme.value.theme.activeLayout]
     const pos = sense.region
-    const result: Record<string, any> = { left: pos.left, right: pos.right }
+    const result: Record<string, any> = { left: pos.left, right: pos.right, top: pos.titleTop }
     result.textAlign = senseMap[sense.active]
     return result
   }
@@ -904,7 +904,6 @@ $mid: math.ceil(math.div($count, 2));
 
   .title-name {
     position: fixed;
-    top: 28px;
     font-weight: 600;
     line-height: 50px;
 

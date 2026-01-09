@@ -11,6 +11,7 @@ export type AniName =
   | 'splitAndMerge'
 
 export type BgType =
+  | 'none'
   | 'gradient'
   | 'blur-image'
   | 'dynamic-image'
@@ -22,49 +23,53 @@ export type BgType =
   | 'api'
 
 type BgSource =
-  | { type: 'gradient'; color: 'dark' }
   | {
-      type: 'blur-image' | 'dynamic-image' | 'letter-image'
+      type: 'none'
+      src: string
       blur: number
-      bright: number
-      color: 'light' | 'dark' | 'auto'
-      size: number
+      opacity: number
+      color: 'auto'
+      useExtractedColor: boolean
     }
   | {
-      type: 'custom-image'
+      type: 'gradient'
       src: string
-      blur?: number
-      bright?: number
-      color?: 'light' | 'dark' | 'auto'
-      size: number
+      blur: number
+      opacity: number
+      color: 'dark'
+      useExtractedColor: boolean
     }
   | {
       type: 'lottie'
       src: string
-      blur?: number
-      bright?: number
-      color?: 'light' | 'dark'
-      preset?: ['snow', 'sunshine']
-    }
-  | {
-      type: 'custom-video'
-      src: string
-      blur?: number
-      bright?: number
-      color?: 'light' | 'dark' | 'auto'
+      blur: number
+      opacity: number
+      color: 'light' | 'dark'
       useExtractedColor: boolean
     }
   | {
-      type: 'random-folder'
+      type:
+        | 'blur-image'
+        | 'dynamic-image'
+        | 'letter-image'
+        | 'custom-image'
+        | 'custom-video'
+        | 'random-folder'
       src: string
-      color?: 'light' | 'dark' | 'auto'
+      blur: number
+      opacity: number
+      color: 'light' | 'dark' | 'auto'
+      useExtractedColor: boolean
     }
   | {
       type: 'api'
       src: string
-      switchMode: 'time' | 'track'
-      timer?: number
-      color?: 'light' | 'dark' | 'auto'
+      blur: number
+      opacity: number
+      color: 'light' | 'dark' | 'auto'
+      useExtractedColor: boolean
+      switchMode: 'track' | 'time'
+      timer: number
     }
 
 export type Theme = {
@@ -83,7 +88,7 @@ export type Theme = {
         1: AniName
         2: AniName
       }
-      region: { top: string; bottom: string; left: string; right: string }
+      region: { top: string; bottom: string; left: string; right: string; titleTop: string }
     }
     Letter: {
       active: 0

@@ -298,6 +298,5 @@ const matchedFreqs = (data: any) => {
 
 .preset {
   margin-top: 10px;
-  // display: grid;
 }
 </style>

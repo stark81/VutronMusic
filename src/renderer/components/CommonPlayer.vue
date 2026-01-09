@@ -184,7 +184,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject, onBeforeUnmount, onMounted, ref, toRefs, watch } from 'vue'
+import { computed, inject, onBeforeUnmount, onMounted, ref, toRefs } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import ButtonIcon from './ButtonIcon.vue'
@@ -211,8 +211,7 @@ const playPageContextMenu = inject('playPageContextMenu', ref<InstanceType<typeo
 
 const settingsStore = useSettingsStore()
 const { normalLyric, general } = storeToRefs(settingsStore)
-const { nTranslationMode, textAlign, customBackground, apiRefreshMode, apiRefreshInterval } =
-  toRefs(normalLyric.value)
+const { nTranslationMode, textAlign } = toRefs(normalLyric.value)
 
 const playerStore = usePlayerStore()
 const {
@@ -243,102 +242,9 @@ const stateStore = useNormalStateStore()
 const { showLyrics, addTrackToPlaylistModal } = storeToRefs(stateStore)
 
 const isMobile = ref(false)
-// const show = ref('lyric')
 
 const hasTLyric = computed(() => lyrics.value.some((l) => l.tlyric))
 const hasRLyric = computed(() => lyrics.value.some((l) => l.rlyric))
-
-// 自定义背景
-const customBgUrl = ref('')
-const customBgType = ref<'image' | 'video'>('image')
-const currentBG = computed(() => customBackground.value.find((bg) => bg.active)!)
-
-const loadCustomBackground = async () => {
-  if (currentBG.value.type === 'api') {
-    // API 随机背景
-    if (currentBG.value.source) {
-      customBgUrl.value = `${currentBG.value.source}${currentBG.value.source.includes('?') ? '&' : '?'}t=${Date.now()}`
-      customBgType.value = 'image'
-    }
-    return
-  }
-
-  if (currentBG.value.type === 'folder') {
-    // 文件夹随机
-    if (currentBG.value.source) {
-      const files = await window.mainApi?.invoke('getFilesInFolder', currentBG.value.source, [
-        'png',
-        'jpg',
-        'jpeg',
-        'webp',
-        'gif',
-        'mp4',
-        'webm'
-      ])
-      if (files && files.length > 0) {
-        const randomFile = files[Math.floor(Math.random() * files.length)]
-        customBgUrl.value = `atom://local-resource/${encodeURIComponent(randomFile)}`
-        customBgType.value = randomFile.match(/\.(mp4|webm)$/i) ? 'video' : 'image'
-      }
-    }
-    return
-  }
-
-  // 单个图片或视频
-  if (currentBG.value.source) {
-    customBgUrl.value = `atom://local-resource/${encodeURIComponent(currentBG.value.source)}`
-    customBgType.value = currentBG.value.type === 'video' ? 'video' : 'image'
-  }
-}
-
-// API 定时刷新
-let apiRefreshTimer: ReturnType<typeof setInterval> | null = null
-
-const startApiRefreshTimer = () => {
-  stopApiRefreshTimer()
-  if (currentBG.value.type === 'api' && apiRefreshMode.value === 'time') {
-    apiRefreshTimer = setInterval(
-      () => {
-        loadCustomBackground()
-      },
-      apiRefreshInterval.value * 60 * 1000
-    )
-  }
-}
-
-const stopApiRefreshTimer = () => {
-  if (apiRefreshTimer) {
-    clearInterval(apiRefreshTimer)
-    apiRefreshTimer = null
-  }
-}
-
-// 切歌时更新背景（仅当模式为 song 时）
-watch(
-  () => currentTrack.value?.id,
-  () => {
-    if (currentBG.value.type === 'folder') {
-      loadCustomBackground()
-    } else if (currentBG.value.type === 'api' && apiRefreshMode.value === 'song') {
-      loadCustomBackground()
-    }
-  }
-)
-
-// 背景类型或来源变化时更新
-watch(
-  currentBG,
-  () => {
-    loadCustomBackground()
-    startApiRefreshTimer()
-  },
-  { immediate: true }
-)
-
-// API 刷新模式或间隔变化时重启定时器
-watch([apiRefreshMode, apiRefreshInterval], () => {
-  startApiRefreshTimer()
-})
 
 const artist = computed(() => {
   return currentTrack.value?.artists ? currentTrack.value.artists[0] : currentTrack.value?.ar[0]

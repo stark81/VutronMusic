@@ -801,7 +801,7 @@ export const usePlayerStore = defineStore(
           return false
         }
         currentTrack.value = track
-        await searchMatchForLocal(track!)
+        searchMatchForLocal(track!)
         const source = await getTrackSource(track!)
         let replaced = false
         if (source) {

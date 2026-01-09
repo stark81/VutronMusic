@@ -1,6 +1,6 @@
 <template>
   <transition name="slide-fade">
-    <div v-show="!noLyric" class="lyric-wrapper" :class="{ 'use-mask': useMask }">
+    <div v-if="!noLyric" class="lyric-wrapper" :class="{ 'use-mask': useMask }">
       <div v-show="hover" class="offset">
         <button-icon title="提前0.5s" @click="setOffset(-0.5)">
           <svg-icon icon-class="back5s" />
@@ -13,7 +13,6 @@
         </button-icon>
       </div>
       <div
-        ref="lyricContainer"
         class="main-lyric-container"
         :class="{ 'is-zoom': isZoom, 'line-mode': lineMode }"
         @wheel="handleWheel"
@@ -43,11 +42,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, toRefs, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, toRefs, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
 import { useNormalStateStore } from '../store/state'
 import { useSettingsStore } from '../store/settings'
+import { usePlayerThemeStore } from '../store/playerTheme'
 import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
 import LyricLine from './LyricLine.vue'
@@ -80,9 +80,16 @@ const { showToast } = stateStore
 
 const settingsStore = useSettingsStore()
 const { normalLyric } = storeToRefs(settingsStore)
-const { nFontSize, useMask, nTranslationMode, isNWordByWord, isZoom, fontFamily } = toRefs(
-  normalLyric.value
-)
+const { nFontSize, useMask, nTranslationMode, isNWordByWord, isZoom } = toRefs(normalLyric.value)
+
+const playerThemeStore = usePlayerThemeStore()
+const { activeTheme } = storeToRefs(playerThemeStore)
+
+const fontFamily = computed(() => {
+  const theme = activeTheme.value.theme
+  const result = theme.senses[theme.activeLayout]
+  return result.font
+})
 
 const lineMode = computed(() => {
   return !isNWordByWord.value || lyrics.value.every((line) => !line.lyric?.info)
@@ -281,6 +288,11 @@ onMounted(async () => {
   const idx = Math.max(0, highlight.value)
   const el = document.getElementById(`lyric${idx}`)
   el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+})
+
+onBeforeUnmount(() => {
+  clearAnimations()
+  lyricRefs.value = []
 })
 </script>
 

@@ -1,5 +1,5 @@
 <template>
-  <div v-show="show" class="shade" :data-theme="showLyrics ? theme : ''">
+  <div v-if="show" class="shade" :style="{ background: showLyrics ? 'rgba(0, 0, 0, 0.38)' : '' }">
     <div class="modal" :style="modalStyle" @click.stop>
       <div class="header">
         <div class="title">{{ title }}</div>
@@ -19,7 +19,6 @@
 import { watch, computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useNormalStateStore } from '../store/state'
-import { usePlayerThemeStore } from '../store/playerTheme'
 import SvgIcon from './SvgIcon.vue'
 
 const props = defineProps({
@@ -52,18 +51,7 @@ const props = defineProps({
 const stateStore = useNormalStateStore()
 const { showLyrics, enableScrolling } = storeToRefs(stateStore)
 
-const playerThemeStore = usePlayerThemeStore()
-const { activeBG } = storeToRefs(playerThemeStore)
-
 const modalStyle = computed(() => ({ width: props.width, minWidth: props.minWidth }))
-
-const theme = computed(() => {
-  let appearance = activeBG.value.color
-  if (appearance === 'auto' || appearance === undefined) {
-    appearance = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-  }
-  return appearance
-})
 
 watch(
   () => props.show,
@@ -99,7 +87,7 @@ watch(
   z-index: 100;
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 100px);
+  max-height: calc(100vh - 128px - 64px);
 
   ::-webkit-scrollbar {
     width: 4px;
@@ -199,26 +187,6 @@ watch(
 
   .modal {
     background: rgba(36, 36, 36, 0.88);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-  }
-}
-
-.shade[data-theme='dark'] {
-  background: rgba(0, 0, 0, 0.38) !important;
-  color: var(--color-text);
-
-  .modal {
-    background: rgba(36, 36, 36, 0.88) !important;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-  }
-}
-
-.shade[data-theme='light'] {
-  background: rgba(255, 255, 255, 0.58) !important;
-  color: var(--color-text);
-
-  .modal {
-    background: rgba(255, 255, 255, 0.78) !important;
     border: 1px solid rgba(255, 255, 255, 0.08);
   }
 }

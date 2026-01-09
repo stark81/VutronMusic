@@ -407,82 +407,6 @@
                 <CustomSelect v-model="nTranslationMode" :options="nTranslateOptions" />
               </div>
             </div>
-            <div class="item">
-              <div class="left">
-                <div class="title">{{ $t('settings.lyric.fontFamily') }}</div>
-              </div>
-              <div class="right">
-                <CustomSelect v-model="fontFamily" :options="fontList" :searchable="true">
-                  <template #option="{ option }">
-                    <div :style="{ fontFamily: option.value as string }">{{ option.label }}</div>
-                  </template>
-                </CustomSelect>
-              </div>
-            </div>
-            <div class="item">
-              <div class="left">
-                <div class="title">{{ $t('settings.general.lyricBackground.text') }}</div>
-              </div>
-              <div class="right">
-                <CustomSelect v-model="lyricBackground" :options="lrcBgOptions" />
-              </div>
-            </div>
-            <template v-if="lyricBackground === 'customize'">
-              <div class="item">
-                <div class="left">
-                  <div class="title">{{ $t('settings.lyric.backgroundType') }}</div>
-                </div>
-                <div class="right">
-                  <CustomSelect v-model="backgroundType" :options="bgTypeOptions" />
-                </div>
-              </div>
-              <div class="item">
-                <div>{{ $t('settings.lyric.backgroundSource') }}：</div>
-              </div>
-              <div class="item lyric-source">
-                <input
-                  v-model="currentBG.source"
-                  type="text"
-                  class="text-input"
-                  :placeholder="bgSourcePlaceholder"
-                />
-                <div class="right">
-                  <button
-                    v-if="['image', 'video', 'folder'].includes(currentBG.type)"
-                    @click="selectBackgroundSource"
-                  >
-                    {{ $t('settings.lyric.browse') }}
-                  </button>
-                  <button
-                    v-if="['image', 'video', 'folder', 'api'].includes(currentBG.type)"
-                    @click="currentBG.source = ''"
-                  >
-                    {{ $t('settings.lyric.reset') }}
-                  </button>
-                </div>
-              </div>
-              <template v-if="currentBG.type === 'api'">
-                <div class="item">
-                  <div class="left">
-                    <div class="title">{{ $t('settings.lyric.apiRefreshMode') }}</div>
-                  </div>
-                  <div class="right">
-                    <CustomSelect v-model="apiRefreshMode" :options="apiRefreshModeOptions" />
-                  </div>
-                </div>
-                <div v-if="apiRefreshMode === 'time'" class="item">
-                  <div class="left">
-                    <div class="title">{{ $t('settings.lyric.apiRefreshInterval') }}</div>
-                  </div>
-                  <div class="right">
-                    <CustomSelect
-                      v-model="apiRefreshInterval"
-                      :options="apiRefreshIntervalOptions"
-                    />
-                  </div>
-                </div>
-              </template>
-            </template>
           </div>
           <div v-if="!isWindows" v-show="lyricTab === 'trayLyric'">
             <div v-if="isMac">
@@ -1161,30 +1085,14 @@ const {
 const { deleteCacheTracks } = settingsStore
 
 const { scanDir, enble, trackInfoOrder } = toRefs(localMusic.value)
-const {
-  showTrackTimeOrID,
-  useCustomTitlebar,
-  language,
-  musicQuality,
-  closeAppOption,
-  trayColor,
-  lyricBackground
-} = toRefs(general.value)
+const { showTrackTimeOrID, useCustomTitlebar, language, musicQuality, closeAppOption, trayColor } =
+  toRefs(general.value)
 const { appearance, colors } = toRefs(theme.value)
 const customizeColor = computed(() => colors.value[4])
 const { showLyric, showControl, lyricWidth, enableExtension } = toRefs(tray.value)
-const {
-  nFontSize,
-  isNWordByWord,
-  nTranslationMode,
-  textAlign,
-  useMask,
-  isZoom,
-  fontFamily,
-  customBackground,
-  apiRefreshMode,
-  apiRefreshInterval
-} = toRefs(normalLyric.value)
+const { nFontSize, isNWordByWord, nTranslationMode, textAlign, useMask, isZoom } = toRefs(
+  normalLyric.value
+)
 
 const streamMusicStore = useStreamMusicStore()
 const { enable, services } = storeToRefs(streamMusicStore)
@@ -1288,14 +1196,6 @@ const shortcutInput = ref({
   type: '',
   recording: false
 })
-const backgroundType = computed({
-  get: () => currentBG.value.type,
-  set: (value) => {
-    customBackground.value.forEach((item) => {
-      item.active = item.type === value
-    })
-  }
-})
 
 const recordedShortcut = ref<any[]>([])
 const mainStyle = ref({})
@@ -1355,69 +1255,6 @@ const nTranslateOptions = computed(() => [
   { label: t('settings.osdLyric.translationMode.tlyric'), value: 'tlyric' },
   { label: t('settings.osdLyric.translationMode.romalrc'), value: 'rlyric' }
 ])
-
-const lrcBgOptions = computed(() => [
-  { label: t('settings.general.lyricBackground.close'), value: 'none' },
-  { label: t('settings.general.lyricBackground.true'), value: 'true' },
-  { label: t('settings.general.lyricBackground.blur'), value: 'blur' },
-  { label: t('settings.general.lyricBackground.dynamic'), value: 'dynamic' },
-  { label: t('settings.general.lyricBackground.customize'), value: 'customize' }
-])
-
-const bgTypeOptions = computed(() => [
-  { label: t('settings.lyric.bgType.image'), value: 'image' },
-  { label: t('settings.lyric.bgType.video'), value: 'video' },
-  { label: t('settings.lyric.bgType.folder'), value: 'folder' },
-  { label: t('settings.lyric.bgType.api'), value: 'api' }
-])
-
-const apiRefreshModeOptions = computed(() => [
-  { label: t('settings.lyric.refreshMode.song'), value: 'song' },
-  { label: t('settings.lyric.refreshMode.time'), value: 'time' }
-])
-
-const apiRefreshIntervalOptions = computed(() => [
-  { label: '1 ' + t('settings.lyric.minute'), value: 1 },
-  { label: '3 ' + t('settings.lyric.minutes'), value: 3 },
-  { label: '5 ' + t('settings.lyric.minutes'), value: 5 },
-  { label: '10 ' + t('settings.lyric.minutes'), value: 10 },
-  { label: '15 ' + t('settings.lyric.minutes'), value: 15 },
-  { label: '30 ' + t('settings.lyric.minutes'), value: 30 }
-])
-
-const currentBG = computed(() => customBackground.value.find((bg) => bg.active)!)
-
-const bgSourcePlaceholder = computed(() => {
-  switch (currentBG.value.type) {
-    case 'image':
-      return t('settings.lyric.placeholder.image')
-    case 'video':
-      return t('settings.lyric.placeholder.video')
-    case 'folder':
-      return t('settings.lyric.placeholder.folder')
-    case 'api':
-      return t('settings.lyric.placeholder.api')
-    default:
-      return ''
-  }
-})
-
-const selectBackgroundSource = async () => {
-  const isFolder = currentBG.value.type === 'folder'
-  const filters =
-    currentBG.value.type === 'video'
-      ? [{ name: 'Video', extensions: ['mp4', 'webm'] }]
-      : [{ name: 'Image', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }]
-
-  const result = await window.mainApi?.invoke('showOpenDialog', {
-    properties: isFolder ? ['openDirectory'] : ['openFile'],
-    filters: isFolder ? undefined : filters
-  })
-
-  if (result && !result.canceled && result.filePaths.length > 0) {
-    currentBG.value.source = result.filePaths[0]
-  }
-}
 
 const sizeLimitOptions = computed(() => [
   { label: t('settings.autoCacheTrack.noLimit'), value: false },
@@ -2113,7 +1950,6 @@ button.lyric-button {
   color: var(--color-text);
   background: unset;
   border-radius: 8px;
-  // padding: 6px 8px;
   margin-bottom: 12px;
   margin-right: 10px;
   transition: 0.2s;

@@ -542,18 +542,29 @@ class BackGround {
             }
             const chunkSize = end - start + 1
             const stream = fs.createReadStream(filePath, { start, end })
-            const mimeType = mime.lookup(filePath)
+
+            request.signal?.addEventListener('abort', () => {
+              stream.destroy()
+            })
+
+            const mimeType = mime.lookup(filePath) || 'application/octet-stream'
+            const headers = {
+              'content-type': mimeType,
+              'accept-ranges': 'bytes'
+            }
+
+            if (range) {
+              headers['content-length'] = String(chunkSize)
+              headers['content-range'] = `bytes ${start}-${end}/${fileStat.size}`
+            } else {
+              headers['content-length'] = String(fileStat.size)
+            }
+
             // @ts-ignore
             return new Response(stream, {
               status: range ? 206 : 200,
-              headers: {
-                'content-type': mimeType,
-                'content-length': chunkSize.toString(),
-                'accept-ranges': 'bytes',
-                'content-range': `bytes ${start}-${end}/${fileStat.size}`
-              }
+              headers
             })
-
           case 'track':
             ids = searchParams.get('id')
             res = cache.get(CacheAPIs.Track, { ids })

@@ -310,7 +310,12 @@
         "true": "Open",
         "blur": "Blur cover",
         "dynamic": "Dynamic",
-        "customize": "Customize background"
+        "customize": "Customize background",
+        "colorMode": "Background Color Mode",
+        "extractdColor": {
+          "text": "Use cover gradient as background",
+          "desc": "The background color shown when background transparency is reduced"
+        }
       },
       "trayColor": {
         "text": "Tray Icon Color",

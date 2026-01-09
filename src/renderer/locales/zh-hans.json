@@ -310,7 +310,12 @@
         "true": "打开",
         "blur": "模糊封面",
         "dynamic": "动态封面",
-        "customize": "自定义背景"
+        "customize": "自定义背景",
+        "colorMode": "背景页颜色模式",
+        "extractdColor": {
+          "text": "使用封面渐变色作为背景",
+          "desc": "当背景透明度降低时显示的背景颜色"
+        }
       },
       "trayColor": {
         "text": "托盘图标颜色",
@@ -403,7 +408,7 @@
       "backgroundType": "背景类型",
       "backgroundSource": "背景来源",
       "backgroundBlur": "背景模糊",
-      "backgroundOpacity": "背景亮度",
+      "backgroundOpacity": "背景透明度",
       "browse": "浏览",
       "reset": "重置",
       "bgType": {

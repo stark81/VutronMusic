@@ -59,6 +59,7 @@ const props = withDefaults(
     searchable?: boolean
     noDataText?: string
     placeholder?: string
+    direction?: 'auto' | 'up' | 'down'
     filterMethod?: (
       keyword: string,
       option: { label: string; value: string | number | boolean }
@@ -68,6 +69,7 @@ const props = withDefaults(
     searchable: false,
     placeholder: '请选择',
     noDataText: '暂无数据',
+    direction: 'auto',
     filterMethod: undefined
   }
 )
@@ -121,14 +123,17 @@ const calculateDropdownPosition = async () => {
   const spaceBelow = viewportHeight - selectRect.bottom
   const spaceAbove = selectRect.top
 
-  if (spaceBelow < dropdownHeight && spaceAbove > spaceBelow) {
+  if (
+    props.direction === 'up' ||
+    (props.direction === 'auto' && spaceBelow < dropdownHeight && spaceAbove > spaceBelow)
+  ) {
     dropdownPosition.value = 'up'
     dropdownStyle.value = {
       bottom: '100%',
       top: 'auto',
       maxHeight: `${Math.min(300, spaceAbove)}px`
     }
-  } else {
+  } else if (props.direction === 'down' || props.direction === 'auto') {
     dropdownPosition.value = 'down'
     dropdownStyle.value = {
       top: '100%',

@@ -1,5 +1,5 @@
 <template>
-  <Modal :show="setFontModal" title="创意歌词字体设置" :close-fn="close">
+  <Modal :show="setFontModal" title="字体设置" :close-fn="close">
     <template #default>
       <Multiselect
         v-model="selectedFonts"
@@ -36,7 +36,7 @@ import { ref, onMounted, computed } from 'vue'
 import Modal from './BaseModal.vue'
 import { storeToRefs } from 'pinia'
 import { useNormalStateStore } from '../store/state'
-import { useSettingsStore } from '../store/settings'
+import { usePlayerThemeStore } from '../store/playerTheme'
 import Multiselect from '@vueform/multiselect'
 import '@vueform/multiselect/themes/default.css'
 
@@ -44,12 +44,20 @@ const stateStore = useNormalStateStore()
 const { setFontModal, fontList } = storeToRefs(stateStore)
 const { getFontList } = stateStore
 
-const settingsStore = useSettingsStore()
-const { playerTheme } = storeToRefs(settingsStore)
+const playerThemeStore = usePlayerThemeStore()
+const { activeTheme } = storeToRefs(playerThemeStore)
 
-const currentTheme = computed(() => playerTheme.value.creative.find((theme) => theme.selected))
+const currentTheme = computed(() => {
+  const theme = activeTheme.value.theme
+  const result = theme.senses[theme.activeLayout]
+  return result
+})
 
-const selectedFonts = ref<string>(currentTheme.value?.font || 'system-ui')
+const temp = ref('')
+const selectedFonts = computed({
+  get: () => temp.value || currentTheme.value.font || 'system-ui',
+  set: (value) => (temp.value = value)
+})
 
 const preview = [
   { language: '简体中文', label: '这是一段词预览文本' },
@@ -71,7 +79,7 @@ const setFont = () => {
 }
 
 const close = () => {
-  selectedFonts.value = currentTheme.value?.font || 'system-ui'
+  temp.value = ''
   setFontModal.value = false
 }
 

@@ -1,32 +1,91 @@
 import { defineStore } from 'pinia'
 import { computed, reactive } from 'vue'
-import type { BgSource, Theme, Option, ColorOption } from '@/types/theme'
+import type { BgSource, Theme, Option } from '@/types/theme'
 
-const createBG = () => {
+export const createBG = () => {
   const result: BgSource[] = [
-    { type: 'gradient', color: 'dark' },
-    { type: 'blur-image', blur: 50, bright: 100, color: 'auto', size: 140 },
-    { type: 'dynamic-image', blur: 50, bright: 100, color: 'auto', size: 140 },
-    { type: 'letter-image', blur: 50, bright: 100, color: 'dark', size: 100 },
-    { type: 'custom-image', src: '', blur: 50, bright: 100, color: 'auto', size: 100 },
+    {
+      type: 'none',
+      src: '',
+      blur: 50,
+      opacity: 60,
+      color: 'auto',
+      useExtractedColor: false
+    },
+    {
+      type: 'gradient',
+      src: '',
+      blur: 50,
+      opacity: 60,
+      color: 'dark',
+      useExtractedColor: false
+    },
+    {
+      type: 'blur-image',
+      src: '',
+      blur: 50,
+      opacity: 60,
+      color: 'auto',
+      useExtractedColor: false
+    },
+    {
+      type: 'dynamic-image',
+      src: '',
+      blur: 50,
+      opacity: 60,
+      color: 'auto',
+      useExtractedColor: false
+    },
+    {
+      type: 'letter-image',
+      src: '',
+      blur: 50,
+      opacity: 60,
+      color: 'dark',
+      useExtractedColor: false
+    },
+    {
+      type: 'custom-image',
+      src: '',
+      blur: 50,
+      opacity: 60,
+      color: 'auto',
+      useExtractedColor: false
+    },
     {
       type: 'custom-video',
       src: '',
       blur: 50,
-      bright: 100,
+      opacity: 60,
       color: 'auto',
       useExtractedColor: false
     },
     {
       type: 'lottie',
       src: 'snow',
-      preset: ['snow', 'sunshine'],
       blur: 0,
-      bright: 100,
-      color: 'dark'
+      opacity: 100,
+      color: 'dark',
+      useExtractedColor: false
     },
-    { type: 'random-folder', src: '', color: 'auto' },
-    { type: 'api', src: '', switchMode: 'track', timer: 5, color: 'auto' }
+    {
+      type: 'random-folder',
+      src: '',
+      blur: 50,
+      opacity: 60,
+      color: 'auto',
+      useExtractedColor: false
+    },
+    {
+      type: 'api',
+      src: '',
+      blur: 50,
+      opacity: 60,
+      color: 'auto',
+      useExtractedColor: false,
+      switchMode: 'track',
+      timer: 5
+    }
   ]
 
   return result
@@ -69,7 +128,8 @@ const createTheme = (name: 'default' | 'snow' | 'letter') => {
           top: '15vh',
           bottom: '15vh',
           left: '15vw',
-          right: '15vw'
+          right: '15vw',
+          titleTop: '3.9vh'
         }
       },
       Letter: {

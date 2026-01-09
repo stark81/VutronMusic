@@ -1,38 +1,40 @@
 <template>
   <div class="bg-container">
-    <div v-if="activeBG.type === 'gradient'" class="bg-color"></div>
+    <div v-if="typeValue === 'gradient'" class="bg-color"></div>
+    <video
+      v-else-if="typeValue === 'custom-video'"
+      ref="videoRef"
+      :key="srcValue"
+      class="bg-video customize-image"
+      :class="{ 'mix-blend': activeBG.useExtractedColor }"
+      :src="srcValue"
+      preload="metadata"
+      :autoplay="false"
+      loop
+      muted
+      playsinline
+    />
+    <Vue3Lottie
+      v-else-if="typeValue === 'lottie' && srcValue"
+      :key="`${srcValue}-1`"
+      ref="lottieContainer"
+      class="lottie-container customize-image"
+      :animation-link="srcValue"
+      :auto-play="false"
+      height="100%"
+      width="100%"
+      renderer="canvas"
+      @on-animation-loaded="onLottieLoaded"
+    />
     <div
       v-else-if="
-        ['blur-image', 'dynamic-image', 'letter-image', 'custom-image', 'online-image'].includes(
-          activeBG.type
+        ['none', 'blur-image', 'dynamic-image', 'letter-image', 'custom-image', 'api'].includes(
+          typeValue
         )
       "
       :class="cls"
     ></div>
-    <template v-else-if="activeBG.type === 'custom-video'">
-      <video
-        ref="videoRef"
-        class="bg-video"
-        :src="srcValue"
-        :autoplay="false"
-        loop
-        muted
-        playsinline
-      />
-    </template>
-    <template v-else-if="activeBG.type === 'lottie'">
-      <Vue3Lottie
-        ref="lottieContainer"
-        class="lottie-container"
-        :animation-link="srcValue"
-        :auto-play="false"
-        height="100%"
-        width="100%"
-        renderer="canvas"
-        @on-animation-loaded="() => (playing ? play() : pause())"
-      />
-      <div class="lt-mask" :data-theme="theme"></div>
-    </template>
+    <div v-if="typeValue === 'lottie'" class="lt-mask"></div>
   </div>
 </template>
 
@@ -46,23 +48,29 @@ import { Vibrant } from 'node-vibrant/browser'
 import Color from 'color'
 
 const playerThemeStore = usePlayerThemeStore()
-const { activeBG, activeTheme } = storeToRefs(playerThemeStore)
+const { activeBG } = storeToRefs(playerThemeStore)
 const playerStore = usePlayerStore()
-const { playing, pic } = storeToRefs(playerStore)
+const { playing, pic, currentTrack } = storeToRefs(playerStore)
 
 const videoRef = useTemplateRef('videoRef')
 const lottieContainer = useTemplateRef('lottieContainer')
 
 const primary = ref('')
 const secondary = ref('')
+const tempSrc = ref('')
+const tempType = ref<'custom-image' | 'custom-video'>('custom-image')
+let apiRefreshTimer: ReturnType<typeof setInterval> | null = null
 
 const srcValue = computed(() => {
   if (activeBG.value.type === 'gradient') {
     return `linear-gradient(to top left, ${primary.value}, ${secondary.value})`
   } else if (['blur-image', 'dynamic-image', 'letter-image'].includes(activeBG.value.type)) {
     return `url(${pic.value})`
+  } else if (activeBG.value.type === 'custom-image') {
+    const image = `atom://local-resource/${encodeURIComponent(activeBG.value.src)}`
+    return `url(${image})`
   } else if (activeBG.value.type === 'custom-video') {
-    return ''
+    return `atom://local-asset?type=stream&path=${encodeURIComponent(activeBG.value.src)}`
   } else if (activeBG.value.type === 'lottie') {
     let src = activeBG.value.src
     if (['snow', 'sunshine'].includes(src)) {
@@ -71,8 +79,16 @@ const srcValue = computed(() => {
       src = new URL(src, import.meta.url).href
     }
     return src
+  } else if (activeBG.value.type === 'random-folder') {
+    return tempSrc.value
+  } else if (activeBG.value.type === 'api') {
+    return tempSrc.value
   }
   return ''
+})
+
+const typeValue = computed(() => {
+  return activeBG.value.type === 'random-folder' ? tempType.value : activeBG.value.type
 })
 
 const cls = computed(() => {
@@ -80,9 +96,20 @@ const cls = computed(() => {
     return 'bg-img cover-image'
   } else if (activeBG.value.type === 'dynamic-image') {
     return `bg-img cover-image dynamic${playing.value ? '' : ' paused'}`
+  } else if (['custom-image', 'api'].includes(activeBG.value.type)) {
+    return 'bg-img customize-image'
+  } else if (activeBG.value.type === 'random-folder' && tempType.value === 'custom-image') {
+    return 'bg-img customize-image'
   }
   return ''
 })
+
+const imgWidth = computed(() => {
+  return ['blur-image', 'dynamic-image'].includes(activeBG.value.type) ? '140vw' : '100vw'
+})
+
+const bgBlur = computed(() => `${activeBG.value.blur}px`)
+const bgOpacity = computed(() => `${activeBG.value.opacity / 100}`)
 
 const containerBGColor = computed(() => {
   if (activeBG.value.type === 'custom-video') {
@@ -93,13 +120,30 @@ const containerBGColor = computed(() => {
   return `var(--color-body-bg)`
 })
 
-const theme = computed(() => {
-  let appearance = activeBG.value.color
-  if (appearance === 'auto' || appearance === undefined) {
-    appearance = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-  }
-  return appearance
+const shouldPlayVideo = computed(() => {
+  return (
+    playing.value &&
+    (activeBG.value.type === 'custom-video' ||
+      (activeBG.value.type === 'random-folder' && tempType.value === 'custom-video'))
+  )
 })
+
+const shouldPlayLottie = computed(() => {
+  return playing.value && activeBG.value.type === 'lottie'
+})
+
+const loadRandomFolderSource = async () => {
+  if (activeBG.value.type !== 'random-folder' || !activeBG.value.src) return
+  const filters = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'mp4', 'webm']
+  const files = await window.mainApi?.invoke('getFilesInFolder', activeBG.value.src, filters)
+  if (files && files.length > 0) {
+    const randomFile = files[Math.floor(Math.random() * files.length)]
+    const type = randomFile.match(/\.(mp4|webm)$/i) ? 'custom-video' : 'custom-image'
+    const url = `atom://local-resource/${encodeURIComponent(randomFile)}`
+    tempSrc.value = type === 'custom-image' ? `url(${url})` : url
+    tempType.value = type
+  }
+}
 
 const getImage = async (pic: string) => {
   if (!pic) return
@@ -121,57 +165,133 @@ watch(pic, (value) => {
 })
 
 watch(
-  playing,
-  async (value) => {
-    await nextTick()
-    value ? play() : pause()
-  },
-  { immediate: true }
-)
-
-watch(
-  () => activeTheme.value.theme.senses,
+  () => currentTrack.value?.id,
   () => {
-    if (playing.value && activeBG.value.type === 'lottie') {
-      lottieContainer.value?.play()
+    stopApiRefreshTimer()
+    if (activeBG.value.type === 'api' && activeBG.value.switchMode === 'track') {
+      tempSrc.value = `url(${activeBG.value.src}${activeBG.value.src.includes('?') ? '&' : '?'}t=${Date.now()})`
     }
   }
 )
 
-watch(
-  () => activeBG.value.type,
-  (value, oldValue) => {
-    if (oldValue === 'lottie') {
-      lottieContainer.value?.stop()
-    }
-  }
-)
-
-const play = () => {
-  if (activeBG.value.type === 'custom-video' && videoRef.value) {
-    videoRef.value?.play()
-  } else if (activeBG.value.type === 'lottie' && lottieContainer.value) {
-    lottieContainer.value?.play()
+const stopApiRefreshTimer = () => {
+  if (apiRefreshTimer) {
+    clearInterval(apiRefreshTimer)
+    apiRefreshTimer = null
   }
 }
 
-const pause = () => {
-  if (activeBG.value.type === 'custom-video' && videoRef.value) {
-    videoRef.value.pause()
-  } else if (activeBG.value.type === 'lottie' && lottieContainer.value) {
+const startApiRefreshTimer = () => {
+  stopApiRefreshTimer()
+  if (activeBG.value.type !== 'api' || activeBG.value.switchMode !== 'time') return
+  const time = (activeBG.value.timer || 5) * 60 * 1000
+  apiRefreshTimer = setInterval(() => {
+    tempSrc.value = `url(${activeBG.value.src}${activeBG.value.src.includes('?') ? '&' : '?'}t=${Date.now()})`
+  }, time)
+}
+
+watch(
+  () => [activeBG.value.type, activeBG.value.src],
+  (newType, oldType) => {
+    tempSrc.value = ''
+    tempType.value = 'custom-image'
+    stopApiRefreshTimer()
+
+    if (oldType[0] === 'lottie' && newType[0] !== 'lottie') {
+      lottieContainer.value?.stop()
+      lottieContainer.value?.destroy()
+    } else if (oldType[0] === 'custom-video' && newType[0] !== 'custom-video') {
+      videoRef.value?.pause()
+      videoRef.value?.removeAttribute('src')
+      videoRef.value?.load()
+    }
+
+    if (newType[0] === 'lottie' && !newType[1]) {
+      lottieContainer.value?.stop()
+      lottieContainer.value?.destroy()
+    }
+
+    if (newType[0] === 'random-folder' && newType[1]) {
+      loadRandomFolderSource()
+    } else if (newType[0] === 'api') {
+      tempSrc.value = `url(${activeBG.value.src}${activeBG.value.src.includes('?') ? '&' : '?'}t=${Date.now()})`
+      startApiRefreshTimer()
+    }
+  },
+  { flush: 'pre' }
+)
+
+watch(
+  () => [
+    activeBG.value.type === 'api' && activeBG.value.switchMode,
+    activeBG.value.type === 'api' && activeBG.value.timer
+  ],
+  async (value) => {
+    await nextTick()
+    stopApiRefreshTimer()
+    if (!value[0]) return
+    if (value[0] === 'time') {
+      startApiRefreshTimer()
+    }
+  }
+)
+
+watch(
+  () => shouldPlayVideo.value && srcValue.value,
+  async (value) => {
+    if (value) {
+      await nextTick()
+      videoRef.value?.play()
+    } else {
+      videoRef.value?.pause()
+    }
+  }
+)
+
+watch(shouldPlayLottie, async (value) => {
+  if (!lottieContainer.value) return
+
+  if (value) {
+    await nextTick()
+    lottieContainer.value.play()
+  } else {
     lottieContainer.value.pause()
   }
+})
+
+const onLottieLoaded = async () => {
+  if (!shouldPlayLottie.value) return
+  await nextTick()
+  lottieContainer.value?.play()
 }
 
 onMounted(async () => {
   await nextTick()
   await getImage(pic.value)
-  if (playing.value) play()
+  if (activeBG.value.type === 'random-folder') {
+    await loadRandomFolderSource()
+  } else if (activeBG.value.type === 'api') {
+    tempSrc.value = `url(${activeBG.value.src}${activeBG.value.src.includes('?') ? '&' : '?'}t=${Date.now()})`
+    startApiRefreshTimer()
+  }
+  if (playing.value) {
+    if (shouldPlayLottie.value) {
+      lottieContainer.value?.play()
+    } else if (shouldPlayVideo.value) {
+      videoRef.value?.play()
+    }
+  }
 })
 
 onUnmounted(() => {
-  pause()
+  lottieContainer.value?.stop()
   lottieContainer.value?.destroy()
+  videoRef.value?.pause()
+  videoRef.value?.removeAttribute('src')
+  videoRef.value?.load()
+  tempSrc.value = ''
+  tempType.value = 'custom-image'
+  stopApiRefreshTimer()
 })
 </script>
 
@@ -205,6 +325,7 @@ onUnmounted(() => {
 .bg-img.cover-image {
   --contrast-lyrics-background: 50%;
   --brightness-lyrics-background: 130%;
+
   position: relative;
   filter: blur(50px) contrast(var(--contrast-lyrics-background))
     brightness(var(--brightness-lyrics-background));
@@ -214,8 +335,8 @@ onUnmounted(() => {
     content: '';
     display: block;
     position: absolute;
-    width: 140vw;
-    height: 140vw;
+    width: v-bind(imgWidth);
+    height: v-bind(imgWidth);
     background-image: v-bind(srcValue);
     background-size: cover;
     opacity: 0.6;
@@ -241,6 +362,11 @@ onUnmounted(() => {
   --brightness-lyrics-background: 60%;
 }
 
+.customize-image {
+  filter: blur(v-bind(bgBlur));
+  opacity: v-bind(bgOpacity);
+}
+
 .dynamic {
   &::before,
   &::after {
@@ -258,6 +384,12 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  filter: blur(v-bind(bgBlur));
+  opacity: v-bind(bgOpacity);
+}
+
+.mix-blend {
+  mix-blend-mode: screen;
 }
 
 .lottie-container {
@@ -275,7 +407,7 @@ onUnmounted(() => {
   transition: background-color 0.3s;
 }
 
-.lt-mask[data-theme='dark'] {
+[data-theme='dark'] .lt-mask {
   background-color: rgba(20, 20, 20, 0.25);
 }
 
