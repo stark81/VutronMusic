@@ -379,7 +379,14 @@
         "romalrc": "音译"
       },
       "font": "字体设置",
-      "fontSize": "字体大小（px）",
+      "fontSize": "字体大小（单位：{dw}）",
+      "lineGap": "歌词行间隔（单位：{dw}）",
+      "position": {
+        "text": "歌词垂直位置",
+        "top": "靠上",
+        "center": "居中",
+        "bottom": "靠下"
+      },
       "textAlign": {
         "text": "字体对齐方式",
         "start": "居左",

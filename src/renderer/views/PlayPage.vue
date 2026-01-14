@@ -43,7 +43,7 @@
     <PlaybackModal />
     <PlayerFontModal />
     <PlayerThemeModal />
-    <BGModal />
+    <SaveThemeModal />
     <BackgroundModal />
     <SenseSwitch v-model="showSenseSelector" :type="activeTheme.theme.activeLayout" />
     <ContextMenu ref="playPageContextMenu">
@@ -59,9 +59,9 @@
       <div class="item" @click="setPitchModal = true">{{ $t('contextMenu.pitch') }}</div>
       <div class="item" @click="setConvolverModal = true">{{ $t('contextMenu.setConvolver') }}</div>
       <hr />
-      <div class="item" @click="backgroundModal.show = true">歌词背景选择</div>
-      <div v-if="isCustomize" class="item" @click="setBGModal = true">当前背景设置</div>
-      <div class="item" @click="setFontModal = true">{{ $t('contextMenu.setFont') }}</div>
+      <div class="item" @click="backgroundModal.show = true">背景设置</div>
+      <div class="item" @click="setFontModal = true">歌词设置</div>
+      <div class="item" @click="setSaveThemeModal = true">保存播放器主题</div>
     </ContextMenu>
   </div>
 </template>
@@ -73,8 +73,8 @@ import PlaybackModal from '../components/ModalPlayback.vue'
 import PitchModal from '../components/ModalPitch.vue'
 import PlayerThemeModal from '../components/ModalPlayerTheme.vue'
 import PlayerFontModal from '../components/ModalPlayerFont.vue'
+import SaveThemeModal from '../components/ModalSaveTheme.vue'
 import SenseSwitch from '../components/SenseSwitch.vue'
-import BGModal from '../components/ModalCustomize.vue'
 import BackgroundModal from '../components/ModalBackground.vue'
 import CommonPlayer from '../components/CommonPlayer.vue'
 import CreativePlayer from '../components/CreativePlayer.vue'
@@ -99,7 +99,7 @@ const {
   setFontModal,
   setPlaybackRateModal,
   backgroundModal,
-  setBGModal,
+  setSaveThemeModal,
   addTrackToPlaylistModal
 } = storeToRefs(stateStore)
 
@@ -119,12 +119,6 @@ const theme = computed(() => {
     appearance = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   }
   return appearance
-})
-
-const isCustomize = computed(() => {
-  return ['custom-image', 'custom-video', 'lottie', 'random-folder', 'api'].includes(
-    activeBG.value.type
-  )
 })
 
 const tabs = computed(() => {

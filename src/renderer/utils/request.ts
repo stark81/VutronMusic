@@ -30,7 +30,7 @@ service.interceptors.response.use(
 )
 
 const request = async (config: AxiosRequestConfig) => {
-  const { data } = await service.request(config)
+  const { data } = await service.request(config).catch(() => ({ data: null }))
   return data as any
 }
 

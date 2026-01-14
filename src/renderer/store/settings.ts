@@ -4,13 +4,11 @@ import DefaultShortcuts from '../utils/shortcuts'
 import { playlistCategories } from '../utils/common'
 import cloneDeep from 'lodash/cloneDeep'
 import { useLocalMusicStore } from './localMusic'
-import { TranslationMode, TrackInfoOrder, Appearance } from '@/types/music'
+import { TrackInfoOrder, Appearance } from '@/types/music'
 
-type TextAlign = 'start' | 'center' | 'end'
 type BackgroundEffect = 'none' | 'true' | 'blur' | 'dynamic' | 'customize'
 type StandardBackgroundEffect = Exclude<BackgroundEffect, 'customize'>
 export type bgType = 'image' | 'video' | 'folder' | 'api'
-type customizeBackground = { type: bgType; active: boolean; source: string }
 
 export const useSettingsStore = defineStore(
   'settings',
@@ -67,43 +65,6 @@ export const useSettingsStore = defineStore(
       showTray: true
     })
 
-    const normalLyric = reactive<{
-      nFontSize: number
-      isNWordByWord: boolean
-      nTranslationMode: TranslationMode
-      textAlign: TextAlign
-      useMask: boolean
-      isZoom: boolean
-      lyricBackground: BackgroundEffect
-      savedBackground: StandardBackgroundEffect
-      fontFamily: string
-      customBackground: customizeBackground[]
-      backgroundBlur: number
-      backgroundOpacity: number
-      apiRefreshMode: 'song' | 'time'
-      apiRefreshInterval: number
-    }>({
-      nFontSize: 28,
-      isNWordByWord: true,
-      nTranslationMode: 'tlyric',
-      textAlign: 'start',
-      useMask: true,
-      isZoom: true,
-      lyricBackground: 'true',
-      savedBackground: 'true',
-      fontFamily: 'system-ui',
-      customBackground: [
-        { type: 'image', active: true, source: '' },
-        { type: 'video', active: false, source: '' },
-        { type: 'folder', active: false, source: '' },
-        { type: 'api', active: false, source: '' }
-      ],
-      backgroundBlur: 50,
-      backgroundOpacity: 60,
-      apiRefreshMode: 'song',
-      apiRefreshInterval: 5
-    })
-
     const unblockNeteaseMusic = reactive({
       enable: true,
       source: 'bodian, kuwo, kugou, ytdlp, qq, bilibili, pyncmd, migu',
@@ -117,45 +78,6 @@ export const useSettingsStore = defineStore(
       enable: false,
       sizeLimit: 512 as boolean | number,
       number: 0
-    })
-
-    const playerTheme = reactive({
-      common: [
-        { name: '默认' as const, selected: true, font: '', img: 'common' },
-        { name: '旋转封面' as const, selected: false, font: '', img: 'rotate' }
-      ],
-      creative: [
-        // { name: '信笺歌词' as const, selected: false, font: '' },
-        {
-          name: '歌词环游' as const,
-          selected: false,
-          font: '',
-          senseIndex: 0,
-          img: 'creative_snow'
-        }
-      ]
-    })
-
-    const playerThemeNew = reactive({
-      background: [
-        { type: 'color', active: false, source: '', blur: 50, opacity: 60 },
-        { type: 'image', active: true, source: '', blur: 50, opacity: 60 }, // source为空时，显示player里的pic，且此时图片大小为140%，如果为字符串则显示对应路径图片,大小为100%
-        { type: 'video', active: false, source: '', blur: 50, opacity: 60 },
-        {
-          type: 'lottie',
-          active: false,
-          source: 'creative_snow',
-          blur: 0,
-          opacity: 100
-        },
-        { type: 'folder', active: false, source: '', blur: 50, opacity: 60 },
-        { type: 'api', active: false, source: '', blur: 50, opacity: 60 }
-      ],
-      saveBackground: 'image',
-      layer: [
-        { mode: 'normal', active: true, sense: 0, top: '0%', left: '0%' }, // sense 0 代表矩形封面，1 代表圆形滚动封面
-        { mode: 'creative', active: false, sense: 0, top: '30%', left: '30%' } // sense 0 代表歌词环游里的纯净雪域，1 代表歌词环游里的落日余晖，2 代表信笺歌词
-      ]
     })
 
     const enableGlobalShortcut = ref(false)
@@ -371,12 +293,9 @@ export const useSettingsStore = defineStore(
       general,
       localMusic,
       tray,
-      playerTheme,
-      playerThemeNew,
       enableGlobalShortcut,
       shortcuts,
       misc,
-      normalLyric,
       autoCacheTrack,
       unblockNeteaseMusic,
       updateShortcut,

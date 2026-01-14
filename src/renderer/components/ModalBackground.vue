@@ -1,5 +1,5 @@
 <template>
-  <BaseModal title="歌词背景选择" :show="show" :show-footer="false" :close-fn="close">
+  <BaseModal title="背景设置" :show="show" :show-footer="false" :close-fn="close">
     <template #default>
       <div class="item">
         <div class="left">
@@ -23,7 +23,6 @@
           </div>
         </div>
         <div class="item lyric-source" :class="{ lottie: activeBG.type === 'lottie' }">
-          <!-- @vue-ignore -->
           <input
             v-model="activeBG.src"
             type="text"
@@ -67,8 +66,84 @@
             </div>
           </div>
         </template>
+        <div v-if="activeBG.type === 'custom-video'" class="item">
+          <div class="left">
+            <div class="title">{{ $t('settings.general.lyricBackground.extractdColor.text') }}</div>
+            <div class="description">{{
+              $t('settings.general.lyricBackground.extractdColor.desc')
+            }}</div>
+          </div>
+          <div class="right">
+            <div class="toggle">
+              <input
+                id="extractedColor"
+                v-model="activeBG.useExtractedColor"
+                type="checkbox"
+                name="extractedColor"
+              />
+              <label for="extractedColor"></label>
+            </div>
+          </div>
+        </div>
+        <div class="item">
+          <div class="left">
+            <div class="title">{{ $t('settings.general.lyricBackground.colorMode') }}</div>
+          </div>
+          <div class="right">
+            <CustomSelect v-model="updateColor" direction="up" :options="colorOptions" />
+          </div>
+        </div>
+        <div class="item">
+          <div class="left" :style="{ paddingRight: 0 }">
+            <div class="title" :style="{ width: '80px' }">{{
+              $t('settings.lyric.backgroundBlur')
+            }}</div>
+          </div>
+          <div class="slider">
+            <VueSlider
+              v-model="activeBG.blur"
+              :min="0"
+              :max="100"
+              :height="2"
+              :dot-size="12"
+              :process-style="{ background: 'var(--color-primary)' }"
+              :rail-style="{ backgroundColor: 'rgba(128, 128, 128, 0.18)' }"
+            />
+          </div>
+          <input v-model="activeBG.blur" class="slider-span" type="number" :min="0" :max="100" />
+          <span class="dw">px</span>
+          <span
+            class="button"
+            style="margin: 0"
+            @click="activeBG.blur = activeBG.type === 'lottie' ? 0 : 50"
+            >{{ $t('player.frequad.reset') }}</span
+          >
+        </div>
+        <div class="item">
+          <div class="left" :style="{ paddingRight: 0 }">
+            <div class="title">{{ $t('settings.lyric.backgroundOpacity') }}</div>
+          </div>
+          <div class="slider">
+            <VueSlider
+              v-model="activeBG.opacity"
+              :min="0"
+              :max="100"
+              :height="2"
+              :dot-size="12"
+              :process-style="{ background: 'var(--color-primary)' }"
+              :rail-style="{ backgroundColor: 'rgba(128, 128, 128, 0.18)' }"
+            />
+          </div>
+          <input v-model="activeBG.opacity" class="slider-span" type="number" :min="0" :max="100" />
+          <span class="dw">%</span>
+          <span
+            class="button"
+            style="margin: 0"
+            @click="activeBG.opacity = activeBG.type === 'lottie' ? 100 : 60"
+            >{{ $t('player.frequad.reset') }}</span
+          >
+        </div>
       </template>
-      <br />
     </template>
   </BaseModal>
 </template>
@@ -78,6 +153,7 @@ import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import BaseModal from './BaseModal.vue'
 import CustomSelect from './CustomSelect.vue'
+import VueSlider from './VueSlider.vue'
 import { useNormalStateStore } from '../store/state'
 import { usePlayerThemeStore, createBG } from '../store/playerTheme'
 import { useI18n } from 'vue-i18n'
@@ -107,6 +183,19 @@ const isCustomize = computed(() => {
     activeBG.value.type
   )
 })
+
+const updateColor = computed({
+  get: () => activeBG.value.color,
+  set: (value) => {
+    activeBG.value.color = value
+  }
+})
+
+const colorOptions = computed(() => [
+  { label: t('settings.theme.auto'), value: 'auto' },
+  { label: t('settings.theme.light'), value: 'light' },
+  { label: t('settings.theme.dark'), value: 'dark' }
+])
 
 const bgSourcePlaceholder = computed(() => {
   switch (activeBG.value.type) {
@@ -183,7 +272,7 @@ const close = () => {
 
 <style scoped lang="scss">
 .item {
-  margin-bottom: 6px;
+  margin-bottom: 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -194,32 +283,63 @@ const close = () => {
 
     .title {
       font-size: 16px;
-      font-weight: 500;
+      font-weight: 600;
       opacity: 0.78;
     }
   }
 
   .right :deep(.custom-select) {
-    background-color: transparent;
-    backdrop-filter: blur(12px) opacity(0.6);
+    background-color: var(--color-secondary-bg-for-transparent);
+    border: none;
   }
 
   button {
     position: relative;
     color: var(--color-text);
-    background-color: transparent;
-    backdrop-filter: blur(12px) opacity(0.6);
+    border: none;
+    background-color: var(--color-secondary-bg-for-transparent);
     padding: 8px 12px;
     font-weight: 600;
     border-radius: 8px;
     transition: 0.2s;
   }
+
+  .slider {
+    width: 60%;
+  }
+
+  span.button {
+    display: inline-block;
+    background: var(--color-secondary-bg-for-transparent);
+    padding: 4px 10px;
+    font-size: 13px;
+    border-radius: 4px;
+    &:hover {
+      cursor: pointer;
+    }
+  }
+
+  input[type='number'].slider-span {
+    width: 40px;
+    box-sizing: border-box;
+    background: var(--color-secondary-bg-for-transparent);
+    background-color: transparent;
+    color: var(--color-text);
+    font-size: 16px;
+    border: none;
+    border-radius: 4px;
+    text-align: right;
+  }
+
+  span.dw {
+    width: unset;
+    margin-left: -20px;
+  }
 }
 
 .item.lyric-source {
   input.text-input {
-    background-color: transparent;
-    backdrop-filter: blur(12px) opacity(0.6);
+    background-color: var(--color-secondary-bg-for-transparent);
     border: none;
     margin-right: 22px;
     padding: 0 12px;
@@ -246,13 +366,13 @@ const close = () => {
 .item-1 {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  grid-gap: 20px;
+  grid-gap: 12px;
   margin: 10px 0;
 
   .bg-select {
-    padding: 12px 0;
-    border: 2px solid var(--color-primary);
-    color: var(--color-primary);
+    padding: 8px 2px;
+    border: 2px solid var(--color-border);
+    color: var(--color-text);
     border-radius: 8px;
     text-align: center;
     font-weight: 600;
@@ -261,8 +381,69 @@ const close = () => {
   }
 
   .bg-select.active {
-    background-color: var(--color-primary);
-    color: white;
+    border: 2px solid var(--color-primary);
+    color: var(--color-primary);
   }
+}
+
+.toggle {
+  margin: auto;
+}
+.toggle input {
+  opacity: 0;
+  position: absolute;
+}
+.toggle input + label {
+  position: relative;
+  display: inline-block;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-transition: 0.4s ease;
+  transition: 0.4s ease;
+  height: 32px;
+  width: 52px;
+  background: var(--color-secondary-bg);
+  border-radius: 8px;
+}
+.toggle input + label:before {
+  content: '';
+  position: absolute;
+  display: block;
+  -webkit-transition: 0.2s cubic-bezier(0.24, 0, 0.5, 1);
+  transition: 0.2s cubic-bezier(0.24, 0, 0.5, 1);
+  height: 32px;
+  width: 52px;
+  top: 0;
+  left: 0;
+  border-radius: 8px;
+}
+
+.toggle input + label:after {
+  content: '';
+  position: absolute;
+  display: block;
+  box-shadow:
+    0 0 0 1px hsla(0, 0%, 0%, 0.02),
+    0 4px 0px 0 hsla(0, 0%, 0%, 0.01),
+    0 4px 9px hsla(0, 0%, 0%, 0.08),
+    0 3px 3px hsla(0, 0%, 0%, 0.03);
+  -webkit-transition: 0.35s cubic-bezier(0.54, 1.6, 0.5, 1);
+  transition: 0.35s cubic-bezier(0.54, 1.6, 0.5, 1);
+  background: #fff;
+  height: 20px;
+  width: 20px;
+  top: 6px;
+  left: 6px;
+  border-radius: 6px;
+}
+.toggle input:checked + label:before {
+  background: var(--color-primary);
+  -webkit-transition: width 0.2s cubic-bezier(0, 0, 0, 0.1);
+  transition: width 0.2s cubic-bezier(0, 0, 0, 0.1);
+}
+.toggle input:checked + label:after {
+  left: 26px;
 }
 </style>

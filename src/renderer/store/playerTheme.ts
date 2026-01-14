@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { computed, reactive } from 'vue'
+import { computed, reactive, toRaw } from 'vue'
 import type { BgSource, Theme, Option } from '@/types/theme'
 
 export const createBG = () => {
@@ -115,35 +115,58 @@ const createTheme = (name: 'default' | 'snow' | 'letter') => {
     activeLayout: option.layout,
     activeBG: option.bgType,
     senses: {
-      Classic: { active: 0, font: 'system-ui' },
+      Classic: {
+        cover: 0,
+        align: 'left',
+        lyric: {
+          font: 'system-ui',
+          fontSize: 28,
+          gap: 0,
+          mask: true,
+          wbw: true,
+          zoom: true,
+          translation: 'tlyric'
+        }
+      },
       Creative: {
-        active: 0,
-        font: 'system-ui',
-        animation: {
-          0: 'hingeFlyIn',
-          1: 'focusRise',
-          2: 'scatterThrow'
+        align: 'left',
+        lyric: {
+          font: 'system-ui',
+          fontSize: 4.5,
+          gap: 6,
+          align: {
+            left: 'hingeFlyIn',
+            center: 'splitAndMerge',
+            right: 'scatterThrow'
+          },
+          pos: 'left'
         },
         region: {
-          top: '15vh',
-          bottom: '15vh',
-          left: '15vw',
-          right: '15vw',
-          titleTop: '3.9vh'
+          top: 15,
+          bottom: 15,
+          left: 15,
+          right: 15,
+          titleTop: 3.9
         }
       },
       Letter: {
-        active: 0,
-        font: 'system-ui',
-        animation: {
-          0: 'splitAndMerge'
+        align: 'center',
+        lyric: {
+          font: 'system-ui',
+          fontSize: 4.5,
+          gap: 6,
+          align: {
+            center: 'splitAndMerge'
+          }
         }
       }
     },
     backgroundSource: []
   }
 
-  theme.senses[option.layout].active = option.senseIdx
+  if (option.layout === 'Classic') {
+    theme.senses[option.layout].cover = option.senseIdx
+  }
   theme.backgroundSource = createBG()
 
   return theme
@@ -189,10 +212,12 @@ export const usePlayerThemeStore = defineStore(
       activeTheme.value.theme = createTheme(map[currentPath.index])
     }
 
-    const saveToCustomize = (name: string) => {
-      const theme = structuredClone(activeTheme.value.theme)
-      const item = { name, theme, img: activeTheme.value.img }
+    const saveToCustomize = (name: string, imgPath: string) => {
+      const theme = structuredClone(toRaw(activeTheme.value.theme))
+      const item = { name, theme, img: imgPath }
       themes.Customize.push(item)
+      currentPath.mode = 'Customize'
+      currentPath.index = themes.Customize.findIndex((th) => th.name === name)
     }
 
     return {

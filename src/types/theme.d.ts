@@ -1,6 +1,10 @@
+import { TranslationMode } from './music'
+
 export type LayoutMode = 'Classic' | 'Creative' | 'Letter'
 
 export type ColorOption = 'light' | 'dark' | 'auto'
+
+export type TextAlign = 'left' | 'right' | 'center'
 
 export type AniName =
   | 'hingeFlyIn'
@@ -77,24 +81,54 @@ export type Theme = {
   activeBG: BgType
   senses: {
     Classic: {
-      active: 0 | 1 | 2
-      font: string
+      /**
+       * 封面类型，0为经典，1为圆形，2为圆形旋转
+       */
+      cover: 0 | 1 | 2
+      align: TextAlign
+      lyric: {
+        font: string
+        fontSize: number
+        gap: number
+        mask: boolean
+        wbw: boolean
+        zoom: boolean
+        translation: TranslationMode
+      }
     }
     Creative: {
-      active: 0 | 1 | 2
-      font: string
-      animation: {
-        0: AniName
-        1: AniName
-        2: AniName
+      /**
+       * 当前歌词的布局
+       */
+      align: TextAlign
+      /**
+       * fontSize的单位为cqw, gap的单位为px
+       */
+      lyric: {
+        font: string
+        fontSize: number
+        gap: number
+        align: {
+          left: AniName
+          center: AniName
+          right: AniName
+        }
+        pos: TextAlign
       }
-      region: { top: string; bottom: string; left: string; right: string; titleTop: string }
+      region: { top: number; bottom: number; left: number; right: number; titleTop: number }
     }
     Letter: {
-      active: 0
-      font: string
-      animation: {
-        0: AniName
+      align: 'center'
+      /**
+       * fontSize的单位为cqw, gap的单位为px
+       */
+      lyric: {
+        font: string
+        fontSize: number
+        gap: number
+        align: {
+          center: AniName
+        }
       }
     }
   }

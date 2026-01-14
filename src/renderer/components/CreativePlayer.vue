@@ -208,6 +208,7 @@ const hover = ref(false)
 const pickLyricRef = ref<HTMLElement>()
 const playPageContextMenu = inject('playPageContextMenu', ref<InstanceType<typeof ContextMenu>>())
 const selectedTracks = ref<Track[]>([])
+const shiftDist = ref<number[]>([])
 const loading = ref(false)
 
 let tl: gsap.core.Timeline | null = null
@@ -230,39 +231,59 @@ const pickedLyric = computed(() => {
   return result
 })
 
-const senseMap = {
-  0: 'left',
-  1: 'center',
-  2: 'right'
-}
+const pos = computed(() => {
+  if (activeTheme.value.theme.activeLayout !== 'Creative') return 'left'
+  const sense = senses.value[activeTheme.value.theme.activeLayout]
+  return sense.lyric.pos
+})
+
+const fontSize = computed(() => {
+  if (activeTheme.value.theme.activeLayout === 'Classic') return '0'
+  const sense = senses.value[activeTheme.value.theme.activeLayout]
+  return `${sense.lyric.fontSize}cqw`
+})
+
+const gap = computed(() => {
+  if (activeTheme.value.theme.activeLayout === 'Classic') return '0'
+  const sense = senses.value[activeTheme.value.theme.activeLayout]
+  return `${sense.lyric.gap}px`
+})
 
 const titleStyle = computed(() => {
   if (activeTheme.value.theme.activeLayout === 'Creative') {
     const sense = senses.value[activeTheme.value.theme.activeLayout]
     const pos = sense.region
-    const result: Record<string, any> = { left: pos.left, right: pos.right, top: pos.titleTop }
-    result.textAlign = senseMap[sense.active]
+    const result: Record<string, any> = {
+      left: pos.left + 'vw',
+      right: pos.right + 'vw',
+      top: pos.titleTop + 'vh'
+    }
+    result.textAlign = sense.align
     return result
   }
-  return { left: '15vw', right: '15vw', top: '10vh', bottom: '55vh', textAlign: 'center' }
+  return { left: '15vw', right: '15vw', top: '10vh', bottom: '50vh', textAlign: 'center' }
 })
 
 const style = computed(() => {
   if (activeTheme.value.theme.activeLayout === 'Creative') {
     const sense = senses.value[activeTheme.value.theme.activeLayout]
     const pos = sense.region
-    const result: Record<string, any> = { ...pos }
-    result.textAlign = senseMap[sense.active]
-    result.fontFamily = sense.font
+    const result: Record<string, any> = {}
+    result.top = pos.top + 'vh'
+    result.bottom = pos.bottom + 'vh'
+    result.left = pos.left + 'vw'
+    result.right = pos.right + 'vw'
+    result.textAlign = sense.align
+    result.fontFamily = sense.lyric.font
     return result
   }
   const sense = senses.value[activeTheme.value.theme.activeLayout]
   return {
-    fontFamily: sense.font,
+    fontFamily: sense.lyric.font,
     textAlign: 'center',
     left: '15vw',
     right: '15vw',
-    top: '55vh',
+    top: '60vh',
     bottom: '20vh'
   }
 })
@@ -272,10 +293,12 @@ const selectedIdx = computed(() => {
   const next = list.value.slice(0, 2)
 
   const index = currentTrackIndex.value
-  const list1 = list.value.slice(0, index + 1)
+  const list1 = list.value.slice(0, index)
   const list2 = list.value.slice(index + 1)
 
-  const result = pre.concat(list1).concat(_playNextList.value).concat(list2).concat(next)
+  let result = pre.concat(list1)
+  result.push(currentTrack.value!.id)
+  result = result.concat(_playNextList.value).concat(list2).concat(next)
   const idx = currentTrackIndex.value + 2
   return result.slice(idx - 2, idx + 3)
 })
@@ -342,211 +365,214 @@ const heartDisabled = computed(() => {
   return currentTrack.value?.type === 'local' && !currentTrack.value?.matched
 })
 
-/**
- * 判断当句歌词是否存在文字进入/退出动画
- */
 const shouldAni = computed(() => {
-  const position = 'left' as 'left' | 'center' | 'right'
-  const length = pickedLyric.value.flat().length
-  if (position === 'left') {
-    // 0.7s动画进入时间，0.1 * (length - 1)是这些字依次间隔0.1s
-    // 0.5s是动画退场时间，0.25s是这些字在着个时间段内随机退场完成
-    const duration = 0.7 + 0.1 * (length - 1) + 0.5 + 0.25 // + 0.35
-    return currentLyric.value.time > duration
-  } else if (position === 'center') {
-    //
-    return true
-  } else {
-    // 0.5s动画进入时间，0.35s是这些字在这个时间段内随机进入完成
-    // 0.5s是动画退场时间，0.5 / (length - 1)是这些字依次间隔退场
-    const duration = 0.5 + 0.35 + 0.5 + 0.5 / (length - 1) // + 0.35
-    return currentLyric.value.time > duration
-  }
+  if (activeTheme.value.theme.activeLayout === 'Classic') return true
+  const sense = senses.value[activeTheme.value.theme.activeLayout]
+  const enterAns = animations.value
+  const aniType = sense.lyric.align[sense.align] as AniName
+  const currentAni = enterAns[aniType]
+  return currentLyric.value.time > currentAni.enter + currentAni.leave
 })
 
 const animations = computed(() => ({
   // 0.75s
-  splitAndMerge: [
-    {
-      opacity: 0,
-      x: (i: number) => {
-        const totalChars = pickedLyric.value.flat().length
-        const midIndex = Math.floor(totalChars / 2)
-        return i < midIndex ? -150 : 150
+  splitAndMerge: {
+    enter: 1.25,
+    leave: 0.75,
+    ani: [
+      {
+        opacity: 0,
+        x: (i: number) => shiftDist.value[i],
+        y: 0,
+        scale: 0.8,
+        filter: 'blur(10px)',
+        transformPerspective: 600
       },
-      y: 0,
-      scale: 0.8,
-      filter: 'blur(10px)',
-      transformPerspective: 600
-    },
-    {
-      opacity: 1,
-      x: 0,
-      y: 0,
-      scale: 1,
-      filter: 'blur(0px)',
-      duration: 0.8,
-      ease: 'power3.out',
-      stagger: {
-        each: 0.07,
-        from: 'edges'
+      {
+        opacity: 1,
+        x: 0,
+        y: 0,
+        scale: 1,
+        filter: 'blur(0px)',
+        duration: 1.25,
+        ease: 'power3.out'
+      },
+      {
+        opacity: 0,
+        z: -200,
+        scale: 0.5,
+        rotateX: 30,
+        rotateY: 60,
+        filter: 'blur(10px)',
+        duration: 0.5,
+        ease: 'power2.in',
+        stagger: { amount: 0.25, from: 'random' }
       }
-    },
-    {
-      opacity: 0,
-      z: -200,
-      scale: 0.5,
-      rotateX: 30,
-      rotateY: 60,
-      filter: 'blur(10px)',
-      duration: 0.5,
-      ease: 'power2.in',
-      stagger: { amount: 0.25, from: 'random' }
-    }
-  ],
+    ]
+  },
   // 0.75s
-  hingeFlyIn: [
-    {
-      opacity: 0,
-      x: 250,
-      y: 20,
-      rotateX: 90,
-      rotateY: 45,
-      filter: 'blur(0px)',
-      transformPerspective: 400
-    },
-    {
-      opacity: 1,
-      x: 0,
-      y: 0,
-      rotateX: 0,
-      rotateY: 0,
-      filter: 'blur(0px)',
-      duration: 0.7,
-      ease: 'power2.out',
-      stagger: 0.1
-    },
-    {
-      opacity: 0,
-      filter: `blur(15px)`,
-      y: -20,
-      scale: 0.8,
-      ease: 'power2.out',
-      duration: 0.5,
-      stagger: { amount: 0.25, from: 'random' }
-    }
-  ],
+  hingeFlyIn: {
+    enter: 0.7 + 0.1 * (pickedLyric.value.flat().length - 1),
+    leave: 0.75,
+    ani: [
+      {
+        opacity: 0,
+        x: 250,
+        y: 20,
+        rotateX: 90,
+        rotateY: 45,
+        filter: 'blur(0px)',
+        transformPerspective: 400
+      },
+      {
+        opacity: 1,
+        x: 0,
+        y: 0,
+        rotateX: 0,
+        rotateY: 0,
+        filter: 'blur(0px)',
+        duration: 0.7,
+        ease: 'power2.out',
+        stagger: 0.1
+      },
+      {
+        opacity: 0,
+        filter: `blur(15px)`,
+        y: -20,
+        scale: 0.8,
+        ease: 'power2.out',
+        duration: 0.5,
+        stagger: { amount: 0.25, from: 'random' }
+      }
+    ]
+  },
   // 0.75
-  focusRise: [
-    {
-      opacity: 0,
-      y: 100,
-      scale: 0.9,
-      filter: 'blur(10px)',
-      transformPerspective: 500
-    },
-    {
-      opacity: 1,
-      y: 0,
-      scale: 1,
-      filter: 'blur(0px)',
-      duration: 0.7,
-      ease: 'back.out(1.7)',
-      stagger: 0.05
-    },
-    {
-      opacity: 0,
-      y: -80,
-      scaleY: 1.2,
-      filter: 'blur(20px)',
-      duration: 0.5,
-      ease: 'power3.in',
-      stagger: { amount: 0.25, from: 'center' }
-    }
-  ],
+  focusRise: {
+    enter: 0.7 + 0.05 * (pickedLyric.value.flat().length - 1),
+    leave: 0.75,
+    ani: [
+      {
+        opacity: 0,
+        y: 100,
+        scale: 0.9,
+        filter: 'blur(10px)',
+        transformPerspective: 500
+      },
+      {
+        opacity: 1,
+        y: 0,
+        scale: 1,
+        filter: 'blur(0px)',
+        duration: 0.7,
+        ease: 'back.out(1.7)',
+        stagger: 0.05
+      },
+      {
+        opacity: 0,
+        y: -80,
+        scaleY: 1.2,
+        filter: 'blur(20px)',
+        duration: 0.5,
+        ease: 'power3.in',
+        stagger: { amount: 0.25, from: 'center' }
+      }
+    ]
+  },
   // 1s
-  scatterThrow: [
-    {
-      opacity: 0,
-      x: -250,
-      y: 10,
-      filter: 'blur(15px)',
-      transformPerspective: 400
-    },
-    {
-      opacity: 1,
-      x: 0,
-      y: 0,
-      filter: 'blur(0px)',
-      duration: 0.5,
-      stagger: { amount: 0.35, from: 'random' }
-    },
-    {
-      opacity: 0,
-      filter: `blur(0px)`,
-      x: 300,
-      y: -150,
-      rotateX: -45,
-      rotateY: 30,
-      ease: 'power2.in',
-      transformPerspective: 200,
-      duration: 0.5,
-      stagger: 0.5 / (pickedLyric.value.flat().length - 1)
-    }
-  ],
-  // 0.75s
-  flipReveal: [
-    {
-      opacity: 0,
-      rotateY: -90,
-      x: -50,
-      transformPerspective: 800,
-      transformOrigin: '50% 50% -100px'
-    },
-    {
-      opacity: 1,
-      rotateY: 0,
-      x: 0,
-      duration: 0.9,
-      ease: 'power3.out',
-      stagger: 0.1
-    },
-    {
-      opacity: 0,
-      rotateX: 45,
-      y: 50,
-      filter: 'blur(10px)',
-      duration: 0.5,
-      ease: 'power2.in',
-      stagger: { amount: 0.25, from: 'random' }
-    }
-  ],
-  // 0.75
-  waveDrift: [
-    {
-      opacity: 0,
-      y: 30,
-      filter: 'blur(8px)'
-    },
-    {
-      opacity: 1,
-      y: 0,
-      filter: 'blur(0px)',
-      duration: 0.9,
-      ease: 'sine.out',
-      stagger: {
-        each: 0.06,
-        from: 'start'
+  scatterThrow: {
+    enter: 0.85,
+    leave: 1.05,
+    ani: [
+      {
+        opacity: 0,
+        x: -250,
+        y: 10,
+        filter: 'blur(15px)',
+        transformPerspective: 400
+      },
+      {
+        opacity: 1,
+        x: 0,
+        y: 0,
+        filter: 'blur(0px)',
+        duration: 0.5,
+        stagger: { amount: 0.35, from: 'random' }
+      },
+      {
+        opacity: 0,
+        filter: `blur(0px)`,
+        x: 300,
+        y: -150,
+        rotateX: -45,
+        rotateY: 30,
+        ease: 'power2.in',
+        transformPerspective: 200,
+        duration: 0.5,
+        stagger: 0.5 / (pickedLyric.value.flat().length - 1)
       }
-    },
-    {
-      opacity: 0,
-      y: -20,
-      filter: 'blur(12px)',
-      duration: 0.75,
-      ease: 'sine.in'
-    }
-  ]
+    ]
+  },
+  // 0.75s
+  flipReveal: {
+    enter: 0.9 + 0.1 * (pickedLyric.value.flat().length - 1),
+    leave: 0.8,
+    ani: [
+      {
+        opacity: 0,
+        rotateY: -90,
+        x: -50,
+        transformPerspective: 800,
+        transformOrigin: '50% 50% -100px'
+      },
+      {
+        opacity: 1,
+        rotateY: 0,
+        x: 0,
+        duration: 0.9,
+        ease: 'power3.out',
+        stagger: 0.1
+      },
+      {
+        opacity: 0,
+        rotateX: 45,
+        y: 50,
+        filter: 'blur(10px)',
+        duration: 0.5,
+        ease: 'power2.in',
+        stagger: { amount: 0.25, from: 'random' }
+      }
+    ]
+  },
+  // 0.75
+  waveDrift: {
+    enter: 0.9 + 0.06 * (pickedLyric.value.flat().length - 1),
+    leave: 0.8,
+    ani: [
+      {
+        opacity: 0,
+        y: 30,
+        filter: 'blur(8px)'
+      },
+      {
+        opacity: 1,
+        y: 0,
+        filter: 'blur(0px)',
+        duration: 0.9,
+        ease: 'sine.out',
+        stagger: {
+          each: 0.06,
+          from: 'start'
+        }
+      },
+      {
+        opacity: 0,
+        y: -20,
+        filter: 'blur(12px)',
+        duration: 0.75,
+        ease: 'sine.in'
+      }
+    ]
+  }
 }))
 
 const likeTrack = () => {
@@ -563,8 +589,21 @@ const showContextMenu = (e: MouseEvent): void => {
 }
 
 const splitLine = (length: number) => {
+  const layout = activeTheme.value.theme.activeLayout
+  if (layout === 'Classic') return [0]
+  const sense = senses.value[layout]
+  const isCenter = sense.align === 'center'
+
   switch (activeTheme.value.theme.activeLayout) {
     case 'Creative': {
+      if (isCenter) {
+        if (length <= 10) {
+          return [length]
+        } else {
+          const numb = Math.ceil(length / 2)
+          return [numb, length]
+        }
+      }
       if (length <= 5) {
         return [length]
       } else if (length < 10) {
@@ -607,7 +646,7 @@ const splitLine = (length: number) => {
       }
     }
     case 'Letter': {
-      if (length <= 6) {
+      if (length <= 12) {
         return [length]
       } else {
         const numb = Math.ceil(length / 2)
@@ -643,16 +682,17 @@ const buildLyricElements = () => {
   pickLyricRef.value?.appendChild(fragment)
 }
 
-/**
- * 创建动画。需要定义三种动画：
- * 1. 依次进入、随机同时退出：每个字的动画时长为0.7s，依次间隔0.1s开始，所需时间为0.7 + 0.1 * (wordLength - 1)，退出的动画时长为0.5s，随机间隔时间为0.25s；
- * 2. 随机同时进入，依次退出：每个字的动画时长为0.5s，随机间隔时间为0.35s，所需的总时间为0.5 + 0.35 = 0.85s，退出动画时长为0.5s，依次间隔0.5 / wordLength开始退出；
- * 3. 从上到下再回到中间，然后透明度降到0
- *
- * 所以，在创建动画的时候需要：
- * 1. 在不同场景的动画下，本句歌词持续时间是否大于动画进入+退出的时长，如果不大于的话则直接不创建，大于才创建；
- * 2. 播放时直接把(当前播放进度 - 本句歌词开始时间)传入
- */
+const buildShift = () => {
+  const midX = window.innerWidth / 2
+  const result: number[] = []
+  pickLyricRef.value?.querySelectorAll('.ani-char').forEach((el) => {
+    const rect = el.getBoundingClientRect()
+    const posX = rect.left + rect.width / 2
+    result.push((posX - midX) / 2)
+  })
+  shiftDist.value = result
+}
+
 const enterAnimation = () => {
   if (tl) {
     tl.kill()
@@ -669,21 +709,20 @@ const enterAnimation = () => {
 
   if (activeTheme.value.theme.activeLayout === 'Classic') return
 
+  buildShift()
+
   tl = gsap.timeline({ paused: true })
 
   const sense = senses.value[activeTheme.value.theme.activeLayout]
-
   const enterAns = animations.value
-  const aniType = sense.animation[sense.active] as AniName
+  const aniType = sense.lyric.align[sense.align] as AniName
+  const currentAni = enterAns[aniType]
   // @ts-ignore
-  tl.set('.ani-char', enterAns[aniType][0])
-  const delay =
-    aniType === 'scatterThrow'
-      ? currentLyric.value.time / playbackRate.value - 1.05
-      : currentLyric.value.time / playbackRate.value - 0.8
+  tl.set('.ani-char', currentAni.ani[0])
+  const delay = currentLyric.value.time / playbackRate.value - currentAni.leave - 0.05
 
   // @ts-ignore
-  tl.to('.ani-char', enterAns[aniType][1]).to('.ani-char', enterAns[aniType][2], delay)
+  tl.to('.ani-char', currentAni.ani[1]).to('.ani-char', currentAni.ani[2], delay)
 
   const currentTime = Math.max((seek.value - currentLyric.value.start) / playbackRate.value, 0)
   tl.time(currentTime)
@@ -773,33 +812,6 @@ watch(playing, (value) => {
   }
 })
 
-watch(
-  () => [
-    activeTheme.value.theme.activeLayout,
-    senses.value[activeTheme.value.theme.activeLayout].active
-  ],
-  async (value, oldValue) => {
-    if (value[0] !== oldValue[0]) return
-    if (props.show !== 'pickLyric') {
-      tl?.kill()
-      tl = null
-      return
-    }
-    if (loading.value) return
-    loading.value = true
-    clearLyricElements()
-    if (pickedLyric.value.length > 0) {
-      await nextTick()
-      buildLyricElements()
-      enterAnimation()
-      if (playing.value) {
-        tl?.play()
-      }
-    }
-    loading.value = false
-  }
-)
-
 watch(pickedLyric, async (value) => {
   if (loading.value) return
   clearLyricElements()
@@ -830,6 +842,7 @@ watch(
 )
 
 onMounted(async () => {
+  await nextTick()
   loadTracks()
   if (!loading.value) {
     loading.value = true
@@ -908,11 +921,11 @@ $mid: math.ceil(math.div($count, 2));
     line-height: 50px;
 
     span {
-      font-size: 26px;
+      font-size: 3vw;
     }
     .title {
       display: block;
-      font-size: 30px;
+      font-size: 3vw;
     }
   }
 
@@ -923,11 +936,16 @@ $mid: math.ceil(math.div($count, 2));
   .pick-lyric {
     position: absolute;
     letter-spacing: 1px;
+    container-type: inline-size;
+    display: flex;
+    flex-direction: column;
+    justify-content: v-bind(pos);
+    gap: v-bind(gap);
   }
 
   :deep(.lyric-item) {
-    container-type: inline-size;
-    font-size: 3.4cqw;
+    font-size: v-bind(fontSize);
+    font-weight: 600;
     user-select: none;
     will-change: transform;
   }
@@ -1035,7 +1053,7 @@ $mid: math.ceil(math.div($count, 2));
       position: relative;
       width: 150px;
       height: 150px;
-      margin-bottom: 150px;
+      margin-bottom: 200px;
       transition: all 1s cubic-bezier(0.16, 1, 0.3, 1);
 
       img {

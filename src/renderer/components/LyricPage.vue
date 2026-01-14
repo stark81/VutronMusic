@@ -42,11 +42,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, toRefs, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
 import { useNormalStateStore } from '../store/state'
-import { useSettingsStore } from '../store/settings'
 import { usePlayerThemeStore } from '../store/playerTheme'
 import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
@@ -78,18 +77,20 @@ const {
 const stateStore = useNormalStateStore()
 const { showToast } = stateStore
 
-const settingsStore = useSettingsStore()
-const { normalLyric } = storeToRefs(settingsStore)
-const { nFontSize, useMask, nTranslationMode, isNWordByWord, isZoom } = toRefs(normalLyric.value)
-
 const playerThemeStore = usePlayerThemeStore()
 const { activeTheme } = storeToRefs(playerThemeStore)
 
-const fontFamily = computed(() => {
+const sense = computed(() => {
   const theme = activeTheme.value.theme
-  const result = theme.senses[theme.activeLayout]
-  return result.font
+  const result = theme.senses.Classic
+  return result
 })
+const fontFamily = computed(() => sense.value.lyric.font)
+const nFontSize = computed(() => sense.value.lyric.fontSize)
+const isNWordByWord = computed(() => sense.value.lyric.wbw)
+const nTranslationMode = computed(() => sense.value.lyric.translation)
+const useMask = computed(() => sense.value.lyric.mask)
+const isZoom = computed(() => sense.value.lyric.zoom)
 
 const lineMode = computed(() => {
   return !isNWordByWord.value || lyrics.value.every((line) => !line.lyric?.info)
@@ -108,13 +109,7 @@ const offset = computed(() => {
   }
 })
 
-const map = {
-  start: 'left',
-  center: 'center',
-  end: 'right'
-}
-
-const transformOrigin = computed(() => `center ${map[props.textAlign]}`)
+const transformOrigin = computed(() => `center ${props.textAlign}`)
 const lyricRefs = ref<InstanceType<typeof LyricLine>[]>([])
 const isWheeling = ref(false)
 let scrollingTimer: any = null
@@ -166,6 +161,7 @@ const scheduleAnimation = async (type: 'all' | 'translation' = 'all') => {
     }
 
     if (index === highlight.value) {
+      await nextTick()
       const currentTime = (seek.value + lyricOffset.value) * 1000
       instance.updateCurrentTime(currentTime)
       let op: 'play' | 'pause' | 'finish' | 'reset' = playing.value ? 'play' : 'pause'
@@ -283,11 +279,10 @@ watch(
 )
 
 onMounted(async () => {
-  await scheduleAnimation()
-  await nextTick()
   const idx = Math.max(0, highlight.value)
   const el = document.getElementById(`lyric${idx}`)
   el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  scheduleAnimation()
 })
 
 onBeforeUnmount(() => {
@@ -389,6 +384,7 @@ onBeforeUnmount(() => {
         background-size: 200% 100%;
         background-position: 100% 0%;
         overflow-wrap: break-word;
+        transition: font-size 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
       }
     }
 
@@ -409,6 +405,7 @@ onBeforeUnmount(() => {
         background-size: 200% 100%;
         background-position: 100% 0%;
         overflow-wrap: break-word;
+        transition: font-size 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
       }
     }
   }

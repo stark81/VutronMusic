@@ -1,12 +1,6 @@
 <template>
   <div class="fm" :style="{ background }" data-theme="dark">
-    <img :src="nextTrackCover" style="display: none" loading="lazy" />
-    <img
-      class="cover"
-      :src="track.album && track.album.picUrl + '?param=256y256'"
-      loading="lazy"
-      @click="goToAlbum"
-    />
+    <img class="cover" :src="image" loading="lazy" @click="goToAlbum" />
     <div class="right-part">
       <div class="info">
         <div class="title">{{ track.name }}</div>
@@ -55,8 +49,10 @@ const background = ref<string>()
 const track = computed(() => personalFMTrack.value)
 const isPlaying = computed(() => playing.value && isPersonalFM.value)
 const artists = computed(() => track.value.artists || track.value.ar || [])
-const nextTrackCover = computed(() => {
-  return `${personalFMNextTrack.value?.album?.picUrl.replace('http://', 'https://')}?param=512y512`
+
+const image = computed(() => {
+  const album = track.value?.album || track.value?.al
+  return album ? album.picUrl + '?param=256y256' : ''
 })
 
 const getColor = (track: any) => {

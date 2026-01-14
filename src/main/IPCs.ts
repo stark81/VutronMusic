@@ -662,6 +662,37 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
       coverWorker.postMessage({ type: 'normal', ...data, embedOption, embedStyle })
     }
   )
+
+  ipcMain.handle('get-screenshot', async (event, name: string) => {
+    const image = await win.capturePage()
+    const buffer = image.toPNG()
+
+    const userDataPath = app.getPath('userData')
+    const screenshotsDir = path.join(userDataPath, 'screenshots')
+
+    if (!fs.existsSync(screenshotsDir)) {
+      fs.mkdirSync(screenshotsDir, { recursive: true })
+    }
+
+    const fileName = `screenshot_${name}.png`
+    const filePath = path.join(screenshotsDir, fileName)
+
+    try {
+      fs.writeFileSync(filePath, buffer)
+      return filePath
+    } catch (err) {
+      console.error('保存失败:', err)
+      return ''
+    }
+  })
+
+  ipcMain.on('delete-screenshot', (event, name: string) => {
+    try {
+      if (fs.existsSync(name)) {
+        fs.unlinkSync(name)
+      }
+    } catch (error) {}
+  })
 }
 
 async function initMprisIpcMain(win: BrowserWindow, mpris: MprisImpl): Promise<void> {

@@ -180,6 +180,7 @@ export const useDataStore = defineStore(
 
     const fetchLikedSongsWithDetails = () => {
       return getPlaylistDetail(likedSongPlaylistID.value, true).then((result) => {
+        if (!result) return
         if (result.playlist?.trackIds?.length === 0) {
           return new Promise<void>((resolve) => {
             resolve()

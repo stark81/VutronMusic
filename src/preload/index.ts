@@ -61,7 +61,9 @@ const mainAvailChannels: string[] = [
   'get-lastfm-session',
   'disconnect-lastfm',
   'update-now-playing',
-  'track-scrobble'
+  'track-scrobble',
+  'get-screenshot',
+  'delete-screenshot'
 ]
 const rendererAvailChannels: string[] = [
   'msgHandleScanLocalMusic',

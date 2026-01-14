@@ -1,12 +1,12 @@
 <template>
-  <div class="play-page">
+  <div v-if="activeTheme.theme.activeLayout === 'Classic'" class="play-page">
     <div class="lyric-container" :class="{ isMobile, 'no-lyric': noLyric && show === 'fullLyric' }">
       <div class="left-side">
         <div
           class="cover"
           :class="{
-            rotate: senses[activeTheme.theme.activeLayout].active === 2,
-            circle: senses[activeTheme.theme.activeLayout].active === 1,
+            rotate: senses[activeTheme.theme.activeLayout].cover === 2,
+            circle: senses[activeTheme.theme.activeLayout].cover === 1,
             paused: !playing
           }"
         >
@@ -162,7 +162,7 @@
       <div class="right-side" @mouseenter="hover = true" @mouseleave="hover = false">
         <LyricPage
           v-if="show === 'fullLyric'"
-          :text-align="isMobile ? 'center' : textAlign"
+          :text-align="isMobile ? 'center' : align"
           :container-width="isMobile ? '50vw' : '90%'"
           :container-margin="isMobile ? '0 auto' : '0 0 0 auto'"
           :hover="hover"
@@ -210,8 +210,7 @@ const router = useRouter()
 const playPageContextMenu = inject('playPageContextMenu', ref<InstanceType<typeof ContextMenu>>())
 
 const settingsStore = useSettingsStore()
-const { normalLyric, general } = storeToRefs(settingsStore)
-const { nTranslationMode, textAlign } = toRefs(normalLyric.value)
+const { general } = storeToRefs(settingsStore)
 
 const playerStore = usePlayerStore()
 const {
@@ -242,6 +241,29 @@ const stateStore = useNormalStateStore()
 const { showLyrics, addTrackToPlaylistModal } = storeToRefs(stateStore)
 
 const isMobile = ref(false)
+
+const align = computed(() => {
+  const layout = activeTheme.value.theme.activeLayout
+  const sense = senses.value[layout]
+  return sense.align
+})
+
+const nTranslationMode = computed({
+  get: () => {
+    const layout = activeTheme.value.theme.activeLayout
+    if (layout === 'Classic') {
+      const sense = senses.value[layout]
+      return sense.lyric.translation
+    }
+    return 'tlyric'
+  },
+  set: (value) => {
+    const layout = activeTheme.value.theme.activeLayout
+    if (layout !== 'Classic') return
+    const sense = senses.value[layout]
+    sense.lyric.translation = value
+  }
+})
 
 const hasTLyric = computed(() => lyrics.value.some((l) => l.tlyric))
 const hasRLyric = computed(() => lyrics.value.some((l) => l.rlyric))

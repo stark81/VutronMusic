@@ -238,6 +238,7 @@ watchOsdEvent()
 onMounted(async () => {
   registerInstance(instanceId.value)
   handleEventBus()
+  handleChanelEvent()
   hasCustomTitleBar.value =
     (window.env?.isLinux && general.value.useCustomTitlebar) || window.env?.isWindows || false
   if (isMac.value) {
@@ -259,7 +260,6 @@ onMounted(async () => {
     theme.value.colors.find((c) => c.selected)?.color || 'rgba(51, 94, 234, 1)'
   )
   fetchData()
-  handleChanelEvent()
   if (general.value.autoUpdate) {
     checkUpdate()
   }

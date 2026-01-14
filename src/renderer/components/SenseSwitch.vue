@@ -1,10 +1,6 @@
 <template>
   <Transition name="slide-up">
     <div v-if="modelValue" class="sense-modal" @click="updateShow(false)">
-      <div v-if="activeSense.title[titleIdx] === '区域设置'" class="pre-region">
-        <div class="title" :style="titleStyle"></div>
-        <div class="content" :style="contentStyle"></div>
-      </div>
       <div class="sense-content" :class="{ creative: type === 'Creative' }" @click.stop>
         <div class="sense-title" :class="{ multi: activeSense.title.length > 1 }">
           <span
@@ -16,14 +12,14 @@
           >
         </div>
         <div class="sense-list">
-          <template v-if="['封面类型', '布局设置'].includes(activeSense.title[titleIdx])">
+          <template v-if="type === 'Classic'">
             <div
               v-for="(sense, idx) in activeSense.sense"
               :key="idx"
               :index="idx"
               class="sense-item"
               :class="{
-                active: idx === currentSenses[type].active
+                active: idx === currentSenses[type].cover
               }"
               @click="updateSense(idx as 0 | 1 | 2)"
             >
@@ -32,85 +28,26 @@
               <div>{{ sense.name }}</div>
             </div>
           </template>
-          <template v-else-if="activeSense.title[titleIdx] === '切换动画'">
-            <div
-              v-for="ani in animations"
-              :key="ani.ani"
-              class="sense-item"
-              :class="{
-                active:
-                  type !== 'Classic' &&
-                  currentSenses[type].animation[currentSenses[type].active] === ani.ani
-              }"
-              @click="updateAnimation(ani.ani)"
-            >
-              <div class="sense-active">使用中</div>
-              <div class="ani">{{ ani.name }}</div>
-            </div>
-          </template>
           <template v-else>
-            <div v-if="type === 'Creative'" class="region-setting">
-              <div class="sperate-line"></div>
-              <div class="item-line">
-                <div class="item">
-                  <div class="title">歌名位置(上):</div>
-                  <div class="right">
-                    <input
-                      v-model="currentSenses[type].region.titleTop"
-                      type="text"
-                      class="text-input"
-                      placeholder="3.9vh"
-                    />
-                  </div>
-                </div>
-              </div>
-              <div class="item-line">
-                <div class="item">
-                  <div class="title">歌词位置(上):</div>
-                  <div class="right">
-                    <input
-                      v-model="currentSenses[type].region.top"
-                      type="text"
-                      class="text-input"
-                      placeholder="15vh"
-                    />
-                  </div>
-                </div>
-                <div class="item">
-                  <div class="title">歌词位置(下):</div>
-                  <div class="right">
-                    <input
-                      v-model="currentSenses[type].region.bottom"
-                      type="text"
-                      class="text-input"
-                      placeholder="15vh"
-                    />
-                  </div>
-                </div>
-                <div class="item">
-                  <div class="title">歌词位置(左):</div>
-                  <div class="right">
-                    <input
-                      v-model="currentSenses[type].region.left"
-                      type="text"
-                      class="text-input"
-                      placeholder="15vw"
-                    />
-                  </div>
-                </div>
-                <div class="item">
-                  <div class="title">歌词位置(右):</div>
-                  <div class="right">
-                    <input
-                      v-model="currentSenses[type].region.right"
-                      type="text"
-                      class="text-input"
-                      placeholder="15vw"
-                    />
-                  </div>
-                </div>
+            <div class="ani-select">
+              <div
+                v-for="ani in animations"
+                :key="ani.ani"
+                class="sense-item"
+                @click="updateAnimation(ani.ani)"
+                @mouseenter="tempAni = ani.ani"
+                @mouseleave="resetTempAni"
+              >
+                <div
+                  class="ani"
+                  :class="{
+                    active: currentSenses[type].lyric.align[currentSenses[type].align] === ani.ani
+                  }"
+                  >{{ ani.name }}</div
+                >
               </div>
             </div>
+            <div ref="previewRef" class="preview" />
           </template>
         </div>
       </div>
@@ -119,8 +56,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { usePlayerThemeStore } from '../store/playerTheme'
+import { gsap } from 'gsap'
 import { storeToRefs } from 'pinia'
 import { AniName } from '@/types/theme'
 
@@ -137,6 +75,9 @@ const $emit = defineEmits<{
 }>()
 
 const titleIdx = ref(0)
+const lyricArray = ref('不见桐花万里路，故园外，拂去怀中一缕芳'.split(''))
+const previewRef = ref<HTMLElement>()
+let tl: gsap.core.Timeline | null = null
 
 const playerTheme = usePlayerThemeStore()
 const { senses: currentSenses, activeTheme } = storeToRefs(playerTheme)
@@ -151,7 +92,7 @@ const senses = {
     ]
   },
   Creative: {
-    title: ['布局设置', '切换动画', '区域设置'],
+    title: ['切换动画'],
     sense: [
       { name: '靠左', img: 'creative_snow' },
       { name: '居中', img: 'sunshine' },
@@ -164,50 +105,246 @@ const senses = {
   }
 } as const
 
-const animations: { name: string; img: ''; ani: AniName }[] = [
-  { name: '铰链翻入', img: '', ani: 'hingeFlyIn' },
-  { name: '聚焦上浮', img: '', ani: 'focusRise' },
-  { name: '抛散离场', img: '', ani: 'scatterThrow' },
-  { name: '翻转显现', img: '', ani: 'flipReveal' },
-  { name: '波浪浮现', img: '', ani: 'waveDrift' },
-  { name: '双向聚拢', img: '', ani: 'splitAndMerge' }
+const tempAni = ref<AniName>(
+  props.type === 'Classic'
+    ? ''
+    : currentSenses.value[props.type].lyric.align[currentSenses.value[props.type].align]
+)
+
+const animations: { name: string; ani: AniName }[] = [
+  { name: '铰链翻入', ani: 'hingeFlyIn' },
+  { name: '聚焦上浮', ani: 'focusRise' },
+  { name: '抛散离场', ani: 'scatterThrow' },
+  { name: '翻转显现', ani: 'flipReveal' },
+  { name: '波浪浮现', ani: 'waveDrift' },
+  { name: '双向聚拢', ani: 'splitAndMerge' }
 ]
+
+const preAnimation = computed(() => ({
+  // 1.75s
+  splitAndMerge: {
+    enter: 1.25,
+    leave: 0.75,
+    ani: [
+      {
+        opacity: 0,
+        x: (i: number) => (i - (lyricArray.value.length - 1) / 2) * 30,
+        y: 0,
+        scale: 0.8,
+        filter: 'blur(10px)',
+        transformPerspective: 600
+      },
+      {
+        opacity: 1,
+        x: 0,
+        y: 0,
+        scale: 1,
+        filter: 'blur(0px)',
+        duration: 1,
+        ease: 'power3.out'
+      },
+      {
+        opacity: 0,
+        z: -200,
+        scale: 0.5,
+        rotateX: 30,
+        rotateY: 60,
+        filter: 'blur(10px)',
+        duration: 0.5,
+        ease: 'power2.in',
+        stagger: { amount: 0.25, from: 'random' }
+      }
+    ]
+  },
+  // 1.75s
+  hingeFlyIn: {
+    enter: 0.7 + 0.1 * 7,
+    leave: 0.75,
+    ani: [
+      {
+        opacity: 0,
+        x: 250,
+        y: 20,
+        rotateX: 90,
+        rotateY: 45,
+        filter: 'blur(0px)',
+        transformPerspective: 400
+      },
+      {
+        opacity: 1,
+        x: 0,
+        y: 0,
+        rotateX: 0,
+        rotateY: 0,
+        filter: 'blur(0px)',
+        duration: 1,
+        ease: 'power2.out',
+        stagger: 0.1
+      },
+      {
+        opacity: 0,
+        filter: `blur(15px)`,
+        y: -20,
+        scale: 0.8,
+        ease: 'power2.out',
+        duration: 0.5,
+        stagger: { amount: 0.25, from: 'random' }
+      }
+    ]
+  },
+  // 0.75
+  focusRise: {
+    enter: 0.7 + 0.05 * 7,
+    leave: 0.75,
+    ani: [
+      {
+        opacity: 0,
+        y: 100,
+        scale: 0.9,
+        filter: 'blur(10px)',
+        transformPerspective: 500
+      },
+      {
+        opacity: 1,
+        y: 0,
+        scale: 1,
+        filter: 'blur(0px)',
+        duration: 1,
+        ease: 'back.out(1.7)',
+        stagger: 0.05
+      },
+      {
+        opacity: 0,
+        y: -80,
+        scaleY: 1.2,
+        filter: 'blur(20px)',
+        duration: 0.5,
+        ease: 'power3.in',
+        stagger: { amount: 0.25, from: 'center' }
+      }
+    ]
+  },
+  // 1s
+  scatterThrow: {
+    enter: 0.85,
+    leave: 1.05,
+    ani: [
+      {
+        opacity: 0,
+        x: -250,
+        y: 10,
+        filter: 'blur(15px)',
+        transformPerspective: 400
+      },
+      {
+        opacity: 1,
+        x: 0,
+        y: 0,
+        filter: 'blur(0px)',
+        duration: 0.5,
+        stagger: { amount: 0.35, from: 'random' }
+      },
+      {
+        opacity: 0,
+        filter: `blur(0px)`,
+        x: 300,
+        y: -150,
+        rotateX: -45,
+        rotateY: 30,
+        ease: 'power2.in',
+        transformPerspective: 200,
+        duration: 0.5,
+        stagger: 0.5 / (lyricArray.value.length - 1)
+      }
+    ]
+  },
+  // 0.75s
+  flipReveal: {
+    enter: 0.9 + 0.1 * 7,
+    leave: 0.8,
+    ani: [
+      {
+        opacity: 0,
+        rotateY: -90,
+        x: -50,
+        transformPerspective: 800,
+        transformOrigin: '50% 50% -100px'
+      },
+      {
+        opacity: 1,
+        rotateY: 0,
+        x: 0,
+        duration: 0.9,
+        ease: 'power3.out',
+        stagger: 0.1
+      },
+      {
+        opacity: 0,
+        rotateX: 45,
+        y: 50,
+        filter: 'blur(10px)',
+        duration: 0.5,
+        ease: 'power2.in',
+        stagger: { amount: 0.25, from: 'random' }
+      }
+    ]
+  },
+  // 0.75
+  waveDrift: {
+    enter: 0.9 + 0.06 * 7,
+    leave: 0.8,
+    ani: [
+      {
+        opacity: 0,
+        y: 30,
+        filter: 'blur(8px)'
+      },
+      {
+        opacity: 1,
+        y: 0,
+        filter: 'blur(0px)',
+        duration: 0.9,
+        ease: 'sine.out',
+        stagger: {
+          each: 0.06,
+          from: 'start'
+        }
+      },
+      {
+        opacity: 0,
+        y: -20,
+        filter: 'blur(12px)',
+        duration: 0.75,
+        ease: 'sine.in'
+      }
+    ]
+  }
+}))
 
 const activeSense = computed(() => {
   return senses[props.type]
 })
 
-const titleStyle = computed(() => {
-  if (props.type !== 'Creative') return {}
-  const sense = currentSenses.value[props.type]
-  const pos = sense.region
-  const result: Record<string, any> = {
-    left: pos.left,
-    right: pos.right,
-    top: pos.titleTop
+const buildAnimation = () => {
+  if (tl) {
+    tl.kill()
+    tl = null
   }
-  result.height = '50px'
-  result.position = 'fixed'
-  result.background = 'var(--color-primary)'
-  result.opacity = 0.5
-  return result
-})
+  tl = gsap.timeline({ repeat: -1, repeatDelay: 1, paused: true })
+  const currentAni = preAnimation.value[tempAni.value]
+  // @ts-ignore
+  tl.set('.view-char', currentAni.ani[0])
+    // @ts-ignore
+    .to('.view-char', currentAni.ani[1])
+    // @ts-ignore
+    .to('.view-char', currentAni.ani[2], 4)
+  tl.time(0).play()
+}
 
-const contentStyle = computed(() => {
-  if (props.type !== 'Creative') return {}
-  const sense = currentSenses.value[props.type]
-  const pos = sense.region
-  const result: Record<string, any> = {
-    left: pos.left,
-    right: pos.right,
-    top: pos.top,
-    bottom: pos.bottom
-  }
-  result.position = 'fixed'
-  result.background = 'var(--color-primary)'
-  result.opacity = 0.5
-  return result
-})
+const resetTempAni = () => {
+  if (props.type === 'Classic') return
+  tempAni.value = currentSenses.value[props.type].lyric.align[currentSenses.value[props.type].align]
+}
 
 const updateShow = (value: boolean) => {
   $emit('update:modelValue', value)
@@ -216,17 +353,47 @@ const updateShow = (value: boolean) => {
 
 const updateSense = async (idx: 0 | 1 | 2) => {
   const theme = activeTheme.value.theme
-  theme.senses[theme.activeLayout].active = idx
+  if (theme.activeLayout !== 'Classic') return
+  theme.senses[theme.activeLayout].cover = idx
 }
 
 const updateAnimation = (name: AniName) => {
   if (props.type === 'Classic') return
-  currentSenses.value[props.type].animation[currentSenses.value[props.type].active] = name
+  const theme = currentSenses.value[props.type]
+  theme.lyric.align[theme.align] = name
 }
 
 const senseImg = (index: number) => {
   return new URL(`../assets/images/${activeSense.value.sense[index].img}.png`, import.meta.url).href
 }
+
+const buildElement = () => {
+  if (!previewRef.value) return
+  while (previewRef.value.firstChild) {
+    previewRef.value.removeChild(previewRef.value.firstChild)
+  }
+
+  lyricArray.value.forEach((w) => {
+    const span = document.createElement('div')
+    span.textContent = w
+    span.className = 'view-char'
+    previewRef.value?.appendChild(span)
+  })
+}
+
+watch(
+  () => props.modelValue && props.type !== 'Classic' && tempAni.value,
+  (value) => {
+    tl?.kill()
+    tl = null
+    if (value) {
+      setTimeout(() => {
+        buildElement()
+        buildAnimation()
+      }, 200)
+    }
+  }
+)
 </script>
 
 <style scoped lang="scss">
@@ -334,6 +501,43 @@ const senseImg = (index: number) => {
   img {
     background-color: var(--color-primary);
   }
+}
+
+.ani-select {
+  width: 40%;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px 0;
+
+  .ani {
+    display: flex;
+    box-sizing: border-box;
+    justify-content: center;
+    align-items: center;
+    height: 50px;
+    border: 2px solid var(--color-primary);
+    border-radius: 8px;
+    user-select: none;
+    cursor: pointer;
+
+    &.active {
+      background-color: var(--color-primary);
+      color: white;
+    }
+  }
+}
+
+.preview {
+  width: 60%;
+  display: flex;
+  box-sizing: border-box;
+  justify-content: center;
+  align-items: center;
+  border-radius: 8px;
+  font-size: 24px;
+  font-weight: 600;
+  user-select: none;
+  cursor: pointer;
 }
 
 .region-setting {

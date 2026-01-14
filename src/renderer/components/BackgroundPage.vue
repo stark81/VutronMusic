@@ -266,8 +266,7 @@ const onLottieLoaded = async () => {
 }
 
 onMounted(async () => {
-  await nextTick()
-  await getImage(pic.value)
+  getImage(pic.value)
   if (activeBG.value.type === 'random-folder') {
     await loadRandomFolderSource()
   } else if (activeBG.value.type === 'api') {
