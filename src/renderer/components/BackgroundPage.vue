@@ -28,13 +28,11 @@
     />
     <div
       v-else-if="
-        ['none', 'blur-image', 'dynamic-image', 'letter-image', 'custom-image', 'api'].includes(
-          typeValue
-        )
+        ['blur-image', 'dynamic-image', 'letter-image', 'custom-image', 'api'].includes(typeValue)
       "
       :class="cls"
     ></div>
-    <div v-if="typeValue === 'lottie'" class="lt-mask"></div>
+    <div v-if="typeValue === 'lottie' || activeBG.useExtractedColor" class="lt-mask"></div>
   </div>
 </template>
 
@@ -149,11 +147,15 @@ const getImage = async (pic: string) => {
   if (!pic) return
   try {
     const palette = await Vibrant.from(pic).getPalette()
-    const swatch = palette.DarkMuted || palette.Vibrant
+    let swatch = activeBG.value.useExtractedColor ? palette.Vibrant : palette.DarkMuted
+    const dark = activeBG.value.useExtractedColor ? 0.2 : 0.1
+    const light = activeBG.value.useExtractedColor ? 0 : 0.2
+    swatch = swatch || palette.Vibrant
+
     if (swatch) {
       const base = Color.rgb(swatch.rgb)
-      primary.value = base.darken(0.1).rgb().string()
-      secondary.value = base.lighten(0.2).rotate(-30).rgb().string()
+      primary.value = base.darken(dark).rgb().string()
+      secondary.value = base.lighten(light).rotate(-30).rgb().string()
     }
   } catch (e) {
     console.error('Vibrant failed', e)
@@ -163,6 +165,13 @@ const getImage = async (pic: string) => {
 watch(pic, (value) => {
   getImage(value)
 })
+
+watch(
+  () => activeBG.value.useExtractedColor,
+  () => {
+    getImage(pic.value)
+  }
+)
 
 watch(
   () => currentTrack.value?.id,
@@ -388,7 +397,7 @@ onUnmounted(() => {
 }
 
 .mix-blend {
-  mix-blend-mode: screen;
+  mix-blend-mode: overlay;
 }
 
 .lottie-container {
