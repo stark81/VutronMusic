@@ -59,6 +59,7 @@
                 v-model="selectedFonts"
                 class="input-select"
                 direction="down"
+                :searchable="true"
                 :options="fontList"
               >
                 <template #option="{ option }">

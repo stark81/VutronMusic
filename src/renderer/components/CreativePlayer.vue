@@ -814,12 +814,9 @@ watch(playing, (value) => {
 
 watch(pickedLyric, async (value) => {
   if (loading.value) return
+  tl?.kill()
   clearLyricElements()
-  if (props.show !== 'pickLyric') {
-    tl?.kill()
-    tl = null
-    return
-  }
+  if (props.show !== 'pickLyric') return
   loading.value = true
   if (value.length > 0) {
     await nextTick()

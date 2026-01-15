@@ -8,7 +8,7 @@
     <template #default>
       <div class="theme-container">
         <div v-for="(theme, type) in themes" :key="type" class="type-group">
-          <template v-if="theme.length">
+          <template v-if="type !== 'Copy' && theme.length">
             <div class="title">{{ $t(`settings.playerTheme.${type}`) }}</div>
             <div class="theme-list">
               <div
@@ -61,6 +61,7 @@ const selectTheme = (type: 'Classic' | 'Creative' | 'Customize', index: number) 
 const deleteTheme = (type: 'Classic' | 'Creative' | 'Customize', name: string) => {
   if (type !== 'Customize') return
   const cThemes = themes.value.Customize
+  const copyThemes = themes.value.Copy
   const idx = cThemes.findIndex((t) => t.name === name)
   if (idx === -1) return
   if (currentPath.value.mode === 'Customize' && currentPath.value.index === idx) {
@@ -74,6 +75,7 @@ const deleteTheme = (type: 'Classic' | 'Creative' | 'Customize', name: string) =
   const image = cThemes[idx].img
   window.mainApi?.send('delete-screenshot', image)
   cThemes.splice(idx, 1)
+  copyThemes.splice(idx, 1)
   showToast('自定义主题删除成功')
 }
 

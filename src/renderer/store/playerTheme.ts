@@ -176,14 +176,18 @@ export const usePlayerThemeStore = defineStore(
   'playerTheme',
   () => {
     const themes = reactive<
-      Record<'Classic' | 'Creative' | 'Customize', { name: string; img: string; theme: Theme }[]>
+      Record<
+        'Classic' | 'Creative' | 'Customize' | 'Copy',
+        { name: string; img: string; theme: Theme }[]
+      >
     >({
       Classic: [{ name: '经典布局', img: 'common', theme: createTheme('default') }],
       Creative: [
         { name: '歌词环游', img: 'creative_snow', theme: createTheme('snow') },
         { name: '信笺歌词', img: 'rotate', theme: createTheme('letter') }
       ],
-      Customize: []
+      Customize: [],
+      Copy: []
     })
 
     const currentPath = reactive({
@@ -207,15 +211,26 @@ export const usePlayerThemeStore = defineStore(
     })
 
     const resetTheme = () => {
-      if (currentPath.mode === 'Customize') return
-      const map = { 0: 'default', 1: 'snow', 2: 'letter' } as const
-      activeTheme.value.theme = createTheme(map[currentPath.index])
+      if (currentPath.mode === 'Customize') {
+        const item = themes.Copy[currentPath.index]
+        if (item) {
+          activeTheme.value.img = item.img
+          activeTheme.value.name = item.name
+          activeTheme.value.theme = item.theme
+        }
+      } else if (currentPath.mode === 'Classic') {
+        activeTheme.value.theme = createTheme('default')
+      } else {
+        const map = { 0: 'snow', 1: 'letter' } as const
+        activeTheme.value.theme = createTheme(map[currentPath.index])
+      }
     }
 
     const saveToCustomize = (name: string, imgPath: string) => {
       const theme = structuredClone(toRaw(activeTheme.value.theme))
       const item = { name, theme, img: imgPath }
       themes.Customize.push(item)
+      themes.Copy.push(structuredClone(toRaw(item)))
       currentPath.mode = 'Customize'
       currentPath.index = themes.Customize.findIndex((th) => th.name === name)
     }

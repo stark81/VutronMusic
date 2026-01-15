@@ -18,6 +18,13 @@
             <SvgIcon icon-class="arrow-down" />
           </button-icon>
           <button-icon
+            title="重置播放器主题"
+            class="player-button reset-button"
+            @click="resetTheme"
+          >
+            <SvgIcon icon-class="reset-theme" />
+          </button-icon>
+          <button-icon
             title="换场景"
             class="player-button sense-button"
             @click="showSenseSelector = true"
@@ -108,6 +115,7 @@ const { currentTrack } = storeToRefs(playerStore)
 
 const playerThemeStore = usePlayerThemeStore()
 const { activeTheme, activeBG } = storeToRefs(playerThemeStore)
+const { resetTheme } = playerThemeStore
 
 const showSenseSelector = ref(false)
 const tabIdx = ref(0)
@@ -205,6 +213,12 @@ watch(
   .sense-button {
     position: fixed;
     bottom: 124px;
+    right: 24px;
+  }
+
+  .reset-button {
+    position: fixed;
+    bottom: 196px;
     right: 24px;
   }
 
