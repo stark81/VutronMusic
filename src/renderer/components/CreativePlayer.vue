@@ -265,6 +265,10 @@ const titleStyle = computed(() => {
 })
 
 const style = computed(() => {
+  if (activeTheme.value.theme.activeLayout === 'Classic') {
+    const sense = senses.value[activeTheme.value.theme.activeLayout]
+    return { fontWeight: sense.lyric.fontBold ? 'bold' : 'unset' }
+  }
   if (activeTheme.value.theme.activeLayout === 'Creative') {
     const sense = senses.value[activeTheme.value.theme.activeLayout]
     const pos = sense.region
@@ -275,11 +279,13 @@ const style = computed(() => {
     result.right = pos.right + 'vw'
     result.textAlign = sense.align
     result.fontFamily = sense.lyric.font
+    result.fontWeight = sense.lyric.fontBold ? 'bold' : 'unset'
     return result
   }
   const sense = senses.value[activeTheme.value.theme.activeLayout]
   return {
     fontFamily: sense.lyric.font,
+    fontWeight: sense.lyric.fontBold ? 'bold' : 'unset',
     textAlign: 'center',
     left: '15vw',
     right: '15vw',
@@ -942,7 +948,7 @@ $mid: math.ceil(math.div($count, 2));
 
   :deep(.lyric-item) {
     font-size: v-bind(fontSize);
-    font-weight: 600;
+    // font-weight: 600;
     user-select: none;
     will-change: transform;
   }

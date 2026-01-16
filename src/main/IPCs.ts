@@ -568,7 +568,9 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
       return
     }
     const track = res.songs[0]
-    const audioCachePath = app.getPath('userData') + '/audioCache'
+    const audioCachePath =
+      (store.get('settings.autoCacheTrack.path') as string) ||
+      path.join(app.getPath('userData'), 'audioCache')
     if (!fs.existsSync(audioCachePath)) {
       fs.mkdirSync(audioCachePath)
     }
@@ -692,6 +694,10 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
         fs.unlinkSync(name)
       }
     } catch (error) {}
+  })
+
+  ipcMain.handle('get-cache-path', () => {
+    return path.join(app.getPath('userData'), 'audioCache')
   })
 }
 

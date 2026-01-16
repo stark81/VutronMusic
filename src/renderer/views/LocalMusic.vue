@@ -166,6 +166,7 @@
 import { storeToRefs } from 'pinia'
 import { useNormalStateStore } from '../store/state'
 import { useLocalMusicStore, sortList } from '../store/localMusic'
+import { useSettingsStore } from '../store/settings'
 import { usePlayerStore } from '../store/player'
 import {
   computed,
@@ -176,7 +177,8 @@ import {
   onMounted,
   onUnmounted,
   watch,
-  nextTick
+  nextTick,
+  toRefs
 } from 'vue'
 import TrackList from '../components/VirtualTrackList.vue'
 import InfoBG from '../components/InfoBG.vue'
@@ -198,6 +200,8 @@ const { scanLocalMusic, getLocalLyric } = localMusicStore
 
 const { newPlaylistModal, modalOpen } = storeToRefs(useNormalStateStore())
 const { addTrackToPlayNext } = usePlayerStore()
+
+const { scanDir } = toRefs(useSettingsStore().localMusic)
 
 // ref
 const currentTab = ref('localTracks')

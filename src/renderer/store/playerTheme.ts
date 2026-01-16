@@ -121,6 +121,7 @@ const createTheme = (name: 'default' | 'snow' | 'letter') => {
         lyric: {
           font: 'system-ui',
           fontSize: 28,
+          fontBold: false,
           gap: 0,
           mask: true,
           wbw: true,
@@ -134,6 +135,7 @@ const createTheme = (name: 'default' | 'snow' | 'letter') => {
           font: 'system-ui',
           fontSize: 4.5,
           gap: 6,
+          fontBold: false,
           align: {
             left: 'hingeFlyIn',
             center: 'splitAndMerge',
@@ -154,6 +156,7 @@ const createTheme = (name: 'default' | 'snow' | 'letter') => {
         lyric: {
           font: 'system-ui',
           fontSize: 4.5,
+          fontBold: false,
           gap: 6,
           align: {
             center: 'splitAndMerge'

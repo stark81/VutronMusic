@@ -1,4 +1,4 @@
-import { app, net } from 'electron'
+import { net } from 'electron'
 import fs from 'fs'
 import path from 'path'
 import jschardet from 'jschardet'
@@ -285,6 +285,7 @@ export const getLyric = async (track: {
 export const handleNeteaseResult = async (name: string, result: any) => {
   switch (name) {
     case CacheAPIs.Playlist: {
+      if (!result) return result
       if (result.playlist) {
         result.playlist.tracks = mapTrackPlayableStatus(
           result.playlist.tracks,
@@ -669,13 +670,11 @@ export const deleteExcessCache = async (deleteAll = false): Promise<boolean> => 
 
   if (deleteAll) {
     try {
-      const ids = tracks.songs.map((s: any) => s.id)
+      const ids = tracks.songs.map((s: any) => {
+        fs.promises.rm(s.url, { force: true })
+        return s.id
+      })
       if (ids.length > 0) db.deleteMany(Tables.Track, ids)
-      const audioCachePath = app.getPath('userData') + '/audioCache'
-
-      if (fs.existsSync(audioCachePath)) {
-        await fs.promises.rm(audioCachePath, { recursive: true, force: true })
-      }
       return true
     } catch (error) {
       log.error('清理全量缓存失败:', error)

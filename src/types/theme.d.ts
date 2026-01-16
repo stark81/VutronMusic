@@ -89,6 +89,7 @@ export type Theme = {
       lyric: {
         font: string
         fontSize: number
+        fontBold: boolean
         gap: number
         mask: boolean
         wbw: boolean
@@ -108,6 +109,7 @@ export type Theme = {
         font: string
         fontSize: number
         gap: number
+        fontBold: boolean
         align: {
           left: AniName
           center: AniName
@@ -125,6 +127,7 @@ export type Theme = {
       lyric: {
         font: string
         fontSize: number
+        fontBold: boolean
         gap: number
         align: {
           center: AniName

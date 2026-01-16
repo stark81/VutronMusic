@@ -407,7 +407,8 @@
         "desc": "启用后，锁定桌面歌词窗口时仍然显示解锁按钮，",
         "desc2": "并启用鼠标停留降低窗体透明度功能"
       },
-      "lyricZoom": "放缩当前播放的歌词"
+      "lyricZoom": "放缩当前播放的歌词",
+      "lyricBold": "字体加粗"
     },
     "lyric": {
       "fontFamily": "歌词字体",
@@ -472,6 +473,7 @@
     },
     "autoCacheTrack": {
       "enable": "启用自动缓存歌曲",
+      "path": "缓存路径",
       "sizeLimit": "歌曲缓存上限",
       "noLimit": "无限制",
       "sizeCached": "已缓存歌曲 { song } 首",

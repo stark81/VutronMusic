@@ -84,6 +84,7 @@ const store = new Store<TypeElectronStore>({
       trackInfoOrder: ['path', 'online', 'embedded'] as TrackInfoOrder[],
       autoCacheTrack: {
         enable: false,
+        path: '',
         sizeLimit: 512 as boolean | number
       },
       shortcuts: [

@@ -49,7 +49,17 @@
               </div>
             </div>
           </template>
-
+          <div v-if="activeTheme.theme.activeLayout !== 'Classic'" class="item">
+            <div class="left">
+              <div class="title">{{ $t('settings.osdLyric.lyricBold') }}</div>
+            </div>
+            <div class="right">
+              <div class="toggle">
+                <input id="bold" v-model="isBold" type="checkbox" name="bold" />
+                <label for="bold"></label>
+              </div>
+            </div>
+          </div>
           <div class="item">
             <div class="left">
               <div class="title">{{ $t('settings.osdLyric.font') }}</div>
@@ -68,6 +78,20 @@
                   </div>
                 </template>
               </CustomSelect>
+            </div>
+          </div>
+          <div class="item">
+            <div class="left">
+              <div class="title">
+                {{
+                  $t('settings.osdLyric.fontSize', {
+                    dw: activeTheme.theme.activeLayout === 'Classic' ? 'px' : 'cqw'
+                  })
+                }}
+              </div>
+            </div>
+            <div class="right">
+              <input v-model="fontSize" type="number" class="text-input" />
             </div>
           </div>
           <div class="item">
@@ -100,20 +124,6 @@
                 class="input-select"
                 :options="translateOptions"
               />
-            </div>
-          </div>
-          <div class="item">
-            <div class="left">
-              <div class="title">
-                {{
-                  $t('settings.osdLyric.fontSize', {
-                    dw: activeTheme.theme.activeLayout === 'Classic' ? 'px' : 'cqw'
-                  })
-                }}
-              </div>
-            </div>
-            <div class="right">
-              <input v-model="fontSize" type="number" class="text-input" />
             </div>
           </div>
           <div v-if="activeTheme.theme.activeLayout !== 'Classic'" class="item">
@@ -246,6 +256,17 @@ const isZoom = computed({
     if (theme.activeLayout === 'Classic') {
       theme.senses[theme.activeLayout].lyric.zoom = value
     }
+  }
+})
+
+const isBold = computed({
+  get: () => {
+    const theme = activeTheme.value.theme
+    return theme.senses[theme.activeLayout].lyric.fontBold
+  },
+  set: (value) => {
+    const theme = activeTheme.value.theme
+    theme.senses[theme.activeLayout].lyric.fontBold = value
   }
 })
 

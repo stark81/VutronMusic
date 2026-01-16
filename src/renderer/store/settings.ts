@@ -76,6 +76,7 @@ export const useSettingsStore = defineStore(
 
     const autoCacheTrack = reactive({
       enable: false,
+      path: '',
       sizeLimit: 512 as boolean | number,
       number: 0
     })
@@ -140,7 +141,12 @@ export const useSettingsStore = defineStore(
 
     watch(
       autoCacheTrack,
-      (value) => {
+      async (value) => {
+        if (!value.path) {
+          await window.mainApi?.invoke('get-cache-path').then((result: string) => {
+            value.path = result
+          })
+        }
         window.mainApi?.send('setStoreSettings', { autoCacheTrack: cloneDeep(toRaw(value)) })
       },
       { deep: true }
@@ -285,6 +291,11 @@ export const useSettingsStore = defineStore(
         misc.lastfm.name = result.name
         misc.lastfm.enable = result.name !== ''
       })
+      if (!autoCacheTrack.path) {
+        window.mainApi?.invoke('get-cache-path').then((result: string) => {
+          autoCacheTrack.path = result
+        })
+      }
       deleteCacheTracks(false)
     })
 

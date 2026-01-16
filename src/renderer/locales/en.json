@@ -400,7 +400,8 @@
         "desc": "Enabling this will show the unlock button when the desktop lyrics window is locked,",
         "desc2": "and enable the mouse hover to reduce window transparency feature"
       },
-      "lyricZoom": "Zoom The Playing Lyric"
+      "lyricZoom": "Zoom The Playing Lyric",
+      "lyricBold": "Bold Text"
     },
     "lyric": {
       "fontFamily": "Lyric Font Family",
@@ -465,6 +466,7 @@
     },
     "autoCacheTrack": {
       "enable": "Enable Automatic Song Caching",
+      "path": "Cache Folder Path",
       "sizeLimit": "Song Cache Limit",
       "noLimit": "No Limit",
       "sizeCached": "Cached {song} songs",

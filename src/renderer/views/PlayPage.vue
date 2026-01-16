@@ -218,7 +218,7 @@ watch(
 
   .reset-button {
     position: fixed;
-    bottom: 196px;
+    bottom: 190px;
     right: 24px;
   }
 

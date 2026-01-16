@@ -1,12 +1,12 @@
 <template>
-  <div v-if="activeTheme.theme.activeLayout === 'Classic'" class="play-page">
+  <div class="play-page">
     <div class="lyric-container" :class="{ isMobile, 'no-lyric': noLyric && show === 'fullLyric' }">
       <div class="left-side">
         <div
           class="cover"
           :class="{
-            rotate: senses[activeTheme.theme.activeLayout].cover === 2,
-            circle: senses[activeTheme.theme.activeLayout].cover === 1,
+            rotate: senses[activeTheme.theme.activeLayout as 'Classic'].cover === 2,
+            circle: senses[activeTheme.theme.activeLayout as 'Classic'].cover === 1,
             paused: !playing
           }"
         >
@@ -184,7 +184,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject, onBeforeUnmount, onMounted, ref, toRefs } from 'vue'
+import { computed, inject, onBeforeUnmount, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import ButtonIcon from './ButtonIcon.vue'

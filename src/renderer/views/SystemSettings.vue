@@ -458,6 +458,21 @@
             </div>
             <div class="item">
               <div class="left">
+                <div class="title"
+                  >{{ $t('settings.autoCacheTrack.path') }}: {{ autoCacheTrack.path }}</div
+                >
+              </div>
+              <div class="right">
+                <button :style="{ marginRight: '16px' }" @click="autoCacheTrack.path = ''"
+                  >重置</button
+                >
+                <button @click="chooseDir(false)">{{
+                  autoCacheTrack.path ? '更改' : '选择'
+                }}</button>
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
                 <div class="title">{{ $t('settings.autoCacheTrack.sizeLimit') }}</div>
               </div>
               <div class="right">
@@ -503,7 +518,7 @@
                 <div class="title">{{ $t('localMusic.localMusicFolderPath') }}: {{ scanDir }}</div>
               </div>
               <div class="right">
-                <button @click="chooseDir">{{ scanDir ? '更改' : '选择' }}</button>
+                <button @click="chooseDir(true)">{{ scanDir ? '更改' : '选择' }}</button>
               </div>
             </div>
             <div class="item">
@@ -1281,9 +1296,14 @@ window.mainApi?.on('receiveCacheInfo', (_: any, data: { length: number; size: nu
   cacheTracksInfo.size = data.size
 })
 
-const chooseDir = () => {
+const chooseDir = (scan = true) => {
   window.mainApi?.invoke('selecteFolder').then((folderPath: string | null) => {
-    if (folderPath) scanDir.value = folderPath
+    if (!folderPath) return
+    if (scan) {
+      scanDir.value = folderPath
+    } else {
+      autoCacheTrack.value.path = folderPath
+    }
   })
 }
 
@@ -1734,6 +1754,9 @@ onBeforeUnmount(() => {
     font-size: 16px;
     font-weight: 500;
     opacity: 0.78;
+    overflow: hidden;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
 
     .update-ext {
       margin-left: 20px;

@@ -400,7 +400,8 @@
         "desc": "啟用後，鎖定桌面歌詞視窗時仍然顯示解鎖按鈕，",
         "desc2": "並啟用鼠標停留降低視窗透明度功能"
       },
-      "lyricZoom": "放縮當前播放的歌詞"
+      "lyricZoom": "放縮當前播放的歌詞",
+      "lyricBold": "字體加粗"
     },
     "lyric": {
       "fontFamily": "歌詞字型",
@@ -465,6 +466,7 @@
     },
     "autoCacheTrack": {
       "enable": "啟用自動快取歌曲",
+      "path": "快取路徑",
       "sizeLimit": "歌曲快取上限",
       "noLimit": "無限制",
       "sizeCached": "已快取歌曲 { song } 首",
