@@ -166,7 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
     clearTimeout(timeoutId)
 
     const osdLyric = JSON.parse(localStorage.getItem('osdLyric'))
-    if (osdLyric?.staticTime === 0 || !osdLyric.showButtonWhenLock) return
+    if (osdLyric?.staticTime === 0) return // || !osdLyric.showButtonWhenLock
 
     lastMoveTime = Date.now()
     timeoutId = setTimeout(() => {

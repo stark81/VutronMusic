@@ -204,9 +204,6 @@
                 <div class="description">
                   {{ $t('settings.osdLyric.showButtonWhenLock.desc') }}
                 </div>
-                <div class="description">
-                  {{ $t('settings.osdLyric.showButtonWhenLock.desc2') }}
-                </div>
               </div>
               <div class="right">
                 <div class="toggle">
