@@ -164,6 +164,8 @@
     "removeTrackFromPlaylist": "从歌单里删除",
     "showInFolder": "在文件管理器中打开",
     "deletePlaylist": "删除歌单",
+    "removeFromPlaylist": "从歌单中删除",
+    "removeFromQueue": "从队列删除",
     "finish": "完成",
     "allPlaylists": "全部歌单",
     "minePlaylists": "创建的歌单",

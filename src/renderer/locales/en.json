@@ -164,6 +164,8 @@
     "removeTrackFromPlaylist": "Remove from Playlist",
     "showInFolder": "Open in File Explorer",
     "deletePlaylist": "Delete Playlist",
+    "removeFromPlaylist": "Remove from playlist",
+    "removeFromQueue": "Remove from queue",
     "finish": "Finish",
     "allPlaylists": "All Playlists",
     "minePlaylists": "My Playlists",

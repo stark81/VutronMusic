@@ -77,6 +77,20 @@
       >{{ $t('player.addToPlaylist') }}</div
     >
     <div
+      v-if="
+        extraContextMenuItem.includes('removeTrackFromNext') ||
+        extraContextMenuItem.includes('removeTrackFromInsert')
+      "
+      class="item"
+      @click="
+        removeFromQueue(
+          extraContextMenuItem.includes('removeTrackFromNext') ? 'next' : 'insert',
+          rightClickedTrackComputed.id
+        )
+      "
+      >{{ $t('contextMenu.removeFromQueue') }}</div
+    >
+    <div
       v-show="extraContextMenuItem.includes('addToStreamList')"
       class="item"
       @click="addToSteamPlaylist([rightClickedTrackComputed.id])"
@@ -86,7 +100,7 @@
       v-if="extraContextMenuItem.includes('removeTrackFromPlaylist')"
       class="item"
       @click="rmTrackFromPlaylist"
-      >从歌单中删除</div
+      >{{ $t('contextMenu.removeFromPlaylist') }}</div
     >
     <div
       v-if="extraContextMenuItem.includes('addToLocalList')"
@@ -197,7 +211,7 @@ const rightClickedTrack = ref({
 })
 const { t } = useI18n()
 const playerStore = usePlayerStore()
-const { playlistSource, currentTrack } = storeToRefs(playerStore)
+const { playlistSource, currentTrack, list, _playNextList } = storeToRefs(playerStore)
 const { replacePlaylist, addTrackToPlayNext } = playerStore
 
 const stateStore = useNormalStateStore()
@@ -398,6 +412,16 @@ const addToLocalPlaylist = (trackIDs: number[] = []) => {
       type: 'local'
     }
   })
+}
+
+const removeFromQueue = (playlist: 'insert' | 'next', id: string | number) => {
+  if (playlist === 'insert') {
+    const index = _playNextList.value.findIndex((idx) => idx === id)
+    if (index > -1) _playNextList.value.splice(index, 1)
+  } else {
+    const index = list.value.findIndex((idx) => idx === id)
+    if (index > -1) list.value.splice(index, 1)
+  }
 }
 
 const addToSteamPlaylist = (trackIDs: number[] = []) => {
