@@ -82,6 +82,8 @@
     },
     "albums": "专辑",
     "artists": "艺人",
+    "albumArtist": "专辑艺人",
+    "dirName": "文件夹名",
     "placeholder": "搜索本地歌曲",
     "scrollToTop": "回到顶部",
     "localMusicFolderPath": "本地音乐文件夹路径",

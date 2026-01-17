@@ -428,6 +428,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
       const existingTracks = new Map<string, Track>()
       const existingAlbums = new Map<string, Album>()
       const existingArtists = new Map<string, Artist>()
+      const existingAlArtists = new Map<string, Artist>()
 
       const newTracks: Track[] = []
 
@@ -507,6 +508,22 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
               return newAr
             })
 
+            newTrack.albumArtist = track.albumArtist.map((artist) => {
+              let newAr: Artist
+              if (existingAlArtists.has(artist)) {
+                newAr = existingAlArtists.get(artist)
+              } else {
+                newAr = {
+                  id: existingAlArtists.size + 1,
+                  name: artist,
+                  matched: false,
+                  picUrl: 'https://p1.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg'
+                }
+                existingAlArtists.set(artist, newAr)
+              }
+              return newAr
+            })
+
             newTrack = _.merge({}, track, newTrack)
 
             win.webContents.send('msgHandleScanLocalMusic', { track: newTrack })
@@ -514,6 +531,23 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
             newTracks.push(newTrack)
           } else {
             const originTrack = existingTracks.get(track.filePath)
+
+            originTrack.albumArtist = track.albumArtist.map((artist) => {
+              let newAr: Artist
+              if (existingAlArtists.has(artist)) {
+                newAr = existingAlArtists.get(artist)
+              } else {
+                newAr = {
+                  id: existingAlArtists.size + 1,
+                  name: artist,
+                  matched: false,
+                  picUrl: 'https://p1.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg'
+                }
+                existingAlArtists.set(artist, newAr)
+              }
+              return newAr
+            })
+
             const updatedTrack = _.merge({}, track, originTrack)
             existingTracks.set(updatedTrack.filePath, updatedTrack)
           }
@@ -522,6 +556,10 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
 
       if (newTracks.length > 0) {
         await cache.set(CacheAPIs.LocalMusic, { newTracks })
+      }
+      if (data.update) {
+        cache.set(CacheAPIs.LocalMusic, { newTracks: [...existingTracks.values()] })
+        win.webContents.send('updateLocalMusic', { tracks: [...existingTracks.values()] })
       }
       win.webContents.send('scanLocalMusicDone')
     } catch (error) {

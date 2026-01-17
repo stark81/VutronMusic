@@ -82,6 +82,8 @@
     },
     "albums": "Albums",
     "artists": "Artists",
+    "albumArtist": "Album Artist",
+    "dirName": "Folder Name",
     "placeholder": "Search Local Songs",
     "scrollToTop": "Scroll to Top",
     "localMusicFolderPath": "Local Music Folder Path",

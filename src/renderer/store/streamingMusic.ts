@@ -32,6 +32,7 @@ export const useStreamMusicStore = defineStore(
       emby: []
     })
     const sortBy = ref('default')
+    const artistBy = ref(0)
     const groundBy = ref<serviceName | 'all'>('all')
     const message = ref('')
 
@@ -180,6 +181,7 @@ export const useStreamMusicStore = defineStore(
       streamLikedTracks,
       playlists,
       sortBy,
+      artistBy,
       groundBy,
       message,
       scrobble,

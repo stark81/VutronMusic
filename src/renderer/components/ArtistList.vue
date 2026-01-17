@@ -3,7 +3,7 @@
     <VirtualScroll
       :list="artistsArray"
       class="artist-list"
-      :item-height="64"
+      :item-size="64"
       :show-position="false"
       :is-end="true"
     >
@@ -14,14 +14,20 @@
           :selected="selectedIdx === index"
           :style="{ marginRight: '20px' }"
           :artist-prop="item"
-          :track-prop="tracks.filter((track) => track.artists.some((ar) => ar.name === item.name))"
+          :track-prop="
+            tracks.filter((track) =>
+              (type === 'artist' ? track.artists : track.albumArtist).some(
+                (ar) => ar.name === item.name
+              )
+            )
+          "
           @click="selectedIdx = index"
         />
       </template>
     </VirtualScroll>
     <VirtualScroll
       :list="showTracks"
-      :item-height="64"
+      :item-size="64"
       class="track-list"
       :show-position="false"
       :padding-bottom="116"
@@ -60,9 +66,13 @@ import ArtistListItem from './ArtistListItem.vue'
 import TrackListItem from './TrackListItem.vue'
 import { usePlayerStore } from '../store/player'
 
-const props = defineProps<{
-  tracks: Track[]
-}>()
+const props = withDefaults(
+  defineProps<{
+    type: 'artist' | 'albumArtist'
+    tracks: Track[]
+  }>(),
+  { type: 'artist' }
+)
 
 // ====================    ref   ==================== //
 const { tracks } = toRefs(props)
@@ -72,14 +82,20 @@ const { replacePlaylist } = playerStore
 
 // ==================== computed ==================== //
 const artistsArray = computed(() => {
-  const ar = props.tracks.map((track) => track.artists).flat()
+  const ar = props.tracks
+    .map((track) => (props.type === 'artist' ? track.artists : track.albumArtist))
+    .flat()
   return [...new Map(ar.map((item) => [item.name, item])).values()]
 })
 
 // 右边显示的已选择的专辑歌曲
 const showTracks = computed(() => {
   const artist = artistsArray.value[selectedIdx.value]
-  return tracks.value.filter((track) => track.artists.some((item) => item.name === artist.name))
+  const trackArray = tracks.value.filter((track) => {
+    const artists = props.type === 'artist' ? track.artists : track.albumArtist
+    return artists.some((item) => item.name === artist.name)
+  })
+  return trackArray
 })
 
 const playThisList = (id: number) => {

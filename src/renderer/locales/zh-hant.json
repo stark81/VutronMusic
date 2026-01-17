@@ -82,6 +82,8 @@
     },
     "albums": "專輯",
     "artists": "藝人",
+    "albumArtist": "專輯藝人",
+    "dirName": "資料夾名",
     "placeholder": "搜尋本地歌曲",
     "scrollToTop": "回到頂部",
     "localMusicFolderPath": "本地音樂資料夾路徑",

@@ -180,9 +180,20 @@ class Navidrome implements NavidromeImpl {
             artists: [
               {
                 id: song.artistId ?? '',
-                name: song.artist ?? '',
+                name: song.artist ?? '未知艺人',
                 matched: false,
                 picUrl: this.getPic(song.artistId ?? song.albumId ?? song.id, 64)
+              }
+            ],
+            albumArtist: [
+              {
+                id: song.albumArtistId ?? '',
+                name: song.albumArtist ?? '未知艺人',
+                matched: false,
+                picUrl: this.getPic(
+                  song.albumArtistId ?? song.artistId ?? song.albumId ?? song.id,
+                  64
+                )
               }
             ],
             picUrl: getRestUrl('getCoverArt', { id: song.albumId, size: 64 })

@@ -30,6 +30,7 @@ export interface scanTrack {
   alias: string[]
   album: string
   artists: string[]
+  albumArtist: string[]
   source?: string
   size?: number
   gain: number
@@ -50,6 +51,7 @@ export interface Track {
   alias: string[]
   album: Album
   artists: Artist[]
+  albumArtist: Artist[]
   picUrl: string
   source?: string
   size?: number

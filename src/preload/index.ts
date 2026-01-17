@@ -91,7 +91,8 @@ const rendererAvailChannels: string[] = [
   'setPosition',
   'changeRouteTo',
   'updateAmuseServerStatus',
-  'receiveCacheInfo'
+  'receiveCacheInfo',
+  'updateLocalMusic'
 ]
 
 let messagePort: MessagePort | null = null

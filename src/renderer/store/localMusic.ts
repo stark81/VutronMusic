@@ -16,6 +16,7 @@ export const useLocalMusicStore = defineStore(
     const localTracks = ref<Track[]>([])
     const playlists = ref<Playlist[]>([])
     const sortBy = ref<(typeof sortList)[number]>('default')
+    const artistBy = ref(0)
     const sortPlaylistsIDs = ref<number[]>([])
 
     const updateTrack = (filePath: string, track: any) => {
@@ -164,7 +165,7 @@ export const useLocalMusicStore = defineStore(
 
     const updateApp = async () => {
       const result = (await window.mainApi?.invoke('msgRequestGetVersion')) as string
-      if (compare(version.value || '2.4.0', '2.4.0', '<=')) {
+      if (compare(version.value || '2.4.0', '2.9.0', '<=')) {
         scanLocalMusic(true)
       }
       version.value = result
@@ -178,6 +179,7 @@ export const useLocalMusicStore = defineStore(
       playlists,
       sortPlaylistsIDs,
       sortBy,
+      artistBy,
       updateTrack,
       scanLocalMusic,
       fetchLocalMusic,
