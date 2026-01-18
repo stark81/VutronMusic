@@ -242,12 +242,15 @@ const type = computed({
   }
 })
 
+const filterMap = {
+  'custom-video': [{ name: 'Video', extensions: ['mp4', 'webm'] }],
+  lottie: [{ name: 'Lottie', extensions: ['json'] }],
+  'custom-image': [{ name: 'Image', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }]
+}
+
 const selectSource = async () => {
   const isFolder = activeBG.value.type === 'random-folder'
-  const filters =
-    activeBG.value.type === 'custom-video'
-      ? [{ name: 'Video', extensions: ['mp4', 'webm'] }]
-      : [{ name: 'Image', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }]
+  const filters = filterMap[activeBG.value.type as 'lottie' | 'custom-image' | 'custom-video']
   const result = await window.mainApi?.invoke('showOpenDialog', {
     properties: isFolder ? ['openDirectory'] : ['openFile'],
     filters: isFolder ? undefined : filters

@@ -74,7 +74,7 @@ const srcValue = computed(() => {
     if (['snow', 'sunshine'].includes(src)) {
       src = new URL(`../assets/lottie/${src}.json`, import.meta.url).href
     } else {
-      src = new URL(src, import.meta.url).href
+      src = `atom://local-asset?type=json&path=${encodeURIComponent(activeBG.value.src)}`
     }
     return src
   } else if (activeBG.value.type === 'random-folder') {
@@ -199,6 +199,11 @@ const startApiRefreshTimer = () => {
   }, time)
 }
 
+/**
+ * 对于lottie动画需要十分注意，否则可能会导致lottie组件不断尝试恢复动画而导致cpu占用异常
+ * 1. 从lottie切换到其他类型，需要停止lottie并destroy；
+ * 2. lottie动画的src从有变成了无、从A切换到了B，都需要先停止
+ */
 watch(
   () => [activeBG.value.type, activeBG.value.src],
   (newType, oldType) => {
@@ -215,9 +220,11 @@ watch(
       videoRef.value?.load()
     }
 
-    if (newType[0] === 'lottie' && !newType[1]) {
-      lottieContainer.value?.stop()
-      lottieContainer.value?.destroy()
+    if (newType[0] === 'lottie') {
+      if (!newType[1] || newType[1] !== oldType[1]) {
+        lottieContainer.value?.stop()
+        lottieContainer.value?.destroy()
+      }
     }
 
     if (newType[0] === 'random-folder' && newType[1]) {
@@ -258,13 +265,18 @@ watch(
 )
 
 watch(shouldPlayLottie, async (value) => {
+  await nextTick()
   if (!lottieContainer.value) return
 
   if (value) {
-    await nextTick()
     lottieContainer.value.play()
   } else {
-    lottieContainer.value.pause()
+    if (activeBG.value.type === 'lottie') {
+      lottieContainer.value.pause()
+    } else {
+      lottieContainer.value.stop()
+      lottieContainer.value.destroy()
+    }
   }
 })
 
@@ -275,6 +287,8 @@ const onLottieLoaded = async () => {
 }
 
 onMounted(async () => {
+  lottieContainer.value?.stop()
+  lottieContainer.value?.destroy()
   getImage(pic.value)
   if (activeBG.value.type === 'random-folder') {
     await loadRandomFolderSource()

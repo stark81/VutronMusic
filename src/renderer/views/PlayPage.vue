@@ -1,11 +1,16 @@
 <template>
   <div :data-theme="theme">
     <transition name="slide-up">
-      <div v-if="showLyrics" class="player-container">
+      <div
+        v-if="showLyrics"
+        class="player-container"
+        @mouseenter="hover = true"
+        @mouseleave="hover = false"
+      >
         <BackgroundPage />
         <div
           class="buttons-icons"
-          :class="{ opacity: activeTheme.theme.activeLayout === 'Creative' }"
+          :class="{ opacity: activeTheme.theme.activeLayout === 'Creative', hover }"
         >
           <button-icon
             v-show="tabs[tabIdx] !== 'comment'"
@@ -40,7 +45,7 @@
           </button-icon>
         </div>
         <CommonPlayer v-if="activeTheme.theme.activeLayout === 'Classic'" :show="tabs[tabIdx]" />
-        <CreativePlayer v-else :show="tabs[tabIdx]" />
+        <CreativePlayer v-else :show="tabs[tabIdx]" :hover-parent="hover" />
       </div>
     </transition>
   </div>
@@ -120,6 +125,7 @@ const { resetTheme } = playerThemeStore
 const showSenseSelector = ref(false)
 const tabIdx = ref(0)
 const titleIdx = ref(0)
+const hover = ref(false)
 
 const theme = computed(() => {
   let appearance = activeBG.value.color
@@ -197,6 +203,8 @@ watch(
   width: 100%;
   height: 100%;
   color: var(--color-text);
+  opacity: 0;
+  transition: opacity 0.3s;
 
   .theme-button {
     position: fixed;
@@ -251,6 +259,10 @@ watch(
       opacity: 0.88;
     }
   }
+}
+
+.buttons-icons.hover {
+  opacity: 1;
 }
 
 .buttons-icons.opacity {

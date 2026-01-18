@@ -18,7 +18,7 @@
         </div>
         <span class="title">{{ currentTrack?.name }}&nbsp;-&nbsp;{{ artist.name }}</span>
       </div>
-      <div class="play-bar">
+      <div class="play-bar" :class="{ hover: hoverParent }">
         <div class="player-progress-bar">
           <div class="time">{{ formatTime(position) || '0:00' }}</div>
           <div class="slider">
@@ -48,14 +48,14 @@
         </div>
         <div class="player-media-control">
           <button-icon
-            :class="{ active: repeatMode !== 'off' }"
+            :class="{ active: repeatMode === 'off' }"
             :title="repeatMode === 'one' ? $t('player.repeatTrack') : $t('player.repeat')"
             @click="switchRepeatMode"
           >
             <svg-icon v-show="repeatMode !== 'one'" icon-class="repeat" />
             <svg-icon v-show="repeatMode === 'one'" icon-class="repeat-1" />
           </button-icon>
-          <button-icon :class="{ active: shuffle }" @click="shuffle = !shuffle"
+          <button-icon :class="{ active: !shuffle }" @click="shuffle = !shuffle"
             ><svg-icon icon-class="shuffle"
           /></button-icon>
           <div class="middle">
@@ -165,9 +165,13 @@ import { Track } from '@/types/music'
 import { getTrackDetail } from '../api/track'
 import { AniName } from '@/types/theme'
 
-const props = withDefaults(defineProps<{ show: 'fullLyric' | 'pickLyric' | 'comment' }>(), {
-  show: 'fullLyric'
-})
+const props = withDefaults(
+  defineProps<{ show: 'fullLyric' | 'pickLyric' | 'comment'; hoverParent: boolean }>(),
+  {
+    show: 'fullLyric',
+    hoverParent: false
+  }
+)
 
 const playerStore = usePlayerStore()
 const {
@@ -973,6 +977,12 @@ $mid: math.ceil(math.div($count, 2));
     position: absolute;
     bottom: 10px;
     padding: 0 24px;
+    opacity: 0;
+    transition: opacity 0.3s;
+
+    &.hover {
+      opacity: 1;
+    }
   }
 
   .button-icon.disabled {
@@ -1009,6 +1019,10 @@ $mid: math.ceil(math.div($count, 2));
     display: flex;
     justify-content: center;
     align-items: center;
+
+    .button-icon.active {
+      opacity: 0.5;
+    }
 
     .svg-icon {
       height: 20px;
