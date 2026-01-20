@@ -182,8 +182,8 @@
     "usernameLogin": "用户名登录",
     "loginWithEmail": "邮箱登录",
     "loginWithPhone": "手机号登录",
-    "loginWithQr": "二维码登陆",
-    "loginWithCookie": "Cookie登陆",
+    "loginWithQr": "二维码登录",
+    "loginWithCookie": "Cookie登录",
     "noticeElectron": "你的密码会在本地进行MD5加密后再传输到网易云API。VutronMusic 不会传输你的账号数据到任何非网易云音乐官方的服务器。"
   },
   "player": {
@@ -491,7 +491,7 @@
       "enable": "启用流媒体音乐",
       "service": "流媒体服务",
       "login": "已登录",
-      "logout": "未登陆",
+      "logout": "未登录",
       "offline": "服务器离线"
     },
     "update": {

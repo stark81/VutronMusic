@@ -14,7 +14,7 @@
 - 本项目大部份界面和功能参考 [YesPlayMusic](https://github.com/qier222/YesPlayMusic)，侧边导航栏设计参考"方格音乐"，本地音乐top部分的信息统计参考 [NSMusicS](https://github.com/Super-Badmen-Viper/NSMusicS)。
 - 本地歌曲的内嵌歌词以及外挂lrc歌词支持从[LDDC](https://github.com/chenmozhijin/LDDC)下载的逐字歌词歌词格式。
 
-- 账号登录问题可以从 [wiki - 账号登陆](https://github.com/stark81/VutronMusic/wiki/%E8%B4%A6%E5%8F%B7%E7%99%BB%E9%99%86) 里查看解决方法。此外，[wiki](https://github.com/stark81/VutronMusic/wiki/) 里也包含了linux插件、逐字歌词、流媒体等方面的简要说明。
+- 账号登录问题可以从 [wiki - 账号登录](https://github.com/stark81/VutronMusic/wiki/%E8%B4%A6%E5%8F%B7%E7%99%BB%E9%99%86) 里查看解决方法。此外，[wiki](https://github.com/stark81/VutronMusic/wiki/) 里也包含了linux插件、逐字歌词、流媒体等方面的简要说明。
 
 ## 特点
 

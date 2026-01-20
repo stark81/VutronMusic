@@ -1252,7 +1252,7 @@ const cacheSize = computed(() => {
 })
 
 const serviceTitle = (platform: serviceType) => {
-  const title = platform.status === 'logout' ? '登陆' : '登出'
+  const title = platform.status === 'logout' ? '登录' : '登出'
   return `单击选择，右击选择并${title}`
 }
 
