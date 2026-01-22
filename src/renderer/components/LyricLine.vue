@@ -1,15 +1,15 @@
 <template>
   <div ref="lineRef" class="lyric-line">
-    <span>{{ item.lyric.text }}</span>
+    <span ref="lineSpanRef">{{ item.lyric.text }}</span>
   </div>
   <div v-if="translation" ref="translationRef" class="translation">
-    <span>{{ translation.text }}</span>
+    <span ref="translationSpanRef">{{ translation.text }}</span>
   </div>
 </template>
 
 <script setup lang="ts">
 import { lyricLine, TranslationMode, word } from '@/types/music.d'
-import { computed, toRefs, onBeforeUnmount, ref, nextTick } from 'vue'
+import { computed, toRefs, onBeforeUnmount, ref } from 'vue'
 
 type lyricType = 'lyric' | 'translation'
 type AnimationStatus = 'play' | 'pause' | 'finish' | 'reset'
@@ -39,6 +39,9 @@ const lyricMap: Record<TranslationMode, TranslationMode> = {
   none: 'none'
 }
 
+const canvas = document.createElement('canvas')
+const ctx = canvas.getContext('2d')!
+
 const animationActionMap: Record<AnimationStatus, (an: Animation) => void> = {
   play: (an) => an.play(),
   pause: (an) => an.pause(),
@@ -51,6 +54,8 @@ const animationActionMap: Record<AnimationStatus, (an: Animation) => void> = {
 
 const lineRef = ref<HTMLElement | null>(null)
 const translationRef = ref<HTMLElement | null>()
+const lineSpanRef = ref<HTMLElement | null>(null)
+const translationSpanRef = ref<HTMLElement | null>(null)
 
 const animations = {
   lyric: null as Animation | null,
@@ -73,21 +78,15 @@ const translation = computed(() => {
  * @param info 逐字歌词信息
  * @returns 返回每个字的宽度信息
  */
-const measureDom = async (dom: HTMLElement, info: word[]) => {
-  const spanC = document.createElement('span')
-  spanC.classList.add('measure-span')
-  info.forEach((font) => {
-    const span = document.createElement('span')
-    span.textContent = font.word
-    spanC.appendChild(span)
+const measureWithCanvas = (dom: HTMLElement, info: word[]) => {
+  const style = window.getComputedStyle(dom)
+  const font = `${style.fontSize} ${style.fontFamily} ${style.fontWeight}`
+
+  ctx.font = font
+  const result = info.map((font) => {
+    const metrics = ctx.measureText(font.word)
+    return metrics.width
   })
-
-  await nextTick()
-  dom.appendChild(spanC)
-
-  const spans = spanC.querySelectorAll('span')
-  const result = Array.from(spans).map((span) => span.offsetWidth)
-  dom.removeChild(spanC)
   return result
 }
 
@@ -122,10 +121,9 @@ const buildWordKeyFrame = (info: word[], spanWidths: number[]) => {
  * @param offsetWidths 逐字歌词每个字的宽度信息
  * @returns 返回歌词动画
  */
-const buildWordAnimation = (dom: HTMLElement, info: word[], offsetWidths: number[]) => {
+const buildWordAnimation = (span: HTMLElement, info: word[], offsetWidths: number[]) => {
   const result = buildWordKeyFrame(info, offsetWidths)
 
-  const span = dom.querySelector('span')
   const effect = new KeyframeEffect(span, result.keyframes, {
     duration: result.duration,
     easing: 'linear',
@@ -212,7 +210,7 @@ const buildScrollAnimation = (
  * 创建歌词动画，包括：逐字歌词动画、桌面歌词mini模式下的滚动动画
  * @param type all在全新创建时使用，translation在切换翻译模式时使用
  */
-const createAnimations = async (type: 'all' | 'translation' = 'all') => {
+const createAnimations = (type: 'all' | 'translation' = 'all') => {
   const lst: lyricType[] = []
   if (type === 'all') {
     lst.push('lyric')
@@ -220,25 +218,29 @@ const createAnimations = async (type: 'all' | 'translation' = 'all') => {
   if (translation.value) lst.push('translation')
 
   const map = {
-    lyric: { dom: lineRef.value, info: props.item.lyric.info },
-    translation: { dom: translationRef.value, info: translation.value?.info }
+    lyric: { dom: lineRef.value, span: lineSpanRef.value, info: props.item.lyric.info },
+    translation: {
+      dom: translationRef.value,
+      span: translationSpanRef.value,
+      info: translation.value?.info
+    }
   }
 
   for (const l of lst) {
     const item = map[l]
-    if (!item.dom) continue
+    if (!item.dom || !item.span) continue
     let spanWidths: number[] = []
 
     if (item.info) {
-      spanWidths = await measureDom(item.dom, item.info)
-      animations[l] = buildWordAnimation(item.dom, item.info, spanWidths)
+      spanWidths = measureWithCanvas(item.dom, item.info)
+      animations[l] = buildWordAnimation(item.span, item.info, spanWidths)
     }
 
     if (props.isMini) {
       const an = buildScrollAnimation(item.dom, item.info, spanWidths)
       scrollAnimations[l] = an
     }
-    await new Promise(requestAnimationFrame)
+    // await new Promise(requestAnimationFrame)
   }
 }
 

@@ -13,8 +13,8 @@
       <div class="vue-slider-process" :style="processStyle"></div>
       <div v-if="marks.length" class="vue-slider-marks">
         <div
-          v-for="mark of marks"
-          :key="mark.toString()"
+          v-for="(mark, index) of marks"
+          :key="index"
           class="vue-slider-mark"
           :style="mark.activeStyle"
         >

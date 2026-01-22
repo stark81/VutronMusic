@@ -850,7 +850,9 @@ watch(
 
 onMounted(async () => {
   await nextTick()
-  loadTracks()
+  if (activeTheme.value.theme.activeLayout === 'Letter') {
+    loadTracks()
+  }
   if (!loading.value) {
     loading.value = true
     buildLyricElements()

@@ -19,12 +19,12 @@ const handleClick = (e: any) => {
   emit('click', e)
 
   if (!props.preventBlur) {
-    setTimeout(() => {
+    requestAnimationFrame(() => {
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur()
       }
       document.body.focus()
-    }, 0)
+    })
   }
 }
 </script>

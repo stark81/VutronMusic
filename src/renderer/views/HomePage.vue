@@ -44,7 +44,7 @@
 </template>
 
 <script setup lang="ts">
-import { onActivated, ref, onBeforeUnmount, onDeactivated, watch } from 'vue'
+import { onActivated, ref, onBeforeUnmount, onDeactivated, watch, nextTick } from 'vue'
 import { getBanner } from '../api/other'
 import { toplistOfArtists } from '../api/artist'
 import { newAlbums } from '../api/album'
@@ -209,11 +209,12 @@ const handleVisibleChange = () => {
   }
 }
 
-watch(showLyrics, (value) => {
+watch(showLyrics, async (value) => {
+  await nextTick()
   if (value) {
-    handleBanner()
-  } else {
     clearInterval(timer.value)
+  } else {
+    handleBanner()
   }
 })
 

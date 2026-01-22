@@ -42,7 +42,7 @@ import Color from 'color'
 const router = useRouter()
 const playerStore = usePlayerStore()
 const { moveToFMTrash, playPersonalFM, playNextFMTrack } = playerStore
-const { personalFMTrack, personalFMNextTrack, playing, isPersonalFM } = storeToRefs(playerStore)
+const { personalFMTrack, playing, isPersonalFM } = storeToRefs(playerStore)
 
 const background = ref<string>()
 
