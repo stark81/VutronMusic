@@ -30,9 +30,9 @@ const getFileName = (filePath: string) => {
 
 const getReplayGainFromMetadata = (metadata: IAudioMetadata) => {
   if (!metadata) return 0
-  let gain: number = metadata.format.trackGain ?? metadata.common.replaygain_track_gain?.dB ?? 0
+  let gain: number = metadata.format?.trackGain ?? metadata.common?.replaygain_track_gain?.dB ?? 0
   if (gain) return Number(gain)
-  metadata.native.iTunes?.forEach(({ id, value }) => {
+  metadata.native?.iTunes?.forEach(({ id, value }) => {
     if (id.includes('replaygain_track_gain')) {
       gain = Number(value)
     }
@@ -46,7 +46,9 @@ const parseMusicFile = async (data: { filePath: string }) => {
   try {
     metadata = await parseFile(data.filePath)
   } catch (e) {
-    metadata = null
+    console.log(`parse error: ${e}`)
+    console.log(`parse error file: ${data.filePath}`)
+    metadata = { common: null, format: null, native: null, quality: null }
   }
 
   const md5 = await createMD5(data.filePath)
@@ -55,12 +57,12 @@ const parseMusicFile = async (data: { filePath: string }) => {
   const birthDate = new Date(stat.birthtime).getTime()
   const { common, format } = metadata
 
-  const artists = splitArtist(common.artist)
-  const albumArtist = splitArtist(common.albumartist || common.artist)
-  const album = common.album
+  const artists = splitArtist(common.artist ?? null)
+  const albumArtist = splitArtist(common.albumartist || common.artist || null)
+  const album = common.album ?? '未知专辑'
 
   const track = {
-    name: common.title ?? getFileName(data.filePath) ?? '未知',
+    name: common.title ?? getFileName(data.filePath) ?? '未知歌曲',
     dt: (format.duration ?? 0) * 1000,
     source: 'localTrack',
     gain: getReplayGainFromMetadata(metadata),
