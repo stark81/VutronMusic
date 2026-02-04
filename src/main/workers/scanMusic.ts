@@ -28,7 +28,7 @@ const getFileName = (filePath: string) => {
   return fileName
 }
 
-const getReplayGainFromMetadata = (metadata: IAudioMetadata) => {
+const getReplayGainFromMetadata = (metadata: IAudioMetadata | null) => {
   if (!metadata) return 0
   let gain: number = metadata.format?.trackGain ?? metadata.common?.replaygain_track_gain?.dB ?? 0
   if (gain) return Number(gain)
