@@ -57,17 +57,17 @@ const parseMusicFile = async (data: { filePath: string }) => {
   const birthDate = new Date(stat.birthtime).getTime()
   const { common, format } = metadata
 
-  const artists = splitArtist(common.artist ?? null)
-  const albumArtist = splitArtist(common.albumartist || common.artist || null)
-  const album = common.album ?? '未知专辑'
+  const artists = splitArtist(common?.artist ?? null)
+  const albumArtist = splitArtist(common?.albumartist || common?.artist || null)
+  const album = common?.album ?? '未知专辑'
 
   const track = {
-    name: common.title ?? getFileName(data.filePath) ?? '未知歌曲',
-    dt: (format.duration ?? 0) * 1000,
+    name: common?.title ?? getFileName(data.filePath) ?? '未知歌曲',
+    dt: (format?.duration ?? 0) * 1000,
     source: 'localTrack',
     gain: getReplayGainFromMetadata(metadata),
     peak: 1,
-    br: format.bitrate ?? 320000,
+    br: format?.bitrate ?? 320000,
     filePath: data.filePath,
     type: 'local',
     offset: 0,
