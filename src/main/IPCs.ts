@@ -20,6 +20,7 @@ import { Worker } from 'worker_threads'
 import { Track, Album, Artist, scanTrack } from '@/types/music'
 import _ from 'lodash'
 import { requestUserAuth, scrobbleTrack, updateNowPlaying } from './utils/lastfm'
+import { PluginInstance } from './utils/pluginManager'
 
 let isLock = store.get('osdWin.isLock') as boolean
 let blockerId: number | null = null
@@ -48,6 +49,7 @@ export default class IPCs {
     initMprisIpcMain(win, mpris)
     initOtherIpcMain(win)
     initStreaming()
+    initPluginIpcMain()
 
     coverWorker = createWorker('writeCover')
     coverWorker.on('message', (msg) => {
@@ -962,4 +964,18 @@ async function initStreaming() {
     ])
     return { navidrome: res[0], emby: res[1], jellyfin: res[2] }
   })
+}
+
+function initPluginIpcMain() {
+  try {
+    const pluginDir = Constants.IS_DEV_ENV
+      ? path.join(process.cwd(), `./src/public/plugin`)
+      : path.join(__dirname, `../plugin`)
+
+    const url = path.join(pluginDir, 'demo.js')
+    const kugouPlugin = new PluginInstance(url)
+    console.log('===3333333', typeof kugouPlugin)
+  } catch (error) {
+    console.error('插件调用出错：', error)
+  }
 }
