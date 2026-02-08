@@ -280,8 +280,8 @@ export const usePlayerStore = defineStore(
     )
 
     const fadeDuration = computed(() => {
-      const d = settingsStore.general.fadeDuration
-      return Math.max(0.1, Math.min(1, Number(d) || 0.2))
+      const d = settingsStore.general.fadeDuration || 0.5
+      return Math.max(0.1, Math.min(1, Number(d)))
     })
 
     const source = computed(() => {
@@ -784,8 +784,6 @@ export const usePlayerStore = defineStore(
         return
       }
 
-      await smoothGain(0, 0)
-
       isPersonalFM.value = false
       _list.value = trackIDS
       isLocalList.value = playlistSourceType.includes('local')
@@ -811,7 +809,8 @@ export const usePlayerStore = defineStore(
         scrobbleFM(currentTrack.value, seek.value)
       }
 
-      await smoothGain(0, 0)
+      const fade = fadeDuration.value
+      await smoothGain(0, fade)
       return getLocalMusic(trackID as number).then(async (track) => {
         if (!track) {
           nextTrackCallback()
@@ -877,10 +876,10 @@ export const usePlayerStore = defineStore(
 
     const playAudioSource = async (source: string, autoPlay = true) => {
       // 切歌时先淡出
-      const fade = fadeDuration.value
-      await smoothGain(0, fade)
       audioNodes.audio!.removeAttribute('src')
       audioNodes.audio!.load()
+      const fade = fadeDuration.value
+      await smoothGain(0, fade)
       audioNodes.audio!.src = source
       audioNodes.audio!.load()
       if (autoPlay) {
@@ -1061,9 +1060,9 @@ export const usePlayerStore = defineStore(
         }
 
         // 淡入淡出功能需要调整到 masterGain 上，而不是 audio 元素上，以避免出现爆破音
+        await audioNodes.audio.play()
         const fade = fadeDuration.value
         await smoothGain(volume.value, fade)
-        await audioNodes.audio.play()
 
         title.value = `${currentTrack.value?.name} · ${arts[0].name} - VutronMusic`
         if (!window.env?.isMac) {
@@ -1649,7 +1648,7 @@ export const usePlayerStore = defineStore(
 
       if (audioNodes.audioContext.state === 'running') {
         audioNodes.masterGain?.gain.linearRampToValueAtTime(to, now + duration)
-        await delay(duration * 1000)
+        await delay(duration * 1.2 * 1000)
       } else {
         audioNodes.masterGain?.gain.setValueAtTime(to, now)
       }

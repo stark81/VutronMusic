@@ -30,19 +30,22 @@
         <div class="tab" :class="{ active: tab === 'lyric' }" @click="updateTab(1)">{{
           isWindows ? $t('settings.nav.osdLyric') : $t('settings.nav.lyricSetting')
         }}</div>
-        <div class="tab" :class="{ active: tab === 'music' }" @click="updateTab(2)">{{
+        <div class="tab" :class="{ active: tab === 'plugin' }" @click="updateTab(2)">{{
+          $t('settings.nav.plugin')
+        }}</div>
+        <div class="tab" :class="{ active: tab === 'music' }" @click="updateTab(3)">{{
           $t('settings.nav.music')
         }}</div>
-        <div class="tab" :class="{ active: tab === 'unblock' }" @click="updateTab(3)">{{
+        <div class="tab" :class="{ active: tab === 'unblock' }" @click="updateTab(4)">{{
           $t('settings.nav.unblock')
         }}</div>
-        <div class="tab" :class="{ active: tab === 'shortcut' }" @click="updateTab(4)">{{
+        <div class="tab" :class="{ active: tab === 'shortcut' }" @click="updateTab(5)">{{
           $t('settings.nav.shortcut')
         }}</div>
-        <div class="tab" :class="{ active: tab === 'misc' }" @click="updateTab(5)">{{
+        <div class="tab" :class="{ active: tab === 'misc' }" @click="updateTab(6)">{{
           $t('settings.nav.misc')
         }}</div>
-        <div class="tab" :class="{ active: tab === 'update' }" @click="updateTab(6)">{{
+        <div class="tab" :class="{ active: tab === 'update' }" @click="updateTab(7)">{{
           $t('settings.nav.update')
         }}</div>
       </div>
@@ -420,6 +423,16 @@
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+        <div v-show="tab === 'plugin'" key="plugin">
+          <div class="item">
+            <div class="left">
+              <div class="title">{{ $t('settings.plugin.title') }}</div>
+            </div>
+            <div class="right">
+              <button @click="uploadPlugin">导入</button>
             </div>
           </div>
         </div>
@@ -1087,6 +1100,7 @@ import { useLocalMusicStore } from '../store/localMusic'
 import { useNormalStateStore } from '../store/state'
 import { useOsdLyricStore } from '../store/osdLyric'
 import { useStreamMusicStore } from '../store/streamingMusic'
+import { usePluginMusic } from '../store/pluginMusic'
 import { useDataStore } from '../store/data'
 import { storeToRefs } from 'pinia'
 import { doLogout } from '../utils/auth'
@@ -1148,6 +1162,9 @@ const {
   selectDirModal
 } = toRefs(stateStore)
 const { showToast, checkUpdate, getFontList } = stateStore
+
+const pluginMusicStore = usePluginMusic()
+const { uploadPlugin } = pluginMusicStore
 
 const dataStore = useDataStore()
 const { user } = storeToRefs(dataStore)
@@ -1393,7 +1410,7 @@ const tab = ref('general')
 const lyricTab = ref(isWindows ? 'osdLyric' : 'trayLyric')
 const musicTab = ref('netease')
 const updateTab = (index: number) => {
-  const tabs = ['general', 'lyric', 'music', 'unblock', 'shortcut', 'misc', 'update'] // 'appearance'
+  const tabs = ['general', 'lyric', 'plugin', 'music', 'unblock', 'shortcut', 'misc', 'update'] // 'appearance'
   const tabName = tabs[index]
   tab.value = tabName
   slideTop.value = index * 40

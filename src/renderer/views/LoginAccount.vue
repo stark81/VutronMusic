@@ -6,7 +6,7 @@
         <svg-icon icon-class="x"></svg-icon>
         <img src="../assets/images/netease-music.png" />
       </div>
-      <div class="title">{{ $t('login.loginText') }}</div>
+      <div class="title">{{ $t('login.loginText', { serviceName: '网易云' }) }}</div>
       <div class="section-2">
         <div v-show="selectedMode.mode === 'phone'" class="input-box">
           <div class="container" :class="{ active: inputFocus === 'phone' }">
@@ -196,6 +196,7 @@ const checkQrCodeLogin = () => {
   qrCodeCheckInterval.value = setInterval(() => {
     if (qrCodeKey.value === '') return
     loginQrCodeCheck(qrCodeKey.value).then((result) => {
+      console.log('qr code check result = ', result)
       if (result.code === 800) {
         getQrCodeKey()
         qrCodeInformation.value = '二维码已失效，请重新获取'

@@ -22,6 +22,7 @@ import { Track, Album, Artist, scanTrack, serviceName } from '@/types/music'
 // @ts-ignore
 import _ from 'lodash'
 import { requestUserAuth, scrobbleTrack, updateNowPlaying } from './utils/lastfm'
+import { PluginInstance } from './utils/pluginManager'
 
 let isLock = store.get('osdWin.isLock') as boolean
 let blockerId: number | null = null
@@ -50,6 +51,7 @@ export default class IPCs {
     initMprisIpcMain(win, mpris)
     initOtherIpcMain(win)
     initStreaming()
+    initPluginIpcMain()
 
     coverWorker = createWorker('writeCover')
     coverWorker.on('message', (msg) => {
@@ -431,7 +433,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
       const track = songs[i]
       try {
         fs.accessSync(track.filePath, fs.constants.F_OK)
-      } catch (e) {
+      } catch {
         deletedTracks.push(track.id)
       }
     }
@@ -789,7 +791,9 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
       if (fs.existsSync(name)) {
         fs.unlinkSync(name)
       }
-    } catch (error) {}
+    } catch (error) {
+      console.error('删除失败:', error)
+    }
   })
 
   ipcMain.handle('get-cache-path', () => {
@@ -1015,6 +1019,98 @@ async function initStreaming() {
       const client = platformMap[data.platform]
       const result = await client.updatePlaylistInfo(data.id, data.info)
       return result
+    }
+  )
+}
+
+async function initPluginIpcMain() {
+  const plugMap = new Map<string, PluginInstance>()
+
+  const pluginDir = Constants.IS_DEV_ENV
+    ? path.join(process.cwd(), `./src/public/plugin`)
+    : path.join(__dirname, `../plugin`)
+
+  const uploadDir = path.join(app.getPath('userData'), 'plugins')
+
+  const files = (
+    await Promise.all([
+      fs.promises
+        .readdir(pluginDir)
+        .then((files) =>
+          files
+            .map((file) => path.join(pluginDir, file))
+            .filter((file) => file.endsWith('.js') && !file.includes('demo.js'))
+        )
+        .catch(() => [] as string[]),
+      fs.promises
+        .readdir(uploadDir)
+        .then((files) => files.map((file) => path.join(uploadDir, file)))
+        .catch(() => [] as string[])
+    ])
+  ).flat()
+
+  files.forEach((file) => {
+    const id = path.basename(file, '.js')
+    // const url = path.join(pluginDir, file)
+    const plugin = new PluginInstance(file, id)
+    plugMap.set(id, plugin)
+  })
+
+  ipcMain.handle('upload-plugin', () => {
+    try {
+      const { dialog } = require('electron')
+
+      const result = dialog.showOpenDialogSync({
+        properties: ['openFile'],
+        filters: [{ name: 'JavaScript', extensions: ['js'] }]
+      })
+
+      if (!result || result.length === 0) {
+        return { code: 404, error: 'No file selected' }
+      }
+      const filePath = result[0]
+
+      const targetDir = path.join(app.getPath('userData'), 'plugins')
+      if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir)
+      }
+
+      const fileName = path.basename(filePath)
+      const targetPath = path.join(targetDir, fileName)
+      fs.copyFileSync(filePath, targetPath)
+
+      const id = path.basename(fileName, '.js')
+      const plugin = new PluginInstance(targetPath, id)
+      plugMap.set(id, plugin)
+
+      store.set(`plugins.${id}`, { path: targetPath })
+      return { code: 200, message: 'Plugin uploaded successfully' }
+    } catch (error) {
+      log.error('上传插件失败:', error)
+      return { code: 500, error: 'Failed to upload plugin' }
+    }
+  })
+
+  ipcMain.handle('get-plugins', () => {
+    const result: Record<string, any> = {}
+    plugMap.forEach((instance, id) => {
+      result[id] = { name: instance.meta.name, type: instance.meta.type }
+    })
+    return result
+  })
+
+  ipcMain.handle(
+    'plugin-method-call',
+    (
+      event,
+      data: {
+        pluginId: string
+        methodName: string
+        params: Record<string, any>
+      }
+    ) => {
+      const plugin = plugMap.get(data.pluginId)!
+      return plugin.call(data.methodName, data.params)
     }
   )
 }

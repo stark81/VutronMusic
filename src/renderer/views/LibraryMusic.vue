@@ -213,6 +213,7 @@
 import { storeToRefs } from 'pinia'
 import { useDataStore } from '../store/data'
 import { useNormalStateStore } from '../store/state'
+import { usePluginMusic } from '../store/pluginMusic'
 import { ref, computed, onMounted, onUnmounted, inject, nextTick } from 'vue'
 import { dailyTask, randomNum, pickedLyric } from '../utils'
 import { tricklingProgress } from '../utils/tricklingProgress'
@@ -224,11 +225,13 @@ import Mvrow from '../components/MvRow.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import { useRouter } from 'vue-router'
 import { lyricLine } from '@/types/music'
+import { PluginId } from '@/types/plugin'
 
 const dataStore = useDataStore()
 const { liked, libraryPlaylistFilter, user } = storeToRefs(dataStore)
 
 const { newPlaylistModal } = storeToRefs(useNormalStateStore())
+const { pluginMethodCall } = usePluginMusic()
 
 const show = ref(false)
 const playHistoryMode = ref('week')
@@ -408,7 +411,7 @@ const handleResize = () => {
   if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
 }
 
-onMounted(() => {
+onMounted(async () => {
   window.addEventListener('resize', handleResize)
   if (tabsRowRef.value) {
     observeTab.observe(tabsRowRef.value)
@@ -417,6 +420,39 @@ onMounted(() => {
     if (!show.value) tricklingProgress.start()
   }, 1000)
   loadData()
+  await nextTick()
+
+  const pluginId = 'kugou' as PluginId
+
+  // pluginMethodCall(pluginId, 'receiveVip', { receive_day: '2026-04-18' })
+  //   .then((res) => {
+  //     console.log('====receiveVip====', res)
+  //   })
+  //   .catch((error) => {
+  //     console.log('33333333', error)
+  //   })
+
+  pluginMethodCall(pluginId, 'userPlaylist').then((res) => {
+    console.log('kugou userPlaylist res = ', res)
+  })
+
+  pluginMethodCall(pluginId, 'search', { keywords: '我爱他' }).then((res) => {
+    console.log('kugou search res = ', res)
+  })
+
+  // pluginMethodCall(pluginId, 'songUrl', {
+  //   hash: 'd06f97d2b923f89c755e2cfceccaa69c',
+  //   quality: 'high'
+  // }).then((res) => {
+  //   console.log('kugou songUrl res = ', res)
+  // })
+
+  pluginMethodCall(pluginId, 'getLyric', {
+    hash: 'd06f97d2b923f89c755e2cfceccaa69c'
+  }).then((res) => {
+    console.log('2222222222', res)
+  })
+
   dailyTask()
   setTimeout(() => {
     updatePadding(0)

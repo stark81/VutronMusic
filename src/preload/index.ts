@@ -66,7 +66,10 @@ const mainAvailChannels: string[] = [
   'track-scrobble',
   'get-screenshot',
   'delete-screenshot',
-  'get-cache-path'
+  'get-cache-path',
+  'plugin-method-call',
+  'get-plugins',
+  'upload-plugin'
 ]
 const rendererAvailChannels: string[] = [
   'msgHandleScanLocalMusic',

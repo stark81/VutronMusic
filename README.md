@@ -62,3 +62,7 @@ yarn run build（构建）
 [tray-lyric-screenShot]: images/tray-TouchBar-lyric.jpg
 [mv-screenShot]: images/mv.jpg
 [media-controls-screenShot]: images/media-control-lyric.png
+
+## star趋势
+
+[![Stargazers over time](https://starchart.cc/stark81/VutronMusic.svg?variant=adaptive)](https://starchart.cc/stark81/VutronMusic)

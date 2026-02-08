@@ -105,6 +105,14 @@ const routes = [
     }
   },
   {
+    path: '/onlineMusic/login/:service',
+    name: 'onlineMusicLogin',
+    component: () => import('../views/OnlineMusicLogin.vue'),
+    meta: {
+      titleKey: 'title.login'
+    }
+  },
+  {
     path: '/album/:id',
     name: 'album',
     component: () => import('../views/AlbumPage.vue')
@@ -165,7 +173,7 @@ router.beforeEach((to, from, next) => {
     if (isAccountLoggedIn()) {
       next()
     } else {
-      next('/login/account')
+      next('/onlineMusic/login/kugou')
     }
   } else {
     next()

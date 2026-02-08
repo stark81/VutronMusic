@@ -4,7 +4,7 @@
     <div class="title-and-artist">
       <div class="container">
         <div class="title">
-          {{ tracks[0].album.name }}
+          {{ tracks[0].album.name || '未知专辑' }}
         </div>
         <div class="artist">
           <ArtistsInLine :artists="artists" />

@@ -49,7 +49,7 @@ export const useSettingsStore = defineStore(
       lyricBackground: 'true' as BackgroundEffect,
       savedBackground: 'true' as StandardBackgroundEffect,
       enabledPlaylistCategories,
-      fadeDuration: 0.2, // 音频淡入淡出时长（秒）
+      fadeDuration: 0.5, // 音频淡入淡出时长（秒）
       showBanner: true,
       autoUpdate: true,
       jumpToLyricBegin: false,

@@ -83,7 +83,7 @@ export const parseLyricString = (lyrics: string): lyricLine[] => {
       if (!lyricMap.has(lyric.start)) {
         lyricMap.set(lyric.start, [])
       }
-      lyricMap.get(lyric.start)!.push(lyric)
+      lyricMap.get(lyric.start)?.push(lyric)
     } else {
       const _line = _parseLrcLine(line)
       const lyric = { start: _line.start, end: 0, lyric: { text: _line.cInfo } }
@@ -98,7 +98,7 @@ export const parseLyricString = (lyrics: string): lyricLine[] => {
     if (!lyricMap.has(line.start)) {
       lyricMap.set(line.start, [])
     }
-    lyricMap.get(line.start)!.push(line)
+    lyricMap.get(line.start)?.push(line)
   })
 
   for (const lyricArray of lyricMap.values()) {
@@ -353,7 +353,7 @@ const _parseYrcLine = (line: RegExpExecArray) => {
   const timestampRegex = /\[(\d+),(\d+)\]/g
   const extractTimestampRegex = /\((\d+),(\d+),\d+\)([^(]+)/g
 
-  const { lyricTimestamps, content } = line.groups as { lyricTimestamps: string; content: string }
+  const { lyricTimestamps, content } = line.groups!
   const startTime = lyricTimestamps.match(timestampRegex)
   const times = startTime
     ? startTime.flatMap((match) => {
@@ -375,7 +375,7 @@ const _parseYrcLine = (line: RegExpExecArray) => {
 const _parseLrcLine = (line: RegExpExecArray) => {
   const extractTimestampRegex = /\[(?<min>\d+):(?<sec>\d+)(?:\.|:)*(?<ms>\d+)*\]/g
 
-  const { lyricTimestamps, content } = line.groups as { lyricTimestamps: string; content: string }
+  const { lyricTimestamps, content } = line.groups!
   let start: number = 0
 
   const match = extractTimestampRegex.exec(lyricTimestamps)
@@ -402,7 +402,7 @@ const _parseWrcLine = (line: RegExpExecArray) => {
   const regex = /(\[\d{2}:\d{2}\.\d{1,3}\])([^[]*?)(?=(\[\d{2}:\d{2}\.\d{2,3}\]))/g
   const extractTimestampRegex = /\[(?<min>\d+):(?<sec>\d+)(?:\.|:)*(?<ms>\d+)*\]/g
 
-  const { lyricTimestamps, content } = line.groups as { lyricTimestamps: string; content: string }
+  const { lyricTimestamps, content } = line.groups!
   const lineText = lyricTimestamps + content
   const words = lineText.trim().matchAll(regex)
   const ws = [...words]

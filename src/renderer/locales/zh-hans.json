@@ -189,7 +189,7 @@
     "phone": "手机号",
     "email": "邮箱",
     "password": "密码",
-    "loginText": "登录网易云账号",
+    "loginText": "登录{serviceName}账号",
     "countryCode": "国际区号",
     "usernameLogin": "用户名登录",
     "loginWithEmail": "邮箱登录",
@@ -270,6 +270,7 @@
       "tray": "系统托盘",
       "extension": "歌词插件",
       "platformSetting": "平台设置",
+      "plugin": "插件设置",
       "lyricSetting": "歌词设置",
       "lyric": "主窗口歌词",
       "osdLyric": "桌面歌词",
@@ -342,6 +343,9 @@
       "jumpToLyricBegin": "调整进度时吸附到歌词开始位置",
       "perventSuspend": "播放时防止系统休眠",
       "forceFactor": "忽略系统缩放（强制 100%，重启后生效）"
+    },
+    "plugin": {
+      "title": "插件管理"
     },
     "theme": {
       "auto": "跟随系统",
