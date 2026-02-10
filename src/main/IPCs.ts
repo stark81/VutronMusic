@@ -49,7 +49,7 @@ export default class IPCs {
     initMprisIpcMain(win, mpris)
     initOtherIpcMain(win)
     initStreaming()
-    initPluginIpcMain()
+    initPluginIpcMain(win)
 
     coverWorker = createWorker('writeCover')
     coverWorker.on('message', (msg) => {
@@ -966,16 +966,25 @@ async function initStreaming() {
   })
 }
 
-function initPluginIpcMain() {
-  try {
-    const pluginDir = Constants.IS_DEV_ENV
-      ? path.join(process.cwd(), `./src/public/plugin`)
-      : path.join(__dirname, `../plugin`)
+function initPluginIpcMain(win: BrowserWindow) {
+  const plugMap = new Map<string, PluginInstance>()
 
-    const url = path.join(pluginDir, 'demo.js')
-    const kugouPlugin = new PluginInstance(url)
-    console.log('===3333333', typeof kugouPlugin)
-  } catch (error) {
-    console.error('插件调用出错：', error)
-  }
+  const pluginDir = Constants.IS_DEV_ENV
+    ? path.join(process.cwd(), `./src/public/plugin`)
+    : path.join(__dirname, `../plugin`)
+
+  const files = fs
+    .readdirSync(pluginDir)
+    .filter((file) => file.endsWith('.js') && !file.includes('demo.js'))
+
+  files.forEach((file) => {
+    const id = path.basename(file, '.js')
+    const url = path.join(pluginDir, file)
+    const plugin = new PluginInstance(url, id)
+    plugMap.set(id, plugin)
+  })
+
+  win.webContents.send('loadedPlugins', [...plugMap.keys()])
+
+  // ipcMain.on('', () => {})
 }

@@ -92,7 +92,8 @@ const rendererAvailChannels: string[] = [
   'changeRouteTo',
   'updateAmuseServerStatus',
   'receiveCacheInfo',
-  'updateLocalMusic'
+  'updateLocalMusic',
+  'loadedPlugins'
 ]
 
 let messagePort: MessagePort | null = null

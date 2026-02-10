@@ -49,6 +49,9 @@ export interface TypeElectronStore {
       status: streamStatus
     }
   }
+  plugins: {
+    [key: string]: Record<string, any>
+  }
 }
 
 const store = new Store<TypeElectronStore>({
@@ -162,7 +165,8 @@ const store = new Store<TypeElectronStore>({
         accessToken: '',
         status: 'logout'
       }
-    }
+    },
+    plugins: {}
   }
 })
 

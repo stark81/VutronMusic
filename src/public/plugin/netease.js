@@ -71,14 +71,28 @@ const apis = api
  * =======================================================================================
  */
 
+const baseUrl = 'http://127.0.0.1:40001/netease'
+
+/**
+ * @param {string} url
+ * @param {Object=} params
+ */
+const get = (url, params) => apis.http.get(`${baseUrl}/${url}`, params)
+
+/**
+ * @param {string} url
+ * @param {Object=} params
+ */
+const post = (url, data) => apis.http.post(`${baseUrl}/${url}`, data)
+
 /**
  * - meta：插件的基础信息
  * - meta.name: 中英文均可，用来表示这个插件的数据来源；
  * - meta.allowedDomains：列表，本插件需要使用到的网址，如自己局域网内部署的各家api服务、vercel服务等，除了这里的网址之外别的网络请求将会被禁止
  */
 exports.meta = {
-  name: '测试',
-  allowedDomains: ['http://127.0.0.1:1993/demo']
+  name: '网易云',
+  allowedDomains: [url]
 }
 
 /**
@@ -91,7 +105,8 @@ exports.systemPing = () => {}
  * 插件平台的登陆功能，登陆成功后，需要使用apis.store.set来保存所需的帐号相关信息
  */
 exports.doLogin = async () => {
-  const resulet = await apis.http.post('ttp://127.0.0.1:1993/demo/login', {
+  // for example
+  const resulet = await post('login', {
     username: 'aaa',
     pwd: 'bbb'
   })
@@ -103,9 +118,9 @@ exports.doLogin = async () => {
  * 搜索功能
  * @returns {Array} 列表形式的搜索结果
  */
-exports.search = async (keywords) => {
-  const result = await apis.http.get('ttp://127.0.0.1:1993/demo/search', {
-    keywords
+exports.search = async (params) => {
+  const result = await get('search', {
+    ...params
   })
   return result
 }
@@ -120,7 +135,10 @@ exports.search = async (keywords) => {
  * - tlyric：翻译歌词，内容同上。如果无翻译歌词，则无需此项；
  * - rlyric：音译歌词，同上。
  */
-exports.getLyric = () => {}
+exports.getLyric = async () => {
+  const result = await get(`lyric`)
+  return result
+}
 
 /**
  * 创建歌单

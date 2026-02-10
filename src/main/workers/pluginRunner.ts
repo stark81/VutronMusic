@@ -10,10 +10,17 @@ type PendingRequest = {
 type LoadPluginMessage = { type: 'LOAD_PLUGIN'; code: string }
 type HttpResponseMessage = { type: 'HTTP_RESPONSE'; requestId: string; data?: any; error?: any }
 type CallMethodMessage = { type: 'CALL_METHOD'; callId: number; method: string; args: any[] }
-type IncomingMessage = LoadPluginMessage | HttpResponseMessage | CallMethodMessage
+type StoreResponseMessage = { type: 'STORE_RESPONSE'; requestId: string; data?: any }
+type IncomingMessage =
+  | LoadPluginMessage
+  | HttpResponseMessage
+  | CallMethodMessage
+  | StoreResponseMessage
 
 let pluginExports: PluginExports = Object.create(null)
+
 const pendingRequests = new Map<string, PendingRequest>()
+
 const api = {
   http: {
     get(url: string, params?: Record<string, any>) {
@@ -38,11 +45,14 @@ const api = {
 
   store: {
     get(key: string) {
-      api.log('store.get: ' + key)
-      return undefined
+      return new Promise((resolve, reject) => {
+        const requestId = Math.random().toString(36).slice(2)
+        pendingRequests.set(requestId, { resolve, reject })
+        parentPort?.postMessage({ type: 'STORE_REQUEST', key, requestId })
+      })
     },
     set(key: string, value: any) {
-      api.log(`store.set: ${key}, value: ${value}`)
+      parentPort?.postMessage({ type: 'STORE_SET', key, value })
     }
   }
 }
@@ -66,6 +76,14 @@ parentPort?.on('message', async (msg: IncomingMessage) => {
       const req = pendingRequests.get(msg.requestId)
       if (!req) return
       msg.error ? req.reject(msg.error) : req.resolve(msg.data)
+      pendingRequests.delete(msg.requestId)
+      break
+    }
+
+    case 'STORE_RESPONSE': {
+      const req = pendingRequests.get(msg.requestId)
+      if (!req) return
+      req.resolve(msg.data)
       pendingRequests.delete(msg.requestId)
       break
     }
