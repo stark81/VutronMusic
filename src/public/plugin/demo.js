@@ -4,9 +4,9 @@
  * - 只能通过 exports.xxx = fn 或者 exports.xxx = { xxx } 来导出给外部使用；
  * - 插件需要提供的内容如下，可复制后进行相对应的修改，其中的函数允许修改传参等；
  * - 插件内部只允许使用
- *   - api.http.get/post发送网络请求；
- *   - api.log.info/error 来把一些重要信息保存到本地的log文件中；
- *   - api.store.get/set来存储一些必要的数据，如登陆所需要的帐号密码以及token之类的；
+ *   - apis.http.get/post发送网络请求；
+ *   - apis.log.info/error 来把一些重要信息保存到本地的log文件中；
+ *   - apis.store.get/set来存储一些必要的数据，如登陆所需要的帐号密码以及token之类的；
  */
 
 /**
@@ -74,11 +74,13 @@ const apis = api
 /**
  * - meta：插件的基础信息
  * - meta.name: 中英文均可，用来表示这个插件的数据来源；
+ * - meta.type: online 或者 streaming，表示插件类型是线上服务还是自建流媒体服务，作为本地音乐匹配的依据
  * - meta.allowedDomains：列表，本插件需要使用到的网址，如自己局域网内部署的各家api服务、vercel服务等，除了这里的网址之外别的网络请求将会被禁止
  */
 exports.meta = {
   name: '测试',
-  allowedDomains: ['http://127.0.0.1:1993/demo']
+  type: 'online', // online, streaming
+  allowedDomains: ['http://127.0.0.1:7789/demo']
 }
 
 /**
@@ -91,11 +93,11 @@ exports.systemPing = () => {}
  * 插件平台的登陆功能，登陆成功后，需要使用apis.store.set来保存所需的帐号相关信息
  */
 exports.doLogin = async () => {
-  const resulet = await apis.http.post('ttp://127.0.0.1:1993/demo/login', {
+  const resulet = await apis.http.post('http://127.0.0.1:7789/demo/login', {
     username: 'aaa',
     pwd: 'bbb'
   })
-  apis.store.set(this.meta.code, { token: resulet.token })
+  apis.store.set(token, resulet.token)
   return true
 }
 
@@ -104,7 +106,7 @@ exports.doLogin = async () => {
  * @returns {Array} 列表形式的搜索结果
  */
 exports.search = async (keywords) => {
-  const result = await apis.http.get('ttp://127.0.0.1:1993/demo/search', {
+  const result = await apis.http.get('http://127.0.0.1:7789/demo/search', {
     keywords
   })
   return result

@@ -5,6 +5,7 @@ import electronStore from '../store'
 
 export interface PluginMeta {
   name?: string
+  type?: 'online' | 'streaming'
   allowedDomains?: string[]
   [key: string]: any
 }
@@ -31,9 +32,6 @@ export class PluginInstance {
     this.worker.postMessage({ type: 'LOAD_PLUGIN', code })
   }
 
-  /**
-   * 获取当前插件的store信息
-   */
   private initStore() {
     const pluginStore = electronStore.get(`plugins.${this.id}`) as Record<string, any> | undefined
 
@@ -46,12 +44,11 @@ export class PluginInstance {
     switch (msg.type) {
       case 'LOAD_DONE':
         this.meta = msg.meta || {}
-        electronStore.set(`plugins.${this.id}.name`, this.meta.name)
-        // const params = { keywords: '周杰伦' }
-        // const result = await this.call('search', params)
-        // console.log('==22==22== result =', result.code)
-        // const resa = await this.call('getLyric')
-        // console.log('==22==22== resa =', resa)
+        if ((electronStore.get(`plugins.${this.id}.name`) as string) !== this.meta.name) {
+          electronStore.set(`plugins.${this.id}.name`, this.meta.name)
+          electronStore.set(`plugins.${this.id}.type`, this.meta.type)
+        }
+        this.call('getLyric', '536099160')
         break
 
       case 'LOG':
@@ -88,35 +85,126 @@ export class PluginInstance {
     }
   }
 
-  private checkDomain(url: string) {
-    return this.meta.allowedDomains.every((domain) => url.includes(domain))
+  private checkDomain(rawUrl: string) {
+    if (!Array.isArray(this.meta.allowedDomains)) return false
+
+    let target: URL
+    try {
+      target = new URL(rawUrl)
+    } catch {
+      return false
+    }
+
+    return this.meta.allowedDomains.some((allowed) => {
+      try {
+        const a = new URL(allowed)
+        return (
+          target.protocol === a.protocol &&
+          target.hostname === a.hostname &&
+          (a.port === '' || target.port === a.port)
+        )
+      } catch {
+        return false
+      }
+    })
   }
 
   private async handleHttp(msg: any) {
     const { url, params, requestId, method = 'GET', data } = msg
-    if (!this.checkDomain(url)) {
-      console.log(`[plugin: ${this.id}] error: 请求url'${url}'与声明域名不相关`)
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 15000)
+
+    let fullUrl: string
+    try {
+      const u = new URL(url)
+      if (method === 'GET' && params) {
+        u.search = new URLSearchParams(params).toString()
+      }
+      fullUrl = u.toString()
+    } catch {
+      this.worker.postMessage({
+        type: 'HTTP_RESPONSE',
+        requestId,
+        error: 'Invalid URL'
+      })
       return
     }
 
-    try {
-      const queryString = params ? new URLSearchParams(params).toString() : ''
-      const fullUrl = method === 'GET' && queryString ? `${url}?${queryString}` : url
-
-      const response = await fetch(fullUrl, {
-        method,
-        headers: { 'User-Agent': 'Mozilla/5.0 VutronMusic' },
-        body: method === 'POST' ? JSON.stringify(data) : undefined
-      }).catch((error) => {
-        console.log('=44444 error =', error)
-        return error
+    if (!this.checkDomain(fullUrl)) {
+      this.worker.postMessage({
+        type: 'HTTP_RESPONSE',
+        requestId,
+        error: 'Domain not allowed'
       })
-      const resData = await response.json()
-
-      this.worker.postMessage({ type: 'HTTP_RESPONSE', requestId, data: resData })
-    } catch (err: any) {
-      this.worker.postMessage({ type: 'HTTP_RESPONSE', requestId, error: err.message })
+      return
     }
+
+    let response: Response
+
+    try {
+      response = await fetch(fullUrl, {
+        method,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 VutronMusic',
+          'Content-Type': method === 'POST' ? 'application/json' : undefined
+        },
+        body: method === 'POST' ? JSON.stringify(data ?? {}) : undefined,
+        redirect: 'manual',
+        signal: controller.signal
+      })
+    } catch (err: any) {
+      this.worker.postMessage({
+        type: 'HTTP_RESPONSE',
+        requestId,
+        error: err?.message ?? 'Network error'
+      })
+      return
+    } finally {
+      clearTimeout(timeout)
+    }
+
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location')
+      if (!location || !this.checkDomain(location)) {
+        this.worker.postMessage({
+          type: 'HTTP_RESPONSE',
+          requestId,
+          error: 'Redirect target not allowed'
+        })
+        return
+      }
+      this.worker.postMessage({
+        type: 'HTTP_RESPONSE',
+        requestId,
+        error: 'Redirect blocked (even allowed)'
+      })
+      return
+    }
+
+    let resData: any
+    try {
+      const rawText = await response.text()
+      const ct = response.headers.get('content-type') ?? ''
+
+      if (ct.includes('application/json')) {
+        try {
+          resData = JSON.parse(rawText)
+        } catch {
+          resData = rawText
+        }
+      } else {
+        resData = rawText
+      }
+    } catch (err) {
+      resData = null
+    }
+
+    this.worker.postMessage({
+      type: 'HTTP_RESPONSE',
+      requestId,
+      data: resData,
+      status: response.status
+    })
   }
 
   public call(method: string, ...args: any[]): Promise<any> {

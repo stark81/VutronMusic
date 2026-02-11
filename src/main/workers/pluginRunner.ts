@@ -26,14 +26,48 @@ const api = {
     get(url: string, params?: Record<string, any>) {
       return new Promise((resolve, reject) => {
         const requestId = Math.random().toString(36).slice(2)
-        pendingRequests.set(requestId, { resolve, reject })
+
+        const requestTimeout = setTimeout(() => {
+          if (pendingRequests.has(requestId)) {
+            pendingRequests.get(requestId)?.reject(new Error('Request timeout'))
+            pendingRequests.delete(requestId)
+          }
+        }, 15000)
+
+        pendingRequests.set(requestId, {
+          resolve: (data) => {
+            clearTimeout(requestTimeout)
+            resolve(data)
+          },
+          reject: (err) => {
+            clearTimeout(requestTimeout)
+            reject(err)
+          }
+        })
         parentPort?.postMessage({ type: 'HTTP_REQUEST', url, params, requestId })
       })
     },
     post(url: string, data?: any) {
       return new Promise((resolve, reject) => {
         const requestId = Math.random().toString(36).slice(2)
-        pendingRequests.set(requestId, { resolve, reject })
+
+        const requestTimeout = setTimeout(() => {
+          if (pendingRequests.has(requestId)) {
+            pendingRequests.get(requestId)?.reject(new Error('Request timeout'))
+            pendingRequests.delete(requestId)
+          }
+        }, 15000)
+
+        pendingRequests.set(requestId, {
+          resolve: (data) => {
+            clearTimeout(requestTimeout)
+            resolve(data)
+          },
+          reject: (err) => {
+            clearTimeout(requestTimeout)
+            reject(err)
+          }
+        })
         parentPort?.postMessage({ type: 'HTTP_REQUEST', url, data, method: 'POST', requestId })
       })
     }

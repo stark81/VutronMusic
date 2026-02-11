@@ -4,9 +4,9 @@
  * - 只能通过 exports.xxx = fn 或者 exports.xxx = { xxx } 来导出给外部使用；
  * - 插件需要提供的内容如下，可复制后进行相对应的修改，其中的函数允许修改传参等；
  * - 插件内部只允许使用
- *   - api.http.get/post发送网络请求；
- *   - api.log.info/error 来把一些重要信息保存到本地的log文件中；
- *   - api.store.get/set来存储一些必要的数据，如登陆所需要的帐号密码以及token之类的；
+ *   - apis.http.get/post发送网络请求；
+ *   - apis.log.info/error 来把一些重要信息保存到本地的log文件中；
+ *   - apis.store.get/set来存储一些必要的数据，如登陆所需要的帐号密码以及token之类的；
  */
 
 /**
@@ -81,18 +81,20 @@ const get = (url, params) => apis.http.get(`${baseUrl}/${url}`, params)
 
 /**
  * @param {string} url
- * @param {Object=} params
+ * @param {Object=} data
  */
 const post = (url, data) => apis.http.post(`${baseUrl}/${url}`, data)
 
 /**
  * - meta：插件的基础信息
  * - meta.name: 中英文均可，用来表示这个插件的数据来源；
+ * - meta.type: online 或者 streaming，表示插件类型是线上服务还是自建流媒体服务，作为本地音乐匹配的依据
  * - meta.allowedDomains：列表，本插件需要使用到的网址，如自己局域网内部署的各家api服务、vercel服务等，除了这里的网址之外别的网络请求将会被禁止
  */
 exports.meta = {
   name: '网易云',
-  allowedDomains: [url]
+  type: 'online', // online, streaming
+  allowedDomains: [baseUrl]
 }
 
 /**
@@ -105,12 +107,8 @@ exports.systemPing = () => {}
  * 插件平台的登陆功能，登陆成功后，需要使用apis.store.set来保存所需的帐号相关信息
  */
 exports.doLogin = async () => {
-  // for example
-  const resulet = await post('login', {
-    username: 'aaa',
-    pwd: 'bbb'
-  })
-  apis.store.set(this.meta.code, { token: resulet.token })
+  // apis.store.set('username', 'aaa')
+  // apis.store.set('pwd', 'bbb')
   return true
 }
 
@@ -127,16 +125,11 @@ exports.search = async (params) => {
 
 /**
  * 获取歌词
- * @param {any}
- * @returns {LyricLine[]} -- 歌词行列表
- * - start: 该行歌词开始时间
- * - end： 该行歌词结束时间
- * - lyric： 主歌词，其中text为歌词文本，info是逐字歌词信息列表，如果无逐字歌词则无需info；
- * - tlyric：翻译歌词，内容同上。如果无翻译歌词，则无需此项；
- * - rlyric：音译歌词，同上。
+ * @param {number} id
+ * @returns {LyricLine[]}
  */
-exports.getLyric = async () => {
-  const result = await get(`lyric`)
+exports.getLyric = async (id) => {
+  const result = await get(`lyric/new`, { id })
   return result
 }
 
