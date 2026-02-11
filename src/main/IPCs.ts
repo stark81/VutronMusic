@@ -16,6 +16,7 @@ import log from './log'
 import navidrome from './streaming/navidrome'
 import emby from './streaming/emby'
 import jellyfin from './streaming/jellyfin'
+import { searchAlbums } from './streaming/tongrenlu'
 import { Worker } from 'worker_threads'
 import { Track, Album, Artist, scanTrack } from '@/types/music'
 import _ from 'lodash'
@@ -962,4 +963,11 @@ async function initStreaming() {
     ])
     return { navidrome: res[0], emby: res[1], jellyfin: res[2] }
   })
+
+  ipcMain.handle(
+    'get-tongrenlu-albums',
+    async (event, data: { keyword?: string; pageNumber: number; pageSize: number }) => {
+      return searchAlbums(data.keyword, data.pageNumber, data.pageSize)
+    }
+  )
 }

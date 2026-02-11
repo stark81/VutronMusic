@@ -6,6 +6,7 @@
     "library": "音乐库",
     "stream": "流媒体",
     "localMusic": "本地音乐",
+    "tongrenlu": "东方同人录",
     "settings": "设置",
     "github": "GitHub仓库",
     "log": "打开 log 文件夹",
@@ -557,5 +558,10 @@
     "insertPlaying": "插队播放",
     "nextPlaying": "即将播放",
     "historyPlaying": "历史播放"
+  },
+  "tongrenlu": {
+    "searchPlaceholder": "搜索专辑",
+    "noResults": "暂无结果",
+    "loadMore": "加载更多"
   }
 }

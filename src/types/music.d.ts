@@ -126,6 +126,30 @@ type LyricType = 'common' | 'creative' | 'customize'
 type LyricLayer = 'Normal' | 'Creative'
 export type Appearance = 'auto' | 'light' | 'dark'
 
+export interface TongrenluAlbum {
+  id: number
+  title: string
+  description: string
+  publishFlg: string
+  cloudMusicPicUrl: string
+  cloudMusicId: number
+  cloudMusicName: string
+}
+
+export interface TongrenluResponse {
+  records: TongrenluAlbum[]
+  total: number
+  size: number
+  current: number
+  pages: number
+  orders: any[]
+  optimizeCountSql: boolean
+  searchCount: boolean
+  optimizeJoinOfCountSql: boolean
+  maxLimit: any
+  countId: any
+}
+
 export interface CommonTheme {
   name: CommonName
   selected: boolean

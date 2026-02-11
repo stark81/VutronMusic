@@ -71,6 +71,14 @@ const routes = [
     }
   },
   {
+    path: '/tongrenlu',
+    name: 'tongrenlu',
+    component: () => import(/* webpackPrefetch: true */ '../views/TongrenluPage.vue'),
+    meta: {
+      titleKey: 'nav.tongrenlu'
+    }
+  },
+  {
     path: '/playlist/:id',
     name: 'playlist',
     component: () => import('../views/PlaylistPage.vue')

@@ -6,6 +6,7 @@
     "library": "Library",
     "stream": "Stream",
     "localMusic": "Local Music",
+    "tongrenlu": "Tongrenlu",
     "settings": "Settings",
     "github": "GitHub Repository",
     "log": "Open Log Folder",
@@ -550,5 +551,10 @@
     "insertPlaying": "Play Next",
     "nextPlaying": "Up Next",
     "historyPlaying": "History"
+  },
+  "tongrenlu": {
+    "searchPlaceholder": "Search Albums",
+    "noResults": "No Results",
+    "loadMore": "Load More"
   }
 }

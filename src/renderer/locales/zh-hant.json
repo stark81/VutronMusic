@@ -6,6 +6,7 @@
     "library": "音樂庫",
     "stream": "串流媒體",
     "localMusic": "本地音樂",
+    "tongrenlu": "東方同人錄",
     "settings": "設定",
     "github": "GitHub 倉庫",
     "log": "開啟 log 資料夾",
@@ -550,5 +551,10 @@
     "insertPlaying": "插隊播放",
     "nextPlaying": "即將播放",
     "historyPlaying": "歷史播放"
+  },
+  "tongrenlu": {
+    "searchPlaceholder": "搜尋專輯",
+    "noResults": "暫無結果",
+    "loadMore": "載入更多"
   }
 }

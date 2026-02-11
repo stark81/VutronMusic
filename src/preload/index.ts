@@ -64,7 +64,8 @@ const mainAvailChannels: string[] = [
   'track-scrobble',
   'get-screenshot',
   'delete-screenshot',
-  'get-cache-path'
+  'get-cache-path',
+  'get-tongrenlu-albums'
 ]
 const rendererAvailChannels: string[] = [
   'msgHandleScanLocalMusic',
