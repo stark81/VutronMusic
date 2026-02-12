@@ -255,7 +255,7 @@ export const getLyric = async (track: {
     'embedded'
   ]
 
-  let lyrics: lyricLine[] = null
+  let lyrics: lyricLine[] | null = null
 
   for (const order of trackInfoOrder) {
     if (order === 'online') {
@@ -277,9 +277,9 @@ export const getLyric = async (track: {
           .catch(() => [])
       }
     }
-    if (lyrics.length) return lyrics
+    if (lyrics && lyrics.length) return lyrics
   }
-  return lyrics
+  return lyrics || []
 }
 
 export const handleNeteaseResult = async (name: string, result: any) => {
