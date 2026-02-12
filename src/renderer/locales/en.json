@@ -552,9 +552,11 @@
     "nextPlaying": "Up Next",
     "historyPlaying": "History"
   },
-  "tongrenlu": {
+"tongrenlu": {
     "searchPlaceholder": "Search Albums",
     "noResults": "No Results",
-    "loadMore": "Load More"
+    "loadMore": "Load More",
+    "searchKeyword": "Search:",
+    "clearSearch": "Clear"
   }
 }

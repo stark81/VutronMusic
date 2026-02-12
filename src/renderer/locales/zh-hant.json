@@ -555,6 +555,8 @@
   "tongrenlu": {
     "searchPlaceholder": "搜尋專輯",
     "noResults": "暫無結果",
-    "loadMore": "載入更多"
+    "loadMore": "載入更多",
+    "searchKeyword": "搜尋:",
+    "clearSearch": "清除"
   }
 }

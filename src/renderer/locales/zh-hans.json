@@ -562,6 +562,8 @@
   "tongrenlu": {
     "searchPlaceholder": "搜索专辑",
     "noResults": "暂无结果",
-    "loadMore": "加载更多"
+    "loadMore": "加载更多",
+    "searchKeyword": "搜索:",
+    "clearSearch": "清除"
   }
 }

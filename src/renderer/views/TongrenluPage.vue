@@ -1,19 +1,15 @@
 <template>
   <div class="tongrenlu-page">
-    <div class="tabs-row">
-      <div class="tabs">
-        <div class="tab active">{{ $t('nav.tongrenlu') }}</div>
-      </div>
-      <div class="search-box">
-        <SearchBox
-          ref="searchBoxRef"
-          :placeholder="$t('tongrenlu.searchPlaceholder')"
-          @search="handleSearch"
-        />
-      </div>
-    </div>
-
     <div class="content">
+      <div v-if="keyword" class="search-info">
+        <span class="search-label">{{ $t('tongrenlu.searchKeyword') }}</span>
+        <span class="search-text">"{{ keyword }}"</span>
+        <button class="clear-search-btn" @click="clearSearch">
+          <svg-icon icon-class="close" />
+          <span>{{ $t('tongrenlu.clearSearch') }}</span>
+        </button>
+      </div>
+
       <div v-if="loading && albums.length === 0" class="loading">
         <div class="spinner"></div>
       </div>
@@ -45,24 +41,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, inject } from 'vue'
+import { computed, onMounted, onUnmounted, inject } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useTongrenluStore } from '../store/tongrenlu'
 import CoverRow from '../components/CoverRow.vue'
-import SearchBox from '../components/SearchBox.vue'
+import SvgIcon from '../components/SvgIcon.vue'
+import eventBus from '../utils/eventBus'
 
 const tongrenluStore = useTongrenluStore()
-const { albums, loading, currentPage, totalPages } = storeToRefs(tongrenluStore)
+const { albums, loading, currentPage, totalPages, keyword } = storeToRefs(tongrenluStore)
 const { fetchAlbums, search } = tongrenluStore
 
-const searchBoxRef = ref<InstanceType<typeof SearchBox>>()
-
 const hasMore = computed(() => currentPage.value < totalPages.value)
-
-const handleSearch = () => {
-  const keyword = searchBoxRef.value?.keywords || ''
-  search(keyword)
-}
 
 const loadMore = () => {
   if (hasMore.value && !loading.value) {
@@ -73,50 +63,87 @@ const loadMore = () => {
 
 const updatePadding = inject('updatePadding') as (padding: number) => void
 
+const handleTongrenluSearch = (keyword: string) => {
+  search(keyword)
+}
+
+const clearSearch = () => {
+  search('')
+}
+
 onMounted(() => {
   updatePadding(0)
   if (albums.value.length === 0) {
     fetchAlbums(true)
   }
+  // 监听来自顶部搜索框的搜索事件
+  eventBus.on('tongrenlu-search', handleTongrenluSearch)
+})
+
+onUnmounted(() => {
+  eventBus.off('tongrenlu-search', handleTongrenluSearch)
 })
 </script>
 
 <style scoped lang="scss">
-.tabs-row {
-  position: sticky;
-  top: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px 0;
-  background: var(--color-body-bg);
-  z-index: 10;
-
-  .tabs {
-    display: flex;
-    font-size: 18px;
-
-    .tab {
-      font-weight: 600;
-      padding: 8px 14px;
-      border-radius: 8px;
-      opacity: 0.68;
-      transition: 0.2s;
-
-      &.active {
-        opacity: 0.88;
-        background-color: var(--color-secondary-bg);
-      }
-    }
-  }
-}
-
-.search-box {
-  width: 280px;
-}
-
 .content {
   min-height: 400px;
+}
+
+.search-info {
+  display: flex;
+  align-items: center;
+  padding: 16px 20px;
+  margin-bottom: 12px;
+  background-color: var(--color-secondary-bg);
+  border-radius: 8px;
+
+  .search-label {
+    font-size: 14px;
+    color: var(--color-text);
+    opacity: 0.7;
+  }
+
+  .search-text {
+    flex: 1;
+    margin-left: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-primary);
+  }
+
+  .clear-search-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    font-size: 13px;
+    color: var(--color-text);
+    background-color: var(--color-primary-bg);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: 0.2s;
+
+    .svg-icon {
+      width: 12px;
+      height: 12px;
+      opacity: 0.7;
+    }
+
+    &:hover {
+      background-color: var(--color-primary-bg-for-transparent);
+      color: var(--color-primary);
+
+      .svg-icon {
+        opacity: 1;
+      }
+    }
+
+    &:active {
+      transform: scale(0.96);
+    }
+  }
 }
 
 .loading {
@@ -173,7 +200,7 @@ onMounted(() => {
 .load-more {
   text-align: center;
   padding: 12px 24px;
-  margin: 20px auto;
+  margin: 20px auto 120px auto;
   max-width: 200px;
   border-radius: 8px;
   background-color: var(--color-secondary-bg);
