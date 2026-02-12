@@ -862,10 +862,11 @@ export const usePlayerStore = defineStore(
       // 切歌时先淡出
       const fade = fadeDuration.value
       await smoothGain(0, fade)
-      audioNodes.audio!.removeAttribute('src')
-      audioNodes.audio!.load()
-      audioNodes.audio!.src = source
-      audioNodes.audio!.load()
+      if (!audioNodes.audio) return
+      audioNodes.audio.removeAttribute('src')
+      audioNodes.audio.load()
+      audioNodes.audio.src = source
+      audioNodes.audio.load()
       if (autoPlay) {
         play()
         playing.value = true

@@ -26,10 +26,18 @@ let isLock = store.get('osdWin.isLock') as boolean
 let blockerId: number | null = null
 let coverWorker: Worker
 let cacheWorker: Worker | null = null
+let downloadWorker: Worker | null = null
 
 const closeCacheWorker = async () => {
   await cacheWorker.terminate()
   cacheWorker = null
+}
+
+const closeDownloadWorker = async () => {
+  if (downloadWorker) {
+    await downloadWorker.terminate()
+    downloadWorker = null
+  }
 }
 
 /*
@@ -754,6 +762,10 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
   ipcMain.handle('get-cache-path', () => {
     return path.join(app.getPath('userData'), 'audioCache')
   })
+
+  ipcMain.handle('get-music-path', () => {
+    return app.getPath('music')
+  })
 }
 
 async function initMprisIpcMain(win: BrowserWindow, mpris: MprisImpl): Promise<void> {
@@ -970,4 +982,53 @@ async function initStreaming() {
       return searchAlbums(data.keyword, data.pageNumber, data.pageSize)
     }
   )
+
+  // 下载相关 IPC 处理器
+  ipcMain.on(
+    'download-track',
+    (
+      event,
+      data: {
+        track: Track
+        url: string
+        taskId: string
+        downloadPath?: string
+        albumInfo?: { id: number; name: string; picUrl: string }
+      }
+    ) => {
+      if (!downloadWorker) {
+        downloadWorker = createWorker('downloadTrack')
+        downloadWorker.on('message', (msg) => {
+          event.sender.send('download-progress-update', msg)
+        })
+      }
+
+      const downloadPath =
+        data.downloadPath ||
+        (store.get('settings.localMusic.scanDir') as string) ||
+        (store.get('settings.autoCacheTrack.path') as string) ||
+        app.getPath('downloads')
+
+      downloadWorker.postMessage({
+        type: 'download',
+        track: data.track,
+        url: data.url,
+        downloadPath,
+        taskId: data.taskId,
+        albumInfo: data.albumInfo
+      })
+    }
+  )
+
+  ipcMain.on('cancel-download', (event, taskId: string) => {
+    if (downloadWorker) {
+      downloadWorker.postMessage({ type: 'cancel', taskId })
+    }
+  })
+
+  ipcMain.on('clear-download-queue', () => {
+    if (downloadWorker) {
+      downloadWorker.postMessage({ type: 'clear' })
+    }
+  })
 }

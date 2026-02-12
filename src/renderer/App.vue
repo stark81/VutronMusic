@@ -14,6 +14,11 @@
     <ShowToast />
     <AddTrackToPlaylistModal />
     <newPlaylistModal />
+    <ModalDownload
+      v-if="showDownloadModal"
+      :show="showDownloadModal"
+      @close="showDownloadModal = false"
+    />
     <PlayPage v-if="enabled" />
   </div>
 </template>
@@ -27,6 +32,7 @@ import SideNav from './components/SideNav.vue'
 import ShowToast from './components/ShowToast.vue'
 import AddTrackToPlaylistModal from './components/ModalAddTrackToPlaylist.vue'
 import newPlaylistModal from './components/ModalNewPlaylist.vue'
+import ModalDownload from './components/ModalDownload.vue'
 import PlayPage from './views/PlayPage.vue'
 import { useDataStore } from './store/data'
 import { useLocalMusicStore } from './store/localMusic'
@@ -112,6 +118,7 @@ const handleEventBus = () => {
 
 const padding = ref(96)
 const userSelectNone = ref(false)
+const showDownloadModal = ref(false)
 const settingsStore = useSettingsStore()
 const { theme, localMusic, general } = storeToRefs(settingsStore)
 const appearance = ref(theme.value.appearance)
@@ -246,6 +253,10 @@ onMounted(async () => {
   registerInstance(instanceId.value)
   handleEventBus()
   handleChanelEvent()
+  // 初始化下载事件监听器
+  const { useDownloadStore } = await import('./store/download')
+  const downloadStore = useDownloadStore()
+  downloadStore.initDownloadListener()
   hasCustomTitleBar.value =
     (window.env?.isLinux && general.value.useCustomTitlebar) || window.env?.isWindows || false
   if (isMac.value) {
@@ -274,6 +285,10 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   unregisterInstance(instanceId.value)
+})
+
+provide('toggleDownloadModal', () => {
+  showDownloadModal.value = !showDownloadModal.value
 })
 </script>
 

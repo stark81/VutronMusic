@@ -6,7 +6,7 @@ const BASE_URL = 'http://121.37.183.44/tongrenlu/api/music/search'
 export const searchAlbums = async (
   keyword: string = '',
   pageNumber: number = 1,
-  pageSize: number = 16
+  pageSize: number = 15
 ): Promise<{
   code: number
   data: Album[]

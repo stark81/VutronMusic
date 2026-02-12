@@ -22,7 +22,7 @@ export const useTongrenluStore = defineStore(
       const result = await window.mainApi?.invoke('get-tongrenlu-albums', {
         keyword: keyword.value,
         pageNumber: currentPage.value,
-        pageSize: 16
+        pageSize: 15
       })
 
       if (result && result.code === 200) {

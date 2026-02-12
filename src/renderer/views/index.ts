@@ -7,7 +7,6 @@ import AlbumPage from './AlbumPage.vue'
 import ArtistPage from './ArtistPage.vue'
 import SearchPage from './SearchPage.vue'
 import HomePage from './HomePage.vue'
-import PlaylistPage from './PlaylistPage.vue'
 import DailyTracks from './DailyTracks.vue'
 import UserPage from './UserPage.vue'
 import MvPage from './MvPage.vue'
@@ -15,6 +14,7 @@ import ArtistMv from './ArtistMv.vue'
 import NextUp from './NextUp.vue'
 import StreamLogin from './StreamLogin.vue'
 import StreamPage from './StreamPage.vue'
+import TongrenluPage from './TongrenluPage.vue'
 
 export {
   ExplorePage,
@@ -26,12 +26,12 @@ export {
   ArtistPage,
   SearchPage,
   HomePage,
-  PlaylistPage,
   DailyTracks,
   UserPage,
   MvPage,
   ArtistMv,
   NextUp,
   StreamLogin,
-  StreamPage
+  StreamPage,
+  TongrenluPage
 }

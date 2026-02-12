@@ -296,6 +296,11 @@ export const useSettingsStore = defineStore(
           autoCacheTrack.path = result
         })
       }
+      if (!localMusic.scanDir) {
+        window.mainApi?.invoke('get-music-path').then((result: string) => {
+          localMusic.scanDir = result
+        })
+      }
       deleteCacheTracks(false)
     })
 

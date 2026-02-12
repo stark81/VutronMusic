@@ -108,6 +108,7 @@ import { useSettingsStore } from '../store/settings'
 import { storeToRefs } from 'pinia'
 import { doLogout } from '../utils/auth'
 import { openExternal } from '../utils'
+import eventBus from '../utils/eventBus'
 
 const { searchTab, exploreTab } = storeToRefs(useNormalStateStore())
 const { general } = storeToRefs(useSettingsStore())
@@ -179,10 +180,15 @@ const showUserProfileMenu = (e: MouseEvent): void => {
 const doSearch = (keyword: string, tab: string | null = null) => {
   keywords.value = keyword
   if (!keyword) return
-  router.push({
-    name: 'search',
-    query: { keywords: keyword }
-  })
+  // 如果当前是同人录页面，通过事件总线触发同人录搜索
+  if (route.name === 'tongrenlu') {
+    eventBus.emit('tongrenlu-search', keyword)
+  } else {
+    router.push({
+      name: 'search',
+      query: { keywords: keyword }
+    })
+  }
 }
 
 onMounted(() => {

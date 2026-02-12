@@ -65,7 +65,11 @@ const mainAvailChannels: string[] = [
   'get-screenshot',
   'delete-screenshot',
   'get-cache-path',
-  'get-tongrenlu-albums'
+  'get-music-path',
+  'get-tongrenlu-albums',
+  'download-track',
+  'cancel-download',
+  'clear-download-queue'
 ]
 const rendererAvailChannels: string[] = [
   'msgHandleScanLocalMusic',
@@ -93,7 +97,8 @@ const rendererAvailChannels: string[] = [
   'changeRouteTo',
   'updateAmuseServerStatus',
   'receiveCacheInfo',
-  'updateLocalMusic'
+  'updateLocalMusic',
+  'download-progress-update'
 ]
 
 let messagePort: MessagePort | null = null

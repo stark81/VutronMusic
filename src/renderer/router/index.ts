@@ -5,6 +5,10 @@ import { isAccountLoggedIn } from '../utils/auth'
 const routes = [
   {
     path: '/',
+    redirect: '/tongrenlu'
+  },
+  {
+    path: '/home',
     name: 'HomePage',
     component: HomePage,
     meta: {
@@ -43,24 +47,6 @@ const routes = [
     component: () => import(/* webpackPrefetch: true */ '../views/StreamPage.vue')
   },
   {
-    path: '/streamPlaylist/:service/:id',
-    name: 'streamPlaylist',
-    component: () => import('../views/PlaylistPage.vue')
-  },
-  {
-    path: '/library/liked-songs',
-    name: 'likedSongs',
-    component: () => import('../views/PlaylistPage.vue'),
-    meta: {
-      requireLogin: true
-    }
-  },
-  {
-    path: '/stream-liked-songs/:service',
-    name: 'streamLikedSongs',
-    component: () => import('../views/PlaylistPage.vue')
-  },
-  {
     path: '/localMusic',
     name: 'localMusic',
     component: () => import(/* webpackPrefetch: true */ '../views/LocalMusic.vue'),
@@ -77,16 +63,6 @@ const routes = [
     meta: {
       titleKey: 'nav.tongrenlu'
     }
-  },
-  {
-    path: '/playlist/:id',
-    name: 'playlist',
-    component: () => import('../views/PlaylistPage.vue')
-  },
-  {
-    path: '/localPlaylist/:id',
-    name: 'localPlaylist',
-    component: () => import('../views/PlaylistPage.vue')
   },
   {
     path: '/settings',

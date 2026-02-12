@@ -38,25 +38,18 @@
           <ButtonTwoTone icon-class="play" @click="play">
             {{ $t('common.play') }}
           </ButtonTwoTone>
+          <ButtonTwoTone icon-class="download" @click="downloadAlbum">
+            {{ $t('download.downloadAlbum') }}
+          </ButtonTwoTone>
           <ButtonTwoTone icon-class="floor-comment" @click="openComment">
             {{ '评论' }}
           </ButtonTwoTone>
           <ButtonTwoTone
-            :icon-class="dynamicDetail.isSub ? 'heart-solid' : 'heart'"
-            :icon-button="true"
-            :horizontal-padding="0"
-            :color="dynamicDetail?.isSub ? 'var(--color-primary)' : 'grey'"
-            :text-color="dynamicDetail?.isSub ? 'var(--color-primary)' : ''"
-            :background-color="dynamicDetail?.isSub ? 'var(--color-secondary-bg)' : ''"
-            @click="likeAlbum"
-          >
-          </ButtonTwoTone>
-          <ButtonTwoTone
-            icon-class="more"
+            icon-class="open-external"
             :icon-button="true"
             :horizontal-padding="0"
             color="grey"
-            @click="openMenu"
+            @click="openOnBrowser"
           >
           </ButtonTwoTone>
         </div>
@@ -130,11 +123,6 @@
         {{ album.description }}
       </p>
     </Modal>
-
-    <ContextMenu ref="albumMenu">
-      <div class="item" @click="copyURL">{{ $t('contextMenu.copyURL') }}</div>
-      <div class="item" @click="openOnBrowser">{{ $t('contextMenu.openOnBrowser') }}</div>
-    </ContextMenu>
   </div>
   <div v-show="showComment" class="comment" @click="closeComment">
     <div></div>
@@ -156,8 +144,7 @@ import { tricklingProgress } from '../utils/tricklingProgress'
 import Cover from '../components/CoverBox.vue'
 import Modal from '../components/BaseModal.vue'
 import ButtonTwoTone from '../components/ButtonTwoTone.vue'
-import ContextMenu from '../components/ContextMenu.vue'
-import { getAlbum, albumDynamicDetail, likeAAlbum } from '../api/album'
+import { getAlbum, albumDynamicDetail } from '../api/album'
 import { getTrackDetail } from '../api/track'
 import { getArtistAlbum } from '../api/artist'
 import { splitSoundtrackAlbumTitle, splitAlbumTitle } from '../utils/common'
@@ -168,9 +155,8 @@ import CoverRow from '../components/VirtualCoverRow.vue'
 import CommentPage from '../components/CommentPage.vue'
 import ExplicitSymbol from '../components/ExplicitSymbol.vue'
 import { useI18n } from 'vue-i18n'
-import { useNormalStateStore } from '../store/state'
 import { usePlayerStore } from '../store/player'
-import { isAccountLoggedIn } from '../utils/auth'
+import { useNormalStateStore } from '../store/state'
 import { storeToRefs } from 'pinia'
 
 const show = ref(false)
@@ -182,7 +168,6 @@ const dynamicDetail = ref<{ [key: string]: any }>({})
 const moreAlbums = ref<any[]>([])
 const title = ref('')
 const subtitle = ref('')
-const albumMenu = ref()
 const showComment = ref(false)
 const showFullDescription = ref(false)
 
@@ -246,35 +231,59 @@ const play = () => {
   replacePlaylist('album', album.value.id, ids, idx)
 }
 
-const likeAlbum = (toast = false) => {
-  if (!isAccountLoggedIn()) {
-    showToast(t('toast.needToLogin'))
-    return
-  }
-  likeAAlbum({ id: album.value.id, t: dynamicDetail.value.isSub ? 0 : 1 }).then((data) => {
-    if (data.code === 200) {
-      dynamicDetail.value.isSub = !dynamicDetail.value.isSub
-      if (toast) {
-        showToast(dynamicDetail.value.isSub ? '已保存到音乐库' : '已从音乐库删除')
-      }
-    }
-  })
-}
-
-const openMenu = (e: MouseEvent) => {
-  albumMenu.value.openMenu(e)
-}
-
-const copyURL = () => {
-  const url = `https://music.163.com/#/album?id=${album.value.id}`
-  navigator.clipboard.writeText(url).then(() => {
-    showToast(t('toast.copySuccess'))
-  })
-}
-
 const openOnBrowser = () => {
   const url = `https://music.163.com/#/album?id=${album.value.id}`
   openExternal(url)
+}
+
+const downloadAlbum = async () => {
+  if (tracks.value.length === 0) {
+    showToast('专辑中没有歌曲')
+    return
+  }
+
+  const { useDownloadStore } = await import('../store/download')
+  const downloadStore = useDownloadStore()
+
+  // 下载专辑中的所有在线音乐
+  let downloadedCount = 0
+  for (const track of tracks.value) {
+    if (track.type !== 'online') {
+      continue
+    }
+
+    let url = track.url
+    if (!url) {
+      const request = (await import('../utils/request')).default
+      const result = await request({
+        url: '/song/url',
+        method: 'get',
+        params: {
+          id: track.id,
+          br: 320000
+        }
+      })
+      if (result && result.code === 200 && result.data && result.data.length > 0) {
+        url = result.data[0].url
+      }
+    }
+
+    if (url) {
+      const albumInfo = {
+        id: track.album?.id || track.al?.id,
+        name: track.album?.name || track.al?.name || 'Unknown Album',
+        picUrl: track.album?.picUrl || track.al?.picUrl
+      }
+      downloadStore.downloadTrack(track, url, albumInfo)
+      downloadedCount++
+    }
+  }
+
+  if (downloadedCount > 0) {
+    showToast(`已开始下载 ${downloadedCount} 首歌曲`)
+  } else {
+    showToast('没有可下载的歌曲')
+  }
 }
 
 const openComment = () => {
