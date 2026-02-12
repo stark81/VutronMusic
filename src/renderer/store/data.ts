@@ -179,22 +179,27 @@ export const useDataStore = defineStore(
     }
 
     const fetchLikedSongsWithDetails = () => {
-      return getPlaylistDetail(likedSongPlaylistID.value, true).then((result) => {
-        if (!result) return
-        if (result.playlist?.trackIds?.length === 0) {
-          return new Promise<void>((resolve) => {
-            resolve()
+      return getPlaylistDetail(likedSongPlaylistID.value, true)
+        .then((result) => {
+          if (!result) return
+          if (result.playlist?.trackIds?.length === 0) {
+            return new Promise<void>((resolve) => {
+              resolve()
+            })
+          }
+          return getTrackDetail(
+            result.playlist.trackIds
+              .slice(0, 8)
+              .map((t) => t.id)
+              .join(',')
+          ).then((result) => {
+            liked.songsWithDetails = result.songs
           })
-        }
-        return getTrackDetail(
-          result.playlist.trackIds
-            .slice(0, 8)
-            .map((t) => t.id)
-            .join(',')
-        ).then((result) => {
-          liked.songsWithDetails = result.songs
         })
-      })
+        .catch((error) => {
+          console.error('Failed to fetch liked songs with details:', error)
+          return Promise.resolve()
+        })
     }
 
     const resetLiked = () => {
