@@ -372,9 +372,14 @@ const getPlaylist = () => {
       return getRecommendPlayList(100, true).then((list) => {
         playlists.value = []
         updatePlaylist(list)
+      }).catch((error) => {
+        console.error('Failed to get recommend playlist:', error)
+        playlists.value = []
       })
     } else if (activeCategory.value === '精品歌单') {
-      return getHighQualityPlaylist()
+      return getHighQualityPlaylist().catch((error) => {
+        console.error('Failed to get high quality playlist:', error)
+      })
     } else {
       return topPlaylist({ cat: activeCategory.value, offset: playlists.value.length }).then(
         (data) => {
@@ -384,7 +389,9 @@ const getPlaylist = () => {
           updatePlaylist(data.playlists)
           // hasMore.value = data.more
         }
-      )
+      ).catch((error) => {
+        console.error('Failed to get top playlist:', error)
+      })
     }
   } else if (exploreTab.value === 'newTrack') {
     show.value = false
