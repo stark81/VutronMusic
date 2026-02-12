@@ -7,6 +7,7 @@
     "stream": "流媒体",
     "localMusic": "本地音乐",
     "tongrenlu": "东方同人录",
+    "download": "下载",
     "settings": "设置",
     "github": "GitHub仓库",
     "log": "打开 log 文件夹",
@@ -565,5 +566,23 @@
     "loadMore": "加载更多",
     "searchKeyword": "搜索:",
     "clearSearch": "清除"
+  },
+  "download": {
+    "title": "下载管理",
+    "downloadPath": "下载路径",
+    "changePath": "更改",
+    "downloading": "下载中",
+    "completed": "已完成",
+    "error": "下载失败",
+    "cancelled": "已取消",
+    "pending": "等待中",
+    "cancel": "取消",
+    "retry": "重试",
+    "clearCompleted": "清除已完成",
+    "clearAll": "清空列表",
+    "downloadTrack": "下载歌曲",
+    "downloadAlbum": "下载专辑",
+    "noTasks": "暂无下载任务",
+    "openFolder": "打开文件夹"
   }
 }

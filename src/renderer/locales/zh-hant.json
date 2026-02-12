@@ -7,6 +7,7 @@
     "stream": "串流媒體",
     "localMusic": "本地音樂",
     "tongrenlu": "東方同人錄",
+    "download": "下載",
     "settings": "設定",
     "github": "GitHub 倉庫",
     "log": "開啟 log 資料夾",
@@ -558,5 +559,23 @@
     "loadMore": "載入更多",
     "searchKeyword": "搜尋:",
     "clearSearch": "清除"
+  },
+  "download": {
+    "title": "下載管理",
+    "downloadPath": "下載路徑",
+    "changePath": "更改",
+    "downloading": "下載中",
+    "completed": "已完成",
+    "error": "下載失敗",
+    "cancelled": "已取消",
+    "pending": "等待中",
+    "cancel": "取消",
+    "retry": "重試",
+    "clearCompleted": "清除已完成",
+    "clearAll": "清空列表",
+    "downloadTrack": "下載歌曲",
+    "downloadAlbum": "下載專輯",
+    "noTasks": "暫無下載任務",
+    "openFolder": "打開資料夾"
   }
 }

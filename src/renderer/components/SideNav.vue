@@ -1,25 +1,11 @@
 <template>
   <div class="side-nav">
     <button-icon
-      :class="{ active: isCurrentRoute('/') }"
-      :data-tip="`${$t('nav.home')}`"
-      @click="handleRoute('/')"
+      :class="{ active: isCurrentRoute('/tongrenlu') }"
+      :data-tip="`${$t('nav.tongrenlu')}`"
+      @click="handleRoute('/tongrenlu')"
     >
-      <svg-icon class="icon" icon-class="logo" />
-    </button-icon>
-    <button-icon
-      :class="{ active: isCurrentRoute('/explore') }"
-      :data-tip="`${$t('nav.explore')}`"
-      @click="handleRoute('/explore')"
-    >
-      <svg-icon class="icon" icon-class="explore" style="transform: scale(1.4)" />
-    </button-icon>
-    <button-icon
-      :class="{ active: isCurrentRoute('/library') }"
-      :data-tip="`${$t('nav.library')}`"
-      @click="handleRoute('/library')"
-    >
-      <svg-icon class="icon" icon-class="library" />
+      <svg-icon class="icon" icon-class="explore" />
     </button-icon>
     <button-icon
       v-if="enable"
@@ -36,6 +22,9 @@
       @click="handleRoute('/localMusic')"
     >
       <svg-icon class="icon" icon-class="local-music" />
+    </button-icon>
+    <button-icon v-if="isElectron" :data-tip="`${$t('nav.download')}`" @click="toggleDownloadModal">
+      <svg-icon class="icon" icon-class="download" />
     </button-icon>
     <button-icon
       :class="{ active: isCurrentRoute('/settings') }"
@@ -54,9 +43,12 @@ import { useRoute, useRouter } from 'vue-router'
 import { useSettingsStore } from '../store/settings'
 import { useStreamMusicStore } from '../store/streamingMusic'
 import { storeToRefs } from 'pinia'
+import { inject } from 'vue'
 
 const settingsStore = useSettingsStore()
 const { localMusic } = storeToRefs(settingsStore)
+
+const toggleDownloadModal = inject('toggleDownloadModal') as () => void
 
 const streamStore = useStreamMusicStore()
 const { enable } = storeToRefs(streamStore)

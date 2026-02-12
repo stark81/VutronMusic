@@ -7,6 +7,7 @@
     "stream": "Stream",
     "localMusic": "Local Music",
     "tongrenlu": "Tongrenlu",
+    "download": "Download",
     "settings": "Settings",
     "github": "GitHub Repository",
     "log": "Open Log Folder",
@@ -552,11 +553,29 @@
     "nextPlaying": "Up Next",
     "historyPlaying": "History"
   },
-"tongrenlu": {
+  "tongrenlu": {
     "searchPlaceholder": "Search Albums",
     "noResults": "No Results",
     "loadMore": "Load More",
     "searchKeyword": "Search:",
     "clearSearch": "Clear"
+  },
+  "download": {
+    "title": "Download Manager",
+    "downloadPath": "Download Path",
+    "changePath": "Change",
+    "downloading": "Downloading",
+    "completed": "Completed",
+    "error": "Download Failed",
+    "cancelled": "Cancelled",
+    "pending": "Pending",
+    "cancel": "Cancel",
+    "retry": "Retry",
+    "clearCompleted": "Clear Completed",
+    "clearAll": "Clear All",
+    "downloadTrack": "Download Track",
+    "downloadAlbum": "Download Album",
+    "noTasks": "No Download Tasks",
+    "openFolder": "Open Folder"
   }
 }
