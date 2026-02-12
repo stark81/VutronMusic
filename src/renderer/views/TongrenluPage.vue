@@ -63,8 +63,8 @@ const loadMore = () => {
 
 const updatePadding = inject('updatePadding') as (padding: number) => void
 
-const handleTongrenluSearch = (keyword: string) => {
-  search(keyword)
+const handleTongrenluSearch = (keyword: unknown) => {
+  search(keyword as string)
 }
 
 const clearSearch = () => {
