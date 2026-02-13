@@ -198,8 +198,6 @@ export const useLocalMusicStore = defineStore(
     }
   },
   {
-    persist: {
-      pick: ['sortBy', 'sortPlaylistsIDs', 'version']
-    }
+    persist: true
   }
 )

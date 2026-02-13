@@ -318,8 +318,6 @@ export const useSettingsStore = defineStore(
     }
   },
   {
-    persist: {
-      omit: ['playerThemeNew']
-    }
+    persist: true
   }
 )

@@ -197,8 +197,6 @@ export const useStreamMusicStore = defineStore(
     }
   },
   {
-    persist: {
-      pick: ['sortBy', 'enable', 'services']
-    }
+    persist: true
   }
 )

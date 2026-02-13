@@ -1798,8 +1798,6 @@ export const usePlayerStore = defineStore(
     }
   },
   {
-    persist: {
-      omit: ['pic', 'title', 'outputDevice']
-    }
+    persist: true
   }
 )

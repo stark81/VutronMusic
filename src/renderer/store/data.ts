@@ -232,8 +232,6 @@ export const useDataStore = defineStore(
     }
   },
   {
-    persist: {
-      pick: ['user', 'likedSongPlaylistID', 'lastRefreshCookieDate', 'loginMode']
-    }
+    persist: true
   }
 )

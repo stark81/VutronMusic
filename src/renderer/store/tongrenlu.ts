@@ -66,9 +66,6 @@ export const useTongrenluStore = defineStore(
     }
   },
   {
-    persist: {
-      key: 'tongrenlu-store',
-      pick: ['keyword']
-    }
+    persist: true
   }
 )
