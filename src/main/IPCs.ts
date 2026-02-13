@@ -824,7 +824,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
       fs.writeFileSync(filePath, buffer)
       return filePath
     } catch (err) {
-      console.error('保存失败:', err)
+      console.error('Save failed:', err)
       return ''
     }
   })

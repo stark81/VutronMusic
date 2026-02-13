@@ -201,8 +201,8 @@ const handleChanelEvent = () => {
   window.mainApi?.on(
     'msgHandleScanLocalMusicError',
     (_: any, data: { err: any; filePath: string }) => {
-      console.log(`扫描本地歌曲 ${data.filePath} 出错： ${data.err}`)
-      showToast(`扫描本地歌曲出错, 详情见：开发者工具-控制台`)
+      console.log(`Error scanning local track ${data.filePath}: ${data.err}`)
+      showToast(`Error scanning local track, check DevTools-Console for details`)
     }
   )
   window.mainApi?.on('scanLocalMusicDone', () => {

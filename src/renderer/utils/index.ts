@@ -138,14 +138,14 @@ export default class Utils {
       (lastRefreshCookieDate.value === undefined || lastRefreshCookieDate.value !== dayjs().date())
     ) {
       refreshCookie().then(() => {
-        console.debug('[debug][common.js] 刷新cookie')
+        console.debug('[debug][common.js] Refresh cookie')
         lastRefreshCookieDate.value = dayjs().date()
       })
       dailySignin(0).catch((e) => {
-        console.debug(`[debug][common.js] 手机端重复签到: ${e}`)
+        console.debug(`[debug][common.js] Mobile duplicate signin: ${e}`)
       })
       dailySignin(1).catch((e) => {
-        console.debug(`[debug][common.js] PC端重复签到: ${e}`)
+        console.debug(`[debug][common.js] PC duplicate signin: ${e}`)
       })
       lastRefreshCookieDate.value = dayjs().date()
     }
@@ -191,7 +191,7 @@ export default class Utils {
 
       return date
     } catch (error) {
-      console.error('解析 URL 时间戳失败:', error)
+      console.error('Failed to parse URL timestamp:', error)
       return null
     }
   }

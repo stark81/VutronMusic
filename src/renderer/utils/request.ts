@@ -22,7 +22,7 @@ service.interceptors.response.use(
     const { response } = error
     const data = response?.data as any
     if (data?.code === 301 && data?.message === '未登录') {
-      console.log('未登录')
+      console.log('Not logged in')
       doLogout()
     }
     return Promise.reject(error)

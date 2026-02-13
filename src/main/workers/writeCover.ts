@@ -30,7 +30,7 @@ const writeCoverToEmbedded = async (
     })
     await fs.promises.writeFile(decodedPath, Buffer.from(modifiedBuffer))
   } catch (error) {
-    console.error(`写入封面图片 ${filePath} 失败:`, error)
+    console.error(`Failed to write cover image to ${filePath}:`, error)
   }
 }
 
@@ -57,7 +57,7 @@ const writeCoverToFile = async (filePath: string, url: string, embedStyle: numbe
 
     await fs.promises.writeFile(coverPath, image.pic)
   } catch (error) {
-    console.error(`写入封面图片 ${filePath} 失败:`, error)
+    console.error(`Failed to write cover image to ${filePath}:`, error)
   }
 }
 
@@ -119,7 +119,7 @@ const runEmbedTasks = async () => {
         embeddedMap.delete(filePath)
         taskProcessed = true
       } catch (error) {
-        console.error(`[Cover Writer] 写入 ${filePath} 失败，保留在队列中:`, error)
+        console.error(`[Cover Writer] Failed to write ${filePath}, keeping in queue:`, error)
         taskProcessed = true
         await new Promise((resolve) => setTimeout(resolve, 5000))
       }

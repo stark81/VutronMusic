@@ -67,7 +67,7 @@ const getColor = (track: any) => {
         const color2 = originColor.lighten(0.28).rotate(-30).rgb().string()
         background.value = `linear-gradient(to top left, ${color}, ${color2})`
       } else {
-        console.log('未找到 DarkMuted 颜色')
+        console.log('DarkMuted color not found')
       }
     })
 }
