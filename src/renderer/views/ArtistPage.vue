@@ -8,13 +8,9 @@
         <div class="name">{{ artist.name }}</div>
         <div class="artist">{{ $t('artist.artist') }}</div>
         <div class="statistics">
-          <a @click="scrollTo"
-            >{{ artist.musicSize ?? 0 }} {{ $t('common.songs') }}</a
-          >
+          <a @click="scrollTo">{{ artist.musicSize ?? 0 }} {{ $t('common.songs') }}</a>
           ·
-          <a @click="scrollTo"
-            >{{ artist.albumSize ?? 0 }} {{ $t('artist.withAlbums') }}</a
-          >
+          <a @click="scrollTo">{{ artist.albumSize ?? 0 }} {{ $t('artist.withAlbums') }}</a>
           ·
           <a @click="scrollTo">{{ artist.mvSize ?? 0 }} {{ $t('artist.videos') }}</a>
         </div>

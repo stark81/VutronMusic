@@ -291,7 +291,8 @@ const downloadTrackItem = async () => {
     }
 
     // 获取专辑 ID
-    const albumId = track.value.al?.id || track.value.album?.id || songData.al?.id || songData.album?.id
+    const albumId =
+      track.value.al?.id || track.value.album?.id || songData.al?.id || songData.album?.id
 
     if (!albumId) {
       showToast('无法获取专辑信息')

@@ -340,11 +340,14 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     log.info('[IPC] Created login window')
 
     // 监听加载失败事件
-    loginWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL, isMainFrame) => {
-      if (isMainFrame) {
-        log.error('[IPC] Failed to load login page:', errorCode, errorDescription, validatedURL)
+    loginWindow.webContents.on(
+      'did-fail-load',
+      (event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+        if (isMainFrame) {
+          log.error('[IPC] Failed to load login page:', errorCode, errorDescription, validatedURL)
+        }
       }
-    })
+    )
 
     // 监听导航错误
     loginWindow.webContents.on('did-navigate', (event, url) => {
@@ -362,7 +365,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
       // 先显示窗口，再加载 URL
       loginWindow.show()
       log.info('[IPC] Login window shown')
-      
+
       await loginWindow.loadURL('https://music.163.com/#/login')
       log.info('[IPC] Login URL loaded successfully')
     } catch (error) {
@@ -1073,7 +1076,12 @@ async function initStreaming() {
   ipcMain.on('download-track', async (event, data) => {
     const { track, url, taskId, downloadPath, albumInfo } = data
 
-    log.info('[Download] Received download request:', { taskId, trackId: track?.id, trackName: track?.name, albumInfo })
+    log.info('[Download] Received download request:', {
+      taskId,
+      trackId: track?.id,
+      trackName: track?.name,
+      albumInfo
+    })
 
     if (activeDownloads.has(taskId)) {
       log.info('[Download] Task already active:', taskId)
