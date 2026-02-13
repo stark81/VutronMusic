@@ -2,13 +2,13 @@
 
 ## 项目概述
 
-VutronMusic 是一个基于 Electron 的高颜值第三方网易云音乐播放器，使用现代化的前端技术栈构建。该项目支持本地音乐播放、流媒体服务、歌词显示、音效设置等多种功能。
+VutronMusic 是一个基于 Electron 的高颜值第三方网易云音乐播放器，使用现代化的前端技术栈构建。该项目支持本地音乐播放、流媒体服务、歌词显示、音效设置、歌曲下载等多种功能。
 
 ### 核心技术栈
 
 - **脚手架**: vutron (基于 Electron + Vite)
 - **前端框架**: Vue 3 + TypeScript
-- **状态管理**: Pinia + pinia-plugin-persistedstate
+- **状态管理**: Pinia + pinia-plugin-persistedstate (^3.2.1)
 - **后端服务**: Fastify
 - **数据库**: better-sqlite3
 - **构建工具**: Vite + electron-builder
@@ -23,6 +23,7 @@ VutronMusic 是一个基于 Electron 的高颜值第三方网易云音乐播放�
 - ⚡️ 支持 Mac 状态栏歌词、TouchBar 歌词
 - ⚡️ Linux 下可通过 media-controls 插件或 vutronmusic-lyrics 插件显示歌词
 - ⚡️ 支持音效设置、变调变速等高级音频功能
+- ⚡️ 支持歌曲下载功能（支持多种音频格式）
 - ⚡️ 支持云盘、歌曲评论等功能
 
 ## 项目架构
@@ -50,6 +51,7 @@ src/
 │   │   └── shortcuts.ts    # 快捷键
 │   ├── workers/    # Web Workers
 │   │   ├── cacheTrack.ts   # 音频缓存处理
+│   │   ├── downloadTrack.ts # 歌曲下载处理
 │   │   ├── scanMusic.ts    # 音乐扫描
 │   │   └── writeCover.ts   # 封面写入
 │   ├── index.ts       # 主进程入口
@@ -97,6 +99,7 @@ src/
 │   ├── router/      # 路由配置
 │   ├── store/       # Pinia 状态管理
 │   │   ├── data.ts          # 数据状态
+│   │   ├── download.ts      # 下载状态
 │   │   ├── localMusic.ts    # 本地音乐状态
 │   │   ├── osdLyric.ts      # OSD 歌词状态
 │   │   ├── player.ts        # 播放器状态
@@ -108,8 +111,8 @@ src/
 │   ├── utils/       # 渲染进程工具函数
 │   └── views/       # 页面视图
 │       ├── AlbumPage.vue       # 专辑页
-│       ├── ArtistPage.vue      # 艺术家页
 │       ├── ArtistMv.vue        # 艺术家 MV
+│       ├── ArtistPage.vue      # 艺术家页
 │       ├── DailyTracks.vue     # 每日推荐
 │       ├── ExplorePage.vue     # 发现页
 │       ├── HomePage.vue        # 首页
@@ -144,13 +147,20 @@ src/
 
 ### IPC 通信
 
-主进程与渲染进程之间的通信定义在 `src/main/IPCs.ts`。
+主进程与渲染进程之间的通信定义在 `src/main/IPCs.ts`，包括：
+
+- 网易云登录窗口管理
+- 歌曲下载功能（download-track, cancel-download, clear-download-queue）
+- 截图保存
+- 流媒体服务集成（tongrenlu, navidrome, jellyfin, emby）
+- 本地音乐扫描和管理
 
 ### Web Workers
 
 项目使用 Piscina 管理 Web Workers，位于 `src/main/workers/`：
 
 - `cacheTrack.ts` - 处理音频文件缓存
+- `downloadTrack.ts` - 处理歌曲下载
 - `scanMusic.ts` - 扫描本地音乐文件
 - `writeCover.ts` - 写入封面到音频文件
 
@@ -258,6 +268,7 @@ yarn run fix-taglib
 - ESLint 配置基于 `standard` 规范，扩展了 Vue 3 和 TypeScript 规则
 - Prettier 配置定义在 `.prettierrc`
 - 使用 eslint-friendly-formatter 输出友好的错误信息
+- 所有 console 日志输出使用英文，避免中文乱码
 
 ### TypeScript 配置
 
@@ -279,7 +290,8 @@ yarn run fix-taglib
 ### 状态管理
 
 - 使用 Pinia 进行全局状态管理
-- 状态持久化使用 `pinia-plugin-persistedstate`
+- 状态持久化使用 `pinia-plugin-persistedstate ^3.2.1`
+- 持久化配置使用简化格式 `persist: true`
 - 主要 store：
   - `player.ts` - 播放器状态
   - `playerTheme.ts` - 播放器主题状态
@@ -290,6 +302,7 @@ yarn run fix-taglib
   - `tongrenlu.ts` - 同人录状态
   - `data.ts` - 数据状态
   - `state.ts` - 通用状态
+  - `download.ts` - 下载状态（新增）
 
 ### API 调用
 
@@ -311,6 +324,7 @@ yarn run fix-taglib
 - 禁用旧版 API（`__VUE_I18N_LEGACY_API__: false`）
 - 语言文件位于 `src/renderer/locales/`
 - 支持简体中文、繁体中文、英文
+- 下载功能相关翻译已添加到上下文菜单
 
 ## 关键依赖
 
@@ -319,7 +333,7 @@ yarn run fix-taglib
 - `electron` (^31.0.0): Electron 框架
 - `vue` (^3.5.10): Vue 3 框架
 - `pinia` (^2.1.7): 状态管理
-- `pinia-plugin-persistedstate` (^4.2.0): 状态持久化
+- `pinia-plugin-persistedstate` (^3.2.1): 状态持久化（降级以兼容 Pinia 2.x）
 - `fastify` (^4.26.2): Web 服务器
 - `better-sqlite3` (^12.0.0): SQLite 数据库
 - `taglib-wasm` (^0.5.4): 音频元数据解析
@@ -364,6 +378,11 @@ yarn run fix-taglib
 - `fast-glob` (^3.3.3): 文件匹配
 - `crypto-js` (^4.2.0): 加密库
 
+### 开发依赖
+
+- `electron-extension-installer` (^2.0.0): Electron 扩展安装（通过 override 配置兼容 Electron ^31.0.0）
+- `cross-env` (^7.0.3): 跨平台环境变量设置
+
 ## 注意事项
 
 1. **原生模块编译**: better-sqlite3 和 taglib-wasm 需要重新编译，安装依赖后自动执行 `postinstall` 钩子
@@ -371,8 +390,10 @@ yarn run fix-taglib
 3. **开发代理**: 开发模式下，代理服务器运行在 `http://127.0.0.1:40001`
 4. **Git 忽略**: 确保 `.gitignore` 正确配置，避免提交 `dist/` 和 `node_modules/`
 5. **跨平台**: 项目支持 Windows、macOS、Linux 三个平台，某些功能仅特定平台可用
-6. **Electron 版本**: 通过 overrides 确保 vite-plugin-electron 使用项目指定的 Electron 版本
+6. **Electron 版本**: 通过 overrides 确保 vite-plugin-electron 和 electron-extension-installer 使用项目指定的 Electron 版本
 7. **Node.js 版本**: 要求 Node.js >= 22.6.0
+8. **依赖冲突**: 项目使用 overrides 配置解决 electron-extension-installer 的依赖冲突
+9. **日志输出**: 所有 console 日志消息使用英文，避免控制台乱码
 
 ## 参考项目
 
@@ -428,3 +449,42 @@ dist/
 - 任务栏缩略图按钮（`thumBar.ts`）
 - 系统托盘（`tray.ts`）
 - 自定义标题栏（`Win32TitleBar.vue`）
+
+## 新增功能（最近更新）
+
+### 歌曲下载功能
+
+- **下载 Worker**: 新增 `downloadTrack.ts` Web Worker 处理歌曲下载
+- **下载 Store**: 新增 `download.ts` 状态管理，支持下载任务管理
+- **IPC 通信**: 新增下载相关 IPC handlers（download-track, cancel-download, clear-download-queue）
+- **下载功能**:
+  - 支持多种音频格式（mp3, flac, ogg, wav, m4a）
+  - 自动创建目录结构（Artist/Album/Song）
+  - 支持批量下载（专辑页"全部下载"）
+  - 单首歌曲下载（右键菜单 + 播放列表按钮）
+  - 下载进度跟踪
+  - VIP 歌曲检测和跳过
+  - 文件重复检测
+- **UI 组件更新**:
+  - TrackListItem: 新增下载按钮
+  - VirtualTrackList: 新增下载上下文菜单项
+  - AlbumPage: 新增"全部下载"按钮
+- **国际化**: 新增下载相关翻译（downloadTrack, downloadAll）
+
+### 登录窗口改进
+
+- 优化登录窗口加载流程
+- 添加导航和加载完成事件监听
+- 改进错误处理，避免加载失败时窗口自动关闭
+
+### 代码质量改进
+
+- 所有 console 日志消息英文化
+- 修复 TypeScript 类型错误（ScrollBar, VirtualScrollNoHeight, VirtualTrackList, ArtistPage, MvPage）
+- 代码格式化和清理
+
+### 依赖管理
+
+- 降级 pinia-plugin-persistedstate 到 ^3.2.1 以兼容 Pinia 2.x
+- 添加 electron-extension-installer override 配置
+- 更新所有 store 文件的 persist 配置为简化格式
