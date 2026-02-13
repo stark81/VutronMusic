@@ -52,6 +52,7 @@ import { formatPlayCount } from '../utils'
 import SvgIcon from '../components/SvgIcon.vue'
 import Comment from '../components/CommentPage.vue'
 import '../assets/css/plyr.css'
+// @ts-ignore
 import Plyr from 'plyr'
 import { isAccountLoggedIn } from '../utils/auth'
 import { useI18n } from 'vue-i18n'
@@ -70,7 +71,7 @@ const mv = ref<{ [key: string]: any }>({
 })
 const simiMvs = ref<any[]>([])
 const videoPlayer = ref()
-const player = ref()
+const player = ref<any>()
 
 const hasCustomTitleBar = inject('hasCustomTitleBar', ref(true))
 

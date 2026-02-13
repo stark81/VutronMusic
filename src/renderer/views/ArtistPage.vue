@@ -8,16 +8,18 @@
         <div class="name">{{ artist.name }}</div>
         <div class="artist">{{ $t('artist.artist') }}</div>
         <div class="statistics">
-          <a @click="scrollTo('popularTracks')">{{ artist.musicSize }} {{ $t('common.songs') }}</a>
-          ·
-          <a @click="scrollTo('seeMore', 'start')"
-            >{{ artist.albumSize }} {{ $t('artist.withAlbums') }}</a
+          <a @click="scrollTo"
+            >{{ artist.musicSize ?? 0 }} {{ $t('common.songs') }}</a
           >
           ·
-          <a @click="scrollTo('mvs')">{{ artist.mvSize }} {{ $t('artist.videos') }}</a>
+          <a @click="scrollTo"
+            >{{ artist.albumSize ?? 0 }} {{ $t('artist.withAlbums') }}</a
+          >
+          ·
+          <a @click="scrollTo">{{ artist.mvSize ?? 0 }} {{ $t('artist.videos') }}</a>
         </div>
         <div class="description" @click="toggleFullDescription">
-          {{ artist.briefDesc }}
+          {{ artist.briefDesc ?? '' }}
         </div>
         <div class="buttons">
           <ButtonTwoTone icon-class="play" @click="playPopularSongs()">
@@ -68,7 +70,7 @@
             class="cover"
             @mouseover="mvHover = true"
             @mouseleave="mvHover = false"
-            @click="goToMv(latestMV.id)"
+            @click="goToMv"
           >
             <img :src="latestMV.coverUrl" loading="lazy" />
             <transition name="fade">

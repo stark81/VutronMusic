@@ -82,7 +82,7 @@ const props = withDefaults(
 const lock = ref(false)
 const listRef = ref()
 const footerRef = ref()
-const itemsRef = ref()
+const itemsRef = ref<HTMLElement[]>()
 const startRow = ref(0)
 const styleBefore = ref()
 const startOffset = ref(0)
@@ -178,10 +178,11 @@ const initPosition = () => {
 }
 const updateItemsSize = () => {
   itemsRef.value?.forEach((node) => {
-    if (node.id % props.columnNumber === 0) {
+    const nodeId = (node as any).id
+    if (nodeId % props.columnNumber === 0) {
       const rect = node.getBoundingClientRect()
       const height = rect.height
-      const index = +node.id
+      const index = +nodeId
       const oldHeight = position.value[index].height
       const dValue = oldHeight - height
 
@@ -246,15 +247,15 @@ const scrollTocurrent = (index: number, behavior: ScrollBehavior = 'smooth') => 
       listRef.value.getBoundingClientRect().top -
       (mainRef.value!.firstElementChild?.getBoundingClientRect()?.top || 0) +
       30
-    scrollMainTo(elTop)
+    scrollMainTo()
   } else {
     if (index >= startRow.value) {
-      const el = itemsRef.value?.find((el) => el.id === index.toString())
+      const el = itemsRef.value?.find((el) => (el as any).id === index.toString())
       if (el) {
         const elTop = el.getBoundingClientRect().top
         const dist =
           mainRef.value!.scrollTop - (window.innerHeight / 2 - elTop - itemSize.value / 2)
-        scrollMainTo(Math.max(dist, 0))
+        scrollMainTo()
         nextTick(() => {
           el?.scrollIntoView({ block: 'center', behavior })
         })
@@ -304,7 +305,7 @@ const scrollToTop = () => {
     if (currentScrollTop === lastScrollTop) {
       if (isScrolling) {
         isScrolling = false
-        scrollMainTo(0)
+        scrollMainTo()
       }
     } else {
       lastScrollTop = currentScrollTop

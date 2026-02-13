@@ -123,10 +123,8 @@ const handleDragEnd = () => {
   document.removeEventListener('mouseup', handleDragEnd)
 }
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(() => {
   show.value = false
-  scrollMainTo(0, 'instant')
-  next()
 })
 </script>
 

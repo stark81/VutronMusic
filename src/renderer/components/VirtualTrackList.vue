@@ -46,7 +46,7 @@
       <img v-if="image" :src="image" loading="lazy" />
       <div class="info">
         <div class="title">{{ rightClickedTrackComputed.name }}</div>
-        <div class="subtitle">{{ rightClickedTrackComputed.artists[0].name }}</div>
+        <div class="subtitle">{{ rightClickedTrackComputed.artists?.[0]?.name }}</div>
       </div>
     </div>
     <hr v-show="type !== 'cloudDisk'" />
@@ -367,7 +367,7 @@ const rmTrackFromPlaylist = () => {
       removeTrackFromPlaylist(props.id as number, rightClickedTrackComputed.value.id).then(
         (result) => {
           if (result) {
-            removeTrack(idx)
+            removeTrack()
             showToast(t('toast.removedFromPlaylist'))
           }
         }
@@ -387,7 +387,7 @@ const rmTrackFromPlaylist = () => {
       }).then((result) => {
         if (result.body.code === 200) {
           showToast(t('toast.removedFromPlaylist'))
-          removeTrack(idx)
+          removeTrack()
         } else {
           showToast(result.body.message)
         }
@@ -410,7 +410,7 @@ const rmTrackFromPlaylist = () => {
         ] as unknown as string[]
       ).then((res) => {
         if (res) {
-          removeTrack(idx)
+          removeTrack()
           showToast(t('toast.removedFromPlaylist'))
         }
       })
@@ -452,13 +452,13 @@ const downloadTrackItem = async () => {
     }
 
     const albumInfo = {
-      id: track.al?.id || track.album?.id || 0,
-      name: track.al?.name || track.album?.name || '',
+      id: (track.al as any)?.id || (track.album as any)?.id || 0,
+      name: (track.al as any)?.name || (track.album as any)?.name || '',
       picUrl: track.al?.picUrl || track.album?.picUrl || ''
-    } as any
+    }
 
     // Pass empty url, it will be fetched in main process using getAudioSourceFromNetease
-    await downloadTrack(track, '', albumInfo)
+    await downloadTrack(track as any, '', albumInfo)
     showToast('开始下载: ' + track.name)
   } catch (error) {
     console.error('Download failed:', error)
