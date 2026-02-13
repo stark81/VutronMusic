@@ -164,7 +164,7 @@ const getAlbumInfo = async (
     const client = http
     const url = `http://127.0.0.1:40001/netease/album?id=${albumId}`
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const req = client.get(url, (res) => {
         if (res.statusCode !== 200) {
           res.resume()
@@ -313,13 +313,12 @@ const runDownloadTask = async (
 
 const taskQueue: any[] = []
 let _running = false
-let _currentTask: any = null
 
 async function processQueue() {
   if (_running || taskQueue.length === 0) return
   _running = true
   const { track, url, downloadPath, taskId } = taskQueue.shift()
-  _currentTask = taskId
+  // TODO: 跟踪当前任务
 
   try {
     downloadPort?.postMessage({ type: 'download-start', taskId })
@@ -332,7 +331,6 @@ async function processQueue() {
     downloadPort?.postMessage({ type: 'download-error', taskId, error: err.message })
   } finally {
     _running = false
-    _currentTask = null
     processQueue()
   }
 }

@@ -152,7 +152,7 @@ function _superPropBase(t, o) {
   for (; !{}.hasOwnProperty.call(t, o) && (t = _getPrototypeOf(t)) !== null; );
   return t
 }
-function _superPropGet(t, o, e, r) {
+function _superPropGet(t, o, e) {
   const p = _get(_getPrototypeOf(t.prototype), o, e)
   return typeof p === 'function'
     ? function (t) {

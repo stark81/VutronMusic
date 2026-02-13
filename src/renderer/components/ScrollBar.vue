@@ -85,7 +85,7 @@ const handleMouseenter = () => {
   active.value = true
 }
 
-const scrollMainTo = inject('scrollMainTo', (to: number, behavior: 'smooth' | 'instant') => {})
+const scrollMainTo = inject('scrollMainTo', () => {})
 
 const handleMouseleave = () => {
   setScrollbarHideTimeout()

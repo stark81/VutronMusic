@@ -61,7 +61,7 @@ class DBus implements DBusImpl {
       LikeThisTrack: () => {
         this.win.webContents.send('like')
       },
-      emit: function (signalName: signalNameEnum, ...args: any) {}
+      emit: function () {}
     }
 
     this.sessionBus.exportInterface(this.iface, objectPath, ifaceDesc)

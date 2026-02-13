@@ -59,6 +59,36 @@
           </div>
         </div>
 
+        <div v-show="selectedMode.mode === 'cookie'" class="web-login-hint">
+          <button class="auto-login-btn" :disabled="autoLoginLoading" @click="openAutoLoginWindow">
+            <svg-icon v-if="!autoLoginLoading" icon-class="login" />
+            <div v-else class="loading-spinner"></div>
+            <span>{{ autoLoginLoading ? $t('login.autoLoginWaiting') : $t('login.openWebLogin') }}</span>
+          </button>
+          <div class="cookie-steps">
+            <div class="step-item">
+              <span class="step-num">1</span>
+              <span>{{ $t('login.cookieStep1') }}</span>
+            </div>
+            <div class="step-item">
+              <span class="step-num">2</span>
+              <span>{{ $t('login.cookieStep2') }}</span>
+            </div>
+            <div class="step-item">
+              <span class="step-num">3</span>
+              <span>{{ $t('login.cookieStep3') }}</span>
+            </div>
+            <div class="step-item">
+              <span class="step-num">4</span>
+              <span>{{ $t('login.cookieStep4') }}</span>
+            </div>
+            <div class="step-item">
+              <span class="step-num">5</span>
+              <span>{{ $t('login.cookieStep5') }}</span>
+            </div>
+          </div>
+        </div>
+
         <div v-show="['phone', 'email'].includes(selectedMode.mode)" class="input-box">
           <div class="container" :class="{ active: inputFocus === 'password' }">
             <svg-icon icon-class="lock" />
@@ -145,6 +175,7 @@ const qrCodeKey = ref('')
 const qrCodeCheckInterval = ref<any>(null)
 const qrCodeInformation = ref('打开网易云音乐APP扫码登录')
 const inputCookie = ref('')
+const autoLoginLoading = ref(false)
 
 const dataStore = useDataStore()
 const { user } = storeToRefs(dataStore)
@@ -168,6 +199,25 @@ const selectedColor = computed(() => {
 const login = () => {
   if (selectedMode.value.mode === 'cookie') {
     doCookieLogin()
+  }
+}
+
+const openAutoLoginWindow = async () => {
+  console.log('[Login] Opening auto login window...')
+  autoLoginLoading.value = true
+  try {
+    console.log('[Login] Invoking open-netease-login-window...')
+    const cookieString = await window.mainApi?.invoke('open-netease-login-window')
+    console.log('[Login] Got cookie string:', cookieString ? 'Yes' : 'No')
+    if (cookieString) {
+      inputCookie.value = cookieString
+      // 自动执行登录
+      doCookieLogin()
+    }
+  } catch (error) {
+    console.error('[Login] Failed to get cookie:', error)
+  } finally {
+    autoLoginLoading.value = false
   }
 }
 
@@ -435,6 +485,89 @@ onBeforeUnmount(() => {
   padding-top: 12px;
   font-size: 12px;
   opacity: 0.48;
+}
+
+.web-login-hint {
+  margin-top: 12px;
+  width: 300px;
+}
+
+.auto-login-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text);
+  background: color-mix(in oklab, var(--color-primary) var(--bg-alpha), white);
+  border: 1px solid var(--color-primary);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: 0.2s;
+
+  .svg-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--color-primary);
+    color: white;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-text);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.cookie-steps {
+  margin-top: 16px;
+
+  .step-item {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 8px;
+    line-height: 1.6;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    .step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      margin-right: 8px;
+      padding: 0 4px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--color-primary);
+      background: var(--color-primary-bg);
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+  }
 }
 
 @keyframes loading {

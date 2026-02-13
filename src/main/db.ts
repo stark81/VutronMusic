@@ -198,11 +198,8 @@ class DB {
     data: Partial<TablesStructures[T]>
   ) {
     // 构造SET子句的部分，使用占位符
-    const placeholders = Object.keys(data)
-      .map(() => '?')
-      .join(', ')
     const setClauses = Object.entries(data)
-      .map(([columnName, value], index) => `${columnName} = ?`) // 注意这里的?占位符
+      .map(([columnName]) => `${columnName} = ?`) // 注意这里的?占位符
       .join(', ')
 
     // 构造完整的SQL语句

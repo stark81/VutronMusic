@@ -6,8 +6,7 @@
     "library": "Library",
     "stream": "Stream",
     "localMusic": "Local Music",
-    "tongrenlu": "Tongrenlu",
-    "download": "Download",
+    "tongrenlu": "Touhou Doujin",
     "settings": "Settings",
     "github": "GitHub Repository",
     "log": "Open Log Folder",
@@ -190,6 +189,13 @@
     "loginWithPhone": "Login with Phone",
     "loginWithQr": "Login with QrCode",
     "loginWithCookie": "Login with Cookie",
+    "openWebLogin": "Open Web Login",
+    "autoLoginWaiting": "Waiting for login...",
+    "cookieStep1": "Open web version and complete login",
+    "cookieStep2": "Press F12 to open DevTools, switch to Network tab",
+    "cookieStep3": "Filter to show Fetch/XHR requests",
+    "cookieStep4": "Click Daily Recommendation, find songs?csrf_token request",
+    "cookieStep5": "Copy all Cookie from request headers, paste to input box above",
     "noticeElectron": "Your password is hashed with MD5 locally before transmission to NetEase API. VutronMusic does not transmit your account data to any non-official servers."
   },
   "player": {
@@ -547,35 +553,18 @@
     "deleteFailed": "Deletion failed",
     "copySuccess": "Copied successfully"
   },
+  "tongrenlu": {
+    "searchPlaceholder": "Search Touhou Doujin Music...",
+    "searchKeyword": "Search Keyword:",
+    "clearSearch": "Clear Search",
+    "reset": "Reset",
+    "noResults": "No Results",
+    "loadMore": "Load More"
+  },
   "next": {
     "nowPlaying": "Now Playing",
     "insertPlaying": "Play Next",
     "nextPlaying": "Up Next",
     "historyPlaying": "History"
-  },
-  "tongrenlu": {
-    "searchPlaceholder": "Search Albums",
-    "noResults": "No Results",
-    "loadMore": "Load More",
-    "searchKeyword": "Search:",
-    "clearSearch": "Clear"
-  },
-  "download": {
-    "title": "Download Manager",
-    "downloadPath": "Download Path",
-    "changePath": "Change",
-    "downloading": "Downloading",
-    "completed": "Completed",
-    "error": "Download Failed",
-    "cancelled": "Cancelled",
-    "pending": "Pending",
-    "cancel": "Cancel",
-    "retry": "Retry",
-    "clearCompleted": "Clear Completed",
-    "clearAll": "Clear All",
-    "downloadTrack": "Download Track",
-    "downloadAlbum": "Download Album",
-    "noTasks": "No Download Tasks",
-    "openFolder": "Open Folder"
   }
 }

@@ -14,11 +14,6 @@
     <ShowToast />
     <AddTrackToPlaylistModal />
     <newPlaylistModal />
-    <ModalDownload
-      v-if="showDownloadModal"
-      :show="showDownloadModal"
-      @close="showDownloadModal = false"
-    />
     <PlayPage v-if="enabled" />
   </div>
 </template>
@@ -32,7 +27,6 @@ import SideNav from './components/SideNav.vue'
 import ShowToast from './components/ShowToast.vue'
 import AddTrackToPlaylistModal from './components/ModalAddTrackToPlaylist.vue'
 import newPlaylistModal from './components/ModalNewPlaylist.vue'
-import ModalDownload from './components/ModalDownload.vue'
 import PlayPage from './views/PlayPage.vue'
 import { useDataStore } from './store/data'
 import { useLocalMusicStore } from './store/localMusic'
@@ -118,7 +112,6 @@ const handleEventBus = () => {
 
 const padding = ref(96)
 const userSelectNone = ref(false)
-const showDownloadModal = ref(false)
 const settingsStore = useSettingsStore()
 const { theme, localMusic, general } = storeToRefs(settingsStore)
 const appearance = ref(theme.value.appearance)
@@ -212,16 +205,16 @@ const handleChanelEvent = () => {
       showToast(`扫描本地歌曲出错, 详情见：开发者工具-控制台`)
     }
   )
-  window.mainApi?.on('scanLocalMusicDone', (_: any) => {
+  window.mainApi?.on('scanLocalMusicDone', () => {
     scanning.value = false
   })
   window.mainApi?.on('msgDeletedTracks', (_: any, trackIDs: number[]) => {
     deleteLocalTracks(trackIDs)
   })
-  window.mainApi?.on('rememberCloseAppOption', (_: any, result: string) => {
+  window.mainApi?.on('rememberCloseAppOption', (_event: any, result: string) => {
     general.value.closeAppOption = result
   })
-  window.mainApi?.on('msgExtensionCheckResult', (_: any, result: boolean) => {
+  window.mainApi?.on('msgExtensionCheckResult', (_event: any, result: boolean) => {
     extensionCheckResult.value = result
   })
   window.mainApi?.on('updateOSDSetting', (_: any, data: { [key: string]: any }) => {
@@ -237,11 +230,11 @@ const handleChanelEvent = () => {
     showToast(`下载更新：${parseFloat(data.percent.toFixed(2))}%`)
     if (data.percent === 100) isDownloading.value = false
   })
-  window.mainApi?.on('update-error', (_: any) => {
+  window.mainApi?.on('update-error', () => {
     isDownloading.value = false
     showToast('下载错误')
   })
-  window.mainApi?.on('changeRouteTo', (_: any, route: string) => {
+  window.mainApi?.on('changeRouteTo', (_event: any, route: string) => {
     showLyrics.value = false
     router.push(route)
   })
@@ -253,10 +246,6 @@ onMounted(async () => {
   registerInstance(instanceId.value)
   handleEventBus()
   handleChanelEvent()
-  // 初始化下载事件监听器
-  const { useDownloadStore } = await import('./store/download')
-  const downloadStore = useDownloadStore()
-  downloadStore.initDownloadListener()
   hasCustomTitleBar.value =
     (window.env?.isLinux && general.value.useCustomTitlebar) || window.env?.isWindows || false
   if (isMac.value) {
@@ -285,10 +274,6 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   unregisterInstance(instanceId.value)
-})
-
-provide('toggleDownloadModal', () => {
-  showDownloadModal.value = !showDownloadModal.value
 })
 </script>
 

@@ -47,6 +47,8 @@ const mainAvailChannels: string[] = [
   'likeAStreamTrack',
   'systemPing',
   'get-stream-account',
+  'get-tongrenlu-albums',
+  'open-netease-login-window',
   'check-update',
   'downloadUpdate',
   'update-powersave',
@@ -64,12 +66,7 @@ const mainAvailChannels: string[] = [
   'track-scrobble',
   'get-screenshot',
   'delete-screenshot',
-  'get-cache-path',
-  'get-music-path',
-  'get-tongrenlu-albums',
-  'download-track',
-  'cancel-download',
-  'clear-download-queue'
+  'get-cache-path'
 ]
 const rendererAvailChannels: string[] = [
   'msgHandleScanLocalMusic',
@@ -97,8 +94,7 @@ const rendererAvailChannels: string[] = [
   'changeRouteTo',
   'updateAmuseServerStatus',
   'receiveCacheInfo',
-  'updateLocalMusic',
-  'download-progress-update'
+  'updateLocalMusic'
 ]
 
 let messagePort: MessagePort | null = null

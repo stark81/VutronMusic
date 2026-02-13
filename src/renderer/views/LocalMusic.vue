@@ -462,7 +462,7 @@ watch(idx, () => {
   })
 })
 
-window.mainApi?.on('scanLocalMusicDone', (_: any) => {
+window.mainApi?.on('scanLocalMusicDone', () => {
   getRandomTrack()
 })
 

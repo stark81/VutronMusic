@@ -1,5 +1,20 @@
 export type TrackType = 'online' | 'local' | 'stream'
 
+export interface TongrenluRecord {
+  cloudMusicId: number
+  cloudMusicName: string
+  cloudMusicPicUrl: string
+  [key: string]: any
+}
+
+export interface TongrenluResponse {
+  records: TongrenluRecord[]
+  total: number
+  current: number
+  pages: number
+  [key: string]: any
+}
+
 export interface Artist {
   id: number
   name: string
@@ -125,30 +140,6 @@ type CommonName = '默认' | '旋转封面' | '信笺歌词' | '歌词环游'
 type LyricType = 'common' | 'creative' | 'customize'
 type LyricLayer = 'Normal' | 'Creative'
 export type Appearance = 'auto' | 'light' | 'dark'
-
-export interface TongrenluAlbum {
-  id: number
-  title: string
-  description: string
-  publishFlg: string
-  cloudMusicPicUrl: string
-  cloudMusicId: number
-  cloudMusicName: string
-}
-
-export interface TongrenluResponse {
-  records: TongrenluAlbum[]
-  total: number
-  size: number
-  current: number
-  pages: number
-  orders: any[]
-  optimizeCountSql: boolean
-  searchCount: boolean
-  optimizeJoinOfCountSql: boolean
-  maxLimit: any
-  countId: any
-}
 
 export interface CommonTheme {
   name: CommonName

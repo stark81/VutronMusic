@@ -56,15 +56,11 @@ export const getRecommendPlayList = async (limit: number, removePrivateRecommand
 const replaceRecommendResult = async (recommend: any) => {
   for (const r of recommend) {
     if (specialPlaylist.indexOf(r.id) > -1) {
-      try {
-        const data = await getPlaylistDetail(r.id, true)
-        const playlist = data.playlist
-        if (playlist) {
-          r.name = playlist.name
-          r.picUrl = playlist.coverImgUrl
-        }
-      } catch (error) {
-        console.error('Failed to get special playlist detail:', r.id, error)
+      const data = await getPlaylistDetail(r.id, true)
+      const playlist = data.playlist
+      if (playlist) {
+        r.name = playlist.name
+        r.picUrl = playlist.coverImgUrl
       }
     }
   }

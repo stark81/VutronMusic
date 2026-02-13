@@ -62,7 +62,7 @@ class ServiceMonitor {
       })
   }
 
-  private onOwnerName(owner: string) {
+  private onOwnerName() {
     const path = `/${this.serviceName.replace(/\./g, '/')}`
     this.sessionBus
       .getService(this.serviceName)

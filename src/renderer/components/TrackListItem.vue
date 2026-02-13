@@ -76,13 +76,6 @@
           ></svg-icon>
           <svg-icon v-show="isLiked" icon-class="heart-solid"></svg-icon>
         </button>
-        <button
-          v-if="track.type === 'online' && focus"
-          :title="$t('download.downloadTrack')"
-          @click="downloadTrack"
-        >
-          <svg-icon icon-class="download"></svg-icon>
-        </button>
       </div>
       <div v-if="showTrackTime && showTrackTimeOrID === 'ID'" class="time">
         {{ track.id }}
@@ -330,85 +323,6 @@ const likeThisSong = () => {
     likeAStreamTrack(op, track.value as Track)
   } else {
     likeATrack(track.value.id)
-  }
-}
-
-const downloadTrack = async () => {
-  if (track.value.type !== 'online') {
-    showToast(t('player.noAllowCauseLocal'))
-    return
-  }
-
-  console.log('[TrackListItem] Starting download, track:', JSON.stringify(track.value))
-
-  try {
-    // 使用 track 对象中的 url 属性
-    let url = track.value.url
-
-    // 如果 URL 为空，尝试从 API 获取
-    if (!url) {
-      const request = (await import('../utils/request')).default
-      const result = await request({
-        url: '/song/url',
-        method: 'get',
-        params: {
-          id: track.value.id,
-          br: 320000
-        }
-      })
-      if (result && result.code === 200 && result.data && result.data.length > 0) {
-        url = result.data[0].url
-      }
-    }
-
-    if (!url) {
-      showToast(t('player.playUrlNotFound'))
-      return
-    }
-
-    // 导入下载 store
-    const { useDownloadStore } = await import('../store/download')
-    const downloadStore = useDownloadStore()
-
-    // 提取专辑信息
-    const albumInfo = {
-      id: track.value.album?.id || track.value.al?.id,
-      name: track.value.album?.name || track.value.al?.name || 'Unknown Album',
-      picUrl: track.value.album?.picUrl || track.value.al?.picUrl
-    }
-
-    // 如果有专辑 ID 且没有专辑艺人信息，则调用 API 获取专辑信息
-    const albumId = track.value.album?.id || track.value.al?.id
-    if (albumId && !track.value.albumArtist?.[0]?.name && !track.value.al?.ar?.[0]?.name) {
-      console.log('[TrackListItem] Fetching album info for album:', albumId)
-      const { getAlbum } = await import('../api/album')
-      const albumData = await getAlbum(albumId)
-      if (albumData && albumData.code === 200 && albumData.album) {
-        console.log('[TrackListItem] Album info fetched:', {
-          id: albumData.album.id,
-          name: albumData.album.name,
-          artists: albumData.album.artists?.map((a: any) => a.name)
-        })
-        // 更新专辑信息
-        albumInfo.id = albumData.album.id
-        albumInfo.name = albumData.album.name
-        albumInfo.picUrl = albumData.album.picUrl
-        // 更新 track 对象的专辑艺人信息
-        track.value.albumArtist = albumData.album.artists || albumData.album.ar || []
-        if (track.value.al) {
-          track.value.al.ar = albumData.album.artists || albumData.album.ar || []
-        }
-      }
-    }
-
-    console.log('[TrackListItem] Album info:', JSON.stringify(albumInfo))
-
-    // 开始下载，传入专辑信息
-    downloadStore.downloadTrack(track.value, url, albumInfo)
-    showToast(t('download.downloading'))
-  } catch (error) {
-    console.error('Download track error:', error)
-    showToast(t('download.error'))
   }
 }
 

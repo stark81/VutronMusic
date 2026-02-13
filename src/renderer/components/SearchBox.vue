@@ -13,9 +13,6 @@
       @keydown.enter="doKeydownEnter"
       @blur="doblur"
     />
-    <div v-if="keywords && showInput" class="clear-icon" @click="handleClear">
-      <svg-icon icon-class="close" />
-    </div>
   </div>
 </template>
 
@@ -82,11 +79,6 @@ const doblur = () => {
   if (!keywords.value) toggleInput()
 }
 
-const handleClear = () => {
-  keywords.value = ''
-  inputRef.value?.focus()
-}
-
 defineExpose({ keywords })
 </script>
 
@@ -127,26 +119,5 @@ defineExpose({ keywords })
   color: var(--color-text);
   background: transparent;
   transition: all 0.3s;
-}
-
-.clear-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  cursor: pointer;
-  margin-right: 4px;
-  transition: background-color 0.3s;
-
-  &:hover {
-    background-color: rgba(0, 0, 0, 0.1);
-  }
-
-  .svg-icon {
-    height: 12px;
-    width: 12px;
-    opacity: 0.5;
-  }
 }
 </style>

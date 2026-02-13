@@ -277,10 +277,10 @@ const loadData = (id: string, next: any = undefined) => {
   })
 }
 
-const goToMv = (id: string) => {}
+const goToMv = () => {}
 const updatePadding = inject('updatePadding') as (padding: number) => void
 
-const scrollTo = (div: string, block = 'center') => {}
+const scrollTo = () => {}
 
 const playPopularSongs = () => {
   const ids = popularTracks.value.map((t) => t.id)

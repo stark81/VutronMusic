@@ -491,7 +491,7 @@ const addToQueue = (ids: number | number[] | null = null) => {
   addTrackToPlayNext(ids)
 }
 const updatePadding = inject('updatePadding') as (padding: number) => void
-const removeTrack = inject('removeTrack', (id: number | string) => {})
+const removeTrack = inject('removeTrack', () => {})
 
 provide('playThisList', playThisList)
 provide('selectedList', selectedList)

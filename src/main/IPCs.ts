@@ -26,18 +26,10 @@ let isLock = store.get('osdWin.isLock') as boolean
 let blockerId: number | null = null
 let coverWorker: Worker
 let cacheWorker: Worker | null = null
-let downloadWorker: Worker | null = null
 
 const closeCacheWorker = async () => {
   await cacheWorker.terminate()
   cacheWorker = null
-}
-
-const closeDownloadWorker = async () => {
-  if (downloadWorker) {
-    await downloadWorker.terminate()
-    downloadWorker = null
-  }
 }
 
 /*
@@ -321,6 +313,92 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
 
   ipcMain.on('update-now-playing', (event, params: Record<string, any>) => {
     updateNowPlaying(params)
+  })
+
+  // 打开网易云音乐登录窗口
+  ipcMain.handle('open-netease-login-window', async () => {
+    log.info('[IPC] open-netease-login-window called')
+    const { BrowserWindow, session } = require('electron')
+
+    // 创建独立的 session
+    const loginSession = session.fromPartition('persist:netease-login')
+    log.info('[IPC] Created login session')
+
+    // 创建登录窗口
+    const loginWindow = new BrowserWindow({
+      width: 1024,
+      height: 768,
+      title: '网易云音乐登录',
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        webSecurity: true,
+        session: loginSession
+      },
+      show: false
+    })
+    log.info('[IPC] Created login window')
+
+    // 监听加载失败事件
+    loginWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+      log.error('[IPC] Failed to load login page:', errorCode, errorDescription)
+    })
+
+    // 加载网易云音乐登录页面
+    try {
+      log.info('[IPC] Loading login URL...')
+      await loginWindow.loadURL('https://music.163.com/#/login')
+      log.info('[IPC] Login URL loaded successfully')
+    } catch (error) {
+      log.error('[IPC] Error loading login page:', error)
+      loginWindow.close()
+      return null
+    }
+
+    // 直接显示窗口，不等待 ready-to-show
+    loginWindow.show()
+    log.info('[IPC] Login window shown')
+
+    loginWindow.once('ready-to-show', () => {
+      log.info('[IPC] Login window ready to show')
+    })
+
+    return new Promise((resolve) => {
+      let checkCount = 0
+      // 监听 cookie 变化
+      const checkInterval = setInterval(async () => {
+        try {
+          checkCount++
+          const cookies = await loginSession.cookies.get({ domain: '.music.163.com' })
+          log.info(`[IPC] Checking cookies (count: ${checkCount}, found: ${cookies.length})`)
+
+          // 检查是否包含 MUSIC_U cookie（登录成功的标志）
+          const musicUCookie = cookies.find(c => c.name === 'MUSIC_U')
+
+          if (musicUCookie && musicUCookie.value) {
+            log.info('[IPC] MUSIC_U cookie found, login successful')
+            clearInterval(checkInterval)
+
+            // 构建完整的 cookie 字符串
+            const cookieString = cookies
+              .map(cookie => `${cookie.name}=${cookie.value}`)
+              .join('; ')
+
+            loginWindow.close()
+            resolve(cookieString)
+          }
+        } catch (error) {
+          log.error('[IPC] Error checking cookies:', error)
+        }
+      }, 1000)
+
+      // 窗口关闭时也停止检查
+      loginWindow.on('closed', () => {
+        log.info('[IPC] Login window closed')
+        clearInterval(checkInterval)
+        resolve(null)
+      })
+    })
   })
 
   ipcMain.handle('msgRequestGetVersion', () => {
@@ -762,10 +840,6 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
   ipcMain.handle('get-cache-path', () => {
     return path.join(app.getPath('userData'), 'audioCache')
   })
-
-  ipcMain.handle('get-music-path', () => {
-    return app.getPath('music')
-  })
 }
 
 async function initMprisIpcMain(win: BrowserWindow, mpris: MprisImpl): Promise<void> {
@@ -976,59 +1050,7 @@ async function initStreaming() {
     return { navidrome: res[0], emby: res[1], jellyfin: res[2] }
   })
 
-  ipcMain.handle(
-    'get-tongrenlu-albums',
-    async (event, data: { keyword?: string; pageNumber: number; pageSize: number }) => {
-      return searchAlbums(data.keyword, data.pageNumber, data.pageSize)
-    }
-  )
-
-  // 下载相关 IPC 处理器
-  ipcMain.on(
-    'download-track',
-    (
-      event,
-      data: {
-        track: Track
-        url: string
-        taskId: string
-        downloadPath?: string
-        albumInfo?: { id: number; name: string; picUrl: string }
-      }
-    ) => {
-      if (!downloadWorker) {
-        downloadWorker = createWorker('downloadTrack')
-        downloadWorker.on('message', (msg) => {
-          event.sender.send('download-progress-update', msg)
-        })
-      }
-
-      const downloadPath =
-        data.downloadPath ||
-        (store.get('settings.localMusic.scanDir') as string) ||
-        (store.get('settings.autoCacheTrack.path') as string) ||
-        app.getPath('downloads')
-
-      downloadWorker.postMessage({
-        type: 'download',
-        track: data.track,
-        url: data.url,
-        downloadPath,
-        taskId: data.taskId,
-        albumInfo: data.albumInfo
-      })
-    }
-  )
-
-  ipcMain.on('cancel-download', (event, taskId: string) => {
-    if (downloadWorker) {
-      downloadWorker.postMessage({ type: 'cancel', taskId })
-    }
-  })
-
-  ipcMain.on('clear-download-queue', () => {
-    if (downloadWorker) {
-      downloadWorker.postMessage({ type: 'clear' })
-    }
+  ipcMain.handle('get-tongrenlu-albums', async (event, data) => {
+    return await searchAlbums(data.keyword, data.pageNumber, data.pageSize)
   })
 }

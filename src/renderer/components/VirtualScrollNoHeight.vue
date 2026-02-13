@@ -148,7 +148,7 @@ const visibleMiddle = computed(() => (endRow.value + startRow.value) / 2)
 
 const hasCustomTitleBar = inject('hasCustomTitleBar', ref(true))
 const mainRef = inject('mainRef', ref<HTMLElement>())
-const scrollMainTo = inject('scrollMainTo', (to: number) => {})
+const scrollMainTo = inject('scrollMainTo', () => {})
 
 const _isPrefixSubset = (oldArray: any[], newArray: any[]) => {
   if (newArray.length < oldArray.length || !oldArray.length) return false

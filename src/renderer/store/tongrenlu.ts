@@ -19,20 +19,24 @@ export const useTongrenluStore = defineStore(
       }
       loading.value = true
 
-      const result = await window.mainApi?.invoke('get-tongrenlu-albums', {
-        keyword: keyword.value,
-        pageNumber: currentPage.value,
-        pageSize: 15
-      })
+      try {
+        const result = await window.mainApi?.invoke('get-tongrenlu-albums', {
+          keyword: keyword.value,
+          pageNumber: currentPage.value,
+          pageSize: 15
+        })
 
-      if (result && result.code === 200) {
-        if (reset) {
-          albums.value = result.data
-        } else {
-          albums.value.push(...result.data)
+        if (result && result.code === 200) {
+          if (reset) {
+            albums.value = result.data
+          } else {
+            albums.value.push(...result.data)
+          }
+          totalPages.value = result.pages
+          total.value = result.total
         }
-        totalPages.value = result.pages
-        total.value = result.total
+      } catch (error) {
+        console.error('[Tongrenlu Store] Error fetching albums:', error)
       }
 
       loading.value = false

@@ -89,15 +89,11 @@ const doHover = (isHover: boolean) => {
 
 const play = () => {
   if (props.type === 'playlist') {
-    getPlaylistDetail(props.id as number, false)
-      .then((data) => {
-        const trackIDs = data.playlist.trackIds.map((t: any) => t.id)
-        const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
-        replacePlaylist(props.type, props.id, trackIDs, idx)
-      })
-      .catch((error) => {
-        console.error('Failed to get playlist detail:', error)
-      })
+    getPlaylistDetail(props.id as number, false).then((data) => {
+      const trackIDs = data.playlist.trackIds.map((t: any) => t.id)
+      const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
+      replacePlaylist(props.type, props.id, trackIDs, idx)
+    })
   } else if (props.type === 'localPlaylist') {
     const playlist = localMusic.playlists.value.find((p) => p.id === props.id)!
     const trackIDs = playlist.trackIds

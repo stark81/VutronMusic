@@ -95,22 +95,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useDownloadStore } from '../store/download'
-import type { DownloadTask } from '../store/download'
 
 interface Props {
   show: boolean
 }
 
-const props = defineProps<Props>()
+defineProps<Props>()
 const emit = defineEmits<{
   close: []
 }>()
 
 const downloadStore = useDownloadStore()
 const {
-  tasks,
   cancelDownload,
   clearCompletedTasks,
   clearAllTasks,

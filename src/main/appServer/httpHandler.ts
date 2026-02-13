@@ -64,7 +64,7 @@ const httpHandler: FastifyPluginAsync = async (fastify: FastifyInstance) => {
 
   fastify.get(
     '/stream-asset',
-    async (req: FastifyRequest<{ Querystring: Record<string, string> }>, res) => {
+    async (req: FastifyRequest<{ Querystring: Record<string, string> }>) => {
       const { service, id, primary, size } = req.query as {
         service: 'navidrom' | 'jellyfin' | 'emby'
         id: string

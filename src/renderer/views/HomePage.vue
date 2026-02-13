@@ -170,10 +170,6 @@ const loadData = () => {
     recommendPlaylist.value.items = items
     tricklingProgress.done()
     show.value = true
-  }).catch((error) => {
-    console.error('Failed to get recommend playlist:', error)
-    tricklingProgress.done()
-    show.value = true
   })
 
   toplistOfArtists(toplistOfArtistsAreaTable[general.value.musicLanguage ?? 'all']).then((data) => {

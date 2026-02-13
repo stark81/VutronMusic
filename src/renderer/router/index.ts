@@ -5,10 +5,6 @@ import { isAccountLoggedIn } from '../utils/auth'
 const routes = [
   {
     path: '/',
-    redirect: '/tongrenlu'
-  },
-  {
-    path: '/home',
     name: 'HomePage',
     component: HomePage,
     meta: {
@@ -47,6 +43,24 @@ const routes = [
     component: () => import(/* webpackPrefetch: true */ '../views/StreamPage.vue')
   },
   {
+    path: '/streamPlaylist/:service/:id',
+    name: 'streamPlaylist',
+    component: () => import('../views/PlaylistPage.vue')
+  },
+  {
+    path: '/library/liked-songs',
+    name: 'likedSongs',
+    component: () => import('../views/PlaylistPage.vue'),
+    meta: {
+      requireLogin: true
+    }
+  },
+  {
+    path: '/stream-liked-songs/:service',
+    name: 'streamLikedSongs',
+    component: () => import('../views/PlaylistPage.vue')
+  },
+  {
     path: '/localMusic',
     name: 'localMusic',
     component: () => import(/* webpackPrefetch: true */ '../views/LocalMusic.vue'),
@@ -59,10 +73,17 @@ const routes = [
   {
     path: '/tongrenlu',
     name: 'tongrenlu',
-    component: () => import(/* webpackPrefetch: true */ '../views/TongrenluPage.vue'),
-    meta: {
-      titleKey: 'nav.tongrenlu'
-    }
+    component: () => import('../views/TongrenluPage.vue')
+  },
+  {
+    path: '/playlist/:id',
+    name: 'playlist',
+    component: () => import('../views/PlaylistPage.vue')
+  },
+  {
+    path: '/localPlaylist/:id',
+    name: 'localPlaylist',
+    component: () => import('../views/PlaylistPage.vue')
   },
   {
     path: '/settings',
@@ -142,6 +163,11 @@ const router = createRouter({
   history: window.env?.isElectron ? createWebHashHistory() : createWebHistory(),
   routes
 })
+
+// 在 Electron 环境下，默认导航到东方同人录
+if (window.env?.isElectron && window.location.hash === '' || window.location.hash === '#/') {
+  router.replace('/tongrenlu')
+}
 
 router.beforeEach((to, from, next) => {
   document.documentElement.scrollTo({ top: 0 })

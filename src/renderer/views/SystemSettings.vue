@@ -1270,7 +1270,7 @@ const tab = ref('general')
 const lyricTab = ref(isWindows ? 'osdLyric' : 'trayLyric')
 const musicTab = ref('netease')
 const updateTab = (index: number) => {
-  const tabs = ['general', 'lyric', 'music', 'download', 'unblock', 'shortcut', 'misc', 'update'] // 'appearance'
+  const tabs = ['general', 'lyric', 'music', 'unblock', 'shortcut', 'misc', 'update'] // 'appearance'
   const tabName = tabs[index]
   tab.value = tabName
   slideTop.value = index * 40
