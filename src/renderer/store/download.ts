@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, toRaw } from 'vue'
 import type { Track } from '@/types/music'
 import { useSettingsStore } from './settings'
+import { debug } from 'electron-log'
 
 export interface DownloadTask {
   taskId: string
@@ -60,7 +61,7 @@ export const useDownloadStore = defineStore('download', () => {
   const downloadTrack = async (
     track: Track,
     url: string,
-    albumInfo?: { id: number; name: string; picUrl: string }
+    albumInfo?: { id: number; name: string; picUrl: string; artist?: { id: number; name: string } }
   ) => {
     const taskId = `${track.id}-${Date.now()}`
     const settingsStore = useSettingsStore()
@@ -76,7 +77,7 @@ export const useDownloadStore = defineStore('download', () => {
     tasks.value.set(taskId, newTask)
 
     // 将 track 对象转换为普通 JavaScript 对象，避免克隆错误
-    const plainTrack = JSON.parse(JSON.stringify(track))
+    const plainTrack = JSON.parse(JSON.stringify(toRaw(track)))
     window.mainApi?.send('download-track', {
       track: plainTrack,
       url,

@@ -41,6 +41,9 @@
           <ButtonTwoTone icon-class="floor-comment" @click="openComment">
             {{ '评论' }}
           </ButtonTwoTone>
+          <ButtonTwoTone icon-class="download" @click="downloadAll">
+            {{ $t('contextMenu.downloadAll') }}
+          </ButtonTwoTone>
           <ButtonTwoTone
             :icon-class="dynamicDetail.isSub ? 'heart-solid' : 'heart'"
             :icon-button="true"
@@ -76,6 +79,7 @@
           :type="'album'"
           :album-object="album"
           :enable-virtual-scroll="false"
+          :extra-context-menu-item="['downloadTrack']"
         />
       </div>
     </div>
@@ -89,6 +93,7 @@
         type="album"
         :album-object="album"
         :enable-virtual-scroll="false"
+        :extra-context-menu-item="['downloadTrack']"
       />
     </div>
     <div class="extra-info">
@@ -150,7 +155,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, inject } from 'vue'
+import { ref, onMounted, computed, inject, toRaw } from 'vue'
 import { onBeforeRouteUpdate, useRoute } from 'vue-router'
 import { tricklingProgress } from '../utils/tricklingProgress'
 import Cover from '../components/CoverBox.vue'
@@ -170,6 +175,7 @@ import ExplicitSymbol from '../components/ExplicitSymbol.vue'
 import { useI18n } from 'vue-i18n'
 import { useNormalStateStore } from '../store/state'
 import { usePlayerStore } from '../store/player'
+import { useDownloadStore } from '../store/download'
 import { isAccountLoggedIn } from '../utils/auth'
 import { storeToRefs } from 'pinia'
 
@@ -188,6 +194,7 @@ const showFullDescription = ref(false)
 
 const { t } = useI18n()
 const { showToast } = useNormalStateStore()
+const { downloadTrack } = useDownloadStore()
 
 const albumTime = computed(() => {
   let time = 0
@@ -283,6 +290,44 @@ const openComment = () => {
 
 const closeComment = () => {
   showComment.value = false
+}
+
+const downloadAll = async () => {
+  showToast('开始下载专辑，请稍候...')
+
+  const albumId = album.value.id
+  const albumDetail = await getAlbum(albumId)
+  if (!albumDetail || !albumDetail.album) {
+    console.error('[TrackListItem] Invalid album detail response:', albumDetail)
+
+    showToast('无法获取专辑信息')
+
+    return
+  }
+
+  // 更新 track 对象中的专辑信息
+  const albumInfo = albumDetail.album
+
+  for (const track of tracks.value) {
+    try {
+      // 检查歌曲是否需要 VIP
+      if (track.fee === 1) {
+        console.log(`[AlbumPage] Skipping VIP track: ${track.name}`)
+        continue
+      }
+
+      // 将专辑信息放入 track 对象
+      track.album = albumInfo
+      track.al = albumInfo
+
+      // Pass empty url, it will be fetched in main process using getAudioSourceFromNetease
+      await downloadTrack(toRaw(track), '')
+    } catch (error) {
+      console.error(`[AlbumPage] Failed to download track: ${track.name}`, error)
+    }
+  }
+
+  showToast('专辑下载任务已添加')
 }
 
 const loadData = (id: string) => {

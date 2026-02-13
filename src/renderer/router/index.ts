@@ -165,7 +165,7 @@ const router = createRouter({
 })
 
 // 在 Electron 环境下，默认导航到东方同人录
-if (window.env?.isElectron && window.location.hash === '' || window.location.hash === '#/') {
+if ((window.location.hash === '') || window.location.hash === '#/') {
   router.replace('/tongrenlu')
 }
 

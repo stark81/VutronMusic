@@ -175,7 +175,9 @@
     "copyURL": "复制链接",
     "copyId": "复制ID",
     "playMV": "播放MV",
-    "setFont": "设置字体"
+    "setFont": "设置字体",
+    "downloadTrack": "下载",
+    "downloadAll": "全部下载"
   },
   "login": {
     "login": "登录",

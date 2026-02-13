@@ -175,7 +175,9 @@
     "copyURL": "Copy URL",
     "copyId": "Copy ID",
     "playMV": "Play MV",
-    "setFont": "Set Font"
+    "setFont": "Set Font",
+    "downloadTrack": "Download",
+    "downloadAll": "Download All"
   },
   "login": {
     "login": "Login",

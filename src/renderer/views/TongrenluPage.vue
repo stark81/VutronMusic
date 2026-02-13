@@ -13,11 +13,7 @@
             :placeholder="$t('tongrenlu.searchPlaceholder')"
             @keyup.enter="handleSearch"
           />
-          <button
-            v-if="searchKeyword"
-            class="clear-btn"
-            @click="handleClear"
-          >
+          <button v-if="searchKeyword" class="clear-btn" @click="handleClear">
             <svg-icon icon-class="close" />
           </button>
           <button class="search-btn" @click="handleSearch">

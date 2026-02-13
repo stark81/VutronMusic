@@ -111,6 +111,12 @@
     <div v-if="extraContextMenuItem.includes('showInFolder')" class="item" @click="showInFolder">{{
       $t('contextMenu.showInFolder')
     }}</div>
+    <div
+      v-if="extraContextMenuItem.includes('downloadTrack') && !isTrackDownloaded"
+      class="item"
+      @click="downloadTrackItem"
+      >{{ $t('contextMenu.downloadTrack') }}</div
+    >
   </ContextMenu>
 </template>
 
@@ -136,9 +142,11 @@ import TrackListItem from './TrackListItem.vue'
 import ContextMenu from './ContextMenu.vue'
 import { useI18n } from 'vue-i18n'
 import { addOrRemoveTrackFromPlaylist } from '../api/playlist'
+import { getTrackDetail } from '../api/track'
 import _ from 'lodash'
 import { isAccountLoggedIn } from '../utils/auth'
 import { useStreamMusicStore } from '../store/streamingMusic'
+import { useDownloadStore } from '../store/download'
 import SvgIcon from './SvgIcon.vue'
 import { serviceName, Track } from '@/types/music.d'
 
@@ -218,6 +226,12 @@ const stateStore = useNormalStateStore()
 const { showToast } = stateStore
 const { addTrackToPlaylistModal, accurateMatchModal } = storeToRefs(stateStore)
 
+const localMusicStore = useLocalMusicStore()
+const { getALocalTrack } = localMusicStore
+
+const downloadStore = useDownloadStore()
+const { downloadTrack } = downloadStore
+
 const { addOrRemoveTrackFromStreamPlaylist } = useStreamMusicStore()
 
 const isSelectAll = computed(() => {
@@ -239,6 +253,10 @@ const rightClickedTrackComputed = computed(() => {
         al: { picUrl: '' }
       }
     : rightClickedTrack.value
+})
+
+const isTrackDownloaded = computed(() => {
+  return getALocalTrack({ id: rightClickedTrackComputed.value.id }) !== undefined
 })
 
 const image = computed(() => {
@@ -412,6 +430,40 @@ const addToLocalPlaylist = (trackIDs: number[] = []) => {
       type: 'local'
     }
   })
+}
+
+const downloadTrackItem = async () => {
+  const track = rightClickedTrackComputed.value
+  try {
+    // 获取歌曲详情
+    const trackDetail = await getTrackDetail(String(track.id))
+
+    if (!trackDetail || !trackDetail.songs || trackDetail.songs.length === 0) {
+      showToast('无法获取歌曲详情')
+      return
+    }
+
+    const songData = trackDetail.songs[0]
+
+    // 检查歌曲是否可播放（VIP歌曲需要登录）
+    if (songData.fee === 1) {
+      showToast('该歌曲为VIP专属，需要登录后下载')
+      return
+    }
+
+    const albumInfo = {
+      id: track.al?.id || track.album?.id || 0,
+      name: track.al?.name || track.album?.name || '',
+      picUrl: track.al?.picUrl || track.album?.picUrl || ''
+    } as any
+
+    // Pass empty url, it will be fetched in main process using getAudioSourceFromNetease
+    await downloadTrack(track, '', albumInfo)
+    showToast('开始下载: ' + track.name)
+  } catch (error) {
+    console.error('Download failed:', error)
+    showToast('下载失败')
+  }
 }
 
 const removeFromQueue = (playlist: 'insert' | 'next', id: string | number) => {

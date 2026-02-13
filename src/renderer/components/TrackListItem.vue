@@ -76,6 +76,15 @@
           ></svg-icon>
           <svg-icon v-show="isLiked" icon-class="heart-solid"></svg-icon>
         </button>
+        <button v-if="showDownloadButton" :disabled="downloading" @click="downloadTrackItem">
+          <svg-icon
+            icon-class="download"
+            :style="{
+              visibility: focus && !downloading ? 'visible' : 'hidden'
+            }"
+          ></svg-icon>
+          <svg-icon v-if="downloading" icon-class="pause" class="spin"></svg-icon>
+        </button>
       </div>
       <div v-if="showTrackTime && showTrackTimeOrID === 'ID'" class="time">
         {{ track.id }}
@@ -99,16 +108,20 @@
 import SvgIcon from './SvgIcon.vue'
 import ArtistsInLine from './ArtistsInLine.vue'
 import ExplicitSymbol from './ExplicitSymbol.vue'
-import { computed, ref, toRefs, inject } from 'vue'
+import { computed, ref, toRefs, inject, toRaw } from 'vue'
 import { useNormalStateStore } from '../store/state'
 import { useSettingsStore } from '../store/settings'
 import { useStreamMusicStore } from '../store/streamingMusic'
 import { useDataStore } from '../store/data'
+import { useLocalMusicStore } from '../store/localMusic'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
+import { useDownloadStore } from '../store/download'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Track } from '@/types/music.d'
+import { getTrackDetail } from '../api/track'
+import { getAlbum } from '../api/album'
 
 const router = useRouter()
 const props = withDefaults(
@@ -141,6 +154,12 @@ const { currentTrack, enabled } = storeToRefs(playerStore)
 
 const stateStore = useNormalStateStore()
 const { showToast } = stateStore
+
+const localMusicStore = useLocalMusicStore()
+const { getALocalTrack } = localMusicStore
+
+const downloadStore = useDownloadStore()
+const { downloadTrack } = downloadStore
 
 const { t } = useI18n()
 
@@ -226,6 +245,90 @@ const formatedTime = computed(() => {
 const showLikeButton = computed(() => {
   return showTrackTime.value && type.value !== 'cloudDisk'
 })
+
+const showDownloadButton = computed(() => {
+  // 检查歌曲是否已经在本地
+  const isLocal = getALocalTrack({ id: track.value.id })
+  return (
+    showTrackTime.value &&
+    type.value !== 'cloudDisk' &&
+    type.value !== 'local' &&
+    type.value !== 'stream' &&
+    !isLocal
+  )
+})
+
+const downloading = ref(false)
+
+const downloadTrackItem = async () => {
+  if (downloading.value) return
+
+  downloading.value = true
+
+  try {
+    console.log('[TrackListItem] Downloading track:', track.value.id, track.value.name)
+
+    // 获取歌曲详情
+    const trackDetail = await getTrackDetail(String(track.value.id))
+
+    console.log('[TrackListItem] Track detail response:', trackDetail)
+
+    if (!trackDetail || !trackDetail.songs || trackDetail.songs.length === 0) {
+      console.error('[TrackListItem] Invalid track detail response:', trackDetail)
+
+      showToast('无法获取歌曲详情')
+
+      return
+    }
+
+    const songData = trackDetail.songs[0]
+
+    // 检查是否需要 VIP
+    if (songData.fee === 1) {
+      showToast('该歌曲需要 VIP，无法下载')
+
+      return
+    }
+
+    // 获取专辑 ID
+    const albumId = track.value.al?.id || track.value.album?.id || songData.al?.id || songData.album?.id
+
+    if (!albumId) {
+      showToast('无法获取专辑信息')
+
+      return
+    }
+
+    // 获取专辑信息
+    const albumDetail = await getAlbum(albumId)
+
+    if (!albumDetail || !albumDetail.album) {
+      console.error('[TrackListItem] Invalid album detail response:', albumDetail)
+
+      showToast('无法获取专辑信息')
+
+      return
+    }
+
+    // 更新 track 对象中的专辑信息
+    const albumInfo = albumDetail.album
+
+    // 将专辑信息放入 track 对象
+    track.value.album = albumInfo
+    track.value.al = albumInfo
+
+    // Pass empty url, it will be fetched in main process using getAudioSourceFromNetease
+    await downloadTrack(toRaw(track.value), '')
+
+    showToast('开始下载: ' + track.value.name)
+  } catch (error) {
+    console.error('[TrackListItem] Download failed:', error)
+
+    showToast('下载失败')
+  } finally {
+    downloading.value = false
+  }
+}
 
 const isLiked = computed(() => {
   return liked.value.songs.includes(track.value.id) || track.value.starred
@@ -590,6 +693,42 @@ button {
   display: flex;
   flex: 0.3;
   justify-content: flex-end;
+  gap: 8px;
+
+  button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: 0.2s;
+
+    .svg-icon {
+      width: 16px;
+      height: 16px;
+    }
+
+    &:hover:not(:disabled) {
+      background: var(--color-primary-bg);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .spin {
+      animation: spin 1s linear infinite;
+    }
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .trackitem.playing {

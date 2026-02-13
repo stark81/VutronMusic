@@ -8,7 +8,7 @@ import fs from 'fs'
 import path from 'path'
 import { db, Tables } from './db'
 import { CacheAPIs } from './utils/CacheApis'
-import { deleteExcessCache, createWorker, getTrackDetail } from './utils'
+import { deleteExcessCache, createWorker, getTrackDetail, getAudioSourceFromNetease } from './utils'
 import cache from './cache'
 import { registerGlobalShortcuts } from './globalShortcut'
 import { createMenu } from './menu'
@@ -340,24 +340,36 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     log.info('[IPC] Created login window')
 
     // 监听加载失败事件
-    loginWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
-      log.error('[IPC] Failed to load login page:', errorCode, errorDescription)
+    loginWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+      if (isMainFrame) {
+        log.error('[IPC] Failed to load login page:', errorCode, errorDescription, validatedURL)
+      }
+    })
+
+    // 监听导航错误
+    loginWindow.webContents.on('did-navigate', (event, url) => {
+      log.info('[IPC] Navigated to:', url)
+    })
+
+    // 监听页面加载完成
+    loginWindow.webContents.on('did-finish-load', () => {
+      log.info('[IPC] Login page finished loading')
     })
 
     // 加载网易云音乐登录页面
     try {
       log.info('[IPC] Loading login URL...')
+      // 先显示窗口，再加载 URL
+      loginWindow.show()
+      log.info('[IPC] Login window shown')
+      
       await loginWindow.loadURL('https://music.163.com/#/login')
       log.info('[IPC] Login URL loaded successfully')
     } catch (error) {
       log.error('[IPC] Error loading login page:', error)
-      loginWindow.close()
-      return null
+      // 即使加载失败，也不要关闭窗口，让用户尝试手动刷新
+      loginWindow.show()
     }
-
-    // 直接显示窗口，不等待 ready-to-show
-    loginWindow.show()
-    log.info('[IPC] Login window shown')
 
     loginWindow.once('ready-to-show', () => {
       log.info('[IPC] Login window ready to show')
@@ -373,7 +385,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
           log.info(`[IPC] Checking cookies (count: ${checkCount}, found: ${cookies.length})`)
 
           // 检查是否包含 MUSIC_U cookie（登录成功的标志）
-          const musicUCookie = cookies.find(c => c.name === 'MUSIC_U')
+          const musicUCookie = cookies.find((c) => c.name === 'MUSIC_U')
 
           if (musicUCookie && musicUCookie.value) {
             log.info('[IPC] MUSIC_U cookie found, login successful')
@@ -381,7 +393,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
 
             // 构建完整的 cookie 字符串
             const cookieString = cookies
-              .map(cookie => `${cookie.name}=${cookie.value}`)
+              .map((cookie) => `${cookie.name}=${cookie.value}`)
               .join('; ')
 
             loginWindow.close()
@@ -1052,5 +1064,161 @@ async function initStreaming() {
 
   ipcMain.handle('get-tongrenlu-albums', async (event, data) => {
     return await searchAlbums(data.keyword, data.pageNumber, data.pageSize)
+  })
+
+  // Download-related handlers
+  const downloadQueue: Map<string, any> = new Map()
+  const activeDownloads: Set<string> = new Set()
+
+  ipcMain.on('download-track', async (event, data) => {
+    const { track, url, taskId, downloadPath, albumInfo } = data
+
+    log.info('[Download] Received download request:', { taskId, trackId: track?.id, trackName: track?.name, albumInfo })
+
+    if (activeDownloads.has(taskId)) {
+      log.info('[Download] Task already active:', taskId)
+      return
+    }
+
+    if (!track || !track.id) {
+      log.error('[Download] Invalid track object:', track)
+      event.sender.send('download-progress-update', {
+        type: 'download-error',
+        taskId,
+        error: '无效的歌曲信息'
+      })
+      return
+    }
+
+    activeDownloads.add(taskId)
+    downloadQueue.set(taskId, { track, url, taskId, downloadPath })
+
+    // Send download start event
+    event.sender.send('download-progress-update', {
+      type: 'download-start',
+      taskId
+    })
+
+    try {
+      // Create directory structure: Artist/Album/Song
+      const artistName =
+        track.al?.artists[0]?.name ||
+        track.artists?.[0]?.name ||
+        track.ar?.[0]?.name ||
+        'Unknown Artist'
+      const albumName = track.al?.name || 'Unknown Album'
+
+      // Get audio source from Netease
+      log.info('[Download] Getting audio source for track:', track.id, track.name)
+      let audioSource
+      try {
+        audioSource = await getAudioSourceFromNetease(track)
+        log.info('[Download] Audio source result:', audioSource)
+      } catch (error) {
+        log.error('[Download] Error getting audio source:', error)
+        throw new Error(`获取音频源失败: ${error.message}`)
+      }
+
+      if (!audioSource || !audioSource.url) {
+        log.error('[Download] No URL in audio source:', audioSource)
+        throw new Error('无法获取音频源')
+      }
+
+      const downloadUrl = audioSource.url
+      log.info('[Download] Audio source URL:', downloadUrl)
+
+      // Determine file extension from URL or quality
+      let extension = 'mp3' // default
+      if (audioSource.br >= 320000 || audioSource.br === 350000) {
+        extension = 'flac'
+      } else if (downloadUrl.includes('.flac')) {
+        extension = 'flac'
+      } else if (downloadUrl.includes('.ogg')) {
+        extension = 'ogg'
+      } else if (downloadUrl.includes('.wav')) {
+        extension = 'wav'
+      } else if (downloadUrl.includes('.m4a')) {
+        extension = 'm4a'
+      }
+
+      // Sanitize file name to remove invalid characters
+      const sanitizedName = track.name.replace(/[<>:"/\\|?*]/g, '_')
+      // Add track number with leading zero (format: 01.trackName)
+      const trackNumber = track.no || 0
+      const trackNumberStr = trackNumber > 0 ? String(trackNumber).padStart(2, '0') + '.' : ''
+      const fileName = `${trackNumberStr}${sanitizedName}.${extension}`
+      const targetDir = path.join(downloadPath, artistName, albumName)
+      const filePath = path.join(targetDir, fileName)
+
+      // Create directory if not exists
+      if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir, { recursive: true })
+      }
+
+      // Check if file already exists
+      if (fs.existsSync(filePath)) {
+        log.info('[Download] File already exists, skipping:', filePath)
+        event.sender.send('download-progress-update', {
+          type: 'download-complete',
+          taskId,
+          progress: 100,
+          data: { filePath, skipped: true }
+        })
+        return
+      }
+
+      // Download file
+      const response = await fetch(downloadUrl)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const arrayBuffer = await response.arrayBuffer()
+      const buffer = Buffer.from(arrayBuffer)
+
+      // Write file
+      fs.writeFileSync(filePath, buffer)
+
+      // Send download complete event
+      event.sender.send('download-progress-update', {
+        type: 'download-complete',
+        taskId,
+        progress: 100,
+        data: { filePath }
+      })
+    } catch (error) {
+      log.error('Download failed:', error)
+      event.sender.send('download-progress-update', {
+        type: 'download-error',
+        taskId,
+        error: error.message || '下载失败'
+      })
+    } finally {
+      activeDownloads.delete(taskId)
+      downloadQueue.delete(taskId)
+    }
+  })
+
+  ipcMain.on('cancel-download', (event, taskId: string) => {
+    if (activeDownloads.has(taskId)) {
+      activeDownloads.delete(taskId)
+      downloadQueue.delete(taskId)
+      event.sender.send('download-progress-update', {
+        type: 'download-cancelled',
+        taskId
+      })
+    }
+  })
+
+  ipcMain.on('clear-download-queue', (event) => {
+    // Cancel all active downloads
+    for (const taskId of activeDownloads) {
+      event.sender.send('download-progress-update', {
+        type: 'download-cancelled',
+        taskId
+      })
+    }
+    activeDownloads.clear()
+    downloadQueue.clear()
   })
 }

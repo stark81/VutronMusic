@@ -63,7 +63,9 @@
           <button class="auto-login-btn" :disabled="autoLoginLoading" @click="openAutoLoginWindow">
             <svg-icon v-if="!autoLoginLoading" icon-class="login" />
             <div v-else class="loading-spinner"></div>
-            <span>{{ autoLoginLoading ? $t('login.autoLoginWaiting') : $t('login.openWebLogin') }}</span>
+            <span>{{
+              autoLoginLoading ? $t('login.autoLoginWaiting') : $t('login.openWebLogin')
+            }}</span>
           </button>
           <div class="cookie-steps">
             <div class="step-item">

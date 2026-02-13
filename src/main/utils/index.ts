@@ -585,7 +585,7 @@ const isTrackPlayable = (track: any) => {
   return result
 }
 
-const getAudioSourceFromNetease = async (track: any): Promise<{ [key: string]: any }> => {
+export const getAudioSourceFromNetease = async (track: any): Promise<{ [key: string]: any }> => {
   const getBr = () => {
     const quality = store.get('settings.musicQuality')
     return quality === 'flac' ? 350000 : quality
