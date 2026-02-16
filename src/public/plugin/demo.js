@@ -79,12 +79,12 @@ const apis = api
  */
 exports.meta = {
   name: '测试',
-  type: 'online', // online, streaming
+  type: 'online', // online, stream
   allowedDomains: ['http://127.0.0.1:7789/demo']
 }
 
 /**
- * 平台连同性测试
+ * 平台连同性测试，如果不存在该接口，则直接返回true
  * @returns {boolean}
  */
 exports.systemPing = () => {}

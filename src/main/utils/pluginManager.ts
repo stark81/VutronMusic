@@ -5,7 +5,7 @@ import electronStore from '../store'
 
 export interface PluginMeta {
   name?: string
-  type?: 'online' | 'streaming'
+  type?: 'online' | 'stream'
   allowedDomains?: string[]
   [key: string]: any
 }
@@ -48,7 +48,6 @@ export class PluginInstance {
           electronStore.set(`plugins.${this.id}.name`, this.meta.name)
           electronStore.set(`plugins.${this.id}.type`, this.meta.type)
         }
-        this.call('getLyric', '536099160')
         break
 
       case 'LOG':

@@ -93,7 +93,7 @@ const post = (url, data) => apis.http.post(`${baseUrl}/${url}`, data)
  */
 exports.meta = {
   name: '网易云',
-  type: 'online', // online, streaming
+  type: 'online', // online, stream
   allowedDomains: [baseUrl]
 }
 
@@ -101,14 +101,12 @@ exports.meta = {
  * 平台连同性测试
  * @returns {boolean}
  */
-exports.systemPing = () => {}
+exports.systemPing = () => true
 
 /**
  * 插件平台的登陆功能，登陆成功后，需要使用apis.store.set来保存所需的帐号相关信息
  */
 exports.doLogin = async () => {
-  // apis.store.set('username', 'aaa')
-  // apis.store.set('pwd', 'bbb')
   return true
 }
 
