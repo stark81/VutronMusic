@@ -105,9 +105,9 @@ exports.doLogin = async () => {
  * 搜索功能
  * @returns {Array} 列表形式的搜索结果
  */
-exports.search = async (keywords) => {
+exports.search = async (params) => {
   const result = await apis.http.get('http://127.0.0.1:7789/demo/search', {
-    keywords
+    ...params
   })
   return result
 }

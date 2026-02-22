@@ -65,7 +65,8 @@ const mainAvailChannels: string[] = [
   'get-screenshot',
   'delete-screenshot',
   'get-cache-path',
-  'plugin-method-call'
+  'plugin-method-call',
+  'get-plugins'
 ]
 const rendererAvailChannels: string[] = [
   'msgHandleScanLocalMusic',
@@ -93,8 +94,7 @@ const rendererAvailChannels: string[] = [
   'changeRouteTo',
   'updateAmuseServerStatus',
   'receiveCacheInfo',
-  'updateLocalMusic',
-  'loadedPlugins'
+  'updateLocalMusic'
 ]
 
 let messagePort: MessagePort | null = null

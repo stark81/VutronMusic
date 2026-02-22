@@ -14,7 +14,7 @@ export class PluginInstance {
   private worker: Worker
   private callResolvers = new Map<number, (val: any) => void>()
   private callIdCounter = 0
-  private meta: PluginMeta = {}
+  public meta: PluginMeta = {}
   private id: string
 
   constructor(pluginPath: string, pluginName: string) {
@@ -206,6 +206,9 @@ export class PluginInstance {
     })
   }
 
+  /**
+   * @param {string} method 调用的函数名称
+   */
   public call(method: string, ...args: any[]): Promise<any> {
     return new Promise((resolve) => {
       const callId = ++this.callIdCounter

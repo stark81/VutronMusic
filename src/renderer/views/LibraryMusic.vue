@@ -213,6 +213,7 @@
 import { storeToRefs } from 'pinia'
 import { useDataStore } from '../store/data'
 import { useNormalStateStore } from '../store/state'
+import { usePluginMusic } from '../store/pluginMusic'
 import { ref, computed, onMounted, onUnmounted, inject, nextTick } from 'vue'
 import { dailyTask, randomNum, pickedLyric } from '../utils'
 import { tricklingProgress } from '../utils/tricklingProgress'
@@ -229,6 +230,7 @@ const dataStore = useDataStore()
 const { liked, libraryPlaylistFilter, user } = storeToRefs(dataStore)
 
 const { newPlaylistModal } = storeToRefs(useNormalStateStore())
+const { pluginMethodCall } = usePluginMusic()
 
 const show = ref(false)
 const playHistoryMode = ref('week')
@@ -417,6 +419,12 @@ onMounted(() => {
     if (!show.value) tricklingProgress.start()
   }, 1000)
   loadData()
+  // pluginMethodCall('netease', 'search', { keywords: '周杰伦' }).then((result) => {
+  //   console.log('==2=1=1=1=2==', result)
+  // })
+  pluginMethodCall('netease', 'getLyric', { id: '2621631129' }).then((result) => {
+    console.log('22222222', result)
+  })
   dailyTask()
   setTimeout(() => {
     updatePadding(0)

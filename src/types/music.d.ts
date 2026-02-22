@@ -139,3 +139,28 @@ export interface CommonTheme {
     lyricPosition?: { top: string; left: string }
   }
 }
+
+export type service = {
+  code: string
+  name: string
+  type: 'online' | 'stream' | 'local'
+  status: 'logout' | 'login' | 'offline'
+  tracks: Track[]
+  playlists: Playlist[]
+  lastRefreshCookieDate?: number
+  linkTo?: string // 仅本地音乐可用，音乐匹配的线上数据服务，如网易云、酷狗
+  liked?: {
+    likedSongPlaylistID: number
+    songs: number[]
+    songsWithDetails: Track[]
+    playlists: Playlist[]
+    albums: Album[]
+    artists: Artist[]
+    mvs: any[]
+    cloudDisk: Track[]
+    playHistory: {
+      weekData: Track[]
+      allData: Track[]
+    }
+  }
+}

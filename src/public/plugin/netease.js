@@ -112,10 +112,13 @@ exports.doLogin = async () => {
 
 /**
  * 搜索功能
+ * @param {'GET' | "POST"} method
+ * @param {Object} params
  * @returns {Array} 列表形式的搜索结果
  */
-exports.search = async (params) => {
-  const result = await get('search', {
+exports.search = async (method = 'GET', params) => {
+  const request = method === 'GET' ? get : post
+  const result = await request('search', {
     ...params
   })
   return result
@@ -123,24 +126,28 @@ exports.search = async (params) => {
 
 /**
  * 获取歌词
- * @param {number} id
+ * @param {Object} params
+ * @param {'GET' | "POST"} method
  * @returns {LyricLine[]}
  */
-exports.getLyric = async (id) => {
-  const result = await get(`lyric/new`, { id })
+exports.getLyric = async (method = 'GET', params) => {
+  const request = method === 'GET' ? get : post
+  const result = await request(`lyric/new`, { ...params })
   return result
 }
 
 /**
  * 创建歌单
  * @param {any}
+ * @param {'GET' | "POST"} method
  * @returns {{ stauts: string, pid: number | string }}
  */
-exports.createPlaylist = () => {}
+exports.createPlaylist = (method = 'GET') => {}
 
 /**
  * 删除歌单
  * @param {any}
+ * @param {'GET' | "POST"} method
  * @returns {boolean} 删除结果
  */
-exports.deletePlaylist = () => {}
+exports.deletePlaylist = (method = 'GET') => {}

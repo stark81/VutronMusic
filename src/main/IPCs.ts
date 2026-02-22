@@ -984,7 +984,27 @@ function initPluginIpcMain(win: BrowserWindow) {
     plugMap.set(id, plugin)
   })
 
-  win.webContents.send('loadedPlugins', [...plugMap.keys()])
+  ipcMain.handle('get-plugins', () => {
+    const result: Record<string, any> = {}
+    plugMap.forEach((instance, id) => {
+      result[id] = { name: instance.meta.name, type: instance.meta.type }
+    })
+    return result
+  })
 
-  // ipcMain.on('', () => {})
+  ipcMain.handle(
+    'plugin-method-call',
+    (
+      event,
+      data: {
+        pluginId: string
+        methodName: string
+        params: Record<string, any>
+        method: 'GET' | 'POST'
+      }
+    ) => {
+      const plugin = plugMap.get(data.pluginId)
+      return plugin.call(data.methodName, data.method, data.params)
+    }
+  )
 }
