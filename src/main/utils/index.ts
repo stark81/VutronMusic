@@ -662,21 +662,22 @@ export const getAudioSourceFromUnblock = async (track: any) => {
   process.env.FOLLOW_SOURCE_ORDER = orderFirst ? 'true' : 'false'
 
   const match = require('@unblockneteasemusic/server')
+  const old = global.proxy
 
   const proxy = store.get('settings.proxy') as { type: 0 | 1 | 2; address: string; port: string }
+  const map = { 1: 'http', 2: 'https' }
+  const url = `${map[proxy.type]}://${proxy.address}:${proxy.port}`
 
-  if (proxy && proxy.type !== 0) {
-    const map = { 1: 'http', 2: 'https' }
-    const url = `${map[proxy.type]}://${proxy.address}:${proxy.port}`
-    global.proxy = new URL(url)
-  } else {
-    global.proxy = null
+  global.proxy = proxy && proxy.type !== 0 ? new URL(url) : null
+
+  try {
+    return match(track.id, sourceList).catch((error) => {
+      console.log('=== unblock error ===', global.proxy, error)
+      return null
+    })
+  } finally {
+    global.proxy = old
   }
-
-  return match(track.id, sourceList).catch((error) => {
-    console.log('=== unblock error ===', global.proxy, error)
-    return null
-  })
 }
 
 export const deleteExcessCache = async (deleteAll = false): Promise<boolean> => {
