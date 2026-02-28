@@ -6,7 +6,7 @@ import { handleNeteaseResult } from '../utils'
 import log from '../log'
 
 async function netease(fastify: FastifyInstance) {
-  const NeteaseCloudMusicApi = require('NeteaseCloudMusicApi')
+  const NeteaseCloudMusicApi = require('@neteasecloudmusicapienhanced/api')
   const getHandler = (name: string, neteaseApi: (params: any) => any) => {
     return async (
       req: FastifyRequest<{ Querystring: { [key: string]: string } }>,

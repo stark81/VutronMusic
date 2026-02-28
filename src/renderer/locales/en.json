@@ -506,7 +506,19 @@
       "FmStatusConnected": "Connected to Last.fm ({username})",
       "connectToFM": "Connect to Last.fm",
       "disconnectToFM": "Disconnect",
-      "authToFM": "Authorize Connection"
+      "authToFM": "Authorize Connection",
+      "proxy": {
+        "text": "Proxy Protocol Settings",
+        "disable": "Disable Proxy",
+        "http": "HTTP Proxy",
+        "https": "HTTPS Proxy",
+        "address": "Server Address",
+        "port": "Port"
+      },
+      "realIp": {
+        "text": "Real IP",
+        "ip": "IP Address"
+      }
     },
     "stream": {
       "enable": "Enable Stream Music",

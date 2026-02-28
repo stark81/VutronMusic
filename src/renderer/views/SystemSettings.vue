@@ -908,6 +908,48 @@
               <button v-else @click="lastfmConnect">{{ $t('settings.misc.authToFM') }}</button>
             </div>
           </div>
+          <div class="item" :style="{ display: 'block' }">
+            <div>代理协议：</div>
+          </div>
+          <div class="item">
+            <div class="left item-row" :class="{ disabled: proxyType === ProxyType.Disable }">
+              <CustomSelect v-model="proxyType" :options="proxyTypeOption" />
+              <input
+                v-model="proxyServe"
+                :disabled="proxyType === ProxyType.Disable"
+                class="text-input margin-right-0"
+                :placeholder="$t('settings.misc.proxy.address')"
+              />
+              <input
+                v-model="port"
+                :disabled="proxyType === ProxyType.Disable"
+                class="text-input margin-right-0"
+                :placeholder="$t('settings.misc.proxy.port')"
+              />
+            </div>
+            <div class="right">
+              <button @click="updateProxy">更新代理</button>
+            </div>
+          </div>
+          <div class="item">
+            <div class="left">
+              <div class="title"> {{ $t('settings.misc.realIp.text') }}： </div>
+            </div>
+            <div class="right">
+              <div class="toggle">
+                <input id="real-ip" v-model="realIp.enable" type="checkbox" name="real-ip" />
+                <label for="real-ip"></label>
+              </div>
+            </div>
+          </div>
+          <div class="item" :class="{ disabled: !realIp.enable }">
+            <input
+              v-model="realIp.ip"
+              :disabled="!realIp.enable"
+              class="text-input margin-right-0"
+              :placeholder="$t('settings.misc.realIp.ip')"
+            />
+          </div>
         </div>
         <div v-if="isElectron" v-show="tab === 'update'" key="update">
           <div class="item">
@@ -1001,7 +1043,7 @@ import { VueDraggable } from 'vue-draggable-plus'
 // @ts-ignore
 import imageUrl from '../utils/settingImg.dataurl?raw'
 import { useRouter } from 'vue-router'
-import { serviceType, serviceName, Appearance } from '@/types/music.d'
+import { serviceType, serviceName, Appearance, ProxyType } from '@/types/music.d'
 
 const router = useRouter()
 
@@ -1026,6 +1068,7 @@ const { showTrackTimeOrID, useCustomTitlebar, language, musicQuality, closeAppOp
 const { appearance, colors } = toRefs(theme.value)
 const customizeColor = computed(() => colors.value[4])
 const { showLyric, showControl, lyricWidth, enableExtension } = toRefs(tray.value)
+const { proxy, realIp } = toRefs(misc.value)
 
 const streamMusicStore = useStreamMusicStore()
 const { enable, services } = storeToRefs(streamMusicStore)
@@ -1123,6 +1166,10 @@ const loginOrlogout = (platform: serviceType) => {
     }
   }
 }
+
+const proxyType = ref(proxy.value.type)
+const proxyServe = ref(proxy.value.address)
+const port = ref(proxy.value.port)
 
 const shortcutInput = ref({
   id: '',
@@ -1222,6 +1269,12 @@ const orderFirstOptions = [
   { label: t('settings.unblock.sourceSearchMode.orderFirst'), value: true },
   { label: t('settings.unblock.sourceSearchMode.speedFirst'), value: false }
 ]
+
+const proxyTypeOption = computed(() => [
+  { label: t('settings.misc.proxy.disable'), value: ProxyType.Disable },
+  { label: t('settings.misc.proxy.http'), value: ProxyType.Http },
+  { label: t('settings.misc.proxy.https'), value: ProxyType.Https }
+])
 
 const currentTheme = ref(
   (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') as Theme
@@ -1359,6 +1412,13 @@ const getStatusColor = (platform: serviceType) => {
     offline: 'orange'
   }
   return colorMap[platform.status]
+}
+
+const updateProxy = () => {
+  proxy.value.type = proxyType.value
+  proxy.value.address = proxyServe.value
+  proxy.value.port = port.value
+  showToast(proxyType.value === ProxyType.Disable ? '已关闭代理' : '已更新代理设置')
 }
 
 const deleteLocalMusic = () => {

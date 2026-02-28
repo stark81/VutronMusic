@@ -91,7 +91,9 @@ export const useSettingsStore = defineStore(
     const misc = reactive({
       enableAmuseServer: true,
       enableDiscordRichPresence: false,
-      lastfm: { enable: false, name: '' }
+      lastfm: { enable: false, name: '' },
+      proxy: { type: 0, address: '', port: '' },
+      realIp: { enable: false, ip: '' }
     })
 
     watch(
@@ -163,6 +165,16 @@ export const useSettingsStore = defineStore(
       () => localMusic.trackInfoOrder,
       (value) => {
         window.mainApi?.send('setStoreSettings', { trackInfoOrder: toRaw(value) })
+      }
+    )
+
+    watch(
+      () => misc.proxy,
+      (value) => {
+        window.mainApi?.send('setStoreSettings', { proxy: toRaw(value) })
+      },
+      {
+        deep: true
       }
     )
 

@@ -506,7 +506,19 @@
       "FmStatusConnected": "已連線至 Last.fm（{username}）",
       "connectToFM": "連線至 Last.fm",
       "disconnectToFM": "中斷連線",
-      "authToFM": "授權連線"
+      "authToFM": "授權連線",
+      "proxy": {
+        "text": "代理協定設置",
+        "disable": "關閉代理",
+        "http": "HTTP 代理",
+        "https": "HTTPS 代理",
+        "address": "伺服器地址",
+        "port": "埠號"
+      },
+      "realIp": {
+        "text": "Real IP",
+        "ip": "IP地址"
+      }
     },
     "stream": {
       "enable": "啟用串流媒體音樂",

@@ -153,4 +153,10 @@ export interface CommonTheme {
     background?: string
     lyricPosition?: { top: string; left: string }
   }
+  proxy: {
+    type: ProxyType
+    address: string
+    port: string
+  }
+  realIp: { enable: boolean; ip: string }
 }

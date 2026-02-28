@@ -191,6 +191,14 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
         } else {
           cacheWorker?.postMessage({ type: 'quit' })
         }
+      } else if (key === 'proxy') {
+        const map = { 1: 'http', 2: 'https' }
+        if (value.type === 0) {
+          win.webContents.session.setProxy({})
+        } else {
+          const proxyRules = `${map[value.type]}://${value.address}:${value.port}`
+          win.webContents.session.setProxy({ proxyRules })
+        }
       }
     }
   })

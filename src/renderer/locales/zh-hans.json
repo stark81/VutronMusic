@@ -513,7 +513,19 @@
       "FmStatusConnected": "已连接到 Lst.fm ({username})",
       "connectToFM": "连接 Last.fm ",
       "disconnectToFM": "断开连接",
-      "authToFM": "授权连接"
+      "authToFM": "授权连接",
+      "proxy": {
+        "text": "代理协议设置",
+        "disable": "关闭代理",
+        "http": "HTTP代理",
+        "https": "HTTPS代理",
+        "address": "服务器地址",
+        "port": "端口"
+      },
+      "realIp": {
+        "text": "Real IP",
+        "ip": "IP地址"
+      }
     },
     "stream": {
       "enable": "启用流媒体音乐",

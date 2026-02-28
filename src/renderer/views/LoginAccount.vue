@@ -140,7 +140,13 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import SvgIcon from '../components/SvgIcon.vue'
-import { loginQrCodeKey, loginQrCodeCheck, getLoginStatus } from '../api/auth'
+import {
+  loginQrCodeKey,
+  loginQrCodeCheck,
+  getLoginStatus,
+  loginWithEmail,
+  loginWithPhone
+} from '../api/auth'
 import qrCode from 'qrcode'
 import { useDataStore } from '../store/data'
 import { useSettingsStore } from '../store/settings'
@@ -160,15 +166,15 @@ const modeList = ['phone', 'email', 'qrCode', 'cookie'] as const
 const loginModes = ref([
   { mode: 'phone' as (typeof modeList)[number], selected: false, text: t('login.loginWithPhone') },
   { mode: 'email' as (typeof modeList)[number], selected: false, text: t('login.loginWithEmail') },
-  { mode: 'qrCode' as (typeof modeList)[number], selected: false, text: t('login.loginWithQr') },
-  { mode: 'cookie' as (typeof modeList)[number], selected: true, text: t('login.loginWithCookie') }
+  { mode: 'qrCode' as (typeof modeList)[number], selected: true, text: t('login.loginWithQr') },
+  { mode: 'cookie' as (typeof modeList)[number], selected: false, text: t('login.loginWithCookie') }
 ])
 
 const selectedMode = computed(() => loginModes.value.find((M) => M.selected)!)
 
 const processing = ref(false)
 const inputFocus = ref('')
-const countryCode = ref('+86')
+const countryCode = ref('86')
 const phoneNumber = ref('')
 const email = ref('')
 const password = ref('')
@@ -201,6 +207,21 @@ const selectedColor = computed(() => {
 const login = () => {
   if (selectedMode.value.mode === 'cookie') {
     doCookieLogin()
+  } else if (selectedMode.value.mode === 'phone') {
+    loginWithPhone({
+      phone: phoneNumber.value,
+      countrycode: countryCode.value,
+      password: password.value
+    }).then((result) => {
+      processing.value = false
+      handleLoginResponse(result)
+    })
+  } else if (selectedMode.value.mode === 'email') {
+    processing.value = true
+    loginWithEmail({ email: email.value, password: password.value }).then((result) => {
+      processing.value = false
+      handleLoginResponse(result)
+    })
   }
 }
 
@@ -255,7 +276,7 @@ const changeMode = (md: (typeof modeList)[number]) => {
     loginMode.selected = loginMode.mode === md
   })
   if (md === 'qrCode') {
-    checkQrCodeLogin()
+    getQrCodeKey()
   } else {
     clearInterval(qrCodeCheckInterval.value)
   }
