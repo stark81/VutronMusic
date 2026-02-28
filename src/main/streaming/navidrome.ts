@@ -50,8 +50,7 @@ const generateToken = (password: string, salt: string) => {
 const ApiRequest = async (endpoint: string, params?: Record<string, string>) => {
   const headers = {
     'x-nd-authorization': `Bearer ${store.get('accounts.navidrome.anthorization')}`,
-    'x-nd-client-unique-id': store.get('accounts.navidrome.clientID') as string,
-    timeout: 5000
+    'x-nd-client-unique-id': store.get('accounts.navidrome.clientID') as string
   }
 
   const queryString = new URLSearchParams(params).toString()
@@ -69,7 +68,7 @@ const ApiRequest = async (endpoint: string, params?: Record<string, string>) => 
         const password = store.get('accounts.navidrome.password') as string
         return doLogin(baseUrl, username, password).then((result) => {
           if (result.code === 200) {
-            return axios.get(url, { headers }).then((res) => {
+            return axios.get(url, { headers, timeout: 5000 }).then((res) => {
               return { code: 200, message: res.statusText, data: res.data }
             })
           }

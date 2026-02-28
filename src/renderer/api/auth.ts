@@ -25,6 +25,20 @@ export function userPlaylist(params: {
   })
 }
 
+export function loginWithPhone(params: {
+  phone: string
+  password: string
+  countrycode?: string
+  md5_password?: string
+  captcha?: string
+}) {
+  return request({
+    url: '/login/cellphone',
+    method: 'post',
+    params
+  })
+}
+
 /**
  * 邮箱登录
  * - email: 163 网易邮箱
@@ -35,12 +49,11 @@ export function userPlaylist(params: {
  * @param {string} data.password
  * @param {string=} data.md5_password
  */
-export function loginWithEmail(data: { email: string; password: string; md5_password?: string }) {
-  console.log('loginWithEmail params = ', data)
+export function loginWithEmail(params: { email: string; password: string; md5_password?: string }) {
   return request({
     url: '/login',
     method: 'post',
-    data
+    params
   })
 }
 

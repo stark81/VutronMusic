@@ -17,7 +17,7 @@ export const hasListSource = () => {
 
 export const getListSourcePath = () => {
   const { likedSongPlaylistID } = storeToRefs(useDataStore())
-  const { playlistSource } = storeToRefs(usePlayerStore())
+  const { playlistSource, currentTrack } = storeToRefs(usePlayerStore())
 
   if (playlistSource.value.id === likedSongPlaylistID.value && playlistSource.value.id !== 0) {
     return '/library/liked-songs'
@@ -28,7 +28,7 @@ export const getListSourcePath = () => {
   } else if (playlistSource.value.type.includes('local') && playlistSource.value.id === 0) {
     return '/localMusic'
   } else if (playlistSource.value.type === 'streamLiked') {
-    return '/stream-liked-songs'
+    return `/stream-liked-songs/${currentTrack.value!.source}`
   } else if (playlistSource.value.type.includes('stream') && playlistSource.value.id === 0) {
     return '/stream'
   } else {
