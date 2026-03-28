@@ -283,10 +283,11 @@ const currentIndex = computed(() => {
 
 const playThisList = (index: number) => {
   if (!props.dbclickEnable) return
-  const IDs = (props.allItems?.length ? props.allItems : items.value).map(
+  const sourceItems = props.allItems?.length ? props.allItems : items.value
+  const IDs = sourceItems.map(
     (track) => track.id || track.songId
   )
-  const idx = items.value.findIndex((item) => (item.id || item.songId) === index)
+  const idx = sourceItems.findIndex((item) => (item.id || item.songId) === index)
   replacePlaylist(props.type, id.value, IDs, idx)
 }
 
