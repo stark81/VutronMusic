@@ -40,7 +40,9 @@
       "setPrivate": "Set as Private Playlist",
       "newPlaylist": "New Playlist",
       "updatedAt": "Last Updated",
-      "search": "Search"
+      "search": "Search",
+      "modifyTitle": "Modify playlist title",
+      "modifyDesc": "Modify playlist description"
     },
     "likedSongs": "Liked Songs",
     "albums": "Albums",
@@ -86,7 +88,12 @@
     "dirName": "Folder Name",
     "placeholder": "Search Local Songs",
     "scrollToTop": "Scroll to Top",
-    "localMusicFolderPath": "Local Music Folder Path",
+    "localMusicFolder": {
+      "text": "Local Music Folder Path",
+      "desc": "Supports multiple directories. On Linux, use manual input for multiple directories",
+      "title": "Manually enter local music directories",
+      "placeholder": "Enter local music directories (multiple supported, one per line)"
+    },
     "enableLocalMusic": "Enable Local Music",
     "clearLocalMusic": {
       "text": "Clear Local Music Info",
@@ -162,6 +169,7 @@
     "accurateMatch": "Exact Match",
     "addToLocalPlaylist": "Add to Local Playlist",
     "removeTrackFromPlaylist": "Remove from Playlist",
+    "editPlaylistInfo": "Edit playlist info",
     "showInFolder": "Open in File Explorer",
     "deletePlaylist": "Delete Playlist",
     "removeFromPlaylist": "Remove from playlist",
@@ -329,8 +337,11 @@
         "auto": "Auto (Based on system theme)"
       },
       "logout": "Logout",
+      "showSongChorus": "Show chorus timestamps on the player-bar",
+      "clickToLyric": "Click empty area of the player-bar to enter lyrics page",
       "jumpToLyricBegin": "Jump to begining of current lyric when seeking",
-      "perventSuspend": "Prevent system sleep during playback"
+      "perventSuspend": "Prevent system sleep during playback",
+      "forceFactor": "Ignore system scaling (force 100%, restart required)"
     },
     "theme": {
       "auto": "Auto",

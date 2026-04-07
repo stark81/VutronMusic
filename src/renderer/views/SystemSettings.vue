@@ -66,6 +66,17 @@
               </div>
             </div>
           </div>
+          <div v-if="isWindows" class="item">
+            <div class="left">
+              <div class="title">{{ $t('settings.general.forceFactor') }}</div>
+            </div>
+            <div class="right">
+              <div class="toggle">
+                <input id="forceFactor" v-model="forceFactor" type="checkbox" name="forceFactor" />
+                <label for="forceFactor"></label>
+              </div>
+            </div>
+          </div>
           <div v-if="isElectron && isLinux" class="item">
             <div class="left">
               <div class="title">{{ $t('settings.general.useCustomTitlebar') }}</div>
@@ -512,10 +523,22 @@
             </div>
             <div class="item">
               <div class="left">
-                <div class="title">{{ $t('localMusic.localMusicFolderPath') }}: {{ scanDir }}</div>
+                <div class="title">
+                  <label>{{ $t('localMusic.localMusicFolder.text') }}：</label>
+                  <template v-if="scanDir.length === 1">
+                    <label>{{ scanDir[0] }}</label>
+                  </template>
+                  <template v-else>
+                    <div v-for="(value, n) in scanDir" :key="value" class="hover" :title="value"
+                      >{{ n + 1 }}
+                    </div>
+                  </template>
+                </div>
+                <div class="description">{{ $t('localMusic.localMusicFolder.desc') }}</div>
               </div>
               <div class="right">
-                <button @click="chooseDir(true)">{{ scanDir ? '更改' : '选择' }}</button>
+                <button class="input-btn" @click="selectDirModal = true">输入</button>
+                <button @click="chooseDir(true)">选择</button>
               </div>
             </div>
             <div class="item">
@@ -626,6 +649,38 @@
               </div>
               <div class="right">
                 <button @click="resetPlayer()">确定</button>
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('settings.general.showSongChorus') }}</div>
+              </div>
+              <div class="right">
+                <div class="toggle">
+                  <input
+                    id="show-song-chorus"
+                    v-model="showChorus"
+                    type="checkbox"
+                    name="show-song-chorus"
+                  />
+                  <label for="show-song-chorus"></label>
+                </div>
+              </div>
+            </div>
+            <div class="item">
+              <div class="left">
+                <div class="title">{{ $t('settings.general.clickToLyric') }}</div>
+              </div>
+              <div class="right">
+                <div class="toggle">
+                  <input
+                    id="click-to-lyric-page"
+                    v-model="clickToLyric"
+                    type="checkbox"
+                    name="click-to-lyric-page"
+                  />
+                  <label for="click-to-lyric-page"></label>
+                </div>
               </div>
             </div>
             <div class="item">
@@ -1063,8 +1118,17 @@ const {
 const { deleteCacheTracks } = settingsStore
 
 const { scanDir, enble, trackInfoOrder } = toRefs(localMusic.value)
-const { showTrackTimeOrID, useCustomTitlebar, language, musicQuality, closeAppOption, trayColor } =
-  toRefs(general.value)
+const {
+  showTrackTimeOrID,
+  useCustomTitlebar,
+  language,
+  musicQuality,
+  closeAppOption,
+  trayColor,
+  showChorus,
+  clickToLyric,
+  forceFactor
+} = toRefs(general.value)
 const { appearance, colors } = toRefs(theme.value)
 const customizeColor = computed(() => colors.value[4])
 const { showLyric, showControl, lyricWidth, enableExtension } = toRefs(tray.value)
@@ -1075,8 +1139,14 @@ const { enable, services } = storeToRefs(streamMusicStore)
 const { handleStreamLogout } = streamMusicStore
 
 const stateStore = useNormalStateStore()
-const { extensionCheckResult, updateStatus, latestVersion, isDownloading, fontList } =
-  toRefs(stateStore)
+const {
+  extensionCheckResult,
+  updateStatus,
+  latestVersion,
+  isDownloading,
+  fontList,
+  selectDirModal
+} = toRefs(stateStore)
 const { showToast, checkUpdate, getFontList } = stateStore
 
 const dataStore = useDataStore()
@@ -1347,12 +1417,12 @@ window.mainApi?.on('receiveCacheInfo', (_: any, data: { length: number; size: nu
 })
 
 const chooseDir = (scan = true) => {
-  window.mainApi?.invoke('selecteFolder').then((folderPath: string | null) => {
+  window.mainApi?.invoke('selecteFolder', { multi: scan }).then((folderPath: string[]) => {
     if (!folderPath) return
     if (scan) {
       scanDir.value = folderPath
     } else {
-      autoCacheTrack.value.path = folderPath
+      autoCacheTrack.value.path = folderPath[0]
     }
   })
 }
@@ -1424,7 +1494,7 @@ const updateProxy = () => {
 const deleteLocalMusic = () => {
   resetPlayer()
   resetLocalMusic()
-  scanDir.value = ''
+  scanDir.value = []
   window.mainApi?.send('deleteLocalMusicDB')
 }
 
@@ -1808,6 +1878,7 @@ onBeforeUnmount(() => {
     }
   }
   .title {
+    display: flex;
     font-size: 16px;
     font-weight: 500;
     opacity: 0.78;
@@ -1819,6 +1890,17 @@ onBeforeUnmount(() => {
       margin-left: 20px;
       font-size: 14px;
       color: red;
+    }
+
+    .hover {
+      display: flex;
+      width: 40px;
+      margin-left: 14px;
+      border-radius: 4px;
+      color: #fff;
+      align-items: center;
+      justify-content: center;
+      background-color: var(--color-primary);
     }
   }
   .description {
@@ -1926,6 +2008,9 @@ button {
   font-weight: 600;
   border-radius: 8px;
   transition: 0.2s;
+}
+button.input-btn {
+  margin-right: 10px;
 }
 button.lyric-button {
   color: var(--color-text);

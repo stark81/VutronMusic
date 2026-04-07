@@ -46,6 +46,13 @@ export const useNormalStateStore = defineStore('state', () => {
     show: false,
     type: 'Classic' as LayoutMode
   })
+  const editPlaylistModal = ref({
+    show: false,
+    type: 'online' as TrackSourceType,
+    playlistID: 0,
+    info: { title: '', description: '', tags: [] }
+  })
+  const selectDirModal = ref(false)
 
   const toast = reactive({
     show: false,
@@ -153,10 +160,12 @@ export const useNormalStateStore = defineStore('state', () => {
     setPitchModal,
     setThemeModal,
     setFontModal,
+    selectDirModal,
     setSaveThemeModal,
     fontList,
     extensionCheckResult,
     addTrackToPlaylistModal,
+    editPlaylistModal,
     newPlaylistModal,
     accurateMatchModal,
     backgroundModal,

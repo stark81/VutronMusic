@@ -29,7 +29,7 @@ export const useSettingsStore = defineStore(
     })
     const localMusic = reactive({
       enble: true,
-      scanDir: '',
+      scanDir: [] as string[],
       replayGain: false,
       useInnerInfoFirst: false,
       embedCoverArt: 0, // 0: 不嵌入, 1: 内嵌, 2: 歌曲路径下, 3: 两者都嵌入
@@ -52,8 +52,11 @@ export const useSettingsStore = defineStore(
       fadeDuration: 0.2, // 音频淡入淡出时长（秒）
       showBanner: true,
       autoUpdate: true,
-      jumpToLyricBegin: true,
-      trayColor: 0 // 0: 彩色, 1: 白色, 2: 黑色, 3: 跟随系统
+      jumpToLyricBegin: false,
+      trayColor: 0, // 0: 彩色, 1: 白色, 2: 黑色, 3: 跟随系统
+      showChorus: true, // 进度条显示副歌时间
+      clickToLyric: false, // 点击播放栏打开歌词页
+      forceFactor: false
     })
 
     const tray = reactive({
@@ -241,6 +244,13 @@ export const useSettingsStore = defineStore(
     )
 
     watch(
+      () => general.forceFactor,
+      (val) => {
+        window.mainApi?.send('setStoreSettings', { forceFactor: val })
+      }
+    )
+
+    watch(
       () => misc.enableAmuseServer,
       (val) => {
         window.mainApi?.send('setStoreSettings', { enableAmuseServer: val })
@@ -299,6 +309,11 @@ export const useSettingsStore = defineStore(
     })
 
     onMounted(() => {
+      const path = localMusic.scanDir as unknown
+      if (typeof path === 'string') {
+        localMusic.scanDir = path ? [path] : []
+      }
+
       window.mainApi?.invoke('get-lastfm-session').then((result: { name: string }) => {
         misc.lastfm.name = result.name
         misc.lastfm.enable = result.name !== ''

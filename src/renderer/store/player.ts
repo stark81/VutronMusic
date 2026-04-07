@@ -503,6 +503,21 @@ export const usePlayerStore = defineStore(
     })
 
     watch(
+      () => settingsStore.general.showChorus,
+      (value) => {
+        if (!value) {
+          chorus.value = 0
+        } else if (currentTrack.value?.matched) {
+          songChorus(currentTrack.value.id).then((res) => {
+            if (res.chorus.length) {
+              chorus.value = res.chorus[0].startTime / 1000 - (currentTrack.value?.offset || 0)
+            }
+          })
+        }
+      }
+    )
+
+    watch(
       () => window.env?.isLinux && settingsStore.tray.enableExtension,
       (value) => {
         if (!stateStore.extensionCheckResult) return
@@ -687,7 +702,7 @@ export const usePlayerStore = defineStore(
       if (!track) return
       chorus.value = 0
       // let data: any
-      if (track.matched) {
+      if (track.matched && settingsStore.general.showChorus) {
         songChorus(track.id).then((res) => {
           if (res.chorus.length) {
             chorus.value = res.chorus[0].startTime / 1000 - (currentTrack.value?.offset || 0)
@@ -768,6 +783,9 @@ export const usePlayerStore = defineStore(
         showToast(t('toast.scanning'))
         return
       }
+
+      await smoothGain(0, 0)
+
       isPersonalFM.value = false
       _list.value = trackIDS
       isLocalList.value = playlistSourceType.includes('local')
@@ -793,8 +811,7 @@ export const usePlayerStore = defineStore(
         scrobbleFM(currentTrack.value, seek.value)
       }
 
-      const fade = fadeDuration.value
-      await smoothGain(0, fade)
+      await smoothGain(0, 0)
       return getLocalMusic(trackID as number).then(async (track) => {
         if (!track) {
           nextTrackCallback()
@@ -1240,6 +1257,7 @@ export const usePlayerStore = defineStore(
       audioNodes.convolverOutputGain = audioNodes.audioContext.createGain()
       audioNodes.convolverSourceGain = audioNodes.audioContext.createGain()
       audioNodes.masterGain = audioNodes.audioContext.createGain()
+      audioNodes.masterGain.gain.value = 0
 
       audioNodes.convolver.connect(audioNodes.convolverOutputGain)
       audioNodes.convolverSourceGain.connect(audioNodes.dynamics)

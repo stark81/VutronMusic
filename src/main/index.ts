@@ -110,6 +110,11 @@ class BackGround {
       process.exit(0)
     }
 
+    const forceFactor = (store.get('settings.forceFactor') as boolean) || false
+    if (forceFactor) {
+      app.commandLine.appendSwitch('force-device-scale-factor', '1.0')
+    }
+
     if (Constants.IS_LINUX) {
       app.commandLine.appendSwitch(
         'disable-features',

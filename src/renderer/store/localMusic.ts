@@ -28,7 +28,7 @@ export const useLocalMusicStore = defineStore(
       playlists.value.forEach((p) => {
         if (p.trackIds.includes(localTrack.id)) {
           p.trackIds.splice(p.trackIds.indexOf(localTrack.id), 1, track.id)
-          p.coverImgUrl = `atom://local-asset?type=pic&id=${p.trackIds[p.trackIds.length - 1]}`
+          p.coverImgUrl = `atom://local-asset?type=pic&id=${p.trackIds[p.trackIds.length - 1]}&size=512`
           p.updateTime = Date.now()
         }
       })
@@ -88,6 +88,19 @@ export const useLocalMusicStore = defineStore(
       }
     }
 
+    const updateLocalPlaylist = async (
+      playlistId: number,
+      info: { name: string; desc: string }
+    ) => {
+      const result: boolean = await window.mainApi?.invoke('updateLocalPlaylist', playlistId, info)
+      if (!result) return false
+      const playlist = playlists.value.find((p) => p.id === playlistId)!
+      playlist.name = info.name
+      playlist.description = info.desc
+      playlist.updateTime = Date.now()
+      return true
+    }
+
     const removeTrackFromPlaylist = (playlistId: number, trackId: number) => {
       return new Promise((resolve) => {
         const playlist = playlists.value.find((p) => p.id === playlistId)
@@ -96,7 +109,7 @@ export const useLocalMusicStore = defineStore(
         const idx = playlist.trackIds.length - 1
         playlist.coverImgUrl =
           idx >= 0
-            ? `atom://local-asset?type=pic&id=${playlist.trackIds[idx]}`
+            ? `atom://local-asset?type=pic&id=${playlist.trackIds[idx]}&size=512`
             : 'https://p1.music.126.net/jWE3OEZUlwdz0ARvyQ9wWw==/109951165474121408.jpg?param=512y512'
         playlist.trackCount = playlist.trackIds.length
         window.mainApi?.invoke('upsertLocalPlaylist', toRaw(playlist))
@@ -151,11 +164,18 @@ export const useLocalMusicStore = defineStore(
 
       window.mainApi?.send('clearDeletedMusic')
 
-      if (!scanDir.value || !enble.value) return
-      const isExist = await window.mainApi?.invoke('msgCheckFileExist', scanDir.value)
-      if (!isExist) return
+      if (!scanDir.value.length || !enble.value) return
+      const existResults = (await window.mainApi?.invoke(
+        'msgCheckFileExist',
+        toRaw(scanDir.value)
+      )) as {
+        path: string
+        exist: boolean
+      }[]
+      const validDirs = existResults.filter((item) => item.exist).map((item) => item.path)
+      if (!validDirs.length) return
       scanning.value = true
-      window.mainApi?.send('msgScanLocalMusic', { filePath: scanDir.value, update })
+      window.mainApi?.send('msgScanLocalMusic', { filePath: validDirs, update })
     }
 
     const resetLocalMusic = () => {
@@ -190,6 +210,7 @@ export const useLocalMusicStore = defineStore(
       getALocalTrack,
       resetLocalMusic,
       createLocalPlaylist,
+      updateLocalPlaylist,
       addTrackToLocalPlaylist,
       removeTrackFromPlaylist,
       deleteLocalPlaylist,

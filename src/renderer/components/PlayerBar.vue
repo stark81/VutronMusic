@@ -25,7 +25,7 @@
         @update:hover-position="handleHover"
       />
     </div>
-    <div class="controls" @click="showLyrics = !showLyrics">
+    <div class="controls" @click="switchLyricPage">
       <div class="left">
         <img :src="pic" loading="lazy" @click.stop="goToAlbum" />
         <div class="track-info">
@@ -266,6 +266,12 @@ const goToAlbum = () => {
   if (album.matched !== false) {
     router.push(`/album/${album.id}`)
   }
+}
+
+const switchLyricPage = () => {
+  const enable = general.value.clickToLyric
+  if (!enable) return
+  showLyrics.value = !showLyrics.value
 }
 
 const goToList = () => {

@@ -7,7 +7,7 @@
 
 import Constants from './utils/Constants'
 
-let log = null
+let log: any = null
 
 if (!log) {
   log = require('electron-log')

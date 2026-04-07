@@ -39,7 +39,7 @@
         </div>
         <div class="date-and-count">
           {{ $t('library.playlist.updatedAt') }}
-          {{ formatDate(playlist?.updateTime) }} · {{ playlist?.trackCount }}
+          {{ formatDate(playlist?.updateTime) }} · {{ playlist?.trackCount || 0 }}
           {{ $t('common.songs') }}
         </div>
         <div class="description" @click="toggleFullDescription">
@@ -167,6 +167,12 @@
       <div
         v-if="playlistType !== 'online' || playlist?.creator?.userId === user.userId"
         class="item"
+        @click="editPlaylist"
+        >{{ $t('contextMenu.editPlaylistInfo') }}</div
+      >
+      <div
+        v-if="playlistType !== 'online' || playlist?.creator?.userId === user.userId"
+        class="item"
         @click="deleteAPlaylist"
         >{{ $t('contextMenu.deletePlaylist') }}</div
       >
@@ -192,7 +198,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, provide, onMounted } from 'vue'
+import { computed, ref, provide, onMounted, watch } from 'vue'
 import { useDataStore } from '../store/data'
 import { useLocalMusicStore } from '../store/localMusic'
 import { useStreamMusicStore } from '../store/streamingMusic'
@@ -357,7 +363,10 @@ const { playlists, localTracks } = storeToRefs(useLocalMusicStore())
 const { deleteLocalPlaylist } = useLocalMusicStore()
 
 const streamMusic = useStreamMusicStore()
-const { showToast } = useNormalStateStore()
+
+const stateStore = useNormalStateStore()
+const { showToast } = stateStore
+const { editPlaylistModal } = storeToRefs(stateStore)
 
 const playerStore = usePlayerStore()
 const { _shuffle } = storeToRefs(playerStore)
@@ -395,6 +404,15 @@ const isUserOwnPlaylist = computed(() => {
       playlist.value?.id !== likedSongPlaylistID.value)
   )
 })
+
+watch(
+  () => editPlaylistModal.value.show,
+  (value, oldVal) => {
+    if (oldVal && !value && playlistType.value === 'online') {
+      loadData(playlist.value.id)
+    }
+  }
+)
 
 const loadLocalData = (id: number) => {
   playlist.value = playlists.value.find((item) => item.id === id) as Playlist
@@ -576,6 +594,21 @@ const deleteAPlaylist = () => {
           showToast(t('toast.deleteFailed'))
         }
       })
+    }
+  }
+}
+
+const editPlaylist = () => {
+  if (playlistType.value === 'streamLiked') return
+  editPlaylistModal.value = {
+    show: true,
+    type:
+      playlistType.value === 'stream' ? (currentService.value as serviceName) : playlistType.value,
+    playlistID: playlist.value.id,
+    info: {
+      title: playlist.value.name,
+      description: playlist.value.description || '',
+      tags: playlist.value.tags || []
     }
   }
 }

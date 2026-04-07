@@ -14,6 +14,8 @@
     <ShowToast />
     <AddTrackToPlaylistModal />
     <newPlaylistModal />
+    <editPlaylist />
+    <selectPathModal />
     <PlayPage v-if="enabled" />
   </div>
 </template>
@@ -27,6 +29,8 @@ import SideNav from './components/SideNav.vue'
 import ShowToast from './components/ShowToast.vue'
 import AddTrackToPlaylistModal from './components/ModalAddTrackToPlaylist.vue'
 import newPlaylistModal from './components/ModalNewPlaylist.vue'
+import editPlaylist from './components/ModalEditPlaylist.vue'
+import selectPathModal from './components/ModalFilePaths.vue'
 import PlayPage from './views/PlayPage.vue'
 import { useDataStore } from './store/data'
 import { useLocalMusicStore } from './store/localMusic'
@@ -225,6 +229,7 @@ const handleChanelEvent = () => {
       isLock.value = value
     }
   })
+
   window.mainApi?.on('download-progress', (_: any, data: ProgressInfo) => {
     if (!isDownloading.value) isDownloading.value = true
     showToast(`下载更新：${parseFloat(data.percent.toFixed(2))}%`)

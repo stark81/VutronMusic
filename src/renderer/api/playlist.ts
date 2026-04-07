@@ -208,3 +208,11 @@ export function intelligencePlaylist(params: {
     params
   })
 }
+
+export function updatePlaylist(params: { id: number; name: string; desc: string; tags: string }) {
+  return request({
+    url: '/playlist/update',
+    method: 'post',
+    params
+  })
+}

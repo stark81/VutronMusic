@@ -4,11 +4,11 @@
       <div class="left" style="width: 100%">
         <InfoBG />
         <div class="content">
-          <h2 style="margin-bottom: 20px">本地歌曲</h2>
+          <label class="left-title">本地歌曲</label>
           <div class="content-info">
             <div>
               <div class="subtitle">全部歌曲</div>
-              <div class="text">{{ localTracks.length }}首</div>
+              <div class="text">{{ defaultTracks.length }}首</div>
             </div>
             <div>
               <div class="subtitle">歌曲总时长</div>
@@ -235,7 +235,7 @@ const tabStyle = computed(() => {
 
 const formatedTime = computed(() => {
   const dt =
-    localTracks.value
+    defaultTracks.value
       .map((track) => track.dt)
       .filter((dt) => dt && !isNaN(Number(dt)))
       .reduce((acc, cur) => acc + cur, 0) / 1000
@@ -312,11 +312,17 @@ const sortedLocalTracks = computed(() => {
 })
 
 const defaultTracks = computed(() => {
-  const tracks = localTracks.value.map((track, index) => ({
-    ...track,
-    index,
-    dirName: getFirstDirName(scanDir.value, track.filePath)
-  }))
+  const tracks = localTracks.value
+    .filter((track) =>
+      scanDir.value.some((baseDir) =>
+        normalizePath(track.filePath).startsWith(normalizePath(baseDir) + '/')
+      )
+    )
+    .map((track, index) => ({
+      ...track,
+      index,
+      dirName: getFirstDirName(scanDir.value, track.filePath)
+    }))
   return tracks
 })
 
@@ -339,15 +345,21 @@ const filterLocalTracks = computed(() => {
 
 const normalizePath = (p: string) => p.replace(/\\/g, '/').replace(/\/+/g, '/').replace(/\/$/, '')
 
-const getFirstDirName = (baseDir: string, filePath: string) => {
-  const base = normalizePath(baseDir)
+const getFirstDirName = (baseDirs: string[], filePath: string) => {
   const path = normalizePath(filePath)
 
-  if (!path.startsWith(base + '/')) {
-    return ''
+  for (const baseDir of baseDirs) {
+    const base = normalizePath(baseDir)
+
+    if (path === base) continue
+
+    if (path.startsWith(base + '/')) {
+      const relative = path.slice(base.length + 1)
+      return relative.split('/')[0]
+    }
   }
-  const relative = path.slice(base.length + 1)
-  return relative.split('/')[0]
+
+  return ''
 }
 
 // const scrollToItem = inject('scrollToItem') as (idx: number) => void
@@ -504,13 +516,22 @@ onUnmounted(() => {
     border-radius: 12px;
     overflow: hidden;
     .content {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
       position: absolute;
       top: 0;
       left: 0;
       width: 410px;
       height: 100%;
-      padding: 30px 100px;
+      padding: 36px 80px;
       box-sizing: border-box;
+
+      .left-title {
+        font-size: 26px;
+        font-weight: bold;
+      }
+
       .content-info {
         display: grid;
         grid-template-columns: 1fr 1fr;

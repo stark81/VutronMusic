@@ -40,7 +40,9 @@
       "setPrivate": "設為私人歌單",
       "newPlaylist": "新建歌單",
       "updatedAt": "最後更新於",
-      "search": "搜尋"
+      "search": "搜尋",
+      "modifyTitle": "修改歌單標題",
+      "modifyDesc": "修改歌單描述"
     },
     "likedSongs": "我喜歡的音樂",
     "albums": "專輯",
@@ -86,7 +88,12 @@
     "dirName": "資料夾名",
     "placeholder": "搜尋本地歌曲",
     "scrollToTop": "回到頂部",
-    "localMusicFolderPath": "本地音樂資料夾路徑",
+    "localMusicFolder": {
+      "text": "本地音樂資料夾路徑",
+      "desc": "支援多目錄，Linux 如需多目錄，請使用手動輸入方式",
+      "title": "手動輸入本地音樂目錄",
+      "placeholder": "請輸入本地音樂目錄（支援多目錄，每行一個）"
+    },
     "enableLocalMusic": "啟用本地音樂",
     "clearLocalMusic": {
       "text": "清除本地歌曲資訊",
@@ -162,6 +169,7 @@
     "accurateMatch": "精確匹配",
     "addToLocalPlaylist": "新增至本地歌單",
     "removeTrackFromPlaylist": "從歌單中刪除",
+    "editPlaylistInfo": "編輯歌單",
     "showInFolder": "在檔案管理員中開啟",
     "deletePlaylist": "刪除歌單",
     "removeFromPlaylist": "從歌單中刪除",
@@ -329,8 +337,11 @@
         "auto": "自動 (跟隨系統主題)"
       },
       "logout": "登出",
+      "showSongChorus": "在播放進度條顯示副歌時間",
+      "clickToLyric": "點擊播放欄空白處進入歌詞頁",
       "jumpToLyricBegin": "調整進度時吸附到歌詞開始位置",
-      "perventSuspend": "播放時防止系統休眠"
+      "perventSuspend": "播放時防止系統休眠",
+      "forceFactor": "忽略系統縮放（強制 100%，重新啟動後生效）"
     },
     "theme": {
       "auto": "跟隨系統",

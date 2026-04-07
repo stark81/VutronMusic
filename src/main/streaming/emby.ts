@@ -11,21 +11,41 @@ const version = Constants.APP_VERSION
 const ApiRequest = async (
   method: 'GET' | 'POST' | 'DELETE',
   endpoint: string,
-  params?: Record<string, any>
+  params: Record<string, any> = {}
 ) => {
   const userId = store.get('accounts.emby.userId') as string
   const accessToken = store.get('accounts.emby.accessToken') as string
   const baseUrl = store.get('accounts.emby.url') as string
 
-  params.UserId = userId
-  const headers = { 'X-Emby-Token': accessToken, timeout: 5000 }
   const url = `${baseUrl}/emby/${endpoint}`
 
-  const response = await axios({ method, url, data: params, headers }).catch((error) => {
-    log.info('======================== emby error: ', error.code, error.status)
-    return error
-  })
-  return response
+  const headers = {
+    'X-Emby-Token': accessToken,
+    'X-Emby-Client': 'VutronMusic',
+    'X-Emby-Device-Name': 'Desktop',
+    'X-Emby-Device-Id': 'vutron-music',
+    'X-Emby-Client-Version': '1.0.0'
+  }
+
+  const config: any = {
+    method,
+    url,
+    headers,
+    timeout: 5000
+  }
+
+  if (method === 'GET') {
+    config.params = { ...params, UserId: userId }
+  } else {
+    config.data = params
+  }
+
+  try {
+    return await axios(config)
+  } catch (error: any) {
+    log.info('emby error:', error.response?.data || error.message)
+    throw error
+  }
 }
 
 export interface EmbyImpl {
@@ -42,6 +62,7 @@ export interface EmbyImpl {
   getStream: (id: string) => string
   createPlaylist: (name: string) => Promise<{ status: string; data?: any }>
   deletePlaylist: (id: number) => Promise<boolean>
+  updatePlaylistInfo: (id: string, data: { name: string; desc: string }) => void
   scrobble: (id: number) => void
   addTracksToPlaylist: (op: string, playlistId: number, ids: number[]) => Promise<boolean>
   likeATrack: (operation: 'unstar' | 'star', id: number) => void
@@ -88,7 +109,8 @@ class Emby implements EmbyImpl {
         store.set('accounts.emby.status', 'login')
         return { code: 200 }
       }
-    } catch (error) {
+      return { code: 500 }
+    } catch (error: any) {
       log.error('======= Emby login error =======', error)
       return {
         code: 404,
@@ -289,6 +311,22 @@ class Emby implements EmbyImpl {
     const url = `${baseUrl}/emby/Users/${userId}/FavoriteItems/${id}${op === 'unstar' ? '/Delete' : ''}?api_key=${accessToken}`
     const result = await axios({ method: 'POST', url }).then((res) => res.status === 200)
     return result
+  }
+
+  async updatePlaylistInfo(id: string, data: { name: string; desc: string }) {
+    const userId = store.get('accounts.emby.userId') as string
+    const res = await ApiRequest('GET', `Users/${userId}/Items/${id}`)
+    const item = res.data
+
+    item.Name = data.name
+    item.Overview = data.desc
+
+    delete item.ServerId
+    delete item.Etag
+    delete item.DateCreated
+
+    const result = await ApiRequest('POST', `Items/${id}`, item)
+    return result.status === 204
   }
 
   scrobble(id: number) {
