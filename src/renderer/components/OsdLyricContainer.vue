@@ -89,9 +89,21 @@ const lyricToShow = computed(() => {
   if (!isMini.value) return lyrics.value
 
   const idx = currentGroupIndex.value
-  const result = groupLyric.value[idx]
-    ? groupLyric.value[idx].map((index) => lyrics.value[index])
-    : []
+  const currentGroup = groupLyric.value[idx] ?? []
+
+  if (
+    mode.value === 'twoLines' &&
+    currentGroup.length === 2 &&
+    currentGroup[1] === highlight.value
+  ) {
+    const nextGroup = groupLyric.value[idx + 1]
+    if (nextGroup?.[0] !== undefined) {
+      return [lyrics.value[nextGroup[0]], lyrics.value[currentGroup[1]]]
+    }
+    return [lyrics.value[currentGroup[1]]]
+  }
+
+  const result = currentGroup.map((index) => lyrics.value[index])
   return result
 })
 
