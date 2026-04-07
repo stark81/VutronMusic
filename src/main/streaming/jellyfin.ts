@@ -10,7 +10,8 @@ const version = '1.6.5'
 const sendItemsList = async (
   endpoint: string,
   params?: any,
-  method: 'GET' | 'POST' | 'DELETE' = 'GET'
+  method: 'GET' | 'POST' | 'DELETE' = 'GET',
+  isData = false
 ) => {
   const baseUrl = store.get('accounts.jellyfin.url') as string
   const userId = store.get('accounts.jellyfin.userId') as string
@@ -21,13 +22,25 @@ const sendItemsList = async (
   }
 
   const url = `${baseUrl}/${endpoint}`
+
   const headers = {
     Authorization: `MediaBrowser Token="${accessToken}", Client="${client}", Device="${client}", DeviceId="${client}", Version="${version}"`,
-    'Content-Type': 'application/json',
-    timeout: 5000
+    'Content-Type': 'application/json'
   }
 
-  const res = await axios({ method, url, headers, params }).catch((err) => err)
+  const options: any = {
+    method,
+    url,
+    headers,
+    timeout: 5000
+  }
+  if (isData) {
+    options.data = params
+  } else {
+    options.params = params
+  }
+
+  const res = await axios(options).catch((err) => err)
   return res
 }
 
@@ -124,32 +137,34 @@ class Jellyfin implements JellyfinImpl {
       }
       const username = (store.get('accounts.jellyfin.username') as string) || ''
       const response = await sendItemsList(endpoint, params)
-      const playlists = await Promise.all(
-        response.data.Items.map(async (p) => {
-          const tracks = await this.getPlaylistTracks(p.Id)
-          const trackIds = tracks.map((t: any) => t.Id) as string[]
-          const trackItemIds = tracks.reduce((acc, item) => {
-            acc[item.Id.toString()] = item.PlaylistItemId
-            return acc
-          }, {})
-          const url = p.ImageTags?.Primary
-            ? this.getPic(p.Id, 512)
-            : 'https://p1.music.126.net/jWE3OEZUlwdz0ARvyQ9wWw==/109951165474121408.jpg?param=512y512'
-          const playlist = {
-            id: p.Id,
-            name: p.Name,
-            description: p.Overview || '',
-            updateTime: new Date(p.DateCreated).getTime(),
-            trackCount: p.ChildCount,
-            coverImgUrl: url,
-            service: 'jellyfin',
-            trackIds,
-            trackItemIds,
-            creator: { nickname: username }
-          }
-          return playlist
-        })
-      )
+      const playlists = response.data?.Items
+        ? await Promise.all(
+            response.data?.Items?.map(async (p) => {
+              const tracks = await this.getPlaylistTracks(p.Id)
+              const trackIds = tracks.map((t: any) => t.Id) as string[]
+              const trackItemIds = tracks.reduce((acc, item) => {
+                acc[item.Id.toString()] = item.PlaylistItemId
+                return acc
+              }, {})
+              const url = p.ImageTags?.Primary
+                ? this.getPic(p.Id, 512)
+                : 'https://p1.music.126.net/jWE3OEZUlwdz0ARvyQ9wWw==/109951165474121408.jpg?param=512y512'
+              const playlist = {
+                id: p.Id,
+                name: p.Name,
+                description: p.Overview || '',
+                updateTime: new Date(p.DateCreated).getTime(),
+                trackCount: p.ChildCount,
+                coverImgUrl: url,
+                service: 'jellyfin',
+                trackIds,
+                trackItemIds,
+                creator: { nickname: username }
+              }
+              return playlist
+            })
+          )
+        : []
       return { code: 200, message: 'Playlists fetched successfully', data: playlists }
     } catch (error) {
       log.error('Error fetching playlists:', error)
@@ -158,12 +173,24 @@ class Jellyfin implements JellyfinImpl {
   }
 
   async updatePlaylistInfo(id: string, data: { name: string; desc: string }) {
-    const userId = store.get('accounts.jellyfin.userId') as string
-    if (!userId) {
-      return { code: 401, message: 'User not logged in', data: [] }
+    const body = {
+      Id: id,
+      Name: data.name,
+      Overview: data.desc,
+      Genres: [],
+      Tags: [],
+      People: [],
+      Studios: [],
+      ProviderIds: {},
+      Taglines: [],
+      LockedFields: [],
+      LockData: false,
+      AlbumArtists: [],
+      ArtistItems: []
     }
-    const res = await sendItemsList(`Users/${userId}/Items/${id}`)
-    console.log('===2==1==2===', res)
+
+    const result = await sendItemsList(`Items/${id}`, body, 'POST', true)
+    return result.status === 204 || result.status === 200
   }
 
   async getArtists() {
@@ -205,8 +232,7 @@ class Jellyfin implements JellyfinImpl {
   async addTracksToPlaylist(op: 'add' | 'del', playlistId: string, ids: string[]) {
     const endpoint = `Playlists/${playlistId}/Items`
     const userId = store.get('accounts.jellyfin.userId') as string
-    const params =
-      op === 'add' ? { Ids: ids.join(','), UserId: userId } : { entryIds: ids.join(',') }
+    const params = op === 'add' ? { ids: ids.join(','), userId } : { entryIds: ids.join(',') }
     const method = op === 'add' ? 'POST' : 'DELETE'
     const response = await sendItemsList(endpoint, params, method)
     return response.status === 204 || response.status === 200

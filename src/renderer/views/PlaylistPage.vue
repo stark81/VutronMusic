@@ -39,7 +39,7 @@
         </div>
         <div class="date-and-count">
           {{ $t('library.playlist.updatedAt') }}
-          {{ formatDate(playlist?.updateTime) }} · {{ playlist?.trackCount }}
+          {{ formatDate(playlist?.updateTime) }} · {{ playlist?.trackCount || 0 }}
           {{ $t('common.songs') }}
         </div>
         <div class="description" @click="toggleFullDescription">
