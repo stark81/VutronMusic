@@ -40,6 +40,7 @@ interface JellyfinImpl {
   getStream: (id: string) => string
   getLyric: (id: string) => Promise<any>
   createPlaylist: (name: string) => Promise<{ status: string; pid: any }>
+  updatePlaylistInfo: (id: string, data: { name: string; desc: string }) => void
   deletePlaylist: (id: string) => Promise<boolean>
   addTracksToPlaylist: (op: string, playlistId: string, ids: string[]) => Promise<boolean>
   scrobble: (id: string) => void
@@ -154,6 +155,15 @@ class Jellyfin implements JellyfinImpl {
       log.error('Error fetching playlists:', error)
       return { code: 500, message: 'Failed to fetch playlists', data: [] }
     }
+  }
+
+  async updatePlaylistInfo(id: string, data: { name: string; desc: string }) {
+    const userId = store.get('accounts.jellyfin.userId') as string
+    if (!userId) {
+      return { code: 401, message: 'User not logged in', data: [] }
+    }
+    const res = await sendItemsList(`Users/${userId}/Items/${id}`)
+    console.log('===2==1==2===', res)
   }
 
   async getArtists() {

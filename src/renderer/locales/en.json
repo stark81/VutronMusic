@@ -40,7 +40,9 @@
       "setPrivate": "Set as Private Playlist",
       "newPlaylist": "New Playlist",
       "updatedAt": "Last Updated",
-      "search": "Search"
+      "search": "Search",
+      "modifyTitle": "Modify playlist title",
+      "modifyDesc": "Modify playlist description"
     },
     "likedSongs": "Liked Songs",
     "albums": "Albums",
@@ -162,6 +164,7 @@
     "accurateMatch": "Exact Match",
     "addToLocalPlaylist": "Add to Local Playlist",
     "removeTrackFromPlaylist": "Remove from Playlist",
+    "editPlaylistInfo": "Edit playlist info",
     "showInFolder": "Open in File Explorer",
     "deletePlaylist": "Delete Playlist",
     "removeFromPlaylist": "Remove from playlist",

@@ -40,7 +40,9 @@
       "setPrivate": "设置为隐私歌单",
       "newPlaylist": "新建歌单",
       "updatedAt": "最后更新于",
-      "search": "搜索"
+      "search": "搜索",
+      "modifyTitle": "修改歌单标题",
+      "modifyDesc": "修改歌单描述"
     },
     "likedSongs": "我喜欢的音乐",
     "albums": "专辑",
@@ -162,6 +164,7 @@
     "accurateMatch": "精确匹配",
     "addToLocalPlaylist": "添加至本地歌单",
     "removeTrackFromPlaylist": "从歌单里删除",
+    "editPlaylistInfo": "编辑歌单",
     "showInFolder": "在文件管理器中打开",
     "deletePlaylist": "删除歌单",
     "removeFromPlaylist": "从歌单中删除",

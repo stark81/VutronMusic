@@ -21,7 +21,7 @@ class Cache {
       }
       case CacheAPIs.searchMatch: {
         if (!data.result.songs.length) return
-        const trackRaw = db.find(Tables.Track, query.localID)
+        const trackRaw = db.find(Tables.Track, query.localID)!
         const track = JSON.parse(trackRaw.json)
 
         const playlistsRaw = db.findAll(Tables.Playlist, `isLocal = 1`)
@@ -31,7 +31,7 @@ class Cache {
         playlists.forEach((p: any) => {
           if (p.trackIds.includes(track.id)) {
             p.trackIds.splice(p.trackIds.indexOf(track.id), 1, newTrack.id)
-            p.coverImgUrl = `atom://local-asset?type=pic&id=${p.trackIds[p.trackIds.length - 1]}`
+            p.coverImgUrl = `atom://local-asset?type=pic&id=${p.trackIds[p.trackIds.length - 1]}&size=512`
             const playlist = {
               id: p.id,
               isLocal: 1,
@@ -68,12 +68,25 @@ class Cache {
         }
       }
       case CacheAPIs.LocalPlaylist: {
-        const playlist = {
-          id: data.id,
-          isLocal: 1,
-          json: JSON.stringify(data),
-          updatedAt: data.updateTime
-        } as any
+        let playlist: any = {}
+        if (query?.id) {
+          const p = db.find(Tables.Playlist, query.id)!
+          const pj = JSON.parse(p.json)
+          pj.name = data.name
+          pj.description = data.desc
+          playlist = {
+            ...p,
+            json: JSON.stringify(pj),
+            updatedAt: Date.now()
+          }
+        } else {
+          playlist = {
+            id: data.id,
+            isLocal: 1,
+            json: JSON.stringify(data),
+            updatedAt: data.updateTime
+          }
+        }
         try {
           db.upsert(Tables.Playlist, playlist)
           return true
@@ -154,7 +167,7 @@ class Cache {
       }
       case CacheAPIs.LocalPlaylist: {
         const data = db.findAll(Tables.Playlist, `isLocal = 1`)
-        const playlists = data.map((t: any) => JSON.parse(t.json))
+        const playlists = data.map((t: any) => JSON.parse(t.json)).filter((p) => p.id)
         return playlists
       }
       case CacheAPIs.loginStatus: {

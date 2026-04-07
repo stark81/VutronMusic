@@ -17,7 +17,7 @@ import navidrome from './streaming/navidrome'
 import emby from './streaming/emby'
 import jellyfin from './streaming/jellyfin'
 import { Worker } from 'worker_threads'
-import { Track, Album, Artist, scanTrack } from '@/types/music'
+import { Track, Album, Artist, scanTrack, serviceName } from '@/types/music'
 import _ from 'lodash'
 import { requestUserAuth, scrobbleTrack, updateNowPlaying } from './utils/lastfm'
 
@@ -62,8 +62,8 @@ export default class IPCs {
   }
 }
 
-function exitAsk(event: IpcMainEvent, win: BrowserWindow) {
-  const { dialog } = require('electron')
+async function exitAsk(event: IpcMainEvent, win: BrowserWindow) {
+  const { dialog } = await import('electron')
   event.preventDefault()
   dialog
     .showMessageBox({
@@ -144,7 +144,7 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
     }
   })
 
-  ipcMain.on('setStoreSettings', (event: IpcMainEvent, data: any) => {
+  ipcMain.on('setStoreSettings', async (event: IpcMainEvent, data: any) => {
     for (const [key, value] of Object.entries(data) as [string, any]) {
       store.set(`settings.${key}`, value)
       if (key === 'enableTrayMenu') {
@@ -154,7 +154,7 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
       } else if (key === 'trayColor') {
         tray.updateTrayColor()
       } else if (key === 'enableGlobalShortcut') {
-        const { globalShortcut } = require('electron')
+        const { globalShortcut } = await import('electron')
         if (value) {
           registerGlobalShortcuts(win)
         } else {
@@ -164,7 +164,7 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
         createMenu(win)
         const global = store.get('settings.enableGlobalShortcut') as boolean
         if (global) {
-          const { globalShortcut } = require('electron')
+          const { globalShortcut } = await import('electron')
           globalShortcut.unregisterAll()
           registerGlobalShortcuts(win)
         }
@@ -273,7 +273,10 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
 
   ipcMain.on('playDiscordPresence', (event: IpcMainEvent, track: Track) => {
     client.updatePresence({
-      details: track.name + ' - ' + (track.ar || track.artists).map((ar) => ar.name).join(','),
+      details:
+        track.name +
+        ' - ' +
+        (track.ar || track.artists).map((ar: Record<string, any>) => ar.name).join(','),
       state: (track.al || track.album).name,
       endTimestamp: Date.now() + track.dt,
       largeImageKey: (track.al || track.album).picUrl + '?param=256y256',
@@ -286,7 +289,10 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
 
   ipcMain.on('pauseDiscordPresence', (event: IpcMainEvent, track: Track) => {
     client.updatePresence({
-      details: track.name + ' - ' + (track.ar || track.artists).map((ar) => ar.name).join(','),
+      details:
+        track.name +
+        ' - ' +
+        (track.ar || track.artists).map((ar: Record<string, any>) => ar.name).join(','),
       state: (track.al || track.album).name,
       largeImageKey: (track.al || track.album).picUrl + '?param=256y256',
       largeImageText: (track.al || track.album).name,
@@ -328,19 +334,19 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
 
   // Open url via web browser
   ipcMain.on('msgOpenExternalLink', async (event: IpcMainEvent, url: string) => {
-    const { shell } = require('electron')
+    const { shell } = await import('electron')
     await shell.openExternal(url)
   })
 
-  ipcMain.on('openLogFile', () => {
-    const { shell } = require('electron')
+  ipcMain.on('openLogFile', async () => {
+    const { shell } = await import('electron')
     const logFilePath = log.transports.file.getFile().path
     shell.showItemInFolder(logFilePath)
   })
 
   // Open file
   ipcMain.handle('msgOpenFile', async (event, filter: string) => {
-    const { dialog } = require('electron')
+    const { dialog } = await import('electron')
     const filters = []
     if (filter === 'text') {
       filters.push({ name: 'Text', extensions: ['txt', 'json'] })
@@ -364,7 +370,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
   })
 
   ipcMain.handle('selecteFolder', async () => {
-    const { dialog } = require('electron')
+    const { dialog } = await import('electron')
     const result = await dialog.showOpenDialog({
       properties: ['openDirectory']
     })
@@ -375,7 +381,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
   })
 
   ipcMain.handle('showOpenDialog', async (event, options) => {
-    const { dialog } = require('electron')
+    const { dialog } = await import('electron')
     return await dialog.showOpenDialog(options)
   })
 
@@ -591,8 +597,8 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     }
   })
 
-  ipcMain.on('msgShowInFolder', (event, path: string) => {
-    const { shell } = require('electron')
+  ipcMain.on('msgShowInFolder', async (event, path: string) => {
+    const { shell } = await import('electron')
     shell.showItemInFolder(path)
   })
 
@@ -650,6 +656,11 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     return result
   })
 
+  ipcMain.handle('updateLocalPlaylist', (event, playlistId: number, data: any) => {
+    const result = cache.set(CacheAPIs.LocalPlaylist, data, { id: playlistId })
+    return result
+  })
+
   ipcMain.handle('deleteACacheTrack', (event, trackId: number) => {
     try {
       db.delete(Tables.Track, trackId)
@@ -687,12 +698,12 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     downloadUpdate()
   })
 
-  ipcMain.on('update-powersave', (event, enable: boolean) => {
-    const { powerSaveBlocker } = require('electron')
+  ipcMain.on('update-powersave', async (event, enable: boolean) => {
+    const { powerSaveBlocker } = await import('electron')
     if (enable) {
       blockerId = powerSaveBlocker.start('prevent-app-suspension')
     } else {
-      if (powerSaveBlocker.isStarted(blockerId)) {
+      if (blockerId && powerSaveBlocker.isStarted(blockerId)) {
         powerSaveBlocker.stop(blockerId)
         blockerId = null
       }
@@ -817,7 +828,7 @@ async function initMprisIpcMain(win: BrowserWindow, mpris: MprisImpl): Promise<v
 }
 
 async function initStreaming() {
-  ipcMain.handle('stream-login', async (event: IpcMainEvent, data: any) => {
+  ipcMain.handle('stream-login', async (event, data: any) => {
     const { platform } = data
     store.set('accounts.selected', platform)
     store.set(`accounts.${data.platform}.url`, data.baseURL)
@@ -970,4 +981,17 @@ async function initStreaming() {
     ])
     return { navidrome: res[0], emby: res[1], jellyfin: res[2] }
   })
+
+  ipcMain.handle(
+    'updateStreamPlaylistInfo',
+    async (
+      event,
+      data: { platform: serviceName; id: string; info: { name: string; desc: string } }
+    ) => {
+      const platformMap = { navidrome, emby, jellyfin }
+      const client = platformMap[data.platform]
+      const result = await client.updatePlaylistInfo(data.id, data.info)
+      return result
+    }
+  )
 }

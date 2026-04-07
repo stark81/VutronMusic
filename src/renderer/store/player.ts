@@ -768,6 +768,10 @@ export const usePlayerStore = defineStore(
         showToast(t('toast.scanning'))
         return
       }
+
+      const fade = fadeDuration.value
+      await smoothGain(0, fade)
+
       isPersonalFM.value = false
       _list.value = trackIDS
       isLocalList.value = playlistSourceType.includes('local')

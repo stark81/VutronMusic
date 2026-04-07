@@ -665,9 +665,10 @@ export const getAudioSourceFromUnblock = async (track: any) => {
 
   const proxy = store.get('settings.proxy') as { type: 0 | 1 | 2; address: string; port: string }
   const map = { 1: 'http', 2: 'https' }
-  const url = `${map[proxy.type]}://${proxy.address}:${proxy.port}`
+  const url =
+    proxy && proxy.type !== 0 ? `${map[proxy.type]}://${proxy.address}:${proxy.port}` : null
 
-  global.proxy = proxy && proxy.type !== 0 ? new URL(url) : null
+  global.proxy = url
 
   return match(track.id, sourceList).catch((error) => {
     console.log('=== unblock error ===', global.proxy, error)

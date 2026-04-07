@@ -11,6 +11,7 @@
         <div
           class="dir-name"
           :class="{ active: selectedIdx === index }"
+          :title="item"
           @click="selectedIdx = index"
         >
           <SvgIcon icon-class="folder" />
@@ -92,7 +93,7 @@ onBeforeUnmount(() => {
   height: 44px;
   display: flex;
   font-size: 18px;
-  place-items: center;
+  align-items: center;
   box-sizing: border-box;
   padding: 10px;
   border-radius: 6px;
@@ -105,13 +106,22 @@ onBeforeUnmount(() => {
   }
 
   .svg-icon {
+    flex-shrink: 0;
     width: 24px;
     height: 24px;
     opacity: 0.9;
   }
 
   span {
+    flex: 1;
+    min-width: 0;
     margin-left: 6px;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    overflow: hidden;
+    word-break: break-all;
   }
 }
 </style>

@@ -14,6 +14,7 @@
     <ShowToast />
     <AddTrackToPlaylistModal />
     <newPlaylistModal />
+    <editPlaylist />
     <PlayPage v-if="enabled" />
   </div>
 </template>
@@ -27,6 +28,7 @@ import SideNav from './components/SideNav.vue'
 import ShowToast from './components/ShowToast.vue'
 import AddTrackToPlaylistModal from './components/ModalAddTrackToPlaylist.vue'
 import newPlaylistModal from './components/ModalNewPlaylist.vue'
+import editPlaylist from './components/ModalEditPlaylist.vue'
 import PlayPage from './views/PlayPage.vue'
 import { useDataStore } from './store/data'
 import { useLocalMusicStore } from './store/localMusic'

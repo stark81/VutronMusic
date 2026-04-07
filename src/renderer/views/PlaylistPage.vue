@@ -167,6 +167,12 @@
       <div
         v-if="playlistType !== 'online' || playlist?.creator?.userId === user.userId"
         class="item"
+        @click="editPlaylist"
+        >{{ $t('contextMenu.editPlaylistInfo') }}</div
+      >
+      <div
+        v-if="playlistType !== 'online' || playlist?.creator?.userId === user.userId"
+        class="item"
         @click="deleteAPlaylist"
         >{{ $t('contextMenu.deletePlaylist') }}</div
       >
@@ -357,7 +363,10 @@ const { playlists, localTracks } = storeToRefs(useLocalMusicStore())
 const { deleteLocalPlaylist } = useLocalMusicStore()
 
 const streamMusic = useStreamMusicStore()
-const { showToast } = useNormalStateStore()
+
+const stateStore = useNormalStateStore()
+const { showToast } = stateStore
+const { editPlaylistModal } = storeToRefs(stateStore)
 
 const playerStore = usePlayerStore()
 const { _shuffle } = storeToRefs(playerStore)
@@ -577,6 +586,17 @@ const deleteAPlaylist = () => {
         }
       })
     }
+  }
+}
+
+const editPlaylist = () => {
+  if (playlistType.value === 'streamLiked') return
+  editPlaylistModal.value = {
+    show: true,
+    type:
+      playlistType.value === 'stream' ? (currentService.value as serviceName) : playlistType.value,
+    playlistID: playlist.value.id,
+    info: { title: playlist.value.name, description: playlist.value.description || '' }
   }
 }
 

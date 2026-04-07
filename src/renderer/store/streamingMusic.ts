@@ -75,6 +75,24 @@ export const useStreamMusicStore = defineStore(
         })
     }
 
+    const updateStreamPlaylist = async (
+      platform: serviceName,
+      id: string,
+      info: { name: string; desc: string }
+    ): Promise<boolean> => {
+      const result = await window.mainApi!.invoke('updateStreamPlaylistInfo', {
+        platform,
+        id,
+        info
+      })
+      if (!result) return false
+      const playlist = playlists[platform].find((p) => p.id === id)!
+      playlist.name = info.name
+      playlist.description = info.desc
+      playlist.updateTime = Date.now()
+      return true
+    }
+
     const addOrRemoveTrackFromStreamPlaylist = async (
       op: 'add' | 'del',
       service: serviceName,
@@ -193,6 +211,7 @@ export const useStreamMusicStore = defineStore(
       handleStreamLogout,
       fetchStreamMusic,
       fetchStreamPlaylist,
+      updateStreamPlaylist,
       addOrRemoveTrackFromStreamPlaylist
     }
   },

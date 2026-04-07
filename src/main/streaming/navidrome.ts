@@ -27,7 +27,7 @@ const doLogin = async (baseUrl: string, username: string, password: string) => {
       status: 'login'
     })
     return { code: 200 }
-  } catch (error) {
+  } catch (error: any) {
     const dialog = (await import('electron')).dialog
     const msg = error?.response?.data || error.message
     if (!msg.includes('socket hang up')) {
@@ -113,6 +113,7 @@ interface NavidromeImpl {
   doLogin: (baseURL: string, username: string, password: string) => Promise<any>
   getTracks: () => Promise<{ code: number; message: string; data: any }>
   getPlaylists: () => Promise<{ code: number; message: string; data: any }>
+  updatePlaylistInfo: (id: string, data: { name: string; desc: string }) => void
   getPic: (id: string, size?: number) => string
   getStream: (id: string) => string
   getLyric: (id: string) => Promise<any>
@@ -233,6 +234,15 @@ class Navidrome implements NavidromeImpl {
       return { code: 200, massage: 'ok', data: playlists }
     }
     return response
+  }
+
+  async updatePlaylistInfo(id: string, data: { name: string; desc: string }) {
+    const params = { playlistId: id, name: data.name, comment: data.desc }
+    const url = getRestUrl('updatePlaylist', params)
+    const isSuccess = await fetch(url)
+      .then((res) => res.json())
+      .then((res) => res['subsonic-response'].status === 'ok')
+    return isSuccess
   }
 
   async likeATrack(op: 'star' | 'unstar', id: string) {
