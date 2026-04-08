@@ -53,7 +53,9 @@ export const useSettingsStore = defineStore(
       showBanner: true,
       autoUpdate: true,
       jumpToLyricBegin: true,
-      trayColor: 0 // 0: 彩色, 1: 白色, 2: 黑色, 3: 跟随系统
+      trayColor: 0, // 0: 彩色, 1: 白色, 2: 黑色, 3: 跟随系统
+      showChorus: true, // 进度条显示副歌时间
+      clickToLyric: true // 点击播放栏打开歌词页
     })
 
     const tray = reactive({

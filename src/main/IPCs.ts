@@ -1,4 +1,5 @@
 import { app, ipcMain, IpcMainEvent, BrowserWindow } from 'electron'
+import type { OpenDialogOptions } from 'electron'
 import { YPMTray } from './tray'
 import { MprisImpl } from './mpris'
 import { checkUpdate, downloadUpdate } from './checkUpdate'
@@ -369,15 +370,21 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     }
   })
 
-  ipcMain.handle('selecteFolder', async () => {
+  ipcMain.handle('selecteFolder', async (event, data: { multi: boolean }) => {
     const { dialog } = await import('electron')
+
+    const option: OpenDialogOptions['properties'] = ['openDirectory']
+    if (data.multi) {
+      option.push('multiSelections')
+    }
+
     const result = await dialog.showOpenDialog({
-      properties: ['openDirectory']
+      properties: option
     })
     if (!result.canceled) {
-      return result.filePaths[0]
+      return result.filePaths
     }
-    return null
+    return []
   })
 
   ipcMain.handle('showOpenDialog', async (event, options) => {

@@ -1347,12 +1347,13 @@ window.mainApi?.on('receiveCacheInfo', (_: any, data: { length: number; size: nu
 })
 
 const chooseDir = (scan = true) => {
-  window.mainApi?.invoke('selecteFolder').then((folderPath: string | null) => {
+  window.mainApi?.invoke('selecteFolder', { multi: scan }).then((folderPath: string[]) => {
+    console.log('====2====', folderPath)
     if (!folderPath) return
     if (scan) {
-      scanDir.value = folderPath
+      scanDir.value = folderPath[0]
     } else {
-      autoCacheTrack.value.path = folderPath
+      autoCacheTrack.value.path = folderPath[0]
     }
   })
 }
