@@ -361,13 +361,18 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     return dialogResult
   })
 
-  ipcMain.handle('msgCheckFileExist', (event, path: string) => {
-    try {
-      fs.accessSync(path, fs.constants.F_OK)
-      return true
-    } catch (e) {
-      return false
-    }
+  ipcMain.handle('msgCheckFileExist', async (event, paths: string[]) => {
+    const results = await Promise.all(
+      paths.map(async (path) => {
+        try {
+          await fs.promises.access(path)
+          return { path, exist: true }
+        } catch {
+          return { path, exist: false }
+        }
+      })
+    )
+    return results
   })
 
   ipcMain.handle('selecteFolder', async (event, data: { multi: boolean }) => {
@@ -440,7 +445,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     }
   })
 
-  ipcMain.on('msgScanLocalMusic', async (event, data: { filePath: string; update: boolean }) => {
+  ipcMain.on('msgScanLocalMusic', async (event, data: { filePath: string[]; update: boolean }) => {
     try {
       const { default: Piscina } = (await import('piscina')) as typeof import('piscina')
       const fg = await import('fast-glob')
@@ -471,11 +476,19 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
         return song.filePath
       }) as string[]
 
-      const allFiles = await fg.glob(['**/*.{mp3,aiff,flac,alac,m4a,aac,wav,opus}'], {
-        cwd: data.filePath,
-        absolute: true,
-        onlyFiles: true
-      })
+      const patterns = ['**/*.{mp3,aiff,flac,alac,m4a,aac,wav,opus}']
+
+      const results = await Promise.all(
+        data.filePath.map((dir) =>
+          fg.glob(patterns, {
+            cwd: dir,
+            absolute: true,
+            onlyFiles: true
+          })
+        )
+      )
+
+      const allFiles = results.flat()
 
       const newFiles = data.update ? allFiles : allFiles.filter((f) => !existingPaths.includes(f))
 

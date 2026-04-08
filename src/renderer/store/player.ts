@@ -503,6 +503,21 @@ export const usePlayerStore = defineStore(
     })
 
     watch(
+      () => settingsStore.general.showChorus,
+      (value) => {
+        if (!value) {
+          chorus.value = 0
+        } else if (currentTrack.value?.matched) {
+          songChorus(currentTrack.value.id).then((res) => {
+            if (res.chorus.length) {
+              chorus.value = res.chorus[0].startTime / 1000 - (currentTrack.value?.offset || 0)
+            }
+          })
+        }
+      }
+    )
+
+    watch(
       () => window.env?.isLinux && settingsStore.tray.enableExtension,
       (value) => {
         if (!stateStore.extensionCheckResult) return
@@ -687,7 +702,7 @@ export const usePlayerStore = defineStore(
       if (!track) return
       chorus.value = 0
       // let data: any
-      if (track.matched) {
+      if (track.matched && settingsStore.general.showChorus) {
         songChorus(track.id).then((res) => {
           if (res.chorus.length) {
             chorus.value = res.chorus[0].startTime / 1000 - (currentTrack.value?.offset || 0)

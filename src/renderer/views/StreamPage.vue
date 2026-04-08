@@ -4,8 +4,8 @@
       <div class="left" style="width: 100%">
         <InfoBG />
         <div class="content">
-          <h2 style="margin-bottom: 20px"
-            >流媒体歌曲 - {{ defaultGroupBy === 'all' ? '聚合' : defaultGroupBy }}</h2
+          <label class="left-title"
+            >流媒体歌曲 - {{ defaultGroupBy === 'all' ? '聚合' : defaultGroupBy }}</label
           >
           <div class="content-info">
             <div>
@@ -491,14 +491,22 @@ onBeforeUnmount(() => {
     border-radius: 12px;
     overflow: hidden;
     .content {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
       position: absolute;
       top: 0;
       left: 0;
       width: 410px;
       height: 100%;
-      padding: 30px 50px;
+      padding: 36px 80px;
       box-sizing: border-box;
-      text-align: center;
+
+      .left-title {
+        font-size: 26px;
+        font-weight: bold;
+      }
+
       .content-info {
         display: grid;
         grid-template-columns: 1fr 1fr;

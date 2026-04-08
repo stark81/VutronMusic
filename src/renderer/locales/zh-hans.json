@@ -88,7 +88,10 @@
     "dirName": "文件夹名",
     "placeholder": "搜索本地歌曲",
     "scrollToTop": "回到顶部",
-    "localMusicFolderPath": "本地音乐文件夹路径",
+    "localMusicFolder": {
+      "text": "本地音乐文件夹路径",
+      "desc": "支持多目录，Linux如需多目录，请使用手动输入的方式"
+    },
     "enableLocalMusic": "启用本地音乐",
     "clearLocalMusic": {
       "text": "清空本地歌曲信息",
@@ -332,6 +335,8 @@
         "auto": "自动 (跟随系统主题)"
       },
       "logout": "登出",
+      "showSongChorus": "在播放进度条显示副歌时间",
+      "clickToLyric": "点击播放栏空白处进入歌词页",
       "jumpToLyricBegin": "调整进度时吸附到歌词开始位置",
       "perventSuspend": "播放时防止系统休眠"
     },

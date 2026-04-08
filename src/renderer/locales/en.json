@@ -88,7 +88,10 @@
     "dirName": "Folder Name",
     "placeholder": "Search Local Songs",
     "scrollToTop": "Scroll to Top",
-    "localMusicFolderPath": "Local Music Folder Path",
+    "localMusicFolder": {
+      "text": "Local Music Folder Path",
+      "desc": "Supports multiple directories. On Linux, use manual input for multiple directories"
+    },
     "enableLocalMusic": "Enable Local Music",
     "clearLocalMusic": {
       "text": "Clear Local Music Info",
@@ -332,6 +335,8 @@
         "auto": "Auto (Based on system theme)"
       },
       "logout": "Logout",
+      "showSongChorus": "Show chorus timestamps on the player-bar",
+      "clickToLyric": "Click empty area of the player-bar to enter lyrics page",
       "jumpToLyricBegin": "Jump to begining of current lyric when seeking",
       "perventSuspend": "Prevent system sleep during playback"
     },

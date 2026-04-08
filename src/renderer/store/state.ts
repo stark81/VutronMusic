@@ -52,6 +52,7 @@ export const useNormalStateStore = defineStore('state', () => {
     playlistID: 0,
     info: { title: '', description: '' }
   })
+  const selectDirModal = ref(false)
 
   const toast = reactive({
     show: false,
@@ -159,6 +160,7 @@ export const useNormalStateStore = defineStore('state', () => {
     setPitchModal,
     setThemeModal,
     setFontModal,
+    selectDirModal,
     setSaveThemeModal,
     fontList,
     extensionCheckResult,

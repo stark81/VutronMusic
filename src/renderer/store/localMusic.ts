@@ -165,10 +165,17 @@ export const useLocalMusicStore = defineStore(
       window.mainApi?.send('clearDeletedMusic')
 
       if (!scanDir.value || !enble.value) return
-      const isExist = await window.mainApi?.invoke('msgCheckFileExist', scanDir.value)
-      if (!isExist) return
+      const existResults = (await window.mainApi?.invoke(
+        'msgCheckFileExist',
+        toRaw(scanDir.value)
+      )) as {
+        path: string
+        exist: boolean
+      }[]
+      const validDirs = existResults.filter((item) => item.exist).map((item) => item.path)
+      if (!validDirs.length) return
       scanning.value = true
-      window.mainApi?.send('msgScanLocalMusic', { filePath: scanDir.value, update })
+      window.mainApi?.send('msgScanLocalMusic', { filePath: validDirs, update })
     }
 
     const resetLocalMusic = () => {
