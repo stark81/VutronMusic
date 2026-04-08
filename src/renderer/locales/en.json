@@ -90,7 +90,9 @@
     "scrollToTop": "Scroll to Top",
     "localMusicFolder": {
       "text": "Local Music Folder Path",
-      "desc": "Supports multiple directories. On Linux, use manual input for multiple directories"
+      "desc": "Supports multiple directories. On Linux, use manual input for multiple directories",
+      "title": "Manually enter local music directories",
+      "placeholder": "Enter local music directories (multiple supported, one per line)"
     },
     "enableLocalMusic": "Enable Local Music",
     "clearLocalMusic": {

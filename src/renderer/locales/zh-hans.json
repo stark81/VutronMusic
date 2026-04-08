@@ -90,7 +90,9 @@
     "scrollToTop": "回到顶部",
     "localMusicFolder": {
       "text": "本地音乐文件夹路径",
-      "desc": "支持多目录，Linux如需多目录，请使用手动输入的方式"
+      "desc": "支持多目录，Linux如需多目录，请使用手动输入的方式",
+      "title": "手动输入本地音乐目录",
+      "placeholder": "请输入本地音乐目录（支持多目录，每行一个）"
     },
     "enableLocalMusic": "启用本地音乐",
     "clearLocalMusic": {

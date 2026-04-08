@@ -2,7 +2,7 @@
   <BaseModal
     class="select-filepath"
     :show="selectDirModal"
-    title="手动输入本地音乐目录"
+    :title="$t('localMusic.localMusicFolder.title')"
     :close-fn="() => (selectDirModal = false)"
   >
     <template #default>
@@ -10,7 +10,7 @@
         <textarea
           v-model="scanDirText"
           class="comment-input"
-          :placeholder="$t('library.playlist.modifyDesc')"
+          :placeholder="$t('localMusic.localMusicFolder.placeholder')"
         />
       </div>
     </template>

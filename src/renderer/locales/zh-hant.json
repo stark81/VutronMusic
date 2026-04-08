@@ -90,7 +90,9 @@
     "scrollToTop": "回到頂部",
     "localMusicFolder": {
       "text": "本地音樂資料夾路徑",
-      "desc": "支援多目錄，Linux 如需多目錄，請使用手動輸入方式"
+      "desc": "支援多目錄，Linux 如需多目錄，請使用手動輸入方式",
+      "title": "手動輸入本地音樂目錄",
+      "placeholder": "請輸入本地音樂目錄（支援多目錄，每行一個）"
     },
     "enableLocalMusic": "啟用本地音樂",
     "clearLocalMusic": {
