@@ -25,7 +25,7 @@ import { storeToRefs } from 'pinia'
 import BaseModal from './BaseModal.vue'
 import { useNormalStateStore } from '../store/state'
 import { useSettingsStore } from '../store/settings'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
 const stateStore = useNormalStateStore()
 const { selectDirModal } = storeToRefs(stateStore)
@@ -33,15 +33,31 @@ const { selectDirModal } = storeToRefs(stateStore)
 const settingStore = useSettingsStore()
 const { localMusic } = storeToRefs(settingStore)
 
-const scanDirText = ref(localMusic.value.scanDir.join('\n'))
+const scanDir = computed(() =>
+  (Array.isArray(localMusic.value.scanDir)
+    ? localMusic.value.scanDir
+    : localMusic.value.scanDir
+      ? [localMusic.value.scanDir]
+      : []
+  ).join('\n')
+)
+
+const _temp = ref('')
+
+const scanDirText = computed({
+  get: () => scanDir.value,
+  set: (value) => {
+    _temp.value = value
+  }
+})
 
 const updateDir = () => {
-  localMusic.value.scanDir = scanDirText.value
+  localMusic.value.scanDir = _temp.value
     .split('\n')
     .map((i) => i.trim())
     .filter(Boolean)
   selectDirModal.value = false
-  scanDirText.value = ''
+  _temp.value = ''
 }
 </script>
 

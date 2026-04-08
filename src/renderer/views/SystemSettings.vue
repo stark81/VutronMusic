@@ -66,7 +66,7 @@
               </div>
             </div>
           </div>
-          <div class="item">
+          <div v-if="isWindows" class="item">
             <div class="left">
               <div class="title">{{ $t('settings.general.forceFactor') }}</div>
             </div>
@@ -1418,7 +1418,6 @@ window.mainApi?.on('receiveCacheInfo', (_: any, data: { length: number; size: nu
 
 const chooseDir = (scan = true) => {
   window.mainApi?.invoke('selecteFolder', { multi: scan }).then((folderPath: string[]) => {
-    console.log('====2====', folderPath)
     if (!folderPath) return
     if (scan) {
       scanDir.value = folderPath

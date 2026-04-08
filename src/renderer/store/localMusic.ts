@@ -164,7 +164,7 @@ export const useLocalMusicStore = defineStore(
 
       window.mainApi?.send('clearDeletedMusic')
 
-      if (!scanDir.value || !enble.value) return
+      if (!scanDir.value.length || !enble.value) return
       const existResults = (await window.mainApi?.invoke(
         'msgCheckFileExist',
         toRaw(scanDir.value)
