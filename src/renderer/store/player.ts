@@ -769,8 +769,7 @@ export const usePlayerStore = defineStore(
         return
       }
 
-      const fade = fadeDuration.value
-      await smoothGain(0, fade)
+      await smoothGain(0, 0)
 
       isPersonalFM.value = false
       _list.value = trackIDS
@@ -797,8 +796,7 @@ export const usePlayerStore = defineStore(
         scrobbleFM(currentTrack.value, seek.value)
       }
 
-      const fade = fadeDuration.value
-      await smoothGain(0, fade)
+      await smoothGain(0, 0)
       return getLocalMusic(trackID as number).then(async (track) => {
         if (!track) {
           nextTrackCallback()
@@ -1244,6 +1242,7 @@ export const usePlayerStore = defineStore(
       audioNodes.convolverOutputGain = audioNodes.audioContext.createGain()
       audioNodes.convolverSourceGain = audioNodes.audioContext.createGain()
       audioNodes.masterGain = audioNodes.audioContext.createGain()
+      audioNodes.masterGain.gain.value = 0
 
       audioNodes.convolver.connect(audioNodes.convolverOutputGain)
       audioNodes.convolverSourceGain.connect(audioNodes.dynamics)
