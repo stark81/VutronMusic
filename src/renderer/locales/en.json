@@ -338,7 +338,8 @@
       "showSongChorus": "Show chorus timestamps on the player-bar",
       "clickToLyric": "Click empty area of the player-bar to enter lyrics page",
       "jumpToLyricBegin": "Jump to begining of current lyric when seeking",
-      "perventSuspend": "Prevent system sleep during playback"
+      "perventSuspend": "Prevent system sleep during playback",
+      "forceFactor": "Ignore system scaling (force 100%, restart required)"
     },
     "theme": {
       "auto": "Auto",

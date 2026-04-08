@@ -338,7 +338,8 @@
       "showSongChorus": "在播放進度條顯示副歌時間",
       "clickToLyric": "點擊播放欄空白處進入歌詞頁",
       "jumpToLyricBegin": "調整進度時吸附到歌詞開始位置",
-      "perventSuspend": "播放時防止系統休眠"
+      "perventSuspend": "播放時防止系統休眠",
+      "forceFactor": "忽略系統縮放（強制 100%，重新啟動後生效）"
     },
     "theme": {
       "auto": "跟隨系統",

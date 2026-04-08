@@ -55,7 +55,8 @@ export const useSettingsStore = defineStore(
       jumpToLyricBegin: false,
       trayColor: 0, // 0: 彩色, 1: 白色, 2: 黑色, 3: 跟随系统
       showChorus: true, // 进度条显示副歌时间
-      clickToLyric: false // 点击播放栏打开歌词页
+      clickToLyric: false, // 点击播放栏打开歌词页
+      forceFactor: false
     })
 
     const tray = reactive({
@@ -239,6 +240,13 @@ export const useSettingsStore = defineStore(
       () => general.trayColor,
       (val) => {
         window.mainApi?.send('setStoreSettings', { trayColor: val })
+      }
+    )
+
+    watch(
+      () => general.forceFactor,
+      (val) => {
+        window.mainApi?.send('setStoreSettings', { forceFactor: val })
       }
     )
 

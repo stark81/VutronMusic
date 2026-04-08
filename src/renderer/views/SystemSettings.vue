@@ -66,6 +66,17 @@
               </div>
             </div>
           </div>
+          <div class="item">
+            <div class="left">
+              <div class="title">{{ $t('settings.general.forceFactor') }}</div>
+            </div>
+            <div class="right">
+              <div class="toggle">
+                <input id="forceFactor" v-model="forceFactor" type="checkbox" name="forceFactor" />
+                <label for="forceFactor"></label>
+              </div>
+            </div>
+          </div>
           <div v-if="isElectron && isLinux" class="item">
             <div class="left">
               <div class="title">{{ $t('settings.general.useCustomTitlebar') }}</div>
@@ -1115,7 +1126,8 @@ const {
   closeAppOption,
   trayColor,
   showChorus,
-  clickToLyric
+  clickToLyric,
+  forceFactor
 } = toRefs(general.value)
 const { appearance, colors } = toRefs(theme.value)
 const customizeColor = computed(() => colors.value[4])
