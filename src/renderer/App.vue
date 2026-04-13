@@ -255,8 +255,8 @@ onMounted(async () => {
     (window.env?.isLinux && general.value.useCustomTitlebar) || window.env?.isWindows || false
   if (isMac.value) {
     import('./utils/trayLyrics').then((module) => {
-      const buildTrays = module.buildTrays
-      buildTrays()
+      // const buildTrays = module.buildTrays
+      // buildTrays()
 
       const buildTouchBars = module.buildTouchBars
       buildTouchBars()

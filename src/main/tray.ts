@@ -8,6 +8,7 @@ import {
   app
 } from 'electron'
 import Constants from './utils/Constants'
+import { CanvasManager } from './utils/canvasManager'
 import store from './store'
 import path from 'path'
 
@@ -196,14 +197,13 @@ const createMenuTemplate = (win: BrowserWindow) => {
 
 export interface YPMTray {
   createTray: () => void
-  updateTray: (img: string, width: number, height: number) => void
+  updateTray: (lyric: string, duration: number) => void
   updateTrayColor: () => void
-  destroyTray: () => void
   show: () => void
   setContextMenu: () => void
   setPlayState: (isPlaying: boolean) => void
   setLikeState: (isLiked: boolean) => void
-  setRepeatMode: (repeat: string) => void
+  setRepeatMode: (repeat: 'on' | 'one' | 'off') => void
   setShuffleMode: (isShuffle: boolean) => void
   setShowOSD: (show: boolean) => void
   setOSDLock: (lock: boolean) => void
@@ -212,13 +212,13 @@ export interface YPMTray {
 
 class TrayImpl implements YPMTray {
   private _win: BrowserWindow
-  private _tray: Tray | null = null
+  private _tray: Tray
   private _contextMenu: Menu | null = null
+  private _lyricTray: CanvasManager | null = null
 
   constructor(win: BrowserWindow) {
     this._win = win
-    this._tray = null
-    this._contextMenu = null
+    this._tray = new Tray(nativeImage.createEmpty())
 
     this.createTray()
     this.setContextMenu()
@@ -231,36 +231,28 @@ class TrayImpl implements YPMTray {
     })
   }
 
-  createTray() {
+  async createTray() {
     if (Constants.IS_MAC) {
-      const tray = new Tray(nativeImage.createEmpty())
-      this._tray = tray
+      this._lyricTray = new CanvasManager(this._tray)
+      await this._lyricTray.init()
     } else {
       const image = getIconPath().resize({ height: 20, width: 20 })
       this._tray = new Tray(image)
     }
     this._tray.on('click', (event, bounds, position) => {
       if (Constants.IS_MAC) {
-        this._win.webContents.send('handleTrayClick', { event, bounds, position })
+        // this._win.webContents.send('handleTrayClick', { event, bounds, position })
+        this._lyricTray?.click(bounds, position)
       } else {
         this._win.show()
       }
     })
   }
 
-  destroyTray() {
-    if (this._tray) {
-      this._tray.destroy()
-      this._tray = null
-    }
-  }
-
-  updateTray(img: string, width: number, height: number) {
+  updateTray(lyric: string, duration: number) {
     if (store.get('settings.showTray') === false) return
     if (!this._tray) this.createTray()
-    const image = nativeImage.createFromDataURL(img).resize({ height, width })
-    image.setTemplateImage(true)
-    this._tray.setImage(image)
+    this._lyricTray?.setLyric(lyric, duration)
   }
 
   updateTrayColor() {
@@ -287,45 +279,47 @@ class TrayImpl implements YPMTray {
 
   setShowOSD(show: boolean) {
     if (!this._contextMenu) return
-    this._contextMenu.getMenuItemById('openOSD').visible = !show
-    this._contextMenu.getMenuItemById('closeOSD').visible = show
+    this._contextMenu.getMenuItemById('openOSD')!.visible = !show
+    this._contextMenu.getMenuItemById('closeOSD')!.visible = show
     this._tray.setContextMenu(this._contextMenu)
   }
 
   setOSDLock(lock: boolean) {
     isOSDLock = lock
     if (!this._contextMenu) return
-    this._contextMenu.getMenuItemById('lockOSD').visible = !lock
-    this._contextMenu.getMenuItemById('unlockOSD').visible = lock
+    this._contextMenu.getMenuItemById('lockOSD')!.visible = !lock
+    this._contextMenu.getMenuItemById('unlockOSD')!.visible = lock
     this._tray.setContextMenu(this._contextMenu)
   }
 
   setPlayState(isPlaying: boolean) {
     playState = isPlaying || false
+    this._lyricTray?.setPlaying(isPlaying)
     if (!this._contextMenu) return
-    this._contextMenu.getMenuItemById('play').visible = !isPlaying
-    this._contextMenu.getMenuItemById('pause').visible = isPlaying
+    this._contextMenu.getMenuItemById('play')!.visible = !isPlaying
+    this._contextMenu.getMenuItemById('pause')!.visible = isPlaying
     this._tray.setContextMenu(this._contextMenu)
   }
 
   setLikeState(isLiked: boolean) {
+    this._lyricTray?.setLiked(isLiked)
     if (!this._contextMenu) return
-    this._contextMenu.getMenuItemById('like').visible = !isLiked
-    this._contextMenu.getMenuItemById('unlike').visible = isLiked
+    this._contextMenu.getMenuItemById('like')!.visible = !isLiked
+    this._contextMenu.getMenuItemById('unlike')!.visible = isLiked
     this._tray.setContextMenu(this._contextMenu)
   }
 
   setRepeatMode(mode: 'on' | 'one' | 'off') {
     repeatMode = mode
     if (!this._contextMenu) return
-    this._contextMenu.getMenuItemById(repeatMode).checked = true
+    this._contextMenu.getMenuItemById(repeatMode)!.checked = true
     this._tray.setContextMenu(this._contextMenu)
   }
 
   setShuffleMode(isShuffle: boolean) {
     shuffleMode = isShuffle
     if (!this._contextMenu) return
-    this._contextMenu.getMenuItemById('shuffle').checked = isShuffle
+    this._contextMenu.getMenuItemById('shuffle')!.checked = isShuffle
     this._tray.setContextMenu(this._contextMenu)
   }
 

@@ -494,9 +494,10 @@ export const usePlayerStore = defineStore(
 
     watch(currentLyric, (value) => {
       if (
-        window.env?.isLinux &&
-        settingsStore.tray.enableExtension &&
-        stateStore.extensionCheckResult
+        (window.env?.isLinux &&
+          settingsStore.tray.enableExtension &&
+          stateStore.extensionCheckResult) ||
+        window.env?.isMac
       ) {
         window.mainApi?.send('updateLyricInfo', { currentLyric: toRaw(value) })
       }
@@ -1740,6 +1741,7 @@ export const usePlayerStore = defineStore(
             })
           })
         })
+        window.mainApi?.send('updateLyricInfo', { currentLyric: toRaw(currentLyric.value) })
       }
       if (
         _personalFMTrack.value.id === 0 ||

@@ -9,7 +9,9 @@ const baseConfig = {
     '**/node_modules/sharp/**/*',
     '**/node_modules/@img/**/*',
     'dist/main/workers/*.js',
-    '**/node_modules/taglib-wasm/**/*'
+    '**/node_modules/taglib-wasm/**/*',
+    '**/node_modules/skia-canvas/**/*',
+    '**/node_modules/skia-canvas/**/*.node'
   ],
   extends: null,
   artifactName: '${productName}-${version}_${os}_${arch}.${ext}',

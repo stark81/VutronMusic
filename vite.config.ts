@@ -56,7 +56,14 @@ export default defineConfig(({ mode }) => {
               main: resolve('src/main/index.ts'),
               ...getWorkerEntries()
             },
-            external: ['electron', 'better-sqlite3', 'piscina', 'taglib-wasm', ...builtinModules],
+            external: [
+              'electron',
+              'skia-canvas',
+              'better-sqlite3',
+              'piscina',
+              'taglib-wasm',
+              ...builtinModules
+            ],
             output: {
               entryFileNames: (chunk) => {
                 return chunk.name === 'main' ? 'index.js' : 'workers/[name].js'
