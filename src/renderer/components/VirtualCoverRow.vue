@@ -34,7 +34,7 @@
             <span v-show="isPrivacy(item)" class="lock-icon">
               <SvgIcon icon-class="lock" />
             </span>
-            <router-link :to="`/${type}/${item.id}`">{{ item.name }}</router-link>
+            <router-link :to="goTo(item)">{{ item.name }}</router-link>
           </div>
           <div v-show="type !== 'artist' && subText !== 'none'" class="info">
             <span v-same-html="getSubText(item)"></span>
@@ -88,6 +88,11 @@ const getImageUrl = (item: any) => {
 
 const isExplicit = (item: any) => {
   return props.type === 'album' && item.mark === 1056768
+}
+
+const goTo = (item: any) => {
+  if (props.type === 'streamPlaylist') return `/${props.type}/${item.type}/${item.id}`
+  return `/${props.type}/${item.id}`
 }
 
 const isPrivacy = (item: any) => {

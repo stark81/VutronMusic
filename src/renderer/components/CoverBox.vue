@@ -103,7 +103,7 @@ const play = () => {
     const playlist = streamMusic.playlists.value[props.service].find((p) => p.id === props.id)!
     const trackIDs = playlist.trackIds
     const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : trackIDs.length - 1
-    replacePlaylist('streamPlaylist', props.id, trackIDs, idx)
+    replacePlaylist('streamPlaylist', props.id, trackIDs, idx, playlist.type)
   } else if (props.type === 'artist') {
     getArtist(props.id as number).then((data) => {
       const trackIDs = data.hotSongs.map((t) => t.id)

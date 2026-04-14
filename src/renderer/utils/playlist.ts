@@ -29,8 +29,11 @@ export const getListSourcePath = () => {
     return '/localMusic'
   } else if (playlistSource.value.type === 'streamLiked') {
     return `/stream-liked-songs/${currentTrack.value!.source}`
-  } else if (playlistSource.value.type.includes('stream') && playlistSource.value.id === 0) {
-    return '/stream'
+  } else if (playlistSource.value.type.includes('stream')) {
+    const service = playlistSource.value.service
+    return playlistSource.value.id === 0
+      ? '/stream'
+      : `/${playlistSource.value.type}/${service}/${playlistSource.value.id}`
   } else {
     return `/${playlistSource.value.type}/${playlistSource.value.id}`
   }

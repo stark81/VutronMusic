@@ -387,6 +387,22 @@
                   />
                 </div>
               </div>
+              <div class="item">
+                <div class="left">
+                  <div class="title"> {{ $t('settings.tray.lyricScrollFrameRate.text') }} </div>
+                  <div class="description">
+                    {{ $t('settings.tray.lyricScrollFrameRate.desc') }}</div
+                  >
+                </div>
+                <div class="right">
+                  <input
+                    v-model="inputRateValue"
+                    type="number"
+                    class="text-input margin-right-0"
+                    @input="inputRateDebounce()"
+                  />
+                </div>
+              </div>
             </div>
             <div v-else-if="isLinux">
               <div class="item">
@@ -1131,7 +1147,7 @@ const {
 } = toRefs(general.value)
 const { appearance, colors } = toRefs(theme.value)
 const customizeColor = computed(() => colors.value[4])
-const { showLyric, showControl, lyricWidth, enableExtension } = toRefs(tray.value)
+const { showLyric, showControl, lyricWidth, scrollRate, enableExtension } = toRefs(tray.value)
 const { proxy, realIp } = toRefs(misc.value)
 
 const streamMusicStore = useStreamMusicStore()
@@ -1456,6 +1472,15 @@ const inputDebounce = () => {
   if (debounceTimeout) clearTimeout(debounceTimeout)
   debounceTimeout = setTimeout(() => {
     if (inputValue.value >= 100) lyricWidth.value = inputValue.value
+  }, 500)
+}
+
+const inputRateValue = ref<number>(scrollRate.value)
+let debounceTimeoutRate
+const inputRateDebounce = () => {
+  if (debounceTimeoutRate) clearTimeout(debounceTimeoutRate)
+  debounceTimeoutRate = setTimeout(() => {
+    scrollRate.value = inputRateValue.value
   }, 500)
 }
 

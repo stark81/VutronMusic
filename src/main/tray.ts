@@ -13,6 +13,7 @@ import store from './store'
 import path from 'path'
 
 let playState = false
+let like = false
 let repeatMode = 'off'
 let shuffleMode = false
 let isOSDLock = (store.get('osdWin.isLock') as boolean) || false
@@ -148,14 +149,15 @@ const createMenuTemplate = (win: BrowserWindow) => {
       label: t('like'),
       icon: createNativeImage('like'),
       click: () => win.webContents.send('like'),
-      id: 'like'
+      id: 'like',
+      visible: like
     },
     {
       label: t('unlike'),
       icon: createNativeImage('unlike'),
       click: () => win.webContents.send('like'),
       id: 'unlike',
-      visible: false
+      visible: !like
     },
     { type: 'separator' },
     {
@@ -239,10 +241,15 @@ class TrayImpl implements YPMTray {
       const image = getIconPath().resize({ height: 20, width: 20 })
       this._tray = new Tray(image)
     }
-    this._tray.on('click', (event, bounds, position) => {
+    this._tray.on('click', (event, _, position) => {
       if (Constants.IS_MAC) {
-        // this._win.webContents.send('handleTrayClick', { event, bounds, position })
-        this._lyricTray?.click(bounds, position)
+        const action = this._lyricTray!.click(position)
+        if (action === 'icon') {
+          this._win.show()
+        } else if (action) {
+          const map = { previous: 'pervious', play: 'play', next: 'next', like: 'like' }
+          this._win.webContents.send(map[action])
+        }
       } else {
         this._win.show()
       }
@@ -302,6 +309,7 @@ class TrayImpl implements YPMTray {
   }
 
   setLikeState(isLiked: boolean) {
+    like = isLiked
     this._lyricTray?.setLiked(isLiked)
     if (!this._contextMenu) return
     this._contextMenu.getMenuItemById('like')!.visible = !isLiked

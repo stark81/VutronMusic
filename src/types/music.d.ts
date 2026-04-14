@@ -71,13 +71,14 @@ export interface Playlist {
   creator?: any
 }
 
-export interface StreamPlaylist extends Omit<Playlist, 'id'> {
-  id: string
-  trackItemIds: Record<number, number>
-}
-
 export type serviceName = 'navidrome' | 'jellyfin' | 'emby'
 export type streamStatus = 'logout' | 'login' | 'offline'
+
+export interface StreamPlaylist extends Omit<Playlist, 'id'> {
+  id: string
+  type: serviceName
+  trackItemIds: Record<number, number>
+}
 
 export type serviceType = {
   name: serviceName

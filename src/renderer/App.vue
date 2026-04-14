@@ -253,15 +253,15 @@ onMounted(async () => {
   handleChanelEvent()
   hasCustomTitleBar.value =
     (window.env?.isLinux && general.value.useCustomTitlebar) || window.env?.isWindows || false
-  if (isMac.value) {
-    import('./utils/trayLyrics').then((module) => {
-      // const buildTrays = module.buildTrays
-      // buildTrays()
+  // if (isMac.value) {
+  //   import('./utils/trayLyrics').then((module) => {
+  //     const buildTrays = module.buildTrays
+  //     buildTrays()
 
-      const buildTouchBars = module.buildTouchBars
-      buildTouchBars()
-    })
-  }
+  //     const buildTouchBars = module.buildTouchBars
+  //     buildTouchBars()
+  //   })
+  // }
   if (isLinux.value) {
     window.mainApi?.invoke('askExtensionStatus').then((result: boolean) => {
       extensionCheckResult.value = result

@@ -1,18 +1,14 @@
-import type { Rectangle, Point } from 'electron'
+import type { Point } from 'electron'
 import { nativeImage, Tray } from 'electron'
 import type { CanvasRenderingContext2D, Image } from 'skia-canvas'
 import { Canvas, loadImage } from 'skia-canvas'
+import store from '../store'
 import path from 'path'
 import Constants from './Constants'
 
 const DPR = 2
 const HEIGHT = 22
-
-const LYRIC_W = 192
 const ICON_BOX = 22
-
-const FPS = 30
-const FRAME_MS = 1000 / FPS
 
 interface LyricState {
   text: string
@@ -23,8 +19,12 @@ interface LyricState {
   speed: number
 
   phase: 'static' | 'scroll' | 'done'
-  start: number
+
   staticTime: number
+  elapsed: number
+  lastTime: number
+
+  pausedAt: number | null
 }
 
 const createImagePath = (filename: string) => {
@@ -60,7 +60,6 @@ function getImg(path: string): Image {
 
 export class CanvasManager {
   private tray: Tray
-
   private canvas: Canvas
   private ctx: CanvasRenderingContext2D
 
@@ -72,115 +71,202 @@ export class CanvasManager {
 
   private timer: any = null
 
+  private layout = {
+    width: 0,
+    showLyric: true,
+    showControl: true,
+    lyricWidth: 192
+  }
+
   constructor(tray: Tray) {
     this.tray = tray
-    const width = LYRIC_W * DPR + ICON_BOX * DPR * 5
 
-    this.canvas = new Canvas(width, HEIGHT * DPR)
+    this.canvas = new Canvas(1, HEIGHT * DPR)
     this.ctx = this.canvas.getContext('2d')
 
+    this.setupCtx()
+  }
+
+  private setupCtx() {
     this.ctx.font = `${14 * DPR}px "pingfang sc", "microsoft yahei", sans-serif`
     this.ctx.textBaseline = 'middle'
     this.ctx.fillStyle = 'white'
   }
 
-  async init() {
-    await preloadImages()
-    this.setLyric('听你想听的音乐', 0)
+  private updateLayout() {
+    this.layout.showLyric = store.get('settings.tray.showLyric') ?? true
+    this.layout.showControl = store.get('settings.tray.showControl') ?? true
+    this.layout.lyricWidth = (store.get('settings.tray.lyricWidth') ?? 192) as number
+
+    const lyricW = this.layout.showLyric ? this.layout.lyricWidth * DPR : 0
+    const controlW = this.layout.showControl ? ICON_BOX * DPR * 4 : 0
+    const iconW = ICON_BOX * DPR
+
+    this.layout.width = lyricW + controlW + iconW
+
+    this.canvas = new Canvas(this.layout.width, HEIGHT * DPR)
+    this.ctx = this.canvas.getContext('2d')
+    this.setupCtx()
   }
 
-  setLyric(text: string, duration: number, width: number = 192) {
-    const limit = LYRIC_W * DPR
+  async init() {
+    await preloadImages()
+    this.updateLayout()
 
-    if (width <= limit) {
+    this.setLyric('听你想听的音乐', 0)
+
+    store.onDidChange('settings', () => {
+      this.onLayoutChange()
+    })
+  }
+
+  public onLayoutChange() {
+    const oldWidth = this.layout.lyricWidth
+
+    this.updateLayout()
+
+    if (!this.lyric) {
+      this.render()
+      return
+    }
+
+    if (oldWidth !== this.layout.lyricWidth) {
+      this.recalibrateLyric()
+    }
+
+    this.render()
+  }
+
+  setLyric(text: string, duration: number) {
+    const limit = this.layout.lyricWidth * DPR
+    const measuredWidth = this.ctx.measureText(text).width
+
+    const now = Date.now()
+
+    if (measuredWidth <= limit) {
       this.lyric = {
         text,
-        width,
+        width: measuredWidth,
         duration,
         x: 0,
         speed: 0,
         phase: 'done',
-        start: Date.now(),
-        staticTime: 0
+        staticTime: 0,
+        elapsed: 0,
+        lastTime: now,
+        pausedAt: null
       }
     } else {
-      const staticTime = Math.min((limit / width) * duration, 2000)
-      const speed = (width - limit) / Math.max(duration - staticTime, 1)
+      const staticTime = Math.max(500, Math.min((limit / measuredWidth) * duration, 2000))
+
+      const speed = (measuredWidth - limit) / Math.max(duration - staticTime, 1)
 
       this.lyric = {
         text,
-        width,
+        width: measuredWidth,
         duration,
         x: 0,
         speed,
         phase: 'static',
-        start: Date.now(),
-        staticTime
+        staticTime,
+        elapsed: 0,
+        lastTime: now,
+        pausedAt: null
       }
     }
 
-    this.kick()
+    this.start()
   }
 
   setPlaying(v: boolean) {
-    this.isPlaying = v
-    if (v)
-      this.kick() // 恢复播放时重启循环
-    else this.render() // 暂停时只渲染一帧（更新控制按钮图标）
+    if (!this.lyric) return
+
+    if (!v) {
+      this.isPlaying = false
+      this.lyric.pausedAt = Date.now()
+      this.render()
+      return
+    }
+
+    if (this.lyric.pausedAt) {
+      const gap = Date.now() - this.lyric.pausedAt
+      this.lyric.lastTime += gap
+      this.lyric.pausedAt = null
+    }
+
+    this.isPlaying = true
+    this.start()
   }
 
   setLiked(v: boolean) {
     this.isLiked = v
-    this.kick()
+    this.start()
   }
 
   setFM(v: boolean) {
     this.isFM = v
-    this.kick()
+    this.start()
   }
 
-  // ─────────────────────────────
-  // 动画
-  // ─────────────────────────────
-
-  private kick() {
+  private start() {
     if (this.timer) return
     this.timer = setTimeout(() => this.frame(), 0)
   }
 
   private frame() {
     this.timer = null
+    const scrollRate = (store.get('settings.tray.scrollRate') as number) || 30
+
     const now = Date.now()
     this.tick(now)
     this.render()
 
-    // 只有在播放且歌词还没滚完时才继续调度
-    if (this.isPlaying && this.lyric?.phase !== 'done') {
-      this.timer = setTimeout(() => this.frame(), FRAME_MS)
+    const done = this.lyric?.phase === 'done'
+
+    if (this.isPlaying && !done) {
+      this.timer = setTimeout(() => this.frame(), 1000 / scrollRate)
     }
   }
 
   private tick(now: number) {
     const s = this.lyric
-    if (!s || !this.isPlaying || s.phase === 'done') return
+    if (!s || s.phase === 'done') return
+    if (!this.isPlaying) return
 
-    const el = now - s.start
+    const delta = now - s.lastTime
+    s.lastTime = now
+    s.elapsed += delta
 
     if (s.phase === 'static') {
-      if (el >= s.staticTime) {
+      if (s.elapsed >= s.staticTime) {
         s.phase = 'scroll'
-        s.start = now
+        s.elapsed = 0
       }
       return
     }
 
-    const limit = -(s.width - LYRIC_W * DPR)
-    s.x = -(s.speed * el * DPR)
+    const limit = -(s.width - this.layout.lyricWidth * DPR)
+
+    s.x -= s.speed * delta
 
     if (s.x <= limit) {
       s.x = limit
       s.phase = 'done'
     }
+  }
+
+  private recalibrateLyric() {
+    const s = this.lyric!
+    const limit = this.layout.lyricWidth * DPR
+
+    const remaining = s.width - Math.abs(s.x)
+
+    if (remaining <= limit) {
+      s.phase = 'done'
+      return
+    }
+
+    s.speed = (s.width - limit) / Math.max(s.duration - s.staticTime, 1)
   }
 
   private render() {
@@ -192,10 +278,17 @@ export class CanvasManager {
 
     let x = 0
 
-    this.drawLyric(ctx, x, h)
-    x += LYRIC_W * DPR
+    if (this.layout.showLyric) {
+      this.drawLyric(ctx, x, h)
+      x += this.layout.lyricWidth * DPR
+    }
 
-    this.drawIconRow(ctx, x, h)
+    if (this.layout.showControl) {
+      this.drawControls(ctx, x, h)
+      x += ICON_BOX * DPR * 4
+    }
+
+    this.drawIcon(ctx, x, h)
 
     const buf = this.canvas.toBufferSync('png')
     const img = nativeImage.createFromBuffer(buf, { scaleFactor: DPR })
@@ -205,18 +298,18 @@ export class CanvasManager {
 
   private drawLyric(ctx: CanvasRenderingContext2D, offsetX: number, h: number) {
     if (!this.lyric) return
+    const limit = this.layout.lyricWidth * DPR
 
     ctx.save()
-    // 关键：裁剪到歌词区域，防止溢出
     ctx.beginPath()
-    ctx.rect(offsetX, 0, LYRIC_W * DPR, h)
+    ctx.rect(offsetX, 0, limit, h)
     ctx.clip()
 
     ctx.translate(offsetX, 0)
 
-    if (this.lyric.width <= LYRIC_W * DPR) {
+    if (this.lyric.width <= limit) {
       ctx.textAlign = 'center'
-      ctx.fillText(this.lyric.text, (LYRIC_W * DPR) / 2, h / 2)
+      ctx.fillText(this.lyric.text, limit / 2, h / 2)
     } else {
       ctx.textAlign = 'left'
       ctx.fillText(this.lyric.text, this.lyric.x, h / 2)
@@ -225,28 +318,49 @@ export class CanvasManager {
     ctx.restore()
   }
 
-  private drawIconRow(ctx: CanvasRenderingContext2D, offsetX: number, h: number) {
-    // console.log('=== drawIconRow ===', this.isFM, this.isPlaying, this.isLiked)
+  private drawControls(ctx: CanvasRenderingContext2D, offsetX: number, h: number) {
     const icons = [
       this.isFM ? ICONS.thumbsDown : ICONS.prev,
       this.isPlaying ? ICONS.pause : ICONS.play,
       ICONS.next,
-      this.isLiked ? ICONS.liked : ICONS.like,
-      ICONS.icon
+      this.isLiked ? ICONS.liked : ICONS.like
     ]
 
     for (let i = 0; i < icons.length; i++) {
       const img = getImg(icons[i])
-      if (!img) continue
-
       const dx = offsetX + i * ICON_BOX * DPR
       const dy = h / 2 - img.height / 2
-
       ctx.drawImage(img, dx, dy)
     }
   }
 
-  public click(bounds: Rectangle, position: Point) {
-    console.log('====2====1====1=====', bounds, position)
+  private drawIcon(ctx: CanvasRenderingContext2D, offsetX: number, h: number) {
+    const img = getImg(ICONS.icon)
+    const dy = h / 2 - img.height / 2
+    ctx.drawImage(img, offsetX, dy)
+  }
+
+  public click(position: Point) {
+    const { showLyric, showControl, lyricWidth } = this.layout
+    const map = {
+      0: 'previous',
+      1: 'play',
+      2: 'next',
+      3: 'like',
+      4: 'icon'
+    } as const
+
+    if (showControl) {
+      const x = showLyric ? position.x - 8 - lyricWidth : position.x - 8
+      const pos = Math.floor(x / ICON_BOX) as [0, 1, 2, 3, 4][number]
+      if (x > 0) {
+        return map[pos]
+      }
+      return 'icon'
+    } else if (showLyric) {
+      return 'icon'
+    } else {
+      return null
+    }
   }
 }

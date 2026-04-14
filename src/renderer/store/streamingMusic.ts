@@ -70,7 +70,11 @@ export const useStreamMusicStore = defineStore(
         ?.invoke('get-stream-playlists', { platforms: loginServices })
         .then((data: { platform: serviceName; playlists: StreamPlaylist[] }[]) => {
           loginServices.forEach((service) => {
-            playlists[service] = data.find((d) => d.platform === service)?.playlists || []
+            const groupPlaylist = data.find((d) => d.platform === service)?.playlists || []
+            playlists[service] = groupPlaylist.map((p) => {
+              p.type = service
+              return p
+            })
           })
         })
     }

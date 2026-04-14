@@ -76,7 +76,8 @@ export const usePlayerStore = defineStore(
     const playlistSource = ref<{
       type: string
       id: number | string
-    }>({ type: 'album', id: 0 })
+      service: serviceName | 'all'
+    }>({ type: 'album', id: 0, service: 'all' })
 
     const lyrics = ref<lyricLine[]>([])
     const _personalFMLoading = ref(false)
@@ -504,6 +505,18 @@ export const usePlayerStore = defineStore(
     })
 
     watch(
+      () => !(settingsStore.tray.showLyric || settingsStore.tray.showControl),
+      () => {
+        setTimeout(() => {
+          window.mainApi?.send('updatePlayerState', {
+            playing: playing.value,
+            like: isLiked.value
+          })
+        }, 100)
+      }
+    )
+
+    watch(
       () => settingsStore.general.showChorus,
       (value) => {
         if (!value) {
@@ -778,7 +791,8 @@ export const usePlayerStore = defineStore(
       playlistSourceType: string,
       playlistSourceID: number | string,
       trackIDS: number[],
-      autoPlayTrackID = 0
+      autoPlayTrackID = 0,
+      playlistSourceService: serviceName | 'all' = 'all'
     ) => {
       if (playlistSourceType.includes('local') && settingsStore.localMusic.scanning) {
         showToast(t('toast.scanning'))
@@ -793,7 +807,8 @@ export const usePlayerStore = defineStore(
 
       playlistSource.value = {
         type: playlistSourceType,
-        id: playlistSourceID
+        id: playlistSourceID,
+        service: playlistSourceService
       }
 
       if (_shuffle.value) {

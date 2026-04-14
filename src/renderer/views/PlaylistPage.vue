@@ -512,7 +512,13 @@ const likePlaylist = (toast = false) => {
 const play = () => {
   const trackIDs = tracks.value.map((t) => t.id)
   const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
-  replacePlaylist(typeMap[playlistType.value], playlist.value.id || 0, trackIDs, idx)
+  replacePlaylist(
+    typeMap[playlistType.value],
+    playlist.value.id || 0,
+    trackIDs,
+    idx,
+    playlist.value.type || 'all'
+  )
 }
 
 const playIntelligenceList = () => {

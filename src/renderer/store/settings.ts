@@ -63,7 +63,7 @@ export const useSettingsStore = defineStore(
       showLyric: true,
       showControl: true,
       lyricWidth: 192,
-      scrollRate: 34,
+      scrollRate: 30,
       enableExtension: true,
       showTray: true
     })
@@ -255,6 +255,14 @@ export const useSettingsStore = defineStore(
       (val) => {
         window.mainApi?.send('setStoreSettings', { enableAmuseServer: val })
       }
+    )
+
+    watch(
+      tray,
+      (value) => {
+        window.mainApi?.send('setStoreSettings', { tray: toRaw(value) })
+      },
+      { immediate: true, deep: true }
     )
 
     const lastfmConnect = () => {
