@@ -5,27 +5,11 @@ import { Canvas, loadImage } from 'skia-canvas'
 import store from '../store'
 import path from 'path'
 import Constants from './Constants'
+import { LyricScroller } from './lyricScroll'
 
 const DPR = 2
 const HEIGHT = 22
 const ICON_BOX = 22
-
-interface LyricState {
-  text: string
-  width: number
-  duration: number
-
-  x: number
-  speed: number
-
-  phase: 'static' | 'scroll' | 'done'
-
-  staticTime: number
-  elapsed: number
-  lastTime: number
-
-  pausedAt: number | null
-}
 
 const createImagePath = (filename: string) => {
   return Constants.IS_DEV_ENV
@@ -54,8 +38,8 @@ async function preloadImages() {
   )
 }
 
-function getImg(path: string): Image {
-  return cache.get(path)!
+function getImg(p: string): Image {
+  return cache.get(p)!
 }
 
 export class CanvasManager {
@@ -63,7 +47,7 @@ export class CanvasManager {
   private canvas: Canvas
   private ctx: CanvasRenderingContext2D
 
-  private lyric: LyricState | null = null
+  private lyricScroller: LyricScroller
 
   private isPlaying = false
   private isLiked = false
@@ -83,8 +67,13 @@ export class CanvasManager {
 
     this.canvas = new Canvas(1, HEIGHT * DPR)
     this.ctx = this.canvas.getContext('2d')
-
     this.setupCtx()
+
+    // 占位宽度，init() 里 updateLayout() 之后会 resize
+    this.lyricScroller = new LyricScroller(this.ctx, {
+      width: this.layout.lyricWidth * DPR,
+      duration: 0
+    })
   }
 
   private setupCtx() {
@@ -113,7 +102,12 @@ export class CanvasManager {
     await preloadImages()
     this.updateLayout()
 
-    this.setLyric('听你想听的音乐', 0)
+    // canvas 重建后要把新 ctx 传给 scroller，同时同步宽度
+    this.lyricScroller = new LyricScroller(this.ctx, {
+      width: this.layout.lyricWidth * DPR,
+      duration: 0
+    })
+    this.lyricScroller.setText('听你想听的音乐', 0)
 
     store.onDidChange('settings', () => {
       this.onLayoutChange()
@@ -121,81 +115,52 @@ export class CanvasManager {
   }
 
   public onLayoutChange() {
-    const oldWidth = this.layout.lyricWidth
+    const oldLyricWidth = this.layout.lyricWidth
 
     this.updateLayout()
 
-    if (!this.lyric) {
-      this.render()
-      return
+    // canvas 重建后需要重新创建 scroller（ctx 引用已失效）
+    // 用新 ctx 和新宽度重新构造，并把当前文字状态带过去
+    const prevState = this.lyricScroller.getState()
+    this.lyricScroller = new LyricScroller(this.ctx, {
+      width: this.layout.lyricWidth * DPR,
+      duration: 0
+    })
+
+    if (prevState.text) {
+      if (oldLyricWidth !== this.layout.lyricWidth) {
+        // 宽度变了，重新设置歌词让状态机重新计算
+        this.lyricScroller.setText(prevState.text, 0)
+      } else {
+        this.lyricScroller.setText(prevState.text, 0)
+      }
     }
 
-    if (oldWidth !== this.layout.lyricWidth) {
-      this.recalibrateLyric()
+    if (!this.isPlaying) {
+      this.lyricScroller.pause()
     }
 
     this.render()
   }
 
   setLyric(text: string, duration: number) {
-    const limit = this.layout.lyricWidth * DPR
-    const measuredWidth = this.ctx.measureText(text).width
-
-    const now = Date.now()
-
-    if (measuredWidth <= limit) {
-      this.lyric = {
-        text,
-        width: measuredWidth,
-        duration,
-        x: 0,
-        speed: 0,
-        phase: 'done',
-        staticTime: 0,
-        elapsed: 0,
-        lastTime: now,
-        pausedAt: null
-      }
-    } else {
-      const staticTime = Math.max(500, Math.min((limit / measuredWidth) * duration, 2000))
-
-      const speed = (measuredWidth - limit) / Math.max(duration - staticTime, 1)
-
-      this.lyric = {
-        text,
-        width: measuredWidth,
-        duration,
-        x: 0,
-        speed,
-        phase: 'static',
-        staticTime,
-        elapsed: 0,
-        lastTime: now,
-        pausedAt: null
-      }
+    this.lyricScroller.setText(text, duration)
+    if (!this.isPlaying) {
+      this.lyricScroller.pause()
     }
-
     this.start()
   }
 
   setPlaying(v: boolean) {
-    if (!this.lyric) return
+    this.isPlaying = v
 
-    if (!v) {
-      this.isPlaying = false
-      this.lyric.pausedAt = Date.now()
+    if (v) {
+      this.lyricScroller.resume()
+      this.start()
+    } else {
+      this.lyricScroller.pause()
       this.render()
-      return
     }
-
-    if (this.lyric.pausedAt) {
-      const gap = Date.now() - this.lyric.pausedAt
-      this.lyric.lastTime += gap
-      this.lyric.pausedAt = null
-    }
-
-    this.isPlaying = true
-    this.start()
   }
 
   setLiked(v: boolean) {
@@ -217,56 +182,12 @@ export class CanvasManager {
     this.timer = null
     const scrollRate = (store.get('settings.tray.scrollRate') as number) || 30
 
-    const now = Date.now()
-    this.tick(now)
+    const stillAnimating = this.lyricScroller.tick()
     this.render()
 
-    const done = this.lyric?.phase === 'done'
-
-    if (this.isPlaying && !done) {
+    if (this.isPlaying && stillAnimating) {
       this.timer = setTimeout(() => this.frame(), 1000 / scrollRate)
     }
-  }
-
-  private tick(now: number) {
-    const s = this.lyric
-    if (!s || s.phase === 'done') return
-    if (!this.isPlaying) return
-
-    const delta = now - s.lastTime
-    s.lastTime = now
-    s.elapsed += delta
-
-    if (s.phase === 'static') {
-      if (s.elapsed >= s.staticTime) {
-        s.phase = 'scroll'
-        s.elapsed = 0
-      }
-      return
-    }
-
-    const limit = -(s.width - this.layout.lyricWidth * DPR)
-
-    s.x -= s.speed * delta
-
-    if (s.x <= limit) {
-      s.x = limit
-      s.phase = 'done'
-    }
-  }
-
-  private recalibrateLyric() {
-    const s = this.lyric!
-    const limit = this.layout.lyricWidth * DPR
-
-    const remaining = s.width - Math.abs(s.x)
-
-    if (remaining <= limit) {
-      s.phase = 'done'
-      return
-    }
-
-    s.speed = (s.width - limit) / Math.max(s.duration - s.staticTime, 1)
   }
 
   private render() {
@@ -297,22 +218,21 @@ export class CanvasManager {
   }
 
   private drawLyric(ctx: CanvasRenderingContext2D, offsetX: number, h: number) {
-    if (!this.lyric) return
-    const limit = this.layout.lyricWidth * DPR
+    const { text, x, viewWidth, centered } = this.lyricScroller.getState()
+    if (!text) return
 
     ctx.save()
     ctx.beginPath()
-    ctx.rect(offsetX, 0, limit, h)
+    ctx.rect(offsetX, 0, viewWidth, h)
     ctx.clip()
-
     ctx.translate(offsetX, 0)
 
-    if (this.lyric.width <= limit) {
+    if (centered) {
       ctx.textAlign = 'center'
-      ctx.fillText(this.lyric.text, limit / 2, h / 2)
+      ctx.fillText(text, viewWidth / 2, h / 2)
     } else {
       ctx.textAlign = 'left'
-      ctx.fillText(this.lyric.text, this.lyric.x, h / 2)
+      ctx.fillText(text, x, h / 2)
     }
 
     ctx.restore()

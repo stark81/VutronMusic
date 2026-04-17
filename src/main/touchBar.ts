@@ -1,5 +1,6 @@
 import { BrowserWindow, nativeImage, TouchBar, ipcMain } from 'electron'
 import Constants from './utils/Constants'
+import { TouchBarCanvasManager } from './utils/touchbarCanvas'
 import path from 'path'
 
 const { TouchBarButton, TouchBarSpacer } = TouchBar
@@ -13,6 +14,9 @@ const createNativeImage = (name: string) => {
 }
 
 export const createTouchBar = (win: BrowserWindow) => {
+  const lrcBtn = new TouchBarButton({ icon: nativeImage.createEmpty() })
+  const lyricScroller = new TouchBarCanvasManager(lrcBtn)
+
   const playButton = new TouchBarButton({
     icon: createNativeImage('play.png'),
     click: () => {
@@ -44,19 +48,16 @@ export const createTouchBar = (win: BrowserWindow) => {
     }
   })
 
-  const showLyric = new TouchBarButton({ icon: nativeImage.createEmpty() })
-
-  const updateLyric = (img: string, width: any, height: any) => {
-    const image = nativeImage.createFromDataURL(img).resize({ width, height })
-    image.setTemplateImage(true)
-    showLyric.icon = image
-  }
-
-  ipcMain.on('updateTouchBarLyric', (event, { img, width, height }) => {
-    updateLyric(img, width, height)
+  ipcMain.on('updateLyricInfo', (event, data: any) => {
+    const [key, value] = Object.entries(data)[0] as [string, { content: string; time: number }]
+    if (key === 'currentLyric') {
+      lyricScroller.setLyric(value.content, value.time * 1000)
+    }
   })
+
   ipcMain.on('updatePlayerState', (event, data) => {
     if ('playing' in data) {
+      lyricScroller.setPlaying(data.playing)
       playButton.icon = data.playing
         ? createNativeImage('pause.png')
         : createNativeImage('play.png')
@@ -80,7 +81,7 @@ export const createTouchBar = (win: BrowserWindow) => {
       nextTrackButton,
       likeButton,
       new TouchBarSpacer({ size: 'flexible' }),
-      showLyric
+      lrcBtn
     ]
   }
 

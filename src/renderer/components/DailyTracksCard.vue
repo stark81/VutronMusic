@@ -1,6 +1,6 @@
 <template>
   <div class="daily-recommend-card" @click="goToDailyTracks">
-    <img :src="coverUrl" :class="{ paused }" loading="lazy" />
+    <img :src="coverUrl" loading="lazy" />
     <div class="container">
       <div class="title-box">
         <div class="title">
@@ -18,7 +18,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onActivated, onDeactivated, ref, watch } from 'vue'
+import { computed, onActivated } from 'vue'
 import SvgIcon from './SvgIcon.vue'
 import { useRouter } from 'vue-router'
 import { useNormalStateStore } from '../store/state'
@@ -43,7 +43,6 @@ const { t } = useI18n()
 const playerStore = usePlayerStore()
 const { _shuffle } = storeToRefs(playerStore)
 const { replacePlaylist } = playerStore
-const paused = ref(document.visibilityState === 'hidden')
 
 const coverUrl = computed(() => {
   return `${dailyTracks.value[0]?.al.picUrl || _.sample(defaultCovers)}?param=256y256`
@@ -71,22 +70,8 @@ const loadDailyTracks = () => {
   })
 }
 
-watch(showLyrics, (value) => {
-  paused.value = value
-})
-
-const handleVisibleChange = () => {
-  paused.value = document.visibilityState === 'hidden'
-}
-
-document.addEventListener('visibilitychange', handleVisibleChange)
-
 onActivated(() => {
   loadDailyTracks()
-})
-
-onDeactivated(() => {
-  paused.value = true
 })
 </script>
 

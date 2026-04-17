@@ -8,7 +8,7 @@ import {
   app
 } from 'electron'
 import Constants from './utils/Constants'
-import { CanvasManager } from './utils/canvasManager'
+import { CanvasManager } from './utils/trayCanvas'
 import store from './store'
 import path from 'path'
 
