@@ -52,7 +52,8 @@ const {
   playedLrcColor,
   unplayLrcColor,
   mode,
-  font
+  font,
+  textShadow
 } = storeToRefs(osdLyricStore)
 
 const lyricRefs = ref<InstanceType<typeof LyricLine>[]>([])
@@ -414,6 +415,8 @@ onBeforeUnmount(() => {
       background-size: 200% 100%;
       background-position: 100% 0%;
 
+      text-shadow: 0 0 2px v-bind('textShadow');
+
       overflow-wrap: break-word;
       -webkit-text-stroke: 0.05px rgba(46, 46, 46, 0.3);
     }
@@ -431,6 +434,9 @@ onBeforeUnmount(() => {
       color: transparent;
       background-size: 200% 100%;
       background-position: 100% 0%;
+
+      text-shadow: 0 0 2px v-bind('textShadow');
+
       overflow-wrap: break-word;
       -webkit-text-stroke: 0.05px rgba(46, 46, 46, 0.3);
     }
