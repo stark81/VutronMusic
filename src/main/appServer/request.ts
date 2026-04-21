@@ -1,4 +1,6 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
+import http from 'http'
+import https from 'https'
 import Constants from '../utils/Constants'
 import { session } from 'electron'
 import log from '../log'
@@ -12,10 +14,25 @@ const port = Number(
 
 const baseUrl = `http://localhost:${port}/netease`
 
+const httpAgent = new http.Agent({
+  keepAlive: true,
+  maxSockets: 5,
+  timeout: 15000,
+  keepAliveMsecs: 10000
+})
+const httpsAgent = new https.Agent({
+  keepAlive: true,
+  maxSockets: 5,
+  timeout: 15000,
+  keepAliveMsecs: 10000
+})
+
 const service: AxiosInstance = axios.create({
   baseURL: baseUrl,
   withCredentials: true,
-  timeout: 15000
+  timeout: 15000,
+  httpAgent,
+  httpsAgent
 })
 
 service.interceptors.request.use(async (config: any) => {
@@ -55,8 +72,20 @@ service.interceptors.response.use(
 )
 
 const request = async (config: AxiosRequestConfig) => {
-  const { data } = await service.request(config)
-  return data as any
+  const controller = new AbortController()
+  const timeout = setTimeout(() => {
+    controller.abort()
+  }, 15000)
+
+  try {
+    const { data } = await service.request({
+      ...config,
+      signal: controller.signal
+    })
+    return data as any
+  } finally {
+    clearTimeout(timeout)
+  }
 }
 
 export default request
