@@ -613,7 +613,8 @@ const getAudioSourceFromNetease = async (track: any): Promise<{ [key: string]: a
       const source = result.data[0].url.replace(/^http:/, 'https:')
       return { url: source, br, gain, peak }
     })
-    .catch(() => {
+    .catch((err) => {
+      console.error('[API Error]: Error fetching audio source from Netease, ', err)
       const url = `https://music.163.com/song/media/outer/url?id=${track.id}`
       return { url, br: 128000, gain: 0, peak: 1 }
     })
