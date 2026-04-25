@@ -77,11 +77,11 @@ export interface Thumbar {
 
 class ThumbarImpl implements Thumbar {
   private _win: BrowserWindow
-  private _buttons: ThumbarButtonMap
-  private _likedOrUnliked: ThumbarButton
-  private _playOrPause: ThumbarButton
-  private _previous: ThumbarButton
-  private _next: ThumbarButton
+  private _buttons!: ThumbarButtonMap
+  private _likedOrUnliked!: ThumbarButton
+  private _playOrPause!: ThumbarButton
+  private _previous!: ThumbarButton
+  private _next!: ThumbarButton
 
   constructor(win: BrowserWindow) {
     this._win = win

@@ -16,9 +16,9 @@ ipcRenderer.on('port-connect', (event: any) => {
     messagePort.close()
   }
   messagePort = event.ports[0]
-  messagePort.start()
+  messagePort?.start()
 
-  messagePort.onmessage = (event) => {
+  messagePort!.onmessage = (event) => {
     window.postMessage(event.data, '*')
   }
 })
@@ -92,8 +92,9 @@ contextBridge.exposeInMainWorld('env', {
 const throttle = (func: Function, limit: number) => {
   let inThrottle: boolean
 
-  return function (...args) {
+  return function (...args: any[]) {
     if (!inThrottle) {
+      // @ts-ignore
       func.apply(this, args)
       inThrottle = true
       setTimeout(() => (inThrottle = false), limit)
@@ -165,7 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!root.classList.contains('is-lock')) return
     clearTimeout(timeoutId)
 
-    const osdLyric = JSON.parse(localStorage.getItem('osdLyric'))
+    const osdLyric = JSON.parse(localStorage.getItem('osdLyric') || '{}')
     if (osdLyric?.staticTime === 0) return // || !osdLyric.showButtonWhenLock
 
     lastMoveTime = Date.now()

@@ -90,7 +90,7 @@ const readSqlFile = (filename: string) => {
 }
 
 class DB {
-  sqlite: SQLite3.Database
+  sqlite!: SQLite3.Database
   dbFilePath: string = path.resolve(app.getPath('userData'), './api_cache/db.sqlite')
 
   constructor() {
@@ -273,7 +273,7 @@ class DB {
       // 执行事务
       transaction()
       log.log(`Deleted ${keys.length} records from ${table} in ${totalBatches} batches`)
-    } catch (transactionError) {
+    } catch (transactionError: any) {
       log.error(`Transaction failed:`, transactionError)
       throw new Error(`Bulk delete operation partially failed: ${transactionError.message}`)
     }

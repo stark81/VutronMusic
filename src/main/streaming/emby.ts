@@ -131,9 +131,9 @@ class Emby implements EmbyImpl {
       this.getArtists()
     ])
     if (response.status === 200) {
-      const tracks = response?.data?.Items.map((song) => {
-        const artists = song.ArtistItems.map((t) => {
-          const art = response2.find((a) => a.Id === t.Id)!
+      const tracks = response?.data?.Items.map((song: any) => {
+        const artists = song.ArtistItems.map((t: any) => {
+          const art = response2.find((a: any) => a.Id === t.Id)!
           const artUrl = art?.ImageTags?.Primary
             ? this.getPic(t.Id, art.ImageTags.Primary, 64)
             : 'http://p1.music.126.net/6y-UleORITEDbvrOLV0Q8A==/5639395138885805.jpg?param=64y64'
@@ -144,8 +144,8 @@ class Emby implements EmbyImpl {
             picUrl: artUrl
           }
         })
-        const albumArtist = song.AlbumArtists.map((t) => {
-          const art = response2.find((a) => a.Id === t.Id)!
+        const albumArtist = song.AlbumArtists.map((t: any) => {
+          const art = response2.find((a: any) => a.Id === t.Id)!
           const artUrl = art?.ImageTags?.Primary
             ? this.getPic(t.Id, art.ImageTags.Primary, 64)
             : 'http://p1.music.126.net/6y-UleORITEDbvrOLV0Q8A==/5639395138885805.jpg?param=64y64'
@@ -156,7 +156,7 @@ class Emby implements EmbyImpl {
             picUrl: artUrl
           }
         })
-        const lrcItem = song.MediaSources[0].MediaStreams.find((item) => item.Codec === 'lrc')
+        const lrcItem = song.MediaSources[0].MediaStreams.find((item: any) => item.Codec === 'lrc')
         const lrcId = lrcItem ? `${song.Id}/${song.MediaSources[0].Id}/${lrcItem.Index}` : song.Id
         const track = {
           id: song.Id,
@@ -261,7 +261,7 @@ class Emby implements EmbyImpl {
     const response = await ApiRequest('GET', endpoint, params)
     if (response?.status === 200) {
       const playlists = await Promise.all(
-        response.data.Items.map(async (p) => {
+        response.data.Items.map(async (p: any) => {
           const tracks = await this.getPlaylistTracks(p.Id)
 
           const trackIds = tracks.map((track) => track.Id)

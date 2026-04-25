@@ -48,6 +48,7 @@ const parseMusicFile = async (data: { filePath: string }) => {
   } catch (e) {
     console.log(`parse error: ${e}`)
     console.log(`parse error file: ${data.filePath}`)
+    // @ts-ignore
     metadata = { common: null, format: null, native: null, quality: null }
   }
 
@@ -55,6 +56,7 @@ const parseMusicFile = async (data: { filePath: string }) => {
   const stat = await fs.promises.stat(data.filePath)
 
   const birthDate = new Date(stat.birthtime).getTime()
+  // @ts-ignore
   const { common, format } = metadata
 
   const artists = splitArtist(common?.artist ?? null)

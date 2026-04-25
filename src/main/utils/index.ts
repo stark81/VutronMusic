@@ -71,19 +71,19 @@ export const parseLyricString = (lyrics: string): lyricLine[] => {
   const lrcResult: lyricLine[] = []
 
   for (const line of lyrics.trim().matchAll(extractLrcRegex)) {
-    const { content } = line.groups
+    const { content } = line.groups as { content: string }
     if (/\(\d+,\d+,\d+\)/.test(content)) {
-      const lyric = _parseYrcLine(line)
+      const lyric = _parseYrcLine(line)!
       if (!lyricMap.has(lyric.start)) {
         lyricMap.set(lyric.start, [])
       }
-      lyricMap.get(lyric.start).push(lyric)
+      lyricMap.get(lyric.start)!.push(lyric)
     } else if (/\[\d{2}:\d{2}\.\d{3}\]/.test(content)) {
-      const lyric = _parseWrcLine(line)
+      const lyric = _parseWrcLine(line)!
       if (!lyricMap.has(lyric.start)) {
         lyricMap.set(lyric.start, [])
       }
-      lyricMap.get(lyric.start).push(lyric)
+      lyricMap.get(lyric.start)!.push(lyric)
     } else {
       const _line = _parseLrcLine(line)
       const lyric = { start: _line.start, end: 0, lyric: { text: _line.cInfo } }
@@ -98,7 +98,7 @@ export const parseLyricString = (lyrics: string): lyricLine[] => {
     if (!lyricMap.has(line.start)) {
       lyricMap.set(line.start, [])
     }
-    lyricMap.get(line.start).push(line)
+    lyricMap.get(line.start)!.push(line)
   })
 
   for (const lyricArray of lyricMap.values()) {
@@ -152,7 +152,7 @@ export const getPicFromApi = async (url: string) => {
   pic = await net
     .fetch(url)
     .then((res) => {
-      format = res.headers.get('Content-Type')
+      format = res.headers.get('Content-Type')!
       return res.arrayBuffer()
     })
     .then((res) => Buffer.from(res))
@@ -164,8 +164,8 @@ export const getPicFromApi = async (url: string) => {
 }
 
 export const getPicFromEmbedded = async (filePath: string) => {
-  let pic: Buffer
-  let format: string
+  let pic: Buffer | null = null
+  let format: string = ''
   const metadata = await parseFile(decodeURI(filePath))
   if (metadata.common.picture && metadata.common.picture.length > 0) {
     pic = Buffer.from(metadata.common.picture[0].data)
@@ -178,7 +178,7 @@ export const getPicFromPath = async (filePath: string) => {
   let pic: Buffer | null = null
   let format: string = ''
   pic = await fs.promises.readFile(filePath)
-  const type = await fileTypeFromBuffer(pic)
+  const type = (await fileTypeFromBuffer(pic))!
   format = type.mime
   return { pic, format }
 }
@@ -190,33 +190,28 @@ export const getPic = async (track: any): Promise<{ pic: Buffer; format: string 
     'embedded'
   ]
 
-  let res: { pic: Buffer<ArrayBufferLike>; format: string }
+  let res: { pic: Buffer<ArrayBufferLike> | null; format: string } = { pic: null, format: '' }
   const url = track.album?.picUrl || track.al?.picUrl
 
   for (const order of trackInfoOrder) {
     if (order === 'online' && track.matched) {
-      res = await getPicFromApi(url)
+      res = (await getPicFromApi(url)) as { pic: Buffer; format: string }
     } else if (order === 'path' && track.filePath) {
       const prefixs = ['.jpg', '.png', '.jpeg', '.webp']
       for (const prefix of prefixs) {
         const filePath = track.filePath.replace(/\.[^/.]+$/, prefix)
-        res = await fs.promises
-          .access(filePath, fs.constants.F_OK)
-          .then(async () => {
-            return await getPicFromPath(filePath)
-          })
-          .catch(() => {
-            return { pic: null, format: '' }
-          })
+        res = await fs.promises.access(filePath, fs.constants.F_OK).then(async () => {
+          return await getPicFromPath(filePath)
+        })
         if (res?.pic) break
       }
     } else if (order === 'embedded' && track.filePath) {
-      res = await getPicFromEmbedded(track.filePath)
+      res = (await getPicFromEmbedded(track.filePath)) as { pic: Buffer; format: string }
     }
-    if (res?.pic) return res
+    if (res.pic) return res as { pic: Buffer; format: string }
   }
-  res = await getPicFromApi(url)
-  return res
+  res = (await getPicFromApi(url)) as { pic: Buffer; format: string }
+  return res as { pic: Buffer; format: string }
 }
 
 export const getPicColor = async (pic: Buffer) => {
@@ -255,7 +250,7 @@ export const getLyric = async (track: {
     'embedded'
   ]
 
-  let lyrics: lyricLine[] = null
+  let lyrics: lyricLine[] = []
 
   for (const order of trackInfoOrder) {
     if (order === 'online') {
@@ -358,7 +353,7 @@ const _parseYrcLine = (line: RegExpExecArray) => {
   const timestampRegex = /\[(\d+),(\d+)\]/g
   const extractTimestampRegex = /\((\d+),(\d+),\d+\)([^(]+)/g
 
-  const { lyricTimestamps, content } = line.groups
+  const { lyricTimestamps, content } = line.groups as { lyricTimestamps: string; content: string }
   const startTime = lyricTimestamps.match(timestampRegex)
   const times = startTime
     ? startTime.flatMap((match) => {
@@ -380,7 +375,7 @@ const _parseYrcLine = (line: RegExpExecArray) => {
 const _parseLrcLine = (line: RegExpExecArray) => {
   const extractTimestampRegex = /\[(?<min>\d+):(?<sec>\d+)(?:\.|:)*(?<ms>\d+)*\]/g
 
-  const { lyricTimestamps, content } = line.groups
+  const { lyricTimestamps, content } = line.groups as { lyricTimestamps: string; content: string }
   let start: number = 0
 
   const match = extractTimestampRegex.exec(lyricTimestamps)
@@ -407,7 +402,7 @@ const _parseWrcLine = (line: RegExpExecArray) => {
   const regex = /(\[\d{2}:\d{2}\.\d{1,3}\])([^[]*?)(?=(\[\d{2}:\d{2}\.\d{2,3}\]))/g
   const extractTimestampRegex = /\[(?<min>\d+):(?<sec>\d+)(?:\.|:)*(?<ms>\d+)*\]/g
 
-  const { lyricTimestamps, content } = line.groups
+  const { lyricTimestamps, content } = line.groups as { lyricTimestamps: string; content: string }
   const lineText = lyricTimestamps + content
   const words = lineText.trim().matchAll(regex)
   const ws = [...words]
@@ -451,12 +446,12 @@ export const yrcLyricParse = (data: {
   }
 
   for (const line of data.yrc.lyric.trim().matchAll(extractyrcRegex)) {
-    const lyric = _parseYrcLine(line)
+    const lyric = _parseYrcLine(line)!
     result.splice(binarySearch(lyric), 0, lyric)
   }
 
   const lrcList = ['ytlrc', 'yromalrc'] as const
-  const lrcMap = { ytlrc: ['tlyric', ''], yromalrc: ['rlyric', ' '] }
+  const lrcMap = { ytlrc: ['tlyric', ''], yromalrc: ['rlyric', ' '] } as const
   lrcList.forEach((lrc) => {
     if (data[lrc]) {
       for (const line of data[lrc]?.lyric.trim().matchAll(extractyrcRegex)) {
@@ -467,7 +462,7 @@ export const yrcLyricParse = (data: {
           ? matchedLyric.lyric.info[0].start
           : matchedLyric.start * 1000
         const end = matchedLyric.lyric.info
-          ? matchedLyric.lyric.info.at(-1).end
+          ? matchedLyric.lyric.info.at(-1)!.end
           : matchedLyric.end * 1000
         const info = [{ start: Math.max(100, _start), end, word: cInfo }]
         matchedLyric[lrcMap[lrc][0]] = { info, text: cInfo }
@@ -510,8 +505,8 @@ export const lrcLyricParse = (data: {
     result.splice(binarySearch(lyric), 0, lyric)
   }
 
-  const lrcList = ['tlyric', 'romalrc']
-  const lrcMap = { tlyric: ['tlyric', ''], romalrc: ['rlyric', ' '] }
+  const lrcList = ['tlyric', 'romalrc'] as const
+  const lrcMap = { tlyric: ['tlyric', ''], romalrc: ['rlyric', ' '] } as const
 
   lrcList.forEach((lrc) => {
     if (data[lrc]) {
@@ -668,9 +663,11 @@ export const getAudioSourceFromUnblock = async (track: any) => {
   const url =
     proxy && proxy.type !== 0 ? `${map[proxy.type]}://${proxy.address}:${proxy.port}` : null
 
+  // @ts-ignore
   global.proxy = url
 
-  return match(track.id, sourceList).catch((error) => {
+  return match(track.id, sourceList).catch((error: any) => {
+    // @ts-ignore
     console.log('=== unblock error ===', global.proxy, error)
     return null
   })

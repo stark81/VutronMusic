@@ -41,7 +41,7 @@ import { initAutoUpdater } from './checkUpdate'
 import log from './log'
 import { lyricLine } from '@/types/music'
 
-const closeOnLinux = (e: any, win: BrowserWindow) => {
+const closeOnLinux = (e: any, win: BrowserWindow | null) => {
   const closeOpt = store.get('settings.closeAppOption') || 'ask'
   if (closeOpt !== 'exit') {
     e.preventDefault()
@@ -60,14 +60,14 @@ const closeOnLinux = (e: any, win: BrowserWindow) => {
       })
       .then((result) => {
         if (result.checkboxChecked && result.response !== 2) {
-          win.webContents.send(
+          win!.webContents.send(
             'rememberCloseAppOption',
             result.response === 0 ? 'minimizeToTray' : 'exit'
           )
         }
 
         if (result.response === 0) {
-          win.hide()
+          win!.hide()
         } else if (result.response === 1) {
           setTimeout(() => {
             win = null
@@ -80,7 +80,7 @@ const closeOnLinux = (e: any, win: BrowserWindow) => {
     win = null
     app.quit()
   } else {
-    win.hide()
+    win!.hide()
   }
 }
 
@@ -90,7 +90,7 @@ const defaultImagePath = Constants.IS_DEV_ENV
 
 class BackGround {
   win: BrowserWindow | null = null
-  osdMode: string
+  osdMode: string = 'small'
   lyricWin: BrowserWindow | null = null
   tray: YPMTray | null = null
   menu: Menu | null = null
@@ -162,8 +162,8 @@ class BackGround {
       show: false,
       width: (store.get('window.width') as number) || 1080,
       height: (store.get('window.height') as number) || 720,
-      x: undefined,
-      y: undefined,
+      x: undefined as number | undefined,
+      y: undefined as number | undefined,
       minWidth: 1080,
       minHeight: 720,
       frame: !(
@@ -244,8 +244,8 @@ class BackGround {
       minWidth: type === 'small' ? 700 : 400,
       maxWidth: type === 'small' ? undefined : undefined,
       useContentSize: true,
-      x: undefined,
-      y: undefined,
+      x: undefined as number | undefined,
+      y: undefined as number | undefined,
       transparent: true,
       frame: false,
       hasShadow: false,
@@ -303,7 +303,7 @@ class BackGround {
   }
 
   dragOsdWindow(data: { dx: number; dy: number; startHeight: number; startWidth: number }) {
-    const bds = this.lyricWin?.getBounds()
+    const bds = this.lyricWin!.getBounds()
 
     const displays = screen.getAllDisplays()
     let x = bds.x + data.dx
@@ -344,8 +344,8 @@ class BackGround {
   }
 
   updateOsdHeight(height: number) {
-    const bounds = this.lyricWin?.getBounds()
-    this.lyricWin?.setBounds({
+    const bounds = this.lyricWin!.getBounds()
+    this.lyricWin!.setBounds({
       x: bounds.x,
       y: bounds.y,
       width: bounds.width,
@@ -399,30 +399,30 @@ class BackGround {
   }
 
   handleOSDWindowEvents() {
-    this.lyricWin.once('ready-to-show', () => {
-      this.lyricWin.showInactive()
+    this.lyricWin!.once('ready-to-show', () => {
+      this.lyricWin!.showInactive()
     })
-    this.lyricWin.webContents.on('did-finish-load', () => {
+    this.lyricWin!.webContents.on('did-finish-load', () => {
       this.initMessageChannel()
       this.toggleMouseIgnore()
       setTimeout(() => {
-        this.lyricWin.setFocusable(false)
-        this.lyricWin.setAlwaysOnTop(true)
+        this.lyricWin!.setFocusable(false)
+        this.lyricWin!.setAlwaysOnTop(true)
       }, 100)
     })
-    this.lyricWin.on('will-resize', () => {
+    this.lyricWin!.on('will-resize', () => {
       this.checkOsdMouseLeave(1000)
     })
-    this.lyricWin.on('resize', () => {
+    this.lyricWin!.on('resize', () => {
       this.checkOsdMouseLeave(1000)
 
-      const data = this.lyricWin.getBounds()
+      const data = this.lyricWin!.getBounds()
       store.set(this.osdMode === 'small' ? 'osdWin.width' : 'osdWin.width2', data.width)
       store.set(this.osdMode === 'small' ? 'osdWin.height' : 'osdWin.height2', data.height)
     })
 
-    let moveTimeout
-    this.lyricWin.on('move', () => {
+    let moveTimeout: ReturnType<typeof setTimeout>
+    this.lyricWin!.on('move', () => {
       if (moveTimeout) {
         clearTimeout(moveTimeout)
       }
@@ -484,7 +484,7 @@ class BackGround {
         const urlString = pathname.slice(1)
         const [url, savePic] = urlString.split('/save-pic=')
         const { pic, format } = await getPicFromApi(url)
-        const { color, color2 } = await getPicColor(pic)
+        const { color, color2 } = await getPicColor(pic!)
         const jsonString = savePic
           ? {
               pic,
@@ -512,7 +512,7 @@ class BackGround {
         switch (type) {
           case 'pic':
             const size = Number(searchParams.get('size'))
-            ids = searchParams.get('id')
+            ids = searchParams.get('id')!
             res = cache.get(CacheAPIs.Track, { ids })
 
             const track = res.songs[0]
@@ -531,7 +531,7 @@ class BackGround {
 
           case 'stream':
             const mime = require('mime-types')
-            const filePath = decodeURIComponent(searchParams.get('path'))
+            const filePath = decodeURIComponent(searchParams.get('path')!)
             if (!fs.existsSync(filePath)) {
               return new Response('Not Found', { status: 404 })
             }
@@ -560,9 +560,12 @@ class BackGround {
             }
 
             if (range) {
+              // @ts-ignore
               headers['content-length'] = String(chunkSize)
+              // @ts-ignore
               headers['content-range'] = `bytes ${start}-${end}/${fileStat.size}`
             } else {
+              // @ts-ignore
               headers['content-length'] = String(fileStat.size)
             }
 
@@ -572,7 +575,7 @@ class BackGround {
               headers
             })
           case 'track':
-            ids = searchParams.get('id')
+            ids = searchParams.get('id')!
             res = cache.get(CacheAPIs.Track, { ids })
             if (res) {
               const track = res.songs[0]
@@ -600,7 +603,7 @@ class BackGround {
               })
             }
           case 'json':
-            const jsonFile = searchParams.get('path')
+            const jsonFile = searchParams.get('path')!
             if (!fs.existsSync(jsonFile)) {
               return new Response('Not Found', { status: 404 })
             }
@@ -610,14 +613,14 @@ class BackGround {
               return new Response(JSON.stringify(json), {
                 headers: { 'Content-Type': 'application/json' }
               })
-            } catch (err) {
+            } catch (err: any) {
               return new Response(JSON.stringify({ error: err.message }), {
                 status: 500,
                 headers: { 'Content-Type': 'application/json' }
               })
             }
           case 'lyric':
-            ids = searchParams.get('id')
+            ids = searchParams.get('id')!
             res = cache.get(CacheAPIs.Track, { ids })
             let lyrics: lyricLine[] = []
 
@@ -695,6 +698,7 @@ class BackGround {
           })
         }
       }
+      return new Response('Not Found', { status: 404, headers: { 'Content-Type': 'text/plain' } })
     })
   }
 
@@ -710,15 +714,15 @@ class BackGround {
       this.handleWindowEvents()
       this.handleAmuseServer()
 
-      initAutoUpdater(this.win)
-      this.tray = createTray(this.win)
+      initAutoUpdater(this.win!)
+      this.tray = createTray(this.win!)
       if (Constants.IS_LINUX) {
         const createMpris = (await import('./mpris')).createMpris
-        this.mpris = await createMpris(this.win)
+        this.mpris = await createMpris(this.win!)
       }
 
       if (store.get('settings.enableGlobalShortcut') || false) {
-        registerGlobalShortcuts(this.win)
+        registerGlobalShortcuts(this.win!)
       }
 
       const lrc = {
@@ -731,7 +735,7 @@ class BackGround {
         dragOsdWindow: (data: any) => this.dragOsdWindow(data),
         windowMouseleave: () => this.checkOsdMouseLeave()
       }
-      IPCs.initialize(this.win, this.tray, this.mpris, lrc)
+      IPCs.initialize(this.win!, this.tray, this.mpris!, lrc)
 
       const proxy = (store.get('settings.proxy') || { type: 0, address: '', port: '' }) as {
         type: 0 | 1 | 2
@@ -740,20 +744,20 @@ class BackGround {
       }
 
       if (proxy.type === 0) {
-        this.win.webContents.session.setProxy({})
+        this.win!.webContents.session.setProxy({})
       } else {
         const map = { 1: 'http', 2: 'https' }
         const proxyRules = `${map[proxy.type]}://${proxy.address}:${proxy.port}`
-        this.win.webContents.session.setProxy({ proxyRules })
+        this.win!.webContents.session.setProxy({ proxyRules })
       }
 
-      createMenu(this.win)
+      createMenu(this.win!)
       if (Constants.IS_MAC) {
         const createDockMenu = (await import('./dock')).createDockMenu
-        createDockMenu(this.win)
+        createDockMenu(this.win!)
 
         const createTouchBar = (await import('./touchBar')).createTouchBar
-        createTouchBar(this.win)
+        createTouchBar(this.win!)
       }
     })
 
@@ -765,7 +769,7 @@ class BackGround {
       }
       if (Constants.IS_WINDOWS) {
         const createThumBar = (await import('./thumBar')).createThumBar
-        createThumBar(this.win)
+        createThumBar(this.win!)
       }
     })
 
@@ -785,7 +789,7 @@ class BackGround {
 
     powerMonitor.on('resume', () => {
       setTimeout(() => this.initMessageChannel(), 1000)
-      this.win.webContents.send('resume')
+      this.win!.webContents.send('resume')
     })
 
     if (!Constants.IS_MAC) {
@@ -802,43 +806,43 @@ class BackGround {
   }
 
   handleWindowEvents() {
-    this.win.once('ready-to-show', async () => {
-      this.win.show()
-      this.win.focus()
+    this.win!.once('ready-to-show', async () => {
+      this.win!.show()
+      this.win!.focus()
       if (Constants.IS_WINDOWS) {
         const createThumBar = (await import('./thumBar')).createThumBar
-        createThumBar(this.win)
+        createThumBar(this.win!)
       }
     })
 
-    this.win.on('close', (e) => {
+    this.win!.on('close', (e) => {
       if (Constants.IS_MAC) {
         if (this.willQuitApp) {
           this.win = null
           app.quit()
         } else {
           e.preventDefault()
-          this.win.hide()
+          this.win!.hide()
         }
       } else {
-        closeOnLinux(e, this.win)
+        closeOnLinux(e, this.win!)
       }
     })
 
-    this.win.on('maximize', () => {
-      this.win.webContents.send('isMaximized', true)
+    this.win!.on('maximize', () => {
+      this.win!.webContents.send('isMaximized', true)
     })
 
-    this.win.on('unmaximize', () => {
-      this.win.webContents.send('isMaximized', false)
+    this.win!.on('unmaximize', () => {
+      this.win!.webContents.send('isMaximized', false)
     })
 
-    this.win.on('resize', () => {
-      store.set('window', this.win.getBounds())
+    this.win!.on('resize', () => {
+      store.set('window', this.win!.getBounds())
     })
 
-    let moveTimeout
-    this.win.on('move', () => {
+    let moveTimeout: ReturnType<typeof setTimeout>
+    this.win!.on('move', () => {
       if (moveTimeout) {
         clearTimeout(moveTimeout)
       }
@@ -855,12 +859,13 @@ class BackGround {
         if (this.amuseFastifyApp) return
         this.createAmuseFastifyAppPromise.then(async () => {
           try {
-            this.amuseFastifyApp = await startAmuseFastifyInstance(this.win)
+            // @ts-ignore
+            this.amuseFastifyApp = await startAmuseFastifyInstance(this.win!)
           } catch (e) {
             console.error('Failed to start Amuse Fastify App:', e)
-            this.win.webContents.send('updateAmuseServerStatus', false, `${e}`)
+            this.win!.webContents.send('updateAmuseServerStatus', false, `${e}`)
           }
-          this.win.webContents.send('updateAmuseServerStatus', true, null)
+          this.win!.webContents.send('updateAmuseServerStatus', true, null)
         })
       } else {
         this.createAmuseFastifyAppPromise
@@ -868,17 +873,19 @@ class BackGround {
             this.amuseFastifyApp?.close()
             this.amuseFastifyApp = null
           })
-          .then(() => this.win.webContents.send('updateAmuseServerStatus', false, null))
+          .then(() => this.win!.webContents.send('updateAmuseServerStatus', false, null))
       }
     }
+    // @ts-ignore
     store.onDidAnyChange(storeCallback)
     storeCallback(store.store)
   }
 }
 
 const MAIN_PROCESS_INITIALIZED_KEY = '__VUTRON_MAIN_INITIALIZED__'
-
+// @ts-ignore
 if (!global[MAIN_PROCESS_INITIALIZED_KEY]) {
+  // @ts-ignore
   global[MAIN_PROCESS_INITIALIZED_KEY] = true
 
   const bgProcess = new BackGround()

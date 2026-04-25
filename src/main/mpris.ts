@@ -7,7 +7,7 @@ let isPersonalFM = false
 
 export interface MprisImpl {
   setPlayState: (isPlaying: boolean) => void
-  setRepeatMode: (repeat: string) => void
+  setRepeatMode: (repeat: 'on' | 'one' | 'off') => void
   setShuffleMode: (isShuffle: boolean) => void
   setMetadata: (metadata: any) => void
   setPosition: (data: { progress: number }) => void
@@ -37,7 +37,9 @@ class Mpris implements MprisImpl {
     this._player.on('play', () => renderer.send('play'))
     this._player.on('pause', () => renderer.send('play'))
     this._player.on('quit', () => app.exit())
-    this._player.on('position', (args) => renderer.send('setPosition', args.position / 1000 / 1000))
+    this._player.on('position', (args: { position: number }) =>
+      renderer.send('setPosition', args.position / 1000 / 1000)
+    )
     this._player.on('loopStatus', () => {
       idx = idx === 2 ? 0 : idx + 1
       renderer.send('repeat', repeatModeList[idx])

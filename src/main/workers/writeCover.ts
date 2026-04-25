@@ -66,14 +66,14 @@ const getPicFromApi = async (url: string): Promise<{ pic: Buffer; format: string
     try {
       const client = url.startsWith('https') ? https : http
       url = url + '?param=1024y1024'
-      const req = client.get(url, (res) => {
+      const req = client.get(url, (res: any) => {
         if (res.statusCode !== 200) {
           res.resume()
           return reject(new Error(`Request Failed: ${res.statusCode}`))
         }
 
         const chunks: Buffer[] = []
-        res.on('data', (chunk) => chunks.push(chunk))
+        res.on('data', (chunk: Buffer) => chunks.push(chunk))
         res.on('end', () => {
           try {
             resolve({
@@ -86,7 +86,7 @@ const getPicFromApi = async (url: string): Promise<{ pic: Buffer; format: string
         })
       })
 
-      req.on('error', (err) => {
+      req.on('error', (err: Error) => {
         reject(err)
       })
 

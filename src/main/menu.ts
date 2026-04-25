@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, Menu, ipcMain, shell, MenuItemConstructorOptions } from 'electron'
 import defaultShortcuts from './utils/shortcuts'
 import Constants from './utils/Constants'
 import store from './store'
@@ -22,11 +22,11 @@ export function createMenu(win: BrowserWindow) {
   if (shortcuts === undefined) {
     shortcuts = defaultShortcuts
   }
-  const lang = store.get('settings.lang') as string
+  const lang = store.get('settings.lang') as 'en' | 'zh' | 'zht'
 
-  let menu = null
-  const updateMenu = (language: string) => {
-    const template = {
+  let menu: Menu | null = null
+  const updateMenu = (language: 'en' | 'zh' | 'zht') => {
+    const template: Record<'en' | 'zh' | 'zht', any> = {
       en: [
         ...(Constants.IS_MAC
           ? [
@@ -218,7 +218,7 @@ export function createMenu(win: BrowserWindow) {
                     type: 'checkbox',
                     checked: true,
                     click: () => {
-                      const current = menu.getMenuItemById('window')
+                      const current = menu!.getMenuItemById('window')!
                       if (current.checked === false) {
                         win.hide()
                       } else {
@@ -446,7 +446,7 @@ export function createMenu(win: BrowserWindow) {
                     type: 'checkbox',
                     checked: true,
                     click: () => {
-                      const current = menu.getMenuItemById('window')
+                      const current = menu!.getMenuItemById('window')!
                       if (current.checked === false) {
                         win.hide()
                       } else {
@@ -675,7 +675,7 @@ export function createMenu(win: BrowserWindow) {
                     type: 'checkbox',
                     checked: true,
                     click: () => {
-                      const current = menu.getMenuItemById('window')
+                      const current = menu!.getMenuItemById('window')!
                       if (current.checked === false) {
                         win.hide()
                       } else {
@@ -720,7 +720,7 @@ export function createMenu(win: BrowserWindow) {
 
   ipcMain.on('updatePlayerState', (_, data: any) => {
     for (const [key, value] of Object.entries(data) as [string, any]) {
-      const lang = store.get('settings.lang') as string
+      const lang = store.get('settings.lang') as 'en' | 'zh' | 'zht'
       if (key === 'playing') {
         isPlaying = value
         updateMenu(lang)

@@ -49,13 +49,13 @@ interface JellyfinImpl {
   doLogin: (baseURL: string, username: string, password: string) => Promise<any>
   getTracks: () => Promise<{ code: number; message?: string; data?: any }>
   getPlaylists: () => Promise<{ code: number; message: string; data: any }>
-  getPic: (id: string, size?: number) => string
+  getPic: (id: string, size: number) => string
   getStream: (id: string) => string
   getLyric: (id: string) => Promise<any>
   createPlaylist: (name: string) => Promise<{ status: string; pid: any }>
   updatePlaylistInfo: (id: string, data: { name: string; desc: string }) => void
   deletePlaylist: (id: string) => Promise<boolean>
-  addTracksToPlaylist: (op: string, playlistId: string, ids: string[]) => Promise<boolean>
+  addTracksToPlaylist: (op: 'add' | 'del', playlistId: string, ids: string[]) => Promise<boolean>
   scrobble: (id: string) => void
   likeATrack: (operation: 'unstar' | 'star', id: string) => Promise<boolean>
 }
@@ -139,13 +139,16 @@ class Jellyfin implements JellyfinImpl {
       const response = await sendItemsList(endpoint, params)
       const playlists = response.data?.Items
         ? await Promise.all(
-            response.data?.Items?.map(async (p) => {
+            response.data?.Items?.map(async (p: any) => {
               const tracks = await this.getPlaylistTracks(p.Id)
               const trackIds = tracks.map((t: any) => t.Id) as string[]
-              const trackItemIds = tracks.reduce((acc, item) => {
-                acc[item.Id.toString()] = item.PlaylistItemId
-                return acc
-              }, {})
+              const trackItemIds = tracks.reduce(
+                (acc: Record<string, string>, item: { Id: string; PlaylistItemId: string }) => {
+                  acc[item.Id.toString()] = item.PlaylistItemId
+                  return acc
+                },
+                {}
+              )
               const url = p.ImageTags?.Primary
                 ? this.getPic(p.Id, 512)
                 : 'https://p1.music.126.net/jWE3OEZUlwdz0ARvyQ9wWw==/109951165474121408.jpg?param=512y512'

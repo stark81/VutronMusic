@@ -1,4 +1,4 @@
-import { app, Menu, BrowserWindow, ipcMain } from 'electron'
+import { app, Menu, BrowserWindow, ipcMain, MenuItemConstructorOptions } from 'electron'
 import store from './store'
 
 let isPlaying = false
@@ -6,10 +6,10 @@ let enableOSD = store.get('osdWin.show') as boolean
 let isLock = (store.get('osdWin.isLock') as boolean) || false
 
 export const createDockMenu = (win: BrowserWindow) => {
-  const lang = store.get('settings.lang') as string
+  const lang = store.get('settings.lang') as 'zh' | 'en' | 'zht'
 
-  const updateDockMenu = (language: string) => {
-    const template = {
+  const updateDockMenu = (language: 'zh' | 'en' | 'zht') => {
+    const template: Record<'zh' | 'en' | 'zht', MenuItemConstructorOptions[]> = {
       zh: [
         {
           label: isPlaying ? '暂停' : '播放',
@@ -118,7 +118,7 @@ export const createDockMenu = (win: BrowserWindow) => {
 
   ipcMain.on('updatePlayerState', (_, data: any) => {
     for (const [key, value] of Object.entries(data) as [string, any]) {
-      const lang = store.get('settings.lang') as string
+      const lang = store.get('settings.lang') as 'zh' | 'en' | 'zht'
       if (key === 'playing') {
         isPlaying = value
         updateDockMenu(lang)

@@ -104,9 +104,9 @@ ipcRenderer.on('port-connect', (event: any) => {
     messagePort.close()
   }
   messagePort = event.ports[0]
-  messagePort.start()
+  messagePort?.start()
 
-  messagePort.onmessage = (event) => {
+  messagePort!.onmessage = (event) => {
     window.postMessage(event.data, '*')
   }
 

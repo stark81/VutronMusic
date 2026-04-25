@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "baseUrl": "./",
+    "rootDir": "./src",
     "outDir": "./dist",
     "target": "esnext",
     "module": "esnext",
@@ -23,7 +24,7 @@
     "typeRoots": ["node_modules/@types"],
     "allowJs": true
   },
-  "include": ["src/*.ts", "src/renderer", "src/types"],
+  "include": ["src/renderer", "src/types"],
   "references": [
     {
       "path": "./tsconfig.node.json"

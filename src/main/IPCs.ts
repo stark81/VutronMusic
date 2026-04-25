@@ -19,6 +19,7 @@ import emby from './streaming/emby'
 import jellyfin from './streaming/jellyfin'
 import { Worker } from 'worker_threads'
 import { Track, Album, Artist, scanTrack, serviceName } from '@/types/music'
+// @ts-ignore
 import _ from 'lodash'
 import { requestUserAuth, scrobbleTrack, updateNowPlaying } from './utils/lastfm'
 
@@ -28,7 +29,7 @@ let coverWorker: Worker
 let cacheWorker: Worker | null = null
 
 const closeCacheWorker = async () => {
-  await cacheWorker.terminate()
+  await cacheWorker?.terminate()
   cacheWorker = null
 }
 
@@ -63,7 +64,7 @@ export default class IPCs {
   }
 }
 
-async function exitAsk(event: IpcMainEvent, win: BrowserWindow) {
+async function exitAsk(event: IpcMainEvent, win: BrowserWindow | null) {
   const { dialog } = await import('electron')
   event.preventDefault()
   dialog
@@ -78,14 +79,14 @@ async function exitAsk(event: IpcMainEvent, win: BrowserWindow) {
     })
     .then((result) => {
       if (result.checkboxChecked && result.response !== 2) {
-        win.webContents.send(
+        win?.webContents.send(
           'rememberCloseAppOption',
           result.response === 0 ? 'minimizeToTray' : 'exit'
         )
       }
       if (result.response === 0) {
         event.preventDefault()
-        win.hide()
+        win?.hide()
       } else if (result.response === 1) {
         setTimeout(() => {
           win = null
@@ -96,14 +97,14 @@ async function exitAsk(event: IpcMainEvent, win: BrowserWindow) {
     .catch()
 }
 
-function initWindowIpcMain(win: BrowserWindow): void {
+function initWindowIpcMain(win: BrowserWindow | null): void {
   ipcMain.on('minimize', () => {
-    win.minimize()
+    win?.minimize()
   })
 
   ipcMain.handle('maximizeOrUnmaximize', () => {
-    win.isMaximized() ? win.unmaximize() : win.maximize()
-    return !win.isMaximized()
+    win?.isMaximized() ? win?.unmaximize() : win?.maximize()
+    return !win?.isMaximized()
   })
 
   ipcMain.on('close', (event: IpcMainEvent) => {
@@ -113,7 +114,7 @@ function initWindowIpcMain(win: BrowserWindow): void {
       app.exit()
     } else if (closeAppOption === 'minimizeToTray') {
       event.preventDefault()
-      win.hide()
+      win?.hide()
     } else {
       exitAsk(event, win)
     }
@@ -196,7 +197,7 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
         if (value.type === 0) {
           win.webContents.session.setProxy({})
         } else {
-          const proxyRules = `${map[value.type]}://${value.address}:${value.port}`
+          const proxyRules = `${map[value.type as keyof typeof map]}://${value.address}:${value.port}`
           win.webContents.session.setProxy({ proxyRules })
         }
       }
@@ -515,7 +516,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
             newTrack.picUrl = `atom://local-asset?type=pic&id=${id}`
 
             if (existingAlbums.has(track.album)) {
-              newTrack.album = existingAlbums.get(track.album)
+              newTrack.album = existingAlbums.get(track.album)!
             } else {
               const newAl = {
                 id: existingAlbums.size + 1,
@@ -529,7 +530,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
             newTrack.artists = track.artists.map((artist) => {
               let newAr: Artist
               if (existingArtists.has(artist)) {
-                newAr = existingArtists.get(artist)
+                newAr = existingArtists.get(artist)!
               } else {
                 newAr = {
                   id: existingArtists.size + 1,
@@ -545,7 +546,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
             newTrack.albumArtist = track.albumArtist.map((artist) => {
               let newAr: Artist
               if (existingAlArtists.has(artist)) {
-                newAr = existingAlArtists.get(artist)
+                newAr = existingAlArtists.get(artist)!
               } else {
                 newAr = {
                   id: existingAlArtists.size + 1,
@@ -564,12 +565,12 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
             existingTracks.set(track.filePath, newTrack)
             newTracks.push(newTrack)
           } else {
-            const originTrack = existingTracks.get(track.filePath)
+            const originTrack = existingTracks.get(track.filePath)!
 
             originTrack.artists = track.artists.map((artist) => {
               let newAr: Artist
               if (existingArtists.has(artist)) {
-                newAr = existingArtists.get(artist)
+                newAr = existingArtists.get(artist)!
               } else {
                 newAr = {
                   id: existingArtists.size + 1,
@@ -585,7 +586,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
             originTrack.albumArtist = track.albumArtist.map((artist) => {
               let newAr: Artist
               if (existingAlArtists.has(artist)) {
-                newAr = existingAlArtists.get(artist)
+                newAr = existingAlArtists.get(artist)!
               } else {
                 newAr = {
                   id: existingAlArtists.size + 1,
@@ -612,7 +613,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
         win.webContents.send('updateLocalMusic', { tracks: [...existingTracks.values()] })
       }
       win.webContents.send('scanLocalMusicDone')
-    } catch (error) {
+    } catch (error: any) {
       log.error('+++++++++++++++++++++++++++++', error.stack || error)
     }
   })
@@ -623,11 +624,13 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
   })
 
   ipcMain.on('deleteLocalMusicDB', () => {
-    const trackIDs = cache.get(CacheAPIs.LocalMusic)?.songs.map((track: any) => track.id)
+    const trackIDs = cache.get(CacheAPIs.LocalMusic)?.songs.map((track: { id: number }) => track.id)
     if (!trackIDs.length) return
     db.deleteMany(Tables.Track, trackIDs)
 
-    const playlistIDs = cache.get(CacheAPIs.LocalPlaylist)?.map((playlist) => playlist.id)
+    const playlistIDs = cache
+      .get(CacheAPIs.LocalPlaylist)
+      ?.map((playlist: { id: number }) => playlist.id)
     if (!playlistIDs.length) return
     db.deleteMany(Tables.Playlist, playlistIDs)
   })

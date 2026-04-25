@@ -89,7 +89,7 @@ const httpHandler: FastifyPluginAsync = async (fastify: FastifyInstance) => {
       }
 
       const result = await getPicFromApi(url)
-      const pic = result.pic
+      const pic = result.pic!
       const format = result.format
 
       return new Response(new Uint8Array(pic), { headers: { 'Content-Type': format } })

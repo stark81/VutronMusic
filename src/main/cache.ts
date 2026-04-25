@@ -1,5 +1,6 @@
 import { db, Tables } from './db'
 import { CacheAPIs } from './utils/CacheApis'
+// @ts-ignore
 import _ from 'lodash'
 import log from './log'
 
