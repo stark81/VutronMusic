@@ -2,13 +2,13 @@
   <transition name="slide-fade">
     <div v-if="!noLyric" class="lyric-wrapper" :class="{ 'use-mask': useMask }">
       <div v-show="hover" class="offset">
-        <button-icon title="提前0.5s" @click="setOffset(-0.5)">
+        <button-icon title="提前0.5s" @click="setOffset(lyricOffset - 0.5)">
           <svg-icon icon-class="back5s" />
         </button-icon>
-        <button-icon class="recovery" :title="offset" @click="setOffset(0)">
+        <button-icon class="recovery" :title="offsetText" @click="setOffset(0)">
           <svg-icon icon-class="recovery" />
         </button-icon>
-        <button-icon title="后退0.5s" @click="setOffset(+0.5)">
+        <button-icon title="延迟0.5s" @click="setOffset(lyricOffset + 0.5)">
           <svg-icon icon-class="forward5s" />
         </button-icon>
       </div>
@@ -34,6 +34,8 @@
             :playing="playing"
             :is-word-by-word="!lineMode"
             :playback-rate="playbackRate"
+            :lyric-font="fontFamily || 'system-ui'"
+            :lyric-font-size="nFontSize"
           />
         </div>
       </div>
@@ -45,11 +47,13 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
+import { useLyricStore } from '../store/lyric'
 import { useNormalStateStore } from '../store/state'
 import { usePlayerThemeStore } from '../store/playerTheme'
 import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
 import LyricLine from './LyricLine.vue'
+import { collectUniqueWords, prewarmMeasureCache } from '../utils/lyricMeasure'
 
 const props = defineProps({
   hover: { type: Boolean, default: false },
@@ -62,9 +66,10 @@ const props = defineProps({
 })
 
 const playerStore = usePlayerStore()
+const lyricStore = useLyricStore()
 const {
   noLyric,
-  currentTrack,
+  setSeek,
   lyrics,
   playing,
   currentIndex,
@@ -98,43 +103,20 @@ const lineMode = computed(() => {
 
 const highlight = computed(() => Math.min(currentIndex.value, lyrics.value.length - 1))
 
-const offset = computed(() => {
-  const lrcOffset = currentTrack.value!.offset || 0
-  if (lrcOffset === 0) {
-    return '未调整'
-  } else if (lrcOffset > 0) {
-    return `延后${lrcOffset}s`
-  } else {
-    return `提前${Math.abs(lrcOffset)}s`
-  }
-})
-
 const transformOrigin = computed(() => `center ${props.textAlign}`)
 const lyricRefs = ref<InstanceType<typeof LyricLine>[]>([])
 const isWheeling = ref(false)
 let scrollingTimer: any = null
 
+const offsetText = computed(() => {
+  if (lyricOffset.value === 0) return '未调整'
+  if (lyricOffset.value > 0) return `延后${lyricOffset.value}s`
+  return `提前${Math.abs(lyricOffset.value)}s`
+})
+
 const setOffset = (offset: number) => {
-  if (!currentTrack.value!.offset) {
-    currentTrack.value!.offset = 0
-  }
-  if (currentTrack.value!.type === 'local') {
-    window.mainApi
-      ?.invoke('updateLocalTrackInfo', currentTrack.value!.id, {
-        offset: currentTrack.value!.offset + offset
-      })
-      .then((isSussess: boolean) => {
-        if (!isSussess) showToast('歌词延迟信息未保存至数据库，下次启动程序后需要重置歌词延迟')
-      })
-  }
-  if (offset === 0) {
-    currentTrack.value!.offset = 0
-  } else {
-    currentTrack.value!.offset += offset
-  }
-  showToast(
-    `当前歌曲的歌词延迟为: ${currentTrack.value!.offset > 0 ? '延迟' : '提前'}${Math.abs(currentTrack.value!.offset)}s`
-  )
+  lyricStore.setOffset(offset)
+  showToast(`歌词偏移: ${offset > 0 ? '延后' : '提前'}${Math.abs(offset)}s`)
 }
 
 const scheduleAnimation = async (type: 'all' | 'translation' = 'all') => {
@@ -196,12 +178,26 @@ const handleWheel = () => {
   )
 }
 
+watch(setSeek, (value) => {
+  if (!value) return
+  const instance = lyricRefs.value[highlight.value]
+  const currentTime = (seek.value + lyricOffset.value) * 1000
+  instance?.updateCurrentTime(currentTime)
+  let op: 'play' | 'pause' | 'finish' | 'reset' = playing.value ? 'play' : 'pause'
+  if (currentTime >= (lyrics.value[highlight.value]?.end || 0) * 1000) op = 'finish'
+  instance?.updatePlayStatus(op)
+})
+
 watch(playing, (value) => {
   const instance = lyricRefs.value[highlight.value]
   if (!instance) return
   const currentTime = (seek.value + lyricOffset.value) * 1000
   let op: 'play' | 'pause' | 'finish' | 'reset' = value ? 'play' : 'pause'
-  if (currentTime >= lyrics.value[highlight.value].end * 1000) op = 'finish'
+
+  const lrc = lyrics.value[highlight.value]
+  const end = lrc.lyric.info ? lrc.lyric.info.at(-1)!.end : lrc.end * 1000
+
+  if (currentTime >= end) op = 'finish'
   instance.updatePlayStatus(op)
 })
 
@@ -212,12 +208,20 @@ watch(playbackRate, (value) => {
 })
 
 watch(lyrics, async () => {
+  const allWords = collectUniqueWords(lyrics.value, nTranslationMode.value)
+  if (allWords.length > 0 && nFontSize.value) {
+    prewarmMeasureCache(allWords, fontFamily.value || 'system-ui', nFontSize.value)
+  }
   clearAnimations()
   await nextTick()
   scheduleAnimation()
 })
 
 watch(nTranslationMode, async () => {
+  const allWords = collectUniqueWords(lyrics.value, nTranslationMode.value)
+  if (allWords.length > 0 && nFontSize.value) {
+    prewarmMeasureCache(allWords, fontFamily.value || 'system-ui', nFontSize.value)
+  }
   clearAnimations(false)
   await nextTick()
   scheduleAnimation('translation')
@@ -251,7 +255,11 @@ watch(
           const currentTime = (seek.value + value[1]) * 1000
           instance?.updateCurrentTime(currentTime)
           let op: 'play' | 'pause' | 'finish' | 'reset' = playing.value ? 'play' : 'pause'
-          if (currentTime >= (lyrics.value[i]?.end || 0) * 1000) op = 'finish'
+
+          const lrc = lyrics.value[i]
+          const end = lrc?.lyric.info ? lrc.lyric.info.at(-1)!.end : (lrc?.end || 0) * 1000
+
+          if (currentTime >= end) op = 'finish'
           instance?.updatePlayStatus(op)
         } else {
           const instance = lyricRefs.value[i]
@@ -279,6 +287,11 @@ watch(
 )
 
 onMounted(async () => {
+  const allWords = collectUniqueWords(lyrics.value, nTranslationMode.value)
+  if (allWords.length > 0 && nFontSize.value) {
+    prewarmMeasureCache(allWords, fontFamily.value || 'system-ui', nFontSize.value)
+  }
+
   const idx = Math.max(0, highlight.value)
   const el = document.getElementById(`lyric${idx}`)
   el?.scrollIntoView({ behavior: 'smooth', block: 'center' })

@@ -98,7 +98,6 @@ import { usePlayerStore } from '../store/player'
 import { usePlayerThemeStore } from '../store/playerTheme'
 import { storeToRefs } from 'pinia'
 import { ref, provide, computed, watch } from 'vue'
-import { TrackSourceType } from '@/types/music.d'
 
 const playPageContextMenu = ref<InstanceType<typeof ContextMenu>>()
 
@@ -138,12 +137,9 @@ const theme = computed(() => {
 const tabs = computed(() => {
   let result: ('fullLyric' | 'pickLyric' | 'comment')[] = []
   if (activeTheme.value.theme.activeLayout === 'Classic') {
-    result = ['fullLyric']
+    result = ['fullLyric', 'comment']
   } else {
-    result = ['pickLyric', 'fullLyric']
-  }
-  if (currentTrack.value?.matched) {
-    result.push('comment')
+    result = ['pickLyric', 'fullLyric', 'comment']
   }
   return result
 })
@@ -152,11 +148,10 @@ const addTrackToPlaylist = () => {
   if (!currentTrack.value) return
   addTrackToPlaylistModal.value = {
     show: true,
-    selectedTrackID: [currentTrack.value.id],
-    type:
-      currentTrack.value.type === 'stream'
-        ? (currentTrack.value.source as TrackSourceType)
-        : (currentTrack.value.type as TrackSourceType)
+    selectedTrackID: [
+      { pluginId: currentTrack.value.pluginId, sourceContext: currentTrack.value.sourceContext }
+    ],
+    plugin: currentTrack.value.pluginId
   }
 }
 
@@ -175,6 +170,10 @@ const getIcon = () => {
     return 'comment'
   }
 }
+
+watch(showLyrics, () => {
+  tabIdx.value = 0
+})
 
 watch(showSenseSelector, () => {
   titleIdx.value = 0

@@ -3,7 +3,8 @@
     <div class="section-one">
       <div class="liked-songs" @click="goToLikedSongsList">
         <div class="title"
-          >{{ $t('library.likedSongs') }} - {{ liked.songs.length }}{{ $t('common.songs') }}</div
+          >{{ $t('library.likedSongs') }} - {{ filterLikedTracks.length
+          }}{{ $t('common.songs') }}</div
         >
         <div class="top">
           <p>
@@ -17,17 +18,18 @@
         </div>
         <div class="bottom">
           <div class="titles">
-            <div v-show="randomtrack?.ar[0].name" class="title">{{
-              `${randomtrack?.ar[0].name} -- ${randomtrack?.name}`
+            <div v-show="randomtrack?.artists[0].name" class="title">{{
+              `${randomtrack?.artists[0].name} -- ${randomtrack?.name}`
             }}</div>
           </div>
         </div>
       </div>
       <div class="songs">
         <TrackList
-          :id="liked.playlists.length > 0 ? liked.playlists[0].id : 0"
-          :items="liked.songsWithDetails"
-          :type="'tracklist'"
+          :items="filterLikedTracks.slice(0, 8)"
+          :plugin="tool.groundBy"
+          type="TrackList"
+          :source-context="{ pluginType: 'library', id: 'library' }"
           :show-position="false"
           :item-height="60"
           :height="240"
@@ -109,7 +111,7 @@
         <div v-show="currentTab === 'playlist'">
           <CoverRow
             :items="filterPlaylists"
-            type="playlist"
+            type="Playlist"
             sub-text="creator"
             :colunm-number="5"
             :is-end="true"
@@ -119,8 +121,8 @@
 
         <div v-show="currentTab === 'album'">
           <CoverRow
-            :items="liked.albums"
-            type="album"
+            :items="filterLikedAlbums"
+            type="Album"
             sub-text="artist"
             :colunm-number="5"
             :is-end="true"
@@ -129,13 +131,13 @@
         </div>
 
         <div v-show="currentTab === 'mvs'">
-          <Mvrow :mvs="liked.mvs" :is-end="true" />
+          <Mvrow :mvs="filterLikedMVs" :is-end="true" :column-number="4" />
         </div>
 
         <div v-show="currentTab === 'artist'">
           <CoverRow
-            :items="liked.artists"
-            type="artist"
+            :items="filterLikedArtists"
+            type="Artist"
             sub-text="artist"
             :item-height="230"
             :colunm-number="5"
@@ -146,10 +148,12 @@
 
         <div v-show="currentTab === 'cloudDisk'">
           <TrackList
-            :id="-8"
-            :items="liked.cloudDisk"
+            :items="filterCloudDisk"
             :colunm-number="1"
-            type="cloudDisk"
+            :plugin="tool.groundBy"
+            :source-context="{ pluginType: 'library', id: 'cloudDisk' }"
+            :show-service="true"
+            type="CloudDisk"
             :is-end="true"
           />
         </div>
@@ -175,10 +179,14 @@
           </button>
           <TrackList
             :items="playHistoryList"
+            :plugin="tool.groundBy"
+            :source-context="{ pluginType: 'library', id: 'playHistory' }"
             :colunm-number="1"
+            :show-service="true"
+            :show-play-count="true"
             :height="historyHeight"
             :item-height="60"
-            type="tracklist"
+            type="History"
             :is-end="true"
           />
         </div>
@@ -186,13 +194,24 @@
     </div>
 
     <ContextMenu ref="playlistTabMenu">
+      <div class="item" :class="{ active: tool.groundBy === 'all' }" @click="tool.groundBy = 'all'"
+        >聚合</div
+      >
+      <div
+        v-for="ser in services"
+        :key="ser.code"
+        class="item"
+        :class="{ active: tool.groundBy === ser.code }"
+        @click="tool.groundBy = ser.code"
+        >{{ ser.name }}</div
+      >
+      <hr />
       <div
         class="item"
         :class="{ active: libraryPlaylistFilter === 'all' }"
         @click="changePlaylistFilter('all')"
         >{{ $t('contextMenu.allPlaylists') }}</div
       >
-      <hr />
       <div
         class="item"
         :class="{ active: libraryPlaylistFilter === 'mine' }"
@@ -211,12 +230,11 @@
 
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
-import { useDataStore } from '../store/data'
 import { useNormalStateStore } from '../store/state'
+import { usePluginMusic } from '../store/pluginMusic'
 import { ref, computed, onMounted, onUnmounted, inject, nextTick } from 'vue'
-import { dailyTask, randomNum, pickedLyric } from '../utils'
+import { randomNum, pickedLyric } from '../utils'
 import { tricklingProgress } from '../utils/tricklingProgress'
-import { getTrackDetail } from '../api/track'
 import SvgIcon from '../components/SvgIcon.vue'
 import TrackList from '../components/VirtualTrackList.vue'
 import CoverRow from '../components/VirtualCoverRow.vue'
@@ -224,18 +242,39 @@ import Mvrow from '../components/MvRow.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import { useRouter } from 'vue-router'
 import { lyricLine } from '@/types/music'
+import type { PluginId, Track, service } from '@/types/plugin'
 
-const dataStore = useDataStore()
-const { liked, libraryPlaylistFilter, user } = storeToRefs(dataStore)
+const stateStore = useNormalStateStore()
+const { newPlaylistModal } = storeToRefs(stateStore)
+const { showToast } = stateStore
 
-const { newPlaylistModal } = storeToRefs(useNormalStateStore())
+const pluginStore = usePluginMusic()
+const {
+  playlists,
+  likedTracks,
+  albums,
+  artists,
+  mvs,
+  cloudDisks,
+  playHistory,
+  libraryPlaylistFilter
+} = storeToRefs(pluginStore)
+const {
+  fetchPlayHistory,
+  fetchLikedPlaylists,
+  fetchLikedSongsWithDetails,
+  fetchLikedArtists,
+  fetchLikedMVs,
+  fetchCloudDisk,
+  fetchLyric
+} = pluginStore
 
 const show = ref(false)
 const playHistoryMode = ref('week')
 const router = useRouter()
 
 const lyric = ref<{ content: string }[]>([])
-const randomtrack = ref<{ [key: string]: any }>()
+const randomtrack = ref<Track>()
 const currentTab = ref('playlist')
 const playlistTabMenu = ref<InstanceType<typeof ContextMenu>>()
 const tabsRowRef = ref()
@@ -243,6 +282,12 @@ const tabsRowRef = ref()
 const hasCustomTitleBar = inject('hasCustomTitleBar', ref(true))
 
 const isMac = computed(() => window.env?.isMac)
+const services = computed(() =>
+  pluginStore.loggedInServices.filter((item) => item.type === 'library')
+)
+const tool = computed(() => pluginStore.tools.library)
+
+const sers = computed(() => services.value.map((item) => item.code))
 
 const tabStyle = computed(() => {
   const marginTop = hasCustomTitleBar.value ? 20 : 0
@@ -268,76 +313,129 @@ const playlistFilter = computed(() => {
 })
 
 const filterPlaylists = computed(() => {
-  const playlists = liked.value.playlists.slice(1)
-  const userId = user.value.userId
-  if (playlistFilter.value === 'mine') {
-    return playlists.filter((p) => p.creator.userId === userId)
-  } else if (playlistFilter.value === 'liked') {
-    return playlists.filter((p) => p.creator.userId !== userId)
+  const onlineServices = services.value.filter((item) => item.type === 'library')
+  const onlineTool = pluginStore.tools.library
+
+  const onlinePlaylists = onlineServices
+    .map((item) => (playlists.value[item.code]?.data ?? []).flat())
+    .flat()
+  const plists =
+    onlineTool.groundBy === 'all' ? onlinePlaylists : playlists.value[onlineTool.groundBy].data
+
+  if (libraryPlaylistFilter.value === 'mine') {
+    return plists.filter((item) => item.isMine)
+  } else if (libraryPlaylistFilter.value === 'liked') {
+    return plists.filter((item) => !item.isMine)
+  } else {
+    return plists
   }
-  return playlists
+})
+
+const filterLikedTracks = computed(() => {
+  const tracks =
+    tool.value.groundBy === 'all'
+      ? Object.entries(likedTracks.value)
+          .filter(([plugin]) => sers.value.includes(plugin as PluginId))
+          .map(([, item]) => item.data)
+          .flat()
+      : likedTracks.value[tool.value.groundBy]?.data || []
+  return tracks
+})
+
+const filterLikedAlbums = computed(() => {
+  const servs = services.value.filter((item) => item.type === 'library')
+
+  const albs =
+    tool.value.groundBy === 'all'
+      ? servs.map((item) => albums.value[item.code]?.data ?? []).flat()
+      : albums.value[tool.value.groundBy].data
+  return albs
+})
+
+const filterLikedArtists = computed(() => {
+  const servs = services.value.filter((item) => item.type === 'library')
+
+  const ars =
+    tool.value.groundBy === 'all'
+      ? servs.map((item) => artists.value[item.code]?.data ?? []).flat()
+      : artists.value[tool.value.groundBy].data
+  return ars
+})
+
+const filterLikedMVs = computed(() => {
+  const res =
+    tool.value.groundBy === 'all'
+      ? Object.values(mvs.value)
+          .map((item) => item.data)
+          .flat()
+      : mvs.value[tool.value.groundBy].data
+  return res
+})
+
+const filterCloudDisk = computed(() => {
+  const res =
+    tool.value.groundBy === 'all'
+      ? Object.values(cloudDisks.value)
+          .map((item) => item.data)
+          .flat()
+      : cloudDisks.value[tool.value.groundBy].data
+  return res
 })
 
 const playHistoryList = computed(() => {
   if (show.value && playHistoryMode.value === 'week') {
-    return liked.value.playHistory.weekData
+    const res =
+      tool.value.groundBy === 'all'
+        ? Object.values(playHistory.value)
+            .map((item) => item.week)
+            .flat()
+        : playHistory.value[tool.value.groundBy].week
+    return res
   } else if (show.value && playHistoryMode.value === 'all') {
-    return liked.value.playHistory.allData
+    const res =
+      tool.value.groundBy === 'all'
+        ? Object.values(playHistory.value)
+            .map((item) => item.all)
+            .flat()
+        : playHistory.value[tool.value.groundBy].all
+    return res
   }
   return []
 })
 
-const {
-  fetchLikedSongs,
-  fetchLikedPlaylist,
-  fetchLikedSongsWithDetails,
-  fetchLikedAlbums,
-  fetchLikedArtists,
-  fetchLikedMVs,
-  fetchCloudDisk,
-  fetchPlayHistory
-} = dataStore
-
-const loadData = async () => {
-  if (liked.value.songsWithDetails.length > 0) {
+const loadData = async (ser: service) => {
+  await nextTick()
+  if (likedTracks.value[ser.code]?.data.length) {
     tricklingProgress.done()
     show.value = true
-    fetchLikedSongsWithDetails()
     getRandomLyric()
-    fetchLikedSongs()
-    fetchLikedPlaylist()
+    fetchLikedSongsWithDetails(ser.code)
+    fetchLikedPlaylists(ser.code)
   } else {
-    await fetchLikedSongs()
-    await fetchLikedPlaylist()
-    fetchLikedSongsWithDetails().then(() => {
-      tricklingProgress.done()
-      show.value = true
-      getRandomLyric()
-    })
+    await fetchLikedPlaylists(ser.code)
+    await fetchLikedSongsWithDetails(ser.code)
+    getRandomLyric()
+    tricklingProgress.done()
+    show.value = true
   }
-
-  fetchLikedAlbums()
-  fetchLikedArtists()
-  fetchLikedMVs()
-  fetchPlayHistory()
-  fetchCloudDisk()
+  fetchLikedArtists(ser.code)
+  fetchLikedMVs(ser.code)
+  fetchPlayHistory(ser.code)
+  fetchCloudDisk(ser.code)
 }
 
 const getRandomLyric = async () => {
-  if (liked.value.songs.length === 0) return
+  if (filterLikedTracks.value.length === 0) return
 
   let i = 0
   let data: lyricLine[]
-  let randomId: number
-  while (i < liked.value.songs.length) {
-    randomId = liked.value.songs[randomNum(0, liked.value.songs.length - 1)]
-    data = await fetch(`atom://local-asset?type=lyric&id=${randomId}`).then((res) => res.json())
+  while (i < filterLikedTracks.value.length) {
+    const track = filterLikedTracks.value[randomNum(0, filterLikedTracks.value.length - 1)]
+    data = await fetchLyric(track)
     const isInstrumental = data.map((l) => l.lyric.text).filter((l) => l.includes('纯音乐，请欣赏'))
     if (data.length && !isInstrumental.length) {
       lyric.value = data.map((l) => ({ content: l.lyric.text }))
-      getTrackDetail(randomId.toString()).then((data) => {
-        randomtrack.value = data.songs[0]
-      })
+      randomtrack.value = track
       break
     }
     i++
@@ -345,14 +443,24 @@ const getRandomLyric = async () => {
 }
 
 const goToLikedSongsList = () => {
-  router.push({ path: '/library/liked-songs' })
+  if (tool.value.groundBy === 'all') {
+    const plugins = services.value.map((it) => it.code).join('/')
+    router.push({ path: `/liked-songs/${plugins}` })
+  } else {
+    router.push({ path: `/liked-songs/${tool.value.groundBy}` })
+  }
 }
 
 const updatePadding = inject('updatePadding') as (padding: number) => void
 
 const openAddPlaylistModal = () => {
+  if (tool.value.groundBy === 'all' && services.value.length > 1) {
+    showToast('在聚合视图下无法进行操作，请先选择具体的音源服务')
+    return
+  }
+
   newPlaylistModal.value = {
-    type: 'online',
+    plugin: tool.value.groundBy === 'all' ? services.value[0].code : tool.value.groundBy,
     afterCreateAddTrackID: [],
     show: true
   }
@@ -408,18 +516,20 @@ const handleResize = () => {
   if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
 }
 
-onMounted(() => {
+onMounted(async () => {
   window.addEventListener('resize', handleResize)
   if (tabsRowRef.value) {
     observeTab.observe(tabsRowRef.value)
   }
-  setTimeout(() => {
-    if (!show.value) tricklingProgress.start()
-  }, 1000)
-  loadData()
-  dailyTask()
+  await nextTick()
+
+  services.value.forEach((ser) => {
+    loadData(ser)
+  })
+
   setTimeout(() => {
     updatePadding(0)
+    show.value = true
   }, 100)
 })
 onUnmounted(() => {
@@ -518,6 +628,8 @@ onUnmounted(() => {
 
     .tabs {
       display: flex;
+      align-items: center;
+      justify-content: space-between;
       flex-wrap: wrap;
       font-size: 18px;
       color: var(--color-text);

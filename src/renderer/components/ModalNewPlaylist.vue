@@ -8,11 +8,12 @@
   >
     <template #default>
       <input v-model="title" type="text" :placeholder="$t('library.playlist.title')" />
-      <div v-show="type === 'online'" class="checkbox">
+      <div class="checkbox">
         <input
           id="checkbox-private"
           v-model="isPrivate"
           type="checkbox"
+          :disabled="service?.type !== 'library'"
           class="input"
           @input="checked = !checked"
         />
@@ -32,24 +33,18 @@ import { storeToRefs } from 'pinia'
 import { computed, ref, toRaw } from 'vue'
 import BaseModal from './BaseModal.vue'
 import { useNormalStateStore } from '../store/state'
-import { useLocalMusicStore } from '../store/localMusic'
-import { useStreamMusicStore } from '../store/streamingMusic'
-import { useDataStore } from '../store/data'
-import { createPlaylist, addOrRemoveTrackFromPlaylist } from '../api/playlist'
+import { usePluginMusic } from '../store/pluginMusic'
 import { useI18n } from 'vue-i18n'
-import { serviceName } from '@/types/music.d'
+import { PluginId } from '@/types/plugin'
 
 const stateStore = useNormalStateStore()
 const { newPlaylistModal } = storeToRefs(stateStore)
 const { showToast } = stateStore
 const { t } = useI18n()
 
-const { createLocalPlaylist } = useLocalMusicStore()
-const { fetchLikedPlaylist } = useDataStore()
-
-const streamMusicStore = useStreamMusicStore()
-// const { currentService } = storeToRefs(streamMusicStore)
-const { fetchStreamPlaylist, addOrRemoveTrackFromStreamPlaylist } = streamMusicStore
+const pluginStore = usePluginMusic()
+const { services } = storeToRefs(pluginStore)
+const { pluginMethodCall, fetchLikedPlaylists } = pluginStore
 
 const title = ref('')
 const isPrivate = ref(false)
@@ -61,10 +56,11 @@ const show = computed({
     newPlaylistModal.value.show = value
   }
 })
-const type = computed({
-  get: () => newPlaylistModal.value.type,
+
+const plugin = computed({
+  get: () => newPlaylistModal.value.plugin,
   set: (value) => {
-    newPlaylistModal.value.type = value
+    newPlaylistModal.value.plugin = value
   }
 })
 const ids = computed({
@@ -74,17 +70,17 @@ const ids = computed({
   }
 })
 
+const service = computed(() => services.value.find((item) => item.code === plugin.value))
+
+// const playlists = computed(() => pluginPlaylist.value[plugin.value].data!)
+
 const modelTitle = computed(() => {
-  if (type.value === 'local') {
-    return t('localMusic.playlist.newPlaylist')
-  } else if (type.value === 'online') {
-    return t('library.playlist.newPlaylist')
-  }
-  return t('streamMusic.playlist.newPlaylist')
+  const service = services.value.find((item) => item.code === plugin.value)
+  return t('playlist.newPlaylist', { name: service?.name || '', code: service?.code || '' })
 })
 
 const close = () => {
-  type.value = 'online'
+  plugin.value = '' as PluginId
   ids.value = []
   show.value = false
   title.value = ''
@@ -92,70 +88,24 @@ const close = () => {
 }
 
 const createAPlaylist = async () => {
-  if (type.value === 'local') {
-    let imgID = 0
-    if (ids.value.length) imgID = ids.value[ids.value.length - 1] as number
-    const params = {
-      name: title.value,
-      trackIds: ids.value,
-      trackCount: ids.value.length,
-      coverImgUrl:
-        imgID === 0
-          ? 'https://p1.music.126.net/jWE3OEZUlwdz0ARvyQ9wWw==/109951165474121408.jpg?param=512y512'
-          : `atom://local-asset?type=pic&id=${imgID}&size=512`
-    }
-    const playlist = await createLocalPlaylist(params)
-    if (playlist) {
-      close()
+  const data = { name: title.value, isPrivate: isPrivate.value }
+  const result = await pluginMethodCall(plugin.value, 'createPlaylist', data)
+  if (result.code === 200 && result.data) {
+    fetchLikedPlaylists(plugin.value)
+    if (!ids.value.length) {
       showToast(t('toast.createLocalPlaylistSuccess'))
-    } else {
-      showToast(t('toast.createLocalPlaylistFailed'))
+      close()
+      return
     }
-  } else if (type.value === 'online') {
-    const params: Record<string, any> = { name: title.value }
-    if (isPrivate.value) params.privacy = 10
-    createPlaylist(params).then((res) => {
-      if (res.code === 200) {
-        if (ids.value.length) {
-          const trackIDs = ids.value.join(',')
-          addOrRemoveTrackFromPlaylist({
-            op: 'add',
-            pid: res.id,
-            tracks: trackIDs
-          }).then((data) => {
-            if (data.body.code === 200) {
-              showToast(t('toast.savedToPlaylist'))
-            } else {
-              showToast(data.body.message)
-            }
-          })
-        }
-        close()
-        showToast(t('toast.createLocalPlaylistSuccess'))
-        fetchLikedPlaylist()
-      }
+    const res = await pluginMethodCall(plugin.value, 'addOrRemoveTracksToPlaylist', {
+      op: 'add',
+      playlist: result.data.sourceContext,
+      tracks: ids.value
     })
-  } else {
-    window.mainApi
-      ?.invoke('createStreamPlaylist', {
-        name: title.value,
-        platform: type.value
-      })
-      .then((res: { status: 'ok' | 'failed'; pid: string | undefined }) => {
-        if (res.status === 'ok') {
-          if (ids.value.length) {
-            addOrRemoveTrackFromStreamPlaylist(
-              'add',
-              type.value as serviceName,
-              res.pid as string,
-              ids.value as string[]
-            )
-          }
-          close()
-          showToast(t('toast.createLocalPlaylistSuccess'))
-          fetchStreamPlaylist()
-        }
-      })
+    if (res.code === 200) {
+      showToast(t('toast.savedToPlaylist'))
+      close()
+    }
   }
 }
 </script>

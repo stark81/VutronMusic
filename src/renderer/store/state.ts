@@ -2,8 +2,8 @@ import { defineStore } from 'pinia'
 import { nextTick, reactive, ref, watch } from 'vue'
 import { type UpdateCheckResult } from 'electron-updater'
 import { type IFontInfo } from 'font-list'
-import type { TrackSourceType } from '@/types/music'
 import type { LayoutMode } from '@/types/theme'
+import { Track, PluginId, ExploreTab, SearchTab } from '@/types/plugin'
 
 type ScrollState = {
   scrollTop: number
@@ -15,8 +15,8 @@ export const useNormalStateStore = defineStore('state', () => {
   const enableScrolling = ref(true)
   const virtualScrolling = ref(false)
   const showLyrics = ref(false)
-  const searchTab = ref('track')
-  const exploreTab = ref('playlist')
+  const searchTab = ref<SearchTab>('tracks')
+  const exploreTab = ref<ExploreTab>('playlist')
   const setConvolverModal = ref(false)
   const setPlaybackRateModal = ref(false)
   const setPitchModal = ref(false)
@@ -30,13 +30,13 @@ export const useNormalStateStore = defineStore('state', () => {
   const modalOpen = ref(false)
   const addTrackToPlaylistModal = ref({
     show: false,
-    selectedTrackID: [0] as (number | string)[],
-    type: 'online' as TrackSourceType | 'all'
+    selectedTrackID: [{}] as Record<string, any>[],
+    plugin: '' as PluginId
   })
   const newPlaylistModal = ref({
     show: false,
-    type: 'online' as TrackSourceType,
-    afterCreateAddTrackID: [0] as (number | string)[]
+    plugin: '' as PluginId,
+    afterCreateAddTrackID: [{}] as Record<string, any>[]
   })
   const accurateMatchModal = ref({
     show: false,
@@ -48,9 +48,9 @@ export const useNormalStateStore = defineStore('state', () => {
   })
   const editPlaylistModal = ref({
     show: false,
-    type: 'online' as TrackSourceType,
+    pluginId: '' as PluginId,
     playlistID: 0,
-    info: { title: '', description: '', tags: [] }
+    info: { title: '', description: '', tags: [] as string[] }
   })
   const selectDirModal = ref(false)
 
@@ -59,7 +59,35 @@ export const useNormalStateStore = defineStore('state', () => {
     text: '',
     timer: null as any
   })
-  const dailyTracks = ref<any[]>([])
+
+  const confirmDialog = reactive({
+    show: false,
+    title: '确认',
+    text: '',
+    resolve: null as ((value: boolean) => void) | null
+  })
+
+  const showConfirm = (text: string, title = '确认'): Promise<boolean> => {
+    return new Promise((resolve) => {
+      confirmDialog.show = true
+      confirmDialog.title = title
+      confirmDialog.text = text
+      confirmDialog.resolve = resolve
+    })
+  }
+
+  const confirmAction = () => {
+    confirmDialog.resolve?.(true)
+    confirmDialog.show = false
+    confirmDialog.resolve = null
+  }
+
+  const cancelAction = () => {
+    confirmDialog.resolve?.(false)
+    confirmDialog.show = false
+    confirmDialog.resolve = null
+  }
+  const dailyTracks = ref<Track[]>([])
 
   const scrollbar = reactive({
     instances: {} as Record<string, ScrollState>,
@@ -171,6 +199,7 @@ export const useNormalStateStore = defineStore('state', () => {
     backgroundModal,
     dailyTracks,
     toast,
+    confirmDialog,
     modalOpen,
     scrollbar,
     updateStatus,
@@ -179,6 +208,9 @@ export const useNormalStateStore = defineStore('state', () => {
     amuseServerRunning,
     amuseServerErrorMsg,
     showToast,
+    showConfirm,
+    confirmAction,
+    cancelAction,
     getFontList,
     registerInstance,
     unregisterInstance,

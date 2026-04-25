@@ -1,24 +1,40 @@
 <template>
-  <div class="search-container">
-    <div ref="searchIconRef" class="search-icon" :class="{ active: showInput }" @click="toggleInput"
-      ><svg-icon icon-class="search"
-    /></div>
-    <input
-      ref="inputRef"
-      v-model="keywords"
-      type="search"
-      class="search-input"
-      :placeholder="placeholder"
-      :style="{ width: showInputWidth + 'px', padding: showPadding }"
-      @keydown.enter="doKeydownEnter"
-      @blur="doblur"
+  <div ref="containerRef" class="container">
+    <CustomSelect
+      v-if="showInput && options.length > 1"
+      ref="customSelectRef"
+      v-model="plugin"
+      :options="options"
     />
+    <div class="search-container">
+      <div
+        ref="searchIconRef"
+        class="search-icon"
+        :class="{ active: showInput }"
+        @click="toggleInput"
+        ><svg-icon icon-class="search"
+      /></div>
+      <input
+        ref="inputRef"
+        v-model="keywords"
+        type="search"
+        class="search-input"
+        :placeholder="placeholder"
+        :style="{ width: showInputWidth + 'px', padding: showPadding }"
+        @keydown.enter="doKeydownEnter"
+      />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import SvgIcon from './SvgIcon.vue'
+import CustomSelect from './CustomSelect.vue'
+import { useNormalStateStore } from '../store/state'
+import { storeToRefs } from 'pinia'
+
+const { enableScrolling } = storeToRefs(useNormalStateStore())
 
 const props = defineProps({
   showInputInitially: {
@@ -36,26 +52,37 @@ const props = defineProps({
   clearKeywords: {
     type: Boolean,
     default: false
+  },
+  services: {
+    type: Array as () => { code: string; name: string }[],
+    default: () => []
   }
 })
 
 const $emit = defineEmits(['keydownEnter'])
 
 const showInput = ref(props.showInputInitially)
-
 const keywords = ref('')
-
 const showInputWidth = ref(showInput.value ? props.inputWidth : 0)
-
 const showPadding = ref(showInput.value ? '4px' : '0px')
-
 const inputRef = ref<HTMLInputElement | null>(null)
+const containerRef = ref()
+const customSelectRef = ref()
+
+const options = computed(() => {
+  return props.services.map((s) => ({ label: s.name, value: s.code }))
+})
+
+const plugin = ref(props.services[0]?.code ?? '')
 
 const doKeydownEnter = () => {
-  $emit('keydownEnter', keywords.value)
+  $emit('keydownEnter', keywords.value, plugin.value)
   if (!props.clearKeywords) return
   keywords.value = ''
   inputRef.value?.blur()
+  showInput.value = false
+  showInputWidth.value = 0
+  showPadding.value = '0px'
 }
 
 const toggleInput = () => {
@@ -75,14 +102,44 @@ const toggleInput = () => {
   }
 }
 
-const doblur = () => {
-  if (!keywords.value) toggleInput()
+defineExpose({ keywords, plugin, showInput })
+
+const handleOutside = (e: MouseEvent) => {
+  if (!containerRef.value?.contains(e.target as Node) && !keywords.value) {
+    if (customSelectRef.value?.isTargetInside(e.target as Node)) return
+    enableScrolling.value = true
+    showInput.value = false
+    showInputWidth.value = 0
+    showPadding.value = '0px'
+  }
 }
 
-defineExpose({ keywords })
+onMounted(() => {
+  document.addEventListener('mousedown', handleOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('mousedown', handleOutside)
+})
 </script>
 
 <style scoped lang="scss">
+.container {
+  display: flex;
+  align-items: center;
+
+  &:deep(.custom-select) {
+    height: 32px;
+    min-width: 120px;
+    background-color: unset;
+    -webkit-app-region: no-drag;
+
+    .custom-text {
+      font-size: 14px;
+    }
+  }
+}
+
 .search-container {
   display: flex;
   align-items: center;

@@ -1,6 +1,15 @@
 <template>
   <div class="trackitem" :class="trackClass" @mouseover="hover = true" @mouseleave="hover = false">
     <div class="track">
+      <div
+        v-if="reorderable"
+        class="drag-handle"
+        draggable="true"
+        @dragstart="onDragStart"
+        @dragend="onDragEnd"
+      >
+        <svg-icon icon-class="grip" />
+      </div>
       <input v-if="isBatchOp" v-model="isSelected" type="checkbox" />
       <img
         v-if="!isAlbum && !isLyric"
@@ -25,18 +34,19 @@
             <span v-if="isSubTitle" :title="subTitle" class="sub-title"> ({{ subTitle }}) </span>
             <span v-if="isAlbum" class="featured">
               <ArtistsInLine
-                :artists="track.ar || track.artists"
+                :artists="track.artists"
                 :exclude="albumObject.artist.name"
                 prefix="-"
-            /></span>
-            <span v-if="isAlbum && track.mark === 1318912" class="explicit-symbol"
+              />
+            </span>
+            <!-- <span v-if="isAlbum && track.mark === 1318912" class="explicit-symbol"
               ><ExplicitSymbol
-            /></span>
+            /></span> -->
           </div>
           <div v-if="!isAlbum" class="artist">
-            <span v-if="track.mark === 1318912" class="explicit-symbol before-artist"
+            <!-- <span v-if="track.mark === 1318912" class="explicit-symbol before-artist"
               ><ExplicitSymbol :size="15"
-            /></span>
+            /></span> -->
             <ArtistsInLine :artists="artists" />
             <span v-if="track.mvid && track.mvid !== 0" class="mv-icon" @click="goToMv"
               ><svg-icon icon-class="mv" :style="{ height: '16px' }"
@@ -47,24 +57,18 @@
       </div>
 
       <div v-if="showAlbumName" class="album">
-        <div
-          v-if="album && album.matched !== false && album.id && album.name"
-          :title="album.name || '未知专辑'"
-          ><router-link :to="`/album/${album.id}`">{{ album.name }}</router-link></div
+        <div v-if="album && album.id && album.name" :title="album.name || '未知专辑'"
+          ><router-link :to="`/album/${album.pluginId}/${JSON.stringify(album.sourceContext)}`">{{
+            album.name
+          }}</router-link></div
         >
         <div v-else :title="album.name || '未知专辑'"> {{ album.name || '未知专辑' }}</div>
       </div>
 
-      <div v-if="showService" class="service">{{
-        track.type === 'stream' ? track.source : track.type
-      }}</div>
+      <div v-if="showService" class="service">{{ track.pluginId }}</div>
 
       <div v-if="showTrackTime" class="createTime">
-        {{
-          track.createTime
-            ? getPublishTime(track.createTime)
-            : getPublishTime(track.album?.publishTime ?? track.publishTime)
-        }}
+        {{ getPublishTime(track.createTime) }}
       </div>
       <div v-if="showLikeButton" class="actions">
         <button @click="likeThisSong">
@@ -84,12 +88,12 @@
         {{ formatedTime }}
       </div>
 
-      <div v-if="track.playCount" class="count"> {{ track.playCount }}</div>
+      <div v-if="showPlayCount" class="count"> {{ track.playCount }}</div>
     </div>
     <div v-show="isLyric && lyrics.length > 0" class="lyric-container">
-      <div
-        ><div v-for="(lyric, index) in lyrics" :key="index" class="lyric">{{ lyric }}</div></div
-      >
+      <div>
+        <div v-for="(lyric, index) in lyrics" :key="index" class="lyric">{{ lyric }}</div>
+      </div>
       <!-- <button>复制歌词</button> -->
     </div>
   </div>
@@ -98,88 +102,84 @@
 <script setup lang="ts">
 import SvgIcon from './SvgIcon.vue'
 import ArtistsInLine from './ArtistsInLine.vue'
-import ExplicitSymbol from './ExplicitSymbol.vue'
+// import ExplicitSymbol from './ExplicitSymbol.vue'
 import { computed, ref, toRefs, inject } from 'vue'
 import { useNormalStateStore } from '../store/state'
 import { useSettingsStore } from '../store/settings'
-import { useStreamMusicStore } from '../store/streamingMusic'
-import { useDataStore } from '../store/data'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
+import { usePluginMusic } from '../store/pluginMusic'
 import { useRouter } from 'vue-router'
-import { useI18n } from 'vue-i18n'
-import { Track } from '@/types/music.d'
+// import { useI18n } from 'vue-i18n'
+import { PluginId, Track } from '@/types/plugin'
+import { SourceType } from '@/types/music'
+import isEqual from 'lodash/isEqual'
 
 const router = useRouter()
 const props = withDefaults(
   defineProps<{
     trackProp: Track
     trackNo: number
-    typeProp: string
+    typeProp: SourceType
     isLyric?: boolean
     showService?: boolean
+    showPlayCount?: boolean
     albumObject?: { artist: { name: string } }
     highlightPlayingTrack?: boolean
+    reorderable?: boolean
+    dragIndex?: number
   }>(),
   {
     isLyric: false,
     showService: false,
+    showPlayCount: false,
     albumObject: () => ({ artist: { name: '' } }),
-    highlightPlayingTrack: true
+    highlightPlayingTrack: true,
+    reorderable: false,
+    dragIndex: 0
   }
 )
 
 const settingsStore = useSettingsStore()
-const { general, localMusic } = storeToRefs(settingsStore)
-const { subTitleDefault, showTrackTimeOrID } = toRefs(general.value)
+const { general } = storeToRefs(settingsStore)
+const { showTrackTimeOrID } = toRefs(general.value)
 
-const streamingMusicStore = useStreamMusicStore()
-const { likeAStreamTrack } = streamingMusicStore
+const pluginStore = usePluginMusic()
+const { likedTracks } = storeToRefs(pluginStore)
+const { likeATrack } = pluginStore
 
 const playerStore = usePlayerStore()
 const { currentTrack, enabled } = storeToRefs(playerStore)
 
 const stateStore = useNormalStateStore()
-const { showToast } = stateStore
+// const { showToast } = stateStore
 
-const { t } = useI18n()
+// const { t } = useI18n()
 
-const dataStore = useDataStore()
-const { liked } = storeToRefs(dataStore)
-const { likeATrack } = dataStore
-
-const type = ref(props.typeProp)
-const track = computed(
-  () =>
-    (type.value === 'cloudDisk'
-      ? props.trackProp.simpleSong || props.trackProp
-      : props.trackProp) as Track
-)
+const type = computed(() => props.typeProp)
+const track = computed(() => props.trackProp)
 
 const image = computed(() => {
-  let url: string
-  if (track.value.type === 'online') {
-    url = track.value.al?.picUrl || track.value.album?.picUrl || track.value.picUrl
-    if (url && url.startsWith('http')) url = url.replace('http:', 'https:')
-    url += '?param=64y64'
-    return url
+  if (track.value.type === 'library') {
+    return track.value.picUrl
   } else if (track.value.type === 'stream') {
-    url = track.value.al?.picUrl || track.value.album?.picUrl || track.value.picUrl
-    return stateStore.virtualScrolling ? 'atom://get-default-pic' : url
+    const url = track.value.picUrl || track.value.album?.picUrl
+    return stateStore.virtualScrolling ? 'vutron://get-default-pic' : url
   } else {
-    url = localMusic.value.scanning
-      ? `atom://get-pic-path/${track.value.filePath}`
-      : `atom://local-asset?type=pic&id=${track.value.id}&size=64`
-    return url
+    return track.value.picUrl
   }
 })
 
 const hover = ref(false)
 
-const showOrderNumber = computed(() => type.value === 'album')
+const showOrderNumber = computed(() => type.value === 'Album')
 
 const isPlaying = computed(() => {
-  return enabled.value && currentTrack.value && currentTrack.value.id === track.value.id
+  return (
+    enabled.value &&
+    currentTrack.value &&
+    isEqual(currentTrack.value.sourceContext.id, track.value.sourceContext.id)
+  )
 })
 
 const trackClass = computed(() => {
@@ -191,7 +191,7 @@ const trackClass = computed(() => {
 })
 
 const artists = computed(() => {
-  const useAr = track.value.ar ?? track.value.artists
+  const useAr = track.value?.artists || []
   useAr.forEach((artist: any) => {
     if (artist && !artist.name) {
       artist.name = '未知歌手'
@@ -200,12 +200,11 @@ const artists = computed(() => {
   return useAr
 })
 
-const album = computed(() => {
-  return track.value.album || track.value.al || track.value.simpleSong?.al
-})
+const album = computed(() => track.value.album)
 
 const showAlbumName = computed(() => {
-  return type.value !== 'tracklist' && type.value !== 'album'
+  return !['TrackList', 'Artist', 'Album'].includes(type.value)
+  // return type.value !== 'TrackList' && type.value !== 'Album'
 })
 
 // const showService = computed(() => {
@@ -213,84 +212,66 @@ const showAlbumName = computed(() => {
 // })
 
 const showTrackTime = computed(() => {
-  return type.value !== 'tracklist'
+  return !['TrackList', 'Artist'].includes(type.value)
 })
 
 const formatedTime = computed(() => {
-  const dt = (track.value.dt || track.value.duration) / 1000
+  const dt = track.value.duration / 1000
   const minutes = Math.floor(dt / 60)
   const seconds = Math.floor(dt % 60)
   return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`
 })
 
 const showLikeButton = computed(() => {
-  return showTrackTime.value && type.value !== 'cloudDisk'
+  return showTrackTime.value && type.value !== 'CloudDisk'
 })
 
 const isLiked = computed(() => {
-  return liked.value.songs.includes(track.value.id) || track.value.starred
+  const plugin = track.value.pluginId
+  return (likedTracks.value[plugin]?.data ?? []).map((track) => track.id).includes(track.value.id)
 })
 
-const isSubTitle = computed(() => {
-  return (
-    (track.value.tns?.length > 0 && track.value.name !== track.value.tns[0]) ||
-    track.value.alias?.length > 0 ||
-    track.value.alia?.length > 0
-  )
-})
+const isSubTitle = computed(() => track.value.alias?.length > 0)
 
 const isAlbum = computed(() => {
-  return type.value === 'album'
+  return type.value === 'Album'
 })
 
-const subTitle = computed(() => {
-  let tn: any
-  if (track.value.tns?.length > 0 && track.value.name !== track.value.tns[0]) {
-    tn = track.value.tns[0]
-  }
-
-  // 优先显示alia
-  if (subTitleDefault.value) {
-    return track.value.alias?.length > 0
-      ? track.value.alias[0]
-      : track.value.alia?.length > 0
-        ? track.value.alia[0]
-        : tn
-  } else {
-    return tn === undefined
-      ? track.value.alias[0]
-      : track.value.alia?.length > 0
-        ? track.value.alia[0]
-        : tn
-  }
-})
+const subTitle = computed(() => track.value.alias[0])
 
 const lyrics = computed(() => {
-  const lyrics = track.value.lyrics?.txt.split('\n')
-  const start = track.value.lyrics?.range[0].first
-  const end = track.value.lyrics?.range[0].second
-  const selectedLyric = track.value.lyrics?.txt.slice(start, end)
-  const index = lyrics?.findIndex((l) => l.includes(selectedLyric))
-  const result = lyrics?.slice(index, index + 4)
-  if (result && result[0]?.includes(';')) {
-    result[0] = result[0]?.split(';')[1]
-  }
-  return result
+  // const lyrics = track.value.lyrics?.txt.split('\n')
+  // const start = track.value.lyrics?.range[0].first
+  // const end = track.value.lyrics?.range[0].second
+  // const selectedLyric = track.value.lyrics?.txt.slice(start, end)
+  // const index = lyrics?.findIndex((l) => l.includes(selectedLyric))
+  // const result = lyrics?.slice(index, index + 4)
+  // if (result && result[0]?.includes(';')) {
+  //   result[0] = result[0]?.split(';')[1]
+  // }
+  // return result
+  return []
 })
 
 const isSelected = computed({
-  get: () => selectedList.value.includes(track.value.id),
+  get: () => {
+    return selectedList.value.some((id) =>
+      isEqual(id, [track.value.pluginId, track.value.sourceContext])
+    )
+  },
   set: (value) => {
     if (value) {
-      selectedList.value.push(track.value.id)
+      selectedList.value.push([track.value.pluginId, track.value.sourceContext])
     } else {
-      selectedList.value = selectedList.value.filter((id) => id !== track.value.id)
+      selectedList.value = selectedList.value.filter((id) =>
+        isEqual(id, [track.value.pluginId, track.value.sourceContext])
+      )
     }
   }
 })
 
 const isMenuOpened = computed(() => {
-  return rightClickedTrack.value.id === track.value.id
+  return rightClickedTrack.value?.id === track.value.id
 })
 
 const focus = computed(() => {
@@ -307,32 +288,67 @@ const getPublishTime = (date: any) => {
 
 const goToAlbum = () => {
   if (album.value.id === 0) return
-  if (album.value.matched === false) return
-  router.push(`/album/${album.value.id}`)
+  // if (album.value.matched === false) return
+  router.push(`/album/${album.value.pluginId}/${JSON.stringify(album.value.sourceContext)}`)
 }
 
 const goToMv = () => {
-  router.push(`/mv/${track.value.mvid}`)
+  const sourceContext = { id: track.value.mvid }
+  router.push(`/mv/${track.value.pluginId}/${JSON.stringify(sourceContext)}`)
+}
+
+const onDragStart = (e: DragEvent) => {
+  e.dataTransfer!.effectAllowed = 'move'
+  e.dataTransfer!.setData('text/plain', String(props.dragIndex))
+}
+
+const onDragEnd = () => {
+  /* 清理由父组件处理 */
 }
 
 const likeThisSong = () => {
-  if (track.value.type === 'local' && !track.value.matched) {
-    showToast(t('player.noAllowCauseLocal'))
-  } else if (track.value.type === 'stream') {
-    const op = track.value.starred ? 'unstar' : 'star'
-    likeAStreamTrack(op, track.value as Track)
-  } else {
-    likeATrack(track.value.id)
-  }
+  likeATrack(track.value)
 }
 
 const isBatchOp = inject('isBatchOp', ref(false))
-const selectedList = inject('selectedList', ref<number[]>([]))
+const selectedList = inject('selectedList', ref<[PluginId, Record<string, any>][]>([]))
 const rightClickedTrack = inject('rightClickedTrack', ref({ id: 0 }))
-const playThisList = inject('playThisList') as (id: number) => void
+const playThisList = inject('playThisList') as (id: number | string) => void
 </script>
 
 <style scoped lang="scss">
+.drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  padding: 4px 8px;
+  margin-right: 4px;
+  opacity: 0.4;
+  color: var(--color-text);
+  border-radius: 4px;
+  user-select: none;
+  -webkit-user-select: none;
+
+  &:hover {
+    opacity: 0.8;
+    background: var(--color-secondary-bg);
+  }
+
+  &:active {
+    cursor: grabbing;
+  }
+
+  .svg-icon {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.trackitem.dragging {
+  opacity: 0.5;
+}
+
 button {
   display: flex;
   justify-content: center;
@@ -341,14 +357,17 @@ button {
   background: transparent;
   border-radius: 25%;
   transition: transform 0.2s;
+
   .svg-icon {
     height: 16px;
     width: 16px;
     color: var(--color-primary);
   }
+
   &:hover {
     transform: scale(1.12);
   }
+
   &:active {
     transform: scale(0.96);
   }
@@ -391,6 +410,7 @@ button {
     width: 12px;
     color: var(--color-text);
     cursor: default;
+
     span {
       opacity: 0.58;
     }
@@ -399,6 +419,7 @@ button {
   .explicit-symbol {
     opacity: 0.28;
     color: var(--color-text);
+
     .svg-icon {
       margin-bottom: -3px;
     }
@@ -426,10 +447,12 @@ button {
   .title-and-artist {
     flex: 1;
     display: flex;
+
     .container {
       display: flex;
       flex-direction: column;
     }
+
     .title {
       font-size: 18px;
       font-weight: 600;
@@ -442,18 +465,21 @@ button {
       line-clamp: 1;
       overflow: hidden;
       word-break: break-all;
+
       .featured {
         margin-right: 2px;
         font-weight: 500;
         font-size: 14px;
         opacity: 0.72;
       }
+
       .sub-title {
         color: #7a7a7a;
         opacity: 0.7;
         margin-left: 4px;
       }
     }
+
     .artist {
       margin-top: 2px;
       font-size: 13px;
@@ -466,19 +492,23 @@ button {
       -webkit-line-clamp: 1;
       line-clamp: 1;
       overflow: hidden;
+
       .artist-in-line {
         display: -webkit-box;
       }
+
       a {
         span {
           margin-right: 3px;
           opacity: 0.8;
         }
+
         &:hover {
           text-decoration: underline;
           cursor: pointer;
         }
       }
+
       .mv-icon {
         margin-left: 8px;
         color: var(--color-primary);
@@ -487,6 +517,7 @@ button {
       }
     }
   }
+
   .album {
     flex: 0.8;
     display: flex;
@@ -500,13 +531,15 @@ button {
     line-clamp: 1;
     overflow: hidden;
   }
+
   .service {
-    flex: 0.8;
+    flex: 0.7;
     font-size: 16px;
     opacity: 0.88;
   }
+
   .createTime {
-    flex: 0.8;
+    flex: 0.6;
     font-size: 16px;
     justify-content: flex-end;
     margin-right: 10px;
@@ -514,6 +547,7 @@ button {
     opacity: 0.88;
     color: var(--color-text);
   }
+
   .time,
   .count {
     font-size: 16px;
@@ -526,6 +560,7 @@ button {
     opacity: 0.88;
     color: var(--color-text);
   }
+
   .count {
     font-weight: 600;
     font-size: 22px;
@@ -537,10 +572,12 @@ button {
   display: flex;
   justify-content: space-between;
   padding: 4px 0 4px 4px;
+
   .lyric {
     font-size: 14px;
     opacity: 0.68;
   }
+
   .lyric:first-child {
     opacity: 1;
     color: var(--color-primary);
@@ -552,6 +589,7 @@ button {
     img {
       filter: grayscale(1) opacity(0.6);
     }
+
     .title,
     .artist,
     .album,
@@ -561,13 +599,15 @@ button {
     .featured {
       opacity: 0.28 !important;
     }
+
     &:hover {
       background: none;
     }
   }
 }
 
-.trackitem.tracklist {
+.trackitem.TrackList,
+.trackitem.Artist {
   .track {
     img {
       height: 42px;
@@ -576,9 +616,11 @@ button {
       margin-right: 14px;
       cursor: pointer;
     }
+
     .title {
       font-size: 16px;
     }
+
     .artist {
       font-size: 12px;
     }
@@ -595,6 +637,7 @@ button {
 .trackitem.playing {
   background: color-mix(in oklab, var(--color-primary) var(--bg-alpha), white);
   color: var(--color-primary);
+
   .track {
     .title,
     .album,
@@ -603,6 +646,7 @@ button {
     .title-and-artist .sub-title {
       color: var(--color-primary);
     }
+
     .title .featured,
     .artist,
     .explicit-symbol,
@@ -610,6 +654,7 @@ button {
       color: var(--color-primary);
       opacity: 0.88;
     }
+
     .no span {
       color: var(--color-primary);
       opacity: 0.78;

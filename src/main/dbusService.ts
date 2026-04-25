@@ -26,7 +26,7 @@ class DBus implements DBusImpl {
   private dbus: DBusNativeImport = require('@httptoolkit/dbus-native')
   private sessionBus: DBusClient
   private win: BrowserWindow
-  iface: interFace
+  iface!: interFace
   constructor(win: BrowserWindow) {
     this.win = win
     this.sessionBus = this.dbus.sessionBus({})

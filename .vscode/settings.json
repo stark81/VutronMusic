@@ -16,5 +16,9 @@
   // "files.autoSave": "off",
   "i18n-ally.localesPaths": ["src/renderer/locales"],
   "workbench.settings.useSplitJSON": true,
-  "i18n-ally.keystyle": "nested"
+  "i18n-ally.keystyle": "nested",
+  "[vue]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "js/ts.tsserver.maxMemory": 2048
 }

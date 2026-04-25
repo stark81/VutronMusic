@@ -1,145 +1,92 @@
-import { HomePage } from '../views'
+import { HomePage, DailyTracks, ExplorePage, AlbumPage, ArtistPage, SearchPage } from '../views'
 import { createRouter, createWebHashHistory, createWebHistory } from 'vue-router'
-import { isAccountLoggedIn } from '../utils/auth'
+import { usePluginMusic } from '../store/pluginMusic'
+import type { LoginType, MusicType } from '@/types/plugin'
 
 const routes = [
   {
     path: '/',
     name: 'HomePage',
     component: HomePage,
-    meta: {
-      titleKey: 'nav.home',
-      keepAlive: true,
-      savePosition: true
-    }
+    meta: { sourceType: 'library' as MusicType }
   },
   {
     path: '/explore',
     name: 'explore',
-    component: () => import('../views/ExplorePage.vue'),
-    meta: {
-      titleKey: 'nav.search',
-      keepAlive: true,
-      savePosition: true
-    }
+    component: ExplorePage,
+    meta: { sourceType: 'library' as MusicType }
   },
   {
     path: '/library',
     name: 'library',
     component: () => import(/* webpackPrefetch: true */ '../views/LibraryMusic.vue'),
-    meta: {
-      titleKey: 'nav.library',
-      requireLogin: true
-    }
-  },
-  {
-    path: '/streamLogin/:service',
-    name: 'streamLogin',
-    component: () => import('../views/StreamLogin.vue')
+    meta: { sourceType: 'library' as MusicType, requireLogin: true }
   },
   {
     path: '/stream',
     name: 'stream',
-    component: () => import(/* webpackPrefetch: true */ '../views/StreamPage.vue')
+    component: () => import(/* webpackPrefetch: true */ '../views/StreamPage.vue'),
+    meta: { sourceType: 'stream' as MusicType, requireLogin: true }
   },
   {
-    path: '/streamPlaylist/:service/:id',
-    name: 'streamPlaylist',
-    component: () => import('../views/PlaylistPage.vue')
-  },
-  {
-    path: '/library/liked-songs',
+    path: '/liked-songs/:pluginId+',
     name: 'likedSongs',
-    component: () => import('../views/PlaylistPage.vue'),
-    meta: {
-      requireLogin: true
-    }
-  },
-  {
-    path: '/stream-liked-songs/:service',
-    name: 'streamLikedSongs',
     component: () => import('../views/PlaylistPage.vue')
   },
   {
     path: '/localMusic',
     name: 'localMusic',
     component: () => import(/* webpackPrefetch: true */ '../views/LocalMusic.vue'),
-    meta: {
-      titleKey: 'nav.localMusic'
-      // keepAlive: true,
-      // savePosition: true
-    }
+    meta: { sourceType: 'local' as MusicType, requireLogin: true }
   },
   {
-    path: '/playlist/:id',
-    name: 'playlist',
+    path: '/Playlist/:pluginId/:sourceContext',
+    name: 'Playlist',
     component: () => import('../views/PlaylistPage.vue')
   },
   {
     path: '/localPlaylist/:id',
     name: 'localPlaylist',
-    component: () => import('../views/PlaylistPage.vue')
+    component: () => import('../views/PlaylistPage.vue'),
+    meta: { sourceType: 'local' as MusicType }
   },
   {
     path: '/settings',
     name: 'settings',
-    component: () => import('../views/SystemSettings.vue'),
-    meta: {
-      titleKey: 'nav.settings'
-    }
+    component: () => import('../views/SystemSettings.vue')
   },
   {
-    path: '/daily/songs',
+    path: '/daily/songs/:pluginId',
     name: 'dailySongs',
-    component: () => import('../views/DailyTracks.vue'),
-    meta: {
-      requireLogin: true
-    }
+    component: DailyTracks
   },
   {
-    path: '/login/account',
-    name: 'loginAccount',
-    component: () => import('../views/LoginAccount.vue'),
-    meta: {
-      titleKey: 'title.login'
-    }
+    path: '/login/:service/:type',
+    name: 'login',
+    component: () => import('../views/LoginAccount.vue')
   },
   {
-    path: '/album/:id',
+    path: '/album/:pluginId/:sourceContext',
     name: 'album',
-    component: () => import('../views/AlbumPage.vue')
+    component: AlbumPage
   },
   {
-    path: '/artist/:id',
+    path: '/artist/:pluginId/:sourceContext',
     name: 'ArtistPage',
-    component: () => import('../views/ArtistPage.vue'),
-    meta: {
-      keepAlive: true
-    }
+    component: ArtistPage
   },
   {
-    path: '/artist/:id/mv',
+    path: '/artistmv/:pluginId/:sourceContext',
     name: 'artistMV',
-    component: () => import('../views/ArtistMv.vue'),
-    meta: {
-      keepAlive: true
-    }
+    component: () => import('../views/ArtistMv.vue')
   },
   {
     path: '/search',
     name: 'search',
-    component: () => import('../views/SearchPage.vue'),
-    meta: {
-      keepAlive: true
-    }
+    component: SearchPage
   },
   {
-    path: '/user/:id',
-    name: 'user',
-    component: () => import('../views/UserPage.vue')
-  },
-  {
-    path: '/mv/:id',
+    path: '/mv/:pluginId/:sourceContext',
     name: 'mv',
     component: () => import('../views/MvPage.vue')
   },
@@ -161,15 +108,51 @@ const router = createRouter({
 
 router.beforeEach((to, from, next) => {
   document.documentElement.scrollTo({ top: 0 })
-  if (to.meta.requireLogin) {
-    if (isAccountLoggedIn()) {
-      next()
-    } else {
-      next('/login/account')
+
+  const pluginMusicStore = usePluginMusic()
+  const { enableLibrary, enableStream, enableLocal, services } = pluginMusicStore
+
+  const sourceType = to.meta.sourceType as MusicType | undefined
+
+  if (sourceType) {
+    const enableMap: Record<MusicType, boolean> = {
+      library: enableLibrary,
+      stream: enableStream,
+      local: enableLocal
     }
-  } else {
-    next()
+    if (!enableMap[sourceType]) {
+      const fallbacks: [MusicType, string][] = [
+        ['library', '/'],
+        ['stream', '/stream'],
+        ['local', '/localMusic']
+      ]
+      for (const [type, path] of fallbacks) {
+        if (enableMap[type]) return next(path)
+      }
+      return next('/settings')
+    }
   }
+
+  if (to.meta.requireLogin && sourceType) {
+    const hasLoggedIn = services.some((s) => s.type === sourceType && s.status === 'login')
+    if (!hasLoggedIn) {
+      if (to.name === 'login') return next()
+
+      const plugins = services.filter((s) => s.type === sourceType)
+      const pluginId = plugins[0]?.code ?? 'netease'
+      const loginTypeMap: Record<MusicType, LoginType> = {
+        library: 'QrCode',
+        stream: 'Username',
+        local: 'LocalDir'
+      }
+      return next({
+        name: 'login',
+        params: { service: pluginId, type: loginTypeMap[sourceType] }
+      })
+    }
+  }
+
+  next()
 })
 
 export default router

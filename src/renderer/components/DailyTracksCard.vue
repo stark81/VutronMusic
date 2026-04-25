@@ -1,6 +1,6 @@
 <template>
   <div class="daily-recommend-card" @click="goToDailyTracks">
-    <img :src="coverUrl" :class="{ paused }" loading="lazy" />
+    <img :src="image" loading="lazy" />
     <div class="container">
       <div class="title-box">
         <div class="title">
@@ -18,16 +18,23 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onActivated, onDeactivated, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import SvgIcon from './SvgIcon.vue'
 import { useRouter } from 'vue-router'
 import { useNormalStateStore } from '../store/state'
 import { usePlayerStore } from '../store/player'
+import { usePluginMusic } from '../store/pluginMusic'
 import { storeToRefs } from 'pinia'
-import { isAccountLoggedIn } from '../utils/auth'
-import { dailyRecommendTracks } from '../api/playlist'
-import { useI18n } from 'vue-i18n'
 import _ from 'lodash'
+import { PluginId } from '@/types/plugin'
+import { PlaylistSourceInfo } from '@/types/music'
+
+const props = withDefaults(
+  defineProps<{
+    plugin: PluginId
+  }>(),
+  {}
+)
 
 const defaultCovers = [
   'https://p2.music.126.net/0-Ybpa8FrDfRgKYCTJD8Xg==/109951164796696795.jpg',
@@ -36,57 +43,63 @@ const defaultCovers = [
 ]
 
 const stateStore = useNormalStateStore()
-const { dailyTracks, showLyrics } = storeToRefs(stateStore)
-const { showToast } = stateStore
-const { t } = useI18n()
+const { dailyTracks } = storeToRefs(stateStore)
+
+const pluginMusic = usePluginMusic()
+const { resizeImage, pluginMethodCall } = pluginMusic
 
 const playerStore = usePlayerStore()
-const { _shuffle } = storeToRefs(playerStore)
+const { isShuffle } = storeToRefs(playerStore)
 const { replacePlaylist } = playerStore
-const paused = ref(document.visibilityState === 'hidden')
+
+const firstTrack = computed(() => dailyTracks.value?.[0] || null)
+const image = ref('')
 
 const coverUrl = computed(() => {
-  return `${dailyTracks.value[0]?.al.picUrl || _.sample(defaultCovers)}?param=256y256`
+  const pic = `${dailyTracks.value[0]?.picUrl || _.sample(defaultCovers)}`
+  const url = new URL(pic)
+  url.searchParams.set('param', '512y512')
+  return url.href
 })
 
 const router = useRouter()
 const goToDailyTracks = () => {
-  router.push({ name: 'dailySongs' })
+  router.push({ name: 'dailySongs', params: { pluginId: firstTrack.value?.pluginId } })
 }
 
 const playDailyTracks = () => {
-  if (!isAccountLoggedIn()) {
-    showToast(t('toast.needToLogin'))
+  const source: PlaylistSourceInfo = {
+    type: 'DailySongs',
+    plugin: props.plugin,
+    sourceContext: { id: '/daily/songs' }
+  }
+
+  const trackIDs = dailyTracks.value.map((t) => [t.pluginId, t.sourceContext]) as [
+    PluginId,
+    Record<string, any>
+  ][]
+  const idx = isShuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
+  replacePlaylist(source, trackIDs, idx)
+}
+
+watch(firstTrack, (value) => {
+  if (!value) {
+    image.value = coverUrl.value
     return
   }
-  const trackIDs = dailyTracks.value.map((track) => track.id)
-  const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
-  replacePlaylist('url', '/daily/songs', trackIDs, idx)
-}
+  resizeImage(value.pluginId, value.picUrl, 512).then((result) => (image.value = result))
+})
 
-const loadDailyTracks = () => {
-  if (!isAccountLoggedIn()) return
-  dailyRecommendTracks().then((result) => {
-    dailyTracks.value = result.data.dailySongs
+onMounted(async () => {
+  pluginMethodCall(props.plugin, 'getRecommendTracks').then((result) => {
+    dailyTracks.value = result.data.map((item) => ({
+      ...item,
+      album: { ...item.album, pluginId: props.plugin },
+      artists: item.artists.map((it) => ({ ...it, pluginId: props.plugin })),
+      albumArtists: item.albumArtists.map((it) => ({ ...it, pluginId: props.plugin })),
+      pluginId: props.plugin
+    }))
   })
-}
-
-watch(showLyrics, (value) => {
-  paused.value = value
-})
-
-const handleVisibleChange = () => {
-  paused.value = document.visibilityState === 'hidden'
-}
-
-document.addEventListener('visibilitychange', handleVisibleChange)
-
-onActivated(() => {
-  loadDailyTracks()
-})
-
-onDeactivated(() => {
-  paused.value = true
 })
 </script>
 

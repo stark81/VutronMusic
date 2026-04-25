@@ -6,13 +6,13 @@ import {
   Menu,
   protocol,
   screen,
-  MessageChannelMain,
   powerMonitor
 } from 'electron'
 import fs from 'fs'
 import Constants from './utils/Constants'
 import store from './store'
 import { createTray, YPMTray } from './tray'
+import { createTouchBar, YPMTouchBar } from './touchBar'
 import { createMenu } from './menu'
 import { MprisImpl } from './mpris'
 import fastify, { FastifyInstance } from 'fastify'
@@ -23,25 +23,15 @@ import { startInstance as startAmuseFastifyInstance } from './appServer/6kLabsAm
 import IPCs from './IPCs'
 import fastifyStatic from '@fastify/static'
 import path from 'path'
-import cache from './cache'
-import sharp from 'sharp'
-import {
-  getPic,
-  getPicFromApi,
-  getLyric,
-  getLyricFromApi,
-  getPicColor,
-  getTrackDetail,
-  getAudioSource
-} from './utils'
-import { CacheAPIs } from './utils/CacheApis'
+import { db, Tables } from './db'
+import { getPic, getPicFromApi, getPicColor } from './utils'
 import { proxyFetch } from './utils/proxyFetch'
 import { registerGlobalShortcuts } from './globalShortcut'
 import { initAutoUpdater } from './checkUpdate'
 import log from './log'
-import { lyricLine } from '@/types/music'
+import { pluginManager } from './pluginManager'
 
-const closeOnLinux = (e: any, win: BrowserWindow) => {
+const closeOnLinux = (e: any, win: BrowserWindow | null) => {
   const closeOpt = store.get('settings.closeAppOption') || 'ask'
   if (closeOpt !== 'exit') {
     e.preventDefault()
@@ -60,14 +50,14 @@ const closeOnLinux = (e: any, win: BrowserWindow) => {
       })
       .then((result) => {
         if (result.checkboxChecked && result.response !== 2) {
-          win.webContents.send(
+          win!.webContents.send(
             'rememberCloseAppOption',
             result.response === 0 ? 'minimizeToTray' : 'exit'
           )
         }
 
         if (result.response === 0) {
-          win.hide()
+          win!.hide()
         } else if (result.response === 1) {
           setTimeout(() => {
             win = null
@@ -80,7 +70,7 @@ const closeOnLinux = (e: any, win: BrowserWindow) => {
     win = null
     app.quit()
   } else {
-    win.hide()
+    win!.hide()
   }
 }
 
@@ -88,23 +78,32 @@ const defaultImagePath = Constants.IS_DEV_ENV
   ? path.join(process.cwd(), `./src/public/images/default.jpg`)
   : path.join(__dirname, `../images/default.jpg`)
 
+const singerImagePath = Constants.IS_DEV_ENV
+  ? path.join(process.cwd(), `./src/public/images/singer.png`)
+  : path.join(__dirname, `../images/singer.png`)
+
 class BackGround {
   win: BrowserWindow | null = null
-  osdMode: string
+  osdMode: string = 'small'
   lyricWin: BrowserWindow | null = null
   tray: YPMTray | null = null
+  touchBar: YPMTouchBar | null = null
   menu: Menu | null = null
   mpris: MprisImpl | null = null
   fastifyApp: FastifyInstance | null = null
   amuseFastifyApp: FastifyInstance | null = null
   createAmuseFastifyAppPromise: Promise<void> = Promise.resolve()
   willQuitApp: boolean = !Constants.IS_MAC
-  checkInterval: any = null
-  isInWindow: boolean = false
-  lastKnownMousePosition = { x: 0, y: 0 }
+  lockMouseCheckInterval: ReturnType<typeof setInterval> | null = null
 
   async init() {
-    if (process.platform === 'win32') app.setAppUserModelId(app.getName())
+    process.on('unhandledRejection', (reason) => {
+      console.error('[unhandledRejection]', reason)
+    })
+    process.on('uncaughtException', (err) => {
+      console.error('[uncaughtException]', err)
+    })
+    if (process.platform === 'win32') app.setAppUserModelId('io.github.stark81.VutronMusic')
     if (!app.requestSingleInstanceLock()) {
       app.quit()
       process.exit(0)
@@ -124,7 +123,7 @@ class BackGround {
 
     protocol.registerSchemesAsPrivileged([
       {
-        scheme: 'atom',
+        scheme: 'vutron',
         privileges: { secure: true, standard: true, supportFetchAPI: true, stream: true }
       }
     ])
@@ -143,6 +142,10 @@ class BackGround {
     server.register(fastifyStatic, {
       root: path.join(__dirname, '../')
     })
+
+    const generateConfig = require('@neteasecloudmusicapienhanced/api/generateConfig')
+    await generateConfig()
+
     server.register(netease)
     server.register(httpHandler)
     server.decorate('win', null)
@@ -162,8 +165,8 @@ class BackGround {
       show: false,
       width: (store.get('window.width') as number) || 1080,
       height: (store.get('window.height') as number) || 720,
-      x: undefined,
-      y: undefined,
+      x: undefined as number | undefined,
+      y: undefined as number | undefined,
       minWidth: 1080,
       minHeight: 720,
       frame: !(
@@ -244,8 +247,8 @@ class BackGround {
       minWidth: type === 'small' ? 700 : 400,
       maxWidth: type === 'small' ? undefined : undefined,
       useContentSize: true,
-      x: undefined,
-      y: undefined,
+      x: undefined as number | undefined,
+      y: undefined as number | undefined,
       transparent: true,
       frame: false,
       hasShadow: false,
@@ -296,41 +299,36 @@ class BackGround {
     await this.lyricWin.loadURL(Constants.APP_OSD_URL)
   }
 
-  toggleMouseIgnore() {
-    const isLock = (store.get('osdWin.isLock') as boolean) || false
-    this.lyricWin?.setIgnoreMouseEvents(isLock, { forward: !Constants.IS_LINUX })
-    this.lyricWin?.setVisibleOnAllWorkspaces(isLock)
+  toggleMouseIgnore(overrideLock?: boolean) {
+    const realLock = (store.get('osdWin.isLock') as boolean) || false
+    const applyLock = overrideLock !== undefined ? overrideLock : realLock
+
+    this.lyricWin?.setIgnoreMouseEvents(applyLock, { forward: !Constants.IS_LINUX })
+    this.lyricWin?.setVisibleOnAllWorkspaces(applyLock)
+
+    this.startLockMouseWatcher()
   }
 
-  dragOsdWindow(data: { dx: number; dy: number; startHeight: number; startWidth: number }) {
-    const bds = this.lyricWin?.getBounds()
+  startLockMouseWatcher() {
+    this.stopLockMouseWatcher()
+    this.lockMouseCheckInterval = setInterval(() => {
+      if (!this.lyricWin) return
+      const bounds = this.lyricWin.getBounds()
+      const p = screen.getCursorScreenPoint()
+      const inside =
+        p.x >= bounds.x &&
+        p.x <= bounds.x + bounds.width &&
+        p.y >= bounds.y &&
+        p.y <= bounds.y + bounds.height
+      this.lyricWin.webContents.send('osd-lock-mouse-state', { inside, x: p.x, y: p.y })
+    }, 50)
+  }
 
-    const displays = screen.getAllDisplays()
-    let x = bds.x + data.dx
-    let y = bds.y + data.dy
-    const height = data.startHeight
-    const width = data.startWidth
-    let isInside = false
-
-    for (let i = 0; i < displays.length; i++) {
-      const { bounds } = displays[i]
-      if (
-        x > bounds.x &&
-        x + width < bounds.x + bounds.width &&
-        y > bounds.y &&
-        y + height < bounds.y + bounds.height
-      ) {
-        isInside = true
-        break
-      }
+  stopLockMouseWatcher() {
+    if (this.lockMouseCheckInterval) {
+      clearInterval(this.lockMouseCheckInterval)
+      this.lockMouseCheckInterval = null
     }
-
-    if (!isInside) {
-      x = bds.x
-      y = bds.y
-    }
-
-    this.lyricWin?.setBounds({ x, y, height, width })
   }
 
   toggleOSDWindow() {
@@ -343,13 +341,18 @@ class BackGround {
     }
   }
 
-  updateOsdHeight(height: number) {
-    const bounds = this.lyricWin?.getBounds()
-    this.lyricWin?.setBounds({
-      x: bounds.x,
-      y: bounds.y,
-      width: bounds.width,
-      height
+  getOsdBounds() {
+    return this.lyricWin?.getBounds() || null
+  }
+
+  setOsdBounds(bounds: { x?: number; y?: number; width?: number; height?: number }) {
+    if (!this.lyricWin) return
+    const current = this.lyricWin.getBounds()
+    this.lyricWin.setBounds({
+      x: bounds.x !== undefined ? bounds.x : current.x,
+      y: bounds.y !== undefined ? bounds.y : current.y,
+      width: bounds.width !== undefined ? bounds.width : current.width,
+      height: bounds.height !== undefined ? bounds.height : current.height
     })
   }
 
@@ -357,41 +360,13 @@ class BackGround {
     this.lyricWin?.webContents.send('update-osd-playing-status', playing)
   }
 
+  sendToOSD(channel: string, data: any) {
+    this.lyricWin?.webContents?.send(channel, data)
+  }
+
   switchOSDWindow(showMode: string) {
     this.hideOSDWindow()
     this.showOSDWindow(showMode)
-  }
-
-  checkOsdMouseLeave(inter = 16) {
-    if (!this.isInWindow) {
-      this.lyricWin?.webContents.send('mouseInWindow', true)
-      this.isInWindow = true
-    }
-    if (this.checkInterval) clearInterval(this.checkInterval)
-    this.checkInterval = setInterval(() => {
-      if (!this.lyricWin) {
-        clearInterval(this.checkInterval)
-        return
-      }
-      const mousePos = screen.getCursorScreenPoint()
-      if (
-        mousePos.x !== this.lastKnownMousePosition.x ||
-        mousePos.y !== this.lastKnownMousePosition.y
-      ) {
-        this.lastKnownMousePosition = { x: mousePos.x, y: mousePos.y }
-        const bounds = this.lyricWin?.getBounds() || { x: 0, y: 0, width: 0, height: 0 }
-        const isInWindow =
-          mousePos.x >= bounds.x - 10 &&
-          mousePos.x <= bounds.x + bounds.width + 10 &&
-          mousePos.y >= bounds.y - 10 &&
-          mousePos.y <= bounds.y + bounds.height + 10
-        if (!isInWindow) {
-          this.lyricWin?.webContents.send('mouseInWindow', false)
-          clearInterval(this.checkInterval)
-        }
-        this.isInWindow = isInWindow
-      }
-    }, inter)
   }
 
   updateLyricInfo(data: any) {
@@ -399,30 +374,25 @@ class BackGround {
   }
 
   handleOSDWindowEvents() {
-    this.lyricWin.once('ready-to-show', () => {
-      this.lyricWin.showInactive()
+    this.lyricWin!.once('ready-to-show', () => {
+      this.lyricWin!.showInactive()
     })
-    this.lyricWin.webContents.on('did-finish-load', () => {
-      this.initMessageChannel()
+    this.lyricWin!.webContents.on('did-finish-load', () => {
       this.toggleMouseIgnore()
       setTimeout(() => {
-        this.lyricWin.setFocusable(false)
-        this.lyricWin.setAlwaysOnTop(true)
+        this.lyricWin!.setFocusable(false)
+        this.lyricWin!.setAlwaysOnTop(true)
       }, 100)
     })
-    this.lyricWin.on('will-resize', () => {
-      this.checkOsdMouseLeave(1000)
-    })
-    this.lyricWin.on('resize', () => {
-      this.checkOsdMouseLeave(1000)
 
-      const data = this.lyricWin.getBounds()
+    this.lyricWin!.on('resize', () => {
+      const data = this.lyricWin!.getBounds()
       store.set(this.osdMode === 'small' ? 'osdWin.width' : 'osdWin.width2', data.width)
       store.set(this.osdMode === 'small' ? 'osdWin.height' : 'osdWin.height2', data.height)
     })
 
-    let moveTimeout
-    this.lyricWin.on('move', () => {
+    let moveTimeout: ReturnType<typeof setTimeout>
+    this.lyricWin!.on('move', () => {
       if (moveTimeout) {
         clearTimeout(moveTimeout)
       }
@@ -437,6 +407,7 @@ class BackGround {
 
   hideOSDWindow() {
     if (this.lyricWin) {
+      this.stopLockMouseWatcher()
       this.lyricWin.close()
       this.lyricWin = null
     }
@@ -450,13 +421,6 @@ class BackGround {
     }
   }
 
-  initMessageChannel() {
-    if (!this.lyricWin || !this.win) return
-    const { port1, port2 } = new MessageChannelMain()
-    this.win?.webContents.postMessage('port-connect', null, [port1])
-    this.lyricWin?.webContents.postMessage('port-connect', null, [port2])
-  }
-
   initOSDWindow() {
     const osd = store.get('osdWin.show') || false
     const showMode = (store.get('osdWin.type') as string) || 'small'
@@ -466,15 +430,18 @@ class BackGround {
   }
 
   handleProtocol() {
-    protocol.handle('atom', async (request) => {
+    protocol.handle('vutron', async (request) => {
       const { host, pathname, searchParams, search } = new URL(request.url)
 
       if (host === 'get-default-pic') {
         const pic = fs.readFileSync(defaultImagePath)
         return new Response(new Uint8Array(pic))
+      } else if (host === 'get-singer-pic') {
+        const pic = fs.readFileSync(singerImagePath)
+        return new Response(new Uint8Array(pic))
       } else if (host === 'get-pic-path') {
         const filePath = pathname.slice(1)
-        const track = { matched: false, filePath, album: { picUrl: 'atom://get-default-pic' } }
+        const track = { matched: false, filePath, album: { picUrl: 'vutron://get-default-pic' } }
 
         const result = await getPic(track)
         return new Response(new Uint8Array(result.pic), {
@@ -484,7 +451,7 @@ class BackGround {
         const urlString = pathname.slice(1)
         const [url, savePic] = urlString.split('/save-pic=')
         const { pic, format } = await getPicFromApi(url)
-        const { color, color2 } = await getPicColor(pic)
+        const { color, color2 } = await getPicColor(pic!)
         const jsonString = savePic
           ? {
               pic,
@@ -506,101 +473,72 @@ class BackGround {
         })
       } else if (host === 'local-asset') {
         const type = searchParams.get('type')
-        let ids: string
-        let res: Record<string, any>
 
         switch (type) {
-          case 'pic':
-            const size = Number(searchParams.get('size'))
-            ids = searchParams.get('id')
-            res = cache.get(CacheAPIs.Track, { ids })
-
-            const track = res.songs[0]
-            const url = new URL((track.album || track.al).picUrl)
-            url.searchParams.set('param', `${size}y${size}`)
-            ;(track.album || track.al).picUrl = track.matched
-              ? url.toString()
-              : 'atom://get-default-pic'
-
-            const result = await getPic(track)
-            let pic = result.pic
-            pic = await sharp(pic).resize(size, size, { fit: 'cover' }).toBuffer()
-            const format = result.format
-
-            return new Response(new Uint8Array(pic), { headers: { 'Content-Type': format } })
-
           case 'stream':
             const mime = require('mime-types')
-            const filePath = decodeURIComponent(searchParams.get('path'))
-            if (!fs.existsSync(filePath)) {
-              return new Response('Not Found', { status: 404 })
-            }
-            const fileStat = fs.statSync(filePath)
-            const range = request.headers.get('range')
-            let start = 0
-            let end = fileStat.size - 1
-            if (range) {
-              const match = range.match(/bytes=(\d*)-(\d*)/)
-              if (match) {
-                start = match[1] ? parseInt(match[1], 10) : start
-                end = match[2] ? parseInt(match[2], 10) : end
+            try {
+              let filePath = searchParams.get('path') || ''
+              if (!filePath) {
+                const trackId = searchParams.get('id') || ''
+                if (trackId) {
+                  const row = db.sqlite
+                    .prepare(`SELECT filePath FROM ${Tables.Audio} WHERE trackId = ?`)
+                    .get(trackId) as { filePath: string } | undefined
+                  if (row) filePath = row.filePath
+                }
+              } else {
+                filePath = decodeURIComponent(filePath)
               }
-            }
-            const chunkSize = end - start + 1
-            const stream = fs.createReadStream(filePath, { start, end })
-
-            request.signal?.addEventListener('abort', () => {
-              stream.destroy()
-            })
-
-            const mimeType = mime.lookup(filePath) || 'application/octet-stream'
-            const headers = {
-              'content-type': mimeType,
-              'accept-ranges': 'bytes'
-            }
-
-            if (range) {
-              headers['content-length'] = String(chunkSize)
-              headers['content-range'] = `bytes ${start}-${end}/${fileStat.size}`
-            } else {
-              headers['content-length'] = String(fileStat.size)
-            }
-
-            // @ts-ignore
-            return new Response(stream, {
-              status: range ? 206 : 200,
-              headers
-            })
-          case 'track':
-            ids = searchParams.get('id')
-            res = cache.get(CacheAPIs.Track, { ids })
-            if (res) {
-              const track = res.songs[0]
-              return new Response(JSON.stringify(track), {
-                headers: { 'content-type': 'application/json' }
-              })
-            } else {
-              res = await getTrackDetail(ids)
-              if (!res || !res.songs?.length) {
-                log.error('======get-track-error=====', ids)
-                return new Response(JSON.stringify({ status: 404 }), {
-                  headers: { 'content-type': 'application/json' }
-                })
+              if (!fs.existsSync(filePath)) {
+                return new Response('Not Found', { status: 404 })
               }
-              const track = res.songs[0]
-              const { url, br, gain, peak, source } = await getAudioSource(track)
-              track.url = url
-              track.source = source
-              track.gain = gain
-              track.peak = peak
-              track.br = br
+              const fileStat = fs.statSync(filePath)
+              const range = request.headers.get('range')
+              let start = 0
+              let end = fileStat.size - 1
+              if (range) {
+                const match = range.match(/bytes=(\d*)-(\d*)/)
+                if (match) {
+                  start = match[1] ? parseInt(match[1], 10) : start
+                  end = match[2] ? parseInt(match[2], 10) : end
+                }
+              }
+              const chunkSize = end - start + 1
+              const stream = fs.createReadStream(filePath, { start, end })
+              stream.on('error', () => stream.destroy())
 
-              return new Response(JSON.stringify(track), {
-                headers: { 'content-type': 'application/json' }
+              request.signal?.addEventListener('abort', () => {
+                stream.destroy()
               })
+
+              const mimeType = mime.lookup(filePath) || 'application/octet-stream'
+              const headers = {
+                'content-type': mimeType,
+                'accept-ranges': 'bytes'
+              }
+
+              if (range) {
+                // @ts-ignore
+                headers['content-length'] = String(chunkSize)
+                // @ts-ignore
+                headers['content-range'] = `bytes ${start}-${end}/${fileStat.size}`
+              } else {
+                // @ts-ignore
+                headers['content-length'] = String(fileStat.size)
+              }
+              // @ts-ignore
+              return new Response(stream, {
+                status: range ? 206 : 200,
+                headers
+              })
+            } catch (streamErr) {
+              console.error('[vutron stream error]', streamErr)
+              return new Response('Stream Error', { status: 500 })
             }
+
           case 'json':
-            const jsonFile = searchParams.get('path')
+            const jsonFile = searchParams.get('path')!
             if (!fs.existsSync(jsonFile)) {
               return new Response('Not Found', { status: 404 })
             }
@@ -610,27 +548,12 @@ class BackGround {
               return new Response(JSON.stringify(json), {
                 headers: { 'Content-Type': 'application/json' }
               })
-            } catch (err) {
+            } catch (err: any) {
               return new Response(JSON.stringify({ error: err.message }), {
                 status: 500,
                 headers: { 'Content-Type': 'application/json' }
               })
             }
-          case 'lyric':
-            ids = searchParams.get('id')
-            res = cache.get(CacheAPIs.Track, { ids })
-            let lyrics: lyricLine[] = []
-
-            if (res?.songs?.length > 0) {
-              const track = res.songs[0]
-              lyrics = await getLyric(track)
-            } else {
-              lyrics = await getLyricFromApi(Number(ids))
-            }
-
-            return new Response(JSON.stringify(lyrics), {
-              headers: { 'content-type': 'application/json' }
-            })
         }
       } else if (host === 'local-resource') {
         const mime = require('mime-types')
@@ -694,7 +617,46 @@ class BackGround {
             statusText: 'Internal Server Error'
           })
         }
+      } else if (host === 'get-plugin-asset') {
+        const pluginId = searchParams.get('plugin')!
+        const plugin = pluginManager.get(pluginId)
+        if (!plugin) {
+          return new Response('Not Found', {
+            status: 404,
+            headers: { 'Content-Type': 'text/plain' }
+          })
+        }
+
+        const type = searchParams.get('type')
+        switch (type) {
+          case 'stream':
+            const id = searchParams.get('id')
+            const { url, headers } = await plugin.call('getStream', { id })
+            try {
+              const response = await proxyFetch(url, {
+                method: 'GET',
+                headers: {
+                  ...Object.fromEntries(request.headers),
+                  ...headers
+                }
+              })
+
+              return new Response(response.body, {
+                status: response.status,
+                headers: response.headers
+              })
+            } catch (error) {
+              log.error('== get-online-music error ==', error)
+              return new Response(null, {
+                status: 500,
+                statusText: 'Internal Server Error'
+              })
+            }
+          default:
+            break
+        }
       }
+      return new Response('Not Found', { status: 404, headers: { 'Content-Type': 'text/plain' } })
     })
   }
 
@@ -710,28 +672,33 @@ class BackGround {
       this.handleWindowEvents()
       this.handleAmuseServer()
 
-      initAutoUpdater(this.win)
-      this.tray = createTray(this.win)
+      initAutoUpdater(this.win!)
+      this.tray = createTray(this.win!)
       if (Constants.IS_LINUX) {
-        const createMpris = (await import('./mpris')).createMpris
-        this.mpris = await createMpris(this.win)
+        const { createMpris } = await import('./mpris')
+        this.mpris = await createMpris(this.win!)
       }
 
       if (store.get('settings.enableGlobalShortcut') || false) {
-        registerGlobalShortcuts(this.win)
+        registerGlobalShortcuts(this.win!)
       }
 
       const lrc = {
         toggleOSDWindow: () => this.toggleOSDWindow(),
-        toggleMouseIgnore: () => this.toggleMouseIgnore(),
+        toggleMouseIgnore: (overrideLock?: boolean) => this.toggleMouseIgnore(overrideLock),
         updateLyricInfo: (data: any) => this.updateLyricInfo(data),
         switchOSDWindow: (showMode: string) => this.switchOSDWindow(showMode),
         updateOSDPlayingState: (state: boolean) => this.updateOSDPlayingState(state),
-        updateOsdHeight: (height: number) => this.updateOsdHeight(height),
-        dragOsdWindow: (data: any) => this.dragOsdWindow(data),
-        windowMouseleave: () => this.checkOsdMouseLeave()
+        getOsdBounds: () => this.getOsdBounds(),
+        setOsdBounds: (bounds: { x?: number; y?: number; width?: number; height?: number }) =>
+          this.setOsdBounds(bounds),
+        sendToOSD: (channel: string, data: any) => this.sendToOSD(channel, data)
       }
-      IPCs.initialize(this.win, this.tray, this.mpris, lrc)
+
+      if (Constants.IS_MAC) {
+        this.touchBar = createTouchBar(this.win!)
+      }
+      IPCs.initialize(this.win!, this.tray, this.touchBar, this.mpris, lrc)
 
       const proxy = (store.get('settings.proxy') || { type: 0, address: '', port: '' }) as {
         type: 0 | 1 | 2
@@ -740,20 +707,17 @@ class BackGround {
       }
 
       if (proxy.type === 0) {
-        this.win.webContents.session.setProxy({})
+        this.win!.webContents.session.setProxy({})
       } else {
         const map = { 1: 'http', 2: 'https' }
         const proxyRules = `${map[proxy.type]}://${proxy.address}:${proxy.port}`
-        this.win.webContents.session.setProxy({ proxyRules })
+        this.win!.webContents.session.setProxy({ proxyRules })
       }
 
-      createMenu(this.win)
+      createMenu(this.win!)
       if (Constants.IS_MAC) {
         const createDockMenu = (await import('./dock')).createDockMenu
-        createDockMenu(this.win)
-
-        const createTouchBar = (await import('./touchBar')).createTouchBar
-        createTouchBar(this.win)
+        createDockMenu(this.win!)
       }
     })
 
@@ -765,7 +729,7 @@ class BackGround {
       }
       if (Constants.IS_WINDOWS) {
         const createThumBar = (await import('./thumBar')).createThumBar
-        createThumBar(this.win)
+        createThumBar(this.win!)
       }
     })
 
@@ -775,6 +739,8 @@ class BackGround {
 
     app.on('before-quit', () => {
       this.willQuitApp = true
+      this.tray?.destroyTray()
+      this.touchBar?.destroy()
     })
 
     app.on('quit', () => {
@@ -784,8 +750,7 @@ class BackGround {
     })
 
     powerMonitor.on('resume', () => {
-      setTimeout(() => this.initMessageChannel(), 1000)
-      this.win.webContents.send('resume')
+      this.win!.webContents.send('resume')
     })
 
     if (!Constants.IS_MAC) {
@@ -802,43 +767,43 @@ class BackGround {
   }
 
   handleWindowEvents() {
-    this.win.once('ready-to-show', async () => {
-      this.win.show()
-      this.win.focus()
+    this.win!.once('ready-to-show', async () => {
+      this.win!.show()
+      this.win!.focus()
       if (Constants.IS_WINDOWS) {
         const createThumBar = (await import('./thumBar')).createThumBar
-        createThumBar(this.win)
+        createThumBar(this.win!)
       }
     })
 
-    this.win.on('close', (e) => {
+    this.win!.on('close', (e) => {
       if (Constants.IS_MAC) {
         if (this.willQuitApp) {
           this.win = null
           app.quit()
         } else {
           e.preventDefault()
-          this.win.hide()
+          this.win!.hide()
         }
       } else {
-        closeOnLinux(e, this.win)
+        closeOnLinux(e, this.win!)
       }
     })
 
-    this.win.on('maximize', () => {
-      this.win.webContents.send('isMaximized', true)
+    this.win!.on('maximize', () => {
+      this.win!.webContents.send('isMaximized', true)
     })
 
-    this.win.on('unmaximize', () => {
-      this.win.webContents.send('isMaximized', false)
+    this.win!.on('unmaximize', () => {
+      this.win!.webContents.send('isMaximized', false)
     })
 
-    this.win.on('resize', () => {
-      store.set('window', this.win.getBounds())
+    this.win!.on('resize', () => {
+      store.set('window', this.win!.getBounds())
     })
 
-    let moveTimeout
-    this.win.on('move', () => {
+    let moveTimeout: ReturnType<typeof setTimeout>
+    this.win!.on('move', () => {
       if (moveTimeout) {
         clearTimeout(moveTimeout)
       }
@@ -855,12 +820,13 @@ class BackGround {
         if (this.amuseFastifyApp) return
         this.createAmuseFastifyAppPromise.then(async () => {
           try {
-            this.amuseFastifyApp = await startAmuseFastifyInstance(this.win)
+            // @ts-ignore
+            this.amuseFastifyApp = await startAmuseFastifyInstance(this.win!)
           } catch (e) {
             console.error('Failed to start Amuse Fastify App:', e)
-            this.win.webContents.send('updateAmuseServerStatus', false, `${e}`)
+            this.win!.webContents.send('updateAmuseServerStatus', false, `${e}`)
           }
-          this.win.webContents.send('updateAmuseServerStatus', true, null)
+          this.win!.webContents.send('updateAmuseServerStatus', true, null)
         })
       } else {
         this.createAmuseFastifyAppPromise
@@ -868,17 +834,19 @@ class BackGround {
             this.amuseFastifyApp?.close()
             this.amuseFastifyApp = null
           })
-          .then(() => this.win.webContents.send('updateAmuseServerStatus', false, null))
+          .then(() => this.win!.webContents.send('updateAmuseServerStatus', false, null))
       }
     }
+    // @ts-ignore
     store.onDidAnyChange(storeCallback)
     storeCallback(store.store)
   }
 }
 
 const MAIN_PROCESS_INITIALIZED_KEY = '__VUTRON_MAIN_INITIALIZED__'
-
+// @ts-ignore
 if (!global[MAIN_PROCESS_INITIALIZED_KEY]) {
+  // @ts-ignore
   global[MAIN_PROCESS_INITIALIZED_KEY] = true
 
   const bgProcess = new BackGround()

@@ -2,9 +2,10 @@
   <div class="next-tracks">
     <h1>{{ $t('next.nowPlaying') }}</h1>
     <TrackList
-      :id="playlistSource.id"
-      :items="[currentTrack!]"
-      :type="playlistSource.type"
+      :plugin="'' as PluginId"
+      :source-context="{ pluginType: 'player', id: currentTrack?.id || '' }"
+      :items="currentTrack ? [currentTrack] : []"
+      :type="'Track'"
       :colunm-number="1"
       :show-service="true"
       :show-position="false"
@@ -12,28 +13,30 @@
       :is-end="false"
     />
 
-    <h1 v-if="_playNextList.length > 0">
+    <h1 v-if="playNextList.length > 0">
       {{ $t('next.insertPlaying') }}
       <button @click="clearPlayNextList">清除队列</button>
     </h1>
     <TrackList
-      v-if="tracks.length > 0"
-      :id="playlistSource.id"
-      :items="playNextTracks"
-      :type="playlistSource.type"
+      v-if="insertTracks.length > 0"
+      :plugin="'all'"
+      :source-context="{ pluginType: 'player', id: 'playNextList' }"
+      :items="insertTracks"
+      :type="'Track'"
       :colunm-number="1"
       :show-service="true"
       :highlight-playing-track="false"
       :show-position="false"
       :extra-context-menu-item="['removeTrackFromInsert']"
-      :is-end="filteredTracks.length === 0"
+      :is-end="false"
     />
 
     <h1 class="next">{{ $t('next.nextPlaying') }}</h1>
     <TrackList
       v-if="filteredTracks.length > 0"
-      :id="playlistSource.id"
       :items="filteredTracks"
+      :plugin="'all'"
+      :source-context="{ pluginType: 'player', id: 'nextTracks' }"
       :type="playlistSource.type"
       :show-service="true"
       :show-position="true"
@@ -50,68 +53,94 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import TrackList from '../components/VirtualTrackList.vue'
 import { usePlayerStore } from '../store/player'
-import { useLocalMusicStore } from '../store/localMusic'
-import { useStreamMusicStore } from '../store/streamingMusic'
+import { usePluginMusic } from '../store/pluginMusic'
 import { storeToRefs } from 'pinia'
-import { getTrackDetail } from '../api/track'
-import _ from 'lodash'
+import { PluginId } from '@/types/schemas'
+import { Track } from '@/types/plugin.js'
 
 const playerStore = usePlayerStore()
-const localMusicStore = useLocalMusicStore()
-const streamMusicStore = useStreamMusicStore()
-const { currentTrack, shuffle, currentTrackIndex, list, _playNextList, playlistSource } =
-  storeToRefs(playerStore)
-const { localTracks } = storeToRefs(localMusicStore)
-const { streamTracks } = storeToRefs(streamMusicStore)
+const pluginStore = usePluginMusic()
 
+const { currentTrack, isShuffle, currentTrackIndex, list, playNextList, playlistSource } =
+  storeToRefs(playerStore)
+const { pluginMethodCall } = pluginStore
 const { clearPlayNextList } = playerStore
 
-const tracks = ref<any[]>([])
-
-const playNextTracks = computed(() => {
-  return _playNextList.value.map((trackID: number) => {
-    return tracks.value.find((t) => t.id === trackID)
-  })
-})
+const tracks = ref<Track[]>([])
 
 const filteredTracks = computed(() => {
-  const trackIDs = list.value.slice(currentTrackIndex.value + 1, currentTrackIndex.value + 100)
-  return tracks.value.filter((t) => trackIDs.includes(t.id))
+  const trackList = list.value.slice(currentTrackIndex.value + 1, currentTrackIndex.value + 100)
+  const trackMap = new Map(tracks.value.map((t) => [`${t.pluginId}:${t.sourceContext?.id}`, t]))
+
+  return trackList
+    .map(([plugin, sc]) => trackMap.get(`${plugin}:${sc?.id}`))
+    .filter(Boolean) as Track[]
+})
+
+const insertTracks = computed(() => {
+  const trackMap = new Map(tracks.value.map((t) => [`${t.pluginId}:${t.sourceContext?.id}`, t]))
+
+  return playNextList.value
+    .map(([plugin, sc]) => trackMap.get(`${plugin}:${sc?.id}`))
+    .filter(Boolean) as Track[]
 })
 
 const loadTracks = async () => {
-  const trackIDs = [
+  const trackIds = [
     ...list.value.slice(currentTrackIndex.value + 1, currentTrackIndex.value + 100),
-    ..._playNextList.value.slice()
+    ...playNextList.value.slice()
   ]
-  const loadedTrackIDs = tracks.value.map((t) => t.id)
-  const localMusics = localTracks.value.filter((t) => trackIDs.includes(t.id))
-  const streamMusics = _.flatten(Object.values(streamTracks.value)).filter((t) =>
-    trackIDs.includes(t.id)
+
+  if (trackIds.length === 0) return
+
+  const loadedKeys = new Set(tracks.value.map((t) => `${t.pluginId}:${t.sourceContext?.id}`))
+  const toLoad = trackIds.filter(([plugin, sc]) => {
+    const key = `${plugin}:${sc?.id}`
+    return !loadedKeys.has(key)
+  })
+
+  if (toLoad.length === 0) return
+
+  const map = new Map<PluginId, { index: number; sourceContext: Record<string, any> }[]>()
+  toLoad.forEach(([plugin, sourceContext], index) => {
+    if (!map.has(plugin)) map.set(plugin, [])
+    map.get(plugin)!.push({ index, sourceContext })
+  })
+
+  const groups = Array.from(map, ([plugin, source]) => ({ plugin, source }))
+
+  const results: Track[] = new Array(toLoad.length)
+
+  await Promise.allSettled(
+    groups.map((item) =>
+      pluginMethodCall(item.plugin, 'getTrackDetail', {
+        tracks: item.source.map((s) => s.sourceContext)
+      })
+        .then((result) => {
+          result.data.forEach((track, i) => {
+            results[item.source[i].index] = {
+              ...track,
+              album: { ...track.album, pluginId: item.plugin },
+              artists: track.artists.map((it) => ({ ...it, pluginId: item.plugin })),
+              albumArtists: track.albumArtists.map((it) => ({ ...it, pluginId: item.plugin })),
+              sourceContext: item.source[i].sourceContext,
+              pluginId: item.plugin
+            }
+          })
+        })
+        .catch((err) => {
+          console.error(`Failed to load tracks from plugin ${item.plugin}:`, err)
+        })
+    )
   )
 
-  let newTracks = localMusics.filter((t) => !loadedTrackIDs.includes(t.id))
-
-  const onlineTrackIDs = trackIDs.filter(
-    (t) => !(localMusics.map((s) => s.id).includes(t) || streamMusics.map((s) => s.id).includes(t))
-  )
-  if (onlineTrackIDs.length > 0) {
-    await getTrackDetail(onlineTrackIDs.join(',')).then((data) => {
-      newTracks.push(...data.songs)
-    })
-  }
-  const sMusic = streamMusics.filter((t) => !loadedTrackIDs.includes(t.id))
-  newTracks = [...newTracks, ...sMusic]
-  newTracks = newTracks
-    .filter((t) => trackIDs.includes(t.id))
-    .sort((a, b) => trackIDs.indexOf(a.id) - trackIDs.indexOf(b.id))
-
+  const newTracks = results.filter(Boolean)
   tracks.value.push(...newTracks)
 }
 
 watch(currentTrack, loadTracks)
-watch(shuffle, loadTracks)
-watch(_playNextList, loadTracks)
+watch(isShuffle, loadTracks)
+watch(playNextList, loadTracks)
 
 onMounted(() => {
   loadTracks()

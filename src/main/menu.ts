@@ -3,6 +3,7 @@ import defaultShortcuts from './utils/shortcuts'
 import Constants from './utils/Constants'
 import store from './store'
 import { checkUpdate } from './checkUpdate'
+import { osdMap, statusMap } from '@/types/music'
 
 let isPlaying = false
 let repeatMode = 'off'
@@ -22,11 +23,11 @@ export function createMenu(win: BrowserWindow) {
   if (shortcuts === undefined) {
     shortcuts = defaultShortcuts
   }
-  const lang = store.get('settings.lang') as string
+  const lang = store.get('settings.lang') as 'en' | 'zh' | 'zht'
 
-  let menu = null
-  const updateMenu = (language: string) => {
-    const template = {
+  let menu: Menu | null = null
+  const updateMenu = (language: 'en' | 'zh' | 'zht') => {
+    const template: Record<'en' | 'zh' | 'zht', any> = {
       en: [
         ...(Constants.IS_MAC
           ? [
@@ -90,14 +91,7 @@ export function createMenu(win: BrowserWindow) {
                   { role: 'delete', label: 'Delete' },
                   { type: 'separator' },
                   { role: 'selectAll', label: 'Select All' }
-                ]),
-            {
-              label: 'Search',
-              accelerator: 'CmdOrCtrl+F',
-              click: () => {
-                win.webContents.send('search')
-              }
-            }
+                ])
           ]
         },
         {
@@ -218,7 +212,7 @@ export function createMenu(win: BrowserWindow) {
                     type: 'checkbox',
                     checked: true,
                     click: () => {
-                      const current = menu.getMenuItemById('window')
+                      const current = menu!.getMenuItemById('window')!
                       if (current.checked === false) {
                         win.hide()
                       } else {
@@ -318,14 +312,7 @@ export function createMenu(win: BrowserWindow) {
                   { role: 'delete', label: '删除' },
                   { type: 'separator' },
                   { role: 'selectAll', label: '选择所有' }
-                ]),
-            {
-              label: '搜索',
-              accelerator: 'CmdOrCtrl+F',
-              click: () => {
-                win.webContents.send('search')
-              }
-            }
+                ])
           ]
         },
         {
@@ -446,7 +433,7 @@ export function createMenu(win: BrowserWindow) {
                     type: 'checkbox',
                     checked: true,
                     click: () => {
-                      const current = menu.getMenuItemById('window')
+                      const current = menu!.getMenuItemById('window')!
                       if (current.checked === false) {
                         win.hide()
                       } else {
@@ -547,14 +534,7 @@ export function createMenu(win: BrowserWindow) {
                   { role: 'delete', label: '刪除' },
                   { type: 'separator' },
                   { role: 'selectAll', label: '選取全部' }
-                ]),
-            {
-              label: '搜尋',
-              accelerator: 'CmdOrCtrl+F',
-              click: () => {
-                win.webContents.send('search')
-              }
-            }
+                ])
           ]
         },
         {
@@ -675,7 +655,7 @@ export function createMenu(win: BrowserWindow) {
                     type: 'checkbox',
                     checked: true,
                     click: () => {
-                      const current = menu.getMenuItemById('window')
+                      const current = menu!.getMenuItemById('window')!
                       if (current.checked === false) {
                         win.hide()
                       } else {
@@ -718,28 +698,28 @@ export function createMenu(win: BrowserWindow) {
   }
   updateMenu(lang)
 
-  ipcMain.on('updatePlayerState', (_, data: any) => {
-    for (const [key, value] of Object.entries(data) as [string, any]) {
-      const lang = store.get('settings.lang') as string
-      if (key === 'playing') {
-        isPlaying = value
-        updateMenu(lang)
-      } else if (key === 'repeatMode') {
-        repeatMode = value
-        updateMenu(lang)
-      } else if (key === 'shuffle') {
-        shuffleMode = value
-      }
+  ipcMain.on('synchronize-player-info', (_, data: Partial<statusMap>) => {
+    const lang = store.get('settings.lang') as 'en' | 'zh' | 'zht'
+    if (data.playing !== undefined) {
+      isPlaying = data.playing
+      updateMenu(lang)
+    }
+    if (data.repeatMode !== undefined) {
+      repeatMode = data.repeatMode
+      updateMenu(lang)
+    }
+    if (data.shuffle !== undefined) {
+      shuffleMode = data.shuffle
     }
   })
 
-  ipcMain.on('updateOsdState', (event, data) => {
-    const [key, value] = Object.entries(data)[0] as [string, any]
-    if (key === 'show') {
-      enableOSD = value
+  ipcMain.on('updateOsdState', (event, data: Partial<osdMap>) => {
+    if (data.show !== undefined) {
+      enableOSD = data.show
       updateMenu(lang)
-    } else if (key === 'isLock') {
-      isLock = value
+    }
+    if (data.isLock !== undefined) {
+      isLock = data.isLock
       updateMenu(lang)
     }
   })

@@ -68,9 +68,11 @@ jobs:
         if: matrix.platform == 'linux' && matrix.arch == 'x64'
         run: |
           sudo apt-get update
-          sudo apt-get install -y rpm fakeroot snapd
+          sudo apt-get install -y rpm fakeroot snapd flatpak flatpak-builder
           sudo snap install snapcraft --classic
           sudo apt-get install -y libnss3-dev libgtk-3-dev libxss-dev libgconf-2-4 libasound2
+          sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          sudo flatpak install -y --noninteractive org.freedesktop.Platform//25.08 org.freedesktop.Sdk//25.08 org.electronjs.Electron2.BaseApp//25.08
 
       - name: Install system fpm for ARM64
         if: matrix.platform == 'linux' && matrix.arch == 'arm64'
@@ -118,7 +120,7 @@ jobs:
           GH_TOKEN: ${{ secrets.github_token }}
           ARCH: ${{ matrix.arch }}
         run: |
-          yarn build --${{ matrix.arch }} -p never --linux deb --linux rpm --linux AppImage --linux snap
+          yarn build --${{ matrix.arch }} -p never --linux deb --linux rpm --linux AppImage --linux snap --linux flatpak
 
       - name: Build Electron app (其他平台)
         if: matrix.platform != 'linux'
@@ -220,6 +222,14 @@ jobs:
         with:
           name: VutronMusic-linux-${{ matrix.arch }}-latest
           path: release/*/latest*.yml
+          if-no-files-found: ignore
+
+      # Flatpak artifact (only x64)
+      - uses: actions/upload-artifact@v4
+        if: matrix.platform == 'linux' && matrix.arch == 'x64'
+        with:
+          name: VutronMusic-linux-${{ matrix.arch }}-flatpak
+          path: release/*/VutronMusic*.flatpak
           if-no-files-found: ignore
 
   publish-release:

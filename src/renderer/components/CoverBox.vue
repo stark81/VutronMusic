@@ -25,17 +25,16 @@ import SvgIcon from './SvgIcon.vue'
 import { ref, computed, PropType } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePlayerStore } from '../store/player'
-import { useLocalMusicStore } from '../store/localMusic'
-import { useStreamMusicStore } from '../store/streamingMusic'
+import { usePluginMusic } from '../store/pluginMusic'
 import { storeToRefs } from 'pinia'
-import { getPlaylistDetail } from '../api/playlist'
-import { getArtist } from '../api/artist'
-import { getAlbum } from '../api/album'
-import { serviceName } from '@/types/music.d'
+import { serviceName, CoverType, PlaylistSourceInfo } from '@/types/music.d'
+import { PluginId, Track } from '@/types/plugin'
 
 const props = defineProps({
   id: { type: [Number, String], required: true },
-  type: { type: String, required: true },
+  sourceContext: { type: Object as PropType<Record<string, any>>, required: true },
+  pluginId: { type: String, required: true },
+  type: { type: String as PropType<CoverType>, required: true },
   service: { type: String as PropType<serviceName>, default: '' },
   imageUrl: { type: String, required: true },
   fixedSize: { type: Number, default: 0 },
@@ -50,11 +49,16 @@ const props = defineProps({
 
 const focus = ref(false)
 const router = useRouter()
+
 const playerStore = usePlayerStore()
-const { _shuffle } = storeToRefs(playerStore)
+const { isShuffle } = storeToRefs(playerStore)
 const { replacePlaylist } = playerStore
-const localMusic = storeToRefs(useLocalMusicStore())
-const streamMusic = storeToRefs(useStreamMusicStore())
+
+const pluginStore = usePluginMusic()
+const { getPlaylistDetail, pluginMethodCall } = pluginStore
+
+// const localMusic = storeToRefs(useLocalMusicStore())
+// const streamMusic = storeToRefs(useStreamMusicStore())
 
 const playButtonStyles = computed(() => {
   const styles = {
@@ -70,59 +74,59 @@ const imageStyles = computed(() => {
     styles.width = props.fixedSize + 'px'
     styles.height = props.fixedSize + 'px'
   }
-  if (props.type === 'artist') styles.borderRadius = '50%'
+  if (props.type === 'Artist') styles.borderRadius = '50%'
   return styles
 })
 
 const shadowStyles = computed(() => {
   const styles = {
     backgroundImage: `url(${props.imageUrl})`,
-    borderRadius: props.type === 'artist' ? '50%' : '0'
+    borderRadius: props.type === 'Artist' ? '50%' : '0'
   }
   return styles
 })
 
 const doHover = (isHover: boolean) => {
-  if (props.type === 'user') return
+  if (props.type === 'User') return
   focus.value = isHover
 }
 
-const play = () => {
-  if (props.type === 'playlist') {
-    getPlaylistDetail(props.id as number, false).then((data) => {
-      const trackIDs = data.playlist.trackIds.map((t: any) => t.id)
-      const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
-      replacePlaylist(props.type, props.id, trackIDs, idx)
-    })
-  } else if (props.type === 'localPlaylist') {
-    const playlist = localMusic.playlists.value.find((p) => p.id === props.id)!
-    const trackIDs = playlist.trackIds
-    const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : trackIDs.length - 1
-    replacePlaylist('localPlaylist', props.id, trackIDs, idx)
-  } else if (props.type === 'streamPlaylist') {
-    const playlist = streamMusic.playlists.value[props.service].find((p) => p.id === props.id)!
-    const trackIDs = playlist.trackIds
-    const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : trackIDs.length - 1
-    replacePlaylist('streamPlaylist', props.id, trackIDs, idx)
-  } else if (props.type === 'artist') {
-    getArtist(props.id as number).then((data) => {
-      const trackIDs = data.hotSongs.map((t) => t.id)
-      const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
-      replacePlaylist(props.type, props.id, trackIDs, idx)
-    })
-  } else if (props.type === 'album') {
-    getAlbum(Number(props.id)).then((data) => {
-      const trackIDs = data.songs.map((t) => t.id)
-      const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
-      replacePlaylist(props.type, props.id, trackIDs, idx)
-    })
+const play = async () => {
+  const plugin = props.pluginId as PluginId
+  const source: PlaylistSourceInfo = {
+    type: props.type as Exclude<typeof props.type, 'User'>,
+    plugin,
+    sourceContext: props.sourceContext
   }
+
+  let tracks = [] as Track[]
+  if (props.type === 'Playlist') {
+    tracks = await getPlaylistDetail(plugin, { ...props.sourceContext, reset: true }).then(
+      (result) => {
+        source.sourceContext = result.data?.sourceContext ?? source.sourceContext
+        return result.data?.tracks || []
+      }
+    )
+  } else if (props.type === 'Album') {
+    tracks = await pluginMethodCall(plugin, 'albumDetail', props.sourceContext).then(
+      (result) => result.data?.songs || []
+    )
+  } else if (props.type === 'Artist') {
+    tracks = await pluginMethodCall(plugin, 'artistDetail', props.sourceContext).then(
+      (result) => result.songs
+    )
+  }
+
+  const ids = tracks.map((item) => [plugin, item.sourceContext]) as [
+    PluginId,
+    Record<string, any>
+  ][]
+  const idx = isShuffle.value ? Math.floor(Math.random() * tracks.length) : 0
+  replacePlaylist(source, ids, idx)
 }
 
 const goTo = () => {
-  const url = props.service
-    ? `/${props.type}/${props.service}/${props.id}`
-    : `/${props.type}/${props.id}`
+  const url = `/${props.type}/${props.pluginId}/${JSON.stringify(props.sourceContext)}`
   router.push(url)
 }
 </script>

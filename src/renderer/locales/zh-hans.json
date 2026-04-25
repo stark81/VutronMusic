@@ -15,7 +15,6 @@
     "album": "专辑",
     "playlist": "歌单",
     "user": "用户",
-    "lyric": "歌词",
     "mv": "MV",
     "chart": "排行榜",
     "newTrack": "新歌速递",
@@ -105,8 +104,8 @@
     },
     "embeddedInformation": "优先使用歌曲内嵌信息",
     "trackInfoOrder": {
-      "text": "歌曲信息获取顺序设置",
-      "desc": "此功能用于设置本地歌曲信息（歌词、封面）的获取顺序，可拖拽调整顺序",
+      "text": "封面获取顺序",
+      "desc": "设置本地音乐封面的获取顺序，拖拽调整优先级",
       "path": "从歌曲目录下获取",
       "online": "从线上获取",
       "embedded": "从歌曲内嵌信息中获取"
@@ -147,15 +146,22 @@
     "albumDesc": "专辑介绍"
   },
   "playlist": {
-    "search": "搜索歌单音乐"
+    "search": "搜索歌单音乐",
+    "newPlaylist": "新建{name}歌单",
+    "addToPlaylist": "添加到{name}歌单",
+    "deletePlaylist": "确定要删除 {name} 歌单 {pname} 吗？",
+    "rmTrackFromPlaylist": "确定要从 {name} 歌单中删除歌曲 '{tname}' 吗？"
   },
   "contextMenu": {
     "defaultSort": "默认排序",
-    "sortByName": "按名称排序",
-    "descendSort": "按时间降序排序",
-    "ascendSort": "按时间升序排序",
+    "name": "按名称排序",
+    "createTime": "按创建时间排序",
+    "playCount": "按播放次数排序",
+    "ascOrder": "升序排序",
+    "descOrder": "降序排列",
     "selectAll": "全选",
     "batchOperation": "批量操作",
+    "refreshData": "重新获取数据",
     "reScan": "重新扫描歌曲",
     "showComment": "查看评论",
     "showLyric": "显示歌词",
@@ -181,6 +187,7 @@
     "openOnBrowser": "在浏览器中打开",
     "copyURL": "复制链接",
     "copyId": "复制ID",
+    "copySourceContext": "复制歌曲上下文",
     "playMV": "播放MV",
     "setFont": "设置字体"
   },
@@ -189,14 +196,21 @@
     "phone": "手机号",
     "email": "邮箱",
     "password": "密码",
-    "loginText": "登录网易云账号",
+    "loginText": "登录{serviceName}账号",
     "countryCode": "国际区号",
     "usernameLogin": "用户名登录",
     "loginWithEmail": "邮箱登录",
     "loginWithPhone": "手机号登录",
     "loginWithQr": "二维码登录",
     "loginWithCookie": "Cookie登录",
-    "noticeElectron": "你的密码会在本地进行MD5加密后再传输到网易云API。VutronMusic 不会传输你的账号数据到任何非网易云音乐官方的服务器。"
+    "cookiePlaceholder": "粘贴你的Cookie字符串",
+    "errorNoCookie": "请输入Cookie",
+    "noticeElectron": "你的密码会在本地进行MD5加密后再传输到网易云API。VutronMusic 不会传输你的账号数据到任何非网易云音乐官方的服务器。",
+    "removeDir": "删除",
+    "emptyScanDir": "请设置本地音乐扫描目录",
+    "chooseDir": "选择目录",
+    "setScanDir": "设置",
+    "errorNoScanDir": "请设置扫描目录"
   },
   "player": {
     "play": "播放",
@@ -257,6 +271,10 @@
     "fade": {
       "fadeDuration": "音频淡入淡出时长（秒）",
       "fadeDurationDesc": "切歌、播放、暂停时音量渐变的时长"
+    },
+    "volumeNormalization": {
+      "title": "音量平衡",
+      "desc": "自动平衡不同歌曲之间的响度差异，使所有歌曲在同一音量下听感一致"
     }
   },
   "common": {
@@ -270,6 +288,8 @@
       "tray": "系统托盘",
       "extension": "歌词插件",
       "platformSetting": "平台设置",
+      "plugin": "插件设置",
+      "musicSource": "音乐来源",
       "lyricSetting": "歌词设置",
       "lyric": "主窗口歌词",
       "osdLyric": "桌面歌词",
@@ -280,6 +300,7 @@
       "netease": "线上音乐",
       "stream": "流媒体音乐",
       "local": "本地音乐",
+      "library": "媒体库",
       "unblock": "音源设置",
       "shortcut": "快捷键设置",
       "misc": "杂项设置",
@@ -343,6 +364,9 @@
       "perventSuspend": "播放时防止系统休眠",
       "forceFactor": "忽略系统缩放（强制 100%，重启后生效）"
     },
+    "plugin": {
+      "title": "插件管理"
+    },
     "theme": {
       "auto": "跟随系统",
       "light": "浅色",
@@ -357,6 +381,10 @@
     "tray": {
       "showLyric": "显示状态栏歌词",
       "showControl": "显示控制按钮",
+      "showIcon": "显示托盘图标",
+      "wordByWord": "逐字高亮",
+      "playedColor": "深色模式高亮颜色",
+      "playedColorLight": "浅色模式高亮颜色",
       "lyricScrollFrameRate": {
         "text": "歌词滚动帧率",
         "desc": "该数值并非越大越好，太高会导致歌词滚动速度过快而无法流畅显示"
@@ -535,6 +563,9 @@
       "logout": "未登录",
       "offline": "服务器离线"
     },
+    "library": {
+      "enable": "启用媒体库"
+    },
     "update": {
       "autoUpdate": "自动检查更新",
       "currentVersion": "当前版本",
@@ -558,6 +589,12 @@
       "running": "服务正常运行中",
       "error": "服务启动失败：{0}",
       "notRunning": "服务未启动"
+    },
+    "sourcePriority": {
+      "search": {
+        "text": "搜索来源优先级",
+        "desc": "拖拽调整搜索框中的插件顺序，排在前面的作为默认搜索源"
+      }
     }
   },
   "toast": {
@@ -566,7 +603,7 @@
     "savedToPlaylist": "已添加到歌单",
     "saveFailed": "添加失败",
     "tracksAlreadyInPlaylist": "歌曲已在歌单中",
-    "needToLogin": "此操作需要登录网易云帐号",
+    "needToLogin": "此操作需要登录{serviceName}账号",
     "getColorFailed": "获取颜色失败",
     "scanning": "正在扫描本地音乐，请稍后",
     "addFailed": "操作失败，专辑下架或版权锁定",

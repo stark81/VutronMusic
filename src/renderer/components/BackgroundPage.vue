@@ -65,16 +65,16 @@ const srcValue = computed(() => {
   } else if (['blur-image', 'dynamic-image', 'letter-image'].includes(activeBG.value.type)) {
     return `url(${pic.value})`
   } else if (activeBG.value.type === 'custom-image') {
-    const image = `atom://local-resource/${encodeURIComponent(activeBG.value.src)}`
+    const image = `vutron://local-resource/${encodeURIComponent(activeBG.value.src)}`
     return `url(${image})`
   } else if (activeBG.value.type === 'custom-video') {
-    return `atom://local-asset?type=stream&path=${encodeURIComponent(activeBG.value.src)}`
+    return `vutron://local-asset?type=stream&path=${encodeURIComponent(activeBG.value.src)}`
   } else if (activeBG.value.type === 'lottie') {
     let src = activeBG.value.src
     if (['snow', 'sunshine'].includes(src)) {
       src = new URL(`../assets/lottie/${src}.json`, import.meta.url).href
     } else {
-      src = `atom://local-asset?type=json&path=${encodeURIComponent(activeBG.value.src)}`
+      src = `vutron://local-asset?type=json&path=${encodeURIComponent(activeBG.value.src)}`
     }
     return src
   } else if (activeBG.value.type === 'random-folder') {
@@ -137,7 +137,7 @@ const loadRandomFolderSource = async () => {
   if (files && files.length > 0) {
     const randomFile = files[Math.floor(Math.random() * files.length)]
     const type = randomFile.match(/\.(mp4|webm)$/i) ? 'custom-video' : 'custom-image'
-    const url = `atom://local-resource/${encodeURIComponent(randomFile)}`
+    const url = `vutron://local-resource/${encodeURIComponent(randomFile)}`
     tempSrc.value = type === 'custom-image' ? `url(${url})` : url
     tempType.value = type
   }
@@ -289,7 +289,8 @@ const onLottieLoaded = async () => {
 onMounted(async () => {
   lottieContainer.value?.stop()
   lottieContainer.value?.destroy()
-  getImage(pic.value)
+  // 推迟 Vibrant 颜色提取到首帧后，避免阻塞首次渲染
+  setTimeout(() => getImage(pic.value), 0)
   if (activeBG.value.type === 'random-folder') {
     await loadRandomFolderSource()
   } else if (activeBG.value.type === 'api') {

@@ -11,3 +11,4 @@
 buildAssets/icons/
 dist/
 release/
+.flatpak-builder

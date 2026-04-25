@@ -1,559 +1,254 @@
 import { defineStore } from 'pinia'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useAudioEngineStore } from './audioEngine'
+import { useLyricStore } from './lyric'
+import { usePluginMusic } from './pluginMusic'
+import { useNormalStateStore } from './state'
+import { useSettingsStore } from './settings'
+import eventBus from '../utils/eventBus'
+
 import shuffleFn from 'lodash/shuffle'
 import cloneDeep from 'lodash/cloneDeep'
-import {
-  ref,
-  computed,
-  reactive,
-  watch,
-  watchEffect,
-  onMounted,
-  onBeforeUnmount,
-  toRaw,
-  nextTick
-} from 'vue'
-import { useLocalMusicStore } from './localMusic'
-import { useStreamMusicStore } from './streamingMusic'
-import { useSettingsStore } from './settings'
-import { useNormalStateStore } from './state'
-import { useOsdLyricStore } from './osdLyric'
-import { useDataStore } from './data'
-import { searchMatch, fmTrash, personalFM, songChorus } from '../api/other'
-import { getLyric as getApiLyric, getTrackDetail } from '../api/track'
-import { useI18n } from 'vue-i18n'
-import _ from 'lodash'
-import { extractExpirationFromUrl } from '../utils'
-import { Track, serviceName, lyricLine } from '@/types/music'
 
-interface biquadType {
-  31: number
-  62: number
-  125: number
-  250: number
-  500: number
-  1000: number
-  2000: number
-  4000: number
-  8000: number
-  16000: number
-}
-
-interface userBiquadType {
-  [key: string]: biquadType
-}
-
-const delay = (ms: number) =>
-  new Promise((resolve) => {
-    setTimeout(() => {
-      resolve('')
-    }, ms)
-  })
+import { LyricLine, PluginId, Track } from '@/types/plugin'
+import { RepeatMode, PlaylistSourceInfo } from '@/types/music'
 
 export const usePlayerStore = defineStore(
   'player',
   () => {
+    const engineStore = useAudioEngineStore()
+    const lyricStore = useLyricStore()
+    const pluginStore = usePluginMusic()
+    const stateStore = useNormalStateStore()
+    const settingsStore = useSettingsStore()
+
+    // ─────────────────────────────────────────────
+    // 来自 pluginStore的状态与方法
+    // ─────────────────────────────────────────────
+    const likedTracks = computed(() => pluginStore.likedTracks)
+    const { pluginMethodCall } = pluginStore
+
+    const source = computed(
+      () =>
+        pluginStore.services.find((item) => item.code === currentTrack.value?.pluginId)?.name ||
+        currentTrack.value?.pluginId ||
+        '未知音源'
+    )
+
+    // ─────────────────────────────────────────────
+    // 来自 usePlaybackStore 的状态
+    // 直接返回 store 里的 ref/computed，响应性完整保留，
+    // 可写 computed（seek、shuffle、playbackRate）的 set 也正常工作。
+    // ─────────────────────────────────────────────
+
+    // 播放器状态
     const playing = ref(false)
-    const playingNext = ref(false)
     const enabled = ref(false)
     const progress = ref(0)
-    const _progress = ref(0)
-    const repeatMode = ref('off')
-    const _shuffle = ref(false)
-    const volume = ref(1)
-    const volumeBeforeMuted = ref(1)
+    const playbackRate = ref(1)
+    const lastProgressReport = ref(0)
+    let _pendingEndReport = false
+    const title = ref('VutronMusic')
+    const isEnd = ref(false)
+    const setSeek = ref(false)
+
+    // 歌曲信息
     const isPersonalFM = ref(false)
-    const currentTrack = ref<Track | null>(null)
-    const title = ref<string | null>('VutronMusic')
-    const outputDevice = ref('')
-    const backRate = ref(1.0)
-    const pitch = ref(1.0)
-    const isLocalList = ref(false)
-    const chorus = ref(0)
-    const pic = ref<string>(
-      currentTrack.value?.album?.picUrl ||
-        'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg'
-    )
-    const playlistSource = ref<{
-      type: string
-      id: number | string
-    }>({ type: 'album', id: 0 })
-
-    const lyrics = ref<lyricLine[]>([])
-    const _personalFMLoading = ref(false)
-    const _personalFMTrack = ref<{
-      id: number
-      [key: string]: any
-    }>({ id: 0 })
-    const _personalFMNextTrack = ref<{
-      id: number
-      [key: string]: any
-    }>({ id: 0 })
-
-    let lastUpdateTime = 0
-
-    const localMusicStore = useLocalMusicStore()
-    const streamMusicStore = useStreamMusicStore()
-    const { updateTrack, fetchLocalMusic, getALocalTrack, getLocalLyric, getLocalPic } =
-      localMusicStore
-    const {
-      scrobble: scrobbleStream,
-      fetchStreamMusic,
-      getStreamLyric,
-      getStreamPic,
-      getAStreamTrack,
-      likeAStreamTrack
-    } = streamMusicStore
-    const dataStore = useDataStore()
-    const { likeATrack } = dataStore
-    const { t } = useI18n()
-
-    const settingsStore = useSettingsStore()
-    const stateStore = useNormalStateStore()
-    const { showToast } = stateStore
-
-    const osdLyricStore = useOsdLyricStore()
-
-    const _shuffleList = ref<number[]>([])
-    const _list = ref<number[]>([])
-    const _playNextList = ref<number[]>([])
+    const playingNext = ref(false)
     const currentTrackIndex = ref(0)
+    const currentTrack = ref<Track>()
+    const nextTrack = ref<Track>()
+    const chorus = ref(0)
+    const pic = ref('http://localhost:41830/local-asset/default-cover')
 
-    const currentIndex = ref(-1)
+    // FM 私有电台
+    const fmTracks = ref<Track[]>([])
+    const personalFMTrack = computed(() => (isPersonalFM.value ? currentTrack.value : undefined))
 
-    let timer: any = null
-
-    const biquadParams = reactive<biquadType>({
-      31: 0,
-      62: 0,
-      125: 0,
-      250: 0,
-      500: 0,
-      1000: 0,
-      2000: 0,
-      4000: 0,
-      8000: 0,
-      16000: 0
+    // 当前激活的 library 类型插件 code，用于监听切换后刷新 FM 队列
+    const activeLibraryCode = computed(() => {
+      const lib = pluginStore.services.find((s) => s.active && s.type === 'library')
+      return lib?.code ?? null
     })
 
-    const biquadUser = ref<userBiquadType[]>([])
-    const biquadParamsKeys = Object.keys(biquadParams)
-    const convolverParams = reactive<{
-      fileName: string
-      buffer: AudioBuffer | null
-      mainGain: number
-      sendGain: number
-    }>({
-      fileName: '',
-      buffer: null,
-      mainGain: 1,
-      sendGain: 0
-    })
-
-    const audioNodes = {
-      audio: null as HTMLAudioElement | null,
-      audioContext: null as AudioContext | null,
-      audioSource: null as MediaElementAudioSourceNode | null,
-      soundtouch: null as null | AudioWorkletNode,
-      biquads: new Map<string, BiquadFilterNode>(),
-      dynamics: null as DynamicsCompressorNode | null,
-      convolverSourceGain: null as GainNode | null,
-      convolverOutputGain: null as GainNode | null,
-      convolver: null as ConvolverNode | null,
-      masterGain: null as GainNode | null
-    }
-
-    const currentTrackDuration = computed(() => {
-      return ~~((currentTrack.value?.dt || currentTrack.value?.duration || 1000) / 1000)
-    })
-
-    const isLiked = computed(() => {
-      return (
-        !!dataStore.liked.songs.find((id) => id === currentTrack.value?.id) ||
-        !!_.flatten(Object.values(streamMusicStore.streamLikedTracks)).find(
-          (t) => t.id === currentTrack.value?.id
-        )
-      )
-    })
-
-    const list = computed({
-      get: () => (_shuffle.value ? _shuffleList.value : _list.value),
-      set: (list) => {
-        _list.value = list
+    watch(activeLibraryCode, (newCode, oldCode) => {
+      if (newCode && newCode !== oldCode) {
+        fmTracks.value = []
+        refillFMTracks()
       }
     })
 
-    const shuffle = computed({
-      get: () => _shuffle.value,
-      set: (value) => {
-        _shuffle.value = value
-        if (value) {
-          shuffleTheList()
-        }
-      }
-    })
+    // 播放列表相关
+    const isShuffle = ref(false)
+    const repeatMode = ref<RepeatMode>('off')
+    const playList = ref<[PluginId, Record<string, any>][]>([])
+    const shuffleList = ref<[PluginId, Record<string, any>][]>([])
+    const playNextList = ref<[PluginId, Record<string, any>][]>([])
 
-    watch(volume, (value) => {
-      if (!audioNodes.masterGain) return
-      const fade = fadeDuration.value
-      smoothGain(value, fade)
+    const volume = ref(0.5)
+    const volumeBeforeMuted = ref(0)
+    watch(volume, (v) => {
+      engineStore.applyVolume(v)
     })
-
-    watch(pitch, (value) => {
-      nextTick(() => {
-        // @ts-ignore
-        if (audioNodes.soundtouch) audioNodes.soundtouch.parameters.get('pitch').value = value
-      })
-    })
-
-    const seek = computed({
-      get() {
-        return _progress.value
-      },
-      set(value) {
-        if (!audioNodes.audio) return
-        audioNodes.audio.currentTime = value
-        _progress.value = value
-        progress.value = value
-        lastUpdateTime = value
-        currentIndex.value = getLyricIndex(lyrics.value, 0, 1)
-        if (window.env?.isLinux) {
-          window.mainApi?.send('updatePlayerState', { progress: value })
-        }
-        navigator.mediaSession.setPositionState({
-          duration: currentTrackDuration.value,
-          playbackRate: playbackRate.value,
-          position: value
-        })
-        clearTimeout(timer)
-        updateIndex()
-      }
-    })
-
-    const useBiquad = computed(() => {
-      return biquadParamsKeys.some((key) => biquadParams[Number(key) as keyof biquadType] !== 0)
-    })
-
-    const useConvolver = computed(() => {
-      return convolverParams.fileName !== ''
-    })
-
-    const usePitch = computed(() => {
-      return pitch.value !== 1.0
+    const playlistSource = ref<PlaylistSourceInfo>({
+      type: 'Playlist',
+      plugin: '' as PluginId,
+      sourceContext: {},
+      pluginSourceContexts: {}
     })
 
     const enableDRP = computed(() => settingsStore.misc.enableDiscordRichPresence)
+    const hasListSource = computed(
+      () => !isPersonalFM.value && playlistSource.value.type !== 'SearchTrack'
+    )
 
-    watch(enableDRP, (value) => {
-      if (value) {
-        playing.value
-          ? playDiscordPresence(currentTrack.value!, audioNodes.audio?.currentTime || 0)
-          : pauseDiscordPresence(currentTrack.value!)
-      } else {
-        pauseDiscordPresence(currentTrack.value!)
+    const getListSourcePath = computed(() => {
+      const { type, plugin, sourceContext } = playlistSource.value
+
+      switch (type) {
+        case 'Album':
+          return `/album/${plugin}/${JSON.stringify(sourceContext)}`
+        case 'Artist':
+          return `/artist/${plugin}/${JSON.stringify(sourceContext)}`
+        case 'Playlist':
+          if (
+            plugin === 'all' ||
+            sourceContext.id === 0 ||
+            sourceContext.id === '0' ||
+            ['local', 'library', 'stream'].includes(sourceContext.id)
+          ) {
+            const codes = pluginStore.loggedInServices
+              .filter((item) => item.type === sourceContext.pluginType)
+              .map((item) => item.code)
+              .join('/')
+            return `/liked-songs/${plugin === 'all' ? codes : plugin}`
+          }
+          return `/playlist/${plugin}/${JSON.stringify(sourceContext)}`
+        case 'DailySongs':
+          return `/daily/songs/${plugin}`
+        case 'Track':
+          return sourceContext.pluginType === 'stream' ? `/stream` : '/localMusic'
+        default:
+          return ''
       }
     })
 
-    const enableFM = computed(() => settingsStore.misc.lastfm.enable)
-
-    watch(
-      () => [audioNodes.audioSource, useBiquad.value, useConvolver.value, usePitch.value],
-      (value) => {
-        if (!value[0]) return
-        audioNodes.audioSource?.disconnect()
-        audioNodes.soundtouch?.disconnect()
-        audioNodes.biquads.get(`hz${biquadParamsKeys[biquadParamsKeys.length - 1]}`!)?.disconnect()
-        audioNodes.masterGain?.disconnect()
-
-        let start = audioNodes.audioSource!
-        const lst: Function[] = []
-        if (value[3]) lst.push(connectToSoundtouch)
-        if (value[1]) lst.push(connectToBiquad)
-        if (value[2]) lst.push(connectToConvolver)
-
-        for (const func of lst) {
-          start = func(start)
+    const list = computed({
+      get: () => (isShuffle.value ? shuffleList.value : playList.value),
+      set: (value) => {
+        if (isShuffle.value) {
+          shuffleList.value = value
+        } else {
+          playList.value = value
         }
-        start.connect(audioNodes.masterGain!)
-        audioNodes.masterGain!.connect(audioNodes.audioContext!.destination)
+      }
+    })
+
+    /**
+     * seek 是可写 computed，set 会同步到 audio.currentTime 并触发歌词索引更新。
+     * 这里转发整个 computed，保留 getter + setter 语义。
+     */
+    const seek = computed({
+      get: () => engineStore.progress,
+      set: (value) => {
+        engineStore.setPosition(value)
+        setSeek.value = true
+        lyricStore.updateIndex()
+        progress.value = value
+        reportPlayback('progress')
+        lastProgressReport.value = Date.now()
+      }
+    })
+
+    const duration = computed(() => {
+      return ~~((currentTrack.value?.duration || 1000) / 1000)
+    })
+
+    const isLiked = computed(() => {
+      if (!currentTrack.value) return false
+      const plugin = currentTrack.value.pluginId
+      const likedIDs = likedTracks.value[plugin]?.data.map((item) => item.id)
+      return likedIDs?.includes(currentTrack.value.id)
+    })
+
+    // ─────────────────────────────────────────────
+    // 来自 useLyricStore 的状态
+    // ─────────────────────────────────────────────
+
+    // const  = ref<lyricLine[]>([])
+
+    /**
+     * currentIndex 在原 store 里是直接暴露的 ref，
+     * 部分组件可能直接读取；这里只读转发即可。
+     */
+    const lyrics = computed({
+      get: () => lyricStore.lyrics,
+      set: (value) => {
+        lyricStore.lyrics = value
+          .filter((item) => !!item.lyric.text)
+          .map((item) => ({
+            ...item,
+            lyric: { ...item.lyric, text: item.lyric.text.replace(/\s{2,}/g, ' ') }
+          }))
+      }
+    })
+    const currentIndex = computed(() => lyricStore.currentIndex)
+    const lyricOffset = computed({
+      get: () => lyricStore.offset,
+      set: (value) => {
+        lyricStore.offset = value
+      }
+    })
+    const noLyric = computed(() => !lyrics.value.length)
+
+    // ─────────────────────────────────────────────
+    // 来自 useAudioEngineStore 的状态
+    // ─────────────────────────────────────────────
+
+    const pitch = computed({
+      get: () => engineStore.pitch,
+      set: (v) => (engineStore.pitch = v)
+    })
+    const outputDevice = computed({
+      get: () => engineStore.outputDevice,
+      set: (v) => {
+        engineStore.outputDevice = v
+      }
+    })
+    const fadeDuration = computed(() => engineStore.fadeDuration)
+
+    // ─────────────────────────────────────────────
+    // watch
+    // ─────────────────────────────────────────────
+    watch(
+      playbackRate,
+      (value) => {
+        engineStore.setPlaybackRate(value)
+        lyricStore.updateRate(value)
       },
       { immediate: true }
     )
 
-    const fadeDuration = computed(() => {
-      const d = settingsStore.general.fadeDuration
-      return Math.max(0.1, Math.min(1, Number(d) || 0.2))
-    })
-
-    const source = computed(() => {
-      if (!currentTrack.value) return ''
-      const sourceMap = {
-        localTrack: '本地音乐',
-        navidrome: 'navidrome',
-        emby: 'emby',
-        netease: '网易云音乐',
-        qq: 'QQ音乐',
-        kugou: '酷狗音乐',
-        kuwo: '酷我音乐',
-        bodian: '波点音乐',
-        bilibili: '哔哩哔哩',
-        pyncmd: '第三方网易云音乐',
-        migu: '咪咕音乐',
-        cache: '缓存'
-      }
-      const sources = currentTrack.value.source?.split('-')
-      if (!sources) return sourceMap.netease
-      let source = ''
-      if (sources.length === 1) {
-        source = sourceMap[sources[0]]
-      } else {
-        source = `${sourceMap[sources[0]]}-${sourceMap[sources[1]]}`
-      }
-      return `${currentTrack.value.name}, 音源：${source ?? currentTrack.value.source}`
-    })
-
-    const playbackRate = computed({
-      get: () => backRate.value,
-      set: (value) => {
-        backRate.value = value
-        audioNodes.audio!.playbackRate = value
+    watch(isShuffle, (value) => {
+      if (value && playList.value.length > 0) {
+        shuffleTheList(currentTrackIndex.value)
+        currentTrackIndex.value = 0
+        nextTrack.value = undefined
+        if (prefetchTimer) clearTimeout(prefetchTimer)
+        scheduleNextTrackPrefetch()
       }
     })
 
-    watch(playbackRate, (value) => {
-      window.mainApi?.send('updatePlayerState', {
-        rate: value,
-        progress: audioNodes.audio?.currentTime ?? 0
-      })
-      navigator.mediaSession.setPositionState({
-        duration: currentTrackDuration.value,
-        playbackRate: value,
-        position: seek.value > currentTrackDuration.value ? 0 : seek.value
-      })
-      clearTimeout(timer)
-      updateIndex()
-    })
-
-    const shouldGetLrcIndex = computed(() => {
-      return (
-        stateStore.showLyrics ||
-        osdLyricStore.show ||
-        (window.env?.isMac && settingsStore.tray.showLyric) ||
-        (window.env?.isLinux && settingsStore.tray.enableExtension)
-      )
-    })
-
-    const noLyric = computed(() => lyrics.value.length === 0)
-
-    // 对于网易云官方的歌曲链接，其有效时间只有 25 分钟，过期后需要重新获取链接
-    const isValidUrl = (url: string) => {
-      if (!currentTrack.value || !audioNodes.audio) return false
-      if (currentTrack.value.source === 'netease') {
-        const expiration = extractExpirationFromUrl(url)
-        if (!expiration) return true
-        const now = new Date()
-        const endTime = (now.getTime() +
-          (currentTrack.value.dt || currentTrack.value.duration || 0)) as number
-        const validTime = new Date(endTime)
-        if (validTime >= expiration) return false
-        return true
-      }
-      return true
-    }
-
-    const getLyricIndex = (
-      lst: { start: number; end: number }[],
-      start = 0,
-      rate: 1 | 1000 = 1
-    ) => {
-      if (!lst.length || !audioNodes.audio) return -1
-      start = Math.max(start, 0)
-      for (let i = start; i < lst.length; i++) {
-        if (
-          lst[i]?.start &&
-          lst[i]?.start / rate > audioNodes.audio.currentTime + lyricOffset.value
-        ) {
-          return i - 1
-        }
-      }
-
-      const end = lst.at(-1)!.end
-      if (audioNodes.audio.currentTime + lyricOffset.value > end / rate) {
-        return lst.length
-      } else {
-        return lst.length - 1
-      }
-    }
-
-    watch(shouldGetLrcIndex, (value) => {
-      if (value) {
-        updateIndex()
-      } else {
-        clearTimeout(timer)
-      }
-    })
-
+    // 监听播放列表/播放队列变化，自动清除缓存并触发预加载
     watch(
-      () => convolverParams.buffer,
-      async (value) => {
-        if (!audioNodes.audioContext) return
-        await nextTick()
-        if (value instanceof AudioBuffer) {
-          if (audioNodes.convolver) audioNodes.convolver.buffer = value
-          audioNodes.convolverSourceGain?.gain.setValueAtTime(
-            convolverParams.mainGain,
-            audioNodes.audioContext.currentTime
-          )
-          audioNodes.convolverOutputGain?.gain.setValueAtTime(
-            convolverParams.sendGain,
-            audioNodes.audioContext.currentTime
-          )
-        } else {
-          if (audioNodes.convolver) audioNodes.convolver.buffer = null
-          audioNodes.convolverSourceGain?.gain.setValueAtTime(
-            convolverParams.mainGain,
-            audioNodes.audioContext.currentTime
-          )
-          audioNodes.convolverOutputGain?.gain.setValueAtTime(
-            convolverParams.sendGain,
-            audioNodes.audioContext.currentTime
-          )
-        }
-      }
+      [playNextList, () => (isShuffle.value ? shuffleList.value : playList.value)],
+      () => {
+        nextTrack.value = undefined
+        if (prefetchTimer) clearTimeout(prefetchTimer)
+        scheduleNextTrackPrefetch()
+      },
+      { deep: true }
     )
-
-    watch(outputDevice, (value) => {
-      setDevice(value)
-    })
-
-    watch(
-      () => convolverParams.mainGain,
-      (value) => {
-        if (convolverParams.buffer && audioNodes.convolverSourceGain) {
-          audioNodes.convolverSourceGain.gain.setValueAtTime(
-            value,
-            audioNodes.audioContext?.currentTime || 0
-          )
-        }
-      }
-    )
-
-    watch(
-      () => !audioNodes.audio?.paused,
-      (value) => {
-        playing.value = value
-      }
-    )
-
-    watch(
-      () => convolverParams.sendGain,
-      (value) => {
-        if (convolverParams.buffer && audioNodes.convolverOutputGain) {
-          audioNodes.convolverOutputGain.gain.setValueAtTime(
-            value,
-            audioNodes.audioContext?.currentTime || 0
-          )
-        }
-      }
-    )
-
-    const _refreshLineIdx = () => {
-      if (!lyrics.value.length || !shouldGetLrcIndex.value) return
-      currentIndex.value = getLyricIndex(lyrics.value, 0, 1)
-      const nextLine = lyrics.value[currentIndex.value + 1]
-
-      if (nextLine) {
-        const driftTime =
-          nextLine.start - ((audioNodes.audio?.currentTime || 0) + lyricOffset.value)
-        if (playing.value) {
-          timer = setTimeout(
-            () => {
-              clearTimeout(timer)
-              if (!playing.value) return
-              _refreshLineIdx()
-            },
-            (driftTime * 1000) / playbackRate.value
-          )
-        }
-      }
-    }
-    const updateIndex = () => {
-      if (!lyrics.value.length || !shouldGetLrcIndex.value) return
-      currentIndex.value = getLyricIndex(lyrics.value, 0, 1)
-      if (!shouldGetLrcIndex.value) return
-      if (!playing.value) return
-      _refreshLineIdx()
-    }
-
-    const currentLyric = computed(() => {
-      const line = lyrics.value[currentIndex.value]
-      if (!line) return { content: currentTrack.value?.name || '听你想听的音乐', time: 0, start: 0 }
-      const nextLine = lyrics.value[currentIndex.value + 1]
-      const diff = (nextLine ? nextLine.start : currentTrackDuration.value) - line?.start
-      return { content: line?.lyric?.text || '', time: diff, start: line?.start || 0 }
-    })
-
-    watch(currentLyric, (value) => {
-      if (
-        window.env?.isLinux &&
-        settingsStore.tray.enableExtension &&
-        stateStore.extensionCheckResult
-      ) {
-        window.mainApi?.send('updateLyricInfo', { currentLyric: toRaw(value) })
-      }
-    })
-
-    watch(
-      () => settingsStore.general.showChorus,
-      (value) => {
-        if (!value) {
-          chorus.value = 0
-        } else if (currentTrack.value?.matched) {
-          songChorus(currentTrack.value.id).then((res) => {
-            if (res.chorus.length) {
-              chorus.value = res.chorus[0].startTime / 1000 - (currentTrack.value?.offset || 0)
-            }
-          })
-        }
-      }
-    )
-
-    watch(
-      () => window.env?.isLinux && settingsStore.tray.enableExtension,
-      (value) => {
-        if (!stateStore.extensionCheckResult) return
-        if (value) {
-          window.mainApi?.send('updateLyricInfo', { currentLyric: toRaw(currentLyric.value) })
-        } else {
-          window.mainApi?.send('updateLyricInfo', { currentLyric: { content: '', time: 10 } })
-        }
-      }
-    )
-
-    watch(playing, (value) => {
-      window.mainApi?.send('updatePlayerState', {
-        playing: value,
-        progress: audioNodes.audio?.currentTime || 0
-      })
-      if ('mediaSession' in navigator) {
-        navigator.mediaSession.playbackState = value ? 'playing' : 'paused'
-        navigator.mediaSession.setPositionState({
-          duration: currentTrackDuration.value,
-          playbackRate: playbackRate.value,
-          position: seek.value > currentTrackDuration.value ? 0 : seek.value
-        })
-      }
-      if (osdLyricStore.show) {
-        window.mainApi?.sendMessage({ type: 'update-osd-status', data: { playing: value } })
-      }
-      progress.value = audioNodes.audio?.currentTime || 0
-      _progress.value = audioNodes.audio?.currentTime || 0
-      if (value) {
-        updateIndex()
-      } else {
-        clearTimeout(timer)
-        timer = null
-      }
-    })
 
     watch(
       () => playing.value && settingsStore.general.preventSuspension,
@@ -562,569 +257,398 @@ export const usePlayerStore = defineStore(
       }
     )
 
-    watch(isLiked, (value) => {
-      window.mainApi?.send('updatePlayerState', { like: value })
-    })
-
-    watch(repeatMode, (value) => {
-      window.mainApi?.send('updatePlayerState', { repeatMode: value })
-    })
-
-    watch(isPersonalFM, (value) => {
-      window.mainApi?.send('updatePlayerState', { isPersonalFM: value })
-    })
-
-    watch(shuffle, (value) => {
-      window.mainApi?.send('updatePlayerState', { shuffle: value })
-    })
-
-    watchEffect(() => {
-      for (const biquad of biquadParamsKeys) {
-        const value = biquadParams[biquad]
-        const biquadNode = audioNodes.biquads.get(`hz${biquad}`)
-        if (biquadNode) biquadNode.gain.value = value
-      }
-    })
-
-    const lyricOffset = computed(() => {
-      return currentTrack.value?.offset ?? 0
-    })
-
-    watch(lyricOffset, (value) => {
-      clearTimeout(timer)
-      updateIndex()
-      if (window.env?.isLinux) {
-        updateMediaSessionMetaData(currentTrack.value!)
-      }
-      if (osdLyricStore.show) {
-        window.mainApi?.sendMessage({
-          type: 'update-osd-status',
-          data: { lyricOffset: [value, audioNodes.audio?.currentTime || 0] }
-        })
-      }
-    })
-
+    // library 被禁用时清空 FM 缓存并退出 FM 模式
     watch(
-      () => [osdLyricStore.mode, osdLyricStore.translationMode],
-      () => {
-        if (osdLyricStore.show) {
-          window.mainApi?.sendMessage({
-            type: 'update-osd-status',
-            data: { seek: audioNodes.audio?.currentTime || 0 }
-          })
+      () => pluginStore.enableLibrary,
+      (enable) => {
+        if (!enable) {
+          isPersonalFM.value = false
         }
       }
     )
 
-    const updateLocalID2OnlineID = (localID: number, onlineID: number) => {
-      _list.value = _list.value.map((id) => (id === localID ? onlineID : id))
-      if (_shuffle.value) {
-        _shuffleList.value = _shuffleList.value.map((id) => (id === localID ? onlineID : id))
-        _playNextList.value = _playNextList.value.map((id) => (id === localID ? onlineID : id))
-      }
-    }
-
-    const searchMatchForLocal = async (track: Track) => {
-      if (track.type === 'local' && !track.matched) {
-        const params = {
-          title: track.name,
-          album: '',
-          artist: track.artists[0].name,
-          duration: (track.dt || track.duration) / 1000,
-          md5: track.md5,
-          localID: track.id
-        }
-        const result = await searchMatch(params)
-          .then((res: any) => {
-            if (res.result.songs.length > 0) {
-              const newTrack = res.result.songs[0]
-              updateLocalID2OnlineID(track.id, newTrack.id)
-              updateTrack(track.filePath, newTrack)
-              return getALocalTrack({ filePath: track.filePath })
-            }
-          })
-          .catch((err) => {
-            showToast(err)
-            return null
-          })
-        if (result) track = result
-      }
-      window.mainApi?.send('write-cover', {
-        filePath: track.filePath,
-        picUrl: track.matched ? track.album?.picUrl || track.al?.picUrl : null,
-        currentPlayingPath: track.filePath
-      })
-      if (track.type === 'online' && !track.cache && settingsStore.autoCacheTrack.enable) {
-        window.mainApi?.send('cacheATrack', { id: track.id, url: track.url })
-      }
-      await getCurrentTrackInfo(track)
-      await updateMediaSessionMetaData(track)
-      if (osdLyricStore.show) {
-        window.mainApi?.sendMessage({
-          type: 'update-osd-status',
-          data: { title: `${(track.artists || track.ar)[0]?.name} - ${track.name}` }
-        })
-      }
-    }
-
-    const setConvolver = (data: {
-      name: string
-      source: string
-      mainGain: number
-      sendGain: number
-    }) => {
-      convolverParams.fileName = data.source
-      convolverParams.mainGain = data.mainGain
-      convolverParams.sendGain = data.sendGain
-
-      if (!data.source) {
-        convolverParams.buffer = null
-        return
-      }
-
-      const path = new URL(`../assets/medias/${data.source}`, import.meta.url).href
-      try {
-        fetch(path)
-          .then((res) => res.arrayBuffer())
-          .then((arrayBuffer) => audioNodes.audioContext?.decodeAudioData(arrayBuffer))
-          .then((buffer) => {
-            if (buffer) convolverParams.buffer = buffer
-          })
-          .catch((err) => {
-            console.log(err)
-          })
-      } catch {
-        console.log('set convolver failed!')
-      }
-    }
-
-    const getCurrentTrackInfo = async (track: Track) => {
-      if (!track) return
-      chorus.value = 0
-      // let data: any
-      if (track.matched && settingsStore.general.showChorus) {
-        songChorus(track.id).then((res) => {
-          if (res.chorus.length) {
-            chorus.value = res.chorus[0].startTime / 1000 - (currentTrack.value?.offset || 0)
-          }
-        })
-      }
-      await getLyric(track)
-      seek.value = playing.value ? 0 : progress.value
-      currentIndex.value = getLyricIndex(lyrics.value, 0, 1)
-    }
-
-    const getLyric = async (track: Track) => {
-      let data: lyricLine[] = []
-      switch (track.type!) {
-        case 'stream':
-          data = await getStreamLyric(track)
-          break
-        case 'online':
-          data = await getApiLyric(track.id)
-          break
-        case 'local':
-          data = await _getLocalLyric(track)
-          break
-        default:
-          break
-      }
-
-      data = data.filter((l) => !/^作(词|曲)\s*(:|：)\s*无$/.exec(l.lyric.text))
-      if (data.length) {
-        data.at(-1)!.end =
-          data.at(-1)!.end || Math.min(currentTrackDuration.value, data.at(-1)!.start + 10)
-      }
-      const includeAM =
-        data.length <= 10 && data.map((l) => l.lyric.text).includes('纯音乐，请欣赏')
-      if (includeAM) {
-        const reg = /^作(词|曲)\s*(:|：)\s*/
-        const artists = currentTrack.value!.artists ?? currentTrack.value!.ar
-        const author = artists[0]?.name
-        data = data.filter((l) => {
-          const regExpArr = l.lyric.text.match(reg)
-          return !regExpArr || l.lyric.text.replace(regExpArr[0], '') !== author
-        })
-      }
-      lyrics.value = data.length === 1 && includeAM ? [] : data
-    }
-
-    const _getLocalLyric = async (track: Track) => {
-      let data: lyricLine[] = []
-      const trackInfoOrder = settingsStore.localMusic.trackInfoOrder
-      for (const order of trackInfoOrder) {
-        switch (order) {
-          case 'online':
-            if (track.matched) data = await getApiLyric(track.id)
-            break
-          default:
-            data = await getLocalLyric(track.id)
-            break
-        }
-        if (data.length) return data
-      }
-      return data
-    }
-
-    /**
-     * 替换播放列表，前两个参数的目的是为了实现网易云听歌记录的功能，同时为了实现优先本地歌曲时的提示功能
-     * @param playlistSourceType 播放列表类型
-     * @param playlistSourceID 播放列表ID
-     * @param trackIDS 播放列表歌曲ID
-     * @param autoPlayTrackID 自动播放歌曲的index
-     */
-    const replacePlaylist = async (
-      playlistSourceType: string,
-      playlistSourceID: number | string,
-      trackIDS: number[],
-      autoPlayTrackID = 0
-    ) => {
-      if (playlistSourceType.includes('local') && settingsStore.localMusic.scanning) {
-        showToast(t('toast.scanning'))
-        return
-      }
-
-      await smoothGain(0, 0)
-
-      isPersonalFM.value = false
-      _list.value = trackIDS
-      isLocalList.value = playlistSourceType.includes('local')
-
-      playlistSource.value = {
-        type: playlistSourceType,
-        id: playlistSourceID
-      }
-
-      if (_shuffle.value) {
-        shuffleTheList(autoPlayTrackID)
-        currentTrackIndex.value = 0
-        replaceCurrentTrack(list.value[currentTrackIndex.value], true)
+    watch(enableDRP, (value) => {
+      if (value && playing.value) {
+        playDiscordPresence(currentTrack.value!, engineStore.getCurrentTime())
       } else {
-        currentTrackIndex.value = autoPlayTrackID
-        replaceCurrentTrack(list.value[autoPlayTrackID], true)
+        pauseDiscordPresence(currentTrack.value!)
       }
+    })
+
+    // ─────────────────────────────────────────────
+    // 方法转发
+    // 方法不需要包 computed，直接引用子 store 的函数即可。
+    // ─────────────────────────────────────────────
+
+    async function replacePlaylist(
+      source: PlaylistSourceInfo,
+      sourceContext: [PluginId, Record<string, any>][],
+      index: number
+    ) {
+      await engineStore.pause()
+      playlistSource.value = source
+      isPersonalFM.value = false
+      playList.value = sourceContext
+      nextTrack.value = undefined
+
+      if (isShuffle.value) {
+        shuffleTheList(index)
+        currentTrackIndex.value = 0
+        const [plugin, sourceContext] = list.value[currentTrackIndex.value]
+        replaceCurrentTrack(plugin, sourceContext)
+      } else {
+        currentTrackIndex.value = index
+        const [plugin, sourceContext] = list.value[currentTrackIndex.value]
+        replaceCurrentTrack(plugin, sourceContext)
+      }
+      playing.value = true
       if (!enabled.value) enabled.value = true
     }
 
-    const replaceCurrentTrack = async (trackID: number | string, autoPlay = true) => {
-      if (autoPlay && currentTrack.value?.name) {
-        scrobbleFM(currentTrack.value, seek.value)
-      }
-
-      await smoothGain(0, 0)
-      return getLocalMusic(trackID as number).then(async (track) => {
-        if (!track) {
-          nextTrackCallback()
-          return false
-        }
-        currentTrack.value = track
-        searchMatchForLocal(track!)
-        const source = await getTrackSource(track!)
-        let replaced = false
-        if (source) {
-          if (track!.id === currentTrack.value?.id) {
-            playAudioSource(source, autoPlay)
-            replaced = true
-          }
-        } else {
-          showToast(track?.reason)
-          _playNextTrack(isPersonalFM.value)
-        }
-        if (autoPlay && currentTrack.value?.type === 'stream') {
-          scrobbleStream(track)
-        }
-        return replaced
-      })
+    function shuffleTheList(firstID = 0) {
+      const list = playList.value.filter((_, index) => index !== firstID)
+      shuffleList.value = shuffleFn(list)
+      shuffleList.value.unshift(playList.value[firstID])
     }
 
-    // const _scrobble = (track: any, time: number, completed = false) => {
-    //   const trackDuration = ~~(track.dt / 1000)
-    //   time = completed ? trackDuration : ~~time
-    //   const sourceID =
-    //     playlistSource.value.id === 0 ? track.al?.id || track.album?.id : playlistSource.value.id
-    //   scrobble({ id: track.id, sourceid: sourceID, time })
-    // }
+    function reportPlayback(type: 'start' | 'progress' | 'end') {
+      const track = currentTrack.value
+      if (!track) return
 
-    const scrobbleFM = (track: Track, time: number, completed = false) => {
-      if (!enableFM.value) return
-      const trackDuration = ~~(track.dt / 1000)
-      time = completed ? trackDuration : ~~time
-      if (time >= trackDuration / 2 || time >= 240) {
-        const timestamp = ~~(new Date().getTime() / 1000) - time
-        const info = {
-          artist: (track.artists || track.ar)[0]?.name || '未知歌手',
-          track: track.name,
-          timestamp,
-          album: track.album?.name || (track.al?.name as string) || '未知专辑',
-          tracnNumber: track.no || 1,
-          duration: trackDuration
+      const duration = ~~(track.duration / 1000)
+      const position = ~~engineStore.getCurrentTime()
+
+      const trackPluginId = track.pluginId
+      const trackSourceCtx =
+        playlistSource.value.pluginSourceContexts?.[trackPluginId] ??
+        playlistSource.value.sourceContext
+
+      window.mainApi?.send(
+        'report-playback',
+        JSON.parse(
+          JSON.stringify({
+            type,
+            pluginId: track.pluginId,
+            rawCtx: track.sourceContext,
+            track: {
+              name: track.name,
+              artist: track.artists[0]?.name || '未知歌手',
+              album: track.album?.name || '未知专辑',
+              duration,
+              no: track.no || 1
+            },
+            playing: playing.value,
+            position,
+            duration,
+            sourceCtx: {
+              ...playlistSource.value,
+              plugin: trackPluginId,
+              sourceContext: trackSourceCtx
+            }
+          })
+        )
+      )
+    }
+
+    async function replaceCurrentTrack(
+      plugin: PluginId,
+      sourceContext: Record<string, any>,
+      autoPlay = true,
+      reportEnd = true
+    ) {
+      if (autoPlay && reportEnd && currentTrack.value?.name && !_pendingEndReport) {
+        reportPlayback('end')
+      }
+      _pendingEndReport = false
+
+      if (
+        nextTrack.value?.pluginId === plugin &&
+        JSON.stringify(nextTrack.value?.sourceContext) === JSON.stringify(sourceContext)
+      ) {
+        currentTrack.value = nextTrack.value
+        nextTrack.value = undefined
+      } else {
+        nextTrack.value = undefined
+        const res = await pluginMethodCall(plugin, 'getTrackDetail', { tracks: [sourceContext] })
+
+        currentTrack.value = {
+          ...res.data[0],
+          album: { ...res.data[0].album, pluginId: plugin },
+          artists: res.data[0].artists.map((it) => ({ ...it, pluginId: plugin })),
+          albumArtists: res.data[0].albumArtists.map((it) => ({ ...it, pluginId: plugin })),
+          pluginId: plugin
         }
-        window.mainApi?.send('track-scrobble', info)
       }
-    }
 
-    const updateNowPlaying = () => {
-      if (!enableFM.value) return
-      const track = currentTrack.value!
-      const info = {
-        artist: (track.artists || track.ar)[0]?.name || '未知歌手',
-        track: track!.name,
-        album: track.album?.name || (track.al?.name as string) || '未知专辑',
-        duration: ~~((track.dt || track.duration) / 1000)
-      }
-      window.mainApi?.send('update-now-playing', info)
-    }
+      const songUrlResult: {
+        url: string[]
+        replayGain: number
+        peak: number
+        cueOffset?: number
+        cueDuration?: number
+      } = (await window.mainApi?.invoke('get-song-url', {
+        pluginId: plugin,
+        sourceContext: JSON.parse(JSON.stringify(sourceContext)),
+        track: JSON.parse(JSON.stringify(currentTrack.value))
+      })) ?? { url: [], replayGain: 0, peak: 1 }
 
-    const playAudioSource = async (source: string, autoPlay = true) => {
-      // 切歌时先淡出
-      const fade = fadeDuration.value
-      await smoothGain(0, fade)
-      audioNodes.audio!.removeAttribute('src')
-      audioNodes.audio!.load()
-      audioNodes.audio!.src = source
-      audioNodes.audio!.load()
+      engineStore.playAudioSource(
+        songUrlResult.url,
+        songUrlResult.replayGain,
+        songUrlResult.peak,
+        autoPlay,
+        songUrlResult.cueOffset || 0,
+        songUrlResult.cueDuration || 0
+      )
+      playing.value = autoPlay
+
       if (autoPlay) {
-        play()
-        playing.value = true
+        reportPlayback('start')
       }
+
+      triggerTrackMatch(currentTrack.value)
+      scheduleNextTrackPrefetch()
     }
 
-    const getLocalMusic = (id: number) => {
-      return new Promise<Track | undefined>((resolve) => {
-        let matchTrack = getALocalTrack({ id })
-        if (matchTrack) {
-          if (!isLocalList.value) {
-            showToast(`使用本地文件播放`)
-          }
-          matchTrack.source = 'localTrack'
-          resolve(matchTrack)
-          return
-        }
-        matchTrack = getAStreamTrack(id)
-        if (matchTrack) {
-          resolve(matchTrack)
-          return
-        }
-        if (window.env?.isElectron) {
-          fetch(`atom://local-asset?type=track&id=${id}`).then((data) => {
-            if (data.status === 200) {
-              data.json().then((track: Track) => {
-                resolve(track)
-              })
-            } else if (data.status === 404) {
-              resolve(undefined)
-            }
-          })
-        } else {
-          getTrackDetail(id.toString()).then((data) => {
-            if (data.code === 200) {
-              resolve(data.songs[0])
-            } else {
-              resolve(undefined)
-            }
-          })
-        }
-      })
-    }
+    // function getTrackInfo() {}
 
-    const getTrackSource = (track: Track) => {
-      return new Promise<string>((resolve) => {
-        if (track.type === 'online' && !track.url) {
-          resolve('')
-        }
-        if (track.type === 'local' || track.cache) {
-          resolve(
-            `atom://local-asset?type=stream&path=${encodeURIComponent(track.cache ? track.url : track.filePath)}`
-          )
-        } else {
-          // 设置了代理的歌曲链接好像是 https，直通
-          resolve(
-            track.url.startsWith('https') ? track.url : `atom://get-online-music/${track.url}`
-          )
-        }
-      })
-    }
-
-    const getPrevTrack = () => {
-      const next = currentTrackIndex.value - 1
-
-      if (repeatMode.value === 'on') {
-        if (currentTrackIndex.value === 0) {
-          return [list.value[list.value.length - 1], list.value.length - 1]
-        }
-        if (list.value.length === currentTrackIndex.value + 1) {
-          return [list.value[0], 0]
-        }
-      }
-      return [list.value[next], next]
-    }
-
-    const playPrev = async () => {
-      const [trackID, index] = getPrevTrack()
-      if (!trackID) {
+    const playOrPause = async () => {
+      if (playing.value) {
+        await engineStore.pause()
         playing.value = false
-        return false
+      } else {
+        playing.value = true
+        await engineStore.play()
       }
-      currentTrackIndex.value = index!
-      await replaceCurrentTrack(trackID, true)
-      return true
     }
 
-    const getNextTrack = (): [number | undefined, number, boolean] => {
+    function _getNextTrack(): [[PluginId, Record<string, any>] | undefined, number, boolean] {
       const next = currentTrackIndex.value + 1
-
-      if (_playNextList.value.length > 0) {
-        const trackID = _playNextList.value.shift()
-        return [trackID!, next, true]
+      if (playNextList.value.length > 0) {
+        const track = playNextList.value.shift()
+        return [track, next, true]
       }
-
       if (repeatMode.value === 'on') {
         if (list.value.length === currentTrackIndex.value + 1) {
           return [list.value[0], 0, false]
         }
       }
-      return [list.value[next], next, false]
+      const nextTrackInfo = list.value[next]
+      if (
+        nextTrackInfo &&
+        currentTrack.value &&
+        nextTrackInfo[0] === currentTrack.value.pluginId &&
+        JSON.stringify(nextTrackInfo[1]) === JSON.stringify(currentTrack.value.sourceContext)
+      ) {
+        const skipNext = next + 1
+        if (skipNext < list.value.length) {
+          return [list.value[skipNext], skipNext, false]
+        }
+        if (repeatMode.value === 'on') {
+          return [list.value[0], 0, false]
+        }
+        return [undefined, next, false]
+      }
+      return [nextTrackInfo, next, false]
     }
 
-    const _playNextTrack = async (isPersonal: boolean) => {
-      await pause()
-      if (isPersonal) {
-        playNextFMTrack()
-      } else {
-        playNext()
+    function _peekNextTrack(): [PluginId, Record<string, any>] | undefined {
+      if (playNextList.value.length > 0) {
+        return playNextList.value[0]
       }
+      const next = currentTrackIndex.value + 1
+      if (repeatMode.value === 'on' && list.value.length === next) {
+        return list.value[0]
+      }
+      const nextTrackInfo = list.value[next]
+      if (
+        nextTrackInfo &&
+        currentTrack.value &&
+        nextTrackInfo[0] === currentTrack.value.pluginId &&
+        JSON.stringify(nextTrackInfo[1]) === JSON.stringify(currentTrack.value.sourceContext)
+      ) {
+        const skipNext = next + 1
+        if (skipNext < list.value.length) {
+          return list.value[skipNext]
+        }
+        if (repeatMode.value === 'on') {
+          return list.value[0]
+        }
+        return undefined
+      }
+      return nextTrackInfo
     }
 
-    const playNext = async () => {
-      if (playingNext.value) {
-        list.value.splice(currentTrackIndex.value, 0, currentTrack.value!.id)
-      }
-      const [trackID, index, isPlayingNext] = getNextTrack()
+    function playPrev() {
+      const [trackInfo, prev, isPlayingNext] = _getPrevTrack()
       playingNext.value = isPlayingNext
-      if (!trackID) {
+
+      if (!trackInfo) {
         playing.value = false
-        return false
-      }
-      currentTrackIndex.value = index
-      await replaceCurrentTrack(trackID, true)
-    }
-
-    const nextTrackCallback = () => {
-      seek.value = 0
-      clearTimeout(timer)
-      scrobbleFM(currentTrack.value!, 0, true)
-
-      if (!isPersonalFM.value && repeatMode.value === 'one') {
-        replaceCurrentTrack(currentTrack.value!.id)
+        engineStore.pause()
       } else {
-        _playNextTrack(isPersonalFM.value)
-      }
-    }
-
-    const playDiscordPresence = (track: Track, seekTime = 0) => {
-      if (!enableDRP.value) return
-      const copyTrack = { ...track }
-      copyTrack.dt -= seekTime * 1000
-      window.mainApi?.send('playDiscordPresence', cloneDeep(copyTrack))
-    }
-
-    const pauseDiscordPresence = (track: Track) => {
-      if (!enableDRP.value) return
-      window.mainApi?.send('pauseDiscordPresence', cloneDeep(track))
-    }
-
-    const play = async () => {
-      if (!audioNodes.audio) return
-
-      try {
-        if (!isValidUrl(currentTrack.value?.url || '')) {
-          const savedProgress = _progress.value
-          await replaceCurrentTrack(currentTrack.value!.id, false)
-          audioNodes.audio!.removeAttribute('src')
-          audioNodes.audio!.load()
-          audioNodes.audio!.src = currentTrack.value!.url!
-          audioNodes.audio!.load()
-          seek.value = savedProgress
-
-          setTimeout(() => {
-            if (!isValidUrl(currentTrack.value?.url || '')) {
-              throw new Error('刷新后 URL 仍然无效')
-            }
-          }, 20)
-        }
-
-        const arts = currentTrack.value?.artists ?? currentTrack.value?.ar
-        audioNodes.audio.playbackRate = playbackRate.value
-
-        if (audioNodes.audioContext?.state === 'suspended') {
-          await audioNodes.audioContext?.resume()
-        }
-
-        // 淡入淡出功能需要调整到 masterGain 上，而不是 audio 元素上，以避免出现爆破音
-        const fade = fadeDuration.value
-        await smoothGain(volume.value, fade)
-        await audioNodes.audio.play()
-
-        title.value = `${currentTrack.value?.name} · ${arts[0].name} - VutronMusic`
-        if (!window.env?.isMac) {
-          window.mainApi?.send('updateTooltip', title.value)
-        }
-        document.title = title.value
-
-        playDiscordPresence(currentTrack.value!, audioNodes.audio.currentTime)
-        updateNowPlaying()
-      } catch (error) {
-        if (currentTrack.value?.cache) {
-          const isOk = (await window.mainApi?.invoke(
-            'deleteACacheTrack',
-            currentTrack.value.id
-          )) as boolean
-          if (isOk) {
-            replaceCurrentTrack(currentTrack.value!.id, true)
-          } else {
-            showToast(`歌曲 ${currentTrack.value?.name} 播放错误，正在切换下一首...`)
-            _playNextTrack(isPersonalFM.value)
-          }
-        } else {
-          console.log('==2=2=11=1=1====', error)
-          showToast(`歌曲 ${currentTrack.value?.name} 的音乐链接已过期，正在重新获取...`)
-          replaceCurrentTrack(currentTrack.value!.id, true)
-        }
-      }
-    }
-
-    const pause = async () => {
-      if (!audioNodes.audio) return
-      const fade = fadeDuration.value
-      await smoothGain(0, fade)
-      audioNodes.audio?.pause()
-      title.value = 'VutronMusic'
-      if (!window.env?.isMac) {
-        window.mainApi?.send('updateTooltip', title.value)
-      }
-      document.title = title.value
-      pauseDiscordPresence(currentTrack.value!)
-    }
-
-    const playOrPause = async () => {
-      if (playing.value) {
-        playing.value = false
-        await pause()
-        audioNodes.audioContext?.suspend()
-      } else {
-        play()
+        currentTrackIndex.value = prev
+        replaceCurrentTrack(...trackInfo, true)
         playing.value = true
       }
     }
 
-    const setDevice = (device: string) => {
-      if ('setSinkId' in AudioContext.prototype) {
-        // @ts-ignore
-        audioNodes.audioContext?.setSinkId(device)
+    function _getPrevTrack(): [[PluginId, Record<string, any>] | undefined, number, boolean] {
+      const prev = currentTrackIndex.value - 1
+
+      if (repeatMode.value === 'on') {
+        if (currentTrackIndex.value === 0) {
+          return [list.value.at(-1), list.value.length - 1, false]
+        }
+      }
+      return [list.value[prev], prev, false]
+    }
+
+    function _playNext(autoPlay = true) {
+      if (playingNext.value) {
+        const track = currentTrack.value!
+        list.value.splice(currentTrackIndex.value, 0, [track.pluginId, track.sourceContext])
+      }
+
+      const [trackInfo, index, isPlayingNext] = _getNextTrack()
+      playingNext.value = isPlayingNext
+
+      if (!trackInfo) {
+        playing.value = false
+      } else {
+        currentTrackIndex.value = index
+        replaceCurrentTrack(...trackInfo, autoPlay)
+        playing.value = autoPlay
       }
     }
 
-    const switchRepeatMode = () => {
+    async function refillFMTracks() {
+      const plugin = pluginStore.services.find((s) => s.active && s.type === 'library')
+      if (!plugin) return
+
+      try {
+        const result = await pluginMethodCall(plugin.code, 'personalFM', {})
+        if (result.code === 200 && result.data?.length) {
+          for (const track of result.data) {
+            fmTracks.value.push({
+              ...track,
+              album: { ...track.album, pluginId: plugin.code },
+              artists: track.artists.map((it) => ({ ...it, pluginId: plugin.code })),
+              albumArtists: track.albumArtists.map((it) => ({ ...it, pluginId: plugin.code })),
+              pluginId: plugin.code
+            })
+          }
+        }
+      } catch {}
+    }
+
+    async function playNextFM(autoPlay = true) {
+      if (fmTracks.value.length === 0) {
+        await refillFMTracks()
+        if (fmTracks.value.length === 0) return
+      }
+      const track = fmTracks.value.shift()!
+      nextTrack.value = track
+      await replaceCurrentTrack(track.pluginId, track.sourceContext, autoPlay)
+      playing.value = autoPlay
+      if (fmTracks.value.length === 0) {
+        refillFMTracks()
+      }
+    }
+
+    async function playPersonalFM(playing: boolean) {
+      const plugin = pluginStore.services.find((s) => s.active && s.type === 'library')
+      if (!plugin) {
+        showToast('无可用的音乐源')
+        return
+      }
+
+      isPersonalFM.value = true
+      if (!enabled.value) enabled.value = true
+
+      if (fmTracks.value.length === 0) {
+        await refillFMTracks()
+        if (fmTracks.value.length === 0) {
+          showToast('获取 FM 歌曲失败')
+          isPersonalFM.value = false
+          return
+        }
+      }
+
+      const track = fmTracks.value.shift()!
+      nextTrack.value = track // 跳过 getTrackDetail
+      await replaceCurrentTrack(track.pluginId, track.sourceContext, playing)
+      if (fmTracks.value.length === 0) {
+        refillFMTracks()
+      }
+    }
+
+    async function moveToFMTrash() {
+      if (isPersonalFM.value) {
+        const track = currentTrack.value
+        if (track) {
+          pluginMethodCall(track.pluginId, 'fmTrash', { ...track.sourceContext }).catch(() => {})
+        }
+        await playNextFM()
+      } else {
+        if (fmTracks.value.length === 0) return
+        const track = fmTracks.value.shift()!
+        pluginMethodCall(track.pluginId, 'fmTrash', { ...track.sourceContext }).catch(() => {})
+        if (fmTracks.value.length === 0) {
+          refillFMTracks()
+        }
+      }
+    }
+
+    async function playNext(isPersonal: boolean, autoPlay = true) {
+      await engineStore.pause()
+      if (isPersonal) {
+        await playNextFM(autoPlay)
+      } else {
+        _playNext(autoPlay)
+      }
+    }
+
+    function _nextTrackCallback() {
+      reportPlayback('end')
+      _pendingEndReport = true
+      isEnd.value = true
+      lyricStore.isEnd = true
+      engineStore.setPosition(0)
+      progress.value = 0
+      lyricStore.updateIndex()
+      if (!isPersonalFM.value && repeatMode.value === 'one') {
+        const { pluginId, sourceContext } = currentTrack.value!
+        replaceCurrentTrack(pluginId, sourceContext)
+      } else {
+        playNext(isPersonalFM.value)
+      }
+    }
+
+    function _handleTimeUpdate() {
+      if (window.env?.isLinux) {
+        window.mainApi?.send('synchronize-player-info', { seek: engineStore.getCurrentTime() })
+      }
+      const now = Date.now()
+      if (now - lastProgressReport.value >= 15000) {
+        reportPlayback('progress')
+        lastProgressReport.value = now
+      }
+    }
+
+    function playDiscordPresence(track: Track | undefined, seekTime = 0) {
+      if (!enableDRP.value || !track) return
+      const copyTrack = { ...track }
+      copyTrack.duration -= seekTime * 1000
+      window.mainApi?.send('playDiscordPresence', cloneDeep(copyTrack))
+    }
+
+    function pauseDiscordPresence(track: Track | undefined) {
+      if (!enableDRP.value || !track) return
+      window.mainApi?.send('pauseDiscordPresence', cloneDeep(track))
+    }
+
+    function switchRepeatMode() {
       if (repeatMode.value === 'on') {
         repeatMode.value = 'one'
       } else if (repeatMode.value === 'one') {
@@ -1134,690 +658,356 @@ export const usePlayerStore = defineStore(
       }
     }
 
-    const shuffleTheList = (firstTrackID = 0) => {
-      const id = _list.value[firstTrackID]
-      const list = _list.value.filter((trackID) => trackID !== id)
-      // if (firstTrackID === 0) list = _list.value
-      _shuffleList.value = shuffleFn(list)
-      _shuffleList.value.unshift(id)
-    }
-
-    const addTrackToPlayNext = (trackID: number | number[], playNow = false, addToHead = false) => {
-      if (typeof trackID === 'object') {
-        _playNextList.value = [..._playNextList.value, ...trackID]
-      } else {
-        addToHead ? _playNextList.value.unshift(trackID) : _playNextList.value.push(trackID)
-      }
-      if (playNow) playNext()
-    }
-
-    const _handleTimeUpdate = () => {
-      if (!audioNodes.audio) return
-      if (Math.abs(audioNodes.audio.currentTime - lastUpdateTime) >= 1) {
-        _progress.value = audioNodes.audio.currentTime
-        lastUpdateTime = audioNodes.audio.currentTime
-      }
-      if (window.env?.isLinux) {
-        window.mainApi?.send('updatePlayerState', { progress: audioNodes.audio.currentTime })
-      }
-    }
-
-    const destroAudioNode = async () => {
-      if (audioNodes.audio) {
-        audioNodes.audio.removeEventListener('timeupdate', _handleTimeUpdate)
-        audioNodes.audio.removeEventListener('ended', nextTrackCallback)
-        audioNodes.audio.pause()
-
-        audioNodes.audioSource?.disconnect()
-        audioNodes.biquads.forEach((filter) => {
-          filter.disconnect()
+    function addTrackToPlayNext(
+      trackInfos: [PluginId, Record<string, any>][],
+      playNow = false,
+      addToHead = false
+    ) {
+      if (addToHead) {
+        trackInfos.forEach((item) => {
+          playNextList.value.unshift(item)
         })
-        audioNodes.soundtouch?.disconnect()
-        audioNodes.dynamics?.disconnect()
-        audioNodes.convolver?.disconnect()
-        audioNodes.convolverOutputGain?.disconnect()
-        audioNodes.convolverSourceGain?.disconnect()
-        audioNodes.masterGain?.disconnect()
-
-        audioNodes.audio = null
-        audioNodes.audioSource = null
-        audioNodes.soundtouch = null
-        audioNodes.biquads.clear()
-        audioNodes.dynamics = null
-        if (audioNodes.convolver) audioNodes.convolver.buffer = null
-        audioNodes.convolver = null
-        audioNodes.convolverOutputGain = null
-        audioNodes.convolverSourceGain = null
-        audioNodes.masterGain = null
-        await audioNodes.audioContext?.close()
-        audioNodes.audioContext = null
-      }
-    }
-
-    const connectToBiquad = (sourceNode: AudioNode) => {
-      const first = biquadParamsKeys[0]
-      sourceNode.connect(audioNodes.biquads.get(`hz${first}`)!)
-      const last = biquadParamsKeys[biquadParamsKeys.length - 1]
-      return audioNodes.biquads.get(`hz${last}`)!
-    }
-
-    const connectToConvolver = (sourceNode: AudioNode) => {
-      sourceNode.connect(audioNodes.convolverSourceGain!)
-      sourceNode.connect(audioNodes.convolver!)
-      // audioNodes.dynamics!.connect(audioNodes.masterGain!)
-      return audioNodes.dynamics!
-    }
-
-    const connectToSoundtouch = (sourceNode: AudioNode) => {
-      sourceNode.connect(audioNodes.soundtouch!)
-      return audioNodes.soundtouch!
-    }
-
-    const setupAudioNode = async () => {
-      const audio = new Audio()
-      audio.crossOrigin = 'anonymous'
-      audio.preload = 'metadata'
-      audio.preservesPitch = true
-      audio.volume = 1
-      audio.onended = null
-      audioNodes.audio = audio
-      seek.value = progress.value
-      playbackRate.value = backRate.value
-
-      audioNodes.audio.addEventListener('timeupdate', _handleTimeUpdate)
-      audioNodes.audio.addEventListener('ended', nextTrackCallback)
-
-      audioNodes.audioContext = new AudioContext()
-      audioNodes.audioSource = audioNodes.audioContext.createMediaElementSource(audioNodes.audio)
-      await audioNodes.audioContext.suspend()
-
-      setConvolver({
-        name: '',
-        source: convolverParams.fileName,
-        mainGain: convolverParams.mainGain,
-        sendGain: convolverParams.sendGain
-      })
-
-      for (const [key, value] of Object.entries(biquadParams)) {
-        const filter = audioNodes.audioContext.createBiquadFilter()
-        audioNodes.biquads.set(`hz${key}`, filter)
-        filter.type = 'peaking'
-        filter.frequency.value = Number(key)
-        filter.Q.value = 1.4
-        filter.gain.value = value
-      }
-      for (let i = 1; i < biquadParamsKeys.length; i++) {
-        const prev = biquadParamsKeys[i - 1]
-        const curr = biquadParamsKeys[i]
-        audioNodes.biquads.get(`hz${prev}`)!.connect(audioNodes.biquads.get(`hz${curr}`)!)
-      }
-
-      audioNodes.dynamics = audioNodes.audioContext.createDynamicsCompressor()
-      audioNodes.convolver = audioNodes.audioContext.createConvolver()
-      audioNodes.convolverOutputGain = audioNodes.audioContext.createGain()
-      audioNodes.convolverSourceGain = audioNodes.audioContext.createGain()
-      audioNodes.masterGain = audioNodes.audioContext.createGain()
-      audioNodes.masterGain.gain.value = 0
-
-      audioNodes.convolver.connect(audioNodes.convolverOutputGain)
-      audioNodes.convolverSourceGain.connect(audioNodes.dynamics)
-      audioNodes.convolverOutputGain.connect(audioNodes.dynamics)
-      audioNodes.convolver.buffer =
-        convolverParams.buffer instanceof ArrayBuffer ? convolverParams.buffer : null
-      audioNodes.convolverSourceGain.gain.value = convolverParams.mainGain
-      audioNodes.convolverOutputGain.gain.value = convolverParams.sendGain
-
-      audioNodes.masterGain.gain.setValueAtTime(0, audioNodes.audioContext.currentTime)
-
-      await audioNodes.audioContext.audioWorklet.addModule(
-        new URL('../utils/soundtouch-worklet.js', import.meta.url)
-      )
-      const soundtouch = new AudioWorkletNode(audioNodes.audioContext, 'soundtouch-processor')
-      audioNodes.soundtouch = soundtouch
-      // @ts-ignore
-      audioNodes.soundtouch.parameters.get('pitch').value = pitch.value
-
-      let start = audioNodes.audioSource
-      const lst: Function[] = []
-      if (usePitch.value) lst.push(connectToSoundtouch)
-      if (useBiquad.value) lst.push(connectToBiquad)
-      if (useConvolver.value) lst.push(connectToConvolver)
-
-      for (const func of lst) {
-        start = func(start)
-      }
-      start.connect(audioNodes.masterGain)
-      audioNodes.masterGain.connect(audioNodes.audioContext!.destination)
-
-      setDevice(outputDevice.value)
-    }
-
-    const getPic = async (track: Track, size: number = 128) => {
-      if (track.type === 'local') {
-        return await getLocalPic(track.id, size)
-      } else if (track.type === 'stream') {
-        return getStreamPic(track, size)!
       } else {
-        let url = (track.album || track.al).picUrl
-        url = url.replace('http://', 'https://')
-        return url + `?param=${size}y${size}`
+        playNextList.value.push(...trackInfos)
       }
+      nextTrack.value = undefined
+      if (playNow) playNext(false)
     }
 
-    const updateMediaSessionMetaData = async (track: Track) => {
-      if ('mediaSession' in navigator === false) return
-
-      if (pic.value?.startsWith('blob:')) {
-        URL.revokeObjectURL(pic.value)
-      }
-      pic.value = await getPic(track, 512)
-
-      const arts = track.artists ?? track.ar
-      const artists = arts.map((a) => a.name)
-      const metadata = {
-        title: track.name,
-        artist: artists.join(','),
-        album: track.album?.name ?? track.al?.name,
-        artwork: [
-          {
-            src: await getPic(track, 512),
-            type: 'image/jpg',
-            sizes: '512x512'
-          },
-          {
-            src: await getPic(track, 1024),
-            type: 'image/jpg',
-            sizes: '1024x1024'
-          }
-        ],
-        length: currentTrackDuration.value,
-        trackId: track.id,
-        url: '/trackid/' + track.id,
-        progress: audioNodes.audio?.currentTime ?? 0,
-        rate: playbackRate.value,
-        asText: lyrics.value.map((lrc) => `${formatTime(lrc.start)}${lrc.lyric.text}`).join('\n'),
-        lyricOffset: lyricOffset.value
-      }
-      if (window.env?.isWindows) {
-        metadata.artwork = [
-          {
-            src: await getPic(track, 2048),
-            type: 'image/jpg',
-            sizes: '2048x2048'
-          }
-        ]
-      }
-      navigator.mediaSession.metadata = null
-      navigator.mediaSession.metadata = new MediaMetadata(metadata)
-      if (window.env?.isLinux) {
-        if (track.type === 'stream') {
-          metadata.artwork.map((art) => {
-            const url = `http://localhost:${window.env?.isDev ? 40001 : 41830}` + art.src
-            art.src = url
-          })
-        } else if (track.type === 'local') {
-          metadata.artwork.map((art) => {
-            const url = `http://localhost:${window.env?.isDev ? 40001 : 41830}/local-asset?id=${track.id}&size=${art.sizes.split('x')[0]}`
-            art.src = url
-          })
-        }
-        window.mainApi?.send('metadata', metadata)
-      }
+    function clearPlayNextList() {
+      playNextList.value = []
+      nextTrack.value = undefined
     }
 
-    const resetPlayer = (resetBiq = true) => {
-      list.value = []
+    const resetPlayer = (resetAll = true) => {
+      playList.value = []
+      shuffleList.value = []
+      playNextList.value = []
+      fmTracks.value = []
       enabled.value = false
       currentTrackIndex.value = 0
-      currentTrack.value = null
+      currentTrack.value = undefined
+      nextTrack.value = undefined
       progress.value = 0
-      _shuffleList.value = []
-      _list.value = []
       isPersonalFM.value = false
       lyrics.value = []
-      if (pic.value.startsWith('blob:')) {
-        URL.revokeObjectURL(pic.value)
-        pic.value = new URL(`../assets/images/default.jpg`, import.meta.url).href
-      }
+      _pendingEndReport = false
+      lastProgressReport.value = 0
 
-      if (resetBiq) {
-        volume.value = 1
-        _shuffle.value = false
+      if (resetAll) {
+        volume.value = 0.5
+        volumeBeforeMuted.value = 0
+        isShuffle.value = false
         repeatMode.value = 'off'
-        for (const key in biquadParams) {
-          biquadParams[key] = 0
-        }
       }
     }
 
-    const handleIpcRenderer = () => {
-      window.addEventListener('message', (event) => {
-        if (event.data.type === 'init-from-osd') {
-          window.mainApi?.sendMessage({
-            type: 'update-osd-status',
-            data: {
-              line: [currentIndex.value, audioNodes.audio?.currentTime || 0],
-              playing: playing.value,
-              seek: audioNodes.audio?.currentTime || 0,
-              title: `${(currentTrack.value?.artists || currentTrack.value?.ar)[0]?.name} - ${currentTrack.value?.name}`
-            }
-          })
-        } else if (event.data.type === 'get-seek') {
-          window.mainApi?.sendMessage({
-            type: 'update-osd-status',
-            data: { seek: audioNodes.audio?.currentTime || 0 }
-          })
+    // —— useAudioEngineStore 的方法 ——
+    const setConvolver = engineStore.setConvolver
+    const setDevice = engineStore.setDevice
+    const setBalance = engineStore.setBalance
+    const { showToast } = stateStore
+
+    // ─────────────────────────────────────────────
+    // 原 store 中 shouldGetLrcIndex 的等价暴露
+    // 原来部分组件可能通过 playerStore.noLyric 等判断展示逻辑，
+    // shouldGetLrcIndex 是内部计算属性，外部一般不直接用；
+    // 如有需要可取 lyricStore 直接访问。
+    // ─────────────────────────────────────────────
+
+    const fetchLyric = async () => {
+      const res = (await window.mainApi?.invoke('plugin-lyric', {
+        pluginId: currentTrack.value?.pluginId,
+        sourceContext: {
+          rawCtx: JSON.parse(JSON.stringify(currentTrack.value?.sourceContext || {}))
         }
-      })
+      })) as { code: number; data: LyricLine[] }
 
-      watch(
-        () => [currentIndex.value, progress.value],
-        (value) => {
-          if (osdLyricStore.show)
-            window.mainApi?.sendMessage({
-              type: 'update-osd-status',
-              data: { line: [value[0], audioNodes.audio?.currentTime || 0] }
-            })
-        }
-      )
-
-      watch(backRate, (value) => {
-        if (osdLyricStore.show)
-          window.mainApi?.sendMessage({
-            type: 'update-osd-status',
-            data: { rate: value }
-          })
-      })
-
-      watch(lyrics, (value) => {
-        if (osdLyricStore.show) {
-          const newLyric = _.cloneDeep(value)
-          if (!newLyric.length) {
-            newLyric[0] = {
-              start: 0,
-              end: 0,
-              lyric: {
-                text: `${(currentTrack.value?.artists || currentTrack.value?.ar)[0].name} - ${currentTrack.value?.name}`
-              }
-            }
-          }
-          window.mainApi?.sendMessage({
-            type: 'update-osd-status',
-            data: { lyrics: toRaw(newLyric) }
-          })
-        }
-      })
-
-      watch(
-        () => osdLyricStore.show,
-        (value) => {
-          if (!value) window.mainApi?.closeMessagePort()
-        }
-      )
-
-      window.mainApi?.on('resume', async () => {
-        if (!currentTrack.value) return
-        const t = _progress.value
-        await replaceCurrentTrack(currentTrack.value.id, false)
-        audioNodes.audio!.removeAttribute('src')
-        audioNodes.audio!.load()
-        audioNodes.audio!.src = currentTrack.value!.url!
-        audioNodes.audio!.load()
-        seek.value = t
-      })
-
-      window.mainApi?.on('play', () => {
-        if (
-          document.activeElement?.tagName === 'INPUT' ||
-          document.activeElement?.classList?.contains('comment-input')
-        ) {
-          return
-        }
-        playOrPause()
-      })
-      window.mainApi?.on('previous', () => {
-        if (!isPersonalFM.value) playPrev()
-        else moveToFMTrash()
-      })
-      window.mainApi?.on('next', () => _playNextTrack(isPersonalFM.value))
-      window.mainApi?.on('repeat', (_: any, value: string) => {
-        repeatMode.value = value
-      })
-      window.mainApi?.on('repeat-shuffle', (_: any, value: boolean) => {
-        shuffle.value = value
-      })
-      window.mainApi?.on('like', () => {
-        if (!currentTrack.value) return
-        if (currentTrack.value?.type === 'stream') {
-          const op = currentTrack.value.starred ? 'unstar' : 'star'
-          likeAStreamTrack(op, currentTrack.value)
-        } else if (currentTrack.value?.matched) {
-          likeATrack(currentTrack.value.id)
-        }
-      })
-      window.mainApi?.on('fm-trash', () => {
-        moveToFMTrash()
-      })
-      window.mainApi?.on('setPosition', (_: any, value: number) => {
-        seek.value = value
-      })
-      window.mainApi?.on('increaseVolume', () => {
-        if (volume.value + 0.1 >= 1) return (volume.value = 1)
-        volume.value += 0.1
-      })
-      window.mainApi?.on('decreaseVolume', () => {
-        if (volume.value - 0.1 <= 0) return (volume.value = 0)
-        volume.value -= 0.1
-      })
-    }
-
-    const initMediaSession = () => {
-      if ('mediaSession' in navigator) {
-        navigator.mediaSession.setActionHandler('play', () => {
-          play()
-          playing.value = true
-        })
-        navigator.mediaSession.setActionHandler('pause', () => {
-          pause()
-          playing.value = false
-        })
-        navigator.mediaSession.setActionHandler('previoustrack', () => {
-          if (!isPersonalFM.value) playPrev()
-          else moveToFMTrash()
-        })
-        navigator.mediaSession.setActionHandler('nexttrack', () =>
-          _playNextTrack(isPersonalFM.value)
-        )
-        navigator.mediaSession.setActionHandler('stop', () => {
-          pause()
-          playing.value = false
-        })
-        navigator.mediaSession.setActionHandler('seekto', (event) => {
-          seek.value = event.seekTime!
-        })
-        navigator.mediaSession.setActionHandler('seekbackward', (event) => {
-          seek.value -= event.seekOffset || 10
-        })
-        navigator.mediaSession.setActionHandler('seekforward', (event) => {
-          seek.value += event.seekOffset || 10
-        })
-        navigator.mediaSession.setPositionState({
-          duration: currentTrackDuration.value,
-          playbackRate: playbackRate.value,
-          position: seek.value > currentTrackDuration.value ? 0 : seek.value
-        })
+      if (!res || res.code !== 200 || !res.data?.length) {
+        lyrics.value = []
+        return
       }
+
+      let data = res.data
+        .filter((l) => !/^作(词|曲)\s*(:|：)\s*无$/.exec(l.lyric.text))
+        .map((line) => {
+          if (line.end === 0 && line.start > line.end) {
+            line.end = Math.min(duration.value, line.start + 10)
+          }
+          return line
+        })
+      const includeAM =
+        data.length <= 10 && data.some((l) => ['纯音乐，请欣赏', '暂无歌词'].includes(l.lyric.text))
+      const reg = /^作(词|曲)\s*(:|：)\s*/
+      const artists = currentTrack.value!.artists
+      const author = artists[0]?.name
+      data = data.filter((l) => {
+        const regExpArr = l.lyric.text.match(reg)
+        return !regExpArr || l.lyric.text.replace(regExpArr[0], '') !== author
+      })
+      isEnd.value = false
+      lyricStore.isEnd = false
+      lyrics.value = data.length === 1 && includeAM ? [] : data
     }
 
-    const loadPersonalFMNextTrack = () => {
-      if (_personalFMLoading.value) {
-        return [false, { id: 0 }]
+    watch(currentTrack, async (value) => {
+      if (!value) return
+
+      chorus.value = 0
+      const nextPos = playing.value ? 0 : progress.value
+      engineStore.setPosition(nextPos)
+      progress.value = nextPos
+      lyricStore.updateIndex()
+      const plugin = value.pluginId
+
+      if (value.type !== 'library') {
+        await triggerTrackMatch(value)
       }
-      _personalFMLoading.value = true
-      return personalFM()
-        .then((result: any) => {
-          if (!result || !result.data) {
-            _personalFMNextTrack.value = { id: 0 }
-          } else {
-            _personalFMNextTrack.value = result.data[0]
-            // 缓存下一首歌，待处理
-          }
-          _personalFMLoading.value = false
-          return [true, _personalFMNextTrack.value]
-        })
-        .catch(() => {
-          _personalFMNextTrack.value = { id: 0 }
-          _personalFMLoading.value = false
-          return [false, _personalFMNextTrack.value]
-        })
-    }
 
-    const playNextFMTrack = async () => {
-      if (_personalFMLoading.value) return false
+      await Promise.all([
+        pluginMethodCall(plugin, 'resizePicUrl', { url: value.picUrl, size: 512 }).then(
+          (result) => {
+            pic.value = result.data
+          }
+        ),
+        fetchLyric()
+      ])
 
-      isPersonalFM.value = true
-      if (!_personalFMNextTrack.value) {
-        _personalFMLoading.value = true
-        let result: any = null
-        let retryCount = 5
-        for (; retryCount >= 0; retryCount--) {
-          result = await personalFM().catch(() => null)
-          if (!result) {
-            _personalFMLoading.value = false
-            showToast(t('player.getFMTimeout'))
-            return false
-          }
-          if (result.data?.length > 0) {
-            break
-          } else if (retryCount > 0) {
-            await delay(1000)
-          }
+      // 从数据库加载该歌曲的歌词偏移量
+      try {
+        const dbOffset = await window.mainApi?.invoke('get-lyric-offset', {
+          pluginId: value.pluginId,
+          trackId: String(value.id)
+        })
+        if (typeof dbOffset === 'number') {
+          lyricStore.offset = dbOffset
+        } else {
+          lyricStore.offset = 0
         }
-        _personalFMLoading.value = false
-        if (retryCount < 0) {
-          showToast(t('player.getFMOverCount'))
-          return false
-        }
-        _personalFMTrack.value = result.data[0]
+      } catch {
+        lyricStore.offset = 0
+      }
+
+      // if (settingsStore.general.showChorus) {
+      //   pluginMethodCall(plugin, 'songChorus', { ...value.sourceContext })
+      //     .then((res: any) => {
+      //       if (res.data?.length) {
+      //         chorus.value = res.data[0].startTime / 1000 - (lyricOffset.value || 0)
+      //       }
+      //     })
+      //     .catch(() => {})
+      // }
+
+      lyricStore.updateIndex()
+    })
+
+    watch(playing, (value) => {
+      progress.value = engineStore.getCurrentTime()
+      if (value) {
+        lyricStore.updateIndex()
+        playDiscordPresence(currentTrack.value!, engineStore.getCurrentTime())
       } else {
-        if (
-          _personalFMNextTrack.value &&
-          _personalFMNextTrack.value.id === _personalFMTrack.value.id
-        ) {
-          return false
-        }
-        _personalFMTrack.value = _personalFMNextTrack.value
-      }
-      if (isPersonalFM.value && _personalFMTrack.value) {
-        replaceCurrentTrack(_personalFMTrack.value.id)
-      }
-      loadPersonalFMNextTrack()
-      return true
-    }
-
-    const personalFMTrack = computed(() => _personalFMTrack.value)
-    const personalFMNextTrack = computed(() => _personalFMNextTrack.value)
-
-    const playPersonalFM = () => {
-      isPersonalFM.value = true
-      if (!enabled.value) enabled.value = true
-      if (currentTrack.value?.id !== _personalFMTrack.value.id) {
-        playlistSource.value.type = 'personalFM'
-        playlistSource.value.id = _personalFMTrack.value.id
-        replaceCurrentTrack(_personalFMTrack.value.id, true)
-      } else {
-        playOrPause()
-      }
-    }
-
-    const moveToFMTrash = async () => {
-      isPersonalFM.value = true
-      const id = _personalFMTrack.value.id
-      if (await playNextFMTrack()) {
-        fmTrash(id)
-      }
-    }
-
-    const clearPlayNextList = () => {
-      _playNextList.value = []
-    }
-
-    const smoothGain = async (to: number, duration: number) => {
-      if (!audioNodes.audioContext || !audioNodes.masterGain) return
-      const now = audioNodes.audioContext.currentTime
-      audioNodes.masterGain?.gain.cancelAndHoldAtTime(now)
-
-      if (audioNodes.audioContext.state === 'running') {
-        audioNodes.masterGain?.gain.linearRampToValueAtTime(to, now + duration)
-        await delay(duration * 1000)
-      } else {
-        audioNodes.masterGain?.gain.setValueAtTime(to, now)
-      }
-    }
-
-    const formatTime = (seconds: number) => {
-      const minutes = Math.floor(seconds / 60)
-      const remainingSeconds = seconds % 60
-      const formattedMinutes = minutes.toString().padStart(2, '0')
-      const formattedSeconds = remainingSeconds.toFixed(3).padStart(6, '0')
-      return `[${formattedMinutes}:${formattedSeconds}]`
-    }
-
-    if (typeof window !== 'undefined') {
-      window.vutronmusic = {
-        get progress() {
-          return audioNodes.audio?.currentTime || 0
-        },
-        get playing() {
-          return playing.value
-        },
-        get volume() {
-          return audioNodes.audio?.volume || 0
-        },
-        get currentTrack() {
-          return toRaw(currentTrack.value || {})
-        },
-        get isLiked() {
-          return isLiked.value
-        },
-        get repeatMode() {
-          return repeatMode.value
-        },
-        get lyric() {
-          const hasTLyric = lyrics.value.some((lrc) => lrc.tlyric && lrc.tlyric.text.trim() !== '')
-          const hasRLyric = lyrics.value.some((lrc) => lrc.rlyric && lrc.rlyric.text.trim() !== '')
-
-          const result = {
-            lrc: lyrics.value.map((lrc) => `${formatTime(lrc.start)}${lrc.lyric.text}`).join('\n'),
-            tlyric: hasTLyric
-              ? lyrics.value
-                  .filter((lrc) => lrc.tlyric)
-                  .map((lrc) => `${formatTime(lrc.start)}${lrc.tlyric?.text}`)
-                  .join('\n')
-              : '',
-            romalrc: hasRLyric
-              ? lyrics.value
-                  .filter((lrc) => lrc.rlyric)
-                  .map((lrc) => `${formatTime(lrc.start)}${lrc.rlyric?.text}`)
-                  .join('\n')
-              : ''
-          }
-          return result
-        }
-      }
-    }
-
-    onMounted(async () => {
-      await Promise.all([fetchLocalMusic(), fetchStreamMusic()])
-      await nextTick()
-      await setupAudioNode()
-      playing.value = false
-      title.value = 'VutronMusic'
-      handleIpcRenderer()
-      initMediaSession()
-      if (enabled.value) {
-        if (currentTrack.value?.type === 'stream') {
-          if (
-            !streamMusicStore.loginedServices.length ||
-            !streamMusicStore.loginedServices
-              .map((s) => s.name)
-              .includes(currentTrack.value.source as serviceName)
-          ) {
-            resetPlayer(false)
-            return
-          }
-        }
-        replaceCurrentTrack(currentTrack.value!.id, false).then(() => {
-          playDiscordPresence(currentTrack.value!, audioNodes.audio!.currentTime)
-          setTimeout(() => {
-            window.mainApi?.send('updatePlayerState', {
-              playing: playing.value,
-              progress: audioNodes.audio?.currentTime || 0,
-              isPersonalFM: isPersonalFM.value,
-              like: isLiked.value,
-              repeatMode: repeatMode.value,
-              shuffle: shuffle.value
-            })
-          })
-        })
-      }
-      if (
-        _personalFMTrack.value.id === 0 ||
-        _personalFMNextTrack.value.id === 0 ||
-        _personalFMTrack.value.id === _personalFMNextTrack.value.id
-      ) {
-        personalFM().then((result: any) => {
-          _personalFMTrack.value = result.data[0]
-          _personalFMNextTrack.value = result.data[1]
-        })
+        lyricStore.clearTimer()
+        pauseDiscordPresence(currentTrack.value!)
       }
     })
 
-    onBeforeUnmount(() => {
-      progress.value = audioNodes.audio?.currentTime || 0
-      if (pic.value.startsWith('blob:')) URL.revokeObjectURL(pic.value)
-      destroAudioNode()
+    function handleEventBus() {
+      eventBus.on('loadCurrentTrack', (params) => {
+        if (!currentTrack.value) return
+        showToast('正在重新获取播放链接')
+
+        const [autoPlay, currentTime] = params as [boolean, number]
+        const { pluginId, sourceContext } = currentTrack.value
+        replaceCurrentTrack(pluginId, sourceContext, false).then(() => {
+          seek.value = currentTime
+          engineStore.setPosition(currentTime)
+          if (autoPlay) {
+            playing.value = true
+            engineStore.play()
+          }
+        })
+      })
+      eventBus.on('playNext', (autoPlay) => {
+        showToast(`播放错误，正在切歌: ${currentTrack.value?.reason}`)
+        // 无参 emit（自然播放结束）时 autoPlay 为 undefined，兜底 true 自动播放
+        playNext(isPersonalFM.value, (autoPlay ?? true) as boolean)
+      })
+    }
+
+    // ─────────────────────────────────────────────
+    // 跨平台歌曲匹配（播放时触发 + 预匹配下一首）
+    // ─────────────────────────────────────────────
+
+    async function triggerTrackMatch(track: Track | undefined) {
+      if (!track) return Promise.resolve()
+      if (track.type === 'library') {
+        fetch(track.picUrl).catch(() => {})
+        return Promise.resolve()
+      }
+
+      const meta = {
+        trackId: String(track.id),
+        name: track.name,
+        album: track.album?.name,
+        artists: track.artists.map((a) => a.name),
+        duration: track.duration,
+        sourcePlugin: track.pluginId,
+        sourceType: track.type,
+        sourceContext: { ...track.sourceContext },
+        currentPlayingPath: currentTrack.value?.filePath ?? null
+      }
+
+      const result = await (window.mainApi?.invoke('trackMatch', meta) ?? Promise.resolve())
+      if (result?.picUrl) {
+        track.picUrl = result.picUrl
+        const song = pluginStore.tracks[track.pluginId].data.find(
+          (t) => String(t.id) === String(track.id)
+        )
+        if (song) song.picUrl = result.picUrl
+      }
+      fetch(track.picUrl).catch(() => {})
+      return result
+    }
+
+    let prefetchTimer: ReturnType<typeof setTimeout> | null = null
+
+    function scheduleNextTrackPrefetch() {
+      if (prefetchTimer) clearTimeout(prefetchTimer)
+
+      prefetchTimer = setTimeout(() => {
+        prefetchTimer = null
+
+        if (isPersonalFM.value) {
+          // FM 模式：队列中已是完整 Track，直接缓存 + 预热封面
+          const next = fmTracks.value[0]
+          if (!next) return
+          nextTrack.value = next
+          if (next.picUrl) {
+            fetch(next.picUrl).catch(() => {})
+          }
+          return
+        }
+
+        const nextInfo = _peekNextTrack()
+        if (!nextInfo) return
+
+        const [nextPlugin, nextSourceContext] = nextInfo
+
+        // 获取下一首的详细信息
+        pluginMethodCall(nextPlugin as PluginId, 'getTrackDetail', {
+          tracks: [nextSourceContext]
+        }).then((res) => {
+          if (!res.data?.[0]) return
+
+          const track = res.data[0] as Track
+
+          // 保存 nextTrack 缓存，供 replaceCurrentTrack 复用
+          nextTrack.value = {
+            ...track,
+            album: { ...track.album, pluginId: nextPlugin },
+            artists: track.artists.map((it) => ({ ...it, pluginId: nextPlugin })),
+            albumArtists: track.albumArtists.map((it) => ({ ...it, pluginId: nextPlugin })),
+            pluginId: nextPlugin
+          }
+
+          triggerTrackMatch(nextTrack.value)
+        })
+      }, 20000)
+    }
+
+    onMounted(() => {
+      engineStore
+        .setup({ onTimeUpdate: _handleTimeUpdate, onEnded: _nextTrackCallback })
+        .then(() => {
+          engineStore.applyVolume(volume.value)
+        })
+      lyricStore.setTimeGetter(engineStore.getCurrentTime)
+      lyricStore.setPlayingGetter(() => playing.value)
+      lyricStore.setRateGetter(() => playbackRate.value)
+      lyricStore.setTrackGetter(() => currentTrack.value)
+
+      handleEventBus()
+
+      // FM 启动预取：library 开启且队列为空时后台获取
+      if (pluginStore.enableLibrary && fmTracks.value.length === 0) {
+        refillFMTracks()
+      }
+
+      if (enabled.value && currentTrack.value) {
+        const { pluginId, sourceContext } = currentTrack.value
+        replaceCurrentTrack(pluginId, sourceContext, false).catch(() => {
+          playing.value = false
+          reportPlayback('start')
+        })
+      }
     })
 
     return {
+      // ── 来自 playback ──
       playing,
       enabled,
       progress,
       seek,
       pic,
       chorus,
-      backRate,
       playbackRate,
-      pitch,
       repeatMode,
       title,
-      shuffle,
-      lyricOffset,
+      isShuffle,
       volume,
       volumeBeforeMuted,
-      _list,
-      _shuffleList,
-      _shuffle,
-      _playNextList,
-      list,
-      currentTrack,
       isPersonalFM,
-      source,
+      currentTrack,
       currentTrackIndex,
-      currentIndex,
-      currentLyric,
-      currentTrackDuration,
-      outputDevice,
-      biquadParams,
-      biquadUser,
-      convolverParams,
+      duration,
       isLiked,
-      isLocalList,
-      lyrics,
-      noLyric,
-      personalFMTrack,
-      personalFMNextTrack,
+      source,
       playlistSource,
-      fadeDuration,
-      setConvolver,
+      playList,
+      shuffleList,
+      playNextList,
+      list,
+      personalFMTrack,
+      fmTracks,
+      hasListSource,
+      getListSourcePath,
+      isEnd,
+      setSeek,
+
       replacePlaylist,
-      playPrev,
-      _playNextTrack,
-      clearPlayNextList,
-      updateLocalID2OnlineID,
+      replaceCurrentTrack,
       playOrPause,
-      resetPlayer,
-      setDevice,
+      playPrev,
+      playNext,
       switchRepeatMode,
       addTrackToPlayNext,
+      clearPlayNextList,
       playPersonalFM,
-      playNextFMTrack,
-      moveToFMTrash
+      moveToFMTrash,
+      resetPlayer,
+
+      // ── 来自 lyric ──
+      lyrics,
+      currentIndex,
+      noLyric,
+      lyricOffset,
+
+      // ── 来自 engine ──
+      biquadParams: engineStore.biquadParams,
+      biquadUser: engineStore.biquadUser,
+      convolverParams: engineStore.convolverParams,
+      pitch,
+      outputDevice,
+      fadeDuration,
+      setConvolver,
+      setDevice,
+      setBalance
     }
   },
   {
     persist: {
-      omit: ['pic', 'title', 'outputDevice']
+      omit: ['pic', 'title', 'fmTracks']
     }
   }
 )

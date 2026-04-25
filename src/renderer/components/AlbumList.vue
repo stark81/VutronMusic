@@ -34,21 +34,23 @@
           :track-prop="item"
           :track-no="item.no || index + 1"
           :show-service="item.type === 'stream'"
-          type-prop="album"
+          type-prop="Album"
           :style="{ marginLeft: '20px' }"
           @dblclick="playThisList(item.id)"
         />
       </template>
       <template #footer>
-        <div
-          v-if="albums[selectedIdx]?.matched && albums[selectedIdx]?.id !== 0"
-          class="listen-more"
-        >
+        <!-- {{ albums[selectedIdx] }} -->
+        <div v-if="albums[selectedIdx]?.id !== 0" class="listen-more">
           <span
             >听听
-            <router-link :to="`/album/${albums[selectedIdx].id}`">{{
-              albums[selectedIdx].name
-            }}</router-link>
+            <router-link
+              v-for="plugin in plugins"
+              :key="plugin"
+              class="plugin-link"
+              :to="getAlbumLink(plugin)"
+              >{{ `${plugin} - ${albums[selectedIdx]?.name} ` }}
+            </router-link>
             的其他歌曲</span
           >
         </div>
@@ -63,9 +65,10 @@ import VirtualScroll from './VirtualScrollNoHeight.vue'
 import AlbumListItem from './AlbumListItem.vue'
 import TrackListItem from './TrackListItem.vue'
 import { usePlayerStore } from '../store/player'
+import { PluginId, Track } from '@/types/plugin'
 
 const props = defineProps<{
-  tracks: any[]
+  tracks: Track[]
 }>()
 
 // ====================    ref   ==================== //
@@ -86,12 +89,26 @@ const showTracks = computed(() => {
   return tracks.value.filter((track) => track.album.name === album.name).sort((a, b) => a.no - b.no)
 })
 
+const plugins = computed(() => [...new Set(showTracks.value.map((track) => track.pluginId))])
+
 // ==================== function ==================== //
-const playThisList = (id: number) => {
-  const IDs = showTracks.value.map((track) => track.id)
+const playThisList = (id: number | string) => {
+  const album = albums.value[selectedIdx.value]
+  const IDs = showTracks.value.map((track) => [track.pluginId, track.sourceContext]) as [
+    PluginId,
+    Record<string, any>
+  ][]
   const idx = showTracks.value.findIndex((item) => item.id === id)
-  const type = showTracks.value[0].type
-  replacePlaylist(type === 'local' ? 'localPlaylist' : 'streamPlaylist', 0, IDs, idx)
+  replacePlaylist(
+    { type: 'Album', plugin: album.pluginId, sourceContext: album.sourceContext },
+    IDs,
+    idx
+  )
+}
+
+const getAlbumLink = (code: PluginId) => {
+  const album = showTracks.value.find((item) => item.pluginId === code)?.album
+  return `/album/${code}/${JSON.stringify(album?.sourceContext || {})}`
 }
 
 const updatePadding = inject('updatePadding') as (padding: number) => void
@@ -128,6 +145,10 @@ onBeforeUnmount(() => {
     line-height: 40px;
     font-size: 14px;
     opacity: 0.75;
+
+    .plugin-link:not(:last-child)::after {
+      content: ', ';
+    }
   }
 }
 .album-item {

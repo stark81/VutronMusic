@@ -25,6 +25,7 @@ export enum CacheAPIs {
   loginStatus = 'login/status',
   recommendTracks = 'recommend/songs',
   CloudDisk = 'user/cloud',
+  PluginData = 'PluginData',
 
   // not netease api
   LocalMusic = 'local_music',

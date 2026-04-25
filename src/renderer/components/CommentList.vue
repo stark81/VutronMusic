@@ -1,25 +1,15 @@
 <template>
   <div v-if="show" class="comment-container">
     <div class="comment-head">
-      <label>评论({{ commentInfo.totalCount }})</label>
+      <label>[{{ pluginName }}]:评论({{ totalCount }})</label>
       <div class="btns">
         <button
+          v-for="tab in tabs"
+          :key="tab.name"
           class="btn"
-          :class="{ active: commentInfo.sortType === 1 }"
-          @click="handleClickSortType(1)"
-          >推荐</button
-        >
-        <button
-          class="btn"
-          :class="{ active: commentInfo.sortType === 2 }"
-          @click="handleClickSortType(2)"
-          >最热</button
-        >
-        <button
-          class="btn"
-          :class="{ active: commentInfo.sortType === 3 }"
-          @click="handleClickSortType(3)"
-          >最新</button
+          :class="{ active: sortType === tab.name }"
+          @click="handleClickSortType(tab.name)"
+          >{{ tab.name }}</button
         >
       </div>
     </div>
@@ -34,12 +24,12 @@
         :above-value="5"
         :below-value="5"
         :show-position="false"
-        :load-more="loadComment"
+        :load-more="() => loadComment(false)"
       >
         <template #default="{ item }">
           <div class="comment-item">
             <div class="avatar" @click="goToUser(item)">
-              <img :src="getImage(item.user.avatarUrl)" alt="" loading="lazy"
+              <img :src="item.user.avatarUrl" alt="" loading="lazy"
             /></div>
             <div class="comment-info">
               <div class="comment">
@@ -49,34 +39,37 @@
                 <label>{{ item.content }}</label>
               </div>
               <div
-                v-if="
-                  item.beReplied?.length &&
-                  item.beReplied[0].beRepliedCommentId !== item.parentCommentId
-                "
+                v-if="item.beReplied && item.beReplied.beRepliedCommentId !== item.parentCommentId"
                 class="comment-beReplied"
               >
-                <label v-if="item.beReplied[0].content" class="comment-nickname"
-                  >@{{ item.beReplied[0].user.nickname }}:
+                <label v-if="item.beReplied?.content" class="comment-nickname"
+                  >@{{ item.beReplied?.nickname }}:
                 </label>
-                <label>{{ item.beReplied[0].content ?? '该评论已删除' }}</label>
+                <label>{{ item.beReplied?.content ?? '该评论已删除' }}</label>
               </div>
               <div class="comment-ex">
                 <div class="time-ip">
                   <span class="time">{{ formatDate(item.time, 'YYYY年MM月DD日 H:mm') }}</span>
-                  <span v-if="item.ipLocation?.location">来自{{ item.ipLocation.location }}</span>
+                  <span v-if="item.ipLocation">来自{{ item.ipLocation }}</span>
                 </div>
                 <div class="comment-btns">
-                  <button v-if="isAccountLoggedIn && item.owner" @click="handleDeleteComment(item)"
+                  <button
+                    v-if="isAccountLoggedIn(commentCtx.mapPlugin) && item.owner"
+                    :disabled="!commentEnabled || !capableComment.submit"
+                    @click="handleDeleteComment(item)"
                     >删除</button
                   >
-                  <button @click="handleLikeComment(item)"
+                  <button
+                    :disabled="!commentEnabled || !capableComment.like"
+                    @click="handleLikeComment(item)"
                     ><svg-icon :icon-class="item.liked ? 'liked' : 'like'" />{{
                       item.likedCount
                     }}</button
                   >
                   <button
-                    v-show="!item.beReplied?.length"
-                    @click="switchCommentPage(item.commentId)"
+                    v-show="!item.beReplied"
+                    :disabled="!commentEnabled || !capableComment.floor"
+                    @click="switchCommentPage(item)"
                     ><svg-icon icon-class="floor-comment" />{{ item.replyCount }}</button
                   >
                 </div>
@@ -89,251 +82,256 @@
     <div class="write-comment">
       <WriteComment
         ref="commentSubmitRef"
-        placeholder="随乐而起，有感而发"
+        :disabled="!commentEnabled || !capableComment.submit"
+        :placeholder="commentEnabled ? '随乐而起，有感而发' : '该平台不支持此类型评论'"
         @keydown-enter="handleSubmitComment"
       />
     </div>
   </div>
 </template>
-
 <script setup lang="ts">
-import { ref, onMounted, reactive, inject, onBeforeUnmount, watch, nextTick } from 'vue'
-import { getComment, likeComment, submitComment } from '../api/comment'
+import { ref, computed, onMounted, inject, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useNormalStateStore } from '../store/state'
 import VirtualScroll from './VirtualScrollNoHeight.vue'
 import WriteComment from './WriteComment.vue'
 import SvgIcon from './SvgIcon.vue'
 import { useI18n } from 'vue-i18n'
 import { formatDate } from '../utils'
-import { isAccountLoggedIn } from '../utils/auth'
-import { useRouter } from 'vue-router'
-import { storeToRefs } from 'pinia'
 import { debounce } from 'lodash'
-
-const props = defineProps({
-  id: {
-    type: Number,
-    required: true
-  },
-  type: {
-    type: String,
-    default: 'music'
-  },
-  paddingRight: {
-    type: String,
-    default: '4vh'
-  }
-})
-
-const currentPage = inject('currentPage', ref('comment'))
-const beRepliedCommentId = inject('beRepliedCommentId', ref(0))
-const show = ref(false)
-const comments = ref<any[]>([])
-const mainRef = ref<HTMLElement>()
-const commentSubmitRef = ref()
-const router = useRouter()
-const commentInfo = reactive({
-  totalCount: 0,
-  sortType: 1,
-  paramType: 1,
-  pageNo: 1,
-  hasMore: true,
-  cursor: 0,
-  pageSize: 50
-})
-
-const commentHeight = ref(mainRef.value?.offsetHeight || 0)
-
-const typeMap = {
-  music: 0,
-  mv: 1,
-  playlist: 2,
-  album: 3,
-  djRadio: 4,
-  video: 5
+import { usePluginMusic } from '../store/pluginMusic'
+import { PluginId, CommentType, CommentTab } from '@/types/plugin'
+import { CommentContentType } from '@/types/schemas'
+interface Props {
+  commentCtx: { rawCtx: Record<string, any>; mapCtx: Record<string, any>; mapPlugin: PluginId }
+  type: CommentContentType
+  plugin: PluginId
+  paddingRight?: string
 }
+const props = withDefaults(defineProps<Props>(), {
+  type: 'track',
+  paddingRight: '4vh'
+})
+const currentPage = inject('currentPage', ref('comment'))
+const selectedComment = inject('selectedComment', ref<CommentType | null>(null))
+const show = ref(false)
+const mainRef = ref<HTMLElement>()
+const commentSubmitRef = ref<InstanceType<typeof WriteComment>>()
+const totalCount = ref(0)
+const sortType = ref('')
+const loadedTabPlugin = ref(props.commentCtx.mapPlugin)
+const comments = ref<CommentType[]>([])
+const tabs = ref<CommentTab[]>([])
+const commentHeight = ref(mainRef.value?.offsetHeight || 0)
+const hasMore = ref(true)
+const pluginStore = usePluginMusic()
+const { isAccountLoggedIn } = pluginStore
+const commentCtx = props.commentCtx
 
-watch(
-  () => props.id,
-  () => {
-    if (props.type === 'music') {
-      commentInfo.totalCount = 0
-      commentInfo.sortType = 1
-      commentInfo.paramType = 1
-      commentInfo.pageNo = 1
-      commentInfo.hasMore = true
-      commentInfo.cursor = 0
-      commentInfo.pageSize = 50
-      comments.value = []
-      loadComment()
+const capabilities = computed(() => {
+  return pluginStore.services.find((s) => s.code === commentCtx.mapPlugin)?.capabilities
+})
+const commentEnabled = computed(() => {
+  return capabilities.value?.comment?.types?.includes(props.type) ?? false
+})
+const capableComment = computed(() => {
+  return capabilities.value?.comment ?? {}
+})
+const pluginName = computed(() => {
+  return pluginStore.services.find((s) => s.code === commentCtx.mapPlugin)?.name || ''
+})
+
+window.mainApi
+  ?.invoke('plugin-comment', {
+    pluginId: props.plugin,
+    sourceContext: {
+      rawCtx: JSON.parse(JSON.stringify(commentCtx.rawCtx)),
+      mapCtx: JSON.parse(JSON.stringify(commentCtx.mapCtx)),
+      mapPlugin: commentCtx.mapPlugin,
+      sortType: sortType.value,
+      type: props.type
+    },
+    method: 'getCommentTab',
+    extraParams: {}
+  })
+  .then((result) => {
+    if (result) {
+      tabs.value = result.data || []
+      if (tabs.value.length) sortType.value = tabs.value[0].name
     }
-  }
-)
-
+  })
+// sourceContext 变化的监听已提升到 CommentPage 层
 const { t } = useI18n()
 const stateStore = useNormalStateStore()
-const { showLyrics } = storeToRefs(stateStore)
-const { showToast } = stateStore
-
-const getImage = (url: string) => {
-  if (url.startsWith('http:')) {
-    url = url.replace('http:', 'https:')
-  }
-  return url + '?param=64y64'
-}
-
+// const { showLyrics } = storeToRefs(stateStore)
+const { showToast, showConfirm } = stateStore
 const updateWindowHeight = () => {
   if (!mainRef.value) return
   commentHeight.value = mainRef.value?.offsetHeight || commentHeight.value
 }
-
-const handleClickSortType = (type: number) => {
-  commentInfo.sortType = type
-  commentInfo.paramType = type
-  commentInfo.pageNo = 1
-  commentInfo.hasMore = true
-  commentInfo.totalCount = 0
-  commentInfo.cursor = 0
+const handleClickSortType = (type: string) => {
+  sortType.value = type
+  totalCount.value = 0
   comments.value = []
+  hasMore.value = true
   loadComment()
 }
+const loadComment = (reset = true) => {
+  if (reset) {
+    comments.value = []
+    hasMore.value = true
+  }
+  if (!hasMore.value && !reset) return
 
-/**
- * 加载评论。逻辑为：
- * 1. 先加载推荐评论，但推荐评论一般只有一页，所以之后需要自动切换到加载最新评论
- * 2. 加载最新评论时，评论列表为之前的推荐+最新评论，所以评论列表数量比评论总数要更多
- * 3. 网易评论返回的数据问题很大，要么是hasMore为true但实际没有更多数据，要么是hasMore为false但实际还有更多数据, 要么会出现评论数量和总数不一致的问题，所以处理有些复杂，本项目里暂时按评论数量大于总数 或者 评论数量和总数之间的差值小于3视为加载完毕
- */
-const loadComment = () => {
-  if (
-    !commentInfo.hasMore &&
-    (comments.value.length >= commentInfo.totalCount ||
-      Math.abs(comments.value.length - commentInfo.totalCount) < 3)
-  ) {
-    return
-  }
-  const params = {
-    id: props.id,
-    type: typeMap[props.type],
-    sortType: commentInfo.paramType,
-    pageNo: commentInfo.pageNo,
-    pageSize: commentInfo.pageSize
-  }
-  if (!commentInfo.hasMore && commentInfo.sortType === 1 && commentInfo.paramType === 1) {
-    commentInfo.paramType = 3
-    params.sortType = 3
-    commentInfo.pageNo = 1
-    params.pageNo = 1
-  }
+  // const mapCtx =
+  //   pluginType.value === 'library'
+  //     ? JSON.parse(JSON.stringify(commentCtx.rawCtx))
+  //     : JSON.parse(JSON.stringify(commentCtx.mapCtx))
 
-  if (params.sortType === 3 && params.pageNo > 1) {
-    // @ts-ignore
-    params.cursor = commentInfo.cursor
-  }
-  getComment(params).then((res) => {
-    if (res.code === 200) {
-      commentInfo.totalCount = res.data.totalCount || commentInfo.totalCount
-      commentInfo.hasMore = res.data.hasMore
-      commentInfo.pageNo++
-      commentInfo.cursor = res.data.cursor
-      comments.value.push(...res.data.comments)
-    }
-    show.value = true
-    nextTick(() => {
-      commentHeight.value = mainRef.value?.offsetHeight || commentHeight.value
+  window.mainApi
+    ?.invoke('plugin-comment', {
+      pluginId: props.plugin,
+      sourceContext: {
+        rawCtx: JSON.parse(JSON.stringify(commentCtx.rawCtx)),
+        mapCtx: JSON.parse(JSON.stringify(commentCtx.mapCtx)),
+        mapPlugin: commentCtx.mapPlugin,
+        reset,
+        type: props.type
+      },
+      method: 'getComments',
+      extraParams: { sortType: sortType.value }
     })
-  })
+    .then((result) => {
+      if (!result || result.code !== 200 || !result.data.length) {
+        show.value = true
+        return
+      }
+      comments.value.push(...result.data)
+      totalCount.value = result.count
+      hasMore.value = result.hasMore !== false
+      show.value = true
+      if (result.mapPlugin) commentCtx.mapPlugin = result.mapPlugin
+      if (result.mapCtx) commentCtx.mapCtx = result.mapCtx
+      if (result.mapPlugin && result.mapPlugin !== loadedTabPlugin.value) {
+        loadedTabPlugin.value = result.mapPlugin
+        window.mainApi
+          ?.invoke('plugin-comment', {
+            pluginId: props.plugin,
+            sourceContext: {
+              rawCtx: JSON.parse(JSON.stringify(commentCtx.rawCtx)),
+              mapCtx: JSON.parse(JSON.stringify(commentCtx.mapCtx)),
+              mapPlugin: commentCtx.mapPlugin,
+              type: props.type
+            },
+            method: 'getCommentTab',
+            extraParams: {}
+          })
+          .then((tabRes) => {
+            if (tabRes) {
+              tabs.value = tabRes.data || []
+              if (tabs.value.length && !sortType.value) sortType.value = tabs.value[0].name
+            }
+          })
+      }
+      nextTick(() => {
+        commentHeight.value = mainRef.value?.offsetHeight || commentHeight.value
+      })
+    })
+}
+const goToUser: (item: any) => void = () => {
+  // router.push(`/user/${item.user.userId}`)
+  // showLyrics.value = false
 }
 
-const goToUser = (item: any) => {
-  router.push(`/user/${item.user.userId}`)
-  showLyrics.value = false
-}
-
-const switchCommentPage = (pid: number) => {
-  beRepliedCommentId.value = pid
+const switchCommentPage = (item: CommentType) => {
+  selectedComment.value = item
   currentPage.value = 'floorComment'
 }
-
-const handleDeleteComment = (comment: any) => {
-  if (!isAccountLoggedIn()) {
-    showToast(t('toast.needToLogin'))
+const handleDeleteComment = async (comment: CommentType) => {
+  if (!isAccountLoggedIn(commentCtx.mapPlugin)) {
+    showToast(t('toast.needToLogin', { serviceName: pluginName.value }))
     return
   }
-  if (confirm(`确定要删除评论'${comment.content}'吗？`)) {
-    const params = {
-      t: 0,
-      type: typeMap[props.type],
-      id: props.id,
-      commentId: comment.commentId
-    }
-    submitComment(params).then((res) => {
-      if (res.code === 200) {
-        comments.value = comments.value.filter((item) => item !== comment)
-        commentInfo.totalCount -= 1
-      } else {
-        showToast(`${res.message}，${res.data?.dialog?.subtitle}`)
-      }
-    })
+  if (await showConfirm(`确定要删除评论'${comment.content}'吗？`)) {
+    window.mainApi
+      ?.invoke('plugin-comment', {
+        pluginId: props.plugin,
+        sourceContext: {
+          rawCtx: JSON.parse(JSON.stringify(commentCtx.rawCtx)),
+          mapCtx: JSON.parse(JSON.stringify(commentCtx.mapCtx)),
+          mapPlugin: commentCtx.mapPlugin,
+          type: props.type
+        },
+        method: 'submitAComment',
+        extraParams: { type: props.type, t: 'del', commentId: comment.id }
+      })
+      .then((result) => {
+        if (result.code === 200) {
+          comments.value = comments.value.filter((item) => item !== comment)
+          totalCount.value -= 1
+        }
+      })
   }
 }
-
-const handleLikeComment = (comment: any) => {
-  if (!isAccountLoggedIn()) {
-    showToast(t('toast.needToLogin'))
+const handleLikeComment = (comment: CommentType) => {
+  if (!isAccountLoggedIn(commentCtx.mapPlugin)) {
+    showToast(t('toast.needToLogin', { serviceName: pluginName.value }))
     return
   }
-  likeComment({
-    id: props.id,
-    cid: comment.commentId,
-    t: comment.liked ? 0 : 1,
-    type: typeMap[props.type]
-  })
-    .then((res) => {
-      if (res.code === 200) {
+  window.mainApi
+    ?.invoke('plugin-comment', {
+      pluginId: props.plugin,
+      sourceContext: {
+        rawCtx: JSON.parse(JSON.stringify(commentCtx.rawCtx)),
+        mapCtx: JSON.parse(JSON.stringify(commentCtx.mapCtx)),
+        mapPlugin: commentCtx.mapPlugin,
+        type: props.type
+      },
+      method: 'likeAComment',
+      extraParams: {
+        commentInfo: JSON.parse(JSON.stringify(comment.sourceContext || {})),
+        currentStatus: comment.liked,
+        type: props.type
+      }
+    })
+    .then((result) => {
+      if (result.code === 200) {
         comment.likedCount += comment.liked ? -1 : 1
         comment.liked = !comment.liked
       } else {
-        showToast(res.msg + res?.data?.dialog?.subtitle)
+        showToast('操作失败')
       }
-    })
-    .catch((err) => {
-      showToast(err)
     })
 }
-
 const handleSubmitComment = () => {
-  if (!isAccountLoggedIn()) {
-    showToast(t('toast.needToLogin'))
+  if (!isAccountLoggedIn(commentCtx.mapPlugin)) {
+    showToast(t('toast.needToLogin', { serviceName: pluginName.value }))
     return
   }
-  const params = {
-    t: 1,
-    type: typeMap[props.type],
-    id: props.id,
-    content: commentSubmitRef.value.comment
-  }
-  submitComment(params)
-    .then((res) => {
-      if (res.code === 200) {
-        const comment = res.comment
-        comment.liked = false
-        comment.likedCount = 0
-        comment.replyCount = 0
-        comments.value.unshift(comment)
-        commentInfo.totalCount += 1
+  window.mainApi
+    ?.invoke('plugin-comment', {
+      pluginId: props.plugin,
+      sourceContext: {
+        rawCtx: JSON.parse(JSON.stringify(commentCtx.rawCtx)),
+        mapCtx: JSON.parse(JSON.stringify(commentCtx.mapCtx)),
+        mapPlugin: commentCtx.mapPlugin,
+        type: props.type
+      },
+      method: 'submitAComment',
+      extraParams: { type: props.type, t: 'sub', comment: commentSubmitRef.value?.comment || '' }
+    })
+    .then((result) => {
+      if (result.code === 200) {
+        comments.value.unshift(result.data!)
+        totalCount.value += 1
       } else {
-        showToast(`${res.message}，${res.data?.dialog?.subtitle}`)
+        showToast('操作失败')
       }
     })
-    .catch((error) => {
-      showToast(error)
-    })
     .finally(() => {
+      if (!commentSubmitRef.value) return
       commentSubmitRef.value.comment = ''
     })
 }
-
 onMounted(() => {
   window.addEventListener(
     'resize',
@@ -341,7 +339,17 @@ onMounted(() => {
   )
   loadComment()
 })
-
+watch(
+  () => props.commentCtx.rawCtx,
+  (newRaw, oldRaw) => {
+    if (JSON.stringify(newRaw) === JSON.stringify(oldRaw)) return
+    totalCount.value = 0
+    hasMore.value = true
+    sortType.value = ''
+    loadComment()
+  },
+  { deep: true }
+)
 onBeforeUnmount(() => {
   window.removeEventListener(
     'resize',
@@ -349,7 +357,6 @@ onBeforeUnmount(() => {
   )
 })
 </script>
-
 <style scoped lang="scss">
 .comment-container {
   height: 100%;
@@ -359,7 +366,6 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
   transition: all 0.5s;
 }
-
 .comment-head {
   display: flex;
   font-size: 16px;
@@ -371,7 +377,6 @@ onBeforeUnmount(() => {
   -ms-user-select: none;
   user-select: none;
   box-sizing: border-box;
-
   .btns {
     display: flex;
     text-align: center;
@@ -390,18 +395,15 @@ onBeforeUnmount(() => {
     }
   }
 }
-
 .comment-main {
   width: 100%;
   height: calc(100% - 108px);
   box-sizing: border-box;
 }
-
 .comment-item {
   display: flex;
   width: 100%;
   padding-bottom: 4px;
-
   .avatar {
     cursor: pointer;
   }
@@ -422,12 +424,12 @@ onBeforeUnmount(() => {
 .comment-info {
   display: flex;
   flex-direction: column;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
 }
 .comment {
-  // width: auto;
   word-break: break-all;
-
+  overflow-wrap: anywhere;
   .comment-nickname {
     cursor: pointer;
     font-weight: 600;
@@ -439,7 +441,6 @@ onBeforeUnmount(() => {
   padding: 6px 10px;
   border-radius: 6px;
   background-color: rgba(0, 0, 0, 0.1);
-
   .comment-nickname {
     font-weight: 600;
   }
@@ -454,7 +455,6 @@ onBeforeUnmount(() => {
   text-align: center;
   justify-content: center;
   justify-content: space-between;
-
   .time-ip .time {
     margin-right: 6px;
   }
@@ -465,10 +465,14 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     color: var(--color-text);
-
     svg {
       margin-right: 2px;
     }
+  }
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
   }
 }
 .write-comment {

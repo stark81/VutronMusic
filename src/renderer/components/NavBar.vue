@@ -13,29 +13,32 @@
         </button-icon>
       </div>
       <div v-if="route.name === 'search'" class="search-tabs">
-        <div :class="{ active: searchTab === 'track' }" class="item" @click="searchTab = 'track'">{{
-          $t('nav.track')
-        }}</div>
-        <div :class="{ active: searchTab === 'album' }" class="item" @click="searchTab = 'album'">{{
-          $t('nav.album')
-        }}</div>
         <div
-          :class="{ active: searchTab === 'artist' }"
+          :class="{ active: searchTab === 'tracks' }"
           class="item"
-          @click="searchTab = 'artist'"
+          @click="searchTab = 'tracks'"
+          >{{ $t('nav.track') }}</div
+        >
+        <div
+          :class="{ active: searchTab === 'albums' }"
+          class="item"
+          @click="searchTab = 'albums'"
+          >{{ $t('nav.album') }}</div
+        >
+        <div
+          :class="{ active: searchTab === 'artists' }"
+          class="item"
+          @click="searchTab = 'artists'"
           >{{ $t('nav.artist') }}</div
         >
         <div
-          :class="{ active: searchTab === 'playlist' }"
+          :class="{ active: searchTab === 'playlists' }"
           class="item"
-          @click="searchTab = 'playlist'"
+          @click="searchTab = 'playlists'"
           >{{ $t('nav.playlist') }}</div
         >
-        <div :class="{ active: searchTab === 'user' }" class="item" @click="searchTab = 'user'">{{
-          $t('nav.user')
-        }}</div>
-        <div :class="{ active: searchTab === 'lyric' }" class="item" @click="searchTab = 'lyric'">{{
-          $t('nav.lyric')
+        <div :class="{ active: searchTab === 'mvs' }" class="item" @click="searchTab = 'mvs'">{{
+          $t('nav.mv')
         }}</div>
       </div>
       <div v-if="route.name === 'explore'" class="search-tabs">
@@ -68,7 +71,12 @@
         >
       </div>
       <div class="right-part">
-        <SearchBox ref="searchBoxRef" :clear-keywords="true" @keydown-enter="doSearch($event)" />
+        <SearchBox
+          ref="searchBoxRef"
+          :services="general.searchOrder"
+          :clear-keywords="true"
+          @keydown-enter="doSearch"
+        />
         <img class="avatar" :src="avatarUrl" loading="lazy" @click="showUserProfileMenu" />
       </div>
     </nav>
@@ -102,25 +110,37 @@ import ContextMenu from './ContextMenu.vue'
 import LinuxTitleBar from './LinuxTitleBar.vue'
 import Win32TitleBar from './Win32TitleBar.vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useDataStore } from '../store/data'
 import { useNormalStateStore } from '../store/state'
 import { useSettingsStore } from '../store/settings'
+import { usePluginMusic } from '../store/pluginMusic'
 import { storeToRefs } from 'pinia'
-import { doLogout } from '../utils/auth'
 import { openExternal } from '../utils'
+import { PluginId } from '@/types/schemas'
+import { ExploreTab } from '@/types/plugin.js'
 
 const { searchTab, exploreTab } = storeToRefs(useNormalStateStore())
 const { general } = storeToRefs(useSettingsStore())
 const { useCustomTitlebar } = toRefs(general.value)
 
+const pluginStore = usePluginMusic()
+const { services, users } = toRefs(pluginStore)
+const { pluginMethodCall, handleStatusChange } = pluginStore
+
 const router = useRouter()
 const route = useRoute()
 
-const searchBoxRef = ref()
+const searchBoxRef = ref<InstanceType<typeof SearchBox>>()
 const keywords = ref('')
 const useCustomBar = ref(false)
 
-const isLooseLoggedIn = computed(() => data.user.value.userId !== null)
+const activeUser = computed(() => {
+  const active = services.value.find((item) => item.active)
+  return active ? users.value[active.code] : null
+})
+
+const isLooseLoggedIn = computed(() => {
+  return activeUser.value ? !!activeUser.value.userId : false
+})
 const isLinux = computed(() => window.env?.isLinux || false)
 const isWin = computed(() => window.env?.isWindows)
 const navStyle = computed(() => {
@@ -132,7 +152,9 @@ const navStyle = computed(() => {
 defineExpose({ searchBoxRef })
 
 const toLogin = (): void => {
-  handleRoute('/login/account')
+  const active = services.value.find((item) => item.active)
+  if (!active) return
+  router.push(`/login/${active.code}/QrCode`)
 }
 
 const toGitHub = (): void => {
@@ -143,31 +165,27 @@ const openLogFile = () => {
   window.mainApi?.send('openLogFile')
 }
 
-const handleRoute = (path: string): void => {
-  router.push(path)
-}
-
-const categoryMap = {
-  chart: '排行榜',
-  artist: '歌手'
-}
-
-const toExplore = (Category: string) => {
+const toExplore = (Category: ExploreTab) => {
   exploreTab.value = Category
-  const cat = ['chart', 'artist'].includes(Category) ? categoryMap[Category] : '全部'
-  router.push({ name: 'explore', query: { category: cat, tab: Category } })
 }
 
-const logout = () => {
-  if (!confirm('确定要退出登录吗？')) return
-  doLogout()
-  router.push({ name: 'HomePage' })
-}
+const logout = async () => {
+  const { showConfirm } = useNormalStateStore()
+  if (!(await showConfirm('确定要退出登录吗？'))) return
 
-const data = storeToRefs(useDataStore())
+  const plugin = services.value.find((item) => item.active)!
+
+  if (await showConfirm(`确定登出${plugin.name}吗？`)) {
+    pluginMethodCall(plugin.code, 'doLogout').then(({ code }) => {
+      if (code === 200) {
+        handleStatusChange(plugin.code, 'logout')
+      }
+    })
+  }
+}
 
 const avatarUrl = computed(() => {
-  return `${data.user.value.avatarUrl}`
+  return `${activeUser.value?.avatarUrl || 'https://s4.music.126.net/style/web2/img/default/default_avatar.jpg?param=60y60'}`
 })
 
 const userProfileMenu = ref<InstanceType<typeof ContextMenu>>()
@@ -176,12 +194,14 @@ const showUserProfileMenu = (e: MouseEvent): void => {
   userProfileMenu.value?.openMenu(e)
 }
 
-const doSearch = (keyword: string, tab: string | null = null) => {
+const doSearch = (keyword: string, plugin: PluginId) => {
   keywords.value = keyword
   if (!keyword) return
+  // 持久化最后选择的搜索插件
+  general.value.searchPlugin = plugin
   router.push({
     name: 'search',
-    query: { keywords: keyword }
+    query: { keywords: keyword, plugin }
   })
 }
 
@@ -214,7 +234,6 @@ nav.has-custom-titlebar {
 }
 
 .navigation-buttons {
-  flex: 0.8;
   display: flex;
   align-items: center;
   .svg-icon {
@@ -228,13 +247,11 @@ nav.has-custom-titlebar {
 
 .search-tabs {
   display: flex;
-  flex: 2;
   justify-content: center;
   align-items: center;
+  gap: 40px;
   .item {
-    padding: 8px 14px;
     cursor: pointer;
-    margin: 0 10px;
     border-radius: 8px;
     font-size: 18px;
     font-weight: 600;
@@ -249,7 +266,6 @@ nav.has-custom-titlebar {
 }
 
 .right-part {
-  flex: 1;
   display: flex;
   align-items: center;
   justify-content: flex-end;

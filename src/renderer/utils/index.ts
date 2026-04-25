@@ -2,11 +2,6 @@ import { useI18n } from 'vue-i18n'
 import dayjs from 'dayjs'
 import duration from 'dayjs/plugin/duration'
 import relativeTime from 'dayjs/plugin/relativeTime'
-import { useDataStore } from '../store/data'
-import { storeToRefs } from 'pinia'
-import { isAccountLoggedIn } from './auth'
-import { refreshCookie } from '../api/auth'
-import { dailySignin } from '../api/user'
 
 export default class Utils {
   static getCurrentLocale(): string {
@@ -131,26 +126,6 @@ export default class Utils {
     }
   }
 
-  static dailyTask() {
-    const { lastRefreshCookieDate } = storeToRefs(useDataStore())
-    if (
-      isAccountLoggedIn() &&
-      (lastRefreshCookieDate.value === undefined || lastRefreshCookieDate.value !== dayjs().date())
-    ) {
-      refreshCookie().then(() => {
-        console.debug('[debug][common.js] 刷新cookie')
-        lastRefreshCookieDate.value = dayjs().date()
-      })
-      dailySignin(0).catch((e) => {
-        console.debug(`[debug][common.js] 手机端重复签到: ${e}`)
-      })
-      dailySignin(1).catch((e) => {
-        console.debug(`[debug][common.js] PC端重复签到: ${e}`)
-      })
-      lastRefreshCookieDate.value = dayjs().date()
-    }
-  }
-
   static extractExpirationFromUrl(url: string): Date | null {
     try {
       // 匹配任何位置的 14 位连续数字（被斜杠包围）
@@ -222,7 +197,6 @@ export const {
   formatDate,
   formatAlbumType,
   formatPlayCount,
-  dailyTask,
   extractExpirationFromUrl,
   pickedLyric
 } = Utils
