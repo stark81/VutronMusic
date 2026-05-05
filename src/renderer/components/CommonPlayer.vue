@@ -128,7 +128,8 @@
           </div>
           <div class="progress-bar">
             <div class="time"
-              ><button-icon> <svg-icon icon-class="volume-half" /></button-icon
+              ><button-icon @click.stop="toggleMute">
+                <svg-icon icon-class="volume-half" /></button-icon
             ></div>
             <div class="slider">
               <VueSlider
@@ -222,7 +223,7 @@ const {
   hasListSource,
   getListSourcePath
 } = storeToRefs(playerStore)
-const { playPrev, playOrPause, playNext, switchRepeatMode, moveToFMTrash } = playerStore
+const { playPrev, playOrPause, playNext, switchRepeatMode, moveToFMTrash, toggleMute } = playerStore
 
 const playerTheme = usePlayerThemeStore()
 const { activeTheme, senses } = storeToRefs(playerTheme)

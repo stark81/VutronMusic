@@ -750,6 +750,15 @@ export const usePlayerStore = defineStore(
       lyrics.value = data.length === 1 && includeAM ? [] : data
     }
 
+    const toggleMute = () => {
+      if (volume.value === 0) {
+        volume.value = volumeBeforeMuted.value || 1
+      } else {
+        volumeBeforeMuted.value = volume.value
+        volume.value = 0
+      }
+    }
+
     watch(currentTrack, async (value) => {
       if (!value) return
 
@@ -986,6 +995,7 @@ export const usePlayerStore = defineStore(
       playPersonalFM,
       moveToFMTrash,
       resetPlayer,
+      toggleMute,
 
       // ── 来自 lyric ──
       lyrics,
