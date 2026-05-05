@@ -1390,6 +1390,15 @@ export const usePlayerStore = defineStore(
       }
     }
 
+    const toggleMute = () => {
+      if (volume.value === 0) {
+        volume.value = volumeBeforeMuted.value || 1
+      } else {
+        volumeBeforeMuted.value = volume.value
+        volume.value = 0
+      }
+    }
+
     const handleIpcRenderer = () => {
       window.addEventListener('message', (event) => {
         if (event.data.type === 'init-from-osd') {
@@ -1775,6 +1784,7 @@ export const usePlayerStore = defineStore(
       lyricOffset,
       volume,
       volumeBeforeMuted,
+      toggleMute,
       _list,
       _shuffleList,
       _shuffle,

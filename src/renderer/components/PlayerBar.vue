@@ -111,7 +111,7 @@
           @click.stop="shuffle = !shuffle"
           ><svg-icon icon-class="shuffle"
         /></button-icon>
-        <div class="volume" @wheel="updateVolume">
+        <div class="volume" :class="{ 'is-dragging': isDragging }" @wheel="updateVolume">
           <div class="volume-slider" @click.stop>
             <slider-vue
               v-model="volume"
@@ -119,22 +119,35 @@
               :max="1"
               :interval="0.01"
               direction="btt"
-              :use-keyboard="true"
-              :drag-on-click="false"
               :tooltip-formatter="formatVolume"
               :tooltip-style="{
                 backgroundColor: 'var(--color-primary)',
                 borderColor: 'var(--color-primary)'
               }"
-              :rail-style="{ backgroundColor: 'rgba(128, 128, 128, 0.18)' }"
-              :process-style="{ background: 'var(--color-primary)' }"
+              :rail-style="{
+                width: '4px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                borderRadius: '2px',
+                backgroundColor: 'rgba(128, 128, 128, 0.18)'
+              }"
+              :process-style="{
+                width: '4px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                borderRadius: '2px',
+                background: 'var(--color-primary)'
+              }"
               :dot-style="{ display: 'none' }"
+              :width="24"
               :height="130"
               :dot-size="12"
               :silent="true"
+              @drag-start="isDragging = true"
+              @drag-end="isDragging = false"
             ></slider-vue>
           </div>
-          <button-icon
+          <button-icon @click="toggleMute"
             ><svg-icon v-show="volume > 0.5" icon-class="volume" />
             <svg-icon v-show="volume === 0" icon-class="volume-mute" />
             <svg-icon v-show="volume <= 0.5 && volume !== 0" icon-class="volume-half"
@@ -172,7 +185,8 @@ const router = useRouter()
 const route = useRoute()
 
 const playerStore = usePlayerStore()
-const { _playNextTrack, moveToFMTrash, playPrev, playOrPause, switchRepeatMode } = playerStore
+const { _playNextTrack, moveToFMTrash, playPrev, playOrPause, switchRepeatMode, toggleMute } =
+  playerStore
 const {
   currentTrackDuration,
   currentTrack,
@@ -192,6 +206,8 @@ const {
 const playerBarRef = ref()
 const hoverX = ref('0')
 const hoverText = ref('')
+
+const isDragging = ref(false)
 
 const osdLyric = useOsdLyricStore()
 const { show } = storeToRefs(osdLyric)
@@ -451,6 +467,7 @@ watch(showLyrics, (value) => {
       position: relative;
       .volume-slider {
         display: none;
+        width: 36px;
         height: 130px;
         position: absolute;
         border-radius: 6px;
@@ -460,10 +477,11 @@ watch(showLyrics, (value) => {
         background-color: var(--color-secondary-bg);
         z-index: 10;
         font-size: 10px;
-        padding: 12px 10px;
+        padding: 12px 0;
         box-sizing: content-box;
       }
-      &:hover .volume-slider {
+      &:hover .volume-slider,
+      &.is-dragging .volume-slider {
         display: block;
       }
     }
