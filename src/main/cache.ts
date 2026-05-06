@@ -10,118 +10,123 @@ class Cache {
   async set(api: string, data: any, query: any = {}) {
     switch (api) {
       case CacheAPIs.LocalMusic: {
-        const { newTracks } = data
-        const tracks = newTracks.map((t: any) => ({
-          id: t.id,
-          type: t.type,
-          json: JSON.stringify(t),
-          updatedAt: Date.now()
-        }))
-        db.upsertMany(Tables.Track, tracks)
+        // const { newTracks } = data
+        // const tracks = newTracks.map((t: any) => ({
+        //   id: t.id,
+        //   type: t.type,
+        //   json: JSON.stringify(t),
+        //   updatedAt: Date.now()
+        // }))
+        // db.upsertMany(Tables.Track, tracks)
         break
       }
       case CacheAPIs.searchMatch: {
-        if (!data.result.songs.length) return
-        const trackRaw = db.find(Tables.Track, query.localID)!
-        const track = JSON.parse(trackRaw.json)
+        // if (!data.result.songs.length) return
+        // const trackRaw = db.find(Tables.Track, query.localID)!
+        // const track = JSON.parse(trackRaw.json)
 
-        const playlistsRaw = db.findAll(Tables.Playlist, `isLocal = 1`)
-        const playlists = playlistsRaw.map((t: any) => JSON.parse(t.json))
+        // const playlistsRaw = db.findAll(Tables.Playlist, `isLocal = 1`)
+        // const playlists = playlistsRaw.map((t: any) => JSON.parse(t.json))
 
-        const newTrack = data.result.songs[0]
-        playlists.forEach((p: any) => {
-          if (p.trackIds.includes(track.id)) {
-            p.trackIds.splice(p.trackIds.indexOf(track.id), 1, newTrack.id)
-            p.coverImgUrl = `atom://local-asset?type=pic&id=${p.trackIds[p.trackIds.length - 1]}&size=512`
-            const playlist = {
-              id: p.id,
-              isLocal: 1,
-              json: JSON.stringify(p),
-              updatedAt: Date.now()
-            } as any
-            db.update(Tables.Playlist, p.id, playlist)
-          }
-        })
+        // const newTrack = data.result.songs[0]
+        // playlists.forEach((p: any) => {
+        //   if (p.trackIds.includes(track.id)) {
+        //     p.trackIds.splice(p.trackIds.indexOf(track.id), 1, newTrack.id)
+        //     p.coverImgUrl = `atom://local-asset?type=pic&id=${p.trackIds[p.trackIds.length - 1]}&size=512`
+        //     const playlist = {
+        //       id: p.id,
+        //       isLocal: 1,
+        //       json: JSON.stringify(p),
+        //       updatedAt: Date.now()
+        //     } as any
+        //     db.update(Tables.Playlist, p.id, playlist)
+        //   }
+        // })
 
-        _.merge(track, newTrack)
-        track.matched = true
-        track.type = 'local'
-        track.album.matched = true
-        track.artists.forEach((a: any) => {
-          a.matched = true
-        })
+        // _.merge(track, newTrack)
+        // track.matched = true
+        // track.type = 'local'
+        // track.album.matched = true
+        // track.artists.forEach((a: any) => {
+        //   a.matched = true
+        // })
 
-        const result = {
-          id: data.result.songs[0].id,
-          type: 'local',
-          json: JSON.stringify(track),
-          updatedAt: Date.now()
-        } as any
+        // const result = {
+        //   id: data.result.songs[0].id,
+        //   type: 'local',
+        //   json: JSON.stringify(track),
+        //   updatedAt: Date.now()
+        // } as any
 
-        try {
-          db.update(Tables.Track, trackRaw.id, result)
-          return true
-        } catch (error) {
-          log.error('更新本地歌曲失败:', error)
-          db.update(Tables.Track, result.id, result)
-          db.delete(Tables.Track, trackRaw.id)
-          return true
-        }
+        // try {
+        //   db.update(Tables.Track, trackRaw.id, result)
+        //   return true
+        // } catch (error) {
+        //   log.error('更新本地歌曲失败:', error)
+        //   db.update(Tables.Track, result.id, result)
+        //   db.delete(Tables.Track, trackRaw.id)
+        //   return true
+        // }
+        break
       }
       case CacheAPIs.LocalPlaylist: {
-        let playlist: any = {}
-        if (query?.id) {
-          const p = db.find(Tables.Playlist, query.id)!
-          const pj = JSON.parse(p.json)
-          pj.name = data.name
-          pj.description = data.desc
-          playlist = {
-            ...p,
-            json: JSON.stringify(pj),
-            updatedAt: Date.now()
-          }
-        } else {
-          playlist = {
-            id: data.id,
-            isLocal: 1,
-            json: JSON.stringify(data),
-            updatedAt: data.updateTime
-          }
-        }
-        try {
-          db.upsert(Tables.Playlist, playlist)
-          return true
-        } catch (error) {
-          log.error('更新本地歌单失败:', error)
-          return false
-        }
+        // let playlist: any = {}
+        // if (query?.id) {
+        //   const p = db.find(Tables.Playlist, query.id)!
+        //   const pj = JSON.parse(p.json)
+        //   pj.name = data.name
+        //   pj.description = data.desc
+        //   playlist = {
+        //     ...p,
+        //     json: JSON.stringify(pj),
+        //     updatedAt: Date.now()
+        //   }
+        // } else {
+        //   playlist = {
+        //     id: data.id,
+        //     isLocal: 1,
+        //     json: JSON.stringify(data),
+        //     updatedAt: data.updateTime
+        //   }
+        // }
+        // try {
+        //   db.upsert(Tables.Playlist, playlist)
+        //   return true
+        // } catch (error) {
+        //   log.error('更新本地歌单失败:', error)
+        //   return false
+        // }
+        break
       }
       case CacheAPIs.loginStatus: {
-        const user = {
-          id: data.data.profile.userId,
-          json: JSON.stringify(data.data.profile),
-          updatedAt: Date.now()
-        }
-        db.upsert(Tables.AccountData, user)
-        return true
+        // const user = {
+        //   id: data.data.profile.userId,
+        //   platform: 'netease',
+        //   json: JSON.stringify(data.data.profile),
+        //   updatedAt: Date.now()
+        // }
+        // db.upsert(Tables.AccountData, user)
+        // return true
+        break
       }
       case CacheAPIs.Track: {
-        try {
-          const trackRaw = db.find(Tables.Track, query.id)
-          if (!trackRaw) return false
-          const track = JSON.parse(trackRaw.json)
-          track.offset = data.offset
-          const result = {
-            ...trackRaw,
-            json: JSON.stringify(track),
-            updatedAt: Date.now()
-          }
-          db.update(Tables.Track, trackRaw.id, result)
-          return true
-        } catch (error) {
-          log.error('更新歌曲缓存失败:', error)
-          return false
-        }
+        // try {
+        //   const trackRaw = db.find(Tables.Track, query.id)
+        //   if (!trackRaw) return false
+        //   const track = JSON.parse(trackRaw.json)
+        //   track.offset = data.offset
+        //   const result = {
+        //     ...trackRaw,
+        //     json: JSON.stringify(track),
+        //     updatedAt: Date.now()
+        //   }
+        //   db.update(Tables.Track, trackRaw.id, result)
+        //   return true
+        // } catch (error) {
+        //   log.error('更新歌曲缓存失败:', error)
+        //   return false
+        // }
+        break
       }
     }
   }
@@ -131,32 +136,32 @@ class Cache {
       case CacheAPIs.LocalMusic: {
         // 此项用于获取所有本地歌曲
         // 注：是全部本地歌曲，不可获取部分，仅在扫描本地歌曲与程序启动时使用
-        const sql = params.sql ?? `type = 'local'`
-        const data = db.findAll(Tables.Track, sql)
-        const tracks = data.map((t: any) => JSON.parse(t.json))
+        // const sql = params.sql ?? `type = 'local'`
+        // const data = db.findAll(Tables.Track, sql)
+        // const tracks = data.map((t: any) => JSON.parse(t.json))
         return {
           code: 200,
-          songs: tracks,
+          songs: [],
           privileges: {}
         }
       }
       case CacheAPIs.Track: {
         // 根据歌曲ids获取歌曲，包括线上歌曲和本地歌曲
-        const ids = params?.ids.split(',').map((id: string) => Number(id))
-        if (!ids.length) return
-        if (ids.includes(NaN)) return
+        // const ids = params?.ids.split(',').map((id: string) => Number(id))
+        // if (!ids.length) return
+        // if (ids.includes(NaN)) return
 
-        const tracksRaw = db.findMany(Tables.Track, ids)
-        if (tracksRaw.length !== ids.length) return
+        // const tracksRaw = db.findMany(Tables.Track, ids)
+        // if (tracksRaw.length !== ids.length) return
 
-        const tracks = ids.map((id: any) => {
-          const track = tracksRaw.find((t: any) => t.id === Number(id)) as any
-          return JSON.parse(track.json)
-        })
+        // const tracks = ids.map((id: any) => {
+        //   const track = tracksRaw.find((t: any) => t.id === String(id)) as any
+        //   return JSON.parse(track.json)
+        // })
 
         return {
           code: 200,
-          songs: tracks,
+          songs: [],
           privileges: {}
         }
       }
@@ -167,21 +172,23 @@ class Cache {
         break
       }
       case CacheAPIs.LocalPlaylist: {
-        const data = db.findAll(Tables.Playlist, `isLocal = 1`)
-        const playlists = data.map((t: any) => JSON.parse(t.json)).filter((p) => p.id)
-        return playlists
+        // const data = db.findAll(Tables.Playlist, `isLocal = 1`)
+        // const playlists = data.map((t: any) => JSON.parse(t.json)).filter((p) => p.id)
+        return [] // playlists
       }
       case CacheAPIs.loginStatus: {
-        const data = db.findAll(Tables.AccountData)
-        if (!data.length) {
-          return {
-            userId: 0,
-            vipType: 0
-          }
-        } else {
-          const user = JSON.parse(data[0].json)
-          return user
+        const row = db.sqlite
+          .prepare(`SELECT * FROM ${Tables.PluginData} WHERE platform = ? LIMIT 1`)
+          .get(params.platform) as Record<string, any>
+
+        if (!row) {
+          return { userId: 0, isVip: false }
         }
+
+        return JSON.parse(row.json)
+      }
+      case CacheAPIs.PluginData: {
+        return {}
       }
     }
   }

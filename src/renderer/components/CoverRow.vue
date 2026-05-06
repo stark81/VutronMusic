@@ -3,6 +3,7 @@
     <div v-for="item in list" :key="item?.id" class="item" :class="{ artist: type === 'artist' }">
       <Cover
         :id="item.id"
+        :plugin-id="'netease'"
         :image-url="getImageUrl(item)"
         :type="type"
         :play-button-size="type === 'artist' ? 26 : playButtonSize"
@@ -10,7 +11,9 @@
       <div class="text">
         <div v-show="showPlayCount" class="info">
           <span class="play-count">
-            <svg-icon icon-class="play" />{{ formatPlayCount(item.playCount) }}
+            <svg-icon icon-class="play" />{{
+              formatPlayCount('playCount' in item ? item.playCount : 0)
+            }}
           </span>
         </div>
         <div class="title" :style="{ fontSize: subTextFontSize }">
@@ -39,10 +42,11 @@ import SvgIcon from './SvgIcon.vue'
 import ExplicitSymbol from './ExplicitSymbol.vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import { formatPlayCount } from '../utils'
+import { Album, Artist, PlaylistDetail } from '@/types/plugin'
 
 const props = defineProps({
   items: {
-    type: Array as () => any[],
+    type: Array as () => (Album | Artist | PlaylistDetail)[],
     required: true
   },
   showPlayCount: { type: Boolean, default: false },
@@ -64,7 +68,7 @@ const list = computed({
       ? sortPlaylistsIDs.value.map((id: number) => props.items.find((item) => item.id === id)!)
       : props.items,
   set: (value) => {
-    sortPlaylistsIDs.value = value.map((item) => item.id)
+    sortPlaylistsIDs.value = value.map((item) => item.id) as number[]
   }
 })
 
@@ -86,7 +90,7 @@ const getImageUrl = (item: any) => {
   const img = item.img1v1Url || item.picUrl || item.coverImgUrl
   let url = img?.replace('size=512', 'size=256')
   url = url?.replace('http://', 'https://')
-  if (url.startsWith('https://')) url += '?param=256y256'
+  // if (url.startsWith('https://')) url += '?param=256y256'
   return url
 }
 

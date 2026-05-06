@@ -210,7 +210,7 @@ const getUser = (id: string) => {
     userPlaylist({
       uid: Number(id),
       limit: 2000,
-      timestamp: new Date().getTime()
+      timestamp: Date.now()
     })
   ]).then((result) => {
     user.value = result[0].profile

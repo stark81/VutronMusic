@@ -1,7 +1,7 @@
 {
   "name": "VutronMusic",
   "packageManager": "yarn@1.22.22",
-  "version": "3.2.0",
+  "version": "3.3.0",
   "homepage": "https://github.com/stark81",
   "author": "stark81 <qq2995734001@gmail.com>",
   "license": "MIT",
@@ -59,7 +59,7 @@
     "discord-rich-presence": "^0.0.8",
     "dompurify": "^3.1.6",
     "electron-log": "^5.4.1",
-    "electron-store": "^11.0.0",
+    "electron-store": "^8.2.0",
     "electron-updater": "^6.6.2",
     "eslint": "^8.57.0",
     "fast-glob": "^3.3.3",
@@ -95,7 +95,8 @@
     "vue-i18n": "^9.9.1",
     "vue-pick-colors": "^1.8.0",
     "vue-router": "^4.3.0",
-    "vue3-lottie": "^3.3.1"
+    "vue3-lottie": "^3.3.1",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@playwright/test": "^1.42.0",

@@ -196,7 +196,6 @@ const checkQrCodeLogin = () => {
   qrCodeCheckInterval.value = setInterval(() => {
     if (qrCodeKey.value === '') return
     loginQrCodeCheck(qrCodeKey.value).then((result) => {
-      console.log('qr code check result = ', result)
       if (result.code === 800) {
         getQrCodeKey()
         qrCodeInformation.value = '二维码已失效，请重新获取'

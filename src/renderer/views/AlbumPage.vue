@@ -291,6 +291,7 @@ const loadData = (id: string) => {
   }, 1000)
 
   getAlbum(Number(id)).then((data) => {
+    console.log('===2===', id, data)
     album.value = data.album
     tracks.value = data.songs
     formatTitle()
@@ -377,6 +378,7 @@ onMounted(() => {
       display: -webkit-box;
       -webkit-box-orient: vertical;
       -webkit-line-clamp: 2;
+      line-clamp: 2;
       overflow: hidden;
       cursor: pointer;
       white-space: pre-line;

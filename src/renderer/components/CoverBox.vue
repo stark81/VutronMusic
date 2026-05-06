@@ -35,6 +35,7 @@ import { serviceName } from '@/types/music.d'
 
 const props = defineProps({
   id: { type: [Number, String], required: true },
+  pluginId: { type: String, required: true },
   type: { type: String, required: true },
   service: { type: String as PropType<serviceName>, default: '' },
   imageUrl: { type: String, required: true },
@@ -120,9 +121,7 @@ const play = () => {
 }
 
 const goTo = () => {
-  const url = props.service
-    ? `/${props.type}/${props.service}/${props.id}`
-    : `/${props.type}/${props.id}`
+  const url = `/${props.type}/${props.pluginId}/${props.id}`
   router.push(url)
 }
 </script>

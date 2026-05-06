@@ -3,13 +3,13 @@
     <div v-if="exploreTab === 'playlist'">
       <div class="buttons">
         <div
-          v-for="category in general.enabledPlaylistCategories"
-          :key="category"
+          v-for="category in staticTags"
+          :key="category?.name"
           class="button"
-          :class="{ active: category === activeCategory && !showCatOptions }"
-          @click="goToCategory('playlist', category)"
+          :class="{ active: category?.active && !showCatOptions }"
+          @click="goToCategory('playlist', category?.name ?? '')"
         >
-          {{ category }}
+          {{ category?.name || '' }}
         </div>
         <div
           class="button more"
@@ -42,14 +42,19 @@
     <div v-if="exploreTab === 'chart'" class="chart-list">
       <div v-for="(lst, index) in showList" :key="index" class="chart-item">
         <div class="img">
-          <Cover :id="lst?.id" :type="'playlist'" :image-url="lst?.coverImgUrl" class="cover" />
-          <div class="update">{{ lst?.updateFrequency }}</div>
+          <Cover
+            :id="lst?.id"
+            :type="'playlist'"
+            :plugin-id="'kugou'"
+            :image-url="lst?.picUrl"
+            class="cover"
+          />
+          <div class="update">{{ lst?.copywriter }}</div>
         </div>
         <div class="track">
-          <div v-for="(key, idx) in getTrack(lst?.tracks)" :key="idx" class="track-item"
-            >{{ key.join(' - ').slice(0, 33) }}
+          <div v-for="track in lst?.tracks" :key="track.name" class="track-item"
+            >{{ `${track.name}  -  ${track.artist}` }}
           </div>
-          <!-- <div class="track-item">{{ lst?.updateFrequency }}</div> -->
         </div>
       </div>
     </div>
@@ -176,10 +181,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, onBeforeUnmount, reactive, watch, nextTick, inject } from 'vue'
+import { ref, onMounted, computed, onBeforeUnmount, reactive, nextTick, inject } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useNormalStateStore } from '../store/state'
 import { useSettingsStore } from '../store/settings'
+import { usePluginMusic } from '../store/pluginMusic'
 import { playlistCategories, artistCategories } from '../utils/common'
 import SvgIcon from '../components/SvgIcon.vue'
 import CoverRow from '../components/VirtualCoverRow.vue'
@@ -187,11 +193,12 @@ import Cover from '../components/CoverBox.vue'
 import TrackList from '../components/VirtualTrackList.vue'
 import { tricklingProgress } from '../utils/tricklingProgress'
 import { useRouter, useRoute, onBeforeRouteUpdate } from 'vue-router'
-import { getRecommendPlayList } from '../utils/playlist'
-import { highQualityPlaylist, topPlaylist, toplists, toplistDetail } from '../api/playlist'
+// import { getRecommendPlayList } from '../utils/playlist'
+// import { highQualityPlaylist, topPlaylist } from '../api/playlist'
 import { getArtistList } from '../api/artist'
 import { topAlbum, topSong } from '../api/track'
 import { newAlbums } from '../api/album'
+import { PlaylistDetail, PluginId, PlaylistCatlist, Playlist } from '@/types/plugin'
 
 const router = useRouter()
 const route = useRoute()
@@ -201,15 +208,28 @@ const settingStore = useSettingsStore()
 const { general } = storeToRefs(settingStore)
 const { togglePlaylistCategory } = settingStore
 
-const playlistInfo = reactive({
-  activeCategory: '全部',
-  allBigCats: ['语种', '风格', '场景', '情感', '主题'],
-  total: 0,
-  more: true,
-  lasttime: 0
+const pluginMusicStore = usePluginMusic()
+const { services, additionalTags } = storeToRefs(pluginMusicStore)
+const { pluginMethodCall } = pluginMusicStore
+
+const pluginId = computed(() => {
+  const active = services.value.find((item) => item.active)!
+  return active.code
 })
-// const chartInfo = reactive({})
-// const newTrackInfo = reactive({})
+
+const playlistTags = reactive<Record<PluginId, PlaylistCatlist>>({})
+const staticTags = computed(() => {
+  if (additionalTags.value[pluginId.value]) {
+    return (playlistTags[pluginId.value]?.static || []).concat(additionalTags.value[pluginId.value])
+  }
+  return playlistTags[pluginId.value]?.static || []
+})
+
+// const playlistInfo = reactive({
+//   total: 0,
+//   more: true,
+//   lasttime: 0
+// })
 const newAlbumInfo = reactive({
   newAlbums: { albums: [] as any[], total: 0 },
   topAlbum: { hasMore: true, monthData: [] as any[], weekData: [] as any[] }
@@ -219,15 +239,14 @@ const artistInfo = reactive({
 })
 
 const activeCategory = ref('全部')
-const saveCategory = ref('全部')
 const showCatOptions = ref(false)
 const allBigCats = ref(['语种', '风格', '场景', '情感', '主题'])
 const artistBigCats = ref(['语种', '分类', '筛选'])
-const playlists = ref<any[]>([])
+const playlists = ref<PlaylistDetail[]>([])
 const tracks = ref<any[]>([])
 const show = ref(false)
-// const hasMore = ref(true)
-const showList = ref<any[]>([])
+const hasMore = ref(true)
+const showList = ref<Playlist[]>([])
 const activeArtistCat = ref(artistCategories.filter((cat) => cat.enable))
 const newTrackBtn = ref(['全部', '华语', '欧美', '日本', '韩国'])
 const albumTypeBtn = ref(['热门', '全部'])
@@ -267,12 +286,6 @@ const getArtistCatsByBigCat = (bigCat: string) => {
   return artistCategories.filter((cat) => cat.bigCat === bigCat)
 }
 
-const getTrack = (tracks: any[]) => {
-  return tracks.map((track) => {
-    return [track.first, track.second]
-  })
-}
-
 const updatePlaylist = (playlistList: any[]) => {
   tracks.value = []
   playlists.value.push(...playlistList)
@@ -280,33 +293,30 @@ const updatePlaylist = (playlistList: any[]) => {
   show.value = true
 }
 
-const getHighQualityPlaylist = () => {
-  if (!playlistInfo.more) return
-  const before = playlistInfo.lasttime
-  highQualityPlaylist({ limit: 50, before }).then((data) => {
-    playlistInfo.more = data.more
-    playlistInfo.lasttime = data.lasttime
-    playlistInfo.total = data.total
-    updatePlaylist(data.playlists)
-  })
-}
+// const getHighQualityPlaylist = () => {
+//   if (!playlistInfo.more) return
+//   const before = playlistInfo.lasttime
+//   highQualityPlaylist({ limit: 50, before }).then((data) => {
+//     playlistInfo.more = data.more
+//     playlistInfo.lasttime = data.lasttime
+//     playlistInfo.total = data.total
+//     updatePlaylist(data.playlists)
+//   })
+// }
 
 const loadMore = () => {
-  if (['推荐歌单', '排行榜'].includes(activeCategory.value) === false) {
-    getPlaylist()
-  }
+  getPlaylist()
+  // if (['推荐歌单', '排行榜'].includes(activeCategory.value) === false) {
+  //   // getPlaylist()
+  // }
 }
 
 const getTopLists = () => {
-  toplistDetail().then((data) => {
-    showList.value.push(data.list.find((item) => item.name === '飙升榜')!)
-    showList.value.push(data.list.find((item) => item.name === '新歌榜')!)
-    showList.value.push(data.list.find((item) => item.name === '原创榜')!)
-    showList.value.push(data.list.find((item) => item.name === '热歌榜')!)
-  })
-  toplists().then((data) => {
+  const pluginId = 'kugou' as PluginId
+  pluginMethodCall(pluginId, 'rankList').then((res) => {
+    showList.value = res.data.map((item) => ({ ...item, pluginId })).slice(0, 4)
     playlists.value = []
-    updatePlaylist(data.list)
+    updatePlaylist(res.data.map((item) => ({ ...item, pluginId })))
     playlists.value = playlists.value.slice(4)
   })
 }
@@ -364,34 +374,45 @@ const getNewAlbum = () => {
 
 const getPlaylist = () => {
   if (exploreTab.value === 'artist') {
-    return getArtists()
+    getArtists()
   } else if (exploreTab.value === 'chart') {
-    return getTopLists()
+    getTopLists()
   } else if (exploreTab.value === 'playlist') {
-    if (activeCategory.value === '推荐歌单') {
-      return getRecommendPlayList(100, true).then((list) => {
-        playlists.value = []
-        updatePlaylist(list)
+    const cat = staticTags.value.find((item) => item.active)!
+    pluginMethodCall(pluginId.value, 'getCategoryPlaylist', {
+      id: cat.id,
+      name: cat.name,
+      offset: playlists.value.length
+    }).then((result) => {
+      result.data.forEach((item) => {
+        item.pluginId = pluginId.value
       })
-    } else if (activeCategory.value === '精品歌单') {
-      return getHighQualityPlaylist()
-    } else {
-      return topPlaylist({ cat: activeCategory.value, offset: playlists.value.length }).then(
-        (data) => {
-          playlistInfo.more = data.more
-          playlistInfo.total = data.total
-          playlistInfo.lasttime = 0
-          updatePlaylist(data.playlists)
-          // hasMore.value = data.more
-        }
-      )
-    }
+      hasMore.value = result.hasMore
+      updatePlaylist(result.data)
+    })
+
+    // if (activeCategory.value === '推荐歌单') {
+    //   getRecommendPlayList(100, true).then((list) => {
+    //     playlists.value = []
+    //     updatePlaylist(list)
+    //   })
+    // } else if (activeCategory.value === '精品歌单') {
+    //   getHighQualityPlaylist()
+    // } else {
+    //   topPlaylist({ cat: activeCategory.value, offset: playlists.value.length }).then((data) => {
+    //     playlistInfo.more = data.more
+    //     playlistInfo.total = data.total
+    //     playlistInfo.lasttime = 0
+    //     updatePlaylist(data.playlists)
+    //     // hasMore.value = data.more
+    //   })
+    // }
   } else if (exploreTab.value === 'newTrack') {
     show.value = false
-    return getNewTrack()
+    getNewTrack()
   } else if (exploreTab.value === 'newAlbum') {
     playlists.value = []
-    return getNewAlbum()
+    getNewAlbum()
   }
 }
 
@@ -410,36 +431,50 @@ const getArtists = () => {
   })
 }
 
-const loadData = () => {
+const loadData = async () => {
   setTimeout(() => {
     if (!show.value) tricklingProgress.start()
   }, 1000)
-  activeCategory.value = (route.query.category as string) || saveCategory.value
+  if (exploreTab.value === 'playlist') {
+    await pluginMethodCall(pluginId.value, 'catlist').then((result) => {
+      if (!(pluginId.value in playlistTags)) {
+        playlistTags[pluginId.value] = { static: [], tagList: [] }
+      }
+      playlistTags[pluginId.value] = result.data!
+    })
+    await nextTick()
+  }
   getPlaylist()
 }
 
 const updatePadding = inject('updatePadding') as (val: number) => void
 
-watch(albumType, () => {
-  nextTick(() => {
-    updatePadding(0)
-  })
-})
+// watch(albumType, () => {
+//   nextTick(() => {
+//     updatePadding(0)
+//   })
+// })
 
 onBeforeRouteUpdate((to, from, next) => {
   updatePadding(0)
+  hasMore.value = false
+  const name = to.query.category as string
+  staticTags.value.forEach((item) => {
+    item.active = item.name === name
+  })
   playlists.value = []
   showList.value = []
-  activeCategory.value = (to.query.category as string) || saveCategory.value
+  // activeCategory.value = (to.query.category as string) || saveCategory.value
+
   getPlaylist()
   next()
 })
 
-onMounted(() => {
+onMounted(async () => {
   updatePadding(0)
-  showList.value = []
-  activeCategory.value = (route.query.category as string) || saveCategory.value
-  loadData()
+  // showList.value = []
+  // activeCategory.value = (route.query.category as string) || saveCategory.value
+  await loadData()
 })
 
 onBeforeUnmount(() => {

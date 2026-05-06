@@ -7,10 +7,8 @@ import { fileTypeFromBuffer } from 'file-type'
 import { IAudioMetadata, parseFile } from 'music-metadata'
 import request from '../appServer/request'
 import { CacheAPIs } from './CacheApis'
-import Cache from '../cache'
 import store from '../store'
 
-import { db, Tables } from '../db'
 import log from '../log'
 import { Worker } from 'worker_threads'
 import { TrackInfoOrder, lyricLine } from '@/types/music'
@@ -200,9 +198,12 @@ export const getPic = async (track: any): Promise<{ pic: Buffer; format: string 
       const prefixs = ['.jpg', '.png', '.jpeg', '.webp']
       for (const prefix of prefixs) {
         const filePath = track.filePath.replace(/\.[^/.]+$/, prefix)
-        res = await fs.promises.access(filePath, fs.constants.F_OK).then(async () => {
-          return await getPicFromPath(filePath)
-        })
+        res = await fs.promises
+          .access(filePath, fs.constants.F_OK)
+          .then(async () => {
+            return await getPicFromPath(filePath)
+          })
+          .catch(() => ({ pic: null, format: '' }))
         if (res?.pic) break
       }
     } else if (order === 'embedded' && track.filePath) {
@@ -282,7 +283,7 @@ export const handleNeteaseResult = async (name: string, result: any) => {
     case CacheAPIs.Playlist: {
       if (!result) return result
       if (result.playlist) {
-        result.playlist.tracks = mapTrackPlayableStatus(
+        result.playlist.tracks = await mapTrackPlayableStatus(
           result.playlist.tracks,
           result.privileges || []
         )
@@ -527,28 +528,31 @@ export const lrcLyricParse = (data: {
   return result
 }
 
-const mapTrackPlayableStatus = (tracks: any[], privileges: any[] = []) => {
+const mapTrackPlayableStatus = async (tracks: any[], privileges: any[] = []) => {
   if (tracks?.length === undefined) return tracks
-  return tracks.map((t) => {
-    const privilege = privileges.find((item) => item.id === t.id) || {}
-    if (t.privilege) {
-      Object.assign(t.privilege, privilege)
-    } else {
-      t.privilege = privilege
-    }
-    const result = isTrackPlayable(t)
-    t.playable = result.playable
-    t.reason = result.reason
-    t.type = 'online'
-    t.matched = true
-    t.cache = false
-    t.source = 'netease'
-    return t
-  })
+  return await Promise.all(
+    tracks.map(async (t) => {
+      const privilege = privileges.find((item) => item.id === t.id) || {}
+      if (t.privilege) {
+        Object.assign(t.privilege, privilege)
+      } else {
+        t.privilege = privilege
+      }
+      const result = await isTrackPlayable(t)
+      t.playable = result.playable
+      t.reason = result.reason
+      t.type = 'online'
+      t.matched = true
+      t.cache = false
+      t.source = 'netease'
+      return t
+    })
+  )
 }
 
-const isTrackPlayable = (track: any) => {
-  const user = Cache.get(CacheAPIs.loginStatus)
+const isTrackPlayable = async (track: any) => {
+  const Cache = (await import('../cache')).default
+  const user = Cache.get(CacheAPIs.loginStatus, { platform: 'netease' })
   const result = {
     playable: true,
     reason: ''
@@ -674,6 +678,8 @@ export const getAudioSourceFromUnblock = async (track: any) => {
 }
 
 export const deleteExcessCache = async (deleteAll = false): Promise<boolean> => {
+  const Cache = (await import('../cache')).default
+  const { db, Tables } = await import('../db')
   const tracks = Cache.get(CacheAPIs.LocalMusic, { sql: "type = 'online'" })
 
   if (deleteAll) {

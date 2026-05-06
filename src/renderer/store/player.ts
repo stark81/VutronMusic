@@ -849,7 +849,7 @@ export const usePlayerStore = defineStore(
       const trackDuration = ~~(track.dt / 1000)
       time = completed ? trackDuration : ~~time
       if (time >= trackDuration / 2 || time >= 240) {
-        const timestamp = ~~(new Date().getTime() / 1000) - time
+        const timestamp = ~~(Date.now() / 1000) - time
         const info = {
           artist: (track.artists || track.ar)[0]?.name || '未知歌手',
           track: track.name,

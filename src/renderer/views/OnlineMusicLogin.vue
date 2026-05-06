@@ -20,8 +20,9 @@ import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import qrCode from 'qrcode'
-import { usePluginMusic, pluginApi } from '../store/pluginMusic'
+import { usePluginMusic } from '../store/pluginMusic'
 import { useSettingsStore } from '../store/settings'
+import { PluginId } from '@/types/plugin'
 
 const route = useRoute()
 // const router = useRouter()
@@ -71,59 +72,61 @@ const selectedColor = computed(() => {
 const checkQrCodeLogin = () => {
   if (qrCodeKey.value === '') return
   qrCodeCheckInterval.value = setInterval(() => {
-    pluginMethodCall(currentService.code, pluginApi.loginQrCodeCheck, {
+    const pluginId = currentService.code as PluginId
+    pluginMethodCall(pluginId, 'loginQrCodeCheck', {
       key: qrCodeKey.value
     }).then((res) => {
-      if (res.data.status === 4) {
-        console.log('check qr code login = ', res)
-        users.value[currentService.code] = {
-          userId: res.data.userid,
-          avatarUrl: res.data.pic,
-          nickname: res.data.nickname
-        }
-        services.value.active = currentService.code
+      console.log('===2===', res)
+      if (res.code === 803) {
+        // users.value[pluginId] = {
+        //   userId: res.user!.userId,
+        //   avatarUrl: res.data.pic,
+        //   nickname: res.data.nickname
+        // }
+        // services.value.active = pluginId
         clearInterval(qrCodeCheckInterval.value)
       }
     })
   }, 3000)
 }
 
-const getQrCodeKey = () => {
-  return pluginMethodCall(currentService.code, pluginApi.loginQrKey).then((res) => {
-    if (res && res.code && res.code === 200) {
-      //
-    }
-    if (res && res.status && res.status === 1) {
-      qrCodeKey.value = res.data.qrcode
-      qrCode
-        .toString(res.data.url, {
-          width: 192,
-          margin: 0,
-          color: {
-            dark: selectedColor.value,
-            light: '#00000000'
-          },
-          type: 'svg'
-        })
-        .then((svg: string) => {
-          qrCodeSvg.value = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
-        })
-        .catch((err: any) => {
-          console.log('err = ', err)
-        })
-    }
-    checkQrCodeLogin()
+const getQrCodeKey = async () => {
+  const res = await pluginMethodCall(currentService.code as PluginId, 'loginQrKey').catch((res) => {
+    console.log('===255===', res)
+    return res
   })
+  if (res && res.code && res.code === 200) {
+    qrCodeKey.value = res.data.unikey!
+  } else if (res && res.status && res.status === 1) {
+    qrCodeKey.value = res.data.qrcode!
+  }
+  qrCode
+    .toString(res.data.url, {
+      width: 192,
+      margin: 0,
+      color: {
+        dark: selectedColor.value,
+        light: '#00000000'
+      },
+      type: 'svg'
+    })
+    .then((svg: string) => {
+      qrCodeSvg.value = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
+    })
+    .catch((err: any) => {
+      console.log('err = ', err)
+    })
+  checkQrCodeLogin()
 }
 
 onMounted(() => {
-  const code = (route.params.service as string) || 'kugou'
-  const service = services.value.services.find((s) => s.code === code)
+  const code = route.params.service as string
+  const service = services.value.find((s) => s.code === code)
   if (!service) return
   currentService.code = service.code
   currentService.name = service.name
 
-  if (selectedMode.value.mode === 'qrCode') getQrCodeKey()
+  // if (selectedMode.value.mode === 'qrCode') getQrCodeKey()
 })
 
 onBeforeUnmount(() => {

@@ -4,11 +4,7 @@
     <SideNav />
     <NavBar ref="navBarRef" />
     <div id="main" ref="mainRef" :style="mainStyle" @scroll="scrollEvent">
-      <router-view v-slot="{ Component }">
-        <keep-alive :include="['HomePage']">
-          <component :is="Component"></component>
-        </keep-alive>
-      </router-view>
+      <router-view> </router-view>
     </div>
     <PlayerBar v-if="enabled" v-show="showPlayerBar" />
     <ShowToast />
@@ -38,6 +34,7 @@ import { useOsdLyricStore } from './store/osdLyric'
 import { usePlayerStore } from './store/player'
 import { useSettingsStore } from './store/settings'
 import { useNormalStateStore } from './store/state'
+import { usePluginMusic } from './store/pluginMusic'
 import { storeToRefs } from 'pinia'
 import Utils from './utils'
 import { useRoute } from 'vue-router'
@@ -45,6 +42,9 @@ import { type ProgressInfo } from 'electron-updater'
 import router from './router'
 import eventBus from './utils/eventBus'
 import { Track } from '@/types/music'
+
+const pluginMusicStore = usePluginMusic()
+const { getPlugins } = pluginMusicStore
 
 const localMusicStore = useLocalMusicStore()
 const { localTracks } = storeToRefs(localMusicStore)
@@ -248,6 +248,7 @@ const handleChanelEvent = () => {
 watchOsdEvent()
 
 onMounted(async () => {
+  await getPlugins()
   registerInstance(instanceId.value)
   handleEventBus()
   handleChanelEvent()

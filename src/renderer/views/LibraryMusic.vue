@@ -419,10 +419,10 @@ onMounted(async () => {
   setTimeout(() => {
     if (!show.value) tricklingProgress.start()
   }, 1000)
-  loadData()
+  // loadData()
   await nextTick()
 
-  const pluginId = 'kugou' as PluginId
+  // const pluginId = 'kugou' as PluginId
 
   // pluginMethodCall(pluginId, 'receiveVip', { receive_day: '2026-04-18' })
   //   .then((res) => {
@@ -432,13 +432,13 @@ onMounted(async () => {
   //     console.log('33333333', error)
   //   })
 
-  pluginMethodCall(pluginId, 'userPlaylist').then((res) => {
-    console.log('kugou userPlaylist res = ', res)
-  })
+  // pluginMethodCall(pluginId, 'userPlaylist').then((res) => {
+  //   console.log('kugou userPlaylist res = ', res)
+  // })
 
-  pluginMethodCall(pluginId, 'search', { keywords: '我爱他' }).then((res) => {
-    console.log('kugou search res = ', res)
-  })
+  // pluginMethodCall(pluginId, 'search', { keywords: '我爱他' }).then((res) => {
+  //   console.log('kugou search res = ', res)
+  // })
 
   // pluginMethodCall(pluginId, 'songUrl', {
   //   hash: 'd06f97d2b923f89c755e2cfceccaa69c',
@@ -447,15 +447,16 @@ onMounted(async () => {
   //   console.log('kugou songUrl res = ', res)
   // })
 
-  pluginMethodCall(pluginId, 'getLyric', {
-    hash: 'd06f97d2b923f89c755e2cfceccaa69c'
-  }).then((res) => {
-    console.log('2222222222', res)
-  })
+  // pluginMethodCall(pluginId, 'getLyric', {
+  //   hash: 'd06f97d2b923f89c755e2cfceccaa69c'
+  // }).then((res) => {
+  //   console.log('2222222222', res)
+  // })
 
-  dailyTask()
+  // dailyTask()
   setTimeout(() => {
     updatePadding(0)
+    show.value = true
   }, 100)
 })
 onUnmounted(() => {

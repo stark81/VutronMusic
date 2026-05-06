@@ -16,6 +16,7 @@
       <div class="cover-item" :class="{ artist: type === 'artist' }">
         <Cover
           :id="item.id"
+          :plugin-id="'netease'"
           :image-url="getImageUrl(item)"
           :type="type"
           :service="item.service"

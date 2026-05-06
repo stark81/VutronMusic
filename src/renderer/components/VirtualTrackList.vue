@@ -29,7 +29,7 @@
           :show-service="showService"
           :album-object="albumObject"
           :highlight-playing-track="highlightPlayingTrack"
-          @dblclick="playThisList(item.id || item.songId)"
+          @dblclick="playThisList(item.id)"
           @click.right="openMenu($event, item, index)"
         />
       </div>
@@ -140,7 +140,8 @@ import _ from 'lodash'
 import { isAccountLoggedIn } from '../utils/auth'
 import { useStreamMusicStore } from '../store/streamingMusic'
 import SvgIcon from './SvgIcon.vue'
-import { serviceName, Track } from '@/types/music.d'
+import { serviceName } from '@/types/music.d'
+import { Track } from '@/types/plugin'
 
 const props = withDefaults(
   defineProps<{
@@ -278,14 +279,14 @@ const showScrollTo = computed(() => {
   )
 })
 const currentIndex = computed(() => {
-  return items.value.findIndex((item) => (item.id || item.songId) === currentTrack.value?.id)
+  return items.value.findIndex((item) => item.id === currentTrack.value?.id)
 })
 
-const playThisList = (index: number) => {
+const playThisList = (index: number | string) => {
   if (!props.dbclickEnable) return
   const sourceItems = props.allItems?.length ? props.allItems : items.value
-  const IDs = sourceItems.map((track) => track.id || track.songId)
-  const idx = sourceItems.findIndex((item) => (item.id || item.songId) === index)
+  const IDs = sourceItems.map((track) => track.id as number)
+  const idx = sourceItems.findIndex((item) => item.id === index)
   replacePlaylist(props.type, id.value, IDs, idx)
 }
 
@@ -316,7 +317,7 @@ const accurateMatchTrack = () => {
 
 const selectAll = () => {
   if (!isSelectAll.value) {
-    selectedList.value = items.value.map((track) => track.id)
+    selectedList.value = items.value.map((track) => track.id as number)
   } else {
     selectedList.value = []
   }

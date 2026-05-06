@@ -11,11 +11,13 @@ type LoadPluginMessage = { type: 'LOAD_PLUGIN'; code: string }
 type HttpResponseMessage = { type: 'HTTP_RESPONSE'; requestId: string; data?: any; error?: any }
 type CallMethodMessage = { type: 'CALL_METHOD'; callId: number; method: string; args: any[] }
 type StoreResponseMessage = { type: 'STORE_RESPONSE'; requestId: string; data?: any }
+type DBResponseMessage = { type: 'DB_RESPONSE'; requestId: string; data?: any }
 type IncomingMessage =
   | LoadPluginMessage
   | HttpResponseMessage
   | CallMethodMessage
   | StoreResponseMessage
+  | DBResponseMessage
 
 let pluginExports: PluginExports = Object.create(null)
 
@@ -56,7 +58,7 @@ const api = {
             pendingRequests.get(requestId)?.reject(new Error('Request timeout'))
             pendingRequests.delete(requestId)
           }
-        }, 15000)
+        }, 30000)
 
         pendingRequests.set(requestId, {
           resolve: (data) => {
@@ -95,6 +97,36 @@ const api = {
     set(key: string, value: any) {
       parentPort?.postMessage({ type: 'STORE_SET', key, value })
     }
+  },
+
+  db: {
+    get() {
+      return new Promise((resolve, reject) => {
+        const requestId = Math.random().toString(36).slice(2)
+
+        const requestTimeout = setTimeout(() => {
+          if (pendingRequests.has(requestId)) {
+            pendingRequests.get(requestId)?.reject(new Error('Request timeout'))
+            pendingRequests.delete(requestId)
+          }
+        }, 5000)
+
+        pendingRequests.set(requestId, {
+          resolve: (data) => {
+            clearTimeout(requestTimeout)
+            resolve(data)
+          },
+          reject: (err) => {
+            clearTimeout(requestTimeout)
+            reject(err)
+          }
+        })
+        parentPort?.postMessage({ type: 'DB_REQUEST', requestId })
+      })
+    },
+    set(key: string, value: any) {
+      parentPort?.postMessage({ type: 'DB_SET', key, value })
+    }
   }
 }
 
@@ -122,6 +154,14 @@ parentPort?.on('message', async (msg: IncomingMessage) => {
     }
 
     case 'STORE_RESPONSE': {
+      const req = pendingRequests.get(msg.requestId)
+      if (!req) return
+      req.resolve(msg.data)
+      pendingRequests.delete(msg.requestId)
+      break
+    }
+
+    case 'DB_RESPONSE': {
       const req = pendingRequests.get(msg.requestId)
       if (!req) return
       req.resolve(msg.data)

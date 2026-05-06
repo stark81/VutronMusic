@@ -108,7 +108,7 @@ import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { Track } from '@/types/music.d'
+import { Track } from '@/types/plugin'
 
 const router = useRouter()
 const props = withDefaults(
@@ -157,20 +157,21 @@ const track = computed(
 )
 
 const image = computed(() => {
-  let url: string
+  // let url: string = ''
   if (track.value.type === 'online') {
-    url = track.value.al?.picUrl || track.value.album?.picUrl || track.value.picUrl
-    if (url && url.startsWith('http')) url = url.replace('http:', 'https:')
-    url += '?param=64y64'
-    return url
+    let pic = track.value.album?.picUrl || track.value.picUrl
+    if (pic && pic.startsWith('http')) pic = pic.replace('http:', 'https:')
+    const url = new URL(pic)
+    url.searchParams.set('param', '64y64')
+    return url.href
   } else if (track.value.type === 'stream') {
-    url = track.value.al?.picUrl || track.value.album?.picUrl || track.value.picUrl
+    const url = track.value.album?.picUrl || track.value.picUrl
     return stateStore.virtualScrolling ? 'atom://get-default-pic' : url
   } else {
-    url = localMusic.value.scanning
-      ? `atom://get-pic-path/${track.value.filePath}`
-      : `atom://local-asset?type=pic&id=${track.value.id}&size=64`
-    return url
+    // url = localMusic.value.scanning
+    //   ? `atom://get-pic-path/${track.value.filePath}`
+    //   : `atom://local-asset?type=pic&id=${track.value.id}&size=64`
+    return ''
   }
 })
 

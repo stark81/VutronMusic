@@ -2,6 +2,8 @@ import path from 'path'
 import fs from 'fs'
 import { Worker } from 'worker_threads'
 import electronStore from '../store'
+import cache from '../cache'
+import { CacheAPIs } from './CacheApis'
 
 export interface PluginMeta {
   name?: string
@@ -15,6 +17,8 @@ export class PluginInstance {
   private callIdCounter = 0
   public meta: PluginMeta = {}
   private id: string
+  private loaded = false
+  private loadError: string | null = null
 
   constructor(pluginPath: string, pluginName: string) {
     this.id = pluginName
@@ -25,8 +29,10 @@ export class PluginInstance {
     this.worker = new Worker(workerFile)
 
     this.worker.on('message', (msg: any) => this.onMessage(msg))
-    this.worker.on('error', (err) => console.error('[Plugin Worker] error', err))
-    this.worker.on('exit', (code) => console.log(`[Plugin Worker] exited with code ${code}`))
+    this.worker.on('error', (err) => console.error(`[Plugin Worker ${this.meta.name}] error`, err))
+    this.worker.on('exit', (code) =>
+      console.log(`[Plugin Worker ${this.meta.name}] exited with code ${code}`)
+    )
 
     this.worker.postMessage({ type: 'LOAD_PLUGIN', code })
   }
@@ -42,6 +48,8 @@ export class PluginInstance {
   private async onMessage(msg: any) {
     switch (msg.type) {
       case 'LOAD_DONE':
+        this.loaded = true
+        this.loadError = null
         this.meta = msg.meta || {}
         if ((electronStore.get(`plugins.${this.id}.name`) as string) !== this.meta.name) {
           electronStore.set(`plugins.${this.id}.name`, this.meta.name)
@@ -80,6 +88,29 @@ export class PluginInstance {
         if (!resolve) return
         msg.error ? resolve(Promise.reject(msg.error)) : resolve(msg.result)
         this.callResolvers.delete(msg.callId)
+        break
+      }
+
+      case 'DB_REQUEST': {
+        const { requestId } = msg
+        const result = cache.get(CacheAPIs.loginStatus, { platform: this.id })
+        this.worker.postMessage({
+          type: 'DB_RESPONSE',
+          requestId,
+          data: result
+        })
+        break
+      }
+
+      case 'DB_SET': {
+        cache.set(CacheAPIs.loginStatus, {})
+        break
+      }
+
+      case 'ERROR': {
+        this.loaded = false
+        this.loadError = msg.message
+        console.error(`[Plugin ${this.id}] Load error:`, msg.message)
         break
       }
     }
@@ -201,7 +232,7 @@ export class PluginInstance {
       } else {
         resData = rawText
       }
-    } catch (err) {
+    } catch {
       resData = null
     }
 
@@ -217,6 +248,9 @@ export class PluginInstance {
    * @param {string} method 调用的函数名称
    */
   public call(method: string, ...args: any[]): Promise<any> {
+    if (!this.loaded) {
+      throw new Error(this.loadError || `[Plugin ${this.id} not loaded]`)
+    }
     return new Promise((resolve) => {
       const callId = ++this.callIdCounter
       this.callResolvers.set(callId, resolve)

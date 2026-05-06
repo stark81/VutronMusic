@@ -2,10 +2,8 @@
   <div v-show="show">
     <div v-if="general.showBanner" ref="bannerRef" class="banner">
       <div v-for="item in banner" :key="item.id" class="banner-item">
-        <img :src="imgFilter(item.imageUrl ?? item.pic)" alt="" />
-        <div class="subtitle" :style="{ backgroundColor: item.titleColor || 'red' }">{{
-          item.typeTitle
-        }}</div>
+        <img :src="item.picUrl" alt="" />
+        <div class="subtitle" :style="{ backgroundColor: 'red' }">{{ item.typeTitle }}</div>
       </div>
     </div>
     <div class="index-row">
@@ -13,7 +11,7 @@
         {{ $t('home.recommendPlaylist') }}
         <a @click="toExplore('playlist', '推荐歌单')">{{ $t('home.seeMore') }}</a>
       </div>
-      <CoverRow :items="recommendPlaylist.items" type="playlist" sub-text="copywriter" />
+      <CoverRow :items="recommendPlaylist" type="playlist" sub-text="copywriter" />
     </div>
     <div class="index-row">
       <div class="title"> For You </div>
@@ -24,7 +22,7 @@
     </div>
     <div class="index-row">
       <div class="title">{{ $t('home.recommendArtist') }}</div>
-      <CoverRow :items="recommendArtists.items" type="artist" :colunm-number="6" />
+      <CoverRow :items="recommendArtists" type="artist" :colunm-number="6" />
     </div>
     <div class="index-row">
       <div class="title">
@@ -38,18 +36,13 @@
         {{ $t('home.charts') }}
         <a @click="toExplore('chart')">{{ $t('home.seeMore') }}</a>
       </div>
-      <CoverRow :items="topList.items" type="playlist" sub-text="updateFrequency" />
+      <CoverRow :items="topList.items" type="playlist" sub-text="copywriter" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onActivated, ref, onBeforeUnmount, onDeactivated, watch } from 'vue'
-import { getBanner } from '../api/other'
-import { toplistOfArtists } from '../api/artist'
-import { newAlbums } from '../api/album'
-import { toplists } from '../api/playlist'
-import { getRecommendPlayList } from '../utils/playlist'
+import { ref, onBeforeUnmount, watch, onMounted, computed } from 'vue'
 import { tricklingProgress } from '../utils/tricklingProgress'
 import CoverRow from '../components/CoverRow.vue'
 import DailyTracksCard from '../components/DailyTracksCard.vue'
@@ -58,44 +51,44 @@ import { useRouter } from 'vue-router'
 import { useSettingsStore } from '../store/settings'
 import { useNormalStateStore } from '../store/state'
 import { usePlayerStore } from '../store/player'
+import { usePluginMusic } from '../store/pluginMusic'
 import { storeToRefs } from 'pinia'
 import Utils from '../utils'
+import { Album, Artist, Banner, Playlist, PluginId } from '@/types/plugin'
 
-const toplistOfArtistsAreaTable = {
-  all: null,
-  zh: 1,
-  ea: 2,
-  jp: 4,
-  kr: 3
-}
 const { general } = storeToRefs(useSettingsStore())
-const { exploreTab, showLyrics } = storeToRefs(useNormalStateStore())
+const { exploreTab, showLyrics, dailyTracks } = storeToRefs(useNormalStateStore())
 const { addTrackToPlayNext } = usePlayerStore()
+
+const pluginMusicStore = usePluginMusic()
+const { pluginMethodCall } = pluginMusicStore
 
 const router = useRouter()
 
 // banner
-const banner = ref<any[]>([])
+const banner = ref<Banner[]>([])
 const bannerRef = ref<HTMLElement>()
 const left = ref(-1)
 const current = ref(0)
 const timer = ref<any>(null)
 const show = ref(false)
 
-// 推荐歌单
-const recommendPlaylist = ref<{ items: any[] }>({ items: [] })
-
-// 推荐歌手
-const recommendArtists = ref<{ items: any[]; indexs: any[] }>({
-  items: [],
-  indexs: []
+const pluginId = computed(() => {
+  const active = pluginMusicStore.services.find((item) => item.active)
+  return active?.code ?? ('' as PluginId)
 })
 
+// 推荐歌单
+const recommendPlaylist = ref<Playlist[]>([])
+
+// 推荐歌手
+const recommendArtists = ref<Artist[]>([])
+
 // 新专速递
-const newReleasesAlbum = ref<{ items: any[] }>({ items: [] })
+const newReleasesAlbum = ref<{ hasMore: boolean; items: Album[] }>({ hasMore: false, items: [] })
 
 // 排行榜
-const topList = ref<{ items: any[]; ids: number[] }>({
+const topList = ref<{ items: Playlist[]; ids: number[] }>({
   items: [],
   ids: [19723756, 180106, 60198, 3812895, 60131]
 })
@@ -106,6 +99,7 @@ const toExplore = (tab: string, Category = '全部') => {
 }
 
 const bannerChange = () => {
+  if (!bannerRef.value) return
   left.value =
     (current.value - 1 + bannerRef.value!.children.length) % bannerRef.value!.children.length
   const right = (current.value + 1) % bannerRef.value!.children.length
@@ -126,71 +120,76 @@ const bannerNext = () => {
   current.value = (current.value + 1) % banner.value.length
   bannerChange()
   setTimeout(() => {
-    const newNode = bannerRef.value!.children[left.value].cloneNode(true)
-    bannerRef.value!.children[left.value].replaceWith(newNode)
+    const newNode = bannerRef.value?.children[left.value].cloneNode(true)
+    if (!newNode) return
+    bannerRef.value?.children[left.value].replaceWith(newNode)
   }, 800)
 }
 
-const handleBannerClick = (banner: any) => {
-  if (['新歌首发', '热歌推荐'].includes(banner.typeTitle)) {
-    addTrackToPlayNext(banner.targetId, true, true)
-  } else if (banner.typeTitle === '新碟首发') {
-    router.push(`/album/${banner.targetId}`)
-  } else if (banner.typeTitle === '数字专辑') {
-    // 数字专辑，跳转至数字专辑详情
-    const url = new URL(banner.url)
-    const id = url.searchParams.get('id')
-    router.push(`/album/${id}`)
-  } else if (banner.typeTitle === '歌单推荐') {
-    router.push(`/playlist/${banner.targetId}`)
-  } else if (banner.typeTitle === 'MV首发') {
-    router.push(`/mv/${banner.targetId}`)
+const handleBannerClick = (banner: Banner) => {
+  if (banner.type === 'track') {
+    addTrackToPlayNext(Number(banner.sourceId), true, true)
+  } else if (banner.type === 'album') {
+    router.push(`/album/${banner.sourceId}`)
+  } else if (banner.type === 'playlist') {
+    router.push(`/playlist/${banner.sourceId}`)
+  } else if (banner.type === 'mv') {
+    router.push(`/mv/${banner.sourceId}`)
   } else if (banner.url) {
     Utils.openExternal(banner.url)
   }
 }
 
-const imgFilter = (img: string) => {
-  return img.replace('http://', 'https://')
-}
-
 const loadData = () => {
+  if (!pluginId.value) return
   setTimeout(() => {
     if (!show.value) tricklingProgress.start()
   }, 1000)
+
   if (general.value.showBanner) {
-    getBanner({ type: 0 }).then((res) => {
-      banner.value = res.banners.filter((item: any) => item.typeTitle !== '广告')
+    pluginMethodCall(pluginId.value, 'getBanner').then((res) => {
+      banner.value = res.data
       setTimeout(bannerChange)
       handleBanner()
     })
   }
 
-  getRecommendPlayList(10, false).then((items) => {
-    recommendPlaylist.value.items = items
+  pluginMethodCall(pluginId.value, 'getRecommendTracks')
+    .then((result) => {
+      dailyTracks.value = result.data.map((item) => ({ ...item, pluginId: pluginId.value }))
+    })
+    .catch(() => (dailyTracks.value = []))
+
+  pluginMethodCall(pluginId.value, 'getRecommendPlaylist').then((res) => {
+    recommendPlaylist.value = res.data.map((item) => ({ ...item, pluginId: pluginId.value }))
     tricklingProgress.done()
     show.value = true
   })
 
-  toplistOfArtists(toplistOfArtistsAreaTable[general.value.musicLanguage ?? 'all']).then((data) => {
-    const indexs: any[] = []
-    while (indexs.length < 6) {
-      const tmp = ~~(Math.random() * 100)
-      if (!indexs.includes(tmp)) indexs.push(tmp)
+  pluginMethodCall(pluginId.value, 'topArtists').then((res) => {
+    const artists = res.data.map((item) => ({ ...item, pluginId: pluginId.value }))
+    const idx: number[] = []
+    while (idx.length < 6) {
+      const tmp = ~~(Math.random() * artists.length)
+      if (!idx.includes(tmp)) idx.push(tmp)
     }
-    recommendArtists.value.indexs = indexs
-    recommendArtists.value.items = data.list.artists.filter((l, index) => indexs.includes(index))
+    recommendArtists.value = artists
+      .filter((l, index) => idx.includes(index))
+      .map((item) => ({ ...item, pluginId: pluginId.value }))
   })
 
-  newAlbums({
-    area: general.value.musicLanguage ?? 'all',
-    limit: 10
-  }).then((data) => {
-    newReleasesAlbum.value.items = data.albums
+  pluginMethodCall(pluginId.value, 'topAlbums').then((data) => {
+    newReleasesAlbum.value.hasMore = data.hasMore
+    newReleasesAlbum.value.items = data.albums.map((item) => ({
+      ...item,
+      pluginId: pluginId.value
+    }))
   })
 
-  toplists().then((data: any) => {
-    topList.value.items = data.list.filter((l: any) => topList.value.ids.includes(l.id))
+  pluginMethodCall(pluginId.value, 'rankTop').then((result) => {
+    topList.value.items = result.data
+      .slice(0, 5)
+      .map((item) => ({ ...item, pluginId: pluginId.value }))
   })
 }
 
@@ -219,15 +218,30 @@ watch(showLyrics, (value) => {
 
 document.addEventListener('visibilitychange', handleVisibleChange)
 
-onActivated(() => {
+watch(pluginId, (value) => {
+  if (value) loadData()
+})
+
+// onActivated(() => {
+//   loadData()
+//   // setTimeout(loadData, 1000)
+// })
+
+// onDeactivated(() => {
+//   show.value = false
+//   clearInterval(timer.value)
+// })
+
+// onBeforeMount(async () => {
+//   await getPlugins()
+// })
+
+onMounted(() => {
   loadData()
 })
 
-onDeactivated(() => {
-  clearInterval(timer.value)
-})
-
 onBeforeUnmount(() => {
+  show.value = false
   clearInterval(timer.value)
   document.removeEventListener('visibilitychange', handleVisibleChange)
 })

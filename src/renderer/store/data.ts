@@ -69,7 +69,7 @@ export const useDataStore = defineStore(
       await userPlaylist({
         uid: user.value.userId,
         limit: 2000,
-        timestamp: new Date().getTime()
+        timestamp: Date.now()
       }).then((res) => {
         if (res.playlist) {
           liked.playlists = res.playlist

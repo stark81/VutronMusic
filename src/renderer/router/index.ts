@@ -28,8 +28,8 @@ const routes = [
     name: 'library',
     component: () => import(/* webpackPrefetch: true */ '../views/LibraryMusic.vue'),
     meta: {
-      titleKey: 'nav.library',
-      requireLogin: true
+      titleKey: 'nav.library'
+      // requireLogin: true
     }
   },
   {
@@ -52,7 +52,7 @@ const routes = [
     name: 'likedSongs',
     component: () => import('../views/PlaylistPage.vue'),
     meta: {
-      requireLogin: true
+      // requireLogin: true
     }
   },
   {
@@ -71,7 +71,7 @@ const routes = [
     }
   },
   {
-    path: '/playlist/:id',
+    path: '/playlist/:pluginId/:id',
     name: 'playlist',
     component: () => import('../views/PlaylistPage.vue')
   },
@@ -89,11 +89,11 @@ const routes = [
     }
   },
   {
-    path: '/daily/songs',
+    path: '/daily/songs/:pluginId',
     name: 'dailySongs',
     component: () => import('../views/DailyTracks.vue'),
     meta: {
-      requireLogin: true
+      // requireLogin: true
     }
   },
   {
@@ -101,7 +101,7 @@ const routes = [
     name: 'loginAccount',
     component: () => import('../views/LoginAccount.vue'),
     meta: {
-      titleKey: 'title.login'
+      // titleKey: 'title.login'
     }
   },
   {
@@ -109,7 +109,7 @@ const routes = [
     name: 'onlineMusicLogin',
     component: () => import('../views/OnlineMusicLogin.vue'),
     meta: {
-      titleKey: 'title.login'
+      // titleKey: 'title.login'
     }
   },
   {

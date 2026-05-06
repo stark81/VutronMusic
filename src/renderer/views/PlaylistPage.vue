@@ -3,8 +3,9 @@
     <div v-if="specialPlaylistInfo === undefined && !isLikedSongsPage" class="playlist-info">
       <Cover
         :id="playlist?.id"
-        :image-url="playlist?.coverImgUrl"
+        :image-url="playlist?.picUrl"
         :show-play-button="true"
+        :plugin-id="'netease'"
         :always-show-shadow="true"
         :click-cover-to-play="true"
         :fixed-size="288"
@@ -14,8 +15,7 @@
       />
       <div class="info">
         <div class="title" :title="playlist?.name"
-          ><span v-if="playlist?.privacy === 10" class="lock-icon"
-            ><svg-icon icon-class="lock" /></span
+          ><span v-if="playlist?.isPrivate" class="lock-icon"><svg-icon icon-class="lock" /></span
           >{{ playlist?.name }}</div
         >
         <div v-if="playlistType === 'local'" class="artist">
@@ -25,10 +25,12 @@
           {{ currentService + ' 歌单 by ' + playlist.creator.nickname }}
         </div>
         <div v-else class="artist">
-          歌单 by
+          {{ pluginId }} 歌单 by
           <span
             v-if="
-              [5277771961, 5277965913, 5277969451, 5277778542, 5278068783].includes(playlist.id)
+              [5277771961, 5277965913, 5277969451, 5277778542, 5278068783].includes(
+                playlist.id as number
+              )
             "
             style="font-weight: 600"
             >Apple Music</span
@@ -85,7 +87,7 @@
       <div class="title" :class="specialPlaylistInfo.gradient">
         {{ specialPlaylistInfo.name }}
       </div>
-      <div class="subtitle">{{ playlist.englishTitle }} · {{ playlist.updateFrequency }} </div>
+      <div class="subtitle">{{ playlist.copywriter }} · {{ playlist.updateFrequency }} </div>
 
       <div class="buttons">
         <ButtonTwoTone class="play-button" icon-class="play" color="grey" @click="play">
@@ -189,7 +191,7 @@
     <div class="comment-container" @click.stop>
       <CommentPage
         v-if="showComment"
-        :id="playlist.id"
+        :id="playlist.id as number"
         type="playlist"
         :style="{ width: '100%', padding: '40px 4vh 10px 4vh' }"
       />
@@ -198,12 +200,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, provide, onMounted, watch } from 'vue'
+import { computed, ref, provide, onMounted, watch, toRaw } from 'vue'
 import { useDataStore } from '../store/data'
 import { useLocalMusicStore } from '../store/localMusic'
-import { useStreamMusicStore } from '../store/streamingMusic'
+// import { useStreamMusicStore } from '../store/streamingMusic'
 import { useNormalStateStore } from '../store/state'
 import { usePlayerStore } from '../store/player'
+import { usePluginMusic } from '../store/pluginMusic'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 import { formatDate, openExternal } from '../utils'
@@ -218,15 +221,16 @@ import Modal from '../components/BaseModal.vue'
 import { isAccountLoggedIn } from '../utils/auth'
 import { tricklingProgress } from '../utils/tricklingProgress'
 import { useI18n } from 'vue-i18n'
-import { getTrackDetail } from '../api/track'
+// import { getTrackDetail } from '../api/track'
 import {
   getPlaylistDetail,
   subscribePlaylist,
   intelligencePlaylist,
   deletePlaylist
 } from '../api/playlist'
-import { Playlist, Track, StreamPlaylist, serviceName } from '@/types/music.d'
-import _ from 'lodash'
+import { serviceName } from '@/types/music.d'
+// import _ from 'lodash'
+import { PluginId, Track, PlaylistDetail } from '@/types/plugin'
 
 const specialPlaylist = {
   2829816518: {
@@ -321,24 +325,36 @@ const specialPlaylist = {
 
 const route = useRoute()
 const router = useRouter()
-const playlist = ref<{ [key: string]: any }>({
+const playlist = ref<PlaylistDetail>({
   id: 0,
   name: '',
   description: '',
+  subscribed: false,
+  isPrivate: false,
+  tracks: [],
+  pluginId: '',
+  copywriter: '',
+  updateFrequency: null,
   updateTime: 0,
   trackCount: 0,
-  creator: { userId: '' },
-  coverImgUrl: '',
-  trackIds: []
+  creator: { userId: '', nickname: '', avatarUrl: '' },
+  picUrl: '',
+  trackIds: [],
+  tags: [],
+  sourceContext: { id: 0, trackIds: [], loadedIDs: [] }
 })
 const tracks = ref<Track[]>([])
 const playlistMenu = ref()
 const show = ref(false)
-const lastLoadedTrackIndex = ref(9)
+// const lastLoadedTrackIndex = ref(9)
 const showFullDescription = ref(false)
 const showComment = ref(false)
 const pSearchBoxRef = ref<InstanceType<typeof SearchBox>>()
 const currentService = ref<serviceName | 'all'>('all')
+const pluginId = ref<PluginId>('' as PluginId)
+
+const pluginMusicStore = usePluginMusic()
+const { pluginMethodCall } = pluginMusicStore
 
 const { user, likedSongPlaylistID } = storeToRefs(useDataStore())
 const listType = computed(() => route.name!.toString())
@@ -348,21 +364,17 @@ const filterTracks = computed(() => {
   return tracks.value.filter(
     (track) =>
       (track.name && track.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
-      (track.alia || track.alias)?.find((al) =>
-        al.toLowerCase().includes(keyword.value?.toLowerCase())
-      ) ||
+      track.alias?.find((al) => al.toLowerCase().includes(keyword.value?.toLowerCase())) ||
       (track.album?.name &&
         track.album.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
-      (track.artists || track.ar).find(
+      track.artists.find(
         (ar) => ar.name && ar.name.toLowerCase().includes(keyword.value?.toLowerCase())
       )
   )
 })
 
-const { playlists, localTracks } = storeToRefs(useLocalMusicStore())
+// const { playlists, localTracks } = storeToRefs(useLocalMusicStore())
 const { deleteLocalPlaylist } = useLocalMusicStore()
-
-const streamMusic = useStreamMusicStore()
 
 const stateStore = useNormalStateStore()
 const { showToast } = stateStore
@@ -409,83 +421,65 @@ watch(
   () => editPlaylistModal.value.show,
   (value, oldVal) => {
     if (oldVal && !value && playlistType.value === 'online') {
-      loadData(playlist.value.id)
+      loadData('' as PluginId, playlist.value.id)
     }
   }
 )
 
-const loadLocalData = (id: number) => {
-  playlist.value = playlists.value.find((item) => item.id === id) as Playlist
-  if (!playlist.value) {
-    router.go(-1)
-    return
-  }
-  const trackIDs = playlist.value.trackIds
-  tracks.value = trackIDs
-    .map((id) => localTracks.value.find((item) => item.id === id) as Track)
-    .reverse()
-  tricklingProgress.done()
-  show.value = true
-}
-
-const loadStreamData = (id: string) => {
-  playlist.value = streamMusic.playlists[currentService.value].find(
-    (p) => p.id === id
-  ) as StreamPlaylist
-  if (!playlist.value) {
-    router.go(-1)
-    return
-  }
-  const trackIDs = playlist.value.trackIds
-  tracks.value = trackIDs
-    .map((id) => streamMusic.streamTracks[currentService.value].find((item) => item.id === id))
-    .map((track) => {
-      if (!playlist.value.trackItemIds) return track
-      return { ...track, playlistItemId: playlist.value.trackItemIds[track.id] }
-    })
-  tricklingProgress.done()
-  show.value = true
-}
-
-const loadStreamLiked = () => {
-  tracks.value =
-    currentService.value === 'all'
-      ? _.flatten(Object.values(streamMusic.streamLikedTracks))
-      : streamMusic.streamLikedTracks[currentService.value]
-  tricklingProgress.done()
-  show.value = true
-}
-
-const loadData = async (id: number) => {
-  await getPlaylistDetail(id, true)
-    .then((data: any) => {
-      playlist.value = data.playlist
-      tracks.value = data.playlist.tracks
-      lastLoadedTrackIndex.value = data.playlist.tracks.length - 1
+const loadData = async (plugin: PluginId, id: number | string) => {
+  pluginMethodCall(plugin, 'getPlaylistDetail', { id })
+    .then((result) => {
+      if (!result.data) return
+      result.data.pluginId = plugin
+      playlist.value = result.data
+      tracks.value = result.data.tracks
       tricklingProgress.done()
       show.value = true
     })
     .then(() => {
       if (playlist.value.trackCount > tracks.value.length) {
-        const trackIDs = playlist.value.trackIds
-          .slice(tracks.value.length, tracks.value.length + 500)
-          .map((t) => t.id)
-        getTrackDetail(trackIDs.join(',')).then((data: any) => {
-          tracks.value.push(...data.songs)
+        // 目前各个插件的这个方法参数都不太一致，因此由各个插件从上一个
+        pluginMethodCall(plugin, 'getPlaylistTracks', {
+          sourceContext: toRaw(playlist.value.sourceContext)
+        }).then((result) => {
+          tracks.value = [...new Set([...tracks.value, ...result.data])]
+          playlist.value.sourceContext.loadedIDs = tracks.value.map((item) => item.id)
+          // if (pagesize > playlist.value.trackCount) {
+          //   playlist.value.trackCount = tracks.value.length
+          // }
         })
       }
     })
+
+  // await getPlaylistDetail(id, true)
+  //   .then((data: any) => {
+  //     playlist.value = data.playlist
+  //     tracks.value = data.playlist.tracks
+  //     lastLoadedTrackIndex.value = data.playlist.tracks.length - 1
+  //     tricklingProgress.done()
+  //     show.value = true
+  //   })
+  //   .then(() => {
+  //     if (playlist.value.trackCount > tracks.value.length) {
+  //       const trackIDs = playlist.value.trackIds
+  //         .slice(tracks.value.length, tracks.value.length + 500)
+  //         .map((t) => t.id)
+  //       getTrackDetail(trackIDs.join(',')).then((data: any) => {
+  //         tracks.value.push(...data.songs)
+  //       })
+  //     }
+  //   })
 }
 
-const loadMore = (Num: number = 500) => {
+const loadMore = () => {
   if (playlist.value.trackCount > tracks.value.length) {
-    const trackIDs = playlist.value.trackIds
-      .slice(tracks.value.length, tracks.value.length + Num)
-      .map((t) => t.id)
-    getTrackDetail(trackIDs.join(',')).then((data: any) => {
-      tracks.value.push(...data.songs)
-      lastLoadedTrackIndex.value = tracks.value.length - 1
-    })
+    console.log('=== loadMore ===')
+    // const trackIDs = playlist.value.trackIds.slice(tracks.value.length, tracks.value.length + Num)
+    // .map((t) => t.id)
+    // getTrackDetail(trackIDs.join(',')).then((data: any) => {
+    //  tracks.value.push(...data.songs)
+    // lastLoadedTrackIndex.value = tracks.value.length - 1
+    // })
   }
 }
 
@@ -502,7 +496,7 @@ const likePlaylist = (toast = false) => {
           showToast(playlist.value.subscribed ? '已保存到音乐库' : '已从音乐库删除')
         }
       }
-      getPlaylistDetail(playlist.value.id, true).then((data: any) => {
+      getPlaylistDetail(playlist.value.id as number, true).then((data: any) => {
         playlist.value = data.playlist
       })
     }
@@ -510,7 +504,7 @@ const likePlaylist = (toast = false) => {
 }
 
 const play = () => {
-  const trackIDs = tracks.value.map((t) => t.id)
+  const trackIDs = tracks.value.map((t) => t.id as number)
   const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
   replacePlaylist(typeMap[playlistType.value], playlist.value.id || 0, trackIDs, idx)
 }
@@ -518,7 +512,7 @@ const play = () => {
 const playIntelligenceList = () => {
   const randomId = Math.floor(Math.random() * tracks.value.length + 1)
   const songId = tracks.value[randomId].id
-  intelligencePlaylist({ id: songId, pid: likedSongPlaylistID.value }).then((result) => {
+  intelligencePlaylist({ id: songId as number, pid: likedSongPlaylistID.value }).then((result) => {
     const trackIDs = result.data.map((t: any) => t.id)
     const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
     replacePlaylist('playlist', likedSongPlaylistID.value, trackIDs, idx)
@@ -541,18 +535,26 @@ const deleteAPlaylist = () => {
 
   if (confirm(`确定要删除歌单 ${playlist.value.name}？`)) {
     if (playlistType.value === 'local') {
-      deleteLocalPlaylist(playlist.value.id).then((result) => {
+      deleteLocalPlaylist(playlist.value.id as number).then((result) => {
         if (result) {
           show.value = false
           playlist.value = {
             id: 0,
             name: '',
             description: '',
+            subscribed: false,
+            isPrivate: false,
+            tracks: [],
+            pluginId: '',
+            copywriter: '',
+            updateFrequency: null,
             updateTime: 0,
             trackCount: 0,
-            creator: { userId: '' },
-            coverImgUrl: '',
-            trackIds: []
+            creator: { userId: '', nickname: '', avatarUrl: '' },
+            picUrl: '',
+            trackIds: [],
+            tags: [],
+            sourceContext: { id: 0, trackIds: [], loadedIDs: [] }
           }
           showToast(t('toast.deleteSuccess'))
           router.go(-1)
@@ -573,11 +575,19 @@ const deleteAPlaylist = () => {
               id: 0,
               name: '',
               description: '',
+              subscribed: false,
+              isPrivate: false,
+              tracks: [],
+              pluginId: '',
+              copywriter: '',
+              updateFrequency: null,
               updateTime: 0,
               trackCount: 0,
-              creator: { userId: '' },
-              coverImgUrl: '',
-              trackIds: []
+              creator: { userId: '', nickname: '', avatarUrl: '' },
+              picUrl: '',
+              trackIds: [],
+              tags: [],
+              sourceContext: { id: 0, trackIds: [], loadedIDs: [] }
             }
             showToast(t('toast.deleteSuccess'))
             router.go(-1)
@@ -604,7 +614,7 @@ const editPlaylist = () => {
     show: true,
     type:
       playlistType.value === 'stream' ? (currentService.value as serviceName) : playlistType.value,
-    playlistID: playlist.value.id,
+    playlistID: playlist.value.id as number,
     info: {
       title: playlist.value.name,
       description: playlist.value.description || '',
@@ -643,20 +653,8 @@ const removeTrack = (idx: number) => {
 provide('removeTrack', removeTrack)
 
 onMounted(() => {
-  if (playlistType.value === 'local') {
-    loadLocalData(Number(route.params.id))
-  } else if (playlistType.value === 'stream') {
-    currentService.value = route.params.service as serviceName
-    const id = route.params.id as string
-    loadStreamData(id)
-  } else if (route.name === 'streamLikedSongs') {
-    currentService.value = route.params.service as serviceName | 'all'
-    loadStreamLiked()
-  } else if (route.name === 'likedSongs') {
-    loadData(likedSongPlaylistID.value)
-  } else {
-    loadData(Number(route.params.id))
-  }
+  pluginId.value = route.params.pluginId as PluginId
+  loadData(pluginId.value, route.params.id as string | number) // 24381616
   setTimeout(() => {
     if (!show.value) tricklingProgress.start()
   }, 1000)

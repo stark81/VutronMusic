@@ -433,6 +433,18 @@
             </div>
             <div class="right">
               <button @click="uploadPlugin">导入</button>
+              <button>刷新</button>
+            </div>
+          </div>
+          <div>
+            <div
+              v-for="plugin in pluginServices"
+              :key="plugin?.code ?? ''"
+              class="test"
+              @click="updateActivePlugin(plugin.code)"
+            >
+              <label>{{ plugin?.name || '' }}</label>
+              <label>{{ plugin.active }}</label>
             </div>
           </div>
         </div>
@@ -1113,6 +1125,7 @@ import { VueDraggable } from 'vue-draggable-plus'
 import imageUrl from '../utils/settingImg.dataurl?raw'
 import { useRouter } from 'vue-router'
 import { serviceType, serviceName, Appearance, ProxyType } from '@/types/music.d'
+import { PluginId } from '@/types/plugin'
 
 const router = useRouter()
 
@@ -1164,6 +1177,7 @@ const {
 const { showToast, checkUpdate, getFontList } = stateStore
 
 const pluginMusicStore = usePluginMusic()
+const { services: pluginServices } = storeToRefs(pluginMusicStore)
 const { uploadPlugin } = pluginMusicStore
 
 const dataStore = useDataStore()
@@ -1575,6 +1589,12 @@ const recordedShortcutComputed = computed(() => {
   })
   return shortcut.join('+')
 })
+
+const updateActivePlugin = (code: PluginId) => {
+  pluginServices.value.forEach((item) => {
+    item.active = item.code === code
+  })
+}
 
 const clickOutside = () => {
   exitRecordShortcut()

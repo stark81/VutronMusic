@@ -50,7 +50,7 @@ export const useNormalStateStore = defineStore('state', () => {
     show: false,
     type: 'online' as TrackSourceType,
     playlistID: 0,
-    info: { title: '', description: '', tags: [] }
+    info: { title: '', description: '', tags: [] as string[] }
   })
   const selectDirModal = ref(false)
 

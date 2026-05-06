@@ -1,84 +1,95 @@
+import z from 'zod'
 import { defineStore } from 'pinia'
-import { computed, onMounted, reactive } from 'vue'
-import { service, Track, Playlist, PluginMethodCall, PluginId } from '@/types/plugin'
+import { computed, reactive, ref } from 'vue'
+import { PluginResultSchema } from '@/types/schemas'
+import router from '../router'
+import {
+  service,
+  PluginMethodCall,
+  PluginId,
+  MusicType,
+  defaultMap,
+  User,
+  PluginAPI,
+  PlaylistCatlist,
+  Track,
+  Playlist,
+  Artist,
+  Album
+} from '@/types/plugin'
 
-const _buildService = (code: PluginId, meta: { name: string; type: 'online' | 'stream' }) => {
+const _buildService = (code: PluginId, meta: { name: string; type: MusicType }): service => {
   return {
     code,
     name: meta.name,
     type: meta.type,
-    status: 'logout' as 'login' | 'logout' | 'offline',
-    tracks: [] as Track[],
-    playlists: [] as Playlist[],
-    lastRefreshCookieDate: 0,
-    liked: {
-      likedSongPlaylistID: 0,
-      songs: [],
-      songsWithDetails: [],
-      playlists: [],
-      albums: [],
-      artists: [],
-      mvs: [],
-      cloudDisk: [],
-      playHistory: {
-        weekData: [],
-        allData: []
-      }
-    }
+    active: false,
+    status: 'logout',
+    options: { sort: 'id', order: 'ASC' }
   }
-}
-
-interface User {
-  userId: number | null
-  avatarUrl: string
-  nickname: string
-  [key: string]: any
 }
 
 export const usePluginMusic = defineStore(
   'pluginMusic',
   () => {
-    const services = reactive<{
-      active: service['name']
-      sortBy: 'default' | ''
-      groupBy: 'all'
-      artistBy: 'artist' | 'albumArtist'
-      services: service[]
-    }>({
-      active: 'netease', // 首页、探索页面数据来源
-      sortBy: 'default', // 本地音乐、自建流媒体歌曲的排序
-      groupBy: 'all', // 自建流媒体歌曲聚合情况
-      artistBy: 'artist', // 本地音乐、自建流媒体的艺人显示模式
-      services: []
-    })
+    const services = ref<service[]>([])
+    const users = reactive<Record<service['code'], User>>({})
 
-    const users = reactive<Record<service['name'], User>>({})
+    const tracks = reactive<Record<service['code'], Track[]>>({})
+    const albums = reactive<Record<service['code'], Album[]>>({})
+    const artists = reactive<Record<service['code'], Artist[]>>({})
+    const playlists = reactive<Record<service['code'], Playlist[]>>({})
+    const mvs = reactive<Record<service['code'], any[]>>({})
+    const likedTracks = reactive<Record<service['code'], Track[]>>({})
+    const cloudDisks = reactive<Record<service['code'], Track[]>>({})
+    const playHistory = reactive<Record<service['code'], { week: Track[]; all: Track[] }[]>>({})
+
+    const additionalTags = reactive<Record<service['code'], PlaylistCatlist['static']>>({})
+
     const pluginIdSet = computed(() => {
-      return new Set(services.services.map((s) => s.code))
+      return new Set(services.value.map((s) => s.code))
     })
 
-    /**
-     * 调用插件的某个具体方法。本地音乐、流媒体音乐后续也改到这里
-     * @param {String} pluginId 被调用插件的id
-     * @param {String} methodName 被调用的方法名
-     * @param {Object} params 被调用方法对应的参数
-     */
-    const pluginMethodCall: PluginMethodCall = (
-      pluginId: PluginId,
-      methodName: string,
-      ...args
-    ) => {
-      if (!pluginIdSet.value.has(pluginId)) {
-        throw new Error(`Invalid pluginId: ${pluginId}`)
+    const pluginMethodCall: PluginMethodCall = async (pluginId, methodName, ...args) => {
+      try {
+        if (!pluginIdSet.value.has(pluginId)) {
+          throw new Error(`Invalid pluginId: ${pluginId}`)
+        }
+
+        const params = args[0] ?? {}
+
+        const rawResult = await window.mainApi!.invoke('plugin-method-call', {
+          pluginId,
+          methodName,
+          params
+        })
+        rawResult.pluginId = pluginId
+
+        const schema = PluginResultSchema[methodName]
+        if (!schema) {
+          console.warn(`[pluginMethodCall] No schema defined for ${methodName}, skip validation`)
+          return rawResult as unknown as PluginAPI[typeof methodName]['result']
+        }
+
+        const parsed = schema.safeParse(rawResult)
+        if (parsed.success) {
+          return parsed.data as unknown as PluginAPI[typeof methodName]['result']
+        } else {
+          console.log('[data] = ', rawResult)
+          console.error(
+            `[pluginMethodCall] Invalid return data for ${pluginId}.${methodName}:`,
+            z.treeifyError(parsed.error)
+          )
+          return defaultMap[methodName] as PluginAPI[typeof methodName]['result']
+        }
+      } catch (error: any) {
+        if (error?.message.includes('UNAUTHORIZED')) {
+          await router.push(`/onlineMusic/login/${pluginId}`)
+        }
+
+        console.log(`[pluginMethodCall ${pluginId} ${methodName} ERROR]:`, error)
+        return defaultMap[methodName] as unknown as PluginAPI[typeof methodName]['result']
       }
-
-      const params = args[0] ?? {}
-
-      return window.mainApi!.invoke('plugin-method-call', {
-        pluginId,
-        methodName,
-        params
-      })
     }
 
     const uploadPlugin = async () => {
@@ -90,24 +101,41 @@ export const usePluginMusic = defineStore(
     }
 
     const getPlugins = async () => {
-      services.services = []
       await window.mainApi
         ?.invoke('get-plugins')
-        .then((result: Record<string, { name: string; type: 'online' | 'stream' }>) => {
+        .then((result: Record<PluginId, { name: string; type: MusicType }>) => {
           for (const [code, meta] of Object.entries(result)) {
-            const info = _buildService(code as PluginId, meta)
-            services.services.push(info)
+            const pluginId = code as PluginId
+            if (!pluginIdSet.value.has(pluginId)) {
+              const info = _buildService(pluginId, meta)
+              services.value.push(info)
+            }
           }
         })
+      const active = services.value.find((item) => item.active)
+      if (!active) {
+        services.value.find((item) => item.code === 'netease')!.active = true
+      }
     }
 
-    onMounted(async () => {
-      await getPlugins()
-    })
-
-    return { services, users, pluginMethodCall, uploadPlugin, getPlugins }
+    return {
+      services,
+      tracks,
+      albums,
+      artists,
+      playlists,
+      likedTracks,
+      playHistory,
+      cloudDisks,
+      mvs,
+      additionalTags,
+      users,
+      pluginMethodCall,
+      uploadPlugin,
+      getPlugins
+    }
   },
   {
-    persist: true
+    persist: { pick: ['additionalTags'] }
   }
 )
