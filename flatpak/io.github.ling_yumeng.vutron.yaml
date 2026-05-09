@@ -1,0 +1,24 @@
+app-id: io.github.ling_yumeng.vutron
+runtime: org.freedesktop.Platform
+runtime-version: '25.08'
+sdk: org.freedesktop.Sdk
+command: AppEntry
+finish-args:
+  - --socket=x11
+  - --socket=wayland
+  - --share=ipc
+  - --socket=pulseaudio
+  - --share=network
+  - --device=all
+  - --filesystem=xdg-music:ro
+modules:
+  - name: vutron
+    buildsystem: simple
+    build-commands:
+      - 'mkdir /app/opt -p'
+      - 'cp -r app/resource /app/opt/vutron'
+      - 'install -Dm755 app/AppEntry /app/bin/AppEntry'
+    sources:
+      - type: git
+        url: file:///home/ff-c109/source/Vutron_FlatpakResource
+        branch: main

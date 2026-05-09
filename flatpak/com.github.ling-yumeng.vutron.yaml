@@ -1,0 +1,13 @@
+app-id: com.github.ling-yumeng.vutron
+runtime: org.freedesktop.Platform
+runtime-version: '25.08'
+sdk: org.freedesktop.Sdk
+command: /AppEntry
+
+modules:
+  - name: vutron
+    buildsystem:  yarn
+    sources:
+      - type: git
+        url: https://github.com/ling-yumeng/VutronMusic_Flatpak
+        tag: v1.0.0
