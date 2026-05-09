@@ -20,5 +20,5 @@ modules:
       - 'install -Dm755 app/AppEntry /app/bin/AppEntry'
     sources:
       - type: git
-        url: file:///home/ff-c109/source/Vutron_FlatpakResource
+        url: https://github.com/ling-yumeng/Vutron_FlatpakResource.git
         branch: main
