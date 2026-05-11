@@ -12,12 +12,14 @@ type HttpResponseMessage = { type: 'HTTP_RESPONSE'; requestId: string; data?: an
 type CallMethodMessage = { type: 'CALL_METHOD'; callId: number; method: string; args: any[] }
 type StoreResponseMessage = { type: 'STORE_RESPONSE'; requestId: string; data?: any }
 type DBResponseMessage = { type: 'DB_RESPONSE'; requestId: string; data?: any }
+type LyricResonseMessage = { type: 'LYRIC_RESPONSE'; requestId: string; data?: any }
 type IncomingMessage =
   | LoadPluginMessage
   | HttpResponseMessage
   | CallMethodMessage
   | StoreResponseMessage
   | DBResponseMessage
+  | LyricResonseMessage
 
 let pluginExports: PluginExports = Object.create(null)
 
@@ -34,7 +36,7 @@ const api = {
             pendingRequests.get(requestId)?.reject(new Error('Request timeout'))
             pendingRequests.delete(requestId)
           }
-        }, 30000)
+        }, 12000)
 
         pendingRequests.set(requestId, {
           resolve: (data) => {
@@ -58,7 +60,7 @@ const api = {
             pendingRequests.get(requestId)?.reject(new Error('Request timeout'))
             pendingRequests.delete(requestId)
           }
-        }, 30000)
+        }, 12000)
 
         pendingRequests.set(requestId, {
           resolve: (data) => {
@@ -100,7 +102,7 @@ const api = {
   },
 
   db: {
-    get() {
+    get(table: string) {
       return new Promise((resolve, reject) => {
         const requestId = Math.random().toString(36).slice(2)
 
@@ -121,11 +123,38 @@ const api = {
             reject(err)
           }
         })
-        parentPort?.postMessage({ type: 'DB_REQUEST', requestId })
+        parentPort?.postMessage({ type: 'DB_REQUEST', key: table, requestId })
       })
     },
     set(key: string, value: any) {
       parentPort?.postMessage({ type: 'DB_SET', key, value })
+    }
+  },
+
+  utils: {
+    parseLyric(msg: string) {
+      return new Promise((resolve, reject) => {
+        const requestId = Math.random().toString(36).slice(2)
+
+        const requestTimeout = setTimeout(() => {
+          if (pendingRequests.has(requestId)) {
+            pendingRequests.get(requestId)?.reject(new Error('Request timeout'))
+            pendingRequests.delete(requestId)
+          }
+        }, 12000)
+
+        pendingRequests.set(requestId, {
+          resolve: (data) => {
+            clearTimeout(requestTimeout)
+            resolve(data)
+          },
+          reject: (err) => {
+            clearTimeout(requestTimeout)
+            reject(err)
+          }
+        })
+        parentPort?.postMessage({ type: 'LYRIC_PARSE', msg, requestId })
+      })
     }
   }
 }
@@ -162,6 +191,14 @@ parentPort?.on('message', async (msg: IncomingMessage) => {
     }
 
     case 'DB_RESPONSE': {
+      const req = pendingRequests.get(msg.requestId)
+      if (!req) return
+      req.resolve(msg.data)
+      pendingRequests.delete(msg.requestId)
+      break
+    }
+
+    case 'LYRIC_RESPONSE': {
       const req = pendingRequests.get(msg.requestId)
       if (!req) return
       req.resolve(msg.data)

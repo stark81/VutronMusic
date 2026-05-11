@@ -4,10 +4,20 @@ import { Worker } from 'worker_threads'
 import electronStore from '../store'
 import cache from '../cache'
 import { CacheAPIs } from './CacheApis'
+import { fetch, Agent } from 'undici'
+import { yrcLyricParse, lrcLyricParse } from '.'
+import { LyricLine } from '@/types/plugin'
+
+const dispatcher = new Agent({
+  connections: 2,
+  pipelining: 0,
+  keepAliveTimeout: 1000,
+  keepAliveMaxTimeout: 2000
+})
 
 export interface PluginMeta {
   name?: string
-  type?: 'online' | 'stream'
+  type?: 'online' | 'stream' | 'local'
   [key: string]: any
 }
 
@@ -92,8 +102,12 @@ export class PluginInstance {
       }
 
       case 'DB_REQUEST': {
-        const { requestId } = msg
-        const result = cache.get(CacheAPIs.loginStatus, { platform: this.id })
+        const { key, requestId } = msg as { key: 'PluginData' | 'Track'; requestId: string }
+        const map = {
+          PluginData: CacheAPIs.PluginData,
+          Track: CacheAPIs.LocalMusic
+        }
+        const result = cache.get(map[key], { platform: this.id })
         this.worker.postMessage({
           type: 'DB_RESPONSE',
           requestId,
@@ -103,7 +117,27 @@ export class PluginInstance {
       }
 
       case 'DB_SET': {
-        cache.set(CacheAPIs.loginStatus, {})
+        const { key, value } = msg as { key: 'PluginData' | 'Track'; value: any }
+        const map = {
+          PluginData: CacheAPIs.PluginData,
+          Track: CacheAPIs.LocalMusic
+        }
+        cache.set(map[key], { platform: this.id, type: this.meta.type, data: value })
+        break
+      }
+
+      case 'LYRIC_PARSE': {
+        let data: LyricLine[] = []
+        if (msg.msg.yrc?.lyric) {
+          data = yrcLyricParse(msg.msg) || []
+        } else if (msg.msg.lrc.lyric) {
+          data = lrcLyricParse(msg.msg) || []
+        }
+        this.worker.postMessage({
+          type: 'LYRIC_RESPONSE',
+          requestId: msg.requestId,
+          data
+        })
         break
       }
 
@@ -136,39 +170,58 @@ export class PluginInstance {
 
   private async handleHttp(msg: any) {
     const { url, params, headers, requestId, method = 'GET', data } = msg
+
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 30000)
+
+    const timeout = setTimeout(() => {
+      controller.abort()
+    }, 12000)
 
     let fullUrl: string
+
     try {
       const u = new URL(url)
-      u.search = new URLSearchParams(params || {}).toString()
-      if (headers?.Cookie) {
-        u.searchParams.set('cookie', headers.Cookie)
-      }
+
+      // 保留原 query
+      const searchParams = new URLSearchParams(u.search)
+
+      Object.entries(params || {}).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          searchParams.set(key, String(value))
+        }
+      })
+
+      u.search = searchParams.toString()
+
       fullUrl = u.toString()
     } catch {
+      clearTimeout(timeout)
+
       this.worker.postMessage({
         type: 'HTTP_RESPONSE',
         requestId,
         error: 'Invalid URL'
       })
+
       return
     }
 
     if (!this.checkDomain(fullUrl)) {
+      clearTimeout(timeout)
+
       this.worker.postMessage({
         type: 'HTTP_RESPONSE',
         requestId,
         error: 'Domain not allowed'
       })
+
       return
     }
 
-    let response: Response
+    let response
 
     try {
-      const baseHeaders: any = {
+      const baseHeaders: Record<string, string> = {
         'User-Agent': 'Mozilla/5.0 VutronMusic'
       }
 
@@ -176,54 +229,80 @@ export class PluginInstance {
         baseHeaders['Content-Type'] = 'application/json'
       }
 
-      const finalHeaders = {
+      const finalHeaders: Record<string, string> = {
         ...baseHeaders,
-        ...headers
+        ...(headers || {})
       }
+
+      // 不再把 Cookie 塞进 query
+      // 直接走 header
+      if (headers?.Cookie) {
+        finalHeaders.Cookie = headers.Cookie
+      }
+
+      const start = Date.now()
+
+      console.log('[HTTP REQUEST]', method, fullUrl)
 
       response = await fetch(fullUrl, {
         method,
         headers: finalHeaders,
         body: method === 'POST' ? JSON.stringify(data ?? {}) : undefined,
         redirect: 'manual',
-        signal: controller.signal
+        signal: controller.signal,
+        dispatcher
       })
+
+      console.log('[HTTP RESPONSE]', response.status, fullUrl, `${Date.now() - start}ms`)
     } catch (err: any) {
-      console.error('HTTP request error: ===1=1===', fullUrl, err)
+      clearTimeout(timeout)
+
+      const isTimeout = err?.name === 'AbortError'
+
+      console.error('[HTTP ERROR]', fullUrl, isTimeout ? 'Request timeout' : err)
+
       this.worker.postMessage({
         type: 'HTTP_RESPONSE',
         requestId,
-        error: err?.message ?? 'Network error'
+        error: isTimeout ? 'Request timeout' : (err?.message ?? 'Network error')
       })
+
       return
     } finally {
       clearTimeout(timeout)
     }
 
+    // 阻止重定向
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get('location')
+
       if (!location || !this.checkDomain(location)) {
         this.worker.postMessage({
           type: 'HTTP_RESPONSE',
           requestId,
           error: 'Redirect target not allowed'
         })
+
         return
       }
+
       this.worker.postMessage({
         type: 'HTTP_RESPONSE',
         requestId,
-        error: 'Redirect blocked (even allowed)'
+        error: 'Redirect blocked'
       })
+
       return
     }
 
-    let resData: any
+    let resData: any = null
+
     try {
       const rawText = await response.text()
-      const ct = response.headers.get('content-type') ?? ''
 
-      if (ct.includes('application/json')) {
+      const contentType = response.headers.get('content-type') ?? ''
+
+      if (contentType.includes('application/json')) {
         try {
           resData = JSON.parse(rawText)
         } catch {
@@ -232,8 +311,8 @@ export class PluginInstance {
       } else {
         resData = rawText
       }
-    } catch {
-      resData = null
+    } catch (err) {
+      console.error('[HTTP PARSE ERROR]', fullUrl, err)
     }
 
     this.worker.postMessage({

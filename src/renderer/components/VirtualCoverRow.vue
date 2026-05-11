@@ -16,14 +16,14 @@
       <div class="cover-item" :class="{ artist: type === 'artist' }">
         <Cover
           :id="item.id"
-          :plugin-id="'netease'"
+          :plugin-id="item.pluginId!"
+          :source-context="item.sourceContext"
           :image-url="getImageUrl(item)"
           :type="type"
-          :service="item.service"
           :play-button-size="type === 'artist' ? 26 : playButtonSize"
         />
         <div class="text">
-          <div v-show="showPlayCount" class="info">
+          <div v-if="isPlaylist(item)" v-show="showPlayCount" class="info">
             <span class="play-count">
               <svg-icon icon-class="play" />{{ formatPlayCount(item.playCount) }}
             </span>
@@ -53,9 +53,10 @@ import Cover from './CoverBox.vue'
 import SvgIcon from './SvgIcon.vue'
 import ExplicitSymbol from './ExplicitSymbol.vue'
 import { formatPlayCount } from '../utils'
+import { Album, Artist, Playlist } from '@/types/plugin'
 
 const props = defineProps({
-  items: { type: Array as () => any[], required: true },
+  items: { type: Array as () => (Playlist | Artist | Album)[], required: true },
   type: { type: String, default: '' },
   subText: { type: String, default: null },
   itemHeight: { type: Number, default: 240 },
@@ -74,6 +75,10 @@ const props = defineProps({
 })
 
 const { items } = toRefs(props)
+
+const isPlaylist = (item: Playlist | Artist | Album): item is Playlist => {
+  return 'playCount' in item
+}
 
 const getImageUrl = (item: any) => {
   if (item.img1v1Url) {

@@ -1,6 +1,6 @@
 <template>
   <div class="daily-recommend-card" @click="goToDailyTracks">
-    <img :src="coverUrl" loading="lazy" />
+    <img :src="image" loading="lazy" />
     <div class="container">
       <div class="title-box">
         <div class="title">
@@ -23,7 +23,7 @@ import SvgIcon from './SvgIcon.vue'
 import { useRouter } from 'vue-router'
 import { useNormalStateStore } from '../store/state'
 import { usePlayerStore } from '../store/player'
-// import { usePluginMusic } from '../store/pluginMusic'
+import { usePluginMusic } from '../store/pluginMusic'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import _ from 'lodash'
@@ -40,14 +40,15 @@ const { dailyTracks, showLyrics } = storeToRefs(stateStore)
 const { showToast } = stateStore
 const { t } = useI18n()
 
-// const pluginMusic = usePluginMusic()
-// const { pluginMethodCall } = pluginMusic
+const pluginMusic = usePluginMusic()
+const { resizeImage } = pluginMusic
 
 const playerStore = usePlayerStore()
 const { _shuffle } = storeToRefs(playerStore)
 const { replacePlaylist } = playerStore
 
-const pluginId = ref('kugou' as PluginId)
+const firstTrack = computed(() => dailyTracks.value[0])
+const image = ref('')
 
 const coverUrl = computed(() => {
   const pic = `${dailyTracks.value[0]?.picUrl || _.sample(defaultCovers)}`
@@ -58,7 +59,7 @@ const coverUrl = computed(() => {
 
 const router = useRouter()
 const goToDailyTracks = () => {
-  router.push({ name: 'dailySongs', params: { pluginId: pluginId.value } })
+  router.push({ name: 'dailySongs', params: { pluginId: firstTrack.value.pluginId } })
 }
 
 const playDailyTracks = () => {
@@ -66,9 +67,9 @@ const playDailyTracks = () => {
   //   showToast(t('toast.needToLogin'))
   //   return
   // }
-  const trackIDs = dailyTracks.value.map((track) => track.id)
-  const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
-  replacePlaylist('url', '/daily/songs', trackIDs, idx)
+  // const trackIDs = dailyTracks.value.map((track) => track.id)
+  // const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
+  // replacePlaylist('url', '/daily/songs', trackIDs, idx)
 }
 
 // const loadDailyTracks = () => {
@@ -83,6 +84,12 @@ watch(showLyrics, (value) => {
   // paused.value = value
 })
 
+watch(firstTrack, (value) => {
+  resizeImage(value.pluginId as PluginId, value.picUrl, 512).then(
+    (result) => (image.value = result)
+  )
+})
+
 const handleVisibleChange = () => {
   // paused.value = document.visibilityState === 'hidden'
 }
@@ -90,8 +97,7 @@ const handleVisibleChange = () => {
 document.addEventListener('visibilitychange', handleVisibleChange)
 
 onMounted(async () => {
-  // await nextTick()
-  // loadDailyTracks()
+  const track = dailyTracks.value[0]
 })
 
 onDeactivated(() => {

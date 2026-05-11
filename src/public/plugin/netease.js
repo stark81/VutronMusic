@@ -17,6 +17,10 @@
  */
 
 /**
+ * @typedef {'PluginData' | 'Track'} DBTable
+ */
+
+/**
  * @typedef {Object} PluginHttp
  * @property {(url: string, params?: object) => Promise<any>} get
  * @property {(url: string, data?: object) => Promise<any>} post
@@ -30,8 +34,13 @@
 
 /**
  * @typedef {Object} DB
- * @property {() => Promise<any>} get
- * @property {(key: string, value: any) => void} set
+ * @property {(key: DBTable) => Promise<any>} get
+ * @property {(key: DBTable, value: any) => void} set
+ */
+
+/**
+ * @typedef {Object} Utils
+ * @property {(msg: string) => Promise<LyricLine[]>} parseLyric
  */
 
 /**
@@ -40,6 +49,7 @@
  * @property {(msg: string) => void} log
  * @property {PluginStore} store
  * @property {DB} db - 仅支持登陆相关的数据保存与获取
+ * @property {Utils} utils
  */
 
 /**
@@ -76,6 +86,7 @@
  * @property {string} sourceId
  * @property {'track' | 'album' | 'playlist' | 'mv' | 'activity'} type
  * @property {string} typeTitle
+ * @property {Record<string, any>} sourceContext
  */
 
 /**
@@ -83,6 +94,8 @@
  * @property {string} id
  * @property {string} name
  * @property {string} picUrl
+ * @property {Artist[]=} artists
+ * @property {Record<string, any>} sourceContext
  */
 
 /**
@@ -90,6 +103,7 @@
  * @property {string} id
  * @property {string} name
  * @property {string} picUrl
+ * @property {Record<string, any>} sourceContext
  */
 
 /**
@@ -124,6 +138,7 @@
  * @property {string} picUrl
  * @property {number} playCount
  * @property {{ name: string, artist: string }[]=} tracks
+ * @property {{userId: string, avatarUrl: string,  nickname: string, isVip: boolean, signature: string}=} creator
  * @property {string} pluginId
  * @property {string} copywriter
  * @property {Record<string, any>} sourceContext
@@ -157,22 +172,6 @@
 /* eslint-disable no-undef */
 const apis = api
 
-const setCookies = (cookieStr) => {
-  const cookies = {}
-
-  cookieStr.split(',').forEach((item) => {
-    const [pair] = item.split(';')
-    const [key, value] = pair.split('=')
-    if (key && value) {
-      cookies[key.trim()] = value.trim()
-    }
-  })
-
-  apis.db.set()
-
-  return cookies
-}
-
 /**
  * ========================================================================
  *                          下面的内容是目前插件所需的全部函数，
@@ -181,13 +180,14 @@ const setCookies = (cookieStr) => {
  * ========================================================================
  */
 
-const user = { userId: 0, isVip: false }
+const user = { userId: 0, isVip: false, cookie: '' }
 let baseUrl = ''
+const limit = 50
 
-apis.db.get().then((result) => {
-  console.log('[netease get user]: ', result)
+apis.db.get('PluginData').then((result) => {
   user.userId = result.userId
   user.vipType = result.vipType
+  user.cookie = result.cookie
 })
 
 apis.store.get('').then((store) => {
@@ -195,12 +195,31 @@ apis.store.get('').then((store) => {
 })
 
 /**
+ * @param {string} cookieStr
+ * @returns
+ */
+const setCookies = (cookieStr) => {
+  const cookies = {}
+  cookieStr.split(';;').forEach((item) => {
+    const cookieKV = item.split(';')[0].split('=')
+    cookies[cookieKV[0].trim()] = cookieKV[1].trim()
+  })
+
+  const result = Object.entries(cookies)
+    .map(([key, value]) => `${key}=${value}`)
+    .join('; ')
+
+  return result
+}
+
+/**
  * @param {string} url
  * @param {Object=} params
  */
 const get = async (url, params) => {
   try {
-    const response = await apis.http.get(`${baseUrl}/${url}`, params)
+    const headers = user.cookie ? { Cookie: user.cookie } : {}
+    const response = await apis.http.get(`${baseUrl}/${url}`, params, headers)
     if (response.code === 301) {
       throw new Error('UNAUTHORIZED')
     }
@@ -218,9 +237,7 @@ const get = async (url, params) => {
  * @param {Object=} data
  */
 const post = async (url, data) => {
-  const info = await apis.db.get()
-  const { baseUrl } = info
-  const headers = info['cookie-MUSIC_U'] ? { Cookie: info['cookie-MUSIC_U'] } : {}
+  const headers = user.cookie ? { Cookie: user.cookie } : {}
   return apis.http.post(`${baseUrl}/${url}`, data, headers)
 }
 
@@ -274,18 +291,165 @@ const mapTrackPlayableStatus = (tracks, privileges) => {
 const formatTrack = (item) => ({
   id: item.id,
   name: item.name,
-  duration: item.dt,
+  duration: item.dt ?? 0,
   alias: item.alia ?? [],
-  playable: item.playable,
-  reason: item.reason,
+  playable: item.playable ?? false,
+  reason: item.reason ?? '',
   createTime: item.publishTime,
-  no: item.no ?? 0,
-  album: { id: item.al.id, name: item.al.name, picUrl: item.al.picUrl + '?param=256y256' },
-  artists: item.ar.map((it) => ({ id: it.id, name: it.name, picUrl: '' })),
+  no: item.no ?? 1,
+  mvid: item.mvid ?? 0,
+  playCount: item.playCount ?? -1,
+  album: {
+    id: item.al.id,
+    name: item.al.name,
+    picUrl: item.al.picUrl + '?param=256y256',
+    sourceContext: { id: item.al.id }
+  },
+  artists:
+    item.ar?.map((it) => ({
+      id: it.id,
+      name: it.name,
+      picUrl: '',
+      sourceContext: { id: it.id }
+    })) || [],
   picUrl: item.al.picUrl + '?param=256y256',
   pluginId: '',
   type: meta.type,
-  sourceContext: {}
+  sourceContext: { id: item.id }
+})
+
+/**
+ * @returns {Album}
+ */
+const formatAlbum = (item, showArtists = false) => {
+  const result = {
+    id: item.id,
+    name: item.name,
+    picUrl: item.picUrl + '?param=256y256',
+    sourceContext: { id: item.id }
+  }
+  if (showArtists && item.artists) {
+    result.artists = item.artists.map((it) => ({
+      id: it.id,
+      name: it.name,
+      picUrl: it.picUrl || it.img1v1Url,
+      pluginId: '',
+      sourceContext: { id: it.id }
+    }))
+  }
+  return result
+}
+
+const specialPlaylist = {
+  2829816518: {
+    name: '欧美私人订制',
+    gradient: 'gradient-pink-purple-blue'
+  },
+  2890490211: {
+    name: '助眠鸟鸣声',
+    gradient: 'gradient-green'
+  },
+  5089855855: {
+    name: '夜的胡思乱想',
+    gradient: 'gradient-moonstone-blue'
+  },
+  2888212971: {
+    name: '全球百大DJ',
+    gradient: 'gradient-orange-red'
+  },
+  2829733864: {
+    name: '睡眠伴侣',
+    gradient: 'gradient-midnight-blue'
+  },
+  2829844572: {
+    name: '洗澡时听的歌',
+    gradient: 'gradient-yellow'
+  },
+  2920647537: {
+    name: '还是会想你',
+    gradient: 'gradient-dark-blue-midnight-blue'
+  },
+  2890501416: {
+    name: '助眠白噪声',
+    gradient: 'gradient-sky-blue'
+  },
+  5217150082: {
+    name: '摇滚唱片行',
+    gradient: 'gradient-yellow-red'
+  },
+  2829961453: {
+    name: '古风音乐大赏',
+    gradient: 'gradient-fog'
+  },
+  4923261701: {
+    name: 'Trance',
+    gradient: 'gradient-light-red-light-blue '
+  },
+  5212729721: {
+    name: '欧美点唱机',
+    gradient: 'gradient-indigo-pink-yellow'
+  },
+  3103434282: {
+    name: '甜蜜少女心',
+    gradient: 'gradient-pink'
+  },
+  2829896389: {
+    name: '日系私人订制',
+    gradient: 'gradient-yellow-pink'
+  },
+  2829779628: {
+    name: '运动随身听',
+    gradient: 'gradient-orange-red'
+  },
+  2860654884: {
+    name: '独立女声精选',
+    gradient: 'gradient-sharp-blue'
+  },
+  898150: {
+    name: '浪漫婚礼专用',
+    gradient: 'gradient-pink'
+  },
+  2638104052: {
+    name: '牛奶泡泡浴',
+    gradient: 'gradient-fog'
+  },
+  5317236517: {
+    name: '后朋克精选',
+    gradient: 'gradient-pink-purple-blue'
+  },
+  2821115454: {
+    name: '一周原创发现',
+    gradient: 'gradient-blue-purple'
+  },
+  2829883282: {
+    name: '华语私人雷达',
+    gradient: 'gradient-yellow-red'
+  },
+  3136952023: {
+    name: '私人雷达',
+    gradient: 'gradient-radar'
+  }
+}
+
+/**
+ * @returns {Playlist}
+ */
+const formatPlaylist = (item) => ({
+  id: item.id,
+  name: item.name,
+  picUrl: (item.picUrl || item.coverImgUrl) + '?param=256y256',
+  playCount: item.playCount,
+  creator: {
+    userId: item.creator?.userId || '',
+    avatarUrl: item.creator?.avatarUrl || '',
+    nickname: item.creator?.nickname || '',
+    isVip: [11, 110].includes(item.creator?.vipType),
+    signature: item.creator?.signature || '',
+    sourceContext: { userId: item.creator?.userId || '' }
+  },
+  pluginId: '',
+  copywriter: item.copywriter || '',
+  sourceContext: { id: item.id }
 })
 
 const meta = {
@@ -304,17 +468,22 @@ exports.meta = meta
  * 平台连同性测试
  * @returns {boolean}
  */
-exports.systemPing = () => true
+exports.systemPing = async () => true
+// {
+//   const result = await get('user/account')
+//   return { code: result?.code ?? 200, status: result.profile ? 'login' : 'logout' }
+// }
 
 /**
  * @returns {{ code: number, data: { url: string, qrcode: string } }}
  */
 exports.loginQrKey = async () => {
   const result = await get('login/qr/key', { timestamp: Date.now() })
-  if (result.code === 200) {
-    result.data.url = `https://music.163.com/login?codekey=${result.data.unikey}`
+  const data = {
+    url: `https://music.163.com/login?codekey=${result.data.unikey}`,
+    qrcode: result.data.unikey
   }
-  return result
+  return { code: result?.code ?? 200, data }
 }
 
 /**
@@ -324,14 +493,23 @@ exports.loginQrCodeCheck = async (params) => {
   const result = await get('login/qr/check', { ...params, timestamp: Date.now() })
   if (result.code === 803) {
     result.cookie = result.cookie.replaceAll(' HTTPOnly', '')
-    setCookies(result.cookie)
+
+    const cookie = setCookies(result.cookie)
+    user.cookie = cookie
+
     const res = await post(`login/status?timestamp=${Date.now()}`)
     const profile = res.data.profile
+
+    const data = { userId: profile.userId, isVip: profile.vipType === 11, cookie }
+    user.userId = profile.userId
+    user.vipType = [11, 110].includes(profile.vipType)
+    apis.db.set('PluginData', data)
+
     result.user = {
       userId: profile.userId,
       avatarUrl: profile.avatarUrl,
       nickname: profile.nickname,
-      vipType: profile.vipType,
+      isVip: [11, 110].includes(profile.vipType),
       signature: profile.signature
     }
   }
@@ -348,136 +526,226 @@ exports.doLogin = async () => true
  */
 exports.getBanner = async () => {
   const result = await get('banner', { type: 0 })
-  const banners = result.banners
-    .filter((item) => item.typeTitle !== '广告')
-    .map((item) => {
-      const sourceId =
-        item.typeTitle === '数字专辑' ? new URL(item.url).searchParams.get('id') : item.targetId
+  if (result && result.code === 200) {
+    const banners = result.banners
+      .filter((item) => item.typeTitle !== '广告')
+      .map((item) => {
+        const sourceId =
+          item.typeTitle === '数字专辑' ? new URL(item.url).searchParams.get('id') : item.targetId
 
-      let type = 'activity'
-      if (['新歌首发', '热歌推荐'].includes(item.typeTitle)) {
-        type = 'track'
-      } else if (['新碟首发', '热碟推荐', '数字专辑'].includes(item.typeTitle)) {
-        type = 'album'
-      } else if (item.typeTitle === '歌单推荐') {
-        type = 'playlist'
-      } else if (item.typeTitle === 'MV首发') {
-        type = 'mv'
-      }
+        let type = 'activity'
+        if (['新歌首发', '热歌推荐'].includes(item.typeTitle)) {
+          type = 'track'
+        } else if (['新碟首发', '热碟推荐', '数字专辑'].includes(item.typeTitle)) {
+          type = 'album'
+        } else if (item.typeTitle === '歌单推荐') {
+          type = 'playlist'
+        } else if (item.typeTitle === 'MV首发') {
+          type = 'mv'
+        }
 
-      return {
-        id: item.targetId,
-        picUrl: item.imageUrl,
-        url: item.url,
-        sourceId,
-        type,
-        typeTitle: item.typeTitle
-      }
-    })
-  return { code: result.code, data: banners }
-}
-
-const getRecommendPlayList = async (limit, removePrivateRecommand) => {
-  if (!user.userId) {
-    console.log('====2=== 未登录', user)
-  } else {
-    console.log('=====', limit, removePrivateRecommand)
+        return {
+          id: item.targetId,
+          picUrl: item.imageUrl,
+          url: item.url,
+          sourceId,
+          type,
+          typeTitle: item.typeTitle,
+          sourceContext: { id: item.targetId }
+        }
+      })
+    return { code: result.code, data: banners }
   }
+  return { code: result?.code ?? 200, data: [] }
 }
+
+// const getRecommendPlayList = async (limit, removePrivateRecommand) => {
+//   if (!user.userId) {
+//     console.log('====2=== 未登录', user)
+//   } else {
+//     console.log('=====', limit, removePrivateRecommand)
+//   }
+// }
 
 /**
  * @returns {{ code: number, data: Playlist[] }}
  */
 exports.getRecommendPlaylist = async () => {
-  getRecommendPlayList(10, false)
+  // getRecommendPlayList(10, false)
   const result = await get('personalized', { limit: 10 })
-  const playlists = result.result.map((item) => ({
-    id: item.id,
-    name: item.name,
-    picUrl: item.picUrl + '?param=256y256',
-    playCount: item.playCount,
-    copywriter: item.copywriter,
-    pluginId: '',
-    sourceContext: {}
-  }))
-  return { code: result.code, data: playlists }
+  if (result && result.code === 200) {
+    const playlists = result.result.map(formatPlaylist)
+    return { code: result.code, data: playlists }
+  }
+  return { code: result?.code ?? 200, data: [] }
 }
 
 /**
- * @returns {{ code: number, data: Track[] }}
+ * @returns {{ code: number, data: Track[], sourceContext: Record<string, any> }}
  */
 exports.getRecommendTracks = async () => {
-  const result = await get('recommend/songs', { timestamp: Date.now() })
-  const data = mapTrackPlayableStatus(result.data.dailySongs, result.data.privileges ?? [])
-  const tracks = data.map((item) => formatTrack(item))
-  return { code: result.code, data: tracks }
+  const result = await get('recommend/songs')
+  if (result && result.code === 200) {
+    const data = mapTrackPlayableStatus(result.data.dailySongs, result.data.privileges)
+    const tracks = data.map(formatTrack)
+    const sourceContext = { offset: tracks.length }
+    return { code: result.code, data: tracks, sourceContext }
+  } else {
+    return { code: result?.code ?? 200, data: [], sourceContext: {} }
+  }
 }
 
 /**
- * @returns {{ code: number, data: Artist[] }}
+ * @returns {{ code: number, data: Artist[], sourceContext: Record<string, any> }}
  */
-exports.topArtists = async () => {
-  const result = await get('top/artists')
-  const data = result.artists.map((item) => ({
-    id: item.id,
-    name: item.name,
-    picUrl: item.picUrl + '?param=256y256'
-  }))
-  return { code: result.code, data }
-}
-
-/**
- * @returns {{ code: number, hasMore: boolean, albums: Album[] }}
- */
-exports.topAlbums = async () => {
-  const result = await get('album/new', { area: 'ALL', limit: 10, timestamp: Date.now() })
-  return {
-    code: result.code,
-    hasMore: result.total > 10,
-    albums: result.albums.map((item) => ({
+exports.topArtists = async (params) => {
+  const result = await get('top/artists', { limit, offset: params?.offset ?? 0 })
+  if (result && result.code === 200) {
+    const data = result?.artists.map((item) => ({
       id: item.id,
       name: item.name,
-      picUrl: item.picUrl + '?param=256y256'
+      picUrl: item.picUrl + '?param=256y256',
+      sourceContext: { id: item.id }
     }))
+    return { code: result.code, data, sourceContext: { offset: (params?.offset ?? 0) + limit } }
   }
+  return { code: result?.code ?? 200, data: [], sourceContext: { offset: params?.offset ?? 0 } }
+}
+
+/**
+ * @returns {{ code: number, hasMore: boolean, albums: Album[], sourceContext: Record<string, any> }}
+ */
+exports.topAlbums = async () => {
+  const result = await get('album/new', { area: 'ALL', limit: 10 })
+  if (result && result.code === 200) {
+    return {
+      code: result?.code,
+      hasMore: result.total > 10,
+      albums: result.albums.map((item) => formatAlbum(item, true)),
+      sourceContext: {}
+    }
+  }
+  return { code: result?.code ?? 200, hasMore: false, albums: [], sourceContext: {} }
 }
 
 /**
  * @returns {{ code: number, data: Playlist[] }}
  */
 exports.rankTop = async () => {
-  const ids = [19723756, 180106, 60198, 3812895, 60131]
-  const result = await get('toplist', { timestamp: Date.now() })
-  const data = result.list
-    .filter((item) => ids.includes(item.id))
-    .map((item) => ({
-      id: item.id,
-      name: item.name,
-      picUrl: item.coverImgUrl + '?param=256y256',
-      playCount: item.playCount,
+  const data = [
+    {
+      id: 19723756,
+      name: '飙升榜',
+      picUrl:
+        'https://p3.music.126.net/rIi7Qzy2i2Y_1QD7cd0MYA==/109951170048506929.jpg?param=256y256',
+      playCount: 0,
       pluginId: '',
-      copywriter: item.updateFrequency,
+      creator: {
+        userId: 0,
+        avatarUrl: '',
+        nickname: '',
+        isVip: false,
+        signature: '',
+        sourceContext: {}
+      },
+      copywriter: '刚刚更新',
       sourceContext: {}
-    }))
-  return { code: result.code, data }
+    },
+    {
+      id: 180106,
+      name: 'UK排行榜周榜',
+      picUrl:
+        'https://p4.music.126.net/fhAqiflLy3eU-ldmBQByrg==/109951165613082765.jpg?param=256y256',
+      playCount: 0,
+      pluginId: '',
+      creator: {
+        userId: 0,
+        avatarUrl: '',
+        nickname: '',
+        isVip: false,
+        signature: '',
+        sourceContext: {}
+      },
+      copywriter: '每天更新',
+      sourceContext: {}
+    },
+    {
+      id: 60198,
+      name: '美国Billboard榜',
+      picUrl:
+        'https://p4.music.126.net/rwRsVIJHQ68gglhA6TNEYA==/109951165611413732.jpg?param=256y256',
+      playCount: 0,
+      pluginId: '',
+      creator: {
+        userId: 0,
+        avatarUrl: '',
+        nickname: '',
+        isVip: false,
+        signature: '',
+        sourceContext: {}
+      },
+      copywriter: '每周三更新',
+      sourceContext: {}
+    },
+    {
+      id: 3812895,
+      name: 'Beatport全球电子舞曲榜',
+      picUrl:
+        'https://p1.music.126.net/oT-RHuPBJiD7WMoU7WG5Rw==/109951166093489621.jpg?param=256y256',
+      playCount: 0,
+      pluginId: '',
+      creator: {
+        userId: 0,
+        avatarUrl: '',
+        nickname: '',
+        isVip: false,
+        signature: '',
+        sourceContext: {}
+      },
+      copywriter: '每周三更新',
+      sourceContext: {}
+    },
+    {
+      id: 60131,
+      name: '日本Oricon榜',
+      picUrl:
+        'https://p3.music.126.net/aXUPgImt8hhf4cMUZEjP4g==/109951165611417794.jpg?param=256y256',
+      playCount: 0,
+      pluginId: '',
+      creator: {
+        userId: 0,
+        avatarUrl: '',
+        nickname: '',
+        isVip: false,
+        signature: '',
+        sourceContext: {}
+      },
+      copywriter: '每天更新',
+      sourceContext: {}
+    }
+  ]
+  return { code: 200, data }
 }
 
 /**
  * @returns {{ code: number, data: Playlist[] }}
  */
 exports.rankList = async () => {
-  const res = await get('toplist/detail', { timestamp: Date.now() })
-  const data = res.list.map((item) => ({
-    id: item.id,
-    name: item.name,
-    picUrl: item.coverImgUrl,
-    playCount: item.playCount,
-    copywriter: item.updateFrequency,
-    pluginId: '',
-    tracks: item.tracks.map((it) => ({ name: it.first, artist: it.second })),
-    sourceContext: {}
-  }))
-  return { code: result.code, data }
+  const res = await get('toplist/detail')
+  if (res && res.code === 200) {
+    const data = res.list.map((item) => ({
+      id: item.id,
+      name: item.name,
+      picUrl: item.coverImgUrl,
+      playCount: item.playCount,
+      copywriter: item.updateFrequency,
+      pluginId: '',
+      tracks: item.tracks.map((it) => ({ name: it.first, artist: it.second })),
+      sourceContext: {}
+    }))
+    return { code: 200, data }
+  }
+  return { code: res?.code ?? 200, data: [] }
 }
 
 /**
@@ -485,45 +753,56 @@ exports.rankList = async () => {
  */
 exports.getPlaylistDetail = async (params) => {
   const res = await get('playlist/detail', { id: params.id })
-  const playlist = res.playlist
-  playlist.tracks = mapTrackPlayableStatus(playlist.tracks, res.privileges ?? [])
+  if (res && res.code === 200) {
+    const playlist = res.playlist
+    playlist.tracks = mapTrackPlayableStatus(playlist.tracks, res.privileges ?? [])
 
-  const trackIds = playlist.trackIds.map((item) => item.id)
-  const tracks = playlist.tracks.map((item) => formatTrack(item))
+    const trackIds = playlist.trackIds.map((item) => item.id)
+    const tracks = playlist.tracks.map((item) => formatTrack(item))
 
-  const data = {
-    id: playlist.id,
-    name: playlist.name,
-    subscribed: !!playlist.subscribed,
-    picUrl: playlist.coverImgUrl + '?param=512y512',
-    trackCount: playlist.trackCount,
-    updateTime: playlist.updateTime,
-    description: playlist.description,
-    isPrivate: playlist.privacy === 10,
-    pluginId: '',
-    copywriter: '',
-    updateFrequency: playlist.updateFrequency,
-    trackIds,
-    tracks,
-    tags: playlist.tags,
-    creator: {
-      userId: playlist.creator.userId,
-      avatarUrl: playlist.creator.avatarUrl,
-      nickname: playlist.creator.nickname
-    },
-    sourceContext: { id: playlist.id, trackIds, loadedIDs: tracks.map((item) => item.id) }
+    const data = {
+      id: playlist.id,
+      name: playlist.name,
+      subscribed: !!playlist.subscribed,
+      picUrl: playlist.coverImgUrl + '?param=512y512',
+      trackCount: playlist.trackCount,
+      updateTime: playlist.updateTime,
+      description: playlist.description || '',
+      isPrivate: playlist.privacy === 10,
+      pluginId: '',
+      copywriter: '',
+      updateFrequency: playlist.updateFrequency,
+      specialPlaylistInfo: specialPlaylist[playlist.id] ?? null,
+      trackIds,
+      tracks,
+      tags: playlist.tags,
+      creator: {
+        userId: playlist.creator.userId,
+        avatarUrl: playlist.creator.avatarUrl,
+        nickname: playlist.creator.nickname,
+        isVip: [11, 110].includes(playlist.creator.vipType),
+        signature: playlist.creator.signature,
+        sourceContext: { userId: playlist.creator.userId }
+      },
+      sourceContext: { id: playlist.id, trackIds, loadedIDs: tracks.map((item) => item.id) }
+    }
+
+    return { code: res.code, data }
   }
-
-  return { code: res.code, data }
+  return { code: res?.code ?? 200, data: null }
 }
 
 exports.getPlaylistTracks = async (params) => {
-  const { trackIds, loadedIDs } = params.sourceContext
+  const { trackIds, loadedIDs } = params
   const ids = trackIds.filter((id) => !loadedIDs.includes(id)).join(',')
   const result = await get('song/detail', { ids })
   result.songs = mapTrackPlayableStatus(result.songs, result.privileges)
   const data = result.songs.map((item) => formatTrack(item))
-  return { code: result.code, data }
+  return {
+    code: result?.code ?? 200,
+    data,
+    sourceContext: { trackIds, loadedIDs: [...loadedIDs, ...data.map((item) => item.id)] }
+  }
 }
 
 exports.catlist = async () => {
@@ -535,7 +814,6 @@ exports.catlist = async () => {
   }))
 
   const data = {
-    // static: ['全部', '推荐歌单', '精品歌单', '官方'],
     static: [
       { id: 0, name: '全部', active: true },
       { id: 0, name: '推荐歌单', active: false },
@@ -549,7 +827,7 @@ exports.catlist = async () => {
       return { ...item, sub }
     })
   }
-  return { code: result.code, data }
+  return { code: result?.code ?? 200, data }
 }
 
 exports.getCategoryPlaylist = async (params) => {
@@ -559,21 +837,110 @@ exports.getCategoryPlaylist = async (params) => {
     //
   }
   const result = await get('top/playlist', { cat: params.name, offset: params.offset })
-  const data = result.playlists.map((item) => ({
-    id: item.id,
-    name: item.name,
-    picUrl: item.coverImgUrl + '?param=256y256',
-    playCount: item.playCount,
-    copywriter: '',
-    pluginId: '',
-    sourceContext: {}
-  }))
+  const data = (result?.playlists || []).map(formatPlaylist)
   return {
-    code: result.code,
+    code: result?.code ?? 200,
     hasMore: result.more,
     data,
     sourceContext: { id: params.id, offset: params.offset }
   }
+}
+
+/**
+ * @returns {{ code: number, data: Playlist[] }}
+ */
+exports.userPlaylist = async (params) => {
+  const uid = params.id ?? user.userId
+  const offset = params.offset ?? 0
+  const result = await get('user/playlist', { uid, limit, offset })
+
+  if (result && result.code === 200) {
+    const playlists = result?.playlist.map(formatPlaylist)
+    const liked = playlists.length ? playlists.splice(0, 1)[0] : null
+    const sourceContext = { uid, offset: offset + limit }
+    return { code: result?.code ?? 200, liked, data: playlists, sourceContext }
+  }
+
+  return {
+    code: result?.code ?? 200,
+    liked: null,
+    data: [],
+    sourceContext: { uid, offset: offset + limit }
+  }
+}
+
+/**
+ * @returns {{ code: number, data: Album[] }}
+ */
+exports.userLikedAlbums = async () => {
+  const result = await get('album/sublist', { limit: 2000 })
+
+  if (result && result.code === 200) {
+    const data = result.data.map((item) => ({
+      id: item.id,
+      name: item.name,
+      picUrl: item.picUrl,
+      artists: item.artists.map((it) => ({
+        id: it.id,
+        name: it.name,
+        picUrl: it.picUrl,
+        pluginId: '',
+        sourceContext: { id: it.id }
+      })),
+      pluginId: '',
+      sourceContext: { id: item.id }
+    }))
+    return { code: result.code, data, sourceContext: {} }
+  }
+  return { code: result?.code ?? 200, data: [], sourceContext: {} }
+}
+
+exports.userLikedArtists = async () => {
+  const result = await get('artist/sublist', { limit: 2000 })
+  if (result && result.code === 200) {
+    const data = result.data.map((item) => ({
+      id: item.id,
+      name: item.name,
+      picUrl: item.picUrl,
+      pluginId: '',
+      sourceContext: { id: item.id }
+    }))
+    return { code: result.code, data, sourceContext: {} }
+  }
+  return { code: result?.code ?? 200, data: [], sourceContext: {} }
+}
+
+exports.userLikedMVs = async () => {
+  const result = await get('mv/sublist', { limit: 1000 })
+  if (result && result.code === 200) {
+    const data = result.data.map((item) => ({
+      id: item.vid,
+      name: item.title,
+      picUrl: item.coverUrl,
+      publishTime: 0,
+      pluginId: '',
+      artists: item.creator.map((it) => ({
+        id: it.userId,
+        name: it.userName,
+        picUrl: '',
+        pluginId: '',
+        sourceContext: { id: it.userId }
+      })),
+      sourceContext: { id: item.vid }
+    }))
+    return { code: result.code, data, sourceContext: {} }
+  }
+  return { code: result?.code ?? 200, data: [], sourceContext: {} }
+}
+
+exports.cloudDisk = async (params) => {
+  const offset = params.offset || 0
+  const result = await get('user/cloud', { limit, offset })
+  if (result && result.code === 200) {
+    const data = result.data.map((item) => formatTrack(item.simpleSong))
+    return { code: result.code, data, sourceContext: { offset: offset + limit } }
+  }
+  return { code: result?.code ?? 200, data: [], sourceContext: { offset: offset + limit } }
 }
 
 /**
@@ -589,7 +956,8 @@ exports.search = (params) => get('search', { ...params })
  * @returns {LyricLine[]}
  */
 exports.getLyric = async (params) => {
-  const data = await get(`lyric/new`, { id: params.id })
+  const result = await get(`lyric/new`, { id: params.id })
+  const data = await apis.utils.parseLyric(result)
   return { code: 200, data }
 }
 

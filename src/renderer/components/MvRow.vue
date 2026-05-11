@@ -3,9 +3,9 @@
     ref="listRef"
     :list="mvs"
     :gap="gap"
-    :column-number="5"
+    :column-number="3"
     :is-end="isEnd"
-    :item-size="162.5"
+    :item-size="163"
     :show-position="showPosition"
     :show-footer="false"
     :padding-bottom="paddingBottom"
@@ -15,9 +15,9 @@
       <div class="mv">
         <div
           class="cover"
-          @mousemove="hoverVideoID = getID(item)"
+          @mousemove="hoverVideoID = item.id"
           @mouseleave="hoverVideoID = 0"
-          @click="goToMv(getID(item))"
+          @click="goToMv(item.id)"
         >
           <img :src="getUrl(item)" loading="lazy" />
           <transition name="fade">
@@ -29,8 +29,8 @@
           </transition>
         </div>
         <div class="info">
-          <div class="title" :title="getTitle(item)">
-            <router-link :to="`/mv/${getID(item)}`">{{ getTitle(item) }}</router-link>
+          <div class="title" :title="item.name">
+            <router-link :to="`/mv/${getID(item)}`">{{ item.name }}</router-link>
           </div>
           <div v-same-html="getSubTitle(item)" class="artist"></div>
         </div>
@@ -43,10 +43,11 @@
 import { PropType, ref, toRefs } from 'vue'
 import VirtualList from './VirtualScrollNoHeight.vue'
 import { useRouter } from 'vue-router'
+import { Mv } from '@/types/plugin'
 
 const props = defineProps({
   mvs: {
-    type: Array as () => any[],
+    type: Array as () => Mv[],
     required: true
   },
   isEnd: {
@@ -76,7 +77,7 @@ const props = defineProps({
 })
 
 const { mvs } = toRefs(props)
-const hoverVideoID = ref(0)
+const hoverVideoID = ref<number | string>(0)
 const listRef = ref()
 const router = useRouter()
 
@@ -88,37 +89,32 @@ const getID = (item: { [key: string]: any }) => {
   }
 }
 
-const goToMv = (id: number) => {
+const goToMv = (id: number | string) => {
   router.push(`/mv/${id}`)
 }
 
-const getTitle = (item: { [key: string]: any }) => {
+const getTitle = (item: Mv) => {
   if (item.name !== undefined) {
     return item.name
   } else {
-    return item.title
+    // return item.title
   }
 }
 
-const getSubTitle = (item: { [key: string]: any }) => {
+const getSubTitle = (item: Mv) => {
   if (props.subtitle === 'artist') {
     let artistName = ''
-    let artistID = 0
-    if (item.artistName !== undefined) {
-      artistName = item.artistName
-      artistID = item.artistId
-    } else if (item.creator !== undefined) {
-      artistName = item.creator[0].userName
-      artistID = item.creator[0].userId
-    }
+    let artistID: number | string = 0
+    artistName = item.artists[0].name
+    artistID = item.artists[0].id
     return `<a href="/#/artist/${artistID}">${artistName}</a>`
   } else if (props.subtitle === 'publishTime') {
     return item.publishTime
   }
 }
 
-const getUrl = (item: { [key: string]: any }) => {
-  const url = item.imgurl16v9 ?? item.cover ?? item.coverUrl
+const getUrl = (item: Mv) => {
+  const url = item.picUrl // item.imgurl16v9 ?? item.cover ?? item.coverUrl
   return url.replace(/^http:/, 'https:') + '?param=464y260'
 }
 

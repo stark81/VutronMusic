@@ -23,7 +23,7 @@ import FloorComment from './CommentFloor.vue'
 
 const props = defineProps({
   id: {
-    type: Number,
+    type: [Number, String],
     required: true
   },
   type: {

@@ -86,6 +86,7 @@
     "soundtouchjs": "^0.1.30",
     "taglib-wasm": "^0.5.4",
     "trickling": "^1.14.0",
+    "undici": "^8.2.0",
     "vite-plugin-multiple": "^0.2.0",
     "vite-plugin-svg-icons": "^2.0.1",
     "vscode-codicons": "^0.0.17",

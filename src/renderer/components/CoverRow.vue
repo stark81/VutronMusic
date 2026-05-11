@@ -3,9 +3,10 @@
     <div v-for="item in list" :key="item?.id" class="item" :class="{ artist: type === 'artist' }">
       <Cover
         :id="item.id"
-        :plugin-id="'netease'"
+        :plugin-id="item.pluginId!"
         :image-url="getImageUrl(item)"
         :type="type"
+        :source-context="item.sourceContext"
         :play-button-size="type === 'artist' ? 26 : playButtonSize"
       />
       <div class="text">

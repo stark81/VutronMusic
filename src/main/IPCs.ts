@@ -18,7 +18,7 @@ import navidrome from './streaming/navidrome'
 import emby from './streaming/emby'
 import jellyfin from './streaming/jellyfin'
 import { Worker } from 'worker_threads'
-import { Track, Album, Artist, scanTrack, serviceName } from '@/types/music'
+import { Track, Album, Artist, scanTrack, serviceName, streamStatus } from '@/types/music'
 // @ts-ignore
 import _ from 'lodash'
 import { requestUserAuth, scrobbleTrack, updateNowPlaying } from './utils/lastfm'

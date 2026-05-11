@@ -105,6 +105,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../store/data'
 import { useNormalStateStore } from '../store/state'
 import { useSettingsStore } from '../store/settings'
+import { usePluginMusic } from '../store/pluginMusic'
 import { storeToRefs } from 'pinia'
 import { doLogout } from '../utils/auth'
 import { openExternal } from '../utils'
@@ -113,6 +114,8 @@ const { searchTab, exploreTab } = storeToRefs(useNormalStateStore())
 const { general } = storeToRefs(useSettingsStore())
 const { useCustomTitlebar } = toRefs(general.value)
 
+const { services, users } = toRefs(usePluginMusic())
+
 const router = useRouter()
 const route = useRoute()
 
@@ -120,7 +123,14 @@ const searchBoxRef = ref()
 const keywords = ref('')
 const useCustomBar = ref(false)
 
-const isLooseLoggedIn = computed(() => data.user.value.userId !== null)
+const activeUser = computed(() => {
+  const active = services.value.find((item) => item.active)
+  return active ? users.value[active.code] : null
+})
+
+const isLooseLoggedIn = computed(() => {
+  return activeUser.value ? !!activeUser.value.userId : false
+})
 const isLinux = computed(() => window.env?.isLinux || false)
 const isWin = computed(() => window.env?.isWindows)
 const navStyle = computed(() => {
@@ -132,7 +142,9 @@ const navStyle = computed(() => {
 defineExpose({ searchBoxRef })
 
 const toLogin = (): void => {
-  handleRoute('/login/account')
+  const active = services.value.find((item) => item.active)
+  if (!active) return
+  router.push(`/onlineMusic/login/${active.code}`)
 }
 
 const toGitHub = (): void => {
@@ -143,9 +155,9 @@ const openLogFile = () => {
   window.mainApi?.send('openLogFile')
 }
 
-const handleRoute = (path: string): void => {
-  router.push(path)
-}
+// const handleRoute = (path: string): void => {
+//   router.push(path)
+// }
 
 const categoryMap = {
   chart: '排行榜',
@@ -167,7 +179,7 @@ const logout = () => {
 const data = storeToRefs(useDataStore())
 
 const avatarUrl = computed(() => {
-  return `${data.user.value.avatarUrl}`
+  return `${activeUser.value?.avatarUrl || 'https://s4.music.126.net/style/web2/img/default/default_avatar.jpg?param=60y60'}`
 })
 
 const userProfileMenu = ref<InstanceType<typeof ContextMenu>>()

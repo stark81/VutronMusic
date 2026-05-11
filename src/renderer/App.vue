@@ -17,7 +17,7 @@
 </template>
 
 <script setup lang="tsx">
-import { onMounted, ref, provide, toRefs, watch, computed, onBeforeUnmount } from 'vue'
+import { onMounted, ref, provide, toRefs, watch, computed, onBeforeUnmount, nextTick } from 'vue'
 import ScrollBar from './components/ScrollBar.vue'
 import PlayerBar from './components/PlayerBar.vue'
 import NavBar from './components/NavBar.vue'
@@ -28,7 +28,7 @@ import newPlaylistModal from './components/ModalNewPlaylist.vue'
 import editPlaylist from './components/ModalEditPlaylist.vue'
 import selectPathModal from './components/ModalFilePaths.vue'
 import PlayPage from './views/PlayPage.vue'
-import { useDataStore } from './store/data'
+// import { useDataStore } from './store/data'
 import { useLocalMusicStore } from './store/localMusic'
 import { useOsdLyricStore } from './store/osdLyric'
 import { usePlayerStore } from './store/player'
@@ -44,7 +44,16 @@ import eventBus from './utils/eventBus'
 import { Track } from '@/types/music'
 
 const pluginMusicStore = usePluginMusic()
-const { getPlugins } = pluginMusicStore
+const { services, playlists, tools } = storeToRefs(pluginMusicStore)
+const {
+  getPlugins,
+  fetchLikedPlaylists,
+  fetchLikedSongsWithDetails,
+  fetchLikedAlbums,
+  fetchLikedArtists,
+  fetchLikedMVs,
+  fetchCloudDisk
+} = pluginMusicStore
 
 const localMusicStore = useLocalMusicStore()
 const { localTracks } = storeToRefs(localMusicStore)
@@ -61,24 +70,17 @@ const { extensionCheckResult, showLyrics, isDownloading } = storeToRefs(stateSto
 const { showToast, checkUpdate, registerInstance, unregisterInstance, updateScroll, getFontList } =
   stateStore
 
-const {
-  fetchLikedPlaylist,
-  fetchLikedSongs,
-  fetchLikedSongsWithDetails,
-  fetchLikedAlbums,
-  fetchLikedArtists,
-  fetchLikedMVs,
-  fetchCloudDisk
-} = useDataStore()
+const sers = computed(() =>
+  services.value.filter((item) => item.status === 'login').map((item) => item.code)
+)
 
 const fetchData = () => {
-  fetchLikedSongs()
-  fetchLikedSongsWithDetails()
-  fetchLikedPlaylist()
-  fetchLikedAlbums()
-  fetchLikedArtists()
-  fetchLikedMVs()
-  fetchCloudDisk()
+  fetchLikedPlaylists(sers.value)
+  fetchLikedSongsWithDetails(sers.value)
+  fetchLikedArtists(sers.value)
+  fetchLikedAlbums(sers.value)
+  fetchLikedMVs(sers.value)
+  fetchCloudDisk(sers.value)
 }
 
 const scrollEvent = () => {

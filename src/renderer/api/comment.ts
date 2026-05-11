@@ -1,7 +1,7 @@
 import request from '../utils/request'
 
 export function getComment(params: {
-  id: number
+  id: number | string
   type: number
   pageNo?: number
   pageSize?: number
@@ -15,7 +15,7 @@ export function getComment(params: {
   })
 }
 
-export function likeComment(params: { id: number; cid: number; t: number; type: number }) {
+export function likeComment(params: { id: number | string; cid: number; t: number; type: number }) {
   return request({
     url: '/comment/like',
     method: 'get',
@@ -24,8 +24,8 @@ export function likeComment(params: { id: number; cid: number; t: number; type: 
 }
 
 export function getFloorComment(params: {
-  parentCommentId: number
-  id: number
+  parentCommentId: number | string
+  id: number | string
   type: number
   limit?: number
   time?: number
@@ -40,7 +40,7 @@ export function getFloorComment(params: {
 export function submitComment(params: {
   t: number
   type: number
-  id: number
+  id: number | string
   content?: string
   commentId?: number
 }) {

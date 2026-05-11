@@ -109,6 +109,39 @@ class Cache {
         // return true
         break
       }
+      case CacheAPIs.PluginData: {
+        try {
+          const {
+            platform,
+            type,
+            data: sData
+          } = data as {
+            platform: string
+            type: 'online' | 'stream' | 'local'
+            data: Record<string, string>
+          }
+          const accounts = db.findAll(Tables.PluginData, { platform })
+          const json = JSON.stringify(sData)
+          if (accounts.length) {
+            const account = accounts[0]
+            account.json = json
+            account.updatedAt = Date.now()
+            db.upsert(Tables.PluginData, account)
+          } else {
+            const account = {
+              id: `${platform}-1`,
+              platform,
+              type,
+              json,
+              updatedAt: Date.now()
+            }
+            db.upsert(Tables.PluginData, account)
+          }
+        } catch (error) {
+          console.error('[db.set failed]: ', error)
+        }
+        break
+      }
       case CacheAPIs.Track: {
         // try {
         //   const trackRaw = db.find(Tables.Track, query.id)
@@ -184,11 +217,19 @@ class Cache {
         if (!row) {
           return { userId: 0, isVip: false }
         }
-
-        return JSON.parse(row.json)
+        try {
+          return JSON.parse(row.json)
+        } catch {
+          return row.json
+        }
       }
       case CacheAPIs.PluginData: {
-        return {}
+        console.log('===2===111111', params)
+        const infos = db.findAll(Tables.PluginData, { platform: params.platform })
+        if (infos.length) {
+          return JSON.parse(infos[0].json)
+        }
+        return { userId: 0, isVip: false, cookie: '', token: '' }
       }
     }
   }

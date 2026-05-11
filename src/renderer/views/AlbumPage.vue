@@ -3,7 +3,9 @@
     <div class="playlist-info">
       <Cover
         :id="album?.id || 0"
-        :image-url="album?.picUrl + '?param=512y512'"
+        :plugin-id="album?.pluginId || ''"
+        :source-context="album?.sourceContext || {}"
+        :image-url="album?.picUrl || ''"
         :show-play-button="true"
         :always-show-shadow="true"
         :click-cover-to-play="true"
@@ -13,20 +15,23 @@
         :play-button-size="18"
       />
       <div class="info">
-        <div class="title" :title="title"> {{ title }}</div>
+        <div class="title" :title="title"> {{ album?.name || '' }}</div>
         <div v-if="subtitle !== ''" class="subtitle">{{ subtitle }}</div>
         <div class="artist">
-          <span v-if="album?.artist?.id !== 104700">
+          <span v-if="album?.artists?.[0]?.id !== 104700">
             <span>{{ album?.type }} by </span
-            ><router-link :to="`/artist/${album?.artist?.id}`">{{
-              album?.artist?.name
+            ><router-link :to="`/artist/${album?.artists?.[0].id}`">{{
+              album?.artists?.[0].name
             }}</router-link></span
           >
           <span v-else>Compilation by Various Artists</span>
         </div>
         <div class="date-and-count">
-          <span v-if="album?.mark === 1056768" class="explicit-symbol"><ExplicitSymbol /></span>
-          <span :title="album?.publishTime">{{ new Date(album?.publishTime).getFullYear() }}</span>
+          <!-- v-if="album?.mark === 1056768"  -->
+          <span v-if="album?.isExplicit" class="explicit-symbol"><ExplicitSymbol /></span>
+          <span :title="`${album?.publishTime}`">{{
+            new Date(album?.publishTime || 0).getFullYear()
+          }}</span>
           <span> · {{ album?.size }} {{ $t('common.songs') }}</span
           >,
           {{ formatTime(albumTime, 'Human') }}
@@ -67,27 +72,27 @@
       <div v-for="item in tracksByDisc" :key="item.disc" :style="{ marginBottom: '20px' }">
         <h2 class="disc">Disc {{ item.disc }}</h2>
         <TrackList
-          :id="album.id"
+          :id="album?.id"
           :items="item.tracks"
           :all-items="tracks"
           :item-height="48"
           :colunm-number="1"
           :is-end="false"
           :type="'album'"
-          :album-object="album"
+          :album-object="{ artist: album?.artists[0] || { name: '' } }"
           :enable-virtual-scroll="false"
         />
       </div>
     </div>
     <div v-else>
       <TrackList
-        :id="album.id"
+        :id="album?.id"
         :items="tracks"
         :colunm-number="1"
         :item-height="48"
         :is-end="false"
         type="album"
-        :album-object="album"
+        :album-object="{ artist: album?.artists[0] || { name: '' } }"
         :enable-virtual-scroll="false"
       />
     </div>
@@ -95,26 +100,28 @@
       <div class="album-time"></div>
       <div class="release-date">
         {{ $t('album.released') }}
-        {{ formatDate(album.publishTime, 'MMMM D, YYYY') }}
+        {{ formatDate(album?.publishTime, 'MMMM D, YYYY') }}
       </div>
-      <div v-if="album.company" class="copyright"> © {{ album.company }} </div>
+      <div v-if="album?.company" class="copyright"> © {{ album?.company }} </div>
     </div>
 
-    <div v-if="filteredMoreAlbums.length !== 0" class="more-by">
+    <div v-if="moreAlbums.data.length !== 0" class="more-by">
       <div class="section-title">
         More by
-        <router-link :to="`/artist/${album.artist.id}`">{{ album.artist.name }}</router-link>
+        <router-link :to="`/artist/${album?.artists[0].id}`">{{
+          album?.artists[0].name
+        }}</router-link>
       </div>
       <div>
         <CoverRow
           type="album"
-          :items="filteredMoreAlbums"
+          :items="moreAlbums.data"
           :colunm-number="5"
           :is-end="true"
           :padding-bottom="0"
           :show-position="false"
           :item-height="260"
-          sub-text="albumType+releaseYear"
+          sub-text="copywriter"
         ></CoverRow>
       </div>
     </div>
@@ -127,7 +134,7 @@
       :title="$t('album.albumDesc')"
     >
       <p class="description-fulltext">
-        {{ album.description }}
+        {{ album?.description }}
       </p>
     </Modal>
 
@@ -141,7 +148,7 @@
     <div class="comment-container" @click.stop>
       <CommentPage
         v-if="showComment"
-        :id="album.id"
+        :id="album?.id || 0"
         type="album"
         :style="{ width: '100%', padding: '40px 4vh 10px 4vh' }"
       />
@@ -150,17 +157,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, inject } from 'vue'
-import { onBeforeRouteUpdate, useRoute } from 'vue-router'
+import { ref, onMounted, computed, inject, reactive } from 'vue'
+import { useRoute, onBeforeRouteUpdate } from 'vue-router'
 import { tricklingProgress } from '../utils/tricklingProgress'
 import Cover from '../components/CoverBox.vue'
 import Modal from '../components/BaseModal.vue'
 import ButtonTwoTone from '../components/ButtonTwoTone.vue'
 import ContextMenu from '../components/ContextMenu.vue'
-import { getAlbum, albumDynamicDetail, likeAAlbum } from '../api/album'
-import { getTrackDetail } from '../api/track'
-import { getArtistAlbum } from '../api/artist'
-import { splitSoundtrackAlbumTitle, splitAlbumTitle } from '../utils/common'
+// import { getAlbum, albumDynamicDetail, likeAAlbum } from '../api/album'
+// import { getTrackDetail } from '../api/track'
+// import { getArtistAlbum } from '../api/artist'
+// import { splitSoundtrackAlbumTitle, splitAlbumTitle } from '../utils/common'
 import { formatTime, formatDate, openExternal } from '../utils'
 import { groupBy, toPairs, sortBy } from 'lodash'
 import TrackList from '../components/VirtualTrackList.vue'
@@ -169,17 +176,22 @@ import CommentPage from '../components/CommentPage.vue'
 import ExplicitSymbol from '../components/ExplicitSymbol.vue'
 import { useI18n } from 'vue-i18n'
 import { useNormalStateStore } from '../store/state'
-import { usePlayerStore } from '../store/player'
+import { usePluginMusic } from '../store/pluginMusic'
+// import { usePlayerStore } from '../store/player'
 import { isAccountLoggedIn } from '../utils/auth'
-import { storeToRefs } from 'pinia'
+// import { storeToRefs } from 'pinia'
+import { Album, AlbumDetail, PluginId, Track } from '@/types/plugin'
 
 const show = ref(false)
-const album = ref<{ artist: { name: string; id: number }; [key: string]: any }>({
-  artist: { name: '', id: 0 }
-})
-const tracks = ref<any[]>([])
+const album = ref<AlbumDetail>()
+const tracks = ref<Track[]>([])
+
 const dynamicDetail = ref<{ [key: string]: any }>({})
-const moreAlbums = ref<any[]>([])
+
+const moreAlbums = reactive<{ data: Album[]; sourceContext: Record<string, any> }>({
+  data: [],
+  sourceContext: {}
+})
 const title = ref('')
 const subtitle = ref('')
 const albumMenu = ref()
@@ -189,9 +201,12 @@ const showFullDescription = ref(false)
 const { t } = useI18n()
 const { showToast } = useNormalStateStore()
 
+const pluginStore = usePluginMusic()
+const { pluginMethodCall } = pluginStore
+
 const albumTime = computed(() => {
   let time = 0
-  tracks.value.map((t) => (time = time + t.dt))
+  tracks.value.map((t) => (time = time + t.duration))
   return time
 })
 
@@ -204,61 +219,63 @@ const tracksByDisc = computed(() => {
   }))
 })
 
-const filteredMoreAlbums = computed(() => {
-  const mAlbums = moreAlbums.value.filter((a) => a.id !== album.value.id)
-  const realAlbums = mAlbums.filter((a) => a.type === '专辑')
-  const eps = mAlbums.filter((a) => a.type === 'EP' || (a.type === 'EP/Single' && a.size > 1))
-  const restItems = mAlbums.filter(
-    (a) =>
-      realAlbums.find((al) => al.id === a.id) === undefined &&
-      eps.find((a1) => a1.id === a.id) === undefined
-  )
-  if (realAlbums.length === 0) {
-    return [...realAlbums, ...eps, ...restItems].slice(0, 5)
-  } else {
-    return [...realAlbums, ...restItems].slice(0, 5)
-  }
-})
+// const filteredMoreAlbums = computed(() => {
+//   const mAlbums = moreAlbums.value.filter((a) => a.id !== album.value?.id)
+//   const realAlbums = mAlbums.filter((a) => a.type === '专辑')
+//   const eps = mAlbums.filter((a) => a.type === 'EP' || (a.type === 'EP/Single' && a.size > 1))
+//   const restItems = mAlbums.filter(
+//     (a) =>
+//       realAlbums.find((al) => al.id === a.id) === undefined &&
+//       eps.find((a1) => a1.id === a.id) === undefined
+//   )
+//   if (realAlbums.length === 0) {
+//     return [...realAlbums, ...eps, ...restItems].slice(0, 5)
+//   } else {
+//     return [...realAlbums, ...restItems].slice(0, 5)
+//   }
+//   return moreAlbums.data
+// })
 
-const formatTitle = () => {
-  const splitTitle = splitSoundtrackAlbumTitle(album.value.name)
-  const splitTitle2 = splitAlbumTitle(splitTitle.title)
-  title.value = splitTitle2.title
+// const formatTitle = () => {
+//   const splitTitle = splitSoundtrackAlbumTitle(album.value?.name || '')
+//   const splitTitle2 = splitAlbumTitle(splitTitle.title)
+//   title.value = splitTitle2.title
 
-  if (splitTitle.subtitle !== '' && splitTitle2.subtitle !== '') {
-    subtitle.value = `${splitTitle.subtitle} · ${splitTitle2.subtitle}`
-  } else {
-    subtitle.value = splitTitle.subtitle === '' ? splitTitle2.subtitle : splitTitle.subtitle
-  }
-}
+//   if (splitTitle.subtitle !== '' && splitTitle2.subtitle !== '') {
+//     subtitle.value = `${splitTitle.subtitle} · ${splitTitle2.subtitle}`
+//   } else {
+//     subtitle.value = splitTitle.subtitle === '' ? splitTitle2.subtitle : splitTitle.subtitle
+//   }
+// }
 
 const toggleFullDescription = () => {
   showFullDescription.value = !showFullDescription.value
 }
 
-const playerStore = usePlayerStore()
-const { _shuffle } = storeToRefs(playerStore)
-const { replacePlaylist } = playerStore
+// const playerStore = usePlayerStore()
+// const { _shuffle } = storeToRefs(playerStore)
+// const { replacePlaylist } = playerStore
 
 const play = () => {
-  const ids = tracks.value.map((t) => t.id)
-  const idx = _shuffle.value ? Math.floor(Math.random() * ids.length) : 0
-  replacePlaylist('album', album.value.id, ids, idx)
+  // const ids = tracks.value.map((t) => t.id)
+  // const idx = _shuffle.value ? Math.floor(Math.random() * ids.length) : 0
+  // replacePlaylist('album', album.value.id, ids, idx)
 }
 
 const likeAlbum = (toast = false) => {
+  console.log('[[[[[]]]]]', toast)
   if (!isAccountLoggedIn()) {
     showToast(t('toast.needToLogin'))
-    return
+    // return
   }
-  likeAAlbum({ id: album.value.id, t: dynamicDetail.value.isSub ? 0 : 1 }).then((data) => {
-    if (data.code === 200) {
-      dynamicDetail.value.isSub = !dynamicDetail.value.isSub
-      if (toast) {
-        showToast(dynamicDetail.value.isSub ? '已保存到音乐库' : '已从音乐库删除')
-      }
-    }
-  })
+  // likeAAlbum({ id: album.value.id, t: dynamicDetail.value.isSub ? 0 : 1 }).then((data) => {
+  //   if (data.code === 200) {
+  //     dynamicDetail.value.isSub = !dynamicDetail.value.isSub
+  //     if (toast) {
+  //       showToast(dynamicDetail.value.isSub ? '已保存到音乐库' : '已从音乐库删除')
+  //     }
+  //   }
+  // })
 }
 
 const openMenu = (e: MouseEvent) => {
@@ -266,6 +283,7 @@ const openMenu = (e: MouseEvent) => {
 }
 
 const copyURL = () => {
+  if (!album.value) return
   const url = `https://music.163.com/#/album?id=${album.value.id}`
   navigator.clipboard.writeText(url).then(() => {
     showToast(t('toast.copySuccess'))
@@ -273,6 +291,7 @@ const copyURL = () => {
 }
 
 const openOnBrowser = () => {
+  if (!album.value) return
   const url = `https://music.163.com/#/album?id=${album.value.id}`
   openExternal(url)
 }
@@ -285,32 +304,63 @@ const closeComment = () => {
   showComment.value = false
 }
 
-const loadData = (id: string) => {
+const loadData = (plugin: PluginId, params: Record<string, any>) => {
   setTimeout(() => {
     if (!show.value) tricklingProgress.start()
   }, 1000)
 
-  getAlbum(Number(id)).then((data) => {
-    console.log('===2===', id, data)
-    album.value = data.album
-    tracks.value = data.songs
-    formatTitle()
+  pluginMethodCall(plugin, 'albumDetail', params).then((result) => {
+    if (!result.data) return
+    album.value = { ...result.data, pluginId: plugin }
+    tracks.value = (result.data || { songs: [] }).songs.map((song) => ({
+      ...song,
+      album: {
+        ...song.album,
+        artists: song.album.artists?.map((it) => ({ ...it, pluginId: plugin })),
+        pluginId: plugin
+      },
+      artists: song.artists.map((it) => ({ ...it, pluginId: plugin })),
+      pluginId: plugin
+    }))
     tricklingProgress.done()
     show.value = true
 
-    const trackIDs = tracks.value.map((t) => t.id)
-    getTrackDetail(trackIDs.join(',')).then((data) => {
-      tracks.value = data.songs
-    })
-
-    getArtistAlbum({ id: album.value.artist.id, limit: 100 }).then((data) => {
-      moreAlbums.value = data.hotAlbums
+    pluginMethodCall(plugin, 'artistAlbums', {
+      id: album.value.artists?.[0].id
+    }).then((res) => {
+      moreAlbums.data = res.data
+        .filter((item) => String(item.id) !== String(album.value?.id))
+        .slice(0, 5)
+        .map((item) => ({
+          ...item,
+          artists: item.artists?.map((it) => ({ ...it, pluginId: plugin })),
+          pluginId: plugin
+        }))
+      moreAlbums.sourceContext = res.sourceContext
     })
   })
 
-  albumDynamicDetail(Number(id)).then((data) => {
-    dynamicDetail.value = data
-  })
+  // getAlbum(Number(id)).then((data) => {
+  //   console.log('===2===', id, data)
+  //   album.value = data.album
+  //   tracks.value = data.songs
+  //   formatTitle()
+  //   tricklingProgress.done()
+  //   show.value = true
+
+  //   const trackIDs = tracks.value.map((t) => t.id)
+  //   getTrackDetail(trackIDs.join(',')).then((data) => {
+  //     tracks.value = data.songs
+  //   })
+
+  //   getArtistAlbum({ id: album.value.artist.id, limit: 100 }).then((data) => {
+  //     moreAlbums.value = data.hotAlbums
+  //   })
+  // })
+
+  // albumDynamicDetail(Number(id)).then((data) => {
+  //   dynamicDetail.value = data
+  // })
 }
 const route = useRoute()
 
@@ -318,14 +368,16 @@ const updatePadding = inject('updatePadding') as (padding: number) => void
 
 onBeforeRouteUpdate((to, from, next) => {
   show.value = false
-  loadData(to.params.id as string)
+  const { pluginId: plugin, sourceContext } = to.params
+  loadData(plugin as PluginId, JSON.parse(sourceContext as string))
   next()
 })
 
 onMounted(() => {
   show.value = false
   updatePadding(96)
-  loadData(route.params.id as string)
+  const { pluginId: plugin, sourceContext } = route.params
+  loadData(plugin as PluginId, JSON.parse(sourceContext as string))
 })
 </script>
 

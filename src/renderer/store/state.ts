@@ -4,6 +4,7 @@ import { type UpdateCheckResult } from 'electron-updater'
 import { type IFontInfo } from 'font-list'
 import type { TrackSourceType } from '@/types/music'
 import type { LayoutMode } from '@/types/theme'
+import { Track } from '@/types/plugin'
 
 type ScrollState = {
   scrollTop: number
@@ -59,7 +60,7 @@ export const useNormalStateStore = defineStore('state', () => {
     text: '',
     timer: null as any
   })
-  const dailyTracks = ref<any[]>([])
+  const dailyTracks = ref<Track[]>([])
 
   const scrollbar = reactive({
     instances: {} as Record<string, ScrollState>,

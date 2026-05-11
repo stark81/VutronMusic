@@ -92,11 +92,11 @@ import { debounce } from 'lodash'
 
 const props = defineProps({
   beRepliedCommentId: {
-    type: Number,
+    type: [Number, String],
     required: true
   },
   id: {
-    type: Number,
+    type: [Number, String],
     required: true
   },
   type: {
@@ -165,7 +165,7 @@ const switchToCommentPage = () => {
   show.value = false
 }
 
-const loadFloorComment = (pid: number) => {
+const loadFloorComment = (pid: number | string) => {
   if (!floorCommentInfo.hasMore) return
   const params = {
     parentCommentId: pid,

@@ -3,7 +3,8 @@
     <div class="section-one">
       <div class="liked-songs" @click="goToLikedSongsList">
         <div class="title"
-          >{{ $t('library.likedSongs') }} - {{ liked.songs.length }}{{ $t('common.songs') }}</div
+          >{{ $t('library.likedSongs') }} - {{ filterLikedTracks.length
+          }}{{ $t('common.songs') }}</div
         >
         <div class="top">
           <p>
@@ -17,16 +18,16 @@
         </div>
         <div class="bottom">
           <div class="titles">
-            <div v-show="randomtrack?.ar[0].name" class="title">{{
-              `${randomtrack?.ar[0].name} -- ${randomtrack?.name}`
+            <div v-show="randomtrack?.artists[0].name" class="title">{{
+              `${randomtrack?.artists[0].name} -- ${randomtrack?.name}`
             }}</div>
           </div>
         </div>
       </div>
       <div class="songs">
         <TrackList
-          :id="liked.playlists.length > 0 ? liked.playlists[0].id : 0"
-          :items="liked.songsWithDetails"
+          :id="filterLikedTracks.length > 0 ? filterPlaylists[0].id : 0"
+          :items="filterLikedTracks.slice(0, 8)"
           :type="'tracklist'"
           :show-position="false"
           :item-height="60"
@@ -119,7 +120,7 @@
 
         <div v-show="currentTab === 'album'">
           <CoverRow
-            :items="liked.albums"
+            :items="filterLikedAlbums"
             type="album"
             sub-text="artist"
             :colunm-number="5"
@@ -129,12 +130,12 @@
         </div>
 
         <div v-show="currentTab === 'mvs'">
-          <Mvrow :mvs="liked.mvs" :is-end="true" />
+          <Mvrow :mvs="filterLikedMVs" :is-end="true" />
         </div>
 
         <div v-show="currentTab === 'artist'">
           <CoverRow
-            :items="liked.artists"
+            :items="filterLikedArtists"
             type="artist"
             sub-text="artist"
             :item-height="230"
@@ -147,7 +148,7 @@
         <div v-show="currentTab === 'cloudDisk'">
           <TrackList
             :id="-8"
-            :items="liked.cloudDisk"
+            :items="filterCloudDisk"
             :colunm-number="1"
             type="cloudDisk"
             :is-end="true"
@@ -186,6 +187,7 @@
     </div>
 
     <ContextMenu ref="playlistTabMenu">
+      <div class="item"></div>
       <div
         class="item"
         :class="{ active: libraryPlaylistFilter === 'all' }"
@@ -214,10 +216,9 @@ import { storeToRefs } from 'pinia'
 import { useDataStore } from '../store/data'
 import { useNormalStateStore } from '../store/state'
 import { usePluginMusic } from '../store/pluginMusic'
-import { ref, computed, onMounted, onUnmounted, inject, nextTick } from 'vue'
-import { dailyTask, randomNum, pickedLyric } from '../utils'
+import { ref, computed, onMounted, onUnmounted, inject, nextTick, watch } from 'vue'
+import { randomNum, pickedLyric } from '../utils'
 import { tricklingProgress } from '../utils/tricklingProgress'
-import { getTrackDetail } from '../api/track'
 import SvgIcon from '../components/SvgIcon.vue'
 import TrackList from '../components/VirtualTrackList.vue'
 import CoverRow from '../components/VirtualCoverRow.vue'
@@ -225,20 +226,31 @@ import Mvrow from '../components/MvRow.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import { useRouter } from 'vue-router'
 import { lyricLine } from '@/types/music'
-import { PluginId } from '@/types/plugin'
+import { PluginId, Track } from '@/types/plugin'
 
 const dataStore = useDataStore()
-const { liked, libraryPlaylistFilter, user } = storeToRefs(dataStore)
+const { liked, libraryPlaylistFilter } = storeToRefs(dataStore)
 
 const { newPlaylistModal } = storeToRefs(useNormalStateStore())
-const { pluginMethodCall } = usePluginMusic()
+const pluginStore = usePluginMusic()
+const { playlists, likedTracks, albums, artists, mvs, cloudDisks } = storeToRefs(pluginStore)
+const {
+  pluginMethodCall,
+  fetchLikedPlaylists,
+  fetchLikedSongsWithDetails,
+  fetchLikedAlbums,
+  fetchLikedArtists,
+  fetchLikedMVs,
+  fetchCloudDisk,
+  fetchLyric
+} = pluginStore
 
 const show = ref(false)
 const playHistoryMode = ref('week')
 const router = useRouter()
 
 const lyric = ref<{ content: string }[]>([])
-const randomtrack = ref<{ [key: string]: any }>()
+const randomtrack = ref<Track>()
 const currentTab = ref('playlist')
 const playlistTabMenu = ref<InstanceType<typeof ContextMenu>>()
 const tabsRowRef = ref()
@@ -246,6 +258,10 @@ const tabsRowRef = ref()
 const hasCustomTitleBar = inject('hasCustomTitleBar', ref(true))
 
 const isMac = computed(() => window.env?.isMac)
+const services = computed(() =>
+  pluginStore.services.filter((item) => item.status === 'login' && item.type === 'online')
+)
+const tool = computed(() => pluginStore.tools.online)
 
 const tabStyle = computed(() => {
   const marginTop = hasCustomTitleBar.value ? 20 : 0
@@ -271,14 +287,65 @@ const playlistFilter = computed(() => {
 })
 
 const filterPlaylists = computed(() => {
-  const playlists = liked.value.playlists.slice(1)
-  const userId = user.value.userId
-  if (playlistFilter.value === 'mine') {
-    return playlists.filter((p) => p.creator.userId === userId)
-  } else if (playlistFilter.value === 'liked') {
-    return playlists.filter((p) => p.creator.userId !== userId)
-  }
-  return playlists
+  const onlineServices = services.value.filter((item) => item.type === 'online')
+  const onlineTool = pluginStore.tools.online
+
+  const onlinePlaylists = onlineServices
+    .map((item) => (playlists.value[item.code]?.data ?? []).flat())
+    .flat()
+  const plists =
+    onlineTool.groundBy === 'all' ? onlinePlaylists : playlists.value[onlineTool.groundBy].data
+  return plists
+})
+
+const filterLikedTracks = computed(() => {
+  const tracks =
+    tool.value.groundBy === 'all'
+      ? Object.values(likedTracks.value)
+          .map((item) => item.data)
+          .flat()
+      : likedTracks.value[tool.value.groundBy].data
+  return tracks
+})
+
+const filterLikedAlbums = computed(() => {
+  const albs =
+    tool.value.groundBy === 'all'
+      ? Object.values(albums.value)
+          .map((item) => item.data)
+          .flat()
+      : albums.value[tool.value.groundBy].data
+  return albs
+})
+
+const filterLikedArtists = computed(() => {
+  const ars =
+    tool.value.groundBy === 'all'
+      ? Object.values(artists.value)
+          .map((item) => item.data)
+          .flat()
+      : artists.value[tool.value.groundBy].data
+  return ars
+})
+
+const filterLikedMVs = computed(() => {
+  const res =
+    tool.value.groundBy === 'all'
+      ? Object.values(mvs.value)
+          .map((item) => item.data)
+          .flat()
+      : mvs.value[tool.value.groundBy].data
+  return res
+})
+
+const filterCloudDisk = computed(() => {
+  const res =
+    tool.value.groundBy === 'all'
+      ? Object.values(cloudDisks.value)
+          .map((item) => item.data)
+          .flat()
+      : cloudDisks.value[tool.value.groundBy].data
+  return res
 })
 
 const playHistoryList = computed(() => {
@@ -290,57 +357,42 @@ const playHistoryList = computed(() => {
   return []
 })
 
-const {
-  fetchLikedSongs,
-  fetchLikedPlaylist,
-  fetchLikedSongsWithDetails,
-  fetchLikedAlbums,
-  fetchLikedArtists,
-  fetchLikedMVs,
-  fetchCloudDisk,
-  fetchPlayHistory
-} = dataStore
-
 const loadData = async () => {
-  if (liked.value.songsWithDetails.length > 0) {
+  await nextTick()
+  const sers = services.value.map((item) => item.code)
+  if (!sers.length) return
+  if (filterLikedTracks.value.length) {
     tricklingProgress.done()
     show.value = true
-    fetchLikedSongsWithDetails()
     getRandomLyric()
-    fetchLikedSongs()
-    fetchLikedPlaylist()
+    await fetchLikedSongsWithDetails(sers)
+    fetchLikedPlaylists(sers)
   } else {
-    await fetchLikedSongs()
-    await fetchLikedPlaylist()
-    fetchLikedSongsWithDetails().then(() => {
-      tricklingProgress.done()
-      show.value = true
-      getRandomLyric()
-    })
+    await fetchLikedPlaylists(sers)
+    await fetchLikedSongsWithDetails(sers)
+    getRandomLyric()
+    tricklingProgress.done()
+    show.value = true
   }
-
-  fetchLikedAlbums()
-  fetchLikedArtists()
-  fetchLikedMVs()
-  fetchPlayHistory()
-  fetchCloudDisk()
+  fetchLikedAlbums(sers)
+  fetchLikedArtists(sers)
+  fetchLikedMVs(sers)
+  // fetchPlayHistory()
+  fetchCloudDisk(sers)
 }
 
 const getRandomLyric = async () => {
-  if (liked.value.songs.length === 0) return
+  if (filterLikedTracks.value.length === 0) return
 
   let i = 0
   let data: lyricLine[]
-  let randomId: number
-  while (i < liked.value.songs.length) {
-    randomId = liked.value.songs[randomNum(0, liked.value.songs.length - 1)]
-    data = await fetch(`atom://local-asset?type=lyric&id=${randomId}`).then((res) => res.json())
+  while (i < filterLikedTracks.value.length) {
+    const track = filterLikedTracks.value[randomNum(0, filterLikedTracks.value.length - 1)]
+    data = await fetchLyric(track.pluginId as PluginId, track.sourceContext)
     const isInstrumental = data.map((l) => l.lyric.text).filter((l) => l.includes('纯音乐，请欣赏'))
     if (data.length && !isInstrumental.length) {
       lyric.value = data.map((l) => ({ content: l.lyric.text }))
-      getTrackDetail(randomId.toString()).then((data) => {
-        randomtrack.value = data.songs[0]
-      })
+      randomtrack.value = track
       break
     }
     i++
@@ -348,7 +400,12 @@ const getRandomLyric = async () => {
 }
 
 const goToLikedSongsList = () => {
-  router.push({ path: '/library/liked-songs' })
+  if (tool.value.groundBy === 'all') {
+    const plugins = services.value.map((it) => it.code).join('/')
+    router.push({ path: `/library/liked-songs/${plugins}` })
+  } else {
+    router.push({ path: `/library/liked-songs/${tool.value.groundBy}` })
+  }
 }
 
 const updatePadding = inject('updatePadding') as (padding: number) => void
@@ -411,16 +468,31 @@ const handleResize = () => {
   if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
 }
 
+const checkLoginStatus = () => {
+  pluginStore.services
+    .filter((item) => item.type === 'online')
+    .forEach(async (item) => {
+      const res = await pluginMethodCall(item.code, 'systemPing')
+      item.status = res.status
+    })
+  if (!services.value.length) {
+    const groundBy = tool.value.groundBy
+    router.push(
+      `/onlineMusic/login/${groundBy === 'all' ? pluginStore.services[0].code : groundBy}`
+    )
+  }
+}
+
 onMounted(async () => {
+  // checkLoginStatus()
+
   window.addEventListener('resize', handleResize)
   if (tabsRowRef.value) {
     observeTab.observe(tabsRowRef.value)
   }
-  setTimeout(() => {
-    if (!show.value) tricklingProgress.start()
-  }, 1000)
-  // loadData()
   await nextTick()
+  loadData()
+  // await nextTick()
 
   // const pluginId = 'kugou' as PluginId
 

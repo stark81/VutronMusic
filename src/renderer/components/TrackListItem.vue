@@ -24,19 +24,16 @@
             {{ track.name }}
             <span v-if="isSubTitle" :title="subTitle" class="sub-title"> ({{ subTitle }}) </span>
             <span v-if="isAlbum" class="featured">
-              <ArtistsInLine
-                :artists="track.ar || track.artists"
-                :exclude="albumObject.artist.name"
-                prefix="-"
+              <ArtistsInLine :artists="track.artists" :exclude="albumObject.artist.name" prefix="-"
             /></span>
-            <span v-if="isAlbum && track.mark === 1318912" class="explicit-symbol"
+            <!-- <span v-if="isAlbum && track.mark === 1318912" class="explicit-symbol"
               ><ExplicitSymbol
-            /></span>
+            /></span> -->
           </div>
           <div v-if="!isAlbum" class="artist">
-            <span v-if="track.mark === 1318912" class="explicit-symbol before-artist"
+            <!-- <span v-if="track.mark === 1318912" class="explicit-symbol before-artist"
               ><ExplicitSymbol :size="15"
-            /></span>
+            /></span> -->
             <ArtistsInLine :artists="artists" />
             <span v-if="track.mvid && track.mvid !== 0" class="mv-icon" @click="goToMv"
               ><svg-icon icon-class="mv" :style="{ height: '16px' }"
@@ -47,24 +44,18 @@
       </div>
 
       <div v-if="showAlbumName" class="album">
-        <div
-          v-if="album && album.matched !== false && album.id && album.name"
-          :title="album.name || '未知专辑'"
-          ><router-link :to="`/album/${album.id}`">{{ album.name }}</router-link></div
+        <div v-if="album && album.id && album.name" :title="album.name || '未知专辑'"
+          ><router-link :to="`/album/${album.pluginId}/${JSON.stringify(album.sourceContext)}`">{{
+            album.name
+          }}</router-link></div
         >
         <div v-else :title="album.name || '未知专辑'"> {{ album.name || '未知专辑' }}</div>
       </div>
 
-      <div v-if="showService" class="service">{{
-        track.type === 'stream' ? track.source : track.type
-      }}</div>
+      <div v-if="showService" class="service">{{ track.pluginId }}</div>
 
       <div v-if="showTrackTime" class="createTime">
-        {{
-          track.createTime
-            ? getPublishTime(track.createTime)
-            : getPublishTime(track.album?.publishTime ?? track.publishTime)
-        }}
+        {{ getPublishTime(track.createTime) }}
       </div>
       <div v-if="showLikeButton" class="actions">
         <button @click="likeThisSong">
@@ -84,7 +75,7 @@
         {{ formatedTime }}
       </div>
 
-      <div v-if="track.playCount" class="count"> {{ track.playCount }}</div>
+      <div v-if="track.playCount >= 0" class="count"> {{ track.playCount }}</div>
     </div>
     <div v-show="isLyric && lyrics.length > 0" class="lyric-container">
       <div
@@ -106,9 +97,10 @@ import { useStreamMusicStore } from '../store/streamingMusic'
 import { useDataStore } from '../store/data'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
+import { usePluginMusic } from '../store/pluginMusic'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { Track } from '@/types/plugin'
+import { PluginId, Track } from '@/types/plugin'
 
 const router = useRouter()
 const props = withDefaults(
@@ -136,6 +128,9 @@ const { subTitleDefault, showTrackTimeOrID } = toRefs(general.value)
 const streamingMusicStore = useStreamMusicStore()
 const { likeAStreamTrack } = streamingMusicStore
 
+const pluginStore = usePluginMusic()
+const { likedTracks } = storeToRefs(pluginStore)
+
 const playerStore = usePlayerStore()
 const { currentTrack, enabled } = storeToRefs(playerStore)
 
@@ -148,22 +143,13 @@ const dataStore = useDataStore()
 const { liked } = storeToRefs(dataStore)
 const { likeATrack } = dataStore
 
-const type = ref(props.typeProp)
-const track = computed(
-  () =>
-    (type.value === 'cloudDisk'
-      ? props.trackProp.simpleSong || props.trackProp
-      : props.trackProp) as Track
-)
+const type = computed(() => props.typeProp)
+const track = computed(() => props.trackProp)
 
 const image = computed(() => {
   // let url: string = ''
   if (track.value.type === 'online') {
-    let pic = track.value.album?.picUrl || track.value.picUrl
-    if (pic && pic.startsWith('http')) pic = pic.replace('http:', 'https:')
-    const url = new URL(pic)
-    url.searchParams.set('param', '64y64')
-    return url.href
+    return track.value.picUrl
   } else if (track.value.type === 'stream') {
     const url = track.value.album?.picUrl || track.value.picUrl
     return stateStore.virtualScrolling ? 'atom://get-default-pic' : url
@@ -192,7 +178,7 @@ const trackClass = computed(() => {
 })
 
 const artists = computed(() => {
-  const useAr = track.value.ar ?? track.value.artists
+  const useAr = track.value.artists
   useAr.forEach((artist: any) => {
     if (artist && !artist.name) {
       artist.name = '未知歌手'
@@ -201,9 +187,7 @@ const artists = computed(() => {
   return useAr
 })
 
-const album = computed(() => {
-  return track.value.album || track.value.al || track.value.simpleSong?.al
-})
+const album = computed(() => track.value.album)
 
 const showAlbumName = computed(() => {
   return type.value !== 'tracklist' && type.value !== 'album'
@@ -218,7 +202,7 @@ const showTrackTime = computed(() => {
 })
 
 const formatedTime = computed(() => {
-  const dt = (track.value.dt || track.value.duration) / 1000
+  const dt = track.value.duration / 1000
   const minutes = Math.floor(dt / 60)
   const seconds = Math.floor(dt % 60)
   return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`
@@ -229,54 +213,30 @@ const showLikeButton = computed(() => {
 })
 
 const isLiked = computed(() => {
-  return liked.value.songs.includes(track.value.id) || track.value.starred
+  const plugin = track.value.pluginId as PluginId
+  return (likedTracks.value[plugin]?.data ?? []).map((track) => track.id).includes(track.value.id)
 })
 
-const isSubTitle = computed(() => {
-  return (
-    (track.value.tns?.length > 0 && track.value.name !== track.value.tns[0]) ||
-    track.value.alias?.length > 0 ||
-    track.value.alia?.length > 0
-  )
-})
+const isSubTitle = computed(() => track.value.alias?.length > 0)
 
 const isAlbum = computed(() => {
   return type.value === 'album'
 })
 
-const subTitle = computed(() => {
-  let tn: any
-  if (track.value.tns?.length > 0 && track.value.name !== track.value.tns[0]) {
-    tn = track.value.tns[0]
-  }
-
-  // 优先显示alia
-  if (subTitleDefault.value) {
-    return track.value.alias?.length > 0
-      ? track.value.alias[0]
-      : track.value.alia?.length > 0
-        ? track.value.alia[0]
-        : tn
-  } else {
-    return tn === undefined
-      ? track.value.alias[0]
-      : track.value.alia?.length > 0
-        ? track.value.alia[0]
-        : tn
-  }
-})
+const subTitle = computed(() => track.value.alias[0])
 
 const lyrics = computed(() => {
-  const lyrics = track.value.lyrics?.txt.split('\n')
-  const start = track.value.lyrics?.range[0].first
-  const end = track.value.lyrics?.range[0].second
-  const selectedLyric = track.value.lyrics?.txt.slice(start, end)
-  const index = lyrics?.findIndex((l) => l.includes(selectedLyric))
-  const result = lyrics?.slice(index, index + 4)
-  if (result && result[0]?.includes(';')) {
-    result[0] = result[0]?.split(';')[1]
-  }
-  return result
+  // const lyrics = track.value.lyrics?.txt.split('\n')
+  // const start = track.value.lyrics?.range[0].first
+  // const end = track.value.lyrics?.range[0].second
+  // const selectedLyric = track.value.lyrics?.txt.slice(start, end)
+  // const index = lyrics?.findIndex((l) => l.includes(selectedLyric))
+  // const result = lyrics?.slice(index, index + 4)
+  // if (result && result[0]?.includes(';')) {
+  //   result[0] = result[0]?.split(';')[1]
+  // }
+  // return result
+  return []
 })
 
 const isSelected = computed({
@@ -307,9 +267,10 @@ const getPublishTime = (date: any) => {
 }
 
 const goToAlbum = () => {
+  console.log('===2=2==', album.value)
   if (album.value.id === 0) return
-  if (album.value.matched === false) return
-  router.push(`/album/${album.value.id}`)
+  // if (album.value.matched === false) return
+  router.push(`/album/${album.value.pluginId}/${JSON.stringify(album.value.sourceContext)}`)
 }
 
 const goToMv = () => {
@@ -317,20 +278,20 @@ const goToMv = () => {
 }
 
 const likeThisSong = () => {
-  if (track.value.type === 'local' && !track.value.matched) {
+  if (track.value.type === 'local') {
     showToast(t('player.noAllowCauseLocal'))
   } else if (track.value.type === 'stream') {
-    const op = track.value.starred ? 'unstar' : 'star'
-    likeAStreamTrack(op, track.value as Track)
+    const op = isLiked.value ? 'unstar' : 'star'
+    // likeAStreamTrack(op, track.value)
   } else {
-    likeATrack(track.value.id)
+    // likeATrack(track.value.id)
   }
 }
 
 const isBatchOp = inject('isBatchOp', ref(false))
-const selectedList = inject('selectedList', ref<number[]>([]))
+const selectedList = inject('selectedList', ref<(number | string)[]>([]))
 const rightClickedTrack = inject('rightClickedTrack', ref({ id: 0 }))
-const playThisList = inject('playThisList') as (id: number) => void
+const playThisList = inject('playThisList') as (id: number | string) => void
 </script>
 
 <style scoped lang="scss">

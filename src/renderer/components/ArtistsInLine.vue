@@ -2,9 +2,7 @@
   <span class="artist-in-line">
     {{ computedPrefix }}
     <span v-for="(ar, index) in filteredArtists" :key="index">
-      <router-link v-if="ar.id !== 0 && ar.matched !== false" :to="`/artist/${ar.id}`">{{
-        ar.name
-      }}</router-link>
+      <router-link v-if="ar.id !== 0" :to="`/artist/${ar.id}`">{{ ar.name }}</router-link>
       <span v-else>{{ ar.name }}</span>
       <span v-if="index !== filteredArtists.length - 1" class="separator">,</span>
     </span>
@@ -13,7 +11,7 @@
 
 <script setup lang="ts">
 import { PropType, computed } from 'vue'
-import { Artist } from '@/types/music.d'
+import { Artist } from '@/types/plugin'
 
 const props = defineProps({
   artists: {

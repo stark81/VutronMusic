@@ -112,7 +112,7 @@ import { debounce } from 'lodash'
 
 const props = defineProps({
   id: {
-    type: Number,
+    type: [Number, String],
     required: true
   },
   type: {

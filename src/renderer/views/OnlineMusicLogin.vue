@@ -16,7 +16,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed, onBeforeUnmount } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import qrCode from 'qrcode'
@@ -25,7 +25,7 @@ import { useSettingsStore } from '../store/settings'
 import { PluginId } from '@/types/plugin'
 
 const route = useRoute()
-// const router = useRouter()
+const router = useRouter()
 
 const { t } = useI18n()
 
@@ -76,14 +76,17 @@ const checkQrCodeLogin = () => {
     pluginMethodCall(pluginId, 'loginQrCodeCheck', {
       key: qrCodeKey.value
     }).then((res) => {
-      console.log('===2===', res)
       if (res.code === 803) {
-        // users.value[pluginId] = {
-        //   userId: res.user!.userId,
-        //   avatarUrl: res.data.pic,
-        //   nickname: res.data.nickname
-        // }
-        // services.value.active = pluginId
+        users.value[pluginId] = {
+          userId: res.user!.userId || '',
+          avatarUrl: res.user!.avatarUrl || '',
+          nickname: res.user!.nickname || '',
+          isVip: res.user!.isVip || false,
+          signature: res.user!.signature || ''
+        }
+        const service = services.value.find((item) => item.code === pluginId)
+        if (service) service.status = 'login'
+        router.push({ name: 'library' })
         clearInterval(qrCodeCheckInterval.value)
       }
     })
@@ -91,14 +94,9 @@ const checkQrCodeLogin = () => {
 }
 
 const getQrCodeKey = async () => {
-  const res = await pluginMethodCall(currentService.code as PluginId, 'loginQrKey').catch((res) => {
-    console.log('===255===', res)
-    return res
-  })
-  if (res && res.code && res.code === 200) {
-    qrCodeKey.value = res.data.unikey!
-  } else if (res && res.status && res.status === 1) {
-    qrCodeKey.value = res.data.qrcode!
+  const res = await pluginMethodCall(currentService.code as PluginId, 'loginQrKey')
+  if (res.code === 200) {
+    qrCodeKey.value = res.data.qrcode
   }
   qrCode
     .toString(res.data.url, {
@@ -126,7 +124,7 @@ onMounted(() => {
   currentService.code = service.code
   currentService.name = service.name
 
-  // if (selectedMode.value.mode === 'qrCode') getQrCodeKey()
+  if (selectedMode.value.mode === 'qrCode') getQrCodeKey()
 })
 
 onBeforeUnmount(() => {

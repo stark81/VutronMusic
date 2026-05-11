@@ -1,8 +1,9 @@
 <template>
   <div v-if="show" class="playlist">
-    <div v-if="specialPlaylistInfo === undefined && !isLikedSongsPage" class="playlist-info">
+    <div v-if="!playlist.specialPlaylistInfo && !isLikedSongsPage" class="playlist-info">
       <Cover
         :id="playlist?.id"
+        :source-context="playlist?.sourceContext || {}"
         :image-url="playlist?.picUrl"
         :show-play-button="true"
         :plugin-id="'netease'"
@@ -22,21 +23,12 @@
           离线歌单 {{ user.nickname ? `by ${user.nickname}` : `` }}
         </div>
         <div v-else-if="playlistType === 'stream'" class="artist">
-          {{ currentService + ' 歌单 by ' + playlist.creator.nickname }}
+          {{ currentService + ' 歌单 by ' + playlist?.creator?.nickname }}
         </div>
         <div v-else class="artist">
           {{ pluginId }} 歌单 by
-          <span
-            v-if="
-              [5277771961, 5277965913, 5277969451, 5277778542, 5278068783].includes(
-                playlist.id as number
-              )
-            "
-            style="font-weight: 600"
-            >Apple Music</span
-          >
           <router-link :to="`/user/${playlist?.creator?.userId}`">{{
-            playlist.creator.nickname
+            playlist?.creator?.nickname
           }}</router-link>
         </div>
         <div class="date-and-count">
@@ -60,12 +52,12 @@
           </ButtonTwoTone>
           <ButtonTwoTone
             v-if="playlistType === 'online' && playlist?.creator?.userId !== user.userId"
-            :icon-class="playlist.subscribed ? 'heart-solid' : 'heart'"
+            :icon-class="playlist?.subscribed ? 'heart-solid' : 'heart'"
             :icon-button="true"
             :horizontal-padding="0"
-            :color="playlist.subscribed ? 'var(--color-primary)' : 'grey'"
-            :text-color="playlist.subscribed ? 'var(--color-primary)' : ''"
-            :background-color="playlist.subscribed ? 'var(--color-secondary-bg)' : ''"
+            :color="playlist?.subscribed ? 'var(--color-primary)' : 'grey'"
+            :text-color="playlist?.subscribed ? 'var(--color-primary)' : ''"
+            :background-color="playlist?.subscribed ? 'var(--color-secondary-bg)' : ''"
             @click="likePlaylist"
           >
           </ButtonTwoTone>
@@ -83,9 +75,9 @@
       </div>
     </div>
 
-    <div v-if="specialPlaylistInfo !== undefined" class="special-playlist">
-      <div class="title" :class="specialPlaylistInfo.gradient">
-        {{ specialPlaylistInfo.name }}
+    <div v-if="playlist.specialPlaylistInfo" class="special-playlist">
+      <div class="title" :class="playlist.specialPlaylistInfo?.gradient">
+        {{ playlist.specialPlaylistInfo.name }}
       </div>
       <div class="subtitle">{{ playlist.copywriter }} · {{ playlist.updateFrequency }} </div>
 
@@ -222,110 +214,12 @@ import { isAccountLoggedIn } from '../utils/auth'
 import { tricklingProgress } from '../utils/tricklingProgress'
 import { useI18n } from 'vue-i18n'
 // import { getTrackDetail } from '../api/track'
-import {
-  getPlaylistDetail,
-  subscribePlaylist,
-  intelligencePlaylist,
-  deletePlaylist
-} from '../api/playlist'
+import { intelligencePlaylist, deletePlaylist } from '../api/playlist'
 import { serviceName } from '@/types/music.d'
 // import _ from 'lodash'
 import { PluginId, Track, PlaylistDetail } from '@/types/plugin'
 
-const specialPlaylist = {
-  2829816518: {
-    name: '欧美私人订制',
-    gradient: 'gradient-pink-purple-blue'
-  },
-  2890490211: {
-    name: '助眠鸟鸣声',
-    gradient: 'gradient-green'
-  },
-  5089855855: {
-    name: '夜的胡思乱想',
-    gradient: 'gradient-moonstone-blue'
-  },
-  2888212971: {
-    name: '全球百大DJ',
-    gradient: 'gradient-orange-red'
-  },
-  2829733864: {
-    name: '睡眠伴侣',
-    gradient: 'gradient-midnight-blue'
-  },
-  2829844572: {
-    name: '洗澡时听的歌',
-    gradient: 'gradient-yellow'
-  },
-  2920647537: {
-    name: '还是会想你',
-    gradient: 'gradient-dark-blue-midnight-blue'
-  },
-  2890501416: {
-    name: '助眠白噪声',
-    gradient: 'gradient-sky-blue'
-  },
-  5217150082: {
-    name: '摇滚唱片行',
-    gradient: 'gradient-yellow-red'
-  },
-  2829961453: {
-    name: '古风音乐大赏',
-    gradient: 'gradient-fog'
-  },
-  4923261701: {
-    name: 'Trance',
-    gradient: 'gradient-light-red-light-blue '
-  },
-  5212729721: {
-    name: '欧美点唱机',
-    gradient: 'gradient-indigo-pink-yellow'
-  },
-  3103434282: {
-    name: '甜蜜少女心',
-    gradient: 'gradient-pink'
-  },
-  2829896389: {
-    name: '日系私人订制',
-    gradient: 'gradient-yellow-pink'
-  },
-  2829779628: {
-    name: '运动随身听',
-    gradient: 'gradient-orange-red'
-  },
-  2860654884: {
-    name: '独立女声精选',
-    gradient: 'gradient-sharp-blue'
-  },
-  898150: {
-    name: '浪漫婚礼专用',
-    gradient: 'gradient-pink'
-  },
-  2638104052: {
-    name: '牛奶泡泡浴',
-    gradient: 'gradient-fog'
-  },
-  5317236517: {
-    name: '后朋克精选',
-    gradient: 'gradient-pink-purple-blue'
-  },
-  2821115454: {
-    name: '一周原创发现',
-    gradient: 'gradient-blue-purple'
-  },
-  2829883282: {
-    name: '华语私人雷达',
-    gradient: 'gradient-yellow-red'
-  },
-  3136952023: {
-    name: '私人雷达',
-    gradient: 'gradient-radar'
-  }
-}
-
-const route = useRoute()
-const router = useRouter()
-const playlist = ref<PlaylistDetail>({
+const rawPlaylist = {
   id: 0,
   name: '',
   description: '',
@@ -335,14 +229,26 @@ const playlist = ref<PlaylistDetail>({
   pluginId: '',
   copywriter: '',
   updateFrequency: null,
+  specialPlaylistInfo: null,
   updateTime: 0,
   trackCount: 0,
-  creator: { userId: '', nickname: '', avatarUrl: '' },
+  creator: {
+    userId: '',
+    nickname: '',
+    avatarUrl: '',
+    isVip: false,
+    signature: '',
+    sourceContext: {}
+  },
   picUrl: '',
   trackIds: [],
   tags: [],
   sourceContext: { id: 0, trackIds: [], loadedIDs: [] }
-})
+}
+
+const route = useRoute()
+const router = useRouter()
+const playlist = ref<PlaylistDetail>(rawPlaylist)
 const tracks = ref<Track[]>([])
 const playlistMenu = ref()
 const show = ref(false)
@@ -354,13 +260,13 @@ const currentService = ref<serviceName | 'all'>('all')
 const pluginId = ref<PluginId>('' as PluginId)
 
 const pluginMusicStore = usePluginMusic()
-const { pluginMethodCall } = pluginMusicStore
+const { getPlaylistDetail, fetchPlaylistTracks } = pluginMusicStore
 
 const { user, likedSongPlaylistID } = storeToRefs(useDataStore())
 const listType = computed(() => route.name!.toString())
-const specialPlaylistInfo = computed(() => specialPlaylist[playlist.value?.id])
 const keyword = computed(() => pSearchBoxRef.value?.keywords || '')
 const filterTracks = computed(() => {
+  if (!tracks.value.length) return []
   return tracks.value.filter(
     (track) =>
       (track.name && track.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
@@ -421,86 +327,57 @@ watch(
   () => editPlaylistModal.value.show,
   (value, oldVal) => {
     if (oldVal && !value && playlistType.value === 'online') {
-      loadData('' as PluginId, playlist.value.id)
+      loadData('' as PluginId, playlist.value?.sourceContext ?? {})
     }
   }
 )
 
-const loadData = async (plugin: PluginId, id: number | string) => {
-  pluginMethodCall(plugin, 'getPlaylistDetail', { id })
-    .then((result) => {
-      if (!result.data) return
-      result.data.pluginId = plugin
-      playlist.value = result.data
-      tracks.value = result.data.tracks
-      tricklingProgress.done()
-      show.value = true
-    })
-    .then(() => {
-      if (playlist.value.trackCount > tracks.value.length) {
-        // 目前各个插件的这个方法参数都不太一致，因此由各个插件从上一个
-        pluginMethodCall(plugin, 'getPlaylistTracks', {
-          sourceContext: toRaw(playlist.value.sourceContext)
-        }).then((result) => {
-          tracks.value = [...new Set([...tracks.value, ...result.data])]
-          playlist.value.sourceContext.loadedIDs = tracks.value.map((item) => item.id)
-          // if (pagesize > playlist.value.trackCount) {
-          //   playlist.value.trackCount = tracks.value.length
-          // }
-        })
-      }
-    })
+const loadLikedData = (plugins: PluginId[]) => {
+  const likedTracks = pluginMusicStore.likedTracks
+  tracks.value = plugins.map((item) => likedTracks[item].data).flat()
+  tricklingProgress.done()
+  show.value = true
+}
 
-  // await getPlaylistDetail(id, true)
-  //   .then((data: any) => {
-  //     playlist.value = data.playlist
-  //     tracks.value = data.playlist.tracks
-  //     lastLoadedTrackIndex.value = data.playlist.tracks.length - 1
-  //     tricklingProgress.done()
-  //     show.value = true
-  //   })
-  //   .then(() => {
-  //     if (playlist.value.trackCount > tracks.value.length) {
-  //       const trackIDs = playlist.value.trackIds
-  //         .slice(tracks.value.length, tracks.value.length + 500)
-  //         .map((t) => t.id)
-  //       getTrackDetail(trackIDs.join(',')).then((data: any) => {
-  //         tracks.value.push(...data.songs)
-  //       })
-  //     }
-  //   })
+const loadData = async (plugin: PluginId, params: Record<string, any>) => {
+  getPlaylistDetail(plugin, params).then((result) => {
+    tricklingProgress.done()
+    show.value = true
+    if (!result.data) return
+    playlist.value = result.data!
+    tracks.value = result.data?.tracks ?? []
+  })
 }
 
 const loadMore = () => {
   if (playlist.value.trackCount > tracks.value.length) {
-    console.log('=== loadMore ===')
-    // const trackIDs = playlist.value.trackIds.slice(tracks.value.length, tracks.value.length + Num)
-    // .map((t) => t.id)
-    // getTrackDetail(trackIDs.join(',')).then((data: any) => {
-    //  tracks.value.push(...data.songs)
-    // lastLoadedTrackIndex.value = tracks.value.length - 1
-    // })
+    fetchPlaylistTracks(playlist.value.pluginId as PluginId, playlist.value.sourceContext).then(
+      (res) => {
+        tracks.value.push(...res.data)
+        playlist.value.sourceContext = res.sourceContext
+      }
+    )
   }
 }
 
 const likePlaylist = (toast = false) => {
-  if (!isAccountLoggedIn()) {
-    showToast(t('toast.needToLogin'))
-    return
+  // if (!isAccountLoggedIn()) {
+  //    showToast(t('toast.needToLogin'))
+  //    return
+  //  }
+  //  subscribePlaylist({ id: playlist.value.id, t: playlist.value.subscribed ? 2 : 1 }).then(
+  //    (data) => {
+  //      if (data.code === 200) {
+  playlist.value.subscribed = !playlist.value.subscribed
+  if (toast) {
+    showToast(playlist.value.subscribed ? '已保存到音乐库' : '已从音乐库删除')
   }
-  subscribePlaylist({ id: playlist.value.id, t: playlist.value.subscribed ? 2 : 1 }).then(
-    (data) => {
-      if (data.code === 200) {
-        playlist.value.subscribed = !playlist.value.subscribed
-        if (toast) {
-          showToast(playlist.value.subscribed ? '已保存到音乐库' : '已从音乐库删除')
-        }
-      }
-      getPlaylistDetail(playlist.value.id as number, true).then((data: any) => {
-        playlist.value = data.playlist
-      })
-    }
-  )
+  //      }
+  //      getPlaylistDetail(playlist.value.id as number, true).then((data: any) => {
+  //        playlist.value = data.playlist
+  //      })
+  //    }
+  //  )
 }
 
 const play = () => {
@@ -538,24 +415,7 @@ const deleteAPlaylist = () => {
       deleteLocalPlaylist(playlist.value.id as number).then((result) => {
         if (result) {
           show.value = false
-          playlist.value = {
-            id: 0,
-            name: '',
-            description: '',
-            subscribed: false,
-            isPrivate: false,
-            tracks: [],
-            pluginId: '',
-            copywriter: '',
-            updateFrequency: null,
-            updateTime: 0,
-            trackCount: 0,
-            creator: { userId: '', nickname: '', avatarUrl: '' },
-            picUrl: '',
-            trackIds: [],
-            tags: [],
-            sourceContext: { id: 0, trackIds: [], loadedIDs: [] }
-          }
+          playlist.value = rawPlaylist
           showToast(t('toast.deleteSuccess'))
           router.go(-1)
         } else {
@@ -571,24 +431,7 @@ const deleteAPlaylist = () => {
         .then((result: boolean) => {
           if (result) {
             show.value = false
-            playlist.value = {
-              id: 0,
-              name: '',
-              description: '',
-              subscribed: false,
-              isPrivate: false,
-              tracks: [],
-              pluginId: '',
-              copywriter: '',
-              updateFrequency: null,
-              updateTime: 0,
-              trackCount: 0,
-              creator: { userId: '', nickname: '', avatarUrl: '' },
-              picUrl: '',
-              trackIds: [],
-              tags: [],
-              sourceContext: { id: 0, trackIds: [], loadedIDs: [] }
-            }
+            playlist.value = rawPlaylist
             showToast(t('toast.deleteSuccess'))
             router.go(-1)
           } else {
@@ -653,8 +496,14 @@ const removeTrack = (idx: number) => {
 provide('removeTrack', removeTrack)
 
 onMounted(() => {
-  pluginId.value = route.params.pluginId as PluginId
-  loadData(pluginId.value, route.params.id as string | number) // 24381616
+  const { pluginId: plugin, sourceContext } = route.params
+  if (route.name === 'likedSongs') {
+    loadLikedData(plugin as PluginId[])
+  } else {
+    pluginId.value = plugin as PluginId
+    loadData(pluginId.value, JSON.parse(sourceContext as string))
+  }
+
   setTimeout(() => {
     if (!show.value) tricklingProgress.start()
   }, 1000)

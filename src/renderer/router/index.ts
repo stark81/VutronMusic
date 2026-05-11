@@ -48,7 +48,7 @@ const routes = [
     component: () => import('../views/PlaylistPage.vue')
   },
   {
-    path: '/library/liked-songs',
+    path: '/library/liked-songs/:pluginId+',
     name: 'likedSongs',
     component: () => import('../views/PlaylistPage.vue'),
     meta: {
@@ -71,7 +71,7 @@ const routes = [
     }
   },
   {
-    path: '/playlist/:pluginId/:id',
+    path: '/playlist/:pluginId/:sourceContext',
     name: 'playlist',
     component: () => import('../views/PlaylistPage.vue')
   },
@@ -113,7 +113,7 @@ const routes = [
     }
   },
   {
-    path: '/album/:id',
+    path: '/album/:pluginId/:sourceContext',
     name: 'album',
     component: () => import('../views/AlbumPage.vue')
   },

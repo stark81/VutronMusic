@@ -1,6 +1,6 @@
 import z from 'zod'
 import { defineStore } from 'pinia'
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, toRaw } from 'vue'
 import { PluginResultSchema } from '@/types/schemas'
 import router from '../router'
 import {
@@ -15,7 +15,8 @@ import {
   Track,
   Playlist,
   Artist,
-  Album
+  Album,
+  Tool
 } from '@/types/plugin'
 
 const _buildService = (code: PluginId, meta: { name: string; type: MusicType }): service => {
@@ -24,8 +25,7 @@ const _buildService = (code: PluginId, meta: { name: string; type: MusicType }):
     name: meta.name,
     type: meta.type,
     active: false,
-    status: 'logout',
-    options: { sort: 'id', order: 'ASC' }
+    status: 'logout'
   }
 }
 
@@ -33,22 +33,46 @@ export const usePluginMusic = defineStore(
   'pluginMusic',
   () => {
     const services = ref<service[]>([])
-    const users = reactive<Record<service['code'], User>>({})
+    const users = reactive<Record<PluginId, User>>({})
 
-    const tracks = reactive<Record<service['code'], Track[]>>({})
-    const albums = reactive<Record<service['code'], Album[]>>({})
-    const artists = reactive<Record<service['code'], Artist[]>>({})
-    const playlists = reactive<Record<service['code'], Playlist[]>>({})
-    const mvs = reactive<Record<service['code'], any[]>>({})
-    const likedTracks = reactive<Record<service['code'], Track[]>>({})
-    const cloudDisks = reactive<Record<service['code'], Track[]>>({})
-    const playHistory = reactive<Record<service['code'], { week: Track[]; all: Track[] }[]>>({})
+    const tracks = reactive<
+      Record<PluginId, { data: Track[]; sourceContext: Record<string, any> }>
+    >({})
+    const albums = reactive<
+      Record<PluginId, { data: Album[]; sourceContext: Record<string, any> }>
+    >({})
+    const artists = reactive<
+      Record<PluginId, { data: Artist[]; sourceContext: Record<string, any> }>
+    >({})
+    const playlists = reactive<
+      Record<
+        PluginId,
+        { liked: Playlist | null; data: Playlist[]; sourceContext: Record<string, any> }
+      >
+    >({})
+    const mvs = reactive<Record<PluginId, { data: any[]; sourceContext: Record<string, any> }>>({})
+    const likedTracks = reactive<
+      Record<PluginId, { data: Track[]; sourceContext: Record<string, any> }>
+    >({})
+    const cloudDisks = reactive<
+      Record<PluginId, { data: Track[]; sourceContext: Record<string, any> }>
+    >({})
+    const playHistory = reactive<Record<PluginId, { week: Track[]; all: Track[] }[]>>({})
 
-    const additionalTags = reactive<Record<service['code'], PlaylistCatlist['static']>>({})
+    const tools = reactive<Record<service['type'], Tool>>({
+      online: { groundBy: 'all', sortBy: 'id', orderBy: 'ASC', artistBy: 'artist' },
+      stream: { groundBy: 'all', sortBy: 'id', orderBy: 'ASC', artistBy: 'artist' },
+      local: { groundBy: 'all', sortBy: 'id', orderBy: 'ASC', artistBy: 'artist' }
+    })
+    const additionalTags = reactive<Record<PluginId, PlaylistCatlist['static']>>({})
 
     const pluginIdSet = computed(() => {
       return new Set(services.value.map((s) => s.code))
     })
+
+    const loggedInServices = computed(() =>
+      services.value.filter((item) => item.status === 'login')
+    )
 
     const pluginMethodCall: PluginMethodCall = async (pluginId, methodName, ...args) => {
       try {
@@ -87,7 +111,7 @@ export const usePluginMusic = defineStore(
           await router.push(`/onlineMusic/login/${pluginId}`)
         }
 
-        console.log(`[pluginMethodCall ${pluginId} ${methodName} ERROR]:`, error)
+        console.error(`[pluginMethodCall ${pluginId} ${methodName} ERROR]:`, error)
         return defaultMap[methodName] as unknown as PluginAPI[typeof methodName]['result']
       }
     }
@@ -118,8 +142,242 @@ export const usePluginMusic = defineStore(
       }
     }
 
+    const fetchLikedPlaylists = (plugins: PluginId[], loadedMore: boolean = false) => {
+      return Promise.all(
+        plugins.map(async (item) => {
+          if (!playlists[item]) playlists[item] = { liked: null, data: [], sourceContext: {} }
+          const result = await pluginMethodCall(
+            item,
+            'userPlaylist',
+            loadedMore
+              ? {
+                  ...playlists[item].sourceContext
+                }
+              : {}
+          )
+          if (result.liked) {
+            playlists[item].liked = { ...result.liked, pluginId: item }
+          }
+          if (result.data?.length) {
+            if (loadedMore) {
+              playlists[item].data.push(...result.data.map((it) => ({ ...it, pluginId: item })))
+            } else {
+              playlists[item].data = result.data.map((it) => ({ ...it, pluginId: item }))
+            }
+
+            playlists[item].sourceContext = result.sourceContext
+          }
+        })
+      )
+    }
+
+    const getPlaylistDetail = async (plugin: PluginId, params: Record<string, any>) => {
+      const result = await pluginMethodCall(plugin, 'getPlaylistDetail', params)
+      if (!result?.data) return result
+      result.data.pluginId = plugin
+      result.data.tracks = result.data.tracks.map((track) => ({
+        ...track,
+        album: { ...track.album, pluginId: plugin },
+        artists: track.artists.map((it) => ({ ...it, pluginId: plugin })),
+        pluginId: plugin
+      }))
+      if (result.data.trackCount > result.data.tracks.length) {
+        const res = await fetchPlaylistTracks(plugin, result.data.sourceContext)
+        result.data.tracks.push(...res.data)
+        result.data.sourceContext = res.sourceContext
+      }
+      return result
+    }
+
+    const fetchPlaylistTracks = async (plugin: PluginId, params: Record<string, any>) => {
+      const result = await pluginMethodCall(plugin, 'getPlaylistTracks', { ...params })
+      result.data = result.data.map((item) => ({
+        ...item,
+        album: { ...item.album, pluginId: plugin },
+        pluginId: plugin
+      }))
+      return result
+    }
+
+    const fetchLikedSongsWithDetails = (plugins: PluginId[]) => {
+      return Promise.all(
+        plugins.map(async (item) => {
+          if (!likedTracks[item]) {
+            likedTracks[item] = { data: [], sourceContext: {} }
+          }
+          const plists = playlists[item].liked
+          if (plists) {
+            const result = await getPlaylistDetail(item, { ...plists.sourceContext })
+            if (!result?.data) return
+            likedTracks[item].data = result.data?.tracks ?? []
+            likedTracks[item].sourceContext = result.data?.sourceContext ?? {}
+          }
+        })
+      )
+    }
+
+    const fetchLikedAlbums = (plugins: PluginId[], loadedMore: boolean = false) => {
+      return Promise.all(
+        plugins.map(async (item) => {
+          if (!albums[item]) {
+            albums[item] = { data: [], sourceContext: {} }
+          }
+
+          const result = await pluginMethodCall(
+            item,
+            'userLikedAlbums',
+            loadedMore
+              ? {
+                  ...albums[item].sourceContext
+                }
+              : {}
+          )
+          if (loadedMore) {
+            albums[item].data.push(
+              ...result.data.map((it) => ({
+                ...it,
+                pluginId: item,
+                artists: it.artists?.map((i) => ({ ...i, pluginId: item })) || []
+              }))
+            )
+          } else {
+            albums[item].data = result.data.map((it) => ({
+              ...it,
+              pluginId: item,
+              artists: it.artists?.map((i) => ({ ...i, pluginId: item })) || []
+            }))
+          }
+
+          albums[item].sourceContext = result.sourceContext
+        })
+      )
+    }
+
+    const fetchLikedArtists = (plugins: PluginId[], loadedMore: boolean = false) => {
+      return Promise.all(
+        plugins.map(async (item) => {
+          if (!artists[item]) {
+            artists[item] = { data: [], sourceContext: {} }
+          }
+
+          const result = await pluginMethodCall(
+            item,
+            'userLikedArtists',
+            loadedMore
+              ? {
+                  ...artists[item].sourceContext
+                }
+              : {}
+          )
+          if (loadedMore) {
+            artists[item].data.push(
+              ...result.data.map((it) => ({
+                ...it,
+                pluginId: item
+              }))
+            )
+          } else {
+            artists[item].data = result.data.map((it) => ({
+              ...it,
+              pluginId: item
+            }))
+          }
+          artists[item].sourceContext = result.sourceContext
+        })
+      )
+    }
+
+    const fetchLikedMVs = (plugins: PluginId[], loadedMore: boolean = false) => {
+      return Promise.all(
+        plugins.map(async (item) => {
+          if (!mvs[item]) {
+            mvs[item] = { data: [], sourceContext: {} }
+          }
+
+          const result = await pluginMethodCall(
+            item,
+            'userLikedMVs',
+            loadedMore
+              ? {
+                  ...mvs[item].sourceContext
+                }
+              : {}
+          )
+          if (loadedMore) {
+            mvs[item].data.push(
+              ...result.data.map((it) => ({
+                ...it,
+                pluginId: item,
+                artists: it.artists.map((i) => ({ ...i, pluginId: item }))
+              }))
+            )
+          } else {
+            mvs[item].data = result.data.map((it) => ({
+              ...it,
+              pluginId: item,
+              artists: it.artists.map((i) => ({ ...i, pluginId: item }))
+            }))
+          }
+
+          mvs[item].sourceContext = result.sourceContext
+        })
+      )
+    }
+
+    const fetchCloudDisk = (plugins: PluginId[], loadedMore: boolean = false) => {
+      return Promise.all(
+        plugins.map(async (item) => {
+          if (!cloudDisks[item]) {
+            cloudDisks[item] = { data: [], sourceContext: {} }
+          }
+
+          const result = await pluginMethodCall(
+            item,
+            'cloudDisk',
+            loadedMore
+              ? {
+                  ...cloudDisks[item].sourceContext
+                }
+              : {}
+          )
+          if (loadedMore) {
+            cloudDisks[item].data.push(
+              ...result.data.map((it) => ({
+                ...it,
+                pluginId: item,
+                album: { ...it.album, pluginId: item },
+                artists: it.artists.map((i) => ({ ...i, pluginId: item }))
+              }))
+            )
+          } else {
+            cloudDisks[item].data = result.data.map((it) => ({
+              ...it,
+              pluginId: item,
+              album: { ...it.album, pluginId: item },
+              artists: it.artists.map((i) => ({ ...i, pluginId: item }))
+            }))
+          }
+          cloudDisks[item].sourceContext = result.sourceContext
+        })
+      )
+    }
+
+    const fetchLyric = async (plugin: PluginId, sourceContext: Record<string, any>) => {
+      return pluginMethodCall(plugin, 'getLyric', { ...sourceContext }).then((result) => {
+        if (result.code === 200) return result.data
+        return []
+      })
+    }
+
+    const resizeImage = async (plugin: PluginId, pic: string, size: number) => {
+      const result = await pluginMethodCall(plugin, 'resizePicUrl', { url: pic, size })
+      return result.data
+    }
+
     return {
+      tools,
       services,
+      loggedInServices,
       tracks,
       albums,
       artists,
@@ -130,12 +388,22 @@ export const usePluginMusic = defineStore(
       mvs,
       additionalTags,
       users,
+      fetchLyric,
+      resizeImage,
       pluginMethodCall,
+      getPlaylistDetail,
       uploadPlugin,
-      getPlugins
+      getPlugins,
+      fetchLikedMVs,
+      fetchCloudDisk,
+      fetchLikedAlbums,
+      fetchLikedArtists,
+      fetchLikedPlaylists,
+      fetchPlaylistTracks,
+      fetchLikedSongsWithDetails
     }
   },
   {
-    persist: { pick: ['additionalTags'] }
+    persist: { pick: ['services', 'additionalTags', 'users', 'tools'] }
   }
 )

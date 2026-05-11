@@ -42,7 +42,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onBeforeUnmount, watch, onMounted, computed } from 'vue'
+import {
+  ref,
+  onBeforeUnmount,
+  watch,
+  onMounted,
+  computed,
+  nextTick,
+  onDeactivated,
+  onActivated
+} from 'vue'
 import { tricklingProgress } from '../utils/tricklingProgress'
 import CoverRow from '../components/CoverRow.vue'
 import DailyTracksCard from '../components/DailyTracksCard.vue'
@@ -140,7 +149,7 @@ const handleBannerClick = (banner: Banner) => {
   }
 }
 
-const loadData = () => {
+const loadData = async () => {
   if (!pluginId.value) return
   setTimeout(() => {
     if (!show.value) tricklingProgress.start()
@@ -154,16 +163,14 @@ const loadData = () => {
     })
   }
 
-  pluginMethodCall(pluginId.value, 'getRecommendTracks')
-    .then((result) => {
-      dailyTracks.value = result.data.map((item) => ({ ...item, pluginId: pluginId.value }))
-    })
-    .catch(() => (dailyTracks.value = []))
-
   pluginMethodCall(pluginId.value, 'getRecommendPlaylist').then((res) => {
     recommendPlaylist.value = res.data.map((item) => ({ ...item, pluginId: pluginId.value }))
     tricklingProgress.done()
     show.value = true
+  })
+
+  pluginMethodCall(pluginId.value, 'getRecommendTracks').then((result) => {
+    dailyTracks.value = result.data.map((item) => ({ ...item, pluginId: pluginId.value }))
   })
 
   pluginMethodCall(pluginId.value, 'topArtists').then((res) => {
@@ -182,6 +189,7 @@ const loadData = () => {
     newReleasesAlbum.value.hasMore = data.hasMore
     newReleasesAlbum.value.items = data.albums.map((item) => ({
       ...item,
+      artists: item.artists?.map((it) => ({ ...it, pluginId: pluginId.value })),
       pluginId: pluginId.value
     }))
   })
@@ -236,7 +244,8 @@ watch(pluginId, (value) => {
 //   await getPlugins()
 // })
 
-onMounted(() => {
+onMounted(async () => {
+  await nextTick()
   loadData()
 })
 
