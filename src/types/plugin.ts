@@ -3,6 +3,7 @@ import {
   AlbumSchema,
   AlbumDetailSchema,
   ArtistSchema,
+  ArtistDetailSchema,
   BannerSchema,
   LoginQrCodeCheckResultSchema,
   LoginQrKeySchema,
@@ -20,6 +21,7 @@ import {
 
 export type MusicType = z.infer<typeof MusicTypeSchema>
 export type Artist = z.infer<typeof ArtistSchema>
+export type ArtistDetail = z.infer<typeof ArtistDetailSchema>
 export type Album = z.infer<typeof AlbumSchema>
 export type AlbumDetail = z.infer<typeof AlbumDetailSchema>
 export type Track = z.infer<typeof TrackSchema>
@@ -93,7 +95,11 @@ export const defaultMap: {
   cloudDisk: { code: 404, data: [], sourceContext: {} },
   resizePicUrl: { code: 404, data: '' },
   albumDetail: { code: 404, data: null },
-  artistAlbums: { code: 404, data: [], sourceContext: {} }
+  artistAlbums: { code: 404, data: [], sourceContext: {} },
+  artistDetail: { code: 404, data: null },
+  artistMVs: { code: 404, data: [], sourceContext: {} },
+  artistTracks: { code: 404, data: [], sourceContext: {} },
+  simiArtists: { code: 404, data: [], sourceContext: {} }
 }
 
 export type PluginMethodCall = <K extends keyof PluginAPI>(

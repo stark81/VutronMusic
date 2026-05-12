@@ -130,7 +130,7 @@
         </div>
 
         <div v-show="currentTab === 'mvs'">
-          <Mvrow :mvs="filterLikedMVs" :is-end="true" />
+          <Mvrow :mvs="filterLikedMVs" :is-end="true" :column-number="4" />
         </div>
 
         <div v-show="currentTab === 'artist'">

@@ -24,7 +24,9 @@
           <span v-show="isPrivacy(item)" class="lock-icon">
             <SvgIcon icon-class="lock" />
           </span>
-          <router-link :to="`/${type}/${item.id}`">{{ item.name }}</router-link>
+          <router-link :to="`/${type}/${item.pluginId}/${JSON.stringify(item.sourceContext)}`">{{
+            item.name
+          }}</router-link>
         </div>
         <div v-show="type !== 'artist' && subText !== 'none'" class="info">
           <span v-same-html="getSubText(item)"></span>
@@ -115,17 +117,17 @@ const getSubText = (item: any) => {
   } else if (props.subText === 'copywriter') {
     subText = item.copywriter
   } else if (props.subText === 'releaseYear') {
-    subText = new Date(item.publishTime).getFullYear().toString()
+    subText = new Date(item.createTime).getFullYear().toString()
   } else if (props.subText === 'albumType+releaseYear') {
     let albumType = item.type
-    if (item.type === 'EP/Single') {
-      albumType = item.size === 1 ? 'Single' : 'EP'
-    } else if (item.type === 'Single') {
+    if (item.type === 'EP') {
+      albumType = 'EP'
+    } else if (item.type === '单曲') {
       albumType = 'Single'
     } else if (item.type === '专辑') {
       albumType = 'Album'
     }
-    return `${albumType} · ${new Date(item.publishTime).getFullYear()}`
+    return `${albumType} · ${new Date(item.createTime).getFullYear()}`
   }
   return subText
 }

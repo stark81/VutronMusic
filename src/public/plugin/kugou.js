@@ -252,6 +252,19 @@ const isTrackPlayable = (item) => {
  */
 const pick = (...values) => values.find((v) => v != null && v !== '')
 
+const parseDate = (dateStr) => {
+  if (!dateStr) return null
+
+  const fixed = dateStr.replace(/^(\d{4})-(\d{2})-(\d{2})/, (_, y, m, d) => {
+    const mm = Math.max(1, parseInt(m, 10)).toString().padStart(2, '0')
+    const dd = Math.max(1, parseInt(d, 10)).toString().padStart(2, '0')
+    return `${y}-${mm}-${dd}`
+  })
+
+  const ts = new Date(fixed).getTime()
+  return isNaN(ts) ? null : ts
+}
+
 /**
  * @returns {Track}
  */
@@ -260,18 +273,11 @@ const formatTrack = (item, size = 64) => {
     const result = isTrackPlayable(item)
     return {
       id: item.songid ?? item.audio_id,
-      name: item.songname ?? item.name.split('-')[1].trim(),
-      duration: item.timelen ?? (item.time_length ?? 0) * 1000,
+      name: item.songname ?? item.audio_name ?? item.name?.split('-')[1]?.trim() ?? '',
+      duration: item.timelen ?? item.timelength ?? (item.time_length ?? 0) * 1000,
       alias: [],
-      createTime: new Date(
-        pick(
-          item.publish_date,
-          item.album_info?.publish_date,
-          item.add_time
-          // item.create_time,
-          // item.update_time,
-        ) || 0
-      ).getTime(),
+      createTime:
+        parseDate(pick(item.publish_date, item.album_info?.publish_date, item.add_time)) ?? 0,
       no: 0,
       playable: result.playable,
       mvid: item.mvid || 0,
@@ -301,7 +307,7 @@ const formatTrack = (item, size = 64) => {
             item.album_info?.sizable_cover
             // item.picUrl,
             // item.pic_url,
-          ) || ''
+          ) || 'https://c1.kgimg.com/stdmusic/aaa/ddd/ddd.jpg'
         )
           .replace('{size}', `512`)
           .replace('http://', 'https://'),
@@ -319,11 +325,8 @@ const formatTrack = (item, size = 64) => {
       artists: pick(
         item.singerinfo,
         item.authors,
-        // item.artists,
-        // item.ar,
-        // item.albumArtists,
-        // item.album_artists,
-        []
+
+        [{ id: 0, name: item.author_name, picUrl: '', souceContext: {} }]
       ).map((ar) => ({
         id: ar.id ?? ar.author_id ?? '',
         name: ar.name ?? ar.author_name,
@@ -333,15 +336,11 @@ const formatTrack = (item, size = 64) => {
             .replace('http://', 'https://') ?? '',
         sourceContext: { id: ar.id || ar.author_id || '' }
       })),
-      picUrl: (
-        pick(
-          item.sizable_cover,
-          item.cover,
-          item.album_info?.sizable_cover
-          // item.picUrl,
-          // item.pic_url,
-          // item.image,
-        ) || ''
+      picUrl: pick(
+        item.sizable_cover,
+        item.cover,
+        item.album_info?.sizable_cover,
+        'https://c1.kgimg.com/stdmusic/aaa/ddd/ddd.jpg'
       )
         .replace('{size}', `${size}`)
         .replace('http://', 'https://'),
@@ -406,6 +405,14 @@ const formatPlaylistDetail = (playlist) => ({
   sourceContext: { id: playlist.global_collection_id, page: 1 }
 })
 
+const albumTypeMap = {
+  录音室专辑: '专辑',
+  EP专辑: 'EP',
+  单曲专辑: '单曲',
+  liveCD: 'liveCD',
+  精选集: '精选集'
+}
+
 const formatAlbumDetail = (item) => ({
   id: item.album_id,
   name: item.album_name,
@@ -446,7 +453,10 @@ const buildAlbumTrack = (item) => ({
     pluginId: '',
     sourceContext: { id: it.author_id }
   })),
-  picUrl: (item.album_info?.cover || '').replace('{size}', '512'),
+  picUrl: (item.album_info?.cover || 'https://c1.kgimg.com/stdmusic/aaa/ddd/ddd.jpg').replace(
+    '{size}',
+    '512'
+  ),
   mvid: item.mvid || 0,
   playCount: -1,
   pluginId: '',
@@ -454,6 +464,24 @@ const buildAlbumTrack = (item) => ({
   playable: true,
   reason: '',
   sourceContext: { id: item.base?.audio_id || '', hash: item.audio_info.hash_flac }
+})
+
+const formatMv = (item) => ({
+  id: item.video_id,
+  name: item.video_name,
+  picUrl: item.hdpic.replace('{size}', '600').replace('http://', 'https://'),
+  publishTime: new Date(item.collect_time || item.publish_date || 0).getTime(),
+  pluginId: '',
+  artists: [
+    {
+      id: item.user_id || 0,
+      name: item.provider || item.author_name,
+      picUrl: '',
+      pluginId: '',
+      sourceContext: { id: item.user_id || 0 }
+    }
+  ],
+  sourceContext: { id: item.video_id }
 })
 
 const meta = {
@@ -591,6 +619,7 @@ exports.topArtists = async () => {
     .singer.map((item) => ({
       id: item.singerid,
       name: item.singername,
+      pluginId: '',
       picUrl: item.imgurl.replace('{size}', '256'),
       sourceContext: { id: item.singerid }
     }))
@@ -855,23 +884,7 @@ exports.userLikedMVs = async (params) => {
   const result = await get('user/video/collect', { page, pagesize })
 
   if (result.status === 1 && result.data.ctotal > 0) {
-    const data = result.data.info.map((item) => ({
-      id: item.video_id,
-      name: item.video_name,
-      picUrl: item.hdpic.replace('{size}', '600').replace('http://', 'https://'),
-      publishTime: item.collect_time,
-      pluginId: '',
-      artists: [
-        {
-          id: item.user_id,
-          name: item.provider,
-          picUrl: '',
-          pluginId: '',
-          sourceContext: { id: item.user_id }
-        }
-      ],
-      sourceContext: { id: item.video_id }
-    }))
+    const data = result.data.info.map(formatMv)
     return { code: 200, data, sourceContext: { page: page + 1 } }
   }
 
@@ -915,19 +928,99 @@ exports.albumDetail = async (params) => {
  */
 exports.artistAlbums = async (params) => {
   const { id, page } = params
-  const result = await get('artist/albums', { id, page: page ?? 1 })
+  const result = await get('artist/albums', { id, pagesize, page: page ?? 1 })
   if (result.status === 1) {
     const data = result.data.map((item) => ({
       id: item.album_id,
       name: item.album_name,
-      picUrl: item.sizable_cover.replace('{size}', '256'),
+      picUrl: (item.sizable_cover || 'https://c1.kgimg.com/stdmusic/aaa/ddd/ddd.jpg').replace(
+        '{size}',
+        '256'
+      ),
+      createTime: new Date(item.publish_date || 0).getTime(),
       copywriter: `${item.type} · ${new Date(item.publish_date).getFullYear()}`,
+      type: albumTypeMap[item.type] || '其他',
       pluginId: '',
       sourceContext: { id: item.album_id }
     }))
     return { code: 200, data, sourceContext: { id, page: (page || 1) + 1 } }
   }
   return { code: 200, data: [], sourceContext: { id, page: (page || 1) + 1 } }
+}
+
+exports.artistDetail = async (params) => {
+  const { id } = params
+  const result = await get('artist/detail', { id })
+  if (result.status === 1) {
+    const data = {
+      id: result.data.author_id,
+      name: result.data.author_name,
+      picUrl: result.data.sizable_avatar.replace('{size}', '512'),
+      musicSize: result.data.song_count,
+      albumSize: result.data.album_count,
+      mvSize: result.data.mv_count,
+      description: result.data.intro,
+      followed: false,
+      pluginId: '',
+      sourceContext: { id: result.data.author_id }
+    }
+    return { code: 200, data }
+  }
+  return { code: 200, data: null }
+}
+
+exports.artistTracks = async (params) => {
+  const { id, page } = params
+  const result = await get('artist/audios', { id, page, sort: 'hot' })
+  if (result.status === 1) {
+    const data = result.data.map(formatTrack)
+    return { code: 200, data, sourceContext: { id, page: (page || 1) + 1 } }
+  }
+
+  return { code: 200, data: [], sourceContext: { id, page: (page || 1) + 1 } }
+}
+
+exports.artistMVs = async (params) => {
+  const { id, page } = params
+  const pagesize = 30
+  const result = await get('artist/videos', { id, pagesize, page: page || 1 })
+  if (result.status === 1) {
+    const data = result.data.map(formatMv)
+    return { code: 200, data, sourceContext: { id, page: (page || 1) + 1 } }
+  }
+
+  return { code: 200, data: [], sourceContext: { id, page: (page || 1) + 1 } }
+}
+
+const shuffle = (arr) => {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
+}
+
+exports.simiArtists = async () => {
+  let result = {}
+  if (artistLists.data?.info.length) {
+    result = artistLists
+  } else {
+    result = await get('artist/lists', { type: 0, hotsize: 30 })
+  }
+  const data = result.data.info
+    .find((item) => item.title === '热门')
+    .singer.map((item) => ({
+      id: item.singerid,
+      name: item.singername,
+      pluginId: '',
+      picUrl: item.imgurl.replace('{size}', '256'),
+      sourceContext: { id: item.singerid }
+    }))
+  return {
+    code: result.status === 1 ? 200 : 404,
+    data: shuffle(data),
+    sourceContext: { offset: 30 }
+  }
 }
 
 /**

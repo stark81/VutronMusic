@@ -5,26 +5,26 @@
         <img :src="image" loading="lazy" />
       </div>
       <div>
-        <div class="name">{{ artist.name }}</div>
+        <div class="name">{{ artist?.name }}</div>
         <div class="artist">{{ $t('artist.artist') }}</div>
         <div class="statistics">
-          <a @click="scrollTo('popularTracks')">{{ artist.musicSize }} {{ $t('common.songs') }}</a>
+          <a @click="scrollTo('popularTracks')">{{ artist?.musicSize }} {{ $t('common.songs') }}</a>
           ·
           <a @click="scrollTo('seeMore', 'start')"
-            >{{ artist.albumSize }} {{ $t('artist.withAlbums') }}</a
+            >{{ artist?.albumSize }} {{ $t('artist.withAlbums') }}</a
           >
           ·
-          <a @click="scrollTo('mvs')">{{ artist.mvSize }} {{ $t('artist.videos') }}</a>
+          <a @click="scrollTo('mvs')">{{ artist?.mvSize }} {{ $t('artist.videos') }}</a>
         </div>
         <div class="description" @click="toggleFullDescription">
-          {{ artist.briefDesc }}
+          {{ artist?.description }}
         </div>
         <div class="buttons">
           <ButtonTwoTone icon-class="play" @click="playPopularSongs()">
             {{ $t('common.play') }}
           </ButtonTwoTone>
           <ButtonTwoTone color="grey" @click="followArtist">
-            <span v-if="artist.followed">{{ $t('artist.following') }}</span>
+            <span v-if="artist?.followed">{{ $t('artist.following') }}</span>
             <span v-else>{{ $t('artist.follow') }}</span>
           </ButtonTwoTone>
           <ButtonTwoTone
@@ -45,6 +45,8 @@
         <div class="container">
           <Cover
             :id="latestRelease.id"
+            :plugin-id="latestRelease?.pluginId || ''"
+            :source-context="latestRelease?.sourceContext || {}"
             :image-url="latestRelease.picUrl"
             type="album"
             :fixed-size="128"
@@ -52,41 +54,43 @@
           />
           <div class="info">
             <div class="name">
-              <router-link :to="`/album/${latestRelease.id}`">{{ latestRelease.name }}</router-link>
+              <router-link
+                :to="`/album/${latestRelease.pluginId}/${JSON.stringify(latestRelease.sourceContext)}`"
+                >{{ latestRelease.name }}</router-link
+              >
             </div>
             <div class="date">
-              {{ formatDate(latestRelease.publishTime) }}
+              {{ formatDate(latestRelease.createTime) }}
             </div>
             <div class="type">
-              {{ formatAlbumType(latestRelease.type, latestRelease) }} · {{ latestRelease.size }}
-              {{ $t('common.songs') }}
+              {{ latestRelease.copywriter }}
             </div>
           </div>
         </div>
-        <div v-show="latestMV.id" class="container latest-mv">
+        <div v-show="latestMV?.id" class="container latest-mv">
           <div
             class="cover"
             @mouseover="mvHover = true"
             @mouseleave="mvHover = false"
-            @click="goToMv(latestMV.id)"
+            @click="goToMv(latestMV?.id)"
           >
-            <img :src="latestMV.coverUrl" loading="lazy" />
+            <img :src="latestMV?.picUrl" loading="lazy" />
             <transition name="fade">
               <div
                 v-show="mvHover"
                 class="shadow"
                 :style="{
-                  background: 'url(' + latestMV.coverUrl + ')'
+                  background: 'url(' + latestMV?.picUrl + ')'
                 }"
               ></div>
             </transition>
           </div>
           <div class="info">
             <div class="name">
-              <router-link :to="'/mv/' + latestMV.id">{{ latestMV.name }}</router-link>
+              <router-link :to="'/mv/' + latestMV?.id">{{ latestMV?.name }}</router-link>
             </div>
             <div class="date">
-              {{ formatDate(latestMV.publishTime) }}
+              {{ formatDate(latestMV?.publishTime) }}
             </div>
             <div class="type">{{ $t('artist.latestMV') }}</div>
           </div>
@@ -132,7 +136,7 @@
     <div v-if="MVs.length !== 0" id="mvs" class="mvs">
       <div class="section-title"
         >MVs
-        <router-link v-show="hasMoreMV" :to="`/artist/${artist.id}/mv`">{{
+        <router-link v-show="hasMoreMV" :to="`/artist/${artist?.id}/mv`">{{
           $t('home.seeMore')
         }}</router-link>
       </div>
@@ -171,7 +175,7 @@
       :show-footer="false"
       :title="$t('artist.artistDesc')"
     >
-      <p class="description-fulltext">{{ artist.briefDesc }}</p>
+      <p class="description-fulltext">{{ artist?.description }}</p>
     </Modal>
 
     <ContextMenu ref="artistMenu">
@@ -182,7 +186,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onActivated, onDeactivated, onMounted, onBeforeUnmount, computed, inject } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, inject } from 'vue'
 import ButtonTwoTone from '../components/ButtonTwoTone.vue'
 import Modal from '../components/BaseModal.vue'
 import MvRow from '../components/MvRow.vue'
@@ -190,102 +194,97 @@ import TrackList from '../components/VirtualTrackList.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import Cover from '../components/CoverBox.vue'
 import CoverRow from '../components/CoverRow.vue'
-import { usePlayerStore } from '../store/player'
 import { onBeforeRouteUpdate, useRoute } from 'vue-router'
 import { tricklingProgress } from '../utils/tricklingProgress'
-import { getArtist, getArtistAlbum, artistMv, similarArtists, followAnArtist } from '../api/artist'
-import { getTrackDetail } from '../api/track'
-import { formatDate, formatAlbumType, openExternal } from '../utils'
-import { isAccountLoggedIn } from '../utils/auth'
+import { formatDate, openExternal } from '../utils'
 import { useNormalStateStore } from '../store/state'
+import { usePluginMusic } from '../store/pluginMusic'
 import { useI18n } from 'vue-i18n'
-import { storeToRefs } from 'pinia'
+// import { storeToRefs } from 'pinia'
+import { PluginId, ArtistDetail, Album, Mv, Track, Artist } from '@/types/plugin'
 
 const show = ref(false)
-const artist = ref<{ [key: string]: any }>({})
-const popularTracks = ref<any[]>([])
-const albumsData = ref<any[]>([])
-const latestRelease = ref<{ [key: string]: any }>({
+const artist = ref<ArtistDetail>()
+const popularTracks = ref<Track[]>([])
+const albumsData = ref<Album[]>([])
+const latestRelease = ref<Album>({
   picUrl: '',
-  publishTime: 0,
+  createTime: 0,
   id: 0,
   name: '',
-  type: '',
-  size: ''
+  pluginId: '',
+  sourceContext: {},
+  type: '专辑'
 })
-const simiArtists = ref<any[]>([])
-const MVs = ref<any[]>([])
+const simiArtists = ref<Artist[]>([])
+const MVs = ref<Mv[]>([])
 const mvHover = ref(false)
 const hasMoreMV = ref(false)
 const showMorePopTracks = ref(false)
 const showFullDescription = ref(false)
 const artistMenu = ref()
 
+const pluginStore = usePluginMusic()
+const { pluginMethodCall } = pluginStore
+
 const stateStore = useNormalStateStore()
 const { showToast } = stateStore
 const { t } = useI18n()
 
-const image = computed(() => artist.value?.img1v1Url + '?param=512y512')
-const latestMV = computed(() => {
-  const mv = MVs.value[0] || {}
-  return {
-    id: mv.id || mv.vid,
-    name: mv.name || mv.title,
-    coverUrl: `${mv.imgurl16v9 || mv.cover || mv.coverUrl}?param?464y260`,
-    publishTime: mv.publishTime
-  }
-})
+const image = computed(() => artist.value?.picUrl || '')
+const latestMV = computed(() => MVs.value[0])
 const albums = computed(() => albumsData.value.filter((a) => a.type === '专辑'))
-const eps = computed(() =>
-  albumsData.value.filter((a) => ['EP/Single', 'EP', 'Single'].includes(a.type))
-)
+const eps = computed(() => albumsData.value.filter((a) => ['EP', '单曲'].includes(a.type!)))
 
-const playerStore = usePlayerStore()
-const { _shuffle } = storeToRefs(playerStore)
-const { replacePlaylist } = playerStore
+// const playerStore = usePlayerStore()
+// const { _shuffle } = storeToRefs(playerStore)
+// const { replacePlaylist } = playerStore
 
 const route = useRoute()
-const loadData = (id: string, next: any = undefined) => {
+const loadData = (plugin: PluginId, params: Record<string, any>) => {
   setTimeout(() => {
     if (!show.value) tricklingProgress.start()
   }, 1000)
   show.value = false
 
-  getArtist(Number(id)).then((res) => {
-    artist.value = res.artist
-    const ids = res.hotSongs.map((t) => t.id)
-    getTrackDetail(ids.join(',')).then((data) => {
-      popularTracks.value = data.songs
-    })
-    if (next !== undefined) next()
+  pluginMethodCall(plugin, 'artistDetail', params).then((result) => {
+    if (!result.data) return
+    artist.value = result.data!
     tricklingProgress.done()
     show.value = true
   })
 
-  getArtistAlbum({ id: Number(id), limit: 200 }).then((data) => {
-    albumsData.value = data.hotAlbums
-    latestRelease.value = data.hotAlbums[0]
+  pluginMethodCall(plugin, 'artistTracks', params).then((result) => {
+    popularTracks.value = result.data.map((item) => ({ ...item, pluginId: plugin }))
   })
 
-  artistMv({ id: Number(id) }).then((data) => {
-    MVs.value = data.mvs
-    hasMoreMV.value = data.hasMore
+  pluginMethodCall(plugin, 'artistAlbums', params).then((result) => {
+    albumsData.value = result.data.map((item) => ({ ...item, pluginId: plugin }))
+    latestRelease.value = albumsData.value[0]
   })
 
-  similarArtists(Number(id)).then((data) => {
-    simiArtists.value = data.artists
+  pluginMethodCall(plugin, 'artistMVs', params).then((res) => {
+    MVs.value = res.data.slice(0, 10).map((item) => ({ ...item, pluginId: plugin }))
+  })
+
+  pluginMethodCall(plugin, 'simiArtists', params).then((result) => {
+    simiArtists.value = result.data.map((item) => ({ ...item, pluginId: plugin }))
   })
 }
 
-const goToMv = (id: string) => {}
+const goToMv = (id: string | number) => {
+  console.log('id', id)
+}
 const updatePadding = inject('updatePadding') as (padding: number) => void
 
-const scrollTo = (div: string, block = 'center') => {}
+const scrollTo = (div: string, block = 'center') => {
+  console.log('div, block', div, block)
+}
 
 const playPopularSongs = () => {
-  const ids = popularTracks.value.map((t) => t.id)
-  const idx = _shuffle.value ? Math.floor(Math.random() * ids.length) : 0
-  replacePlaylist('artist', artist.value.id, ids, idx)
+  // const ids = popularTracks.value.map((t) => t.id)
+  // const idx = _shuffle.value ? Math.floor(Math.random() * ids.length) : 0
+  // replacePlaylist('artist', artist.value.id, ids, idx)
 }
 
 const toggleFullDescription = () => {
@@ -293,27 +292,27 @@ const toggleFullDescription = () => {
 }
 
 const followArtist = () => {
-  if (!isAccountLoggedIn()) {
-    showToast(t('toast.needToLogin'))
-    return
-  }
-  followAnArtist({
-    id: artist.value.id,
-    t: artist.value.followed ? 0 : 1
-  }).then((data) => {
-    if (data.code === 200) artist.value.followed = !artist.value.followed
-  })
+  // if (!isAccountLoggedIn()) {
+  //   showToast(t('toast.needToLogin'))
+  //   return
+  // }
+  // followAnArtist({
+  //   id: artist.value.id,
+  //   t: artist.value.followed ? 0 : 1
+  // }).then((data) => {
+  //   if (data.code === 200) artist.value.followed = !artist.value.followed
+  // })
 }
 
 const copyURL = () => {
-  const url = `https://music.163.com/#/artist?id=${artist.value.id}`
+  const url = `https://music.163.com/#/artist?id=${artist.value?.id}`
   navigator.clipboard.writeText(url).then(() => {
     showToast(t('toast.copySuccess'))
   })
 }
 
 const openOnBrowser = () => {
-  const url = `https://music.163.com/#/artist?id=${artist.value.id}`
+  const url = `https://music.163.com/#/artist?id=${artist.value?.id}`
   openExternal(url)
 }
 
@@ -322,27 +321,15 @@ const openMenu = (e: MouseEvent) => {
 }
 
 onBeforeRouteUpdate((to, from, next) => {
-  artist.value.img1v1Url = 'https://p1.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg'
-  loadData(to.params.id as string, next)
-})
-
-onActivated(() => {
-  if (artist.value?.id?.toString() !== route.params.id) {
-    loadData(route.params.id as string)
-  }
-  setTimeout(() => {
-    updatePadding(96)
-  }, 100)
-})
-
-onDeactivated(() => {
-  setTimeout(() => {
-    updatePadding(96)
-  }, 100)
+  show.value = false
+  const { pluginId: plugin, sourceContext } = to.params
+  loadData(plugin as PluginId, JSON.parse(sourceContext as string))
+  next()
 })
 
 onMounted(() => {
-  loadData(route.params.id as string)
+  const { pluginId: plugin, sourceContext } = route.params
+  loadData(plugin as PluginId, JSON.parse(sourceContext as string))
   setTimeout(() => {
     updatePadding(96)
   }, 100)

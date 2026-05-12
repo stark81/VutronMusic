@@ -118,7 +118,7 @@ const routes = [
     component: () => import('../views/AlbumPage.vue')
   },
   {
-    path: '/artist/:id',
+    path: '/artist/:pluginId/:sourceContext',
     name: 'ArtistPage',
     component: () => import('../views/ArtistPage.vue'),
     meta: {

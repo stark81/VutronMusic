@@ -3,7 +3,7 @@
     ref="listRef"
     :list="mvs"
     :gap="gap"
-    :column-number="3"
+    :column-number="columnNumber"
     :is-end="isEnd"
     :item-size="163"
     :show-position="showPosition"
@@ -44,6 +44,7 @@ import { PropType, ref, toRefs } from 'vue'
 import VirtualList from './VirtualScrollNoHeight.vue'
 import { useRouter } from 'vue-router'
 import { Mv } from '@/types/plugin'
+import { formatDate } from '../utils'
 
 const props = defineProps({
   mvs: {
@@ -53,6 +54,10 @@ const props = defineProps({
   isEnd: {
     type: Boolean,
     default: false
+  },
+  columnNumber: {
+    type: Number,
+    default: 5
   },
   subtitle: {
     type: String,
@@ -93,14 +98,6 @@ const goToMv = (id: number | string) => {
   router.push(`/mv/${id}`)
 }
 
-const getTitle = (item: Mv) => {
-  if (item.name !== undefined) {
-    return item.name
-  } else {
-    // return item.title
-  }
-}
-
 const getSubTitle = (item: Mv) => {
   if (props.subtitle === 'artist') {
     let artistName = ''
@@ -109,7 +106,7 @@ const getSubTitle = (item: Mv) => {
     artistID = item.artists[0].id
     return `<a href="/#/artist/${artistID}">${artistName}</a>`
   } else if (props.subtitle === 'publishTime') {
-    return item.publishTime
+    return formatDate(item.publishTime, 'YYYY-MM-DD')
   }
 }
 

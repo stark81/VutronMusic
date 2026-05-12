@@ -27,12 +27,12 @@ export const ArtistSchema = z.object({
   sourceContext: z.record(z.string(), z.any())
 })
 
-export const ArtistDetailSchema = z.object({})
-
 export const AlbumSchema = z.object({
   id: z.number().or(z.string()),
   name: z.string(),
   picUrl: z.string(),
+  type: z.enum(['专辑', 'EP', '单曲', 'liveCD', '精选集', '其他']).optional(),
+  createTime: z.number().optional(),
   pluginId: z.string().optional(),
   copywriter: z.string().optional(),
   artists: z.array(ArtistSchema).optional(),
@@ -60,6 +60,20 @@ export const TrackSchema = z.object({
    * - 例如：酷狗的sourceContext里可以保存歌曲hash，用来获取歌曲链接和歌词等数据；emby的sourceContext里可以保存歌曲的lrcId，用来获取歌词等数据
    * - 该字段的设计初衷是为了确保各个插件的特殊数据能够完整地传递和使用，而不需要担心在渲染进程中丢失或被篡改，同时也避免了在Track对象上添加过多与特定插件相关的字段，从而保持了Track对象的通用性和简洁性
    */
+  sourceContext: z.record(z.string(), z.any())
+})
+
+export const ArtistDetailSchema = z.object({
+  id: z.number().or(z.string()),
+  name: z.string(),
+  picUrl: z.string(),
+  musicSize: z.number(),
+  albumSize: z.number(),
+  mvSize: z.number(),
+  description: z.string(),
+  followed: z.boolean(),
+
+  pluginId: z.string().optional(),
   sourceContext: z.record(z.string(), z.any())
 })
 
@@ -294,6 +308,22 @@ export const PluginResultSchema = {
   artistAlbums: z.object({
     code: z.number(),
     data: z.array(AlbumSchema),
+    sourceContext: z.record(z.string(), z.any())
+  }),
+  artistDetail: z.object({ code: z.number(), data: ArtistDetailSchema.or(z.null()) }),
+  artistMVs: z.object({
+    code: z.number(),
+    data: z.array(MvSchema),
+    sourceContext: z.record(z.string(), z.any())
+  }),
+  artistTracks: z.object({
+    code: z.number(),
+    data: z.array(TrackSchema),
+    sourceContext: z.record(z.string(), z.any())
+  }),
+  simiArtists: z.object({
+    code: z.number(),
+    data: z.array(ArtistSchema),
     sourceContext: z.record(z.string(), z.any())
   })
 } as const

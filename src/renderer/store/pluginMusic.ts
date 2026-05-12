@@ -16,7 +16,8 @@ import {
   Playlist,
   Artist,
   Album,
-  Tool
+  Tool,
+  Mv
 } from '@/types/plugin'
 
 const _buildService = (code: PluginId, meta: { name: string; type: MusicType }): service => {
@@ -50,7 +51,7 @@ export const usePluginMusic = defineStore(
         { liked: Playlist | null; data: Playlist[]; sourceContext: Record<string, any> }
       >
     >({})
-    const mvs = reactive<Record<PluginId, { data: any[]; sourceContext: Record<string, any> }>>({})
+    const mvs = reactive<Record<PluginId, { data: Mv[]; sourceContext: Record<string, any> }>>({})
     const likedTracks = reactive<
       Record<PluginId, { data: Track[]; sourceContext: Record<string, any> }>
     >({})

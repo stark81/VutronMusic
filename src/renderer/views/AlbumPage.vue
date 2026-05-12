@@ -20,14 +20,14 @@
         <div class="artist">
           <span v-if="album?.artists?.[0]?.id !== 104700">
             <span>{{ album?.type }} by </span
-            ><router-link :to="`/artist/${album?.artists?.[0].id}`">{{
-              album?.artists?.[0].name
-            }}</router-link></span
+            ><router-link
+              :to="`/artist/${album?.pluginId}/${JSON.stringify(album?.artists?.[0].sourceContext)}`"
+              >{{ album?.artists?.[0].name }}</router-link
+            ></span
           >
           <span v-else>Compilation by Various Artists</span>
         </div>
         <div class="date-and-count">
-          <!-- v-if="album?.mark === 1056768"  -->
           <span v-if="album?.isExplicit" class="explicit-symbol"><ExplicitSymbol /></span>
           <span :title="`${album?.publishTime}`">{{
             new Date(album?.publishTime || 0).getFullYear()
@@ -108,9 +108,10 @@
     <div v-if="moreAlbums.data.length !== 0" class="more-by">
       <div class="section-title">
         More by
-        <router-link :to="`/artist/${album?.artists[0].id}`">{{
-          album?.artists[0].name
-        }}</router-link>
+        <router-link
+          :to="`/artist/${album?.pluginId}/${JSON.stringify(album?.artists[0].sourceContext)}`"
+          >{{ album?.artists[0].name }}</router-link
+        >
       </div>
       <div>
         <CoverRow
@@ -164,10 +165,6 @@ import Cover from '../components/CoverBox.vue'
 import Modal from '../components/BaseModal.vue'
 import ButtonTwoTone from '../components/ButtonTwoTone.vue'
 import ContextMenu from '../components/ContextMenu.vue'
-// import { getAlbum, albumDynamicDetail, likeAAlbum } from '../api/album'
-// import { getTrackDetail } from '../api/track'
-// import { getArtistAlbum } from '../api/artist'
-// import { splitSoundtrackAlbumTitle, splitAlbumTitle } from '../utils/common'
 import { formatTime, formatDate, openExternal } from '../utils'
 import { groupBy, toPairs, sortBy } from 'lodash'
 import TrackList from '../components/VirtualTrackList.vue'
@@ -219,35 +216,6 @@ const tracksByDisc = computed(() => {
   }))
 })
 
-// const filteredMoreAlbums = computed(() => {
-//   const mAlbums = moreAlbums.value.filter((a) => a.id !== album.value?.id)
-//   const realAlbums = mAlbums.filter((a) => a.type === '专辑')
-//   const eps = mAlbums.filter((a) => a.type === 'EP' || (a.type === 'EP/Single' && a.size > 1))
-//   const restItems = mAlbums.filter(
-//     (a) =>
-//       realAlbums.find((al) => al.id === a.id) === undefined &&
-//       eps.find((a1) => a1.id === a.id) === undefined
-//   )
-//   if (realAlbums.length === 0) {
-//     return [...realAlbums, ...eps, ...restItems].slice(0, 5)
-//   } else {
-//     return [...realAlbums, ...restItems].slice(0, 5)
-//   }
-//   return moreAlbums.data
-// })
-
-// const formatTitle = () => {
-//   const splitTitle = splitSoundtrackAlbumTitle(album.value?.name || '')
-//   const splitTitle2 = splitAlbumTitle(splitTitle.title)
-//   title.value = splitTitle2.title
-
-//   if (splitTitle.subtitle !== '' && splitTitle2.subtitle !== '') {
-//     subtitle.value = `${splitTitle.subtitle} · ${splitTitle2.subtitle}`
-//   } else {
-//     subtitle.value = splitTitle.subtitle === '' ? splitTitle2.subtitle : splitTitle.subtitle
-//   }
-// }
-
 const toggleFullDescription = () => {
   showFullDescription.value = !showFullDescription.value
 }
@@ -268,14 +236,6 @@ const likeAlbum = (toast = false) => {
     showToast(t('toast.needToLogin'))
     // return
   }
-  // likeAAlbum({ id: album.value.id, t: dynamicDetail.value.isSub ? 0 : 1 }).then((data) => {
-  //   if (data.code === 200) {
-  //     dynamicDetail.value.isSub = !dynamicDetail.value.isSub
-  //     if (toast) {
-  //       showToast(dynamicDetail.value.isSub ? '已保存到音乐库' : '已从音乐库删除')
-  //     }
-  //   }
-  // })
 }
 
 const openMenu = (e: MouseEvent) => {

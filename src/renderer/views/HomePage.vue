@@ -48,9 +48,9 @@ import {
   watch,
   onMounted,
   computed,
-  nextTick,
-  onDeactivated,
-  onActivated
+  nextTick
+  // onDeactivated,
+  // onActivated
 } from 'vue'
 import { tricklingProgress } from '../utils/tricklingProgress'
 import CoverRow from '../components/CoverRow.vue'
