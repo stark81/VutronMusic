@@ -89,12 +89,10 @@
 <script setup lang="ts">
 import SvgIcon from './SvgIcon.vue'
 import ArtistsInLine from './ArtistsInLine.vue'
-import ExplicitSymbol from './ExplicitSymbol.vue'
+// import ExplicitSymbol from './ExplicitSymbol.vue'
 import { computed, ref, toRefs, inject } from 'vue'
 import { useNormalStateStore } from '../store/state'
 import { useSettingsStore } from '../store/settings'
-import { useStreamMusicStore } from '../store/streamingMusic'
-import { useDataStore } from '../store/data'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
 import { usePluginMusic } from '../store/pluginMusic'
@@ -125,11 +123,9 @@ const settingsStore = useSettingsStore()
 const { general, localMusic } = storeToRefs(settingsStore)
 const { subTitleDefault, showTrackTimeOrID } = toRefs(general.value)
 
-const streamingMusicStore = useStreamMusicStore()
-const { likeAStreamTrack } = streamingMusicStore
-
 const pluginStore = usePluginMusic()
 const { likedTracks } = storeToRefs(pluginStore)
+const { likeATrack } = pluginStore
 
 const playerStore = usePlayerStore()
 const { currentTrack, enabled } = storeToRefs(playerStore)
@@ -138,10 +134,6 @@ const stateStore = useNormalStateStore()
 const { showToast } = stateStore
 
 const { t } = useI18n()
-
-const dataStore = useDataStore()
-const { liked } = storeToRefs(dataStore)
-const { likeATrack } = dataStore
 
 const type = computed(() => props.typeProp)
 const track = computed(() => props.trackProp)
@@ -178,7 +170,7 @@ const trackClass = computed(() => {
 })
 
 const artists = computed(() => {
-  const useAr = track.value.artists
+  const useAr = track.value?.artists || []
   useAr.forEach((artist: any) => {
     if (artist && !artist.name) {
       artist.name = '未知歌手'
@@ -251,7 +243,7 @@ const isSelected = computed({
 })
 
 const isMenuOpened = computed(() => {
-  return rightClickedTrack.value.id === track.value.id
+  return rightClickedTrack.value?.id === track.value.id
 })
 
 const focus = computed(() => {
@@ -267,7 +259,6 @@ const getPublishTime = (date: any) => {
 }
 
 const goToAlbum = () => {
-  console.log('===2=2==', album.value)
   if (album.value.id === 0) return
   // if (album.value.matched === false) return
   router.push(`/album/${album.value.pluginId}/${JSON.stringify(album.value.sourceContext)}`)
@@ -278,14 +269,7 @@ const goToMv = () => {
 }
 
 const likeThisSong = () => {
-  if (track.value.type === 'local') {
-    showToast(t('player.noAllowCauseLocal'))
-  } else if (track.value.type === 'stream') {
-    const op = isLiked.value ? 'unstar' : 'star'
-    // likeAStreamTrack(op, track.value)
-  } else {
-    // likeATrack(track.value.id)
-  }
+  likeATrack(track.value)
 }
 
 const isBatchOp = inject('isBatchOp', ref(false))

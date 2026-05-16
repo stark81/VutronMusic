@@ -1,7 +1,7 @@
 <template>
   <transition name="slide-fade">
     <div v-if="!noLyric" class="lyric-wrapper" :class="{ 'use-mask': useMask }">
-      <div v-show="hover" class="offset">
+      <!-- <div v-show="hover" class="offset">
         <button-icon title="提前0.5s" @click="setOffset(-0.5)">
           <svg-icon icon-class="back5s" />
         </button-icon>
@@ -11,7 +11,7 @@
         <button-icon title="后退0.5s" @click="setOffset(+0.5)">
           <svg-icon icon-class="forward5s" />
         </button-icon>
-      </div>
+      </div> -->
       <div
         class="main-lyric-container"
         :class="{ 'is-zoom': isZoom, 'line-mode': lineMode }"
@@ -47,8 +47,8 @@ import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
 import { useNormalStateStore } from '../store/state'
 import { usePlayerThemeStore } from '../store/playerTheme'
-import ButtonIcon from './ButtonIcon.vue'
-import SvgIcon from './SvgIcon.vue'
+// import ButtonIcon from './ButtonIcon.vue'
+// import SvgIcon from './SvgIcon.vue'
 import LyricLine from './LyricLine.vue'
 
 const props = defineProps({
@@ -64,7 +64,7 @@ const props = defineProps({
 const playerStore = usePlayerStore()
 const {
   noLyric,
-  currentTrack,
+  // currentTrack,
   lyrics,
   playing,
   currentIndex,
@@ -98,44 +98,44 @@ const lineMode = computed(() => {
 
 const highlight = computed(() => Math.min(currentIndex.value, lyrics.value.length - 1))
 
-const offset = computed(() => {
-  const lrcOffset = currentTrack.value!.offset || 0
-  if (lrcOffset === 0) {
-    return '未调整'
-  } else if (lrcOffset > 0) {
-    return `延后${lrcOffset}s`
-  } else {
-    return `提前${Math.abs(lrcOffset)}s`
-  }
-})
+// const offset = computed(() => {
+//   const lrcOffset =  0 // currentTrack.value!.offset ||
+//   if (lrcOffset === 0) {
+//     return '未调整'
+//   } else if (lrcOffset > 0) {
+//     return `延后${lrcOffset}s`
+//   } else {
+//     return `提前${Math.abs(lrcOffset)}s`
+//   }
+// })
 
 const transformOrigin = computed(() => `center ${props.textAlign}`)
 const lyricRefs = ref<InstanceType<typeof LyricLine>[]>([])
 const isWheeling = ref(false)
 let scrollingTimer: any = null
 
-const setOffset = (offset: number) => {
-  if (!currentTrack.value!.offset) {
-    currentTrack.value!.offset = 0
-  }
-  if (currentTrack.value!.type === 'local') {
-    window.mainApi
-      ?.invoke('updateLocalTrackInfo', currentTrack.value!.id, {
-        offset: currentTrack.value!.offset + offset
-      })
-      .then((isSussess: boolean) => {
-        if (!isSussess) showToast('歌词延迟信息未保存至数据库，下次启动程序后需要重置歌词延迟')
-      })
-  }
-  if (offset === 0) {
-    currentTrack.value!.offset = 0
-  } else {
-    currentTrack.value!.offset += offset
-  }
-  showToast(
-    `当前歌曲的歌词延迟为: ${currentTrack.value!.offset > 0 ? '延迟' : '提前'}${Math.abs(currentTrack.value!.offset)}s`
-  )
-}
+// const setOffset = (offset: number) => {
+//   if (!currentTrack.value!.offset) {
+//     currentTrack.value!.offset = 0
+//   }
+//   if (currentTrack.value!.type === 'local') {
+//     window.mainApi
+//       ?.invoke('updateLocalTrackInfo', currentTrack.value!.id, {
+//         offset: currentTrack.value!.offset + offset
+//       })
+//       .then((isSussess: boolean) => {
+//         if (!isSussess) showToast('歌词延迟信息未保存至数据库，下次启动程序后需要重置歌词延迟')
+//       })
+//   }
+//   if (offset === 0) {
+//     currentTrack.value!.offset = 0
+//   } else {
+//     currentTrack.value!.offset += offset
+//   }
+//   showToast(
+//     `当前歌曲的歌词延迟为: ${currentTrack.value!.offset > 0 ? '延迟' : '提前'}${Math.abs(currentTrack.value!.offset)}s`
+//   )
+// }
 
 const scheduleAnimation = async (type: 'all' | 'translation' = 'all') => {
   if (!lyricRefs.value?.length) return

@@ -242,8 +242,6 @@ export class PluginInstance {
 
       const start = Date.now()
 
-      console.log('[HTTP REQUEST]', method, fullUrl)
-
       response = await fetch(fullUrl, {
         method,
         headers: finalHeaders,

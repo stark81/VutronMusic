@@ -110,7 +110,7 @@
         <div v-show="currentTab === 'playlist'">
           <CoverRow
             :items="filterPlaylists"
-            type="playlist"
+            type="Playlist"
             sub-text="creator"
             :colunm-number="5"
             :is-end="true"
@@ -121,7 +121,7 @@
         <div v-show="currentTab === 'album'">
           <CoverRow
             :items="filterLikedAlbums"
-            type="album"
+            type="Album"
             sub-text="artist"
             :colunm-number="5"
             :is-end="true"
@@ -136,7 +136,7 @@
         <div v-show="currentTab === 'artist'">
           <CoverRow
             :items="filterLikedArtists"
-            type="artist"
+            type="Artist"
             sub-text="artist"
             :item-height="230"
             :colunm-number="5"
@@ -187,14 +187,24 @@
     </div>
 
     <ContextMenu ref="playlistTabMenu">
-      <div class="item"></div>
+      <div class="item" :class="{ active: tool.groundBy === 'all' }" @click="tool.groundBy = 'all'"
+        >聚合</div
+      >
+      <div
+        v-for="service in services"
+        :key="service.code"
+        class="item"
+        :class="{ active: tool.groundBy === service.code }"
+        @click="tool.groundBy = service.code"
+        >{{ service.name }}</div
+      >
+      <hr />
       <div
         class="item"
         :class="{ active: libraryPlaylistFilter === 'all' }"
         @click="changePlaylistFilter('all')"
         >{{ $t('contextMenu.allPlaylists') }}</div
       >
-      <hr />
       <div
         class="item"
         :class="{ active: libraryPlaylistFilter === 'mine' }"
@@ -216,7 +226,7 @@ import { storeToRefs } from 'pinia'
 import { useDataStore } from '../store/data'
 import { useNormalStateStore } from '../store/state'
 import { usePluginMusic } from '../store/pluginMusic'
-import { ref, computed, onMounted, onUnmounted, inject, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, inject, nextTick } from 'vue'
 import { randomNum, pickedLyric } from '../utils'
 import { tricklingProgress } from '../utils/tricklingProgress'
 import SvgIcon from '../components/SvgIcon.vue'
@@ -231,14 +241,16 @@ import { PluginId, Track } from '@/types/plugin'
 const dataStore = useDataStore()
 const { liked, libraryPlaylistFilter } = storeToRefs(dataStore)
 
-const { newPlaylistModal } = storeToRefs(useNormalStateStore())
+const stateStore = useNormalStateStore()
+const { newPlaylistModal } = storeToRefs(stateStore)
+const { showToast } = stateStore
+
 const pluginStore = usePluginMusic()
 const { playlists, likedTracks, albums, artists, mvs, cloudDisks } = storeToRefs(pluginStore)
 const {
-  pluginMethodCall,
+  // pluginMethodCall,
   fetchLikedPlaylists,
   fetchLikedSongsWithDetails,
-  fetchLikedAlbums,
   fetchLikedArtists,
   fetchLikedMVs,
   fetchCloudDisk,
@@ -295,7 +307,14 @@ const filterPlaylists = computed(() => {
     .flat()
   const plists =
     onlineTool.groundBy === 'all' ? onlinePlaylists : playlists.value[onlineTool.groundBy].data
-  return plists
+
+  if (libraryPlaylistFilter.value === 'mine') {
+    return plists.filter((item) => item.isMine)
+  } else if (libraryPlaylistFilter.value === 'liked') {
+    return plists.filter((item) => !item.isMine)
+  } else {
+    return plists
+  }
 })
 
 const filterLikedTracks = computed(() => {
@@ -374,7 +393,7 @@ const loadData = async () => {
     tricklingProgress.done()
     show.value = true
   }
-  fetchLikedAlbums(sers)
+  // fetchLikedAlbums(sers)
   fetchLikedArtists(sers)
   fetchLikedMVs(sers)
   // fetchPlayHistory()
@@ -411,8 +430,13 @@ const goToLikedSongsList = () => {
 const updatePadding = inject('updatePadding') as (padding: number) => void
 
 const openAddPlaylistModal = () => {
+  if (tool.value.groundBy === 'all' && services.value.length > 1) {
+    showToast('在聚合视图下无法进行操作，请先选择具体的音源服务')
+    return
+  }
+
   newPlaylistModal.value = {
-    type: 'online',
+    plugin: tool.value.groundBy === 'all' ? services.value[0].code : tool.value.groundBy,
     afterCreateAddTrackID: [],
     show: true
   }
@@ -468,20 +492,20 @@ const handleResize = () => {
   if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
 }
 
-const checkLoginStatus = () => {
-  pluginStore.services
-    .filter((item) => item.type === 'online')
-    .forEach(async (item) => {
-      const res = await pluginMethodCall(item.code, 'systemPing')
-      item.status = res.status
-    })
-  if (!services.value.length) {
-    const groundBy = tool.value.groundBy
-    router.push(
-      `/onlineMusic/login/${groundBy === 'all' ? pluginStore.services[0].code : groundBy}`
-    )
-  }
-}
+// const checkLoginStatus = () => {
+//   pluginStore.services
+//     .filter((item) => item.type === 'online')
+//     .forEach(async (item) => {
+//       const res = await pluginMethodCall(item.code, 'systemPing')
+//       item.status = res.status
+//     })
+//   if (!services.value.length) {
+//     const groundBy = tool.value.groundBy
+//     router.push(
+//       `/onlineMusic/login/${groundBy === 'all' ? pluginStore.services[0].code : groundBy}`
+//     )
+//   }
+// }
 
 onMounted(async () => {
   // checkLoginStatus()

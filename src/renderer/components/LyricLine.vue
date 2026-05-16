@@ -97,6 +97,7 @@ const buildWordKeyFrame = (info: word[], spanWidths: number[]) => {
   const duration = Math.max(end - start, 1)
   let curWidth = 0
   const totalWidth = spanWidths.reduce((acc, cur) => acc + cur, 0)
+  if (!totalWidth) return null
 
   const keyframes = info.map((font, index) => {
     const _start = font.start
@@ -124,6 +125,7 @@ const buildWordKeyFrame = (info: word[], spanWidths: number[]) => {
  */
 const buildWordAnimation = (dom: HTMLElement, info: word[], offsetWidths: number[]) => {
   const result = buildWordKeyFrame(info, offsetWidths)
+  if (!result) return null
 
   const span = dom.querySelector('span')
   const effect = new KeyframeEffect(span, result.keyframes, {

@@ -48,7 +48,7 @@
             :plugin-id="latestRelease?.pluginId || ''"
             :source-context="latestRelease?.sourceContext || {}"
             :image-url="latestRelease.picUrl"
-            type="album"
+            type="Album"
             :fixed-size="128"
             :play-button-size="30"
           />
@@ -122,7 +122,7 @@
     <div v-if="albums.length !== 0" id="albums" class="albums">
       <div class="section-title">{{ $t('artist.albums') }}</div>
       <CoverRow
-        :type="'album'"
+        :type="'Album'"
         :items="albums"
         :item-height="240"
         :show-position="false"
@@ -146,7 +146,7 @@
     <div v-if="eps.length !== 0" class="eps">
       <div class="section-title">{{ $t('artist.EPsSingles') }}</div>
       <CoverRow
-        :type="'album'"
+        :type="'Album'"
         :items="eps"
         :colunm-number="5"
         :item-height="240"
@@ -160,7 +160,7 @@
     <div v-if="simiArtists.length !== 0" class="similar-artists">
       <div class="section-title">{{ $t('artist.similarArtists') }}</div>
       <CoverRow
-        type="artist"
+        type="Artist"
         :colunm-number="6"
         :is-end="true"
         :padding-bottom="0"

@@ -4,7 +4,7 @@ import { type UpdateCheckResult } from 'electron-updater'
 import { type IFontInfo } from 'font-list'
 import type { TrackSourceType } from '@/types/music'
 import type { LayoutMode } from '@/types/theme'
-import { Track } from '@/types/plugin'
+import { Track, PluginId } from '@/types/plugin'
 
 type ScrollState = {
   scrollTop: number
@@ -31,13 +31,13 @@ export const useNormalStateStore = defineStore('state', () => {
   const modalOpen = ref(false)
   const addTrackToPlaylistModal = ref({
     show: false,
-    selectedTrackID: [0] as (number | string)[],
-    type: 'online' as TrackSourceType | 'all'
+    selectedTrackID: [{}] as Record<string, any>[],
+    plugin: '' as PluginId
   })
   const newPlaylistModal = ref({
     show: false,
-    type: 'online' as TrackSourceType,
-    afterCreateAddTrackID: [0] as (number | string)[]
+    plugin: '' as PluginId,
+    afterCreateAddTrackID: [{}] as Record<string, any>[]
   })
   const accurateMatchModal = ref({
     show: false,

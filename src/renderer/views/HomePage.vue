@@ -11,7 +11,7 @@
         {{ $t('home.recommendPlaylist') }}
         <a @click="toExplore('playlist', '推荐歌单')">{{ $t('home.seeMore') }}</a>
       </div>
-      <CoverRow :items="recommendPlaylist" type="playlist" sub-text="copywriter" />
+      <CoverRow :items="recommendPlaylist" type="Playlist" sub-text="copywriter" />
     </div>
     <div class="index-row">
       <div class="title"> For You </div>
@@ -22,21 +22,21 @@
     </div>
     <div class="index-row">
       <div class="title">{{ $t('home.recommendArtist') }}</div>
-      <CoverRow :items="recommendArtists" type="artist" :colunm-number="6" />
+      <CoverRow :items="recommendArtists" type="Artist" :colunm-number="6" />
     </div>
     <div class="index-row">
       <div class="title">
         {{ $t('home.newAlbum') }}
         <a @click="toExplore('newAlbum')">{{ $t('home.seeMore') }}</a>
       </div>
-      <CoverRow :items="newReleasesAlbum.items" type="album" sub-text="artist" />
+      <CoverRow :items="newReleasesAlbum.items" type="Album" sub-text="artist" />
     </div>
     <div class="index-row">
       <div class="title">
         {{ $t('home.charts') }}
         <a @click="toExplore('chart')">{{ $t('home.seeMore') }}</a>
       </div>
-      <CoverRow :items="topList.items" type="playlist" sub-text="copywriter" />
+      <CoverRow :items="topList.items" type="Playlist" sub-text="copywriter" />
     </div>
   </div>
 </template>
@@ -59,7 +59,7 @@ import FMCard from '../components/FMCard.vue'
 import { useRouter } from 'vue-router'
 import { useSettingsStore } from '../store/settings'
 import { useNormalStateStore } from '../store/state'
-import { usePlayerStore } from '../store/player'
+// import { usePlayerStore } from '../store/player'
 import { usePluginMusic } from '../store/pluginMusic'
 import { storeToRefs } from 'pinia'
 import Utils from '../utils'
@@ -67,7 +67,7 @@ import { Album, Artist, Banner, Playlist, PluginId } from '@/types/plugin'
 
 const { general } = storeToRefs(useSettingsStore())
 const { exploreTab, showLyrics, dailyTracks } = storeToRefs(useNormalStateStore())
-const { addTrackToPlayNext } = usePlayerStore()
+// const { addTrackToPlayNext } = usePlayerStore()
 
 const pluginMusicStore = usePluginMusic()
 const { pluginMethodCall } = pluginMusicStore
@@ -137,7 +137,7 @@ const bannerNext = () => {
 
 const handleBannerClick = (banner: Banner) => {
   if (banner.type === 'track') {
-    addTrackToPlayNext(Number(banner.sourceId), true, true)
+    // addTrackToPlayNext(banner.pluginId as PluginId, { id: Number(banner.sourceId) }, true, true)
   } else if (banner.type === 'album') {
     router.push(`/album/${banner.sourceId}`)
   } else if (banner.type === 'playlist') {
@@ -170,7 +170,12 @@ const loadData = async () => {
   })
 
   pluginMethodCall(pluginId.value, 'getRecommendTracks').then((result) => {
-    dailyTracks.value = result.data.map((item) => ({ ...item, pluginId: pluginId.value }))
+    dailyTracks.value = result.data.map((item) => ({
+      ...item,
+      album: { ...item.album, pluginId: pluginId.value },
+      artists: item.artists.map((it) => ({ ...it, pluginId: pluginId.value })),
+      pluginId: pluginId.value
+    }))
   })
 
   pluginMethodCall(pluginId.value, 'topArtists').then((res) => {

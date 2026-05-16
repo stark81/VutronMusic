@@ -54,12 +54,9 @@
     <div class="item" @click="addToQueue(rightClickedTrack.id)">{{
       $t('contextMenu.addToQueue')
     }}</div>
-    <div
-      v-if="type !== 'cloudDisk' && rightClickedTrackComputed.matched"
-      class="item"
-      @click="openComment"
-      >{{ $t('contextMenu.showComment') }}</div
-    >
+    <div v-if="type !== 'cloudDisk'" class="item" @click="openComment">{{
+      $t('contextMenu.showComment')
+    }}</div>
     <div
       v-if="extraContextMenuItem.includes('accurateMatch')"
       class="item"
@@ -70,12 +67,9 @@
     <div v-if="!type.includes('local') && !type.includes('stream')" class="item" @click="copyId">{{
       $t('contextMenu.copyId')
     }}</div>
-    <div
-      v-show="type !== 'cloudDisk' && rightClickedTrack.matched"
-      class="item"
-      @click="addTrackToPlaylist"
-      >{{ $t('player.addToPlaylist') }}</div
-    >
+    <div v-show="type !== 'cloudDisk'" class="item" @click="addTrackToPlaylist">{{
+      $t('player.addToPlaylist')
+    }}</div>
     <div
       v-if="
         extraContextMenuItem.includes('removeTrackFromNext') ||
@@ -141,7 +135,7 @@ import { isAccountLoggedIn } from '../utils/auth'
 import { useStreamMusicStore } from '../store/streamingMusic'
 import SvgIcon from './SvgIcon.vue'
 import { serviceName } from '@/types/music.d'
-import { Track } from '@/types/plugin'
+import { PluginId, Track } from '@/types/plugin'
 
 const props = withDefaults(
   defineProps<{
@@ -200,19 +194,18 @@ const showComment = ref(false)
 const rightClickedTrack = ref({
   id: 0,
   name: '',
-  matched: true,
   type: 'online',
+  pluginId: '',
   source: '',
   playlistItemId: null,
   mvid: 0,
-  filePath: '',
   artists: [{ name: '' }],
   album: { picUrl: '' },
-  al: { picUrl: '' }
+  sourceContext: {}
 })
 const { t } = useI18n()
 const playerStore = usePlayerStore()
-const { playlistSource, currentTrack, list, _playNextList } = storeToRefs(playerStore)
+const { playlistSource, currentTrack, list, playNextList } = storeToRefs(playerStore)
 const { replacePlaylist, addTrackToPlayNext } = playerStore
 
 const stateStore = useNormalStateStore()
@@ -245,14 +238,12 @@ const rightClickedTrackComputed = computed(() => {
 const image = computed(() => {
   let url: string
   if (rightClickedTrackComputed.value.type === 'online') {
-    url =
-      rightClickedTrackComputed.value.al?.picUrl || rightClickedTrackComputed.value.album?.picUrl
+    url = rightClickedTrackComputed.value.album?.picUrl
     if (url && url.startsWith('http')) url = url.replace('http:', 'https:')
     if (url) url += '?param=64y64'
     return url
   } else if (rightClickedTrackComputed.value.type === 'stream') {
-    url =
-      rightClickedTrackComputed.value.al?.picUrl || rightClickedTrackComputed.value.album?.picUrl
+    url = rightClickedTrackComputed.value.album?.picUrl
     return url
   } else {
     url = `atom://local-asset?type=pic&id=${rightClickedTrackComputed.value.id}&size=64`
@@ -285,9 +276,12 @@ const currentIndex = computed(() => {
 const playThisList = (index: number | string) => {
   if (!props.dbclickEnable) return
   const sourceItems = props.allItems?.length ? props.allItems : items.value
-  const IDs = sourceItems.map((track) => track.id as number)
+  const sourceContext: [PluginId, Record<string, any>][] = sourceItems.map((track) => [
+    track.pluginId as PluginId,
+    track.sourceContext
+  ])
   const idx = sourceItems.findIndex((item) => item.id === index)
-  replacePlaylist(props.type, id.value, IDs, idx)
+  replacePlaylist(props.type, id.value, sourceContext, idx)
 }
 
 const closeMenu = () => {
@@ -295,15 +289,14 @@ const closeMenu = () => {
   rightClickedTrack.value = {
     id: 0,
     name: '',
-    matched: true,
     type: 'online',
+    pluginId: '',
     source: '',
     playlistItemId: null,
     mvid: 0,
-    filePath: '',
     artists: [{ name: '' }],
     album: { picUrl: '' },
-    al: { picUrl: '' }
+    sourceContext: {}
   }
   rightClickedTrackIndex.value = -1
 }
@@ -416,8 +409,8 @@ const addToLocalPlaylist = (trackIDs: number[] = []) => {
 
 const removeFromQueue = (playlist: 'insert' | 'next', id: string | number) => {
   if (playlist === 'insert') {
-    const index = _playNextList.value.findIndex((idx) => idx === id)
-    if (index > -1) _playNextList.value.splice(index, 1)
+    const index = playNextList.value.findIndex((idx) => idx === id)
+    if (index > -1) playNextList.value.splice(index, 1)
   } else {
     const index = list.value.findIndex((idx) => idx === id)
     if (index > -1) list.value.splice(index, 1)
@@ -448,18 +441,18 @@ const copyId = () => {
 }
 
 const addTrackToPlaylist = () => {
-  if (!isAccountLoggedIn()) {
-    showToast(t('toast.needToLogin'))
-    return
-  }
-  const trackIDs = [rightClickedTrack.value?.id]
-  setTimeout(() => {
-    addTrackToPlaylistModal.value = {
-      show: true,
-      selectedTrackID: trackIDs,
-      type: 'online'
-    }
-  })
+  // if (!isAccountLoggedIn()) {
+  //   showToast(t('toast.needToLogin'))
+  //   return
+  // }
+  // const trackIDs = [rightClickedTrack.value?.id]
+  // setTimeout(() => {
+  //   addTrackToPlaylistModal.value = {
+  //     show: true,
+  //     selectedTrackID: trackIDs,
+  //     type: 'online'
+  //   }
+  // })
 }
 
 const openComment = () => {
@@ -471,15 +464,14 @@ const closeComment = () => {
   rightClickedTrack.value = {
     id: 0,
     name: '',
-    matched: true,
     type: 'online',
+    pluginId: '',
     source: '',
     playlistItemId: null,
     mvid: 0,
-    filePath: '',
     artists: [{ name: '' }],
     album: { picUrl: '' },
-    al: { picUrl: '' }
+    sourceContext: {}
   }
   rightClickedTrackIndex.value = -1
 }

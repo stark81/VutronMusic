@@ -118,6 +118,10 @@ export const parseLyricString = (lyrics: string): lyricLine[] => {
   return result
 }
 
+export const parseKrcLyricString = (lyrics: string): lyricLine[] => {
+  return []
+}
+
 const getLyricFromEmbedded = async (filePath: string) => {
   let result: lyricLine[] = []
 

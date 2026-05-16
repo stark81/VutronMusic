@@ -1,6 +1,6 @@
 import z from 'zod'
 import { defineStore } from 'pinia'
-import { computed, reactive, ref, toRaw } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { PluginResultSchema } from '@/types/schemas'
 import router from '../router'
 import {
@@ -86,7 +86,7 @@ export const usePluginMusic = defineStore(
         const rawResult = await window.mainApi!.invoke('plugin-method-call', {
           pluginId,
           methodName,
-          params
+          params: JSON.parse(JSON.stringify(params))
         })
         rawResult.pluginId = pluginId
 
@@ -143,10 +143,17 @@ export const usePluginMusic = defineStore(
       }
     }
 
+    /**
+     * - 由于部分插件的用户歌单和收藏的专辑在同一个接口，所以这里也在统一接口里进行请求.
+     * - 返回数据为红心歌单、用户歌单、专辑
+     */
     const fetchLikedPlaylists = (plugins: PluginId[], loadedMore: boolean = false) => {
       return Promise.all(
         plugins.map(async (item) => {
           if (!playlists[item]) playlists[item] = { liked: null, data: [], sourceContext: {} }
+
+          if (!albums[item]) albums[item] = { data: [], sourceContext: {} }
+
           const result = await pluginMethodCall(
             item,
             'userPlaylist',
@@ -159,14 +166,34 @@ export const usePluginMusic = defineStore(
           if (result.liked) {
             playlists[item].liked = { ...result.liked, pluginId: item }
           }
-          if (result.data?.length) {
+          if (result.playlists?.length) {
             if (loadedMore) {
-              playlists[item].data.push(...result.data.map((it) => ({ ...it, pluginId: item })))
+              playlists[item].data.push(
+                ...result.playlists.map((it) => ({ ...it, pluginId: item }))
+              )
             } else {
-              playlists[item].data = result.data.map((it) => ({ ...it, pluginId: item }))
+              playlists[item].data = result.playlists.map((it) => ({ ...it, pluginId: item }))
             }
 
             playlists[item].sourceContext = result.sourceContext
+          }
+          if (result.albums.length) {
+            if (loadedMore) {
+              albums[item].data.push(
+                ...result.albums.map((it) => ({
+                  ...it,
+                  artists: it.artists?.map((i) => ({ ...i, pluginId: item })),
+                  pluginId: item
+                }))
+              )
+            } else {
+              albums[item].data = result.albums.map((it) => ({
+                ...it,
+                artists: it.artists?.map((i) => ({ ...i, pluginId: item })),
+                pluginId: item
+              }))
+            }
+            albums[item].sourceContext = result.sourceContext
           }
         })
       )
@@ -195,6 +222,7 @@ export const usePluginMusic = defineStore(
       result.data = result.data.map((item) => ({
         ...item,
         album: { ...item.album, pluginId: plugin },
+        artists: item.artists.map((it) => ({ ...it, pluginId: plugin })),
         pluginId: plugin
       }))
       return result
@@ -213,43 +241,6 @@ export const usePluginMusic = defineStore(
             likedTracks[item].data = result.data?.tracks ?? []
             likedTracks[item].sourceContext = result.data?.sourceContext ?? {}
           }
-        })
-      )
-    }
-
-    const fetchLikedAlbums = (plugins: PluginId[], loadedMore: boolean = false) => {
-      return Promise.all(
-        plugins.map(async (item) => {
-          if (!albums[item]) {
-            albums[item] = { data: [], sourceContext: {} }
-          }
-
-          const result = await pluginMethodCall(
-            item,
-            'userLikedAlbums',
-            loadedMore
-              ? {
-                  ...albums[item].sourceContext
-                }
-              : {}
-          )
-          if (loadedMore) {
-            albums[item].data.push(
-              ...result.data.map((it) => ({
-                ...it,
-                pluginId: item,
-                artists: it.artists?.map((i) => ({ ...i, pluginId: item })) || []
-              }))
-            )
-          } else {
-            albums[item].data = result.data.map((it) => ({
-              ...it,
-              pluginId: item,
-              artists: it.artists?.map((i) => ({ ...i, pluginId: item })) || []
-            }))
-          }
-
-          albums[item].sourceContext = result.sourceContext
         })
       )
     }
@@ -375,6 +366,28 @@ export const usePluginMusic = defineStore(
       return result.data
     }
 
+    const likeATrack = async (track: Track) => {
+      const plugin = track.pluginId as PluginId
+      const playlist = playlists[plugin].liked
+
+      const idx = likedTracks[plugin].data.findIndex((item) => String(item.id) === String(track.id))
+      const op = idx === -1 ? 'add' : 'del'
+
+      pluginMethodCall(plugin, 'addOrRemoveTracksToPlaylist', {
+        op,
+        playlist: playlist?.sourceContext || {},
+        tracks: [track.sourceContext]
+      }).then((res) => {
+        if (res.code === 200) {
+          if (op === 'add') {
+            likedTracks[plugin]!.data.unshift(track)
+          } else {
+            likedTracks[plugin!].data.splice(idx, 1)
+          }
+        }
+      })
+    }
+
     return {
       tools,
       services,
@@ -389,6 +402,7 @@ export const usePluginMusic = defineStore(
       mvs,
       additionalTags,
       users,
+      likeATrack,
       fetchLyric,
       resizeImage,
       pluginMethodCall,
@@ -397,7 +411,6 @@ export const usePluginMusic = defineStore(
       getPlugins,
       fetchLikedMVs,
       fetchCloudDisk,
-      fetchLikedAlbums,
       fetchLikedArtists,
       fetchLikedPlaylists,
       fetchPlaylistTracks,

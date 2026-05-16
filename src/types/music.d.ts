@@ -145,3 +145,7 @@ export interface CommonTheme {
   }
   realIp: { enable: boolean; ip: string }
 }
+
+export type RepeatMode = 'off' | 'on' | 'one'
+
+export type CoverType = 'Playlist' | 'Album' | 'Artist' | 'User'

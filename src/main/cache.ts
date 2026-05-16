@@ -224,7 +224,6 @@ class Cache {
         }
       }
       case CacheAPIs.PluginData: {
-        console.log('===2===111111', params)
         const infos = db.findAll(Tables.PluginData, { platform: params.platform })
         if (infos.length) {
           return JSON.parse(infos[0].json)

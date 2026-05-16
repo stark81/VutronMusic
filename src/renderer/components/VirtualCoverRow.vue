@@ -13,14 +13,14 @@
     :show-position="showPosition"
   >
     <template #default="{ item }">
-      <div class="cover-item" :class="{ artist: type === 'artist' }">
+      <div class="cover-item" :class="{ artist: type === 'Artist' }">
         <Cover
           :id="item.id"
           :plugin-id="item.pluginId!"
           :source-context="item.sourceContext"
           :image-url="getImageUrl(item)"
           :type="type"
-          :play-button-size="type === 'artist' ? 26 : playButtonSize"
+          :play-button-size="type === 'Artist' ? 26 : playButtonSize"
         />
         <div class="text">
           <div v-if="isPlaylist(item)" v-show="showPlayCount" class="info">
@@ -35,9 +35,11 @@
             <span v-show="isPrivacy(item)" class="lock-icon">
               <SvgIcon icon-class="lock" />
             </span>
-            <router-link :to="`/${type}/${item.id}`">{{ item.name }}</router-link>
+            <router-link :to="`/${type}/${item.pluginId}/${JSON.stringify(item.sourceContext)}`">{{
+              item.name
+            }}</router-link>
           </div>
-          <div v-show="type !== 'artist' && subText !== 'none'" class="info">
+          <div v-show="type !== 'Artist' && subText !== 'none'" class="info">
             <span v-same-html="getSubText(item)"></span>
           </div>
         </div>
@@ -54,10 +56,11 @@ import SvgIcon from './SvgIcon.vue'
 import ExplicitSymbol from './ExplicitSymbol.vue'
 import { formatPlayCount } from '../utils'
 import { Album, Artist, Playlist } from '@/types/plugin'
+import { CoverType } from '@/types/music'
 
 const props = defineProps({
   items: { type: Array as () => (Playlist | Artist | Album)[], required: true },
-  type: { type: String, default: '' },
+  type: { type: String as PropType<CoverType>, default: '' },
   subText: { type: String, default: null },
   itemHeight: { type: Number, default: 240 },
   showPosition: { type: Boolean, default: true },
@@ -93,19 +96,16 @@ const getImageUrl = (item: any) => {
 }
 
 const isExplicit = (item: any) => {
-  return props.type === 'album' && item.mark === 1056768
+  return props.type === 'Album' && item.mark === 1056768
 }
 
 const isPrivacy = (item: any) => {
-  return props.type === 'playlist' && item.privacy === 10
+  return props.type === 'Playlist' && item.privacy === 10
 }
 const getSubText = (item: any) => {
   let subText = ''
   if (props.subText === 'artist') {
-    if (item.artist !== undefined)
-      subText = `<a href="/#/artist/${item.artist.id}">${item.artist.name}</a>`
-    if (item.artists !== undefined)
-      subText = `<a href="/#/artist/${item.artists[0].id}">${item.artists[0].name}</a>`
+    subText = `<a href='/artist/${item.pluginId}/${JSON.stringify(item.sourceContext)}'>${item.name}</a>`
   } else if (props.subText === 'updateFrequency') {
     subText = item.updateFrequency
   } else if (props.subText === 'copywriter') {

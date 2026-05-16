@@ -27,21 +27,21 @@
               </div>
               <div class="subtitle">
                 <router-link
-                  v-if="artist.matched !== false"
-                  :to="`/artist/${artist.id}`"
+                  v-if="artist && String(artist.id) !== String(0)"
+                  :to="`/artist/${artist.pluginId}/${JSON.stringify(artist.sourceContext)}`"
                   @click="showLyrics = !showLyrics"
                   >{{ artist.name }}
                 </router-link>
-                <span v-else>{{ artist.name }}</span>
+                <span v-else>{{ artist?.name || '未知艺人' }}</span>
                 <span>
                   -
                   <router-link
-                    v-if="album.matched !== false"
-                    :to="`/album/${album.id}`"
+                    v-if="album && String(album.id) !== String(0)"
+                    :to="`/album/${album.pluginId}/${JSON.stringify(album.sourceContext)}`"
                     @click="showLyrics = !showLyrics"
                     >{{ album.name }}
                   </router-link>
-                  <span v-else>{{ album.name }}</span>
+                  <span v-else>{{ album?.name || '未知专辑' }}</span>
                 </span>
               </div>
             </div>
@@ -56,18 +56,7 @@
                     >音</label
                   >
                 </div>
-                <button-icon
-                  :title="
-                    currentTrack?.type === 'local' && currentTrack?.matched === false
-                      ? $t('player.noAllowCauseLocal')
-                      : $t('player.like')
-                  "
-                  class="button"
-                  :class="{
-                    disabled: currentTrack?.type === 'local' && currentTrack?.matched === false
-                  }"
-                  @click="likeTrack"
-                >
+                <button-icon :title="$t('player.like')" class="button" @click="likeTrack">
                   <SvgIcon :icon-class="isLiked ? 'heart-solid' : 'heart'" />
                 </button-icon>
                 <button-icon class="button" @click="addTrackToPlaylist"
@@ -85,7 +74,7 @@
               <vue-slider
                 v-model="position"
                 :min="0"
-                :max="currentTrackDuration"
+                :max="duration"
                 :dot-size="12"
                 :height="4"
                 :marks="marks"
@@ -102,7 +91,7 @@
                 tooltip="none"
               ></vue-slider>
             </div>
-            <div class="time">{{ formatTime(currentTrackDuration) }}</div>
+            <div class="time">{{ formatTime(duration) }}</div>
           </div>
           <div class="media-controls">
             <button-icon
@@ -129,7 +118,7 @@
                 @click="playOrPause"
                 ><svg-icon :icon-class="playing ? 'pause' : 'play'"
               /></button-icon>
-              <button-icon :title="$t('player.next')" @click="_playNextTrack(isPersonalFM)"
+              <button-icon :title="$t('player.next')" @click="playNext(isPersonalFM)"
                 ><svg-icon icon-class="next"
               /></button-icon>
             </div>
@@ -184,7 +173,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import ButtonIcon from './ButtonIcon.vue'
@@ -197,10 +186,12 @@ import ContextMenu from './ContextMenu.vue'
 import { useSettingsStore } from '../store/settings'
 import { hasListSource, getListSourcePath } from '../utils/playlist'
 import { useNormalStateStore } from '../store/state'
-import { useStreamMusicStore } from '../store/streamingMusic'
-import { useDataStore } from '../store/data'
+// import { useStreamMusicStore } from '../store/streamingMusic'
+// import { useDataStore } from '../store/data'
 import { usePlayerThemeStore } from '../store/playerTheme'
-import { TranslationMode, TrackSourceType } from '@/types/music.d'
+import { usePluginMusic } from '../store/pluginMusic'
+import { TranslationMode } from '@/types/music.d'
+import { PluginId } from '@/types/plugin'
 
 withDefaults(defineProps<{ show: 'fullLyric' | 'pickLyric' | 'comment' }>(), {
   show: 'fullLyric'
@@ -212,6 +203,8 @@ const playPageContextMenu = inject('playPageContextMenu', ref<InstanceType<typeo
 const settingsStore = useSettingsStore()
 const { general } = storeToRefs(settingsStore)
 
+const { likeATrack } = usePluginMusic()
+
 const playerStore = usePlayerStore()
 const {
   currentTrack,
@@ -219,23 +212,20 @@ const {
   noLyric,
   lyrics,
   volume,
-  currentTrackDuration,
+  duration,
   isPersonalFM,
   playing,
-  shuffle,
+  isShuffle: shuffle,
   isLiked,
-  source,
+  source: rawSource,
   chorus,
   repeatMode,
   pic
 } = storeToRefs(playerStore)
-const { playPrev, playOrPause, _playNextTrack, switchRepeatMode, moveToFMTrash } = playerStore
+const { playPrev, playOrPause, playNext, switchRepeatMode, moveToFMTrash } = playerStore
 
 const playerTheme = usePlayerThemeStore()
 const { activeTheme, senses } = storeToRefs(playerTheme)
-
-const { likeATrack } = useDataStore()
-const { likeAStreamTrack } = useStreamMusicStore()
 
 const stateStore = useNormalStateStore()
 const { showLyrics, addTrackToPlaylistModal } = storeToRefs(stateStore)
@@ -269,11 +259,11 @@ const hasTLyric = computed(() => lyrics.value.some((l) => l.tlyric))
 const hasRLyric = computed(() => lyrics.value.some((l) => l.rlyric))
 
 const artist = computed(() => {
-  return currentTrack.value?.artists ? currentTrack.value.artists[0] : currentTrack.value?.ar[0]
+  return currentTrack.value?.artists[0]
 })
 
 const album = computed(() => {
-  return currentTrack.value?.album ?? currentTrack.value?.al
+  return currentTrack.value?.album
 })
 
 const marks = computed(() => {
@@ -325,25 +315,21 @@ const formatTime = (time: number) => {
   return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
 }
 
+const source = computed(() => {
+  return `${currentTrack.value?.name}, 音源：${rawSource.value}`
+})
+
 const likeTrack = () => {
-  if (currentTrack.value?.type === 'stream') {
-    const op = currentTrack.value.starred ? 'unstar' : 'star'
-    likeAStreamTrack(op, currentTrack.value)
-  }
-  if (currentTrack.value?.matched) {
-    likeATrack(currentTrack.value.id)
-  }
+  if (!currentTrack.value) return
+  likeATrack(currentTrack.value)
 }
 
 const addTrackToPlaylist = () => {
   if (!currentTrack.value) return
   addTrackToPlaylistModal.value = {
     show: true,
-    selectedTrackID: [currentTrack.value.id],
-    type:
-      currentTrack.value.type === 'stream'
-        ? (currentTrack.value.source as TrackSourceType)
-        : (currentTrack.value.type as TrackSourceType)
+    selectedTrackID: [currentTrack.value.sourceContext],
+    plugin: currentTrack.value.pluginId as PluginId
   }
 }
 

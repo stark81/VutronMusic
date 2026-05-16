@@ -3,7 +3,7 @@
     <img class="cover" :src="image" loading="lazy" @click="goToAlbum" />
     <div class="right-part">
       <div class="info">
-        <div class="title">{{ track.name }}</div>
+        <div class="title">{{ track?.name }}</div>
         <div class="artist"><ArtistsInLine :artists="artists" /></div>
       </div>
       <div class="controls">
@@ -48,10 +48,10 @@ const background = ref<string>()
 
 const track = computed(() => personalFMTrack.value)
 const isPlaying = computed(() => playing.value && isPersonalFM.value)
-const artists = computed(() => track.value.artists || track.value.ar || [])
+const artists = computed(() => track.value?.artists || [])
 
 const image = computed(() => {
-  const album = track.value?.album || track.value?.al
+  const album = track.value?.album
   return album ? album.picUrl + '?param=256y256' : ''
 })
 
@@ -73,6 +73,7 @@ const getColor = (track: any) => {
 }
 
 const goToAlbum = () => {
+  if (!track.value) return
   if (track.value.album.id === 0) return
   router.push({ path: `/album/${track.value.album.id}` })
 }

@@ -22,7 +22,7 @@ export const ArtistSchema = z.object({
   id: z.number().or(z.string()),
   name: z.string(),
   picUrl: z.string(),
-  pluginId: z.string().optional(),
+  pluginId: z.string(),
   copywriter: z.string().optional(),
   sourceContext: z.record(z.string(), z.any())
 })
@@ -33,7 +33,7 @@ export const AlbumSchema = z.object({
   picUrl: z.string(),
   type: z.enum(['专辑', 'EP', '单曲', 'liveCD', '精选集', '其他']).optional(),
   createTime: z.number().optional(),
-  pluginId: z.string().optional(),
+  pluginId: z.string(),
   copywriter: z.string().optional(),
   artists: z.array(ArtistSchema).optional(),
   sourceContext: z.record(z.string(), z.any())
@@ -73,7 +73,7 @@ export const ArtistDetailSchema = z.object({
   description: z.string(),
   followed: z.boolean(),
 
-  pluginId: z.string().optional(),
+  pluginId: z.string(),
   sourceContext: z.record(z.string(), z.any())
 })
 
@@ -91,6 +91,9 @@ export const AlbumDetailSchema = z.object({
   description: z.string(),
 
   pluginId: z.string(),
+  /**
+   * 可以用来存放专辑id，以及歌曲分页的相关信息
+   */
   sourceContext: z.record(z.string(), z.any())
 })
 
@@ -146,6 +149,8 @@ export const PlaylistSchema = z.object({
   picUrl: z.string(),
   playCount: z.number(),
   copywriter: z.string(),
+  isMine: z.boolean(),
+  trackCount: z.number(),
   pluginId: z.string(),
   creator: UserSchema,
   tracks: z.array(z.object({ name: z.string(), artist: z.string() })).optional(),
@@ -169,6 +174,9 @@ export const PlaylistDetailSchema = z.object({
   creator: UserSchema,
   specialPlaylistInfo: z.object({ name: z.string(), gradient: z.string() }).or(z.null()),
   tags: z.array(z.string()),
+  /**
+   * 可以保存歌单id，以及歌曲分页的相关信息；
+   */
   sourceContext: z.record(z.string(), z.any())
 })
 
@@ -193,6 +201,7 @@ export const BannerSchema = z.object({
   sourceId: z.string().or(z.number()),
   type: z.enum(['track', 'album', 'playlist', 'mv', 'activity']),
   typeTitle: z.string(),
+  pluginId: z.string(),
   sourceContext: z.record(z.string(), z.any())
 })
 
@@ -225,7 +234,8 @@ export const PluginResultSchema = {
   userPlaylist: z.object({
     code: z.number(),
     liked: PlaylistSchema.or(z.null()),
-    data: z.array(PlaylistSchema),
+    playlists: z.array(PlaylistSchema),
+    albums: z.array(AlbumSchema),
     sourceContext: z.record(z.string(), z.any())
   }),
   getPlaylistDetail: z.object({ code: z.number(), data: PlaylistDetailSchema.or(z.null()) }),
@@ -266,7 +276,14 @@ export const PluginResultSchema = {
     data: z.array(PlaylistSchema),
     sourceContext: z.record(z.string(), z.any())
   }),
-  songUrl: z.object({ code: z.number() }),
+  songUrl: z.object({
+    code: z.number(),
+    data: z.object({
+      url: z.array(z.string()),
+      replayGain: z.number(),
+      peak: z.number()
+    })
+  }),
   catlist: z.object({ code: z.number(), data: PlaylistCatlistSchema.or(z.null()) }),
   getCategoryPlaylist: z.object({
     code: z.number(),
@@ -280,11 +297,11 @@ export const PluginResultSchema = {
     data: z.array(TrackSchema),
     sourceContext: z.record(z.string(), z.any())
   }),
-  userLikedAlbums: z.object({
-    code: z.number(),
-    data: z.array(AlbumSchema),
-    sourceContext: z.record(z.string(), z.any())
-  }),
+  // userLikedAlbums: z.object({
+  //   code: z.number(),
+  //   data: z.array(AlbumSchema),
+  //   sourceContext: z.record(z.string(), z.any())
+  // }),
   userLikedArtists: z.object({
     code: z.number(),
     data: z.array(ArtistSchema),
@@ -325,5 +342,13 @@ export const PluginResultSchema = {
     code: z.number(),
     data: z.array(ArtistSchema),
     sourceContext: z.record(z.string(), z.any())
-  })
+  }),
+  getTrackDetail: z.object({
+    code: z.number(),
+    data: TrackSchema.or(z.null())
+  }),
+  addOrRemoveTracksToPlaylist: z.object({ code: z.number() }),
+  createPlaylist: z.object({ code: z.number(), data: PlaylistSchema.optional() }),
+  deletePlaylist: z.object({ code: z.number() }),
+  subscribePlaylist: z.object({ code: z.number() })
 } as const

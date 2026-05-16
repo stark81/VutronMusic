@@ -68,7 +68,7 @@ export const defaultMap: {
   getSongUrl: { code: 404, data: '' },
   getLyric: { code: 404, data: [] },
   getBanner: { code: 404, data: [] },
-  userPlaylist: { code: 404, liked: null, data: [], sourceContext: {} },
+  userPlaylist: { code: 404, liked: null, playlists: [], albums: [], sourceContext: {} },
   vipStatus: { code: 404 },
   receiveVip: { code: 404 },
   updateVip: { code: 404 },
@@ -82,14 +82,14 @@ export const defaultMap: {
   topAlbums: { code: 404, hasMore: false, albums: [], sourceContext: {} },
   rankTop: { code: 404, data: [] },
   rankList: { code: 404, data: [], sourceContext: {} },
-  songUrl: { code: 404 },
+  songUrl: { code: 404, data: { url: [], replayGain: -14, peak: 1 } },
   loginQrKey: { code: 404, data: { url: '', qrcode: '' } },
   loginQrCodeCheck: { code: 800 as const, message: '' },
   catlist: { code: 404, data: null },
   getCategoryPlaylist: { code: 404, hasMore: false, data: [], sourceContext: { id: 0, offset: 0 } },
   systemPing: { code: 404, status: 'logout' },
   likelist: { code: 404, data: [], sourceContext: {} },
-  userLikedAlbums: { code: 404, data: [], sourceContext: {} },
+  // userLikedAlbums: { code: 404, data: [], sourceContext: {} },
   userLikedArtists: { code: 404, data: [], sourceContext: {} },
   userLikedMVs: { code: 404, data: [], sourceContext: {} },
   cloudDisk: { code: 404, data: [], sourceContext: {} },
@@ -99,7 +99,12 @@ export const defaultMap: {
   artistDetail: { code: 404, data: null },
   artistMVs: { code: 404, data: [], sourceContext: {} },
   artistTracks: { code: 404, data: [], sourceContext: {} },
-  simiArtists: { code: 404, data: [], sourceContext: {} }
+  simiArtists: { code: 404, data: [], sourceContext: {} },
+  getTrackDetail: { code: 404, data: null },
+  addOrRemoveTracksToPlaylist: { code: 404 },
+  createPlaylist: { code: 404 },
+  deletePlaylist: { code: 404 },
+  subscribePlaylist: { code: 404 }
 }
 
 export type PluginMethodCall = <K extends keyof PluginAPI>(

@@ -49,7 +49,7 @@ const {
   getPlugins,
   fetchLikedPlaylists,
   fetchLikedSongsWithDetails,
-  fetchLikedAlbums,
+  // fetchLikedAlbums,
   fetchLikedArtists,
   fetchLikedMVs,
   fetchCloudDisk
@@ -78,7 +78,7 @@ const fetchData = () => {
   fetchLikedPlaylists(sers.value)
   fetchLikedSongsWithDetails(sers.value)
   fetchLikedArtists(sers.value)
-  fetchLikedAlbums(sers.value)
+  // fetchLikedAlbums(sers.value)
   fetchLikedMVs(sers.value)
   fetchCloudDisk(sers.value)
 }

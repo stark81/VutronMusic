@@ -7,7 +7,7 @@
         :min="0"
         tooltip-pos="hoverValue"
         :tooltip="hoverText"
-        :max="currentTrackDuration"
+        :max="duration"
         :marks="marks"
         :rail-style="{ backgroundColor: 'rgba(128, 128, 128, 0.18)' }"
         :process-style="{ background: 'var(--color-primary)' }"
@@ -38,7 +38,7 @@
           </div>
           <div class="albumAndLyric">
             <span v-for="(ar, index) in artists" :key="ar.id" class="artist">
-              <span :class="{ ar: ar.matched !== false }" @click.stop="goToArtist(ar)">
+              <span :class="{ ar: ar.id !== 0 }" @click.stop="goToArtist(ar)">
                 {{ ar.name }}
               </span>
               <span v-if="index !== artists.length! - 1">, </span>
@@ -50,8 +50,8 @@
         <div class="blank"></div>
         <div class="container">
           <button-icon
-            :class="{ active: isLiked, disabled: heartDisabled }"
-            :title="heartDisabled ? $t('player.noAllowCauseLocal') : $t('player.like')"
+            :class="{ active: isLiked }"
+            :title="$t('player.like')"
             @click.stop="likeTrack"
           >
             <svg-icon icon-class="heart-solid"></svg-icon>
@@ -72,7 +72,7 @@
           >
             <svg-icon :icon-class="playing ? 'pause' : 'play'"
           /></button-icon>
-          <button-icon :title="$t('player.next')" @click.stop="_playNextTrack(isPersonalFM)"
+          <button-icon :title="$t('player.next')" @click.stop="playNext(isPersonalFM)"
             ><svg-icon icon-class="next"
           /></button-icon>
           <button-icon
@@ -167,26 +167,27 @@ import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
 import { computed, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { Artist } from '@/types/plugin'
 
 const router = useRouter()
 const route = useRoute()
 
 const playerStore = usePlayerStore()
-const { _playNextTrack, moveToFMTrash, playPrev, playOrPause, switchRepeatMode } = playerStore
+const { playNext, moveToFMTrash, playPrev, playOrPause, switchRepeatMode } = playerStore
 const {
-  currentTrackDuration,
+  duration,
   currentTrack,
   playing,
   isPersonalFM,
   repeatMode,
-  shuffle,
+  isShuffle: shuffle,
   seek,
   pic,
   volume,
   isLiked,
   lyrics,
   chorus,
-  source
+  source: rawSource
 } = storeToRefs(playerStore)
 
 const playerBarRef = ref()
@@ -215,7 +216,11 @@ const formatTime = (time: number) => {
 }
 
 const artists = computed(() => {
-  return currentTrack.value?.artists ?? currentTrack.value?.ar
+  return currentTrack.value?.artists ?? []
+})
+
+const source = computed(() => {
+  return `${currentTrack.value?.name}, 音源：${rawSource.value}`
 })
 
 const position = computed({
@@ -247,25 +252,23 @@ const marks = computed(() => {
 })
 
 const likeTrack = () => {
-  if (currentTrack.value?.type === 'stream') {
-    const op = currentTrack.value.starred ? 'unstar' : 'star'
-    likeAStreamTrack(op, currentTrack.value)
-  } else if (currentTrack.value?.matched) {
-    likeATrack(currentTrack.value.id)
-  }
+  // if (currentTrack.value?.type === 'stream') {
+  //   const op = currentTrack.value.starred ? 'unstar' : 'star'
+  //   likeAStreamTrack(op, currentTrack.value)
+  // } else if (currentTrack.value?.matched) {
+  //   likeATrack(currentTrack.value.id)
+  // }
 }
 
-const goToArtist = (artist: any) => {
-  if (artist.matched !== false) {
-    router.push(`/artist/${artist.id}`)
-  }
+const goToArtist = (artist: Artist) => {
+  if (!artist) return
+  router.push(`/artist/${artist.pluginId}/${JSON.stringify(artist.sourceContext)}`)
 }
 
 const goToAlbum = () => {
-  const album = currentTrack.value?.album || currentTrack.value?.al
-  if (album.matched !== false) {
-    router.push(`/album/${album.id}`)
-  }
+  const album = currentTrack.value?.album
+  if (!album || album.id === 0) return
+  router.push(`/album/${album.pluginId}/${JSON.stringify(album.sourceContext)}`)
 }
 
 const switchLyricPage = () => {
@@ -297,7 +300,7 @@ const handleHover = (position: number) => {
     if (next) {
       return next.start > position && line.start <= position
     } else {
-      return position >= line.start && position < currentTrackDuration.value
+      return position >= line.start && position < duration.value
     }
   })
   hoverText.value = lyric ? `[${time}] ${lyric.lyric.text}` : `${time}`
@@ -312,9 +315,9 @@ const formatVolume = computed(() => {
   return Math.round(volume.value * 100).toString()
 })
 
-const heartDisabled = computed(() => {
-  return currentTrack.value?.type === 'local' && !currentTrack.value?.matched
-})
+// const heartDisabled = computed(() => {
+//   return currentTrack.value?.type === 'local' && !currentTrack.value?.matched
+// })
 
 watch(showLyrics, (value) => {
   enableScrolling.value = !value

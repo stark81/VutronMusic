@@ -86,6 +86,7 @@
  * @property {string} sourceId
  * @property {'track' | 'album' | 'playlist' | 'mv' | 'activity'} type
  * @property {string} typeTitle
+ * @property {string} pluginId
  * @property {Record<string, any>} sourceContext
  */
 
@@ -302,6 +303,7 @@ const formatTrack = (item) => ({
   album: {
     id: item.al.id,
     name: item.al.name,
+    pluginId: '',
     picUrl: item.al.picUrl + '?param=256y256',
     sourceContext: { id: item.al.id }
   },
@@ -310,6 +312,7 @@ const formatTrack = (item) => ({
       id: it.id,
       name: it.name,
       picUrl: '',
+      pluginId: '',
       sourceContext: { id: it.id }
     })) || [],
   picUrl: item.al.picUrl + '?param=256y256',
@@ -439,6 +442,7 @@ const formatPlaylist = (item) => ({
   name: item.name,
   picUrl: (item.picUrl || item.coverImgUrl) + '?param=256y256',
   playCount: item.playCount,
+  isMine: item.creator.userId === user.userId,
   creator: {
     userId: item.creator?.userId || '',
     avatarUrl: item.creator?.avatarUrl || '',
@@ -447,13 +451,14 @@ const formatPlaylist = (item) => ({
     signature: item.creator?.signature || '',
     sourceContext: { userId: item.creator?.userId || '' }
   },
+  trackCount: item.trackIds?.length || 0,
   pluginId: '',
   copywriter: item.copywriter || '',
   sourceContext: { id: item.id }
 })
 
 const meta = {
-  name: '网易云',
+  name: '网易云音乐',
   type: 'online' // online, stream
 }
 
@@ -550,6 +555,7 @@ exports.getBanner = async () => {
           url: item.url,
           sourceId,
           type,
+          pluginId: '',
           typeTitle: item.typeTitle,
           sourceContext: { id: item.targetId }
         }
@@ -640,6 +646,8 @@ exports.rankTop = async () => {
         'https://p3.music.126.net/rIi7Qzy2i2Y_1QD7cd0MYA==/109951170048506929.jpg?param=256y256',
       playCount: 0,
       pluginId: '',
+      isMine: false,
+      trackCount: -1,
       creator: {
         userId: 0,
         avatarUrl: '',
@@ -658,6 +666,8 @@ exports.rankTop = async () => {
         'https://p4.music.126.net/fhAqiflLy3eU-ldmBQByrg==/109951165613082765.jpg?param=256y256',
       playCount: 0,
       pluginId: '',
+      isMine: false,
+      trackCount: -1,
       creator: {
         userId: 0,
         avatarUrl: '',
@@ -676,6 +686,8 @@ exports.rankTop = async () => {
         'https://p4.music.126.net/rwRsVIJHQ68gglhA6TNEYA==/109951165611413732.jpg?param=256y256',
       playCount: 0,
       pluginId: '',
+      isMine: false,
+      trackCount: -1,
       creator: {
         userId: 0,
         avatarUrl: '',
@@ -694,6 +706,8 @@ exports.rankTop = async () => {
         'https://p1.music.126.net/oT-RHuPBJiD7WMoU7WG5Rw==/109951166093489621.jpg?param=256y256',
       playCount: 0,
       pluginId: '',
+      isMine: false,
+      trackCount: -1,
       creator: {
         userId: 0,
         avatarUrl: '',
@@ -712,6 +726,8 @@ exports.rankTop = async () => {
         'https://p3.music.126.net/aXUPgImt8hhf4cMUZEjP4g==/109951165611417794.jpg?param=256y256',
       playCount: 0,
       pluginId: '',
+      isMine: false,
+      trackCount: -1,
       creator: {
         userId: 0,
         avatarUrl: '',
@@ -852,31 +868,16 @@ exports.getCategoryPlaylist = async (params) => {
 exports.userPlaylist = async (params) => {
   const uid = params.id ?? user.userId
   const offset = params.offset ?? 0
-  const result = await get('user/playlist', { uid, limit, offset })
+  const [result, res] = await Promise.all([
+    get('user/playlist', { uid, limit, offset }),
+    get('album/sublist', { limit })
+  ])
 
   if (result && result.code === 200) {
     const playlists = result?.playlist.map(formatPlaylist)
     const liked = playlists.length ? playlists.splice(0, 1)[0] : null
-    const sourceContext = { uid, offset: offset + limit }
-    return { code: result?.code ?? 200, liked, data: playlists, sourceContext }
-  }
 
-  return {
-    code: result?.code ?? 200,
-    liked: null,
-    data: [],
-    sourceContext: { uid, offset: offset + limit }
-  }
-}
-
-/**
- * @returns {{ code: number, data: Album[] }}
- */
-exports.userLikedAlbums = async () => {
-  const result = await get('album/sublist', { limit: 2000 })
-
-  if (result && result.code === 200) {
-    const data = result.data.map((item) => ({
+    const albums = res.data.map((item) => ({
       id: item.id,
       name: item.name,
       picUrl: item.picUrl,
@@ -890,10 +891,44 @@ exports.userLikedAlbums = async () => {
       pluginId: '',
       sourceContext: { id: item.id }
     }))
-    return { code: result.code, data, sourceContext: {} }
+
+    const sourceContext = { uid, offset: offset + limit }
+    return { code: result?.code ?? 200, liked, playlists, albums, sourceContext }
   }
-  return { code: result?.code ?? 200, data: [], sourceContext: {} }
+
+  return {
+    code: result?.code ?? 200,
+    liked: null,
+    data: [],
+    sourceContext: { uid, offset: offset + limit }
+  }
 }
+
+/**
+ * @returns {{ code: number, data: Album[] }}
+ */
+// exports.userLikedAlbums = async () => {
+//   const result = await get('album/sublist', { limit })
+
+//   if (result && result.code === 200) {
+//     const data = result.data.map((item) => ({
+//       id: item.id,
+//       name: item.name,
+//       picUrl: item.picUrl,
+//       artists: item.artists.map((it) => ({
+//         id: it.id,
+//         name: it.name,
+//         picUrl: it.picUrl,
+//         pluginId: '',
+//         sourceContext: { id: it.id }
+//       })),
+//       pluginId: '',
+//       sourceContext: { id: item.id }
+//     }))
+//     return { code: result.code, data, sourceContext: {} }
+//   }
+//   return { code: result?.code ?? 200, data: [], sourceContext: {} }
+// }
 
 exports.userLikedArtists = async () => {
   const result = await get('artist/sublist', { limit: 2000 })

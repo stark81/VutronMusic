@@ -10,7 +10,7 @@
         :always-show-shadow="true"
         :click-cover-to-play="true"
         :fixed-size="288"
-        type="album"
+        type="Album"
         :cover-hover="true"
         :play-button-size="18"
       />
@@ -115,7 +115,7 @@
       </div>
       <div>
         <CoverRow
-          type="album"
+          type="Album"
           :items="moreAlbums.data"
           :colunm-number="5"
           :is-end="true"
@@ -299,28 +299,6 @@ const loadData = (plugin: PluginId, params: Record<string, any>) => {
       moreAlbums.sourceContext = res.sourceContext
     })
   })
-
-  // getAlbum(Number(id)).then((data) => {
-  //   console.log('===2===', id, data)
-  //   album.value = data.album
-  //   tracks.value = data.songs
-  //   formatTitle()
-  //   tricklingProgress.done()
-  //   show.value = true
-
-  //   const trackIDs = tracks.value.map((t) => t.id)
-  //   getTrackDetail(trackIDs.join(',')).then((data) => {
-  //     tracks.value = data.songs
-  //   })
-
-  //   getArtistAlbum({ id: album.value.artist.id, limit: 100 }).then((data) => {
-  //     moreAlbums.value = data.hotAlbums
-  //   })
-  // })
-
-  // albumDynamicDetail(Number(id)).then((data) => {
-  //   dynamicDetail.value = data
-  // })
 }
 const route = useRoute()
 
