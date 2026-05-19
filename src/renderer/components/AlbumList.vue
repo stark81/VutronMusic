@@ -40,10 +40,7 @@
         />
       </template>
       <template #footer>
-        <div
-          v-if="albums[selectedIdx]?.matched && albums[selectedIdx]?.id !== 0"
-          class="listen-more"
-        >
+        <div v-if="albums[selectedIdx]?.id !== 0" class="listen-more">
           <span
             >听听
             <router-link :to="`/album/${albums[selectedIdx].id}`">{{
@@ -63,9 +60,12 @@ import VirtualScroll from './VirtualScrollNoHeight.vue'
 import AlbumListItem from './AlbumListItem.vue'
 import TrackListItem from './TrackListItem.vue'
 import { usePlayerStore } from '../store/player'
+import { PluginId, Track } from '@/types/plugin'
+import { playlistSourceInfo } from '@/types/music'
 
 const props = defineProps<{
-  tracks: any[]
+  tracks: Track[]
+  plugin: PluginId
 }>()
 
 // ====================    ref   ==================== //
@@ -87,8 +87,12 @@ const showTracks = computed(() => {
 })
 
 // ==================== function ==================== //
-const playThisList = (id: number) => {
-  const IDs = showTracks.value.map((track) => track.id)
+const playThisList = (id: number | string) => {
+  // const source: playlistSourceInfo = { type: 'Track', plugin: }
+  const IDs = showTracks.value.map((track) => [track.pluginId, track.sourceContext]) as [
+    PluginId,
+    Record<string, any>
+  ][]
   const idx = showTracks.value.findIndex((item) => item.id === id)
   const type = showTracks.value[0].type
   replacePlaylist(type === 'local' ? 'localPlaylist' : 'streamPlaylist', 0, IDs, idx)

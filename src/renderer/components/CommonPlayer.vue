@@ -19,9 +19,9 @@
           <div class="top-part">
             <div class="track-info">
               <div
-                :class="['title', { haslist: hasListSource() }]"
+                :class="['title', { haslist: hasListSource }]"
                 :title="source"
-                @click="hasListSource() && goToList()"
+                @click="hasListSource && goToList()"
               >
                 <span>{{ currentTrack?.name }}</span>
               </div>
@@ -161,6 +161,7 @@
         <Comment
           v-else
           :id="currentTrack!.id"
+          :plugin="currentTrack!.pluginId"
           type="music"
           :style="{
             width: isMobile ? '50vw' : '100%',
@@ -184,7 +185,7 @@ import Comment from './CommentPage.vue'
 import { usePlayerStore } from '../store/player'
 import ContextMenu from './ContextMenu.vue'
 import { useSettingsStore } from '../store/settings'
-import { hasListSource, getListSourcePath } from '../utils/playlist'
+// import { getListSourcePath } from '../utils/playlist'
 import { useNormalStateStore } from '../store/state'
 // import { useStreamMusicStore } from '../store/streamingMusic'
 // import { useDataStore } from '../store/data'
@@ -220,7 +221,9 @@ const {
   source: rawSource,
   chorus,
   repeatMode,
-  pic
+  pic,
+  hasListSource,
+  getListSourcePath
 } = storeToRefs(playerStore)
 const { playPrev, playOrPause, playNext, switchRepeatMode, moveToFMTrash } = playerStore
 
@@ -329,7 +332,7 @@ const addTrackToPlaylist = () => {
   addTrackToPlaylistModal.value = {
     show: true,
     selectedTrackID: [currentTrack.value.sourceContext],
-    plugin: currentTrack.value.pluginId as PluginId
+    plugin: currentTrack.value.pluginId
   }
 }
 
@@ -340,7 +343,7 @@ const switchTransitionMode = () => {
 }
 
 const goToList = () => {
-  const path = getListSourcePath()
+  const path = getListSourcePath.value
   router.push(path)
   showLyrics.value = false
 }

@@ -147,7 +147,11 @@
     "albumDesc": "专辑介绍"
   },
   "playlist": {
-    "search": "搜索歌单音乐"
+    "search": "搜索歌单音乐",
+    "newPlaylist": "新建{name}歌单",
+    "addToPlaylist": "添加到{name}歌单",
+    "deletePlaylist": "确定要删除 {name} 歌单 {pname} 吗？",
+    "rmTrackFromPlaylist": "确定要从 {name} 歌单中删除歌曲 '{tname}' 吗？"
   },
   "contextMenu": {
     "defaultSort": "默认排序",

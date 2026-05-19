@@ -16,7 +16,10 @@ import {
   WordSchema,
   PluginResultSchema,
   MusicTypeSchema,
-  PlaylistCatlistSchema
+  PlaylistCatlistSchema,
+  CategorySchema,
+  TrackCatlistSchema,
+  PluginId
 } from './schemas'
 
 export type MusicType = z.infer<typeof MusicTypeSchema>
@@ -35,10 +38,13 @@ export type Banner = z.infer<typeof BannerSchema>
 export type LoginQrKeyResult = z.infer<typeof LoginQrKeySchema>
 export type LoginQrCodeCheckResult = z.infer<typeof LoginQrCodeCheckResultSchema>
 export type PlaylistCatlist = z.infer<typeof PlaylistCatlistSchema>
-export type PluginId = string & { __brand: 'PluginId' }
+// export type PluginId = string & { __brand: 'PluginId' }
+export type { PluginId }
 export type sortType = 'name' | 'createTime' | 'playCount' | 'id'
 export type orderType = 'ASC' | 'DESC'
 export type ArtistType = 'artist' | 'albumArtist'
+export type CatType = z.infer<typeof CategorySchema>
+export type TrackCatlist = z.infer<typeof TrackCatlistSchema>
 
 export type service = {
   code: PluginId
@@ -96,15 +102,19 @@ export const defaultMap: {
   resizePicUrl: { code: 404, data: '' },
   albumDetail: { code: 404, data: null },
   artistAlbums: { code: 404, data: [], sourceContext: {} },
-  artistDetail: { code: 404, data: null },
+  artistDetail: { code: 404, artist: null, songs: [], sourceContext: {} },
   artistMVs: { code: 404, data: [], sourceContext: {} },
-  artistTracks: { code: 404, data: [], sourceContext: {} },
+  // artistTracks: { code: 404, data: [], sourceContext: {} },
   simiArtists: { code: 404, data: [], sourceContext: {} },
   getTrackDetail: { code: 404, data: null },
+  likeATrack: { code: 404 },
   addOrRemoveTracksToPlaylist: { code: 404 },
   createPlaylist: { code: 404 },
   deletePlaylist: { code: 404 },
-  subscribePlaylist: { code: 404 }
+  subscribePlaylist: { code: 404 },
+  followArtist: { code: 404 },
+  subscribeAlbum: { code: 404 },
+  getTrackCatlist: { code: 404, data: [] }
 }
 
 export type PluginMethodCall = <K extends keyof PluginAPI>(

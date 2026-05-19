@@ -18,7 +18,7 @@
           :id="item.id"
           :plugin-id="item.pluginId!"
           :source-context="item.sourceContext"
-          :image-url="getImageUrl(item)"
+          :image-url="item.picUrl"
           :type="type"
           :play-button-size="type === 'Artist' ? 26 : playButtonSize"
         />
@@ -55,11 +55,11 @@ import Cover from './CoverBox.vue'
 import SvgIcon from './SvgIcon.vue'
 import ExplicitSymbol from './ExplicitSymbol.vue'
 import { formatPlayCount } from '../utils'
-import { Album, Artist, Playlist } from '@/types/plugin'
+import { Album, Artist, Playlist, PlaylistDetail } from '@/types/plugin'
 import { CoverType } from '@/types/music'
 
 const props = defineProps({
-  items: { type: Array as () => (Playlist | Artist | Album)[], required: true },
+  items: { type: Array as () => (Playlist | Artist | Album | PlaylistDetail)[], required: true },
   type: { type: String as PropType<CoverType>, default: '' },
   subText: { type: String, default: null },
   itemHeight: { type: Number, default: 240 },
@@ -79,20 +79,8 @@ const props = defineProps({
 
 const { items } = toRefs(props)
 
-const isPlaylist = (item: Playlist | Artist | Album): item is Playlist => {
+const isPlaylist = (item: Playlist | Artist | Album | PlaylistDetail): item is Playlist => {
   return 'playCount' in item
-}
-
-const getImageUrl = (item: any) => {
-  if (item.img1v1Url) {
-    let img1v1ID = item.img1v1Url.split('/')
-    img1v1ID = img1v1ID[img1v1ID.length - 1]
-    if (img1v1ID === '5639395138885805.jpg') {
-      return 'https://p2.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg?param=256y256'
-    }
-  }
-  const img = item.img1v1Url || item.picUrl || item.coverImgUrl || item.avatarUrl
-  return `${img?.replace('thumbnail=140y140&', 'thumbnail=256y256&')}${item.service ? '' : '?param=256y256'}`
 }
 
 const isExplicit = (item: any) => {
@@ -100,7 +88,7 @@ const isExplicit = (item: any) => {
 }
 
 const isPrivacy = (item: any) => {
-  return props.type === 'Playlist' && item.privacy === 10
+  return props.type === 'Playlist' && item.isPrivate
 }
 const getSubText = (item: any) => {
   let subText = ''

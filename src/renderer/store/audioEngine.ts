@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, reactive, computed, watch, watchEffect } from 'vue'
 import { useSettingsStore } from './settings'
-import { useNormalStateStore } from './state'
 import eventBus from '../utils/eventBus'
 
 // ─────────────────────────────────────────────
@@ -64,8 +63,8 @@ export interface ConvolverParams {
 
 export const useAudioEngineStore = defineStore('audioEngine', () => {
   const settingsStore = useSettingsStore()
-  const stateStore = useNormalStateStore()
-  const { showToast } = stateStore
+  // const stateStore = useNormalStateStore()
+  // const { showToast } = stateStore
 
   // ── 持久化参数 ──────────────────────────────
 
@@ -537,21 +536,21 @@ export const useAudioEngineStore = defineStore('audioEngine', () => {
     nodes.audio.src = sources[sourceIndex]
     nodes.audio.load()
 
-    nodes.audio.onerror = () => {
+    nodes.audio.onerror = async () => {
       if (!nodes.audio) return
-      pause()
+      await pause()
       sourceIndex++
       if (sourceIndex < sources.length) {
+        await _delay(500)
         nodes.audio.src = sources[sourceIndex]
         nodes.audio.load()
-        if (autoPlay) play()
       } else if (!retryCount.value) {
+        await _delay(500)
         eventBus.emit('loadCurrentTrack', [autoPlay, nodes.audio.currentTime])
         retryCount.value += 1
-        showToast('正在重新获取播放链接')
       } else {
+        await _delay(500)
         eventBus.emit('playNext')
-        showToast('播放错误，正在切歌')
       }
     }
 

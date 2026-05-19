@@ -71,8 +71,8 @@ const routes = [
     }
   },
   {
-    path: '/playlist/:pluginId/:sourceContext',
-    name: 'playlist',
+    path: '/Playlist/:pluginId/:sourceContext',
+    name: 'Playlist',
     component: () => import('../views/PlaylistPage.vue')
   },
   {

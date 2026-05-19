@@ -103,7 +103,10 @@
       <div class="section-title">{{ $t('artist.popularSongs') }}</div>
       <TrackList
         :items="popularTracks.slice(0, showMorePopTracks ? 24 : 12)"
-        :type="'tracklist'"
+        :type="'Artist'"
+        :is-group-by="false"
+        :plugin="pluginId"
+        :source-context="sourceContext"
         :colunm-number="4"
         :item-height="60"
         :is-end="false"
@@ -140,7 +143,7 @@
           $t('home.seeMore')
         }}</router-link>
       </div>
-      <MvRow :mvs="MVs" subtitle="publishTime" />
+      <MvRow :mvs="MVs" :item-size="180" :column-number="4" subtitle="publishTime" />
     </div>
 
     <div v-if="eps.length !== 0" class="eps">
@@ -200,8 +203,9 @@ import { formatDate, openExternal } from '../utils'
 import { useNormalStateStore } from '../store/state'
 import { usePluginMusic } from '../store/pluginMusic'
 import { useI18n } from 'vue-i18n'
-// import { storeToRefs } from 'pinia'
 import { PluginId, ArtistDetail, Album, Mv, Track, Artist } from '@/types/plugin'
+import { usePlayerStore } from '../store/player'
+import { storeToRefs } from 'pinia'
 
 const show = ref(false)
 const artist = ref<ArtistDetail>()
@@ -212,7 +216,7 @@ const latestRelease = ref<Album>({
   createTime: 0,
   id: 0,
   name: '',
-  pluginId: '',
+  pluginId: '' as PluginId,
   sourceContext: {},
   type: '专辑'
 })
@@ -224,8 +228,11 @@ const showMorePopTracks = ref(false)
 const showFullDescription = ref(false)
 const artistMenu = ref()
 
+const pluginId = ref('' as PluginId)
+const sourceContext = ref<Record<string, any>>({})
+
 const pluginStore = usePluginMusic()
-const { pluginMethodCall } = pluginStore
+const { pluginMethodCall, isAccountLoggedIn } = pluginStore
 
 const stateStore = useNormalStateStore()
 const { showToast } = stateStore
@@ -236,9 +243,9 @@ const latestMV = computed(() => MVs.value[0])
 const albums = computed(() => albumsData.value.filter((a) => a.type === '专辑'))
 const eps = computed(() => albumsData.value.filter((a) => ['EP', '单曲'].includes(a.type!)))
 
-// const playerStore = usePlayerStore()
-// const { _shuffle } = storeToRefs(playerStore)
-// const { replacePlaylist } = playerStore
+const playerStore = usePlayerStore()
+const { isShuffle } = storeToRefs(playerStore)
+const { replacePlaylist } = playerStore
 
 const route = useRoute()
 const loadData = (plugin: PluginId, params: Record<string, any>) => {
@@ -248,14 +255,16 @@ const loadData = (plugin: PluginId, params: Record<string, any>) => {
   show.value = false
 
   pluginMethodCall(plugin, 'artistDetail', params).then((result) => {
-    if (!result.data) return
-    artist.value = result.data!
+    if (!result.artist) return
+    artist.value = { ...result.artist, pluginId: plugin }
+    popularTracks.value = result.songs.map((item) => ({
+      ...item,
+      album: { ...item.album, pluginId: plugin },
+      artists: item.artists.map((ar) => ({ ...ar, pluginId: plugin })),
+      pluginId: plugin
+    }))
     tricklingProgress.done()
     show.value = true
-  })
-
-  pluginMethodCall(plugin, 'artistTracks', params).then((result) => {
-    popularTracks.value = result.data.map((item) => ({ ...item, pluginId: plugin }))
   })
 
   pluginMethodCall(plugin, 'artistAlbums', params).then((result) => {
@@ -264,7 +273,7 @@ const loadData = (plugin: PluginId, params: Record<string, any>) => {
   })
 
   pluginMethodCall(plugin, 'artistMVs', params).then((res) => {
-    MVs.value = res.data.slice(0, 10).map((item) => ({ ...item, pluginId: plugin }))
+    MVs.value = res.data.slice(0, 12).map((item) => ({ ...item, pluginId: plugin }))
   })
 
   pluginMethodCall(plugin, 'simiArtists', params).then((result) => {
@@ -282,9 +291,16 @@ const scrollTo = (div: string, block = 'center') => {
 }
 
 const playPopularSongs = () => {
-  // const ids = popularTracks.value.map((t) => t.id)
-  // const idx = _shuffle.value ? Math.floor(Math.random() * ids.length) : 0
-  // replacePlaylist('artist', artist.value.id, ids, idx)
+  const ids = popularTracks.value.map((t) => [t.pluginId, t.sourceContext]) as [
+    PluginId,
+    Record<string, any>
+  ][]
+  const idx = isShuffle.value ? Math.floor(Math.random() * ids.length) : 0
+  replacePlaylist(
+    { type: 'Artist', plugin: pluginId.value, sourceContext: artist.value?.sourceContext || {} },
+    ids,
+    idx
+  )
 }
 
 const toggleFullDescription = () => {
@@ -292,16 +308,19 @@ const toggleFullDescription = () => {
 }
 
 const followArtist = () => {
-  // if (!isAccountLoggedIn()) {
-  //   showToast(t('toast.needToLogin'))
-  //   return
-  // }
-  // followAnArtist({
-  //   id: artist.value.id,
-  //   t: artist.value.followed ? 0 : 1
-  // }).then((data) => {
-  //   if (data.code === 200) artist.value.followed = !artist.value.followed
-  // })
+  if (!isAccountLoggedIn(pluginId.value)) {
+    showToast(t('toast.needToLogin'))
+    return
+  }
+  const op = artist.value?.followed ? 'unfollow' : 'follow'
+
+  pluginMethodCall(pluginId.value, 'followArtist', {
+    op,
+    ...artist.value?.sourceContext
+  }).then((result) => {
+    if (result.code !== 200 || !artist.value) return
+    artist.value.followed = !artist.value.followed
+  })
 }
 
 const copyURL = () => {
@@ -322,14 +341,22 @@ const openMenu = (e: MouseEvent) => {
 
 onBeforeRouteUpdate((to, from, next) => {
   show.value = false
-  const { pluginId: plugin, sourceContext } = to.params
-  loadData(plugin as PluginId, JSON.parse(sourceContext as string))
+  const { pluginId: plugin, sourceContext: source } = to.params
+
+  pluginId.value = plugin as PluginId
+  sourceContext.value = JSON.parse(source as string)
+
+  loadData(pluginId.value, sourceContext.value)
   next()
 })
 
 onMounted(() => {
-  const { pluginId: plugin, sourceContext } = route.params
-  loadData(plugin as PluginId, JSON.parse(sourceContext as string))
+  const { pluginId: plugin, sourceContext: source } = route.params
+
+  pluginId.value = plugin as PluginId
+  sourceContext.value = JSON.parse(source as string)
+
+  loadData(pluginId.value, sourceContext.value)
   setTimeout(() => {
     updatePadding(96)
   }, 100)

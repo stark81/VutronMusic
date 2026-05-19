@@ -30,9 +30,9 @@
         <img :src="pic" loading="lazy" @click.stop="goToAlbum" />
         <div class="track-info">
           <div
-            :class="['title', { haslist: hasListSource() }]"
+            :class="['title', { haslist: hasListSource }]"
             :title="source"
-            @click.stop="hasListSource() && goToList()"
+            @click.stop="hasListSource && goToList()"
           >
             <span>{{ currentTrack?.name }}</span>
           </div>
@@ -160,7 +160,7 @@ import { usePlayerStore } from '../store/player'
 import { useDataStore } from '../store/data'
 import { useOsdLyricStore } from '../store/osdLyric'
 import { useNormalStateStore } from '../store/state'
-import { hasListSource, getListSourcePath } from '../utils/playlist'
+// import { hasListSource, getListSourcePath } from '../utils/playlist'
 import { useStreamMusicStore } from '../store/streamingMusic'
 import { useSettingsStore } from '../store/settings'
 import ButtonIcon from './ButtonIcon.vue'
@@ -187,7 +187,10 @@ const {
   isLiked,
   lyrics,
   chorus,
-  source: rawSource
+  source: rawSource,
+  hasListSource,
+  getListSourcePath,
+  lyricOffset
 } = storeToRefs(playerStore)
 
 const playerBarRef = ref()
@@ -240,7 +243,7 @@ const position = computed({
         return value >= l.start && value < l.start + 10
       }
     })
-    seek.value = line ? line?.start - (currentTrack.value?.offset || 0) : value
+    seek.value = line ? line?.start - (lyricOffset.value || 0) : value
   }
 })
 
@@ -278,7 +281,7 @@ const switchLyricPage = () => {
 }
 
 const goToList = () => {
-  const path = getListSourcePath()
+  const path = getListSourcePath.value
   router.push(path)
 }
 

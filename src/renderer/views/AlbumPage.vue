@@ -47,12 +47,12 @@
             {{ '评论' }}
           </ButtonTwoTone>
           <ButtonTwoTone
-            :icon-class="dynamicDetail.isSub ? 'heart-solid' : 'heart'"
+            :icon-class="album?.subscribed ? 'heart-solid' : 'heart'"
             :icon-button="true"
             :horizontal-padding="0"
-            :color="dynamicDetail?.isSub ? 'var(--color-primary)' : 'grey'"
-            :text-color="dynamicDetail?.isSub ? 'var(--color-primary)' : ''"
-            :background-color="dynamicDetail?.isSub ? 'var(--color-secondary-bg)' : ''"
+            :color="album?.subscribed ? 'var(--color-primary)' : 'grey'"
+            :text-color="album?.subscribed ? 'var(--color-primary)' : ''"
+            :background-color="album?.subscribed ? 'var(--color-secondary-bg)' : ''"
             @click="likeAlbum"
           >
           </ButtonTwoTone>
@@ -72,13 +72,15 @@
       <div v-for="item in tracksByDisc" :key="item.disc" :style="{ marginBottom: '20px' }">
         <h2 class="disc">Disc {{ item.disc }}</h2>
         <TrackList
-          :id="album?.id"
           :items="item.tracks"
           :all-items="tracks"
           :item-height="48"
+          :plugin="pluginId"
+          :source-context="sourceContext"
+          :is-group-by="false"
           :colunm-number="1"
           :is-end="false"
-          :type="'album'"
+          :type="'Album'"
           :album-object="{ artist: album?.artists[0] || { name: '' } }"
           :enable-virtual-scroll="false"
         />
@@ -86,12 +88,14 @@
     </div>
     <div v-else>
       <TrackList
-        :id="album?.id"
         :items="tracks"
+        :plugin="pluginId"
+        :source-context="sourceContext"
+        :is-group-by="false"
         :colunm-number="1"
         :item-height="48"
         :is-end="false"
-        type="album"
+        type="Album"
         :album-object="{ artist: album?.artists[0] || { name: '' } }"
         :enable-virtual-scroll="false"
       />
@@ -148,8 +152,9 @@
     <div></div>
     <div class="comment-container" @click.stop>
       <CommentPage
-        v-if="showComment"
-        :id="album?.id || 0"
+        v-if="showComment && album"
+        :id="album.id"
+        :plugin="album.pluginId"
         type="album"
         :style="{ width: '100%', padding: '40px 4vh 10px 4vh' }"
       />
@@ -174,9 +179,8 @@ import ExplicitSymbol from '../components/ExplicitSymbol.vue'
 import { useI18n } from 'vue-i18n'
 import { useNormalStateStore } from '../store/state'
 import { usePluginMusic } from '../store/pluginMusic'
-// import { usePlayerStore } from '../store/player'
-import { isAccountLoggedIn } from '../utils/auth'
-// import { storeToRefs } from 'pinia'
+import { usePlayerStore } from '../store/player'
+import { storeToRefs } from 'pinia'
 import { Album, AlbumDetail, PluginId, Track } from '@/types/plugin'
 
 const show = ref(false)
@@ -194,12 +198,14 @@ const subtitle = ref('')
 const albumMenu = ref()
 const showComment = ref(false)
 const showFullDescription = ref(false)
+const pluginId = ref('' as PluginId)
+const sourceContext = ref<Record<string, any>>({})
 
 const { t } = useI18n()
 const { showToast } = useNormalStateStore()
 
 const pluginStore = usePluginMusic()
-const { pluginMethodCall } = pluginStore
+const { pluginMethodCall, isAccountLoggedIn } = pluginStore
 
 const albumTime = computed(() => {
   let time = 0
@@ -220,22 +226,38 @@ const toggleFullDescription = () => {
   showFullDescription.value = !showFullDescription.value
 }
 
-// const playerStore = usePlayerStore()
-// const { _shuffle } = storeToRefs(playerStore)
-// const { replacePlaylist } = playerStore
+const playerStore = usePlayerStore()
+const { isShuffle } = storeToRefs(playerStore)
+const { replacePlaylist } = playerStore
 
 const play = () => {
-  // const ids = tracks.value.map((t) => t.id)
-  // const idx = _shuffle.value ? Math.floor(Math.random() * ids.length) : 0
-  // replacePlaylist('album', album.value.id, ids, idx)
+  const ids = tracks.value.map((t) => [t.pluginId, t.sourceContext]) as [
+    PluginId,
+    Record<string, any>
+  ][]
+  const idx = isShuffle.value ? Math.floor(Math.random() * ids.length) : 0
+  replacePlaylist(
+    { type: 'Album', plugin: pluginId.value, sourceContext: album.value?.sourceContext || {} },
+    ids,
+    idx
+  )
 }
 
-const likeAlbum = (toast = false) => {
-  console.log('[[[[[]]]]]', toast)
-  if (!isAccountLoggedIn()) {
+const likeAlbum = () => {
+  if (!isAccountLoggedIn(pluginId.value)) {
     showToast(t('toast.needToLogin'))
-    // return
+    return
   }
+
+  const op = album.value?.subscribed ? 'del' : 'add'
+  pluginMethodCall(pluginId.value, 'subscribeAlbum', {
+    op,
+    name: album.value?.name,
+    ...album.value?.sourceContext
+  }).then((result) => {
+    if (result.code !== 200 || !album.value) return
+    album.value.subscribed = !album.value.subscribed
+  })
 }
 
 const openMenu = (e: MouseEvent) => {
@@ -306,16 +328,20 @@ const updatePadding = inject('updatePadding') as (padding: number) => void
 
 onBeforeRouteUpdate((to, from, next) => {
   show.value = false
-  const { pluginId: plugin, sourceContext } = to.params
-  loadData(plugin as PluginId, JSON.parse(sourceContext as string))
+  const { pluginId: plugin, sourceContext: source } = to.params
+  pluginId.value = plugin as PluginId
+  sourceContext.value = JSON.parse(source as string)
+  loadData(plugin as PluginId, sourceContext.value)
   next()
 })
 
 onMounted(() => {
   show.value = false
   updatePadding(96)
-  const { pluginId: plugin, sourceContext } = route.params
-  loadData(plugin as PluginId, JSON.parse(sourceContext as string))
+  const { pluginId: plugin, sourceContext: source } = route.params
+  pluginId.value = plugin as PluginId
+  sourceContext.value = JSON.parse(source as string)
+  loadData(plugin as PluginId, sourceContext.value)
 })
 </script>
 

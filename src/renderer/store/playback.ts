@@ -71,7 +71,7 @@ export const usePlaybackStore = defineStore('playback', () => {
   }
 
   async function replaceCurrentTrack(track: Track) {
-    const plugin = track.pluginId as PluginId
+    const plugin = track.pluginId
 
     // 注意，这里返回的replayGain和peak
     const result = await pluginMethodCall(plugin, 'songUrl', { ...track.sourceContext })

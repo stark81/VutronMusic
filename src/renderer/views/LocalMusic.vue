@@ -122,7 +122,7 @@
         </div>
 
         <div v-show="idx === 2">
-          <AlbumList :tracks="sortedLocalTracks" />
+          <AlbumList :tracks="sortedLocalTracks" :plugin="plugin" />
         </div>
 
         <div v-show="idx === 3">
@@ -185,7 +185,7 @@ import InfoBG from '../components/InfoBG.vue'
 import AlbumList from '../components/AlbumList.vue'
 import ArtistList from '../components/ArtistList.vue'
 import DirList from '../components/DirList.vue'
-import CoverRow from '../components/CoverRow.vue'
+import CoverRow from '../components/VirtualCoverRow.vue'
 import SvgIcon from '../components/SvgIcon.vue'
 import SearchBox from '../components/SearchBox.vue'
 import ContextMenu from '../components/ContextMenu.vue'
@@ -193,6 +193,7 @@ import AccurateMatchModal from '../components/ModalAccurateMatch.vue'
 import { randomNum, pickedLyric } from '../utils'
 import { useI18n } from 'vue-i18n'
 import { lyricLine, Track } from '@/types/music.d'
+import { PluginId } from '@/types/schemas'
 
 // load
 const localMusicStore = useLocalMusicStore()
@@ -215,6 +216,8 @@ const randomID = ref<number>(1)
 const randomLyric = ref<{ content: string }[]>([])
 const randomTrack = ref<Track>()
 const isBatchOp = ref(false)
+
+const plugin = ref('local' as PluginId)
 
 const tabs = [
   'localTracks',

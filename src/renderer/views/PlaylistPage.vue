@@ -6,7 +6,7 @@
         :source-context="playlist?.sourceContext || {}"
         :image-url="playlist?.picUrl"
         :show-play-button="true"
-        :plugin-id="'netease'"
+        :plugin-id="pluginId"
         :always-show-shadow="true"
         :click-cover-to-play="true"
         :fixed-size="288"
@@ -134,10 +134,11 @@
 
     <div>
       <TrackList
-        :id="playlist?.id"
         :items="filterTracks"
-        :type="typeMap[playlistType]"
-        :group-by="currentService"
+        type="Playlist"
+        :plugin="pluginId"
+        :source-context="playlist.sourceContext"
+        :is-group-by="isGroupBy"
         :colunm-number="1"
         :show-service="['stream', 'streamLiked'].includes(playlistType)"
         :show-position="true"
@@ -184,6 +185,7 @@
       <CommentPage
         v-if="showComment"
         :id="playlist.id"
+        :plugin="playlist.pluginId"
         type="playlist"
         :style="{ width: '100%', padding: '40px 4vh 10px 4vh' }"
       />
@@ -213,7 +215,7 @@ import Modal from '../components/BaseModal.vue'
 import { tricklingProgress } from '../utils/tricklingProgress'
 import { useI18n } from 'vue-i18n'
 // import { intelligencePlaylist, deletePlaylist } from '../api/playlist'
-import { CoverType, serviceName } from '@/types/music.d'
+import { CoverType, playlistSourceInfo, serviceName } from '@/types/music.d'
 import { PluginId, Track, PlaylistDetail } from '@/types/plugin'
 
 const rawPlaylist = {
@@ -223,7 +225,7 @@ const rawPlaylist = {
   subscribed: false,
   isPrivate: false,
   tracks: [],
-  pluginId: '',
+  pluginId: '' as PluginId,
   copywriter: '',
   updateFrequency: null,
   specialPlaylistInfo: null,
@@ -254,11 +256,12 @@ const showFullDescription = ref(false)
 const showComment = ref(false)
 const pSearchBoxRef = ref<InstanceType<typeof SearchBox>>()
 const currentService = ref<serviceName | 'all'>('all')
-const pluginId = ref<PluginId>('' as PluginId)
+const pluginId = ref('' as PluginId)
 
 const pluginMusicStore = usePluginMusic()
-const { users } = storeToRefs(pluginMusicStore)
-const { getPlaylistDetail, fetchPlaylistTracks, pluginMethodCall } = pluginMusicStore
+const { users, services, tools } = storeToRefs(pluginMusicStore)
+const { getPlaylistDetail, fetchPlaylistTracks, pluginMethodCall, isAccountLoggedIn } =
+  pluginMusicStore
 
 // const { user, likedSongPlaylistID } = storeToRefs(useDataStore())
 const listType = computed(() => route.name!.toString() as CoverType)
@@ -301,12 +304,19 @@ const playlistType = computed(() => {
 
 const user = computed(() => users.value[pluginId.value] || {})
 
-const typeMap = {
-  local: 'localPlaylist',
-  stream: 'streamPlaylist',
-  streamLiked: 'streamLiked',
-  online: 'playlist'
-}
+const isGroupBy = computed(() => {
+  const service = services.value.find((item) => item.code === pluginId.value)
+  if (!service) return false
+  if (route.name === 'likedSongs' && tools.value[service.type].groundBy === 'all') return true
+  return false
+})
+
+// const typeMap = {
+//   local: 'localPlaylist',
+//   stream: 'streamPlaylist',
+//   streamLiked: 'streamLiked',
+//   online: 'playlist'
+// }
 
 const isLikedSongsPage = computed(
   () => route.name === 'likedSongs' || route.name === 'streamLikedSongs'
@@ -344,35 +354,46 @@ const loadData = async (plugin: PluginId, params: Record<string, any>) => {
 
 const loadMore = () => {
   if (playlist.value.trackCount > tracks.value.length) {
-    fetchPlaylistTracks(playlist.value.pluginId as PluginId, playlist.value.sourceContext).then(
-      (res) => {
-        tracks.value.push(...res.data)
-        playlist.value.sourceContext = res.sourceContext
-      }
-    )
+    fetchPlaylistTracks(playlist.value.pluginId, playlist.value.sourceContext).then((res) => {
+      tracks.value.push(...res.data)
+      playlist.value.sourceContext = res.sourceContext
+    })
   }
 }
 
 const likePlaylist = (toast = false) => {
+  if (!isAccountLoggedIn(pluginId.value)) {
+    showToast(t('toast.needToLogin'))
+    return
+  }
+
   const op = playlist.value.subscribed ? 'del' : 'add'
   pluginMethodCall(pluginId.value, 'subscribePlaylist', {
     op,
     name: playlist.value.name,
     tracks: tracks.value.map((item) => item.sourceContext),
     ...playlist.value.sourceContext
+  }).then((result) => {
+    if (result.code === 200) playlist.value.subscribed = !playlist.value.subscribed
+    if (toast) {
+      showToast(playlist.value.subscribed ? '已保存到音乐库' : '已从音乐库删除')
+    }
   })
-  if (toast) {
-    showToast(playlist.value.subscribed ? '已保存到音乐库' : '已从音乐库删除')
-  }
 }
 
 const play = () => {
+  const source: playlistSourceInfo = {
+    type: 'Playlist',
+    plugin: pluginId.value,
+    sourceContext: playlist.value.sourceContext
+  }
+
   const trackIDs = tracks.value.map((t) => [t.pluginId, t.sourceContext]) as [
     PluginId,
     Record<string, any>
   ][]
   const idx = isShuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
-  replacePlaylist(typeMap[playlistType.value], playlist.value.id || 0, trackIDs, idx)
+  replacePlaylist(source, trackIDs, idx)
 }
 
 const playIntelligenceList = () => {
@@ -394,7 +415,16 @@ const openMenu = (e: MouseEvent) => {
 }
 
 const deleteAPlaylist = () => {
-  if (confirm(`确定要删除 ${pluginId.value} 歌单 ${playlist.value.name}？`)) {
+  const service = services.value.find((item) => item.code === pluginId.value)
+  if (
+    confirm(
+      t('playlist.deletePlaylist', {
+        name: service?.name || '',
+        code: pluginId.value,
+        pname: playlist.value.name
+      })
+    )
+  ) {
     pluginMethodCall(pluginId.value, 'deletePlaylist', playlist.value.sourceContext).then((res) => {
       if (res.code === 200) {
         show.value = false

@@ -12,10 +12,12 @@
     </div>
 
     <TrackList
-      id="/daily/songs"
       :items="filterTracks"
+      :plugin="pluginId"
+      :is-group-by="false"
+      :source-context="{}"
       :colunm-number="1"
-      type="url"
+      type="DailySongs"
       :is-end="true"
     />
   </div>
@@ -30,12 +32,18 @@ import ButtonTwoTone from '../components/ButtonTwoTone.vue'
 import SearchBox from '../components/SearchBox.vue'
 import { dailyRecommendTracks } from '../api/playlist'
 import { usePlayerStore } from '../store/player'
+import { PluginId } from '@/types/schemas'
+import { playlistSourceInfo } from '@/types/music'
+import { useRoute } from 'vue-router'
+
+const route = useRoute()
 
 const show = ref(false)
+const pluginId = ref('' as PluginId)
 const { dailyTracks } = storeToRefs(useNormalStateStore())
 
 const playerStore = usePlayerStore()
-const { _shuffle } = storeToRefs(playerStore)
+const { isShuffle } = storeToRefs(playerStore)
 const { replacePlaylist } = playerStore
 
 const pSearchBoxRef = ref<InstanceType<typeof SearchBox>>()
@@ -45,12 +53,10 @@ const filterTracks = computed(() => {
   return dailyTracks.value.filter(
     (track) =>
       (track.name && track.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
-      (track.alia || track.alias)?.find((al) =>
-        al.toLowerCase().includes(keyword.value?.toLowerCase())
-      ) ||
+      track.alias?.find((al) => al.toLowerCase().includes(keyword.value?.toLowerCase())) ||
       (track.album?.name &&
         track.album.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
-      (track.artists || track.ar).find(
+      track.artists.find(
         (ar) => ar.name && ar.name.toLowerCase().includes(keyword.value?.toLowerCase())
       )
   )
@@ -64,12 +70,23 @@ const loadDailyTracks = () => {
 }
 
 const play = () => {
-  const trackIDs = dailyTracks.value.map((t) => t.id)
-  const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
-  replacePlaylist('url', '/daily/songs', trackIDs, idx)
+  const trackIDs = dailyTracks.value.map((t) => [t.pluginId, t.sourceContext]) as [
+    PluginId,
+    Record<string, any>
+  ][]
+  const idx = isShuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
+  const source: playlistSourceInfo = {
+    type: 'DailySongs',
+    plugin: pluginId.value,
+    sourceContext: {}
+  }
+  replacePlaylist(source, trackIDs, idx)
 }
 
 onMounted(() => {
+  const { pluginId: plugin } = route.params
+  pluginId.value = plugin as PluginId
+
   if (dailyTracks.value.length === 0) {
     loadDailyTracks()
   } else {

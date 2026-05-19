@@ -1,6 +1,11 @@
 <template>
   <div v-show="show">
-    <div v-if="general.showBanner" ref="bannerRef" class="banner">
+    <div
+      v-if="general.showBanner"
+      ref="bannerRef"
+      class="banner"
+      @click="handleBannerContainerClick"
+    >
       <div v-for="item in banner" :key="item.id" class="banner-item">
         <img :src="item.picUrl" alt="" />
         <div class="subtitle" :style="{ backgroundColor: 'red' }">{{ item.typeTitle }}</div>
@@ -16,7 +21,7 @@
     <div class="index-row">
       <div class="title"> For You </div>
       <div class="for-you-row">
-        <DailyTracksCard ref="DailyTracksCardRef" />
+        <DailyTracksCard ref="DailyTracksCardRef" :plugin="pluginId" />
         <FMCard />
       </div>
     </div>
@@ -42,16 +47,7 @@
 </template>
 
 <script setup lang="ts">
-import {
-  ref,
-  onBeforeUnmount,
-  watch,
-  onMounted,
-  computed,
-  nextTick
-  // onDeactivated,
-  // onActivated
-} from 'vue'
+import { ref, onBeforeUnmount, watch, onMounted, computed, nextTick } from 'vue'
 import { tricklingProgress } from '../utils/tricklingProgress'
 import CoverRow from '../components/CoverRow.vue'
 import DailyTracksCard from '../components/DailyTracksCard.vue'
@@ -59,7 +55,6 @@ import FMCard from '../components/FMCard.vue'
 import { useRouter } from 'vue-router'
 import { useSettingsStore } from '../store/settings'
 import { useNormalStateStore } from '../store/state'
-// import { usePlayerStore } from '../store/player'
 import { usePluginMusic } from '../store/pluginMusic'
 import { storeToRefs } from 'pinia'
 import Utils from '../utils'
@@ -67,7 +62,6 @@ import { Album, Artist, Banner, Playlist, PluginId } from '@/types/plugin'
 
 const { general } = storeToRefs(useSettingsStore())
 const { exploreTab, showLyrics, dailyTracks } = storeToRefs(useNormalStateStore())
-// const { addTrackToPlayNext } = usePlayerStore()
 
 const pluginMusicStore = usePluginMusic()
 const { pluginMethodCall } = pluginMusicStore
@@ -77,7 +71,6 @@ const router = useRouter()
 // banner
 const banner = ref<Banner[]>([])
 const bannerRef = ref<HTMLElement>()
-const left = ref(-1)
 const current = ref(0)
 const timer = ref<any>(null)
 const show = ref(false)
@@ -109,43 +102,62 @@ const toExplore = (tab: string, Category = '全部') => {
 
 const bannerChange = () => {
   if (!bannerRef.value) return
-  left.value =
-    (current.value - 1 + bannerRef.value!.children.length) % bannerRef.value!.children.length
-  const right = (current.value + 1) % bannerRef.value!.children.length
-  if (bannerRef.value) {
-    Array.from(bannerRef.value.children).forEach((item) => {
-      item.className = 'banner-item'
-    })
-    bannerRef.value.children[left.value].className = 'banner-item left'
-    bannerRef.value.children[current.value].className = 'banner-item center'
-    bannerRef.value?.children[current.value].addEventListener('click', () => {
-      handleBannerClick(banner.value[current.value])
-    })
-    bannerRef.value.children[right].className = 'banner-item right'
-  }
+  const total = bannerRef.value.children.length
+  const leftIdx = (current.value - 1 + total) % total
+  const rightIdx = (current.value + 1) % total
+
+  Array.from(bannerRef.value.children).forEach((item, index) => {
+    // 移除所有位置 class，保留其他 class
+    item.classList.remove('left', 'center', 'right')
+    if (index === leftIdx) item.classList.add('left')
+    else if (index === current.value) item.classList.add('center')
+    else if (index === rightIdx) item.classList.add('right')
+  })
 }
 
 const bannerNext = () => {
+  if (!banner.value.length) return
   current.value = (current.value + 1) % banner.value.length
   bannerChange()
-  setTimeout(() => {
-    const newNode = bannerRef.value?.children[left.value].cloneNode(true)
-    if (!newNode) return
-    bannerRef.value?.children[left.value].replaceWith(newNode)
-  }, 800)
 }
 
-const handleBannerClick = (banner: Banner) => {
-  if (banner.type === 'track') {
-    // addTrackToPlayNext(banner.pluginId as PluginId, { id: Number(banner.sourceId) }, true, true)
-  } else if (banner.type === 'album') {
-    router.push(`/album/${banner.sourceId}`)
-  } else if (banner.type === 'playlist') {
-    router.push(`/playlist/${banner.sourceId}`)
-  } else if (banner.type === 'mv') {
-    router.push(`/mv/${banner.sourceId}`)
-  } else if (banner.url) {
-    Utils.openExternal(banner.url)
+const bannerPrev = () => {
+  if (!banner.value.length) return
+  current.value = (current.value - 1 + banner.value.length) % banner.value.length
+  bannerChange()
+}
+
+// 修复：事件委托统一处理点击，左图切换到上一张，右图切换到下一张，中间图跳转内容
+const handleBannerContainerClick = (e: MouseEvent) => {
+  if (!bannerRef.value) return
+  const target = (e.target as HTMLElement).closest('.banner-item')
+  if (!target) return
+
+  const index = Array.from(bannerRef.value.children).indexOf(target)
+  const total = bannerRef.value.children.length
+  const leftIdx = (current.value - 1 + total) % total
+  const rightIdx = (current.value + 1) % total
+
+  if (index === current.value) {
+    handleBannerClick(banner.value[current.value])
+  } else if (index === leftIdx) {
+    bannerPrev()
+  } else if (index === rightIdx) {
+    bannerNext()
+  }
+}
+
+const handleBannerClick = (bannerItem: Banner) => {
+  if (bannerItem.type === 'track') {
+    // addTrackToPlayNext(bannerItem.pluginId as PluginId, { id: Number(bannerItem.sourceId) }, true, true)
+  } else if (bannerItem.type === 'album') {
+    router.push(`/album/${pluginId.value}/${JSON.stringify(bannerItem.sourceContext)}`)
+  } else if (bannerItem.type === 'playlist') {
+    router.push(`/playlist/${pluginId.value}/${JSON.stringify(bannerItem.sourceContext)}`)
+  } else if (bannerItem.type === 'mv') {
+    router.push(`/mv/${bannerItem.sourceId}`)
+  } else if (bannerItem.url) {
+    Utils.openExternal(bannerItem.url)
   }
 }
 
@@ -158,8 +170,11 @@ const loadData = async () => {
   if (general.value.showBanner) {
     pluginMethodCall(pluginId.value, 'getBanner').then((res) => {
       banner.value = res.data
-      setTimeout(bannerChange)
-      handleBanner()
+      current.value = 0
+      nextTick(() => {
+        bannerChange()
+        handleBanner()
+      })
     })
   }
 
@@ -169,16 +184,7 @@ const loadData = async () => {
     show.value = true
   })
 
-  pluginMethodCall(pluginId.value, 'getRecommendTracks').then((result) => {
-    dailyTracks.value = result.data.map((item) => ({
-      ...item,
-      album: { ...item.album, pluginId: pluginId.value },
-      artists: item.artists.map((it) => ({ ...it, pluginId: pluginId.value })),
-      pluginId: pluginId.value
-    }))
-  })
-
-  pluginMethodCall(pluginId.value, 'topArtists').then((res) => {
+  pluginMethodCall(pluginId.value, 'topArtists', { reset: true }).then((res) => {
     const artists = res.data.map((item) => ({ ...item, pluginId: pluginId.value }))
     const idx: number[] = []
     while (idx.length < 6) {
@@ -186,7 +192,7 @@ const loadData = async () => {
       if (!idx.includes(tmp)) idx.push(tmp)
     }
     recommendArtists.value = artists
-      .filter((l, index) => idx.includes(index))
+      .filter((_, index) => idx.includes(index))
       .map((item) => ({ ...item, pluginId: pluginId.value }))
   })
 
@@ -208,9 +214,7 @@ const loadData = async () => {
 
 const handleBanner = () => {
   if (timer.value) clearInterval(timer.value)
-  timer.value = setInterval(() => {
-    bannerNext()
-  }, 8000)
+  timer.value = setInterval(bannerNext, 8000)
 }
 
 const handleVisibleChange = () => {
@@ -223,9 +227,9 @@ const handleVisibleChange = () => {
 
 watch(showLyrics, (value) => {
   if (value) {
-    handleBanner()
-  } else {
     clearInterval(timer.value)
+  } else {
+    handleBanner()
   }
 })
 
@@ -234,20 +238,6 @@ document.addEventListener('visibilitychange', handleVisibleChange)
 watch(pluginId, (value) => {
   if (value) loadData()
 })
-
-// onActivated(() => {
-//   loadData()
-//   // setTimeout(loadData, 1000)
-// })
-
-// onDeactivated(() => {
-//   show.value = false
-//   clearInterval(timer.value)
-// })
-
-// onBeforeMount(async () => {
-//   await getPlugins()
-// })
 
 onMounted(async () => {
   await nextTick()
@@ -270,18 +260,21 @@ onBeforeUnmount(() => {
   position: relative;
   width: 100%;
   height: 180px;
+
   .banner-item {
     width: 440px;
     position: absolute;
     overflow: hidden;
     z-index: 0;
     transition: all 0.45s ease-in-out;
+
     img {
       width: 100%;
       border-radius: 8px;
       object-fit: cover;
       display: block;
     }
+
     .subtitle {
       position: absolute;
       bottom: 0;
@@ -293,20 +286,26 @@ onBeforeUnmount(() => {
       border-radius: 8px 0 8px 0;
     }
   }
+
   .banner-item.center {
     cursor: pointer;
     transform: scale(1.2);
     z-index: 2;
   }
+
   .banner-item.left {
+    cursor: pointer;
     transform: translateX(calc(220px - 42.5vw));
     z-index: 1;
   }
+
   .banner-item.right {
+    cursor: pointer;
     transform: translateX(calc(42.5vw - 220px));
     z-index: 1;
   }
 }
+
 .index-row {
   margin-top: 50px;
 
@@ -318,6 +317,7 @@ onBeforeUnmount(() => {
     font-size: 28px;
     font-weight: 700;
     color: var(--color-text);
+
     a {
       font-size: 13px;
       font-weight: 600;
@@ -325,6 +325,7 @@ onBeforeUnmount(() => {
     }
   }
 }
+
 .for-you-row {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

@@ -17,12 +17,14 @@ import { z } from 'zod'
  * - 私有媒体库
  */
 export const MusicTypeSchema = z.enum(['local', 'online', 'stream'])
+export type PluginId = string & { __brand: 'PluginId' }
+const asPluginId = (str: string): PluginId => str as PluginId
 
 export const ArtistSchema = z.object({
   id: z.number().or(z.string()),
   name: z.string(),
   picUrl: z.string(),
-  pluginId: z.string(),
+  pluginId: z.string().transform(asPluginId),
   copywriter: z.string().optional(),
   sourceContext: z.record(z.string(), z.any())
 })
@@ -31,9 +33,9 @@ export const AlbumSchema = z.object({
   id: z.number().or(z.string()),
   name: z.string(),
   picUrl: z.string(),
-  type: z.enum(['专辑', 'EP', '单曲', 'liveCD', '精选集', '其他']).optional(),
+  type: z.enum(['专辑', 'EP', '单曲', 'liveCD', '精选集', '合集', '其他']).optional(),
   createTime: z.number().optional(),
-  pluginId: z.string(),
+  pluginId: z.string().transform(asPluginId),
   copywriter: z.string().optional(),
   artists: z.array(ArtistSchema).optional(),
   sourceContext: z.record(z.string(), z.any())
@@ -51,7 +53,7 @@ export const TrackSchema = z.object({
   artists: z.array(ArtistSchema),
   mvid: z.string().or(z.number()),
   playCount: z.number(),
-  pluginId: z.string(),
+  pluginId: z.string().transform(asPluginId),
   playable: z.boolean(),
   reason: z.string(),
   type: MusicTypeSchema,
@@ -73,7 +75,7 @@ export const ArtistDetailSchema = z.object({
   description: z.string(),
   followed: z.boolean(),
 
-  pluginId: z.string(),
+  pluginId: z.string().transform(asPluginId),
   sourceContext: z.record(z.string(), z.any())
 })
 
@@ -88,9 +90,10 @@ export const AlbumDetailSchema = z.object({
   songs: z.array(TrackSchema),
   size: z.number(),
   company: z.string(),
+  subscribed: z.boolean(),
   description: z.string(),
 
-  pluginId: z.string(),
+  pluginId: z.string().transform(asPluginId),
   /**
    * 可以用来存放专辑id，以及歌曲分页的相关信息
    */
@@ -102,7 +105,7 @@ export const MvSchema = z.object({
   name: z.string(),
   picUrl: z.string(),
   publishTime: z.number(),
-  pluginId: z.string(),
+  pluginId: z.string().transform(asPluginId),
   artists: z.array(ArtistSchema),
   sourceContext: z.record(z.string(), z.any())
 })
@@ -114,11 +117,11 @@ export const UserSchema = z
     nickname: z.string(),
     isVip: z.boolean(),
     signature: z.string(),
-    sourceContext: z.record(z.string(), z.any())
+    sourceContext: z.record(z.string(), z.any()).optional()
   })
   .catchall(z.any())
 
-const CategorySchema = z.object({
+export const CategorySchema = z.object({
   id: z.number(),
   name: z.string(),
   parentId: z.number(),
@@ -151,7 +154,8 @@ export const PlaylistSchema = z.object({
   copywriter: z.string(),
   isMine: z.boolean(),
   trackCount: z.number(),
-  pluginId: z.string(),
+  isPrivate: z.boolean(),
+  pluginId: z.string().transform(asPluginId),
   creator: UserSchema,
   tracks: z.array(z.object({ name: z.string(), artist: z.string() })).optional(),
   sourceContext: z.record(z.string(), z.any())
@@ -167,7 +171,7 @@ export const PlaylistDetailSchema = z.object({
   updateTime: z.number(),
   description: z.string(),
   isPrivate: z.boolean(),
-  pluginId: z.string(),
+  pluginId: z.string().transform(asPluginId),
   tracks: z.array(TrackSchema),
   copywriter: z.string().or(z.null()),
   updateFrequency: z.string().or(z.null()),
@@ -201,7 +205,7 @@ export const BannerSchema = z.object({
   sourceId: z.string().or(z.number()),
   type: z.enum(['track', 'album', 'playlist', 'mv', 'activity']),
   typeTitle: z.string(),
-  pluginId: z.string(),
+  pluginId: z.string().transform(asPluginId),
   sourceContext: z.record(z.string(), z.any())
 })
 
@@ -222,6 +226,12 @@ export const LoginQrCodeCheckResultSchema = z.object({
   code: z.union([z.literal(800), z.literal(801), z.literal(802), z.literal(803)]),
   message: z.string(),
   user: UserResultSchema.optional()
+})
+
+export const TrackCatlistSchema = z.object({
+  name: z.string(),
+  code: z.number(),
+  active: z.boolean()
 })
 
 export const PluginResultSchema = {
@@ -327,17 +337,22 @@ export const PluginResultSchema = {
     data: z.array(AlbumSchema),
     sourceContext: z.record(z.string(), z.any())
   }),
-  artistDetail: z.object({ code: z.number(), data: ArtistDetailSchema.or(z.null()) }),
+  artistDetail: z.object({
+    code: z.number(),
+    artist: ArtistDetailSchema.or(z.null()),
+    songs: z.array(TrackSchema),
+    sourceContext: z.record(z.string(), z.any())
+  }),
   artistMVs: z.object({
     code: z.number(),
     data: z.array(MvSchema),
     sourceContext: z.record(z.string(), z.any())
   }),
-  artistTracks: z.object({
-    code: z.number(),
-    data: z.array(TrackSchema),
-    sourceContext: z.record(z.string(), z.any())
-  }),
+  // artistTracks: z.object({
+  //   code: z.number(),
+  //   data: z.array(TrackSchema),
+  //   sourceContext: z.record(z.string(), z.any())
+  // }),
   simiArtists: z.object({
     code: z.number(),
     data: z.array(ArtistSchema),
@@ -347,8 +362,14 @@ export const PluginResultSchema = {
     code: z.number(),
     data: TrackSchema.or(z.null())
   }),
+  likeATrack: z.object({ code: z.number() }),
   addOrRemoveTracksToPlaylist: z.object({ code: z.number() }),
   createPlaylist: z.object({ code: z.number(), data: PlaylistSchema.optional() }),
   deletePlaylist: z.object({ code: z.number() }),
-  subscribePlaylist: z.object({ code: z.number() })
+  subscribePlaylist: z.object({ code: z.number() }),
+  followArtist: z.object({ code: z.number() }),
+  subscribeAlbum: z.object({ code: z.number() }),
+  getTrackCatlist: z.object({ code: z.number(), data: z.array(TrackCatlistSchema) })
+
+  // getExtraContextMenuItem: z.object({ code: z.number(), data: z.array() })
 } as const

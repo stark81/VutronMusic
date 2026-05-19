@@ -15,13 +15,13 @@
   </div>
 </template>
 <script setup lang="ts">
-import { PropType, computed, toRefs } from 'vue'
+import { PropType, computed } from 'vue'
 import ArtistsInLine from './ArtistsInLine.vue'
-import { useSettingsStore } from '../store/settings'
-import { Track } from '@/types/music.d'
+// import { useSettingsStore } from '../store/settings'
+import { Track } from '@/types/plugin'
 
-const settingsStore = useSettingsStore()
-const { scanning } = toRefs(settingsStore.localMusic)
+// const settingsStore = useSettingsStore()
+// const { scanning } = toRefs(settingsStore.localMusic)
 
 const props = defineProps({
   trackProp: {
@@ -38,18 +38,12 @@ const tracks = computed(() => props.trackProp)
 // const pic = ref()
 
 const image = computed(() => {
-  if (tracks.value[0].type === 'local') {
-    return scanning.value
-      ? `atom://get-pic-path/${tracks.value[0].filePath}`
-      : `atom://local-asset?type=pic&id=${tracks.value[0].id}&size=64`
-  }
-  const url = tracks.value[0].album.picUrl
-  return tracks.value[0].type === 'stream' ? url : url + '?param=64y64'
+  return tracks.value[0].picUrl
 })
 
 const artists = computed(() => {
-  const { ar, artists } = tracks.value[0]
-  return ar ?? artists ?? []
+  const { artists } = tracks.value[0]
+  return artists ?? []
 })
 </script>
 

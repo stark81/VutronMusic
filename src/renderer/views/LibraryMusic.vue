@@ -26,9 +26,11 @@
       </div>
       <div class="songs">
         <TrackList
-          :id="filterLikedTracks.length > 0 ? filterPlaylists[0].id : 0"
           :items="filterLikedTracks.slice(0, 8)"
-          :type="'tracklist'"
+          :plugin="tool.groundBy === 'all' ? services[0].code : tool.groundBy"
+          :is-group-by="tool.groundBy === 'all'"
+          type="TrackList"
+          :source-context="{}"
           :show-position="false"
           :item-height="60"
           :height="240"
@@ -147,10 +149,12 @@
 
         <div v-show="currentTab === 'cloudDisk'">
           <TrackList
-            :id="-8"
             :items="filterCloudDisk"
             :colunm-number="1"
-            type="cloudDisk"
+            :plugin="tool.groundBy === 'all' ? services[0].code : tool.groundBy"
+            :is-group-by="tool.groundBy === 'all'"
+            :source-context="{}"
+            type="CloudDisk"
             :is-end="true"
           />
         </div>
@@ -176,10 +180,13 @@
           </button>
           <TrackList
             :items="playHistoryList"
+            :plugin="tool.groundBy === 'all' ? services[0].code : tool.groundBy"
+            :is-group-by="tool.groundBy === 'all'"
+            :source-context="{}"
             :colunm-number="1"
             :height="historyHeight"
             :item-height="60"
-            type="tracklist"
+            type="History"
             :is-end="true"
           />
         </div>
@@ -236,7 +243,7 @@ import Mvrow from '../components/MvRow.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import { useRouter } from 'vue-router'
 import { lyricLine } from '@/types/music'
-import { PluginId, Track } from '@/types/plugin'
+import { Track } from '@/types/plugin'
 
 const dataStore = useDataStore()
 const { liked, libraryPlaylistFilter } = storeToRefs(dataStore)
@@ -384,7 +391,7 @@ const loadData = async () => {
     tricklingProgress.done()
     show.value = true
     getRandomLyric()
-    await fetchLikedSongsWithDetails(sers)
+    fetchLikedSongsWithDetails(sers)
     fetchLikedPlaylists(sers)
   } else {
     await fetchLikedPlaylists(sers)
@@ -393,7 +400,6 @@ const loadData = async () => {
     tricklingProgress.done()
     show.value = true
   }
-  // fetchLikedAlbums(sers)
   fetchLikedArtists(sers)
   fetchLikedMVs(sers)
   // fetchPlayHistory()
@@ -407,7 +413,7 @@ const getRandomLyric = async () => {
   let data: lyricLine[]
   while (i < filterLikedTracks.value.length) {
     const track = filterLikedTracks.value[randomNum(0, filterLikedTracks.value.length - 1)]
-    data = await fetchLyric(track.pluginId as PluginId, track.sourceContext)
+    data = await fetchLyric(track.pluginId, track.sourceContext)
     const isInstrumental = data.map((l) => l.lyric.text).filter((l) => l.includes('纯音乐，请欣赏'))
     if (data.length && !isInstrumental.length) {
       lyric.value = data.map((l) => ({ content: l.lyric.text }))
@@ -516,40 +522,7 @@ onMounted(async () => {
   }
   await nextTick()
   loadData()
-  // await nextTick()
 
-  // const pluginId = 'kugou' as PluginId
-
-  // pluginMethodCall(pluginId, 'receiveVip', { receive_day: '2026-04-18' })
-  //   .then((res) => {
-  //     console.log('====receiveVip====', res)
-  //   })
-  //   .catch((error) => {
-  //     console.log('33333333', error)
-  //   })
-
-  // pluginMethodCall(pluginId, 'userPlaylist').then((res) => {
-  //   console.log('kugou userPlaylist res = ', res)
-  // })
-
-  // pluginMethodCall(pluginId, 'search', { keywords: '我爱他' }).then((res) => {
-  //   console.log('kugou search res = ', res)
-  // })
-
-  // pluginMethodCall(pluginId, 'songUrl', {
-  //   hash: 'd06f97d2b923f89c755e2cfceccaa69c',
-  //   quality: 'high'
-  // }).then((res) => {
-  //   console.log('kugou songUrl res = ', res)
-  // })
-
-  // pluginMethodCall(pluginId, 'getLyric', {
-  //   hash: 'd06f97d2b923f89c755e2cfceccaa69c'
-  // }).then((res) => {
-  //   console.log('2222222222', res)
-  // })
-
-  // dailyTask()
   setTimeout(() => {
     updatePadding(0)
     show.value = true

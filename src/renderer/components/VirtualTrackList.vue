@@ -11,7 +11,6 @@
     :above-value="5"
     :below-value="5"
     :gap="gap"
-    :pid="id"
     :enable-virtual-scroll="enableVirtualScroll"
   >
     <template #position="{ scrollToCurrent }">
@@ -38,23 +37,28 @@
   <div v-show="showComment" class="comment" @click="closeComment">
     <div></div>
     <div class="comment-container-parent" @click.stop>
-      <CommentPage v-if="showComment" :id="rightClickedTrackComputed.id" type="music" />
+      <CommentPage
+        v-if="showComment"
+        :id="rightClickedTrackComputed.id"
+        :plugin="plugin"
+        type="music"
+      />
     </div>
   </div>
   <ContextMenu ref="trackListMenuRef" @close-menu="closeMenu">
-    <div v-show="type !== 'cloudDisk'" class="item-info">
+    <div v-show="type !== 'CloudDisk'" class="item-info">
       <img v-if="image" :src="image" loading="lazy" />
       <div class="info">
         <div class="title">{{ rightClickedTrackComputed.name }}</div>
         <div class="subtitle">{{ rightClickedTrackComputed.artists[0].name }}</div>
       </div>
     </div>
-    <hr v-show="type !== 'cloudDisk'" />
+    <hr v-show="type !== 'CloudDisk'" />
     <div class="item" @click="play">{{ $t('contextMenu.play') }}</div>
-    <div class="item" @click="addToQueue(rightClickedTrack.id)">{{
+    <div class="item" @click="addToQueue([rightClickedTrack.sourceContext])">{{
       $t('contextMenu.addToQueue')
     }}</div>
-    <div v-if="type !== 'cloudDisk'" class="item" @click="openComment">{{
+    <div v-if="type !== 'CloudDisk'" class="item" @click="openComment">{{
       $t('contextMenu.showComment')
     }}</div>
     <div
@@ -63,11 +67,11 @@
       @click="accurateMatchTrack"
       >{{ $t('contextMenu.accurateMatch') }}</div
     >
-    <hr v-show="type !== 'cloudDisk' && type !== 'localTracks'" />
+    <hr v-show="type !== 'CloudDisk'" />
     <div v-if="!type.includes('local') && !type.includes('stream')" class="item" @click="copyId">{{
       $t('contextMenu.copyId')
     }}</div>
-    <div v-show="type !== 'cloudDisk'" class="item" @click="addTrackToPlaylist">{{
+    <div v-show="type !== 'CloudDisk'" class="item" @click="addTrackToPlaylist">{{
       $t('player.addToPlaylist')
     }}</div>
     <div
@@ -122,27 +126,29 @@ import {
 } from 'vue'
 import { usePlayerStore } from '../store/player'
 import { useNormalStateStore } from '../store/state'
-import { useLocalMusicStore } from '../store/localMusic'
+import { usePluginMusic } from '../store/pluginMusic'
+// import { useLocalMusicStore } from '../store/localMusic'
 import VirtualScroll from './VirtualScrollNoHeight.vue'
 import CommentPage from './CommentPage.vue'
 import { storeToRefs } from 'pinia'
 import TrackListItem from './TrackListItem.vue'
 import ContextMenu from './ContextMenu.vue'
 import { useI18n } from 'vue-i18n'
-import { addOrRemoveTrackFromPlaylist } from '../api/playlist'
-import _ from 'lodash'
-import { isAccountLoggedIn } from '../utils/auth'
-import { useStreamMusicStore } from '../store/streamingMusic'
+import merge from 'lodash/merge'
+import isEqual from 'lodash/isEqual'
+// import { isAccountLoggedIn } from '../utils/auth'
+// import { useStreamMusicStore } from '../store/streamingMusic'
 import SvgIcon from './SvgIcon.vue'
-import { serviceName } from '@/types/music.d'
+import { playlistSourceInfo, SourceType } from '@/types/music.d'
 import { PluginId, Track } from '@/types/plugin'
 
 const props = withDefaults(
   defineProps<{
     items: Track[]
     allItems?: Track[]
-    type: string
-    groupBy?: '' | 'all' | serviceName
+    type: SourceType
+    plugin: PluginId
+    isGroupBy: boolean
     isLyric?: boolean
     showPosition?: boolean
     showService?: boolean
@@ -150,7 +156,7 @@ const props = withDefaults(
     colunmNumber: number
     gap?: number
     extraContextMenuItem?: any[]
-    id?: number | string
+    sourceContext: Record<string, any>
     height?: number
     albumObject?: {
       artist: { name: string }
@@ -165,7 +171,7 @@ const props = withDefaults(
   }>(),
   {
     allItems: () => [],
-    groupBy: '',
+    isGroupBy: false,
     isLyric: false,
     showPosition: true,
     showService: false,
@@ -186,16 +192,16 @@ const props = withDefaults(
   }
 )
 
-const { items, colunmNumber, id } = toRefs(props)
+const { items, colunmNumber } = toRefs(props)
 const trackListMenuRef = ref<InstanceType<typeof ContextMenu>>()
-const selectedList = ref<number[]>([])
+const selectedList = ref<Record<string, any>[]>([])
 const rightClickedTrackIndex = ref(-1)
 const showComment = ref(false)
 const rightClickedTrack = ref({
   id: 0,
   name: '',
   type: 'online',
-  pluginId: '',
+  pluginId: '' as PluginId,
   source: '',
   playlistItemId: null,
   mvid: 0,
@@ -205,20 +211,31 @@ const rightClickedTrack = ref({
 })
 const { t } = useI18n()
 const playerStore = usePlayerStore()
-const { playlistSource, currentTrack, list, playNextList } = storeToRefs(playerStore)
+const { playlistSource, currentTrack /* list, playNextList */ } = storeToRefs(playerStore)
 const { replacePlaylist, addTrackToPlayNext } = playerStore
 
 const stateStore = useNormalStateStore()
 const { showToast } = stateStore
 const { addTrackToPlaylistModal, accurateMatchModal } = storeToRefs(stateStore)
 
-const { addOrRemoveTrackFromStreamPlaylist } = useStreamMusicStore()
+// const { addOrRemoveTrackFromStreamPlaylist } = useStreamMusicStore()
+
+const pluginStore = usePluginMusic()
+const { services } = storeToRefs(pluginStore)
+const { pluginMethodCall, isAccountLoggedIn } = pluginStore
 
 const isSelectAll = computed(() => {
   return selectedList.value.length === items.value.length
 })
+
+const currentSource = computed(() => ({
+  type: props.type,
+  plugin: props.plugin,
+  sourceContext: props.sourceContext
+}))
+
 const rightClickedTrackComputed = computed(() => {
-  return props.type === 'cloudDisk'
+  return props.type === 'CloudDisk'
     ? {
         id: 0,
         name: '',
@@ -227,10 +244,12 @@ const rightClickedTrackComputed = computed(() => {
         mvid: 0,
         filePath: '',
         source: '',
+        pluginId: '' as PluginId,
         playlistItemId: null,
         artists: [{ name: '' }],
         album: { picUrl: '' },
-        al: { picUrl: '' }
+        al: { picUrl: '' },
+        sourceContext: {}
       }
     : rightClickedTrack.value
 })
@@ -251,22 +270,11 @@ const image = computed(() => {
   }
 })
 
-const typeType = computed(() => {
-  if (props.type.includes('local')) return 'local'
-  else if (props.type.includes('stream')) return 'stream'
-  return 'online'
-})
 const showScrollTo = computed(() => {
   return (
     currentTrack.value &&
     props.showTrackPosition &&
-    ((playlistSource.value.type === props.type && playlistSource.value.id === props.id) ||
-      (playlistSource.value.type === 'localPlaylist' &&
-        playlistSource.value.type === props.type &&
-        props.id === 0) ||
-      (playlistSource.value.type === 'streamPlaylist' &&
-        playlistSource.value.type === props.type &&
-        props.id === 0))
+    isEqual(playlistSource.value, currentSource.value)
   )
 })
 const currentIndex = computed(() => {
@@ -275,13 +283,20 @@ const currentIndex = computed(() => {
 
 const playThisList = (index: number | string) => {
   if (!props.dbclickEnable) return
+
+  const source: playlistSourceInfo = {
+    type: props.type,
+    plugin: props.plugin,
+    sourceContext: props.sourceContext
+  }
+
   const sourceItems = props.allItems?.length ? props.allItems : items.value
   const sourceContext: [PluginId, Record<string, any>][] = sourceItems.map((track) => [
-    track.pluginId as PluginId,
+    track.pluginId,
     track.sourceContext
   ])
   const idx = sourceItems.findIndex((item) => item.id === index)
-  replacePlaylist(props.type, id.value, sourceContext, idx)
+  replacePlaylist(source, sourceContext, idx)
 }
 
 const closeMenu = () => {
@@ -290,7 +305,7 @@ const closeMenu = () => {
     id: 0,
     name: '',
     type: 'online',
-    pluginId: '',
+    pluginId: '' as PluginId,
     source: '',
     playlistItemId: null,
     mvid: 0,
@@ -310,7 +325,7 @@ const accurateMatchTrack = () => {
 
 const selectAll = () => {
   if (!isSelectAll.value) {
-    selectedList.value = items.value.map((track) => track.id as number)
+    selectedList.value = items.value.map((track) => track.sourceContext)
   } else {
     selectedList.value = []
   }
@@ -320,118 +335,95 @@ const doFinish = () => {
 }
 
 const play = () => {
-  addTrackToPlayNext(rightClickedTrack.value.id, true, true)
+  // addTrackToPlayNext(rightClickedTrack.value.id, true, true)
 }
 
 const showInFolder = () => {
-  window.mainApi?.send('msgShowInFolder', rightClickedTrackComputed.value.filePath)
+  // window.mainApi?.send('msgShowInFolder', rightClickedTrackComputed.value.filePath)
 }
 
 const openMenu = (e: MouseEvent, track: { [key: string]: any }, index: number) => {
-  _.merge(rightClickedTrack.value, track)
-  rightClickedTrack.value.matched = typeType.value === 'online' || track.matched || false
+  merge(rightClickedTrack.value, track)
   rightClickedTrackIndex.value = index
   trackListMenuRef.value?.openMenu(e)
 }
 
-const { removeTrackFromPlaylist } = useLocalMusicStore()
 const rmTrackFromPlaylist = () => {
-  if (typeType.value === 'local') {
-    if (confirm(`确定要从歌单删除 ${rightClickedTrack.value.name}？`)) {
-      const idx = rightClickedTrackIndex.value
-      removeTrackFromPlaylist(props.id as number, rightClickedTrackComputed.value.id).then(
-        (result) => {
-          if (result) {
-            removeTrack(idx)
-            showToast(t('toast.removedFromPlaylist'))
-          }
-        }
-      )
-    }
-  } else if (typeType.value === 'online') {
-    if (!isAccountLoggedIn()) {
-      showToast(t('toast.needToLogin'))
-      return
-    }
-    if (confirm(`确定要从歌单删除 ${rightClickedTrackComputed.value.name}？`)) {
-      const idx = rightClickedTrackIndex.value
-      addOrRemoveTrackFromPlaylist({
-        op: 'del',
-        pid: props.id,
-        tracks: rightClickedTrackComputed.value.id
-      }).then((result) => {
-        if (result.body.code === 200) {
-          showToast(t('toast.removedFromPlaylist'))
-          removeTrack(idx)
-        } else {
-          showToast(result.body.message)
-        }
+  if (props.isGroupBy) {
+    showToast('在聚合视图下无法进行操作，请先选择具体的音源服务')
+    return
+  }
+
+  if (!isAccountLoggedIn(props.plugin)) {
+    showToast(t('toast.needToLogin'))
+    return
+  }
+
+  const pname = services.value.find((item) => item.code === props.plugin)!.name
+  const source = rightClickedTrackComputed.value.sourceContext
+  const idx = items.value.findIndex((item) => isEqual(item.sourceContext, source))
+
+  if (
+    confirm(
+      t('playlist.rmTrackFromPlaylist', {
+        name: pname,
+        code: props.plugin,
+        tname: rightClickedTrack.value.name
       })
-    }
-  } else {
-    if (props.groupBy === 'all') {
-      showToast('在聚合视图下无法进行操作，请先选择具体的流媒体服务')
-      return
-    }
-    if (confirm(`确定要从${props.groupBy}歌单删除 ${rightClickedTrackComputed.value.name}？`)) {
-      const idx = rightClickedTrackIndex.value
-      const playlistItemId = rightClickedTrackComputed.value.playlistItemId
-      addOrRemoveTrackFromStreamPlaylist(
-        'del',
-        props.groupBy as serviceName,
-        props.id as string,
-        [
-          rightClickedTrackComputed.value.source === 'navidrome' ? idx : playlistItemId
-        ] as unknown as string[]
-      ).then((res) => {
-        if (res) {
-          removeTrack(idx)
-          showToast(t('toast.removedFromPlaylist'))
-        }
-      })
-    }
+    )
+  ) {
+    pluginMethodCall(props.plugin, 'addOrRemoveTracksToPlaylist', {
+      op: 'del',
+      playlist: props.sourceContext,
+      tracks: [source]
+    }).then((res) => {
+      if (res.code === 200) {
+        removeTrack(idx)
+        showToast(t('toast.removedFromPlaylist'))
+      }
+    })
   }
 }
 
 const addToLocalPlaylist = (trackIDs: number[] = []) => {
   // 设置延迟执行，保证contextMenu的滚动效果生效后再打开弹窗，以避免两者的滚动效果冲突
-  if (!trackIDs.length) {
-    trackIDs = selectedList.value
-  }
-  setTimeout(() => {
-    addTrackToPlaylistModal.value = {
-      show: true,
-      selectedTrackID: trackIDs,
-      type: 'local'
-    }
-  })
+  // if (!trackIDs.length) {
+  //   trackIDs = selectedList.value
+  // }
+  // setTimeout(() => {
+  //   addTrackToPlaylistModal.value = {
+  //     show: true,
+  //     selectedTrackID: trackIDs,
+  //     type: 'local'
+  //   }
+  // })
 }
 
 const removeFromQueue = (playlist: 'insert' | 'next', id: string | number) => {
-  if (playlist === 'insert') {
-    const index = playNextList.value.findIndex((idx) => idx === id)
-    if (index > -1) playNextList.value.splice(index, 1)
-  } else {
-    const index = list.value.findIndex((idx) => idx === id)
-    if (index > -1) list.value.splice(index, 1)
-  }
+  // if (playlist === 'insert') {
+  //   const index = playNextList.value.findIndex((idx) => idx === id)
+  //   if (index > -1) playNextList.value.splice(index, 1)
+  // } else {
+  //   const index = list.value.findIndex((idx) => idx === id)
+  //   if (index > -1) list.value.splice(index, 1)
+  // }
 }
 
 const addToSteamPlaylist = (trackIDs: number[] = []) => {
-  if (props.groupBy === 'all') {
-    showToast('在聚合视图下无法进行操作，请先选择具体的流媒体服务')
-    return
-  }
-  if (!trackIDs.length) {
-    trackIDs = selectedList.value
-  }
-  setTimeout(() => {
-    addTrackToPlaylistModal.value = {
-      show: true,
-      selectedTrackID: trackIDs,
-      type: props.groupBy as serviceName
-    }
-  })
+  // if (props.groupBy === 'all') {
+  //   showToast('在聚合视图下无法进行操作，请先选择具体的流媒体服务')
+  //   // return
+  // }
+  // if (!trackIDs.length) {
+  //   trackIDs = selectedList.value
+  // }
+  // setTimeout(() => {
+  //   addTrackToPlaylistModal.value = {
+  //     show: true,
+  //     selectedTrackID: trackIDs,
+  //     type: props.groupBy as serviceName
+  //   }
+  // })
 }
 
 const copyId = () => {
@@ -441,18 +433,28 @@ const copyId = () => {
 }
 
 const addTrackToPlaylist = () => {
-  // if (!isAccountLoggedIn()) {
-  //   showToast(t('toast.needToLogin'))
-  //   return
-  // }
-  // const trackIDs = [rightClickedTrack.value?.id]
-  // setTimeout(() => {
-  //   addTrackToPlaylistModal.value = {
-  //     show: true,
-  //     selectedTrackID: trackIDs,
-  //     type: 'online'
-  //   }
-  // })
+  let ids = [] as Record<string, any>[]
+
+  if (rightClickedTrackComputed.value.id === 0) {
+    if (props.isGroupBy) {
+      showToast('在聚合视图下无法进行操作，请先选择具体的音源服务')
+      return
+    }
+    ids = selectedList.value
+  } else {
+    ids = [rightClickedTrackComputed.value.sourceContext]
+  }
+
+  if (!isAccountLoggedIn(rightClickedTrackComputed.value.pluginId)) {
+    showToast(t('toast.needToLogin'))
+    return
+  }
+
+  addTrackToPlaylistModal.value = {
+    show: true,
+    selectedTrackID: ids,
+    plugin: rightClickedTrackComputed.value.pluginId
+  }
 }
 
 const openComment = () => {
@@ -465,7 +467,7 @@ const closeComment = () => {
     id: 0,
     name: '',
     type: 'online',
-    pluginId: '',
+    pluginId: '' as PluginId,
     source: '',
     playlistItemId: null,
     mvid: 0,
@@ -476,14 +478,14 @@ const closeComment = () => {
   rightClickedTrackIndex.value = -1
 }
 
-const addToQueue = (ids: number | number[] | null = null) => {
+const addToQueue = (ids: Record<string, any>[]) => {
   if (!ids) {
     ids = selectedList.value
   }
-  addTrackToPlayNext(ids)
+  // addTrackToPlayNext(ids)
 }
 const updatePadding = inject('updatePadding') as (padding: number) => void
-const removeTrack = inject('removeTrack', (id: number | string) => {})
+const removeTrack = inject('removeTrack', (idx: number) => {})
 
 provide('playThisList', playThisList)
 provide('selectedList', selectedList)

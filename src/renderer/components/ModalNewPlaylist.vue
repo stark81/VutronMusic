@@ -44,7 +44,7 @@ const { t } = useI18n()
 
 const pluginStore = usePluginMusic()
 const { services, playlists: pluginPlaylist } = storeToRefs(pluginStore)
-const { pluginMethodCall } = pluginStore
+const { pluginMethodCall, fetchLikedPlaylists } = pluginStore
 
 const title = ref('')
 const isPrivate = ref(false)
@@ -75,13 +75,8 @@ const service = computed(() => services.value.find((item) => item.code === plugi
 const playlists = computed(() => pluginPlaylist.value[plugin.value].data!)
 
 const modelTitle = computed(() => {
-  return service.value?.name
-  // if (type.value === 'local') {
-  //   return t('localMusic.playlist.newPlaylist')
-  // } else if (type.value === 'online') {
-  //   return t('library.playlist.newPlaylist')
-  // }
-  // return t('streamMusic.playlist.newPlaylist')
+  const service = services.value.find((item) => item.code === plugin.value)
+  return t('playlist.newPlaylist', { name: service?.name || '', code: service?.code || '' })
 })
 
 const close = () => {
@@ -96,7 +91,12 @@ const createAPlaylist = async () => {
   const data = { name: title.value, isPrivate: isPrivate.value }
   const result = await pluginMethodCall(plugin.value, 'createPlaylist', data)
   if (result.code === 200 && result.data) {
-    playlists.value.push(result.data)
+    fetchLikedPlaylists([plugin.value])
+    if (!ids.value.length) {
+      showToast(t('toast.createLocalPlaylistSuccess'))
+      close()
+      return
+    }
     const res = await pluginMethodCall(plugin.value, 'addOrRemoveTracksToPlaylist', {
       op: 'add',
       playlist: result.data.sourceContext,

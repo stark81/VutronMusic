@@ -19,6 +19,7 @@ import {
   Tool,
   Mv
 } from '@/types/plugin'
+import plugin from 'dayjs/plugin/duration'
 
 const _buildService = (code: PluginId, meta: { name: string; type: MusicType }): service => {
   return {
@@ -134,12 +135,27 @@ export const usePluginMusic = defineStore(
             if (!pluginIdSet.value.has(pluginId)) {
               const info = _buildService(pluginId, meta)
               services.value.push(info)
+              _initPluginData(pluginId)
             }
           }
         })
       const active = services.value.find((item) => item.active)
       if (!active) {
         services.value.find((item) => item.code === 'netease')!.active = true
+      }
+    }
+
+    const _initPluginData = (pluginId: PluginId) => {
+      tracks[pluginId] = { data: [], sourceContext: {} }
+      albums[pluginId] = { data: [], sourceContext: {} }
+      artists[pluginId] = { data: [], sourceContext: {} }
+      playlists[pluginId] = { liked: null, data: [], sourceContext: {} }
+      likedTracks[pluginId] = { data: [], sourceContext: {} }
+      cloudDisks[pluginId] = { data: [], sourceContext: {} }
+      mvs[pluginId] = { data: [], sourceContext: {} }
+
+      if (!additionalTags[pluginId]) {
+        additionalTags[pluginId] = []
       }
     }
 
@@ -367,13 +383,13 @@ export const usePluginMusic = defineStore(
     }
 
     const likeATrack = async (track: Track) => {
-      const plugin = track.pluginId as PluginId
+      const plugin = track.pluginId
       const playlist = playlists[plugin].liked
 
       const idx = likedTracks[plugin].data.findIndex((item) => String(item.id) === String(track.id))
       const op = idx === -1 ? 'add' : 'del'
 
-      pluginMethodCall(plugin, 'addOrRemoveTracksToPlaylist', {
+      pluginMethodCall(plugin, 'likeATrack', {
         op,
         playlist: playlist?.sourceContext || {},
         tracks: [track.sourceContext]
@@ -386,6 +402,11 @@ export const usePluginMusic = defineStore(
           }
         }
       })
+    }
+
+    const isAccountLoggedIn = (plugin: PluginId) => {
+      const user = users[plugin]?.userId
+      return !!user
     }
 
     return {
@@ -407,6 +428,7 @@ export const usePluginMusic = defineStore(
       resizeImage,
       pluginMethodCall,
       getPlaylistDetail,
+      isAccountLoggedIn,
       uploadPlugin,
       getPlugins,
       fetchLikedMVs,

@@ -45,7 +45,7 @@ import SvgIcon from './SvgIcon.vue'
 import ExplicitSymbol from './ExplicitSymbol.vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import { formatPlayCount } from '../utils'
-import { Album, Artist, PlaylistDetail } from '@/types/plugin'
+import { Album, Artist, Playlist, PlaylistDetail } from '@/types/plugin'
 import { CoverType } from '@/types/music'
 
 const props = defineProps({
@@ -92,7 +92,7 @@ const isExplicit = (item: any) => {
 }
 
 const isPrivacy = (item: any) => {
-  return props.type === 'Playlist' && item.privacy === 10
+  return props.type === 'Playlist' && item.isPrivate
 }
 
 const getSubText = (item: any) => {

@@ -49,9 +49,9 @@ const loginModes = ref([
 
 const selectedMode = computed(() => loginModes.value.find((M) => M.selected)!)
 const currentService = reactive<{
-  code: string
+  code: PluginId
   name: string
-}>({ code: '', name: '' })
+}>({ code: '' as PluginId, name: '' })
 
 const selectedColor = computed(() => {
   const color = theme.value.colors.find((c) => c.selected)?.color || 'rgba(51, 94, 234, 1)'
@@ -72,7 +72,7 @@ const selectedColor = computed(() => {
 const checkQrCodeLogin = () => {
   if (qrCodeKey.value === '') return
   qrCodeCheckInterval.value = setInterval(() => {
-    const pluginId = currentService.code as PluginId
+    const pluginId = currentService.code
     pluginMethodCall(pluginId, 'loginQrCodeCheck', {
       key: qrCodeKey.value
     }).then((res) => {
@@ -94,7 +94,7 @@ const checkQrCodeLogin = () => {
 }
 
 const getQrCodeKey = async () => {
-  const res = await pluginMethodCall(currentService.code as PluginId, 'loginQrKey')
+  const res = await pluginMethodCall(currentService.code, 'loginQrKey')
   if (res.code === 200) {
     qrCodeKey.value = res.data.qrcode
   }

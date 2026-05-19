@@ -20,20 +20,18 @@
 import { ref, provide, watch } from 'vue'
 import CommentList from './CommentList.vue'
 import FloorComment from './CommentFloor.vue'
+import { PluginId } from '@/types/plugin'
 
-const props = defineProps({
-  id: {
-    type: [Number, String],
-    required: true
-  },
-  type: {
-    type: String,
-    default: 'music'
-  },
-  paddingRight: {
-    type: String,
-    default: '4vh'
-  }
+interface Props {
+  id: number | string
+  type?: string
+  plugin: PluginId
+  paddingRight?: string
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  type: 'music',
+  paddingRight: '4vh'
 })
 
 const currentPage = ref('comment')

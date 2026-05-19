@@ -1,45 +1,45 @@
 import { isAccountLoggedIn } from './auth'
 import { recommendPlaylist, dailyRecommendPlaylist, getPlaylistDetail } from '../api/playlist'
-import { usePlayerStore } from '../store/player'
-import { useDataStore } from '../store/data'
-import { storeToRefs } from 'pinia'
+// import { usePlayerStore } from '../store/player'
+// import { useDataStore } from '../store/data'
+// import { storeToRefs } from 'pinia'
 
-export const hasListSource = () => {
-  const playerStore = usePlayerStore()
-  const { playlistSource, isPersonalFM } = storeToRefs(playerStore)
-  return (
-    !isPersonalFM.value &&
-    (playlistSource.value.id !== 0 ||
-      playlistSource.value.type.includes('local') ||
-      playlistSource.value.type.includes('stream'))
-  )
-}
+// export const hasListSource = () => {
+//   const playerStore = usePlayerStore()
+//   const { playlistSource, isPersonalFM } = storeToRefs(playerStore)
+//   return (
+//     !isPersonalFM.value &&
+//     (playlistSource.value.id !== 0 ||
+//       playlistSource.value.type.includes('local') ||
+//       playlistSource.value.type.includes('stream'))
+//   )
+// }
 
-export const getListSourcePath = () => {
-  const { likedSongPlaylistID } = storeToRefs(useDataStore())
-  const { playlistSource, currentTrack } = storeToRefs(usePlayerStore())
+// export const getListSourcePath = () => {
+//   const { likedSongPlaylistID } = storeToRefs(useDataStore())
+//   const { playlistSource, currentTrack, hasListSource } = storeToRefs(usePlayerStore())
 
-  if (playlistSource.value.id === likedSongPlaylistID.value && playlistSource.value.id !== 0) {
-    return '/library/liked-songs'
-  } else if (playlistSource.value.type === 'url') {
-    return playlistSource.value.id as string
-  } else if (playlistSource.value.type === 'cloudDisk') {
-    return '/library'
-  } else if (playlistSource.value.type.includes('local') && playlistSource.value.id === 0) {
-    return '/localMusic'
-  } else if (playlistSource.value.type === 'streamLiked') {
-    return `/stream-liked-songs/${currentTrack.value!.source}`
-  } else if (playlistSource.value.type.includes('stream') && playlistSource.value.id === 0) {
-    return '/stream'
-  } else {
-    return `/${playlistSource.value.type}/${playlistSource.value.id}`
-  }
-}
+//   if (playlistSource.value.id === likedSongPlaylistID.value && playlistSource.value.id !== 0) {
+//     return '/library/liked-songs'
+//   } else if (playlistSource.value.type === 'url') {
+//     return playlistSource.value.id as string
+//   } else if (playlistSource.value.type === 'cloudDisk') {
+//     return '/library'
+//   } else if (playlistSource.value.type.includes('local') && playlistSource.value.id === 0) {
+//     return '/localMusic'
+//   } else if (playlistSource.value.type === 'streamLiked') {
+//     return `/stream-liked-songs/${currentTrack.value!.source}`
+//   } else if (playlistSource.value.type.includes('stream') && playlistSource.value.id === 0) {
+//     return '/stream'
+//   } else {
+//     return `/${playlistSource.value.type}/${playlistSource.value.id}`
+//   }
+// }
 
 export const getRecommendPlayList = async (limit: number, removePrivateRecommand: boolean) => {
   if (isAccountLoggedIn()) {
     const playlists = await Promise.all([dailyRecommendPlaylist(), recommendPlaylist({ limit })])
-    let recommend = playlists[0].recommend ?? []
+    let recommend: any[] = playlists[0].recommend ?? []
     if (recommend.length) {
       if (removePrivateRecommand) recommend = recommend.slice(1)
       await replaceRecommendResult(recommend)

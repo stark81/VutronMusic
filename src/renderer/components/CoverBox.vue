@@ -32,7 +32,7 @@ import { storeToRefs } from 'pinia'
 // import { getPlaylistDetail } from '../api/playlist'
 // import { getArtist } from '../api/artist'
 // import { getAlbum } from '../api/album'
-import { serviceName, CoverType } from '@/types/music.d'
+import { serviceName, CoverType, playlistSourceInfo } from '@/types/music.d'
 import { PluginId, Track } from '@/types/plugin'
 
 const props = defineProps({
@@ -101,17 +101,23 @@ const play = async () => {
 
   let tracks = [] as Track[]
   if (props.type === 'Playlist') {
-    tracks = await getPlaylistDetail(plugin, props.sourceContext).then(
-      (result) => result.data?.tracks ?? []
+    tracks = await getPlaylistDetail(plugin, { ...props.sourceContext, reset: true }).then(
+      (result) => result.data?.tracks || []
     )
   } else if (props.type === 'Album') {
     tracks = await pluginMethodCall(plugin, 'albumDetail', props.sourceContext).then(
       (result) => result.data?.songs || []
     )
   } else if (props.type === 'Artist') {
-    tracks = await pluginMethodCall(plugin, 'artistTracks', props.sourceContext).then(
-      (result) => result.data
+    tracks = await pluginMethodCall(plugin, 'artistDetail', props.sourceContext).then(
+      (result) => result.songs
     )
+  }
+
+  const source: playlistSourceInfo = {
+    type: props.type as Exclude<typeof props.type, 'User'>,
+    plugin,
+    sourceContext: props.sourceContext
   }
 
   const ids = tracks.map((item) => [plugin, item.sourceContext]) as [
@@ -119,7 +125,7 @@ const play = async () => {
     Record<string, any>
   ][]
   const idx = isShuffle.value ? Math.floor(Math.random() * tracks.length) : 0
-  replacePlaylist(props.type, props.id, ids, idx)
+  replacePlaylist(source, ids, idx)
 }
 
 const goTo = () => {

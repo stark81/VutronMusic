@@ -1,15 +1,16 @@
 import { defineStore } from 'pinia'
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, /* nextTick, */ onMounted, ref, watch } from 'vue'
 import { useAudioEngineStore } from './audioEngine'
 import { useLyricStore } from './lyric'
 import { usePluginMusic } from './pluginMusic'
 import { useOsdLyricStore } from './osdLyric'
+import { useNormalStateStore } from './state'
 import eventBus from '../utils/eventBus'
 
 import shuffleFn from 'lodash/shuffle'
 
 import { PluginId, Track } from '@/types/plugin'
-import { RepeatMode } from '@/types/music'
+import { RepeatMode, SourceType, playlistSourceInfo } from '@/types/music'
 
 const formatTime = (seconds: number) => {
   const minutes = Math.floor(seconds / 60)
@@ -24,6 +25,7 @@ export const usePlayerStore = defineStore('player', () => {
   const lyricStore = useLyricStore()
   const pluginStore = usePluginMusic()
   const osdLyricStore = useOsdLyricStore()
+  const stateStore = useNormalStateStore()
 
   // ─────────────────────────────────────────────
   // 来自 pluginStore的状态与方法
@@ -70,11 +72,31 @@ export const usePlayerStore = defineStore('player', () => {
 
   const _volume = ref(0.5)
   const _volumeBeforeMuted = ref(0)
-  const playlistSource = ref<{
-    type: string
-    plugin: PluginId | null
-    sourceContext: Record<string, any>
-  }>({ type: '', plugin: null, sourceContext: {} })
+  const playlistSource = ref<playlistSourceInfo>({
+    type: 'Playlist',
+    plugin: '' as PluginId,
+    sourceContext: {}
+  })
+
+  const hasListSource = computed(
+    () => !isPersonalFM.value && playlistSource.value.type !== 'SearchTrack'
+  )
+
+  const getListSourcePath = computed(() => {
+    const { type, plugin, sourceContext } = playlistSource.value
+    switch (type) {
+      case 'Album':
+        return `/album/${plugin}/${JSON.stringify(sourceContext)}`
+      case 'Artist':
+        return `/artist/${plugin}/${JSON.stringify(sourceContext)}`
+      case 'Playlist':
+        return `/playlist/${plugin}/${JSON.stringify(sourceContext)}`
+      case 'DailySongs':
+        return `/daily/songs/${plugin}`
+      default:
+        return ''
+    }
+  })
 
   const list = computed({
     get: () => (isShuffle.value ? shuffleList.value : playList.value),
@@ -114,9 +136,9 @@ export const usePlayerStore = defineStore('player', () => {
 
   const isLiked = computed(() => {
     if (!currentTrack.value) return false
-    const plugin = currentTrack.value.pluginId as PluginId
-    const likedIDs = likedTracks.value[plugin].data.map((item) => item.id)
-    return likedIDs.includes(currentTrack.value.id)
+    const plugin = currentTrack.value.pluginId
+    const likedIDs = likedTracks.value[plugin]?.data.map((item) => item.id)
+    return likedIDs?.includes(currentTrack.value.id)
   })
 
   // ─────────────────────────────────────────────
@@ -201,12 +223,11 @@ export const usePlayerStore = defineStore('player', () => {
   // ─────────────────────────────────────────────
 
   function replacePlaylist(
-    type: string,
-    id: string | number,
+    source: { type: SourceType; plugin: PluginId; sourceContext: Record<string, any> },
     sourceContext: [PluginId, Record<string, any>][],
     index: number
   ) {
-    playlistSource.value = { type, plugin: null, sourceContext: {} }
+    playlistSource.value = source
     isPersonalFM.value = false
     playList.value = sourceContext
 
@@ -252,7 +273,6 @@ export const usePlayerStore = defineStore('player', () => {
 
   // function getTrackInfo() {}
 
-  // const play = () => {}
   const playOrPause = () => {
     if (playing.value) {
       engineStore.pause()
@@ -304,10 +324,7 @@ export const usePlayerStore = defineStore('player', () => {
   function _playNext() {
     if (playingNext.value) {
       const track = currentTrack.value!
-      list.value.splice(currentTrackIndex.value, 0, [
-        track.pluginId as PluginId,
-        track.sourceContext
-      ])
+      list.value.splice(currentTrackIndex.value, 0, [track.pluginId, track.sourceContext])
     }
 
     const [trackInfo, index, isPlayingNext] = _getNextTrack()
@@ -334,9 +351,10 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   function _nextTrackCallback() {
+    seek.value = 0
     if (!isPersonalFM.value && repeatMode.value === 'one') {
       const { pluginId, sourceContext } = currentTrack.value!
-      replaceCurrentTrack(pluginId as PluginId, sourceContext)
+      replaceCurrentTrack(pluginId, sourceContext)
     } else {
       playNext(isPersonalFM.value)
     }
@@ -387,6 +405,7 @@ export const usePlayerStore = defineStore('player', () => {
   const setConvolver = engineStore.setConvolver
   const setDevice = engineStore.setDevice
   const setBalance = engineStore.setBalance
+  const { showToast } = stateStore
 
   // ─────────────────────────────────────────────
   // 原 store 中 shouldGetLrcIndex 的等价暴露
@@ -398,7 +417,7 @@ export const usePlayerStore = defineStore('player', () => {
   const updateMediaSessionMetaData = async (track: Track) => {
     if ('mediaSession' in navigator === false) return
 
-    const plugin = track.pluginId as PluginId
+    const plugin = track.pluginId
 
     const artist = track.artists.map((ar) => ar.name).join(',')
     const metadata = {
@@ -455,8 +474,9 @@ export const usePlayerStore = defineStore('player', () => {
   watch(currentTrack, async (value) => {
     if (!value) return
 
+    seek.value = playing.value ? 0 : progress.value
     // 获取当前歌曲的封面、歌词信息
-    const plugin = value.pluginId as PluginId
+    const plugin = value.pluginId
     await Promise.all([
       pluginMethodCall(plugin, 'resizePicUrl', { url: value.picUrl, size: 512 }).then((result) => {
         pic.value = result.data
@@ -474,6 +494,7 @@ export const usePlayerStore = defineStore('player', () => {
   })
 
   watch(playing, (value) => {
+    progress.value = engineStore.getCurrentTime()
     lyricStore.updateIndex()
     if (osdLyricStore.show) return
     window.mainApi?.sendMessage({ type: 'update-osd-status', data: { playing: value } })
@@ -529,15 +550,20 @@ export const usePlayerStore = defineStore('player', () => {
   function handleEventBus() {
     eventBus.on('loadCurrentTrack', (params) => {
       if (!currentTrack.value) return
+      showToast('正在重新获取播放链接')
+
       const [autoPlay, currentTime] = params as [boolean, number]
       const { pluginId, sourceContext } = currentTrack.value
-      replaceCurrentTrack(pluginId as PluginId, sourceContext, false).then(() => {
+      replaceCurrentTrack(pluginId, sourceContext, false).then(() => {
         seek.value = currentTime
         engineStore.setPosition(currentTime)
         if (autoPlay) engineStore.play()
       })
     })
-    eventBus.on('playNext', () => playNext(isPersonalFM.value))
+    eventBus.on('playNext', () => {
+      showToast(`播放错误，正在切歌: ${currentTrack.value?.reason}`)
+      playNext(isPersonalFM.value)
+    })
   }
 
   function handleIpcRenderer() {
@@ -571,7 +597,7 @@ export const usePlayerStore = defineStore('player', () => {
       if (!currentTrack.value) return
       const t = progress.value
       const { pluginId, sourceContext } = currentTrack.value
-      await replaceCurrentTrack(pluginId as PluginId, sourceContext, false)
+      await replaceCurrentTrack(pluginId, sourceContext, false)
       seek.value = t
     })
 
@@ -645,9 +671,9 @@ export const usePlayerStore = defineStore('player', () => {
     playNextList,
     list,
     personalFMTrack,
-    // personalFMNextTrack,
-    // prefetchedTrack,
-    // prefetchedPic,
+    hasListSource,
+    getListSourcePath,
+
     replacePlaylist,
     replaceCurrentTrack,
     playOrPause,

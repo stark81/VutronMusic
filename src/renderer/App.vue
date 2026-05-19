@@ -74,9 +74,9 @@ const sers = computed(() =>
   services.value.filter((item) => item.status === 'login').map((item) => item.code)
 )
 
-const fetchData = () => {
-  fetchLikedPlaylists(sers.value)
-  fetchLikedSongsWithDetails(sers.value)
+const fetchData = async () => {
+  await fetchLikedPlaylists(sers.value)
+  await fetchLikedSongsWithDetails(sers.value)
   fetchLikedArtists(sers.value)
   // fetchLikedAlbums(sers.value)
   fetchLikedMVs(sers.value)
@@ -248,9 +248,9 @@ const handleChanelEvent = () => {
 }
 
 watchOsdEvent()
+getPlugins().then(fetchData)
 
-onMounted(async () => {
-  await getPlugins()
+onMounted(() => {
   registerInstance(instanceId.value)
   handleEventBus()
   handleChanelEvent()
@@ -274,7 +274,6 @@ onMounted(async () => {
     '--color-primary',
     theme.value.colors.find((c) => c.selected)?.color || 'rgba(51, 94, 234, 1)'
   )
-  fetchData()
   if (general.value.autoUpdate) {
     checkUpdate()
   }

@@ -5,7 +5,7 @@
     :gap="gap"
     :column-number="columnNumber"
     :is-end="isEnd"
-    :item-size="163"
+    :item-size="itemSize"
     :show-position="showPosition"
     :show-footer="false"
     :padding-bottom="paddingBottom"
@@ -66,6 +66,10 @@ const props = defineProps({
   gap: {
     type: Number,
     default: 20
+  },
+  itemSize: {
+    type: Number,
+    default: 163
   },
   showPosition: {
     type: Boolean,

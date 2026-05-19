@@ -21,17 +21,17 @@
       </div>
 
       <div v-show="showCatOptions" class="panel">
-        <div v-for="bigCat in allBigCats" :key="bigCat" class="big-cat">
-          <div class="name">{{ bigCat }}</div>
+        <div v-for="bigCat in tagLists" :key="bigCat.name" class="big-cat">
+          <div class="name">{{ bigCat.name }}</div>
           <div class="cats">
             <div
-              v-for="cat in getCatsByBigCat(bigCat)"
+              v-for="cat in getCatsByBigCat(bigCat.name)"
               :key="cat.name"
               class="cat"
               :class="{
-                active: general.enabledPlaylistCategories.includes(cat.name)
+                active: staticTags.map((it) => it.name).includes(cat.name)
               }"
-              @click="togglePlaylistCategory(cat.name)"
+              @click="togglePlaylistCategory(cat)"
               ><span>{{ cat.name }}</span></div
             >
           </div>
@@ -44,8 +44,9 @@
         <div class="img">
           <Cover
             :id="lst?.id"
-            :type="'playlist'"
-            :plugin-id="'kugou'"
+            :type="'Playlist'"
+            :plugin-id="pluginId"
+            :source-context="lst.sourceContext"
             :image-url="lst?.picUrl"
             class="cover"
           />
@@ -69,13 +70,12 @@
         >
           <div class="name">{{ bigCat }}</div>
           <div class="cats">
+            <!-- active: activeArtistCat.includes(cat) -->
             <div
               v-for="cat in getArtistCatsByBigCat(bigCat)"
               :key="cat.name"
               class="cat unset"
-              :class="{
-                active: activeArtistCat.includes(cat)
-              }"
+              :class="{}"
               @click="toggleArtistCategory(cat)"
               ><span>{{ cat.name }}</span></div
             >
@@ -88,12 +88,12 @@
       <div class="buttons">
         <div
           v-for="category in newTrackBtn"
-          :key="category"
+          :key="category.name"
           class="button"
-          :class="{ active: category === activeCategory }"
-          @click="goToCategory('newTrack', category)"
+          :class="{ active: category.name === activeCategory }"
+          @click="goToCategory('newTrack', category.name)"
         >
-          {{ category }}
+          {{ category.name }}
         </div>
       </div>
     </div>
@@ -102,12 +102,12 @@
       <div class="buttons">
         <div
           v-for="category in newTrackBtn"
-          :key="category"
+          :key="category.name"
           class="button"
-          :class="{ active: category === activeCategory }"
-          @click="goToCategory('newAlbum', category)"
+          :class="{ active: category.name === activeCategory }"
+          @click="goToCategory('newAlbum', category.name)"
         >
-          {{ category }}
+          {{ category.name }}
         </div>
       </div>
       <div class="buttons">
@@ -124,7 +124,15 @@
     </div>
 
     <div v-if="exploreTab === 'newTrack'" class="playlists">
-      <TrackList :id="11" :items="tracks" :colunm-number="1" :type="'playlist'" :is-end="true" />
+      <TrackList
+        :items="tracks"
+        :plugin="pluginId"
+        :source-context="{}"
+        :is-group-by="false"
+        :colunm-number="1"
+        :type="'Playlist'"
+        :is-end="true"
+      />
     </div>
     <div v-else-if="exploreTab === 'newAlbum'" class="playlists">
       <div v-if="albumType === '热门' && newAlbumInfo.topAlbum.weekData.length !== 0">
@@ -132,7 +140,7 @@
         <CoverRow
           v-if="show"
           :items="newAlbumInfo.topAlbum.weekData"
-          :type="'album'"
+          :type="'Album'"
           :sub-text="'artist'"
           :show-play-button="false"
           :show-play-count="false"
@@ -149,7 +157,7 @@
           :items="
             albumType === '热门' ? newAlbumInfo.topAlbum.monthData : newAlbumInfo.newAlbums.albums
           "
-          :type="'album'"
+          :type="'Album'"
           :sub-text="'artist'"
           :show-play-button="false"
           :show-play-count="false"
@@ -165,7 +173,7 @@
       <CoverRow
         v-if="show"
         :items="playlists"
-        :type="exploreTab === 'artist' ? 'artist' : 'playlist'"
+        :type="exploreTab === 'artist' ? 'Artist' : 'Playlist'"
         :sub-text="subText"
         :show-play-button="true"
         :show-position="true"
@@ -186,7 +194,7 @@ import { storeToRefs } from 'pinia'
 import { useNormalStateStore } from '../store/state'
 import { useSettingsStore } from '../store/settings'
 import { usePluginMusic } from '../store/pluginMusic'
-import { playlistCategories, artistCategories } from '../utils/common'
+// import { playlistCategories, artistCategories } from '../utils/common'
 import SvgIcon from '../components/SvgIcon.vue'
 import CoverRow from '../components/VirtualCoverRow.vue'
 import Cover from '../components/CoverBox.vue'
@@ -198,15 +206,22 @@ import { useRouter, useRoute, onBeforeRouteUpdate } from 'vue-router'
 import { getArtistList } from '../api/artist'
 import { topAlbum, topSong } from '../api/track'
 import { newAlbums } from '../api/album'
-import { PlaylistDetail, PluginId, PlaylistCatlist, Playlist } from '@/types/plugin'
+import {
+  PlaylistDetail,
+  PluginId,
+  PlaylistCatlist,
+  Playlist,
+  CatType,
+  TrackCatlist
+} from '@/types/plugin'
 
 const router = useRouter()
-const route = useRoute()
+// const route = useRoute()
 
 const { exploreTab } = storeToRefs(useNormalStateStore())
-const settingStore = useSettingsStore()
-const { general } = storeToRefs(settingStore)
-const { togglePlaylistCategory } = settingStore
+// const settingStore = useSettingsStore()
+// const { general } = storeToRefs(settingStore)
+// const { togglePlaylistCategory } = settingStore
 
 const pluginMusicStore = usePluginMusic()
 const { services, additionalTags } = storeToRefs(pluginMusicStore)
@@ -218,12 +233,26 @@ const pluginId = computed(() => {
 })
 
 const playlistTags = reactive<Record<PluginId, PlaylistCatlist>>({})
+
 const staticTags = computed(() => {
+  let data = playlistTags[pluginId.value]?.static || []
+
   if (additionalTags.value[pluginId.value]) {
-    return (playlistTags[pluginId.value]?.static || []).concat(additionalTags.value[pluginId.value])
+    data = (playlistTags[pluginId.value]?.static || []).concat(additionalTags.value[pluginId.value])
   }
-  return playlistTags[pluginId.value]?.static || []
+
+  const idx = data.findIndex((item) => item.active)
+  if (data.length && idx === -1) {
+    data[0].active = true
+  }
+  return data
 })
+
+const tagLists = computed(() => {
+  return playlistTags[pluginId.value]?.tagList || []
+})
+
+const rankListSourceContext = ref({})
 
 // const playlistInfo = reactive({
 //   total: 0,
@@ -240,15 +269,15 @@ const artistInfo = reactive({
 
 const activeCategory = ref('全部')
 const showCatOptions = ref(false)
-const allBigCats = ref(['语种', '风格', '场景', '情感', '主题'])
+// const allBigCats = ref(['语种', '风格', '场景', '情感', '主题'])
 const artistBigCats = ref(['语种', '分类', '筛选'])
 const playlists = ref<PlaylistDetail[]>([])
 const tracks = ref<any[]>([])
 const show = ref(false)
 const hasMore = ref(true)
 const showList = ref<Playlist[]>([])
-const activeArtistCat = ref(artistCategories.filter((cat) => cat.enable))
-const newTrackBtn = ref(['全部', '华语', '欧美', '日本', '韩国'])
+// const activeArtistCat = ref(artistCategories.filter((cat) => cat.enable))
+const newTrackBtn = ref<TrackCatlist[]>([])
 const albumTypeBtn = ref(['热门', '全部'])
 const albumType = ref('热门')
 
@@ -261,6 +290,7 @@ const subText = computed(() => {
 const goToCategory = (tab: string, Category: string) => {
   show.value = false
   showCatOptions.value = false
+  additionalTags.value[pluginId.value].forEach((item) => (item.active = item.name === Category))
   router.push({ name: 'explore', query: { tab, category: Category } })
 }
 
@@ -270,20 +300,41 @@ const updateType = (type: string) => {
 }
 
 const toggleArtistCategory = (category: any) => {
-  category.enable = true
-  const idx = activeArtistCat.value.findIndex((cat) => cat.bigCat === category.bigCat)!
-  activeArtistCat.value[idx].enable = false
-  activeArtistCat.value[idx] = category
-  playlists.value = []
-  getPlaylist()
+  // category.enable = true
+  // const idx = activeArtistCat.value.findIndex((cat) => cat.bigCat === category.bigCat)!
+  // activeArtistCat.value[idx].enable = false
+  // activeArtistCat.value[idx] = category
+  // playlists.value = []
+  // getPlaylist()
 }
 
 const getCatsByBigCat = (bigCat: string) => {
-  return playlistCategories.filter((cat) => cat.bigCat === bigCat)
+  return tagLists.value.find((item) => item.name === bigCat)?.sub || []
+}
+
+const togglePlaylistCategory = (cat: CatType) => {
+  const additionalTagsList = additionalTags.value[pluginId.value]
+  const idx = additionalTagsList.findIndex((item) => item.name === cat.name)
+  if (idx === -1) {
+    additionalTagsList.push({ ...cat, active: false })
+    staticTags.value.forEach((item) => (item.active = item.name === cat.name))
+
+    goToCategory('playlist', cat.name)
+  } else {
+    additionalTagsList.splice(idx, 1)
+    staticTags.value.forEach((item) => {
+      if (item.name === cat.name) {
+        if (item.active) {
+          goToCategory('playlist', staticTags.value[0].name)
+          item.active = false
+        }
+      }
+    })
+  }
 }
 
 const getArtistCatsByBigCat = (bigCat: string) => {
-  return artistCategories.filter((cat) => cat.bigCat === bigCat)
+  // return artistCategories.filter((cat) => cat.bigCat === bigCat)
 }
 
 const updatePlaylist = (playlistList: any[]) => {
@@ -312,29 +363,44 @@ const loadMore = () => {
 }
 
 const getTopLists = () => {
-  const pluginId = 'kugou' as PluginId
-  pluginMethodCall(pluginId, 'rankList').then((res) => {
-    showList.value = res.data.map((item) => ({ ...item, pluginId })).slice(0, 4)
-    playlists.value = []
-    updatePlaylist(res.data.map((item) => ({ ...item, pluginId })))
+  pluginMethodCall(pluginId.value, 'rankList', rankListSourceContext.value).then((res) => {
+    if (!res.data.length) return
+    showList.value.push(
+      ...res.data.map((item) => ({ ...item, pluginId: pluginId.value })).slice(0, 4)
+    )
+    updatePlaylist(res.data.map((item) => ({ ...item, pluginId: pluginId.value })))
     playlists.value = playlists.value.slice(4)
+    rankListSourceContext.value = res.sourceContext
   })
 }
 
 const getNewTrack = () => {
-  const trackMap = {
-    全部: 0,
-    华语: 7,
-    欧美: 96,
-    日本: 8,
-    韩国: 16
-  }
-  topSong(trackMap[activeCategory.value]).then((data) => {
-    playlists.value = []
-    tracks.value = data.data
+  const active = newTrackBtn.value.find((item) => item.active)!
+
+  pluginMethodCall(pluginId.value, 'topSong', active).then((res) => {
+    tracks.value = res.data.map((item) => ({
+      ...item,
+      album: { ...item.album, pluginId: pluginId.value },
+      artists: item.artists.map((it) => ({ ...it, pluginId: pluginId.value })),
+      pluginId: pluginId.value
+    }))
     tricklingProgress.done()
     show.value = true
   })
+
+  // const trackMap = {
+  //   全部: 0,
+  //   华语: 7,
+  //   欧美: 96,
+  //   日本: 8,
+  //   韩国: 16
+  // }
+  // topSong(trackMap[activeCategory.value]).then((data) => {
+  //   playlists.value = []
+  //   tracks.value = data.data
+  //   tricklingProgress.done()
+  //   show.value = true
+  // })
 }
 
 const getNewAlbum = () => {
@@ -379,15 +445,12 @@ const getPlaylist = () => {
     getTopLists()
   } else if (exploreTab.value === 'playlist') {
     const cat = staticTags.value.find((item) => item.active)!
-    pluginMethodCall(pluginId.value, 'getCategoryPlaylist', {
-      id: cat.id,
-      name: cat.name,
-      offset: playlists.value.length
-    }).then((result) => {
+    pluginMethodCall(pluginId.value, 'getCategoryPlaylist', cat.sourceContext).then((result) => {
       result.data.forEach((item) => {
         item.pluginId = pluginId.value
       })
       hasMore.value = result.hasMore
+      cat.sourceContext = result.sourceContext
       updatePlaylist(result.data)
     })
 
@@ -419,11 +482,11 @@ const getPlaylist = () => {
 const getArtists = () => {
   if (!artistInfo.more) return
   const params = {
-    type: activeArtistCat.value[1].code,
-    area: activeArtistCat.value[0].code,
-    initial: activeArtistCat.value[2].code ?? activeArtistCat.value[2].name,
-    limit: 50,
-    offset: playlists.value.length
+    // type: activeArtistCat.value[1].code,
+    // area: activeArtistCat.value[0].code,
+    // initial: activeArtistCat.value[2].code ?? activeArtistCat.value[2].name,
+    // limit: 50,
+    // offset: playlists.value.length
   }
   getArtistList(params).then((data) => {
     updatePlaylist(data.artists)
@@ -435,15 +498,27 @@ const loadData = async () => {
   setTimeout(() => {
     if (!show.value) tricklingProgress.start()
   }, 1000)
+
   if (exploreTab.value === 'playlist') {
     await pluginMethodCall(pluginId.value, 'catlist').then((result) => {
-      if (!(pluginId.value in playlistTags)) {
-        playlistTags[pluginId.value] = { static: [], tagList: [] }
-      }
       playlistTags[pluginId.value] = result.data!
+      additionalTags.value[pluginId.value].forEach((item) => {
+        const cat = playlistTags[pluginId.value].tagList
+          .map((i) => i.sub)
+          .flat()
+          .find((it) => it.name === item.name && it.id === item.id)
+        if (cat) {
+          item.sourceContext = cat.sourceContext
+        }
+      })
     })
-    await nextTick()
+  } else if (exploreTab.value === 'newTrack') {
+    await pluginMethodCall(pluginId.value, 'getTrackCatlist').then((res) => {
+      console.log('getTrackCatlist res', res)
+      newTrackBtn.value = res.data
+    })
   }
+  await nextTick()
   getPlaylist()
 }
 
@@ -455,16 +530,30 @@ const updatePadding = inject('updatePadding') as (val: number) => void
 //   })
 // })
 
-onBeforeRouteUpdate((to, from, next) => {
+onBeforeRouteUpdate(async (to, from, next) => {
   updatePadding(0)
   hasMore.value = false
   const name = to.query.category as string
+
   staticTags.value.forEach((item) => {
     item.active = item.name === name
+    item.sourceContext.reset = true
   })
+
   playlists.value = []
   showList.value = []
-  // activeCategory.value = (to.query.category as string) || saveCategory.value
+  rankListSourceContext.value = {}
+
+  if (to.query.tab === 'newTrack') {
+    if (from.query.tab !== 'newTrack') {
+      await pluginMethodCall(pluginId.value, 'getTrackCatlist').then((res) => {
+        newTrackBtn.value = res.data
+      })
+    }
+    newTrackBtn.value.forEach((item) => {
+      item.active = item.name === to.query.category
+    })
+  }
 
   getPlaylist()
   next()
@@ -472,8 +561,6 @@ onBeforeRouteUpdate((to, from, next) => {
 
 onMounted(async () => {
   updatePadding(0)
-  // showList.value = []
-  // activeCategory.value = (route.query.category as string) || saveCategory.value
   await loadData()
 })
 

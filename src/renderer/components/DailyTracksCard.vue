@@ -28,6 +28,14 @@ import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import _ from 'lodash'
 import { PluginId } from '@/types/plugin'
+import { playlistSourceInfo } from '@/types/music'
+
+const props = withDefaults(
+  defineProps<{
+    plugin: PluginId
+  }>(),
+  {}
+)
 
 const defaultCovers = [
   'https://p2.music.126.net/0-Ybpa8FrDfRgKYCTJD8Xg==/109951164796696795.jpg',
@@ -41,10 +49,10 @@ const { showToast } = stateStore
 const { t } = useI18n()
 
 const pluginMusic = usePluginMusic()
-const { resizeImage } = pluginMusic
+const { resizeImage, pluginMethodCall } = pluginMusic
 
 const playerStore = usePlayerStore()
-const { _shuffle } = storeToRefs(playerStore)
+const { isShuffle } = storeToRefs(playerStore)
 const { replacePlaylist } = playerStore
 
 const firstTrack = computed(() => dailyTracks.value[0])
@@ -63,31 +71,26 @@ const goToDailyTracks = () => {
 }
 
 const playDailyTracks = () => {
-  // if (!isAccountLoggedIn()) {
-  //   showToast(t('toast.needToLogin'))
-  //   return
-  // }
-  // const trackIDs = dailyTracks.value.map((track) => track.id)
-  // const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
-  // replacePlaylist('url', '/daily/songs', trackIDs, idx)
-}
+  const source: playlistSourceInfo = {
+    type: 'DailySongs',
+    plugin: props.plugin,
+    sourceContext: {}
+  }
 
-// const loadDailyTracks = () => {
-//   pluginMethodCall(pluginId.value, 'getRecommendTracks')
-//     .then((result) => {
-//       dailyTracks.value = result.data.map((item) => ({ ...item, pluginId: pluginId.value }))
-//     })
-//     .catch(() => (dailyTracks.value = []))
-// }
+  const trackIDs = dailyTracks.value.map((t) => [t.pluginId, t.sourceContext]) as [
+    PluginId,
+    Record<string, any>
+  ][]
+  const idx = isShuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
+  replacePlaylist(source, trackIDs, idx)
+}
 
 watch(showLyrics, (value) => {
   // paused.value = value
 })
 
 watch(firstTrack, (value) => {
-  resizeImage(value.pluginId as PluginId, value.picUrl, 512).then(
-    (result) => (image.value = result)
-  )
+  resizeImage(value.pluginId, value.picUrl, 512).then((result) => (image.value = result))
 })
 
 const handleVisibleChange = () => {
@@ -97,7 +100,14 @@ const handleVisibleChange = () => {
 document.addEventListener('visibilitychange', handleVisibleChange)
 
 onMounted(async () => {
-  const track = dailyTracks.value[0]
+  pluginMethodCall(props.plugin, 'getRecommendTracks').then((result) => {
+    dailyTracks.value = result.data.map((item) => ({
+      ...item,
+      album: { ...item.album, pluginId: props.plugin },
+      artists: item.artists.map((it) => ({ ...it, pluginId: props.plugin })),
+      pluginId: props.plugin
+    }))
+  })
 })
 
 onDeactivated(() => {

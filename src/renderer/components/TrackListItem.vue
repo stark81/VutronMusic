@@ -99,13 +99,15 @@ import { usePluginMusic } from '../store/pluginMusic'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { PluginId, Track } from '@/types/plugin'
+import { SourceType } from '@/types/music'
+import isEqual from 'lodash/isEqual'
 
 const router = useRouter()
 const props = withDefaults(
   defineProps<{
     trackProp: Track
     trackNo: number
-    typeProp: string
+    typeProp: SourceType
     isLyric?: boolean
     showService?: boolean
     albumObject?: { artist: { name: string } }
@@ -155,10 +157,14 @@ const image = computed(() => {
 
 const hover = ref(false)
 
-const showOrderNumber = computed(() => type.value === 'album')
+const showOrderNumber = computed(() => type.value === 'Album')
 
 const isPlaying = computed(() => {
-  return enabled.value && currentTrack.value && currentTrack.value.id === track.value.id
+  return (
+    enabled.value &&
+    currentTrack.value &&
+    isEqual(currentTrack.value.sourceContext, track.value.sourceContext)
+  )
 })
 
 const trackClass = computed(() => {
@@ -182,7 +188,8 @@ const artists = computed(() => {
 const album = computed(() => track.value.album)
 
 const showAlbumName = computed(() => {
-  return type.value !== 'tracklist' && type.value !== 'album'
+  return !['TrackList', 'Artist', 'Album'].includes(type.value)
+  // return type.value !== 'TrackList' && type.value !== 'Album'
 })
 
 // const showService = computed(() => {
@@ -190,7 +197,7 @@ const showAlbumName = computed(() => {
 // })
 
 const showTrackTime = computed(() => {
-  return type.value !== 'tracklist'
+  return !['TrackList', 'Artist'].includes(type.value)
 })
 
 const formatedTime = computed(() => {
@@ -201,18 +208,18 @@ const formatedTime = computed(() => {
 })
 
 const showLikeButton = computed(() => {
-  return showTrackTime.value && type.value !== 'cloudDisk'
+  return showTrackTime.value && type.value !== 'CloudDisk'
 })
 
 const isLiked = computed(() => {
-  const plugin = track.value.pluginId as PluginId
+  const plugin = track.value.pluginId
   return (likedTracks.value[plugin]?.data ?? []).map((track) => track.id).includes(track.value.id)
 })
 
 const isSubTitle = computed(() => track.value.alias?.length > 0)
 
 const isAlbum = computed(() => {
-  return type.value === 'album'
+  return type.value === 'Album'
 })
 
 const subTitle = computed(() => track.value.alias[0])
@@ -513,7 +520,8 @@ button {
   }
 }
 
-.trackitem.tracklist {
+.trackitem.TrackList,
+.trackitem.Artist {
   .track {
     img {
       height: 42px;

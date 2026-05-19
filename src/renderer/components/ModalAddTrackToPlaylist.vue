@@ -49,7 +49,7 @@ const { showToast } = stateStore
 const { addTrackToPlaylistModal, newPlaylistModal, modalOpen } = storeToRefs(stateStore)
 
 const pluginStore = usePluginMusic()
-const { playlists } = storeToRefs(pluginStore)
+const { playlists, services } = storeToRefs(pluginStore)
 const { pluginMethodCall } = pluginStore
 
 // const localMusicStore = useLocalMusicStore()
@@ -86,13 +86,8 @@ const ownPlaylists = computed(() => {
 })
 
 const modelTitle = computed(() => {
-  return plugin.value
-  // if (type.value === 'local') {
-  //   return t('localMusic.playlist.addToPlaylist')
-  // } else if (type.value === 'online') {
-  //   return t('player.addToPlaylist')
-  // }
-  // return t('streamMusic.playlist.addToPlaylist')
+  const service = services.value.find((item) => item.code === plugin.value)
+  return t('playlist.addToPlaylist', { name: service?.name || '', code: service?.code || '' })
 })
 
 watch(show, (value) => {

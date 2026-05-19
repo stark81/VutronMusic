@@ -205,44 +205,45 @@ const handleClickSortType = (type: number) => {
  * 3. 网易评论返回的数据问题很大，要么是hasMore为true但实际没有更多数据，要么是hasMore为false但实际还有更多数据, 要么会出现评论数量和总数不一致的问题，所以处理有些复杂，本项目里暂时按评论数量大于总数 或者 评论数量和总数之间的差值小于3视为加载完毕
  */
 const loadComment = () => {
-  if (
-    !commentInfo.hasMore &&
-    (comments.value.length >= commentInfo.totalCount ||
-      Math.abs(comments.value.length - commentInfo.totalCount) < 3)
-  ) {
-    return
-  }
-  const params = {
-    id: props.id,
-    type: typeMap[props.type],
-    sortType: commentInfo.paramType,
-    pageNo: commentInfo.pageNo,
-    pageSize: commentInfo.pageSize
-  }
-  if (!commentInfo.hasMore && commentInfo.sortType === 1 && commentInfo.paramType === 1) {
-    commentInfo.paramType = 3
-    params.sortType = 3
-    commentInfo.pageNo = 1
-    params.pageNo = 1
-  }
+  console.log('===2===', props)
+  // if (
+  //   !commentInfo.hasMore &&
+  //   (comments.value.length >= commentInfo.totalCount ||
+  //     Math.abs(comments.value.length - commentInfo.totalCount) < 3)
+  // ) {
+  //   return
+  // }
+  // const params = {
+  //   id: props.id,
+  //   type: typeMap[props.type],
+  //   sortType: commentInfo.paramType,
+  //   pageNo: commentInfo.pageNo,
+  //   pageSize: commentInfo.pageSize
+  // }
+  // if (!commentInfo.hasMore && commentInfo.sortType === 1 && commentInfo.paramType === 1) {
+  //   commentInfo.paramType = 3
+  //   params.sortType = 3
+  //   commentInfo.pageNo = 1
+  //   params.pageNo = 1
+  // }
 
-  if (params.sortType === 3 && params.pageNo > 1) {
-    // @ts-ignore
-    params.cursor = commentInfo.cursor
-  }
-  getComment(params).then((res) => {
-    if (res.code === 200) {
-      commentInfo.totalCount = res.data.totalCount || commentInfo.totalCount
-      commentInfo.hasMore = res.data.hasMore
-      commentInfo.pageNo++
-      commentInfo.cursor = res.data.cursor
-      comments.value.push(...res.data.comments)
-    }
-    show.value = true
-    nextTick(() => {
-      commentHeight.value = mainRef.value?.offsetHeight || commentHeight.value
-    })
-  })
+  // if (params.sortType === 3 && params.pageNo > 1) {
+  //   // @ts-ignore
+  //   params.cursor = commentInfo.cursor
+  // }
+  // getComment(params).then((res) => {
+  //   if (res.code === 200) {
+  //     commentInfo.totalCount = res.data.totalCount || commentInfo.totalCount
+  //     commentInfo.hasMore = res.data.hasMore
+  //     commentInfo.pageNo++
+  //     commentInfo.cursor = res.data.cursor
+  //     comments.value.push(...res.data.comments)
+  //   }
+  //   show.value = true
+  //   nextTick(() => {
+  //     commentHeight.value = mainRef.value?.offsetHeight || commentHeight.value
+  //   })
+  // })
 }
 
 const goToUser = (item: any) => {

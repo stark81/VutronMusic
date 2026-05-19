@@ -1,3 +1,5 @@
+import { PluginId } from './plugin'
+
 export type TrackType = 'online' | 'local' | 'stream'
 
 export interface Artist {
@@ -149,3 +151,21 @@ export interface CommonTheme {
 export type RepeatMode = 'off' | 'on' | 'one'
 
 export type CoverType = 'Playlist' | 'Album' | 'Artist' | 'User'
+
+export type SourceType =
+  | 'Playlist'
+  | 'Album'
+  | 'Artist'
+  | 'Track'
+  | 'TrackList'
+  | 'DailySongs'
+  | 'ExploreTrack'
+  | 'SearchTrack'
+  | 'History'
+  | 'CloudDisk'
+
+export type playlistSourceInfo = {
+  type: SourceType
+  plugin: PluginId
+  sourceContext: Record<string, any>
+}
