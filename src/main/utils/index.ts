@@ -32,33 +32,74 @@ export const createFileIfNotExist = (file: string) => {
   }
 }
 
+// Vorbis Comment 歌词字段（FLAC/OGG），按优先级排列
+const VORBIS_LYRIC_IDS = ['LYRICS', 'UNSYNCEDLYRICS', 'SYNCEDLYRICS']
+// ID3v2 歌词帧（MP3）
+const ID3_LYRIC_IDS = ['USLT', 'SYLT']
+// APEv2 歌词字段（APE/WV），大小写不敏感匹配
+const APE_LYRIC_IDS = ['LYRICS', 'UNSYNCEDLYRICS']
+
+/**
+ * 从音频元数据中提取歌词文本
+ * 优先从原生标签提取（Vorbis/ID3v2/APEv2），兜底使用 common.lyrics（覆盖 iTunes/MP4、ASF 等格式）
+ */
 export const getLyricFromMetadata = (metadata: IAudioMetadata) => {
   const { common, format, native } = metadata
-  let lyrics: string = ''
+
+  // 1. 优先从原生标签提取
+  for (const tagType of format.tagTypes ?? []) {
+    let lyricIds: string[]
+    let extractValue: (value: any) => string
+
+    switch (tagType) {
+      case 'vorbis':
+        lyricIds = VORBIS_LYRIC_IDS
+        // Vorbis Comment 的值直接是字符串
+        extractValue = (v) => v
+        break
+      case 'ID3v2.3':
+      case 'ID3v2.4':
+        lyricIds = ID3_LYRIC_IDS
+        // USLT: { language, descriptor, text } → 取 text
+        // SYLT: { syncText: [{ text, timestamp }] } → 拼接所有文本行
+        extractValue = (v) =>
+          v?.text ??
+          (Array.isArray(v?.syncText) ? v.syncText.map((s: any) => s.text).join('\n') : '')
+        break
+      case 'APEv2':
+        lyricIds = APE_LYRIC_IDS
+        // APEv2 的值直接是字符串
+        extractValue = (v) => v
+        break
+      default:
+        // 其他标签格式（iTunes/ASF 等）交给兜底逻辑处理
+        continue
+    }
+
+    // 按 lyricIds 优先级查找，大小写不敏感匹配
+    const tags = native[tagType] ?? []
+    for (const id of lyricIds) {
+      const tag = tags.find((t) => t.id.toUpperCase() === id)
+      if (tag) {
+        const lyrics = extractValue(tag.value)
+        if (lyrics) return lyrics
+      }
+    }
+  }
+
+  // 2. 兜底：从 common.lyrics 提取（覆盖 iTunes/MP4、ASF 等格式）
   if (common.lyrics) {
-    // 这种一般是iTunes的歌词
     if (typeof common.lyrics[0] === 'string') {
-      lyrics = common.lyrics[0]
+      return common.lyrics[0]
     } else if (typeof common.lyrics[0] === 'object') {
-      lyrics = common.lyrics[0].syncText
-        ? common.lyrics[0].syncText[0]?.text
+      const lyrics = common.lyrics[0].syncText
+        ? common.lyrics[0].syncText.map((s: any) => s.text).join('\n')
         : (common.lyrics[0].text ?? '')
+      if (lyrics) return lyrics
     }
   }
-  if (lyrics || lyrics !== undefined) return lyrics
-  for (const tag of format.tagTypes ?? []) {
-    if (tag === 'vorbis') {
-      // flac
-      lyrics = (native.vorbis?.find((item) => item.id === 'LYRICS')?.value ?? '') as string
-    } else if (tag === 'ID3v2.3') {
-      lyrics = (native['ID3v2.3'].find((item) => item.id === 'USLT')?.value as any)?.text ?? ''
-    } else if (tag === 'ID3v2.4') {
-      lyrics = (native['ID3v2.4'].find((item) => item.id === 'USLT')?.value as any)?.text ?? ''
-    } else if (tag === 'APEv2') {
-      // APEv2好像并没有固定的歌词标签，todo...
-    }
-  }
-  return lyrics
+
+  return ''
 }
 
 export const parseLyricString = (lyrics: string): lyricLine[] => {
