@@ -1381,3 +1381,14 @@ exports.topSong = async (params) => {
   }
   return { code: result?.code ?? 200, data: [], sourceContext: { ...params } }
 }
+
+exports.getAlbumCatlist = () => ({
+  code: 200,
+  data: [
+    { name: '全部', code: 'ALL', active: true },
+    { name: '华语', code: 'ZH', active: false },
+    { name: '欧美', code: 'EA', active: false },
+    { name: '日本', code: 'JP', active: false },
+    { name: '韩国', code: 'KR', active: false }
+  ]
+})
