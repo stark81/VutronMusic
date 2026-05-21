@@ -164,7 +164,7 @@ export type SourceType =
   | 'History'
   | 'CloudDisk'
 
-export type playlistSourceInfo = {
+export type PlaylistSourceInfo = {
   type: SourceType
   plugin: PluginId
   sourceContext: Record<string, any>

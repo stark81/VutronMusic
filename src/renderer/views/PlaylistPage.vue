@@ -215,7 +215,7 @@ import Modal from '../components/BaseModal.vue'
 import { tricklingProgress } from '../utils/tricklingProgress'
 import { useI18n } from 'vue-i18n'
 // import { intelligencePlaylist, deletePlaylist } from '../api/playlist'
-import { CoverType, playlistSourceInfo, serviceName } from '@/types/music.d'
+import { CoverType, PlaylistSourceInfo, serviceName } from '@/types/music.d'
 import { PluginId, Track, PlaylistDetail } from '@/types/plugin'
 
 const rawPlaylist = {
@@ -382,7 +382,7 @@ const likePlaylist = (toast = false) => {
 }
 
 const play = () => {
-  const source: playlistSourceInfo = {
+  const source: PlaylistSourceInfo = {
     type: 'Playlist',
     plugin: pluginId.value,
     sourceContext: playlist.value.sourceContext

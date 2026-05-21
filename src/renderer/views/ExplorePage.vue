@@ -6,10 +6,10 @@
           v-for="category in staticTags"
           :key="category?.name"
           class="button"
-          :class="{ active: category?.active && !showCatOptions }"
-          @click="goToCategory('playlist', category?.name ?? '')"
+          :class="{ active: category.name === activeTags.playlist && !showCatOptions }"
+          @click="updatePlistCat(category?.name ?? '')"
         >
-          {{ category?.name || '' }}
+          {{ category.name }}
         </div>
         <div
           class="button more"
@@ -31,7 +31,7 @@
               :class="{
                 active: staticTags.map((it) => it.name).includes(cat.name)
               }"
-              @click="togglePlaylistCategory(cat)"
+              @click="togglePlaylistCategory(cat.name)"
               ><span>{{ cat.name }}</span></div
             >
           </div>
@@ -40,7 +40,7 @@
     </div>
 
     <div v-if="exploreTab === 'chart'" class="chart-list">
-      <div v-for="(lst, index) in showList" :key="index" class="chart-item">
+      <div v-for="(lst, index) in data.chart.showList" :key="index" class="chart-item">
         <div class="img">
           <Cover
             :id="lst?.id"
@@ -63,20 +63,23 @@
     <div v-if="exploreTab === 'artist'">
       <div class="panel" style="background-color: unset">
         <div
-          v-for="bigCat in artistBigCats"
-          :key="bigCat"
+          v-for="bigCat in artistCategory[pluginId]"
+          :key="bigCat.name"
           class="big-cat"
           style="margin-bottom: 10px"
         >
-          <div class="name">{{ bigCat }}</div>
+          <div class="name">{{ bigCat.name }}</div>
           <div class="cats">
             <!-- active: activeArtistCat.includes(cat) -->
             <div
-              v-for="cat in getArtistCatsByBigCat(bigCat)"
+              v-for="cat in getArtistCatsByBigCat(bigCat.name)"
               :key="cat.name"
               class="cat unset"
-              :class="{}"
-              @click="toggleArtistCategory(cat)"
+              :class="{
+                active:
+                  cat.name === activeTags?.artist.find(([big, _cat]) => big === bigCat.name)?.[1]
+              }"
+              @click="toggleArtistCategory(bigCat.name, cat.name)"
               ><span>{{ cat.name }}</span></div
             >
           </div>
@@ -87,11 +90,11 @@
     <div v-if="exploreTab === 'newTrack'">
       <div class="buttons">
         <div
-          v-for="category in newTrackBtn"
+          v-for="category in trackTags"
           :key="category.name"
           class="button"
-          :class="{ active: category.name === activeCategory }"
-          @click="goToCategory('newTrack', category.name)"
+          :class="{ active: category.name === activeTags.track }"
+          @click="updateTrackCat(category.name)"
         >
           {{ category.name }}
         </div>
@@ -101,31 +104,20 @@
     <div v-if="exploreTab === 'newAlbum'" class="albumsTab">
       <div class="buttons">
         <div
-          v-for="category in newTrackBtn"
+          v-for="category in albumCategory[pluginId]"
           :key="category.name"
           class="button"
-          :class="{ active: category.name === activeCategory }"
-          @click="goToCategory('newAlbum', category.name)"
+          :class="{ active: category.name === activeTags.album }"
+          @click="updateAlbumCat(category.name)"
         >
           {{ category.name }}
         </div>
-      </div>
-      <div class="buttons">
-        <div
-          v-for="(type, index) in albumTypeBtn"
-          :key="index"
-          class="button"
-          :class="{ active: type === albumType }"
-          :style="{ backgroundColor: 'unset', margin: '10px 0 6px 0' }"
-          @click="updateType(type)"
-          >{{ type }}</div
-        >
       </div>
     </div>
 
     <div v-if="exploreTab === 'newTrack'" class="playlists">
       <TrackList
-        :items="tracks"
+        :items="data.newTrack"
         :plugin="pluginId"
         :source-context="{}"
         :is-group-by="false"
@@ -135,51 +127,31 @@
       />
     </div>
     <div v-else-if="exploreTab === 'newAlbum'" class="playlists">
-      <div v-if="albumType === '热门' && newAlbumInfo.topAlbum.weekData.length !== 0">
-        <div :style="{ margin: '20px 0', fontSize: '20px', fontWeight: '600' }">本周新碟</div>
-        <CoverRow
-          v-if="show"
-          :items="newAlbumInfo.topAlbum.weekData"
-          :type="'Album'"
-          :sub-text="'artist'"
-          :show-play-button="false"
-          :show-play-count="false"
-          :show-position="true"
-          :padding-bottom="0"
-          :colunm-number="5"
-          :is-end="true"
-        />
-      </div>
-      <div>
-        <div :style="{ margin: '20px 0', fontSize: '20px', fontWeight: '600' }">本月新碟</div>
-        <CoverRow
-          v-if="show"
-          :items="
-            albumType === '热门' ? newAlbumInfo.topAlbum.monthData : newAlbumInfo.newAlbums.albums
-          "
-          :type="'Album'"
-          :sub-text="'artist'"
-          :show-play-button="false"
-          :show-play-count="false"
-          :show-position="true"
-          :padding-bottom="0"
-          :is-end="true"
-          :colunm-number="5"
-          :load-more="loadMore"
-        />
-      </div>
+      <CoverRow
+        v-if="show"
+        :items="data.newAlbum"
+        :type="'Album'"
+        :sub-text="'artist'"
+        :show-play-button="false"
+        :show-play-count="false"
+        :show-position="true"
+        :padding-bottom="0"
+        :colunm-number="5"
+        :is-end="true"
+        :load-more="loadMore"
+      />
     </div>
     <div v-else class="playlists">
       <CoverRow
         v-if="show"
-        :items="playlists"
+        :items="exploreTab === 'playlist' ? data.playlist : data[exploreTab].data"
         :type="exploreTab === 'artist' ? 'Artist' : 'Playlist'"
-        :sub-text="subText"
+        :sub-text="'copywriter'"
         :show-play-button="true"
         :show-position="true"
         :padding-bottom="0"
         :is-end="true"
-        :show-play-count="activeCategory !== '排行榜' && exploreTab !== 'artist' ? true : false"
+        :show-play-count="exploreTab !== 'chart' && exploreTab !== 'artist' ? true : false"
         :item-height="exploreTab === 'artist' ? 224 : 270"
         :colunm-number="5"
         :load-more="loadMore"
@@ -189,384 +161,273 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, onBeforeUnmount, reactive, nextTick, inject } from 'vue'
+import { ref, onMounted, computed, onBeforeUnmount, reactive, inject, watch, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useNormalStateStore } from '../store/state'
-import { useSettingsStore } from '../store/settings'
 import { usePluginMusic } from '../store/pluginMusic'
-// import { playlistCategories, artistCategories } from '../utils/common'
 import SvgIcon from '../components/SvgIcon.vue'
 import CoverRow from '../components/VirtualCoverRow.vue'
 import Cover from '../components/CoverBox.vue'
 import TrackList from '../components/VirtualTrackList.vue'
 import { tricklingProgress } from '../utils/tricklingProgress'
-import { useRouter, useRoute, onBeforeRouteUpdate } from 'vue-router'
-// import { getRecommendPlayList } from '../utils/playlist'
-// import { highQualityPlaylist, topPlaylist } from '../api/playlist'
-import { getArtistList } from '../api/artist'
-import { topAlbum, topSong } from '../api/track'
-import { newAlbums } from '../api/album'
-import {
-  PlaylistDetail,
-  PluginId,
-  PlaylistCatlist,
-  Playlist,
-  CatType,
-  TrackCatlist
-} from '@/types/plugin'
-
-const router = useRouter()
-// const route = useRoute()
+import { Playlist, Track, Album, Artist } from '@/types/plugin'
 
 const { exploreTab } = storeToRefs(useNormalStateStore())
-// const settingStore = useSettingsStore()
-// const { general } = storeToRefs(settingStore)
-// const { togglePlaylistCategory } = settingStore
-
 const pluginMusicStore = usePluginMusic()
-const { services, additionalTags } = storeToRefs(pluginMusicStore)
-const { pluginMethodCall } = pluginMusicStore
+const {
+  services,
+  playlistCategory,
+  artistCategory,
+  albumCategory,
+  trackCategory,
+  additionalTags,
+  activeCats
+} = storeToRefs(pluginMusicStore)
+const { pluginMethodCall, getExploreBtn } = pluginMusicStore
+
+const showCatOptions = ref(false)
+const show = ref(false)
+
+const data = reactive({
+  playlist: [] as Playlist[],
+  artist: {
+    data: [] as Artist[],
+    sourceContext: {} as Record<string, any>
+  },
+  chart: {
+    showList: [] as Playlist[],
+    data: [] as Playlist[],
+    sourceContext: {} as Record<string, any>
+  },
+  newAlbum: [] as Album[],
+  newTrack: [] as Track[]
+})
 
 const pluginId = computed(() => {
   const active = services.value.find((item) => item.active)!
   return active.code
 })
 
-const playlistTags = reactive<Record<PluginId, PlaylistCatlist>>({})
+const activeTags = computed(() => activeCats.value[pluginId.value])
 
 const staticTags = computed(() => {
-  let data = playlistTags[pluginId.value]?.static || []
-
-  if (additionalTags.value[pluginId.value]) {
-    data = (playlistTags[pluginId.value]?.static || []).concat(additionalTags.value[pluginId.value])
-  }
-
-  const idx = data.findIndex((item) => item.active)
-  if (data.length && idx === -1) {
-    data[0].active = true
-  }
-  return data
+  return playlistCategory.value[pluginId.value].static
 })
 
 const tagLists = computed(() => {
-  return playlistTags[pluginId.value]?.tagList || []
+  return playlistCategory.value[pluginId.value].tagList
 })
 
-const rankListSourceContext = ref({})
+const trackTags = computed(() => trackCategory.value[pluginId.value])
+const albumTags = computed(() => albumCategory.value[pluginId.value])
+const artistTags = computed(() => artistCategory.value[pluginId.value])
 
-// const playlistInfo = reactive({
-//   total: 0,
-//   more: true,
-//   lasttime: 0
-// })
-const newAlbumInfo = reactive({
-  newAlbums: { albums: [] as any[], total: 0 },
-  topAlbum: { hasMore: true, monthData: [] as any[], weekData: [] as any[] }
-})
-const artistInfo = reactive({
-  more: true
-})
-
-const activeCategory = ref('全部')
-const showCatOptions = ref(false)
-// const allBigCats = ref(['语种', '风格', '场景', '情感', '主题'])
-const artistBigCats = ref(['语种', '分类', '筛选'])
-const playlists = ref<PlaylistDetail[]>([])
-const tracks = ref<any[]>([])
-const show = ref(false)
-const hasMore = ref(true)
-const showList = ref<Playlist[]>([])
-// const activeArtistCat = ref(artistCategories.filter((cat) => cat.enable))
-const newTrackBtn = ref<TrackCatlist[]>([])
-const albumTypeBtn = ref(['热门', '全部'])
-const albumType = ref('热门')
-
-const subText = computed(() => {
-  if (activeCategory.value === '排行榜') return 'updateFrequency'
-  if (activeCategory.value === '推荐歌单') return 'copywriter'
-  return 'none'
-})
-
-const goToCategory = (tab: string, Category: string) => {
+const updatePlistCat = (cat: string) => {
   show.value = false
   showCatOptions.value = false
-  additionalTags.value[pluginId.value].forEach((item) => (item.active = item.name === Category))
-  router.push({ name: 'explore', query: { tab, category: Category } })
+  activeTags.value.playlist = cat
+
+  getPlaylist()
 }
 
-const updateType = (type: string) => {
-  albumType.value = type
-  router.push({ name: 'explore', query: { tab: 'newAlbum', category: activeCategory.value, type } })
+const updateTrackCat = (cat: string) => {
+  show.value = false
+  showCatOptions.value = false
+  activeTags.value.track = cat
+
+  getNewTrack()
 }
 
-const toggleArtistCategory = (category: any) => {
-  // category.enable = true
-  // const idx = activeArtistCat.value.findIndex((cat) => cat.bigCat === category.bigCat)!
-  // activeArtistCat.value[idx].enable = false
-  // activeArtistCat.value[idx] = category
-  // playlists.value = []
-  // getPlaylist()
+const updateAlbumCat = (cat: string) => {
+  show.value = false
+  showCatOptions.value = false
+  activeTags.value.album = cat
+
+  getNewAlbum()
+}
+
+const toggleArtistCategory = (bigCat: string, category: string) => {
+  const tag = activeTags.value.artist.find(([big, _]) => big === bigCat)!
+  tag[1] = category
+
+  getArtists()
 }
 
 const getCatsByBigCat = (bigCat: string) => {
   return tagLists.value.find((item) => item.name === bigCat)?.sub || []
 }
 
-const togglePlaylistCategory = (cat: CatType) => {
-  const additionalTagsList = additionalTags.value[pluginId.value]
-  const idx = additionalTagsList.findIndex((item) => item.name === cat.name)
+const togglePlaylistCategory = (name: string) => {
+  const idx = (additionalTags.value[pluginId.value] || []).findIndex((item) => item.name === name)
   if (idx === -1) {
-    additionalTagsList.push({ ...cat, active: false })
-    staticTags.value.forEach((item) => (item.active = item.name === cat.name))
-
-    goToCategory('playlist', cat.name)
+    const cat = tagLists.value
+      .map((it) => it.sub)
+      .flat()
+      .find((item) => item.name === name)!
+    additionalTags.value[pluginId.value].push(cat)
+    activeTags.value.playlist = cat.name
   } else {
-    additionalTagsList.splice(idx, 1)
-    staticTags.value.forEach((item) => {
-      if (item.name === cat.name) {
-        if (item.active) {
-          goToCategory('playlist', staticTags.value[0].name)
-          item.active = false
-        }
-      }
-    })
+    const item = additionalTags.value[pluginId.value][idx]
+    if (activeTags.value.playlist === item.name)
+      activeTags.value.playlist = staticTags.value[0].name
+    additionalTags.value[pluginId.value].splice(idx, 1)
   }
+
+  getPlaylist()
 }
 
 const getArtistCatsByBigCat = (bigCat: string) => {
-  // return artistCategories.filter((cat) => cat.bigCat === bigCat)
+  return artistCategory.value[pluginId.value]
+    .filter((cat) => cat.name === bigCat)
+    .map((item) => item.sub)
+    .flat()
 }
 
-const updatePlaylist = (playlistList: any[]) => {
-  tracks.value = []
-  playlists.value.push(...playlistList)
-  tricklingProgress.done()
-  show.value = true
+const getTopLists = (reset = true) => {
+  pluginMethodCall(pluginId.value, 'rankList', { ...data.chart.sourceContext, reset }).then(
+    (result) => {
+      if (!result.data.length) {
+        show.value = true
+        return
+      }
+      const res = result.data.map((item) => ({ ...item, pluginId: pluginId.value }))
+      data.chart.showList = res.slice(0, 4)
+      data.chart.data = res.slice(4)
+      data.chart.sourceContext = { ...data.chart.sourceContext, ...result.sourceContext }
+      show.value = true
+    }
+  )
 }
 
-// const getHighQualityPlaylist = () => {
-//   if (!playlistInfo.more) return
-//   const before = playlistInfo.lasttime
-//   highQualityPlaylist({ limit: 50, before }).then((data) => {
-//     playlistInfo.more = data.more
-//     playlistInfo.lasttime = data.lasttime
-//     playlistInfo.total = data.total
-//     updatePlaylist(data.playlists)
-//   })
-// }
+const getNewTrack = (reset = true) => {
+  if (reset) data.newTrack = []
+  const tag =
+    trackTags.value.find((item) => item.name === activeTags.value.track) || trackTags.value[0]
 
-const loadMore = () => {
-  getPlaylist()
-  // if (['推荐歌单', '排行榜'].includes(activeCategory.value) === false) {
-  //   // getPlaylist()
-  // }
-}
-
-const getTopLists = () => {
-  pluginMethodCall(pluginId.value, 'rankList', rankListSourceContext.value).then((res) => {
-    if (!res.data.length) return
-    showList.value.push(
-      ...res.data.map((item) => ({ ...item, pluginId: pluginId.value })).slice(0, 4)
-    )
-    updatePlaylist(res.data.map((item) => ({ ...item, pluginId: pluginId.value })))
-    playlists.value = playlists.value.slice(4)
-    rankListSourceContext.value = res.sourceContext
-  })
-}
-
-const getNewTrack = () => {
-  const active = newTrackBtn.value.find((item) => item.active)!
-
-  pluginMethodCall(pluginId.value, 'topSong', active).then((res) => {
-    tracks.value = res.data.map((item) => ({
-      ...item,
-      album: { ...item.album, pluginId: pluginId.value },
-      artists: item.artists.map((it) => ({ ...it, pluginId: pluginId.value })),
-      pluginId: pluginId.value
-    }))
-    tricklingProgress.done()
+  pluginMethodCall(pluginId.value, 'topSong', { ...tag.sourceContext, reset }).then((result) => {
+    if (!result.data.length) {
+      show.value = true
+      return
+    }
+    data.newTrack.push(...result.data.map((item) => ({ ...item, pluginId: pluginId.value })))
+    tag.sourceContext = result.sourceContext
     show.value = true
   })
-
-  // const trackMap = {
-  //   全部: 0,
-  //   华语: 7,
-  //   欧美: 96,
-  //   日本: 8,
-  //   韩国: 16
-  // }
-  // topSong(trackMap[activeCategory.value]).then((data) => {
-  //   playlists.value = []
-  //   tracks.value = data.data
-  //   tricklingProgress.done()
-  //   show.value = true
-  // })
 }
 
-const getNewAlbum = () => {
-  const albumMap = {
-    全部: 'ALL',
-    华语: 'ZH',
-    欧美: 'EA',
-    日本: 'JP',
-    韩国: 'KR'
-  }
-  if (albumType.value === '热门') {
-    if (!newAlbumInfo.topAlbum.hasMore) return
-    topAlbum({ area: albumMap[activeCategory.value] }).then((data) => {
-      newAlbumInfo.topAlbum.hasMore = data.hasMore
-      newAlbumInfo.topAlbum.weekData = data.weekData
-      newAlbumInfo.topAlbum.monthData = data.monthData
-      tricklingProgress.done()
+const getNewAlbum = (reset = true) => {
+  if (reset) data.newAlbum = []
+
+  const tag =
+    albumTags.value.find((item) => item.name === activeTags.value.album) || albumTags.value[0]
+
+  pluginMethodCall(pluginId.value, 'newAlbums', { ...tag.sourceContext, reset }).then((result) => {
+    if (!result.data.length) {
       show.value = true
-    })
-  } else {
-    if (
-      newAlbumInfo.newAlbums.albums.length > 0 &&
-      newAlbumInfo.newAlbums.albums.length === newAlbumInfo.newAlbums.total
-    )
       return
-    newAlbums({
-      area: albumMap[activeCategory.value],
-      limit: 50,
-      offset: newAlbumInfo.newAlbums.albums.length
-    }).then((data) => {
-      newAlbumInfo.newAlbums.albums.push(...data.albums)
-      tricklingProgress.done()
-      show.value = true
-    })
-  }
-}
-
-const getPlaylist = () => {
-  if (exploreTab.value === 'artist') {
-    getArtists()
-  } else if (exploreTab.value === 'chart') {
-    getTopLists()
-  } else if (exploreTab.value === 'playlist') {
-    const cat = staticTags.value.find((item) => item.active)!
-    pluginMethodCall(pluginId.value, 'getCategoryPlaylist', cat.sourceContext).then((result) => {
-      result.data.forEach((item) => {
-        item.pluginId = pluginId.value
-      })
-      hasMore.value = result.hasMore
-      cat.sourceContext = result.sourceContext
-      updatePlaylist(result.data)
-    })
-
-    // if (activeCategory.value === '推荐歌单') {
-    //   getRecommendPlayList(100, true).then((list) => {
-    //     playlists.value = []
-    //     updatePlaylist(list)
-    //   })
-    // } else if (activeCategory.value === '精品歌单') {
-    //   getHighQualityPlaylist()
-    // } else {
-    //   topPlaylist({ cat: activeCategory.value, offset: playlists.value.length }).then((data) => {
-    //     playlistInfo.more = data.more
-    //     playlistInfo.total = data.total
-    //     playlistInfo.lasttime = 0
-    //     updatePlaylist(data.playlists)
-    //     // hasMore.value = data.more
-    //   })
-    // }
-  } else if (exploreTab.value === 'newTrack') {
-    show.value = false
-    getNewTrack()
-  } else if (exploreTab.value === 'newAlbum') {
-    playlists.value = []
-    getNewAlbum()
-  }
-}
-
-const getArtists = () => {
-  if (!artistInfo.more) return
-  const params = {
-    // type: activeArtistCat.value[1].code,
-    // area: activeArtistCat.value[0].code,
-    // initial: activeArtistCat.value[2].code ?? activeArtistCat.value[2].name,
-    // limit: 50,
-    // offset: playlists.value.length
-  }
-  getArtistList(params).then((data) => {
-    updatePlaylist(data.artists)
-    artistInfo.more = data.more
+    }
+    data.newAlbum.push(...result.data.map((item) => ({ ...item, pluginId: pluginId.value })))
+    tag.sourceContext = result.sourceContext
+    show.value = true
   })
 }
 
-const loadData = async () => {
+const getPlaylist = (reset = true) => {
+  if (reset) data.playlist = []
+  const tag =
+    staticTags.value.find((item) => item.name === activeTags.value.playlist) || staticTags.value[0]
+
+  pluginMethodCall(pluginId.value, 'getCategoryPlaylist', { ...tag.sourceContext, reset }).then(
+    (result) => {
+      if (!result.data.length) {
+        show.value = true
+        return
+      }
+      data.playlist.push(...result.data.map((it) => ({ ...it, pluginId: pluginId.value })))
+      tag.sourceContext = { ...tag.sourceContext, ...result.sourceContext }
+      show.value = true
+    }
+  )
+}
+
+const getArtists = (reset = true) => {
+  if (reset) {
+    data.artist.data = []
+    data.artist.sourceContext = {}
+  }
+
+  const cats = activeCats.value[pluginId.value].artist
+  const query = artistTags.value.map((item) => {
+    const { sub, ...rest } = item
+    const result: Record<string, any> = { ...rest }
+    const cat = cats.find(([big, value]) => big === rest.name)!
+    const tag = sub.find((it) => it.name === cat[1])!
+    result.tag = tag
+    return result
+  })
+
+  if (data.artist.sourceContext && Object.keys(data.artist.sourceContext).length === 0) {
+    data.artist.sourceContext = { query, reset, isFull: true }
+  }
+
+  pluginMethodCall(pluginId.value, 'artistsList', data.artist.sourceContext).then((result) => {
+    show.value = true
+    if (!result.data.length) return
+    data.artist.data.push(...result.data.map((item) => ({ ...item, pluginId: pluginId.value })))
+    data.artist.sourceContext = { ...query, ...result.sourceContext }
+  })
+}
+
+const loadData = async (reset = true) => {
   setTimeout(() => {
     if (!show.value) tricklingProgress.start()
   }, 1000)
 
-  if (exploreTab.value === 'playlist') {
-    await pluginMethodCall(pluginId.value, 'catlist').then((result) => {
-      playlistTags[pluginId.value] = result.data!
-      additionalTags.value[pluginId.value].forEach((item) => {
-        const cat = playlistTags[pluginId.value].tagList
-          .map((i) => i.sub)
-          .flat()
-          .find((it) => it.name === item.name && it.id === item.id)
-        if (cat) {
-          item.sourceContext = cat.sourceContext
-        }
-      })
-    })
-  } else if (exploreTab.value === 'newTrack') {
-    await pluginMethodCall(pluginId.value, 'getTrackCatlist').then((res) => {
-      console.log('getTrackCatlist res', res)
-      newTrackBtn.value = res.data
-    })
+  const tab = exploreTab.value
+  switch (tab) {
+    case 'playlist':
+      getPlaylist(reset)
+      break
+    case 'chart':
+      getTopLists(reset)
+      break
+    case 'newTrack':
+      getNewTrack(reset)
+      break
+    case 'newAlbum':
+      getNewAlbum(reset)
+      break
+    case 'artist':
+      getArtists(reset)
+      break
+    default:
+      break
   }
-  await nextTick()
-  getPlaylist()
+}
+
+const loadMore = () => {
+  loadData(false)
 }
 
 const updatePadding = inject('updatePadding') as (val: number) => void
 
-// watch(albumType, () => {
-//   nextTick(() => {
-//     updatePadding(0)
-//   })
-// })
-
-onBeforeRouteUpdate(async (to, from, next) => {
+watch(exploreTab, () => {
+  show.value = false
   updatePadding(0)
-  hasMore.value = false
-  const name = to.query.category as string
-
-  staticTags.value.forEach((item) => {
-    item.active = item.name === name
-    item.sourceContext.reset = true
-  })
-
-  playlists.value = []
-  showList.value = []
-  rankListSourceContext.value = {}
-
-  if (to.query.tab === 'newTrack') {
-    if (from.query.tab !== 'newTrack') {
-      await pluginMethodCall(pluginId.value, 'getTrackCatlist').then((res) => {
-        newTrackBtn.value = res.data
-      })
-    }
-    newTrackBtn.value.forEach((item) => {
-      item.active = item.name === to.query.category
-    })
-  }
-
-  getPlaylist()
-  next()
+  loadData(true)
 })
 
-onMounted(async () => {
+onMounted(() => {
   updatePadding(0)
-  await loadData()
+  getExploreBtn(pluginId.value).then(() => {
+    loadData()
+  })
 })
 
 onBeforeUnmount(() => {
   updatePadding(96)
   exploreTab.value = 'playlist'
+  activeCats.value[pluginId.value] = { playlist: '', track: '', album: '', artist: [] }
 })
 </script>
 
@@ -620,8 +481,7 @@ onBeforeUnmount(() => {
     font-weight: 700;
     opacity: 0.68;
     margin-left: 24px;
-    min-width: 54px;
-    height: 26px;
+    min-width: 80px;
     margin-top: 8px;
   }
   .cats {

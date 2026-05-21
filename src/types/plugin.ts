@@ -19,6 +19,7 @@ import {
   PlaylistCatlistSchema,
   CategorySchema,
   TrackCatlistSchema,
+  ArtistCatlistSchema,
   PluginId
 } from './schemas'
 
@@ -45,6 +46,7 @@ export type orderType = 'ASC' | 'DESC'
 export type ArtistType = 'artist' | 'albumArtist'
 export type CatType = z.infer<typeof CategorySchema>
 export type TrackCatlist = z.infer<typeof TrackCatlistSchema>
+export type ArtistCatlist = z.infer<typeof ArtistCatlistSchema>
 
 export type service = {
   code: PluginId
@@ -59,6 +61,10 @@ export interface Lyrics {
   tlyric: { start: number; end: number; content: string; contentInfo?: Word[] }[]
   rlyric: { start: number; end: number; content: string; contentInfo?: Word[] }[]
 }
+
+export const exploreTabList = ['playlist', 'artist', 'chart', 'newTrack', 'newAlbum'] as const
+
+export type ExploreTab = (typeof exploreTabList)[number]
 
 export type PluginAPI = {
   [K in keyof typeof PluginResultSchema]: {
@@ -85,6 +91,7 @@ export const defaultMap: {
   personerFM: { code: 404 },
   topSong: { code: 404, data: [], sourceContext: {} },
   topArtists: { code: 404, data: [], sourceContext: {} },
+  artistsList: { code: 404, data: [], sourceContext: {} },
   topAlbums: { code: 404, hasMore: false, albums: [], sourceContext: {} },
   rankTop: { code: 404, data: [] },
   rankList: { code: 404, data: [], sourceContext: {} },
@@ -92,7 +99,7 @@ export const defaultMap: {
   loginQrKey: { code: 404, data: { url: '', qrcode: '' } },
   loginQrCodeCheck: { code: 800 as const, message: '' },
   catlist: { code: 404, data: null },
-  getCategoryPlaylist: { code: 404, hasMore: false, data: [], sourceContext: { id: 0, offset: 0 } },
+  getCategoryPlaylist: { code: 404, data: [], sourceContext: { id: 0, offset: 0 } },
   systemPing: { code: 404, status: 'logout' },
   likelist: { code: 404, data: [], sourceContext: {} },
   // userLikedAlbums: { code: 404, data: [], sourceContext: {} },
@@ -114,7 +121,10 @@ export const defaultMap: {
   subscribePlaylist: { code: 404 },
   followArtist: { code: 404 },
   subscribeAlbum: { code: 404 },
-  getTrackCatlist: { code: 404, data: [] }
+  getTrackCatlist: { code: 404, data: [] },
+  getAlbumCatlist: { code: 404, data: [] },
+  newAlbums: { code: 404, data: [], sourceContext: {} },
+  getArtistCatlist: { code: 404, data: [] }
 }
 
 export type PluginMethodCall = <K extends keyof PluginAPI>(

@@ -620,21 +620,6 @@ exports.getBanner = async () => {
   return { code: result?.code ?? 200, data: [] }
 }
 
-const splist = [3136952023, 2829883282, 2829816518, 2829896389]
-
-const replaceRecommendResult = async (recommend) => {
-  for (const item of recommend) {
-    if (splist.indexOf(item.id) !== -1) {
-      const data = await get('playlist/detail', { id: item.id })
-      const playlist = data.playlist
-      if (playlist) {
-        item.name = playlist.name
-        item.picUrl = playlist.coverImgUrl
-      }
-    }
-  }
-}
-
 const dailyRecommendPlaylist = async (removePrivateRecommand) => {
   const result = await get('recommend/resource')
 
@@ -854,7 +839,7 @@ exports.rankTop = async () => {
  */
 exports.rankList = async (params) => {
   if (params.loaded) {
-    return { code: 200, data: [], sourceContext: { loaded: true } }
+    return { code: 200, data: [], sourceContext: params }
   }
 
   const res = await get('toplist/detail')
@@ -882,7 +867,7 @@ exports.rankList = async (params) => {
     }))
     return { code: 200, data, sourceContext: { loaded: true } }
   }
-  return { code: res?.code ?? 200, data: [], sourceContext: { loaded: false } }
+  return { code: res?.code ?? 200, data: [], sourceContext: params }
 }
 
 /**
@@ -955,25 +940,21 @@ exports.catlist = async () => {
       {
         id: 0,
         name: '全部',
-        active: false,
         sourceContext: { name: '全部', hasMore: true, offset: 0 }
       },
       {
         id: 0,
         name: '推荐歌单',
-        active: false,
         sourceContext: { name: '推荐歌单', hasMore: true, offset: 0 }
       },
       {
         id: 0,
         name: '精品歌单',
-        active: false,
         sourceContext: { name: '精品歌单', hasMore: true, offset: 0 }
       },
       {
         id: 0,
         name: '官方',
-        active: false,
         sourceContext: { name: '官方', hasMore: true, offset: 0 }
       }
     ],
@@ -997,7 +978,6 @@ const highQualityPlaylist = async (params) => {
   const result = await get('top/playlist/highquality', { limit, before })
   return {
     code: result.code ?? 200,
-    hasMore: result.more,
     data: result.playlists?.map(formatPlaylist) || [],
     sourceContext: { name, before: result.playlists.at(-1).updateTime }
   }
@@ -1009,32 +989,27 @@ exports.getCategoryPlaylist = async (params) => {
       return {
         code: 200,
         data: [],
-        hasMore: false,
-        sourceContext: { name: params.name, hasMore: false, offset: 0 }
+        sourceContext: params
       }
     const result = await getRecommendPlaylist(100, true)
     return {
       ...result,
-      hasMore: false,
-      sourceContext: { name: params.name, hasMore: false, offset: 0 }
+      sourceContext: { name: params.name, hasMore: false, offset: 100 }
     }
   } else if (params.name === '精品歌单') {
     return highQualityPlaylist(params)
   }
 
   const { name, hasMore, reset } = params
-  if (!hasMore)
-    return { code: 200, data: [], sourceContext: { name, hasMore: false, offset: params.offset } }
+  if (!hasMore) return { code: 200, data: [], sourceContext: params }
 
   const offset = reset ? 0 : params.offset
-
   const result = await get('top/playlist', { cat: params.name, limit: 50, offset })
   const data = (result?.playlists || []).map(formatPlaylist)
   return {
     code: result?.code ?? 200,
-    hasMore: result.more,
     data,
-    sourceContext: { name, hasMore: result.more, offset: offset + 50 }
+    sourceContext: { name, hasMore: result.more || false, offset: offset + 50 }
   }
 }
 
@@ -1364,31 +1339,145 @@ exports.followArtist = async (params) => {
 exports.getTrackCatlist = () => ({
   code: 200,
   data: [
-    { name: '全部', code: 0, active: true },
-    { name: '华语', code: 7, active: false },
-    { name: '欧美', code: 96, active: false },
-    { name: '日本', code: 8, active: false },
-    { name: '韩国', code: 16, active: false }
+    { name: '全部', code: 0, sourceContext: { name: '全部', code: 0 } },
+    { name: '华语', code: 7, sourceContext: { name: '华语', code: 7 } },
+    { name: '欧美', code: 96, sourceContext: { name: '欧美', code: 96 } },
+    { name: '日本', code: 8, sourceContext: { name: '日本', code: 8 } },
+    { name: '韩国', code: 16, sourceContext: { name: '韩国', code: 16 } }
   ]
 })
 
 exports.topSong = async (params) => {
+  if (params.hasMore === false && !params.reset) {
+    return { code: 200, data: [], sourceContext: params }
+  }
+
   const result = await get('top/song', { type: params.code })
   if (result.code === 200) {
     const items = mapTrackPlayableStatus(result.data)
     const data = items.map((item) => formatTrack(item, 64))
-    return { code: 200, data, sourceContext: { ...params } }
+    return { code: 200, data, sourceContext: { ...params, hasMore: false } }
   }
-  return { code: result?.code ?? 200, data: [], sourceContext: { ...params } }
+  return { code: result?.code ?? 200, data: [], sourceContext: params }
 }
 
 exports.getAlbumCatlist = () => ({
   code: 200,
   data: [
-    { name: '全部', code: 'ALL', active: true },
-    { name: '华语', code: 'ZH', active: false },
-    { name: '欧美', code: 'EA', active: false },
-    { name: '日本', code: 'JP', active: false },
-    { name: '韩国', code: 'KR', active: false }
+    { name: '全部', code: 'ALL', sourceContext: { name: '全部', code: 'ALL' } },
+    { name: '华语', code: 'ZH', sourceContext: { name: '华语', code: 'ZH' } },
+    { name: '欧美', code: 'EA', sourceContext: { name: '欧美', code: 'EA' } },
+    { name: '日本', code: 'JP', sourceContext: { name: '日本', code: 'JP' } },
+    { name: '韩国', code: 'KR', sourceContext: { name: '韩国', code: 'KR' } }
   ]
 })
+
+exports.newAlbums = async (params) => {
+  if (params.hasMore === false && !params.reset) {
+    return { code: 200, data: [], sourceContext: params }
+  }
+  const offset = params.reset ? 0 : params.offset || 0
+  const result = await get('album/new', { area: params.code, limit: 100, offset })
+  if (result.code === 200 && result.albums?.length) {
+    const data = result.albums.map((item) => formatAlbum(item, true))
+    return { code: 200, data, sourceContext: { ...params, offset: offset + 100 } }
+  }
+  return { code: 200, data: [], sourceContext: { ...params, hasMore: false } }
+}
+
+exports.getArtistCatlist = () => ({
+  code: 200,
+  data: [
+    {
+      name: '语种',
+      code: 'area',
+      sub: [
+        { name: '全部', code: '-1', sourceContext: { name: '全部', code: '-1' } },
+        { name: '华语', code: '7', sourceContext: { name: '华语', code: '7' } },
+        { name: '欧美', code: '96', sourceContext: { name: '欧美', code: '96' } },
+        { name: '日本', code: '8', sourceContext: { name: '日本', code: '8' } },
+        { name: '韩国', code: '16', sourceContext: { name: '韩国', code: '16' } },
+        { name: '其他', code: '0', sourceContext: { name: '其他', code: '0' } }
+      ]
+    },
+    {
+      name: '分类',
+      code: 'type',
+      sub: [
+        { name: '全部', code: '-1', sourceContext: { name: '全部', code: '-1' } },
+        { name: '男歌手', code: '1', sourceContext: { name: '男歌手', code: '1' } },
+        { name: '女歌手', code: '2', sourceContext: { name: '女歌手', code: '2' } },
+        { name: '组合/乐队', code: '3', sourceContext: { name: '组合/乐队', code: '3' } }
+      ]
+    },
+    {
+      name: '筛选',
+      code: 'initial',
+      sub: [
+        { name: '热门', code: '-1', sourceContext: { name: '热门', code: '-1' } },
+        { name: '#', code: '0', sourceContext: { name: '#', code: '0' } },
+        { name: 'A', code: 'a', sourceContext: { name: 'A', code: 'a' } },
+        { name: 'B', code: 'b', sourceContext: { name: 'B', code: 'b' } },
+        { name: 'C', code: 'c', sourceContext: { name: 'C', code: 'c' } },
+        { name: 'D', code: 'd', sourceContext: { name: 'D', code: 'd' } },
+        { name: 'E', code: 'e', sourceContext: { name: 'E', code: 'e' } },
+        { name: 'F', code: 'f', sourceContext: { name: 'F', code: 'f' } },
+        { name: 'G', code: 'g', sourceContext: { name: 'G', code: 'g' } },
+        { name: 'H', code: 'h', sourceContext: { name: 'H', code: 'h' } },
+        { name: 'I', code: 'i', sourceContext: { name: 'I', code: 'i' } },
+        { name: 'J', code: 'j', sourceContext: { name: 'J', code: 'j' } },
+        { name: 'K', code: 'k', sourceContext: { name: 'K', code: 'k' } },
+        { name: 'L', code: 'l', sourceContext: { name: 'L', code: 'l' } },
+        { name: 'M', code: 'm', sourceContext: { name: 'M', code: 'm' } },
+        { name: 'N', code: 'n', sourceContext: { name: 'N', code: 'n' } },
+        { name: 'O', code: 'o', sourceContext: { name: 'O', code: 'o' } },
+        { name: 'P', code: 'p', sourceContext: { name: 'P', code: 'p' } },
+        { name: 'Q', code: 'q', sourceContext: { name: 'Q', code: 'q' } },
+        { name: 'R', code: 'r', sourceContext: { name: 'R', code: 'r' } },
+        { name: 'S', code: 's', sourceContext: { name: 'S', code: 's' } },
+        { name: 'T', code: 't', sourceContext: { name: 'T', code: 't' } },
+        { name: 'U', code: 'u', sourceContext: { name: 'U', code: 'u' } },
+        { name: 'V', code: 'v', sourceContext: { name: 'V', code: 'v' } },
+        { name: 'W', code: 'w', sourceContext: { name: 'W', code: 'w' } },
+        { name: 'X', code: 'x', sourceContext: { name: 'X', code: 'x' } },
+        { name: 'Y', code: 'y', sourceContext: { name: 'Y', code: 'y' } },
+        { name: 'Z', code: 'z', sourceContext: { name: 'Z', code: 'z' } }
+      ]
+    }
+  ]
+})
+
+exports.artistsList = async (_params) => {
+  if (_params.hasMore === false && _params.reset) {
+    return { code: 200, data: [], sourceContext: _params }
+  }
+
+  const params = {}
+  _params?.query?.forEach((item) => {
+    const code = item.code
+    const tag = item.tag
+    params[code] = { code: tag.code, name: tag.name }
+  })
+  const offset = _params.offset || 0
+
+  const result = await get('artist/list', {
+    area: params.area.code,
+    type: params.type.code,
+    initial: params.initial.code,
+    limit: 100,
+    offset
+  })
+
+  if (result.code === 200) {
+    const data = result.artists.map((item) => ({
+      id: item.id,
+      name: item.name,
+      pluginId: '',
+      picUrl: item.picUrl + '?param=256y256',
+      sourceContext: { id: item.id }
+    }))
+    return { code: 200, data, sourceContext: { query: _params.query, offset: offset + 100 } }
+  }
+
+  return { code: 200, data: [], sourceContext: _params }
+}

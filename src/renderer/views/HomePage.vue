@@ -58,7 +58,7 @@ import { useNormalStateStore } from '../store/state'
 import { usePluginMusic } from '../store/pluginMusic'
 import { storeToRefs } from 'pinia'
 import Utils from '../utils'
-import { Album, Artist, Banner, Playlist, PluginId } from '@/types/plugin'
+import { Album, Artist, Banner, ExploreTab, Playlist, PluginId } from '@/types/plugin'
 
 const { general } = storeToRefs(useSettingsStore())
 const { exploreTab, showLyrics, dailyTracks } = storeToRefs(useNormalStateStore())
@@ -95,7 +95,7 @@ const topList = ref<{ items: Playlist[]; ids: number[] }>({
   ids: [19723756, 180106, 60198, 3812895, 60131]
 })
 
-const toExplore = (tab: string, Category = '全部') => {
+const toExplore = (tab: ExploreTab, Category = '全部') => {
   exploreTab.value = tab
   router.push({ name: 'explore', query: { category: Category, tab, type: '全部' } })
 }
@@ -184,7 +184,7 @@ const loadData = async () => {
     show.value = true
   })
 
-  pluginMethodCall(pluginId.value, 'topArtists', { reset: true }).then((res) => {
+  pluginMethodCall(pluginId.value, 'topArtists', { reset: true, isFull: false }).then((res) => {
     const artists = res.data.map((item) => ({ ...item, pluginId: pluginId.value }))
     const idx: number[] = []
     while (idx.length < 6) {

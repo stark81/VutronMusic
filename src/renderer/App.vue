@@ -28,7 +28,7 @@ import newPlaylistModal from './components/ModalNewPlaylist.vue'
 import editPlaylist from './components/ModalEditPlaylist.vue'
 import selectPathModal from './components/ModalFilePaths.vue'
 import PlayPage from './views/PlayPage.vue'
-// import { useDataStore } from './store/data'
+import { useDataStore } from './store/data'
 import { useLocalMusicStore } from './store/localMusic'
 import { useOsdLyricStore } from './store/osdLyric'
 import { usePlayerStore } from './store/player'
@@ -44,12 +44,11 @@ import eventBus from './utils/eventBus'
 import { Track } from '@/types/music'
 
 const pluginMusicStore = usePluginMusic()
-const { services, playlists, tools } = storeToRefs(pluginMusicStore)
+const { services } = storeToRefs(pluginMusicStore)
 const {
   getPlugins,
   fetchLikedPlaylists,
   fetchLikedSongsWithDetails,
-  // fetchLikedAlbums,
   fetchLikedArtists,
   fetchLikedMVs,
   fetchCloudDisk
@@ -58,6 +57,8 @@ const {
 const localMusicStore = useLocalMusicStore()
 const { localTracks } = storeToRefs(localMusicStore)
 const { deleteLocalTracks } = localMusicStore
+
+useDataStore()
 
 const playerStore = usePlayerStore()
 const { enabled } = storeToRefs(playerStore)

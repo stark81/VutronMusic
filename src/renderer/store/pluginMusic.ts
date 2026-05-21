@@ -1,6 +1,6 @@
 import z from 'zod'
 import { defineStore } from 'pinia'
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, toRaw, watch } from 'vue'
 import { PluginResultSchema } from '@/types/schemas'
 import router from '../router'
 import {
@@ -17,9 +17,11 @@ import {
   Artist,
   Album,
   Tool,
-  Mv
+  Mv,
+  ArtistCatlist,
+  TrackCatlist,
+  exploreTabList
 } from '@/types/plugin'
-import plugin from 'dayjs/plugin/duration'
 
 const _buildService = (code: PluginId, meta: { name: string; type: MusicType }): service => {
   return {
@@ -66,7 +68,35 @@ export const usePluginMusic = defineStore(
       stream: { groundBy: 'all', sortBy: 'id', orderBy: 'ASC', artistBy: 'artist' },
       local: { groundBy: 'all', sortBy: 'id', orderBy: 'ASC', artistBy: 'artist' }
     })
+
     const additionalTags = reactive<Record<PluginId, PlaylistCatlist['static']>>({})
+    const activeCats = reactive<
+      Record<
+        PluginId,
+        { playlist: string; album: string; track: string; artist: [string, string][] }
+      >
+    >({})
+
+    const _playlistCategory = reactive<Record<PluginId, PlaylistCatlist>>({})
+    const artistCategory = reactive<Record<PluginId, ArtistCatlist[]>>({})
+    const albumCategory = reactive<Record<PluginId, TrackCatlist[]>>({})
+    const trackCategory = reactive<Record<PluginId, TrackCatlist[]>>({})
+
+    const playlistCategory = computed(() => {
+      const data = Object.entries(_playlistCategory).map(([plugin, value]) => {
+        const staticTag = toRaw(value.static).concat(
+          (additionalTags[plugin as PluginId] || []).map((it) => ({ ...it, active: false }))
+        )
+        return [plugin, { static: staticTag, tagList: value.tagList }] as const
+      })
+
+      const result: Record<PluginId, PlaylistCatlist> = {}
+      data.forEach(([key, value]) => {
+        result[key as PluginId] = value
+      })
+
+      return result
+    })
 
     const pluginIdSet = computed(() => {
       return new Set(services.value.map((s) => s.code))
@@ -137,6 +167,7 @@ export const usePluginMusic = defineStore(
               services.value.push(info)
               _initPluginData(pluginId)
             }
+            _initTempInfo(pluginId)
           }
         })
       const active = services.value.find((item) => item.active)
@@ -157,6 +188,17 @@ export const usePluginMusic = defineStore(
       if (!additionalTags[pluginId]) {
         additionalTags[pluginId] = []
       }
+    }
+
+    const _initTempInfo = (pluginId: PluginId) => {
+      _playlistCategory[pluginId] = { static: [], tagList: [] }
+      artistCategory[pluginId] = []
+      albumCategory[pluginId] = []
+      trackCategory[pluginId] = []
+      if (!additionalTags[pluginId]) {
+        additionalTags[pluginId] = []
+      }
+      activeCats[pluginId] = { playlist: '', track: '', album: '', artist: [] }
     }
 
     /**
@@ -409,6 +451,60 @@ export const usePluginMusic = defineStore(
       return !!user
     }
 
+    const _getPlaylistCategory = (plugin: PluginId) =>
+      pluginMethodCall(plugin, 'catlist').then((result) => {
+        if (!result.data) return
+        _playlistCategory[plugin].static = result.data.static
+        _playlistCategory[plugin].tagList = result.data.tagList
+        activeCats[plugin].playlist = result.data.static[0].name
+      })
+
+    const _getArtistCategory = (plugin: PluginId) =>
+      pluginMethodCall(plugin, 'getArtistCatlist').then((result) => {
+        if (!result.data) return
+        artistCategory[plugin] = result.data
+        activeCats[plugin].artist = result.data.map((it) => [it.name, it.sub[0].name])
+      })
+
+    const _getAlbumCategory = (plugin: PluginId) =>
+      pluginMethodCall(plugin, 'getAlbumCatlist').then((result) => {
+        if (!result.data) return
+        albumCategory[plugin] = result.data
+        activeCats[plugin].album = result.data[0].name
+      })
+
+    const _getTrackCategory = (plugin: PluginId) =>
+      pluginMethodCall(plugin, 'getTrackCatlist').then((result) => {
+        if (!result.data) return
+        trackCategory[plugin] = result.data
+        activeCats[plugin].track = result.data[0].name
+      })
+
+    const getExploreBtn = async (plugin: PluginId) => {
+      await Promise.all(
+        exploreTabList.map((tab) => {
+          const map = {
+            playlist: _getPlaylistCategory,
+            artist: _getArtistCategory,
+            newTrack: _getTrackCategory,
+            newAlbum: _getAlbumCategory
+          }
+          map[tab]?.(plugin)
+        })
+      )
+    }
+
+    watch(
+      services,
+      async (value) => {
+        const plugin = value.find((service) => service.active)?.code
+        if (plugin) {
+          await getExploreBtn(plugin)
+        }
+      },
+      { immediate: true }
+    )
+
     return {
       tools,
       services,
@@ -423,6 +519,14 @@ export const usePluginMusic = defineStore(
       mvs,
       additionalTags,
       users,
+
+      playlistCategory,
+      artistCategory,
+      albumCategory,
+      trackCategory,
+      activeCats,
+
+      getExploreBtn,
       likeATrack,
       fetchLyric,
       resizeImage,
@@ -440,6 +544,8 @@ export const usePluginMusic = defineStore(
     }
   },
   {
-    persist: { pick: ['services', 'additionalTags', 'users', 'tools'] }
+    persist: {
+      pick: ['services', 'additionalTags', 'users', 'tools']
+    }
   }
 )

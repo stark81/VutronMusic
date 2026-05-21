@@ -10,7 +10,7 @@ import eventBus from '../utils/eventBus'
 import shuffleFn from 'lodash/shuffle'
 
 import { PluginId, Track } from '@/types/plugin'
-import { RepeatMode, SourceType, playlistSourceInfo } from '@/types/music'
+import { RepeatMode, SourceType, PlaylistSourceInfo } from '@/types/music'
 
 const formatTime = (seconds: number) => {
   const minutes = Math.floor(seconds / 60)
@@ -72,7 +72,7 @@ export const usePlayerStore = defineStore('player', () => {
 
   const _volume = ref(0.5)
   const _volumeBeforeMuted = ref(0)
-  const playlistSource = ref<playlistSourceInfo>({
+  const playlistSource = ref<PlaylistSourceInfo>({
     type: 'Playlist',
     plugin: '' as PluginId,
     sourceContext: {}

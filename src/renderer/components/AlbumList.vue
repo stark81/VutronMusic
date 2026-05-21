@@ -61,7 +61,7 @@ import AlbumListItem from './AlbumListItem.vue'
 import TrackListItem from './TrackListItem.vue'
 import { usePlayerStore } from '../store/player'
 import { PluginId, Track } from '@/types/plugin'
-import { playlistSourceInfo } from '@/types/music'
+import { PlaylistSourceInfo } from '@/types/music'
 
 const props = defineProps<{
   tracks: Track[]
@@ -88,7 +88,7 @@ const showTracks = computed(() => {
 
 // ==================== function ==================== //
 const playThisList = (id: number | string) => {
-  // const source: playlistSourceInfo = { type: 'Track', plugin: }
+  // const source: PlaylistSourceInfo = { type: 'Track', plugin: }
   const IDs = showTracks.value.map((track) => [track.pluginId, track.sourceContext]) as [
     PluginId,
     Record<string, any>

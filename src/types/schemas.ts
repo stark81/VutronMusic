@@ -1,16 +1,5 @@
 import { z } from 'zod'
 
-// type TrackRights = {
-//   canPlay: boolean
-//   canDownload: boolean
-
-//   requiresVip?: boolean
-//   isPreview?: boolean
-//   maxBitrate?: number
-
-//   reason?: string
-// }
-
 /**
  * - 本地文件
  * - 公共平台
@@ -131,7 +120,6 @@ export const CategorySchema = z.object({
 const StaticCategorySchema = z.object({
   id: z.number(),
   name: z.string(),
-  active: z.boolean(),
   sourceContext: z.record(z.string(), z.any())
 })
 
@@ -230,8 +218,14 @@ export const LoginQrCodeCheckResultSchema = z.object({
 
 export const TrackCatlistSchema = z.object({
   name: z.string(),
-  code: z.number(),
-  active: z.boolean()
+  code: z.number().or(z.string()),
+  sourceContext: z.record(z.string(), z.any())
+})
+
+export const ArtistCatlistSchema = z.object({
+  name: z.string(),
+  code: z.number().or(z.string()),
+  sub: z.array(TrackCatlistSchema)
 })
 
 export const PluginResultSchema = {
@@ -274,6 +268,11 @@ export const PluginResultSchema = {
     data: z.array(ArtistSchema),
     sourceContext: z.record(z.string(), z.any())
   }),
+  artistsList: z.object({
+    code: z.number(),
+    data: z.array(ArtistSchema),
+    sourceContext: z.record(z.string(), z.any())
+  }),
   topAlbums: z.object({
     code: z.number(),
     hasMore: z.boolean(),
@@ -297,7 +296,6 @@ export const PluginResultSchema = {
   catlist: z.object({ code: z.number(), data: PlaylistCatlistSchema.or(z.null()) }),
   getCategoryPlaylist: z.object({
     code: z.number(),
-    hasMore: z.boolean(),
     data: z.array(PlaylistSchema),
     sourceContext: z.record(z.string(), z.any())
   }),
@@ -307,11 +305,6 @@ export const PluginResultSchema = {
     data: z.array(TrackSchema),
     sourceContext: z.record(z.string(), z.any())
   }),
-  // userLikedAlbums: z.object({
-  //   code: z.number(),
-  //   data: z.array(AlbumSchema),
-  //   sourceContext: z.record(z.string(), z.any())
-  // }),
   userLikedArtists: z.object({
     code: z.number(),
     data: z.array(ArtistSchema),
@@ -348,11 +341,6 @@ export const PluginResultSchema = {
     data: z.array(MvSchema),
     sourceContext: z.record(z.string(), z.any())
   }),
-  // artistTracks: z.object({
-  //   code: z.number(),
-  //   data: z.array(TrackSchema),
-  //   sourceContext: z.record(z.string(), z.any())
-  // }),
   simiArtists: z.object({
     code: z.number(),
     data: z.array(ArtistSchema),
@@ -369,7 +357,15 @@ export const PluginResultSchema = {
   subscribePlaylist: z.object({ code: z.number() }),
   followArtist: z.object({ code: z.number() }),
   subscribeAlbum: z.object({ code: z.number() }),
-  getTrackCatlist: z.object({ code: z.number(), data: z.array(TrackCatlistSchema) })
-
-  // getExtraContextMenuItem: z.object({ code: z.number(), data: z.array() })
+  getTrackCatlist: z.object({ code: z.number(), data: z.array(TrackCatlistSchema) }),
+  getAlbumCatlist: z.object({ code: z.number(), data: z.array(TrackCatlistSchema) }),
+  newAlbums: z.object({
+    code: z.number(),
+    data: z.array(AlbumSchema),
+    sourceContext: z.record(z.string(), z.any())
+  }),
+  getArtistCatlist: z.object({
+    code: z.number(),
+    data: z.array(ArtistCatlistSchema)
+  })
 } as const

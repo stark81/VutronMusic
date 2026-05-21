@@ -28,7 +28,7 @@ import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import _ from 'lodash'
 import { PluginId } from '@/types/plugin'
-import { playlistSourceInfo } from '@/types/music'
+import { PlaylistSourceInfo } from '@/types/music'
 
 const props = withDefaults(
   defineProps<{
@@ -71,7 +71,7 @@ const goToDailyTracks = () => {
 }
 
 const playDailyTracks = () => {
-  const source: playlistSourceInfo = {
+  const source: PlaylistSourceInfo = {
     type: 'DailySongs',
     plugin: props.plugin,
     sourceContext: {}

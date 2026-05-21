@@ -139,7 +139,7 @@ import isEqual from 'lodash/isEqual'
 // import { isAccountLoggedIn } from '../utils/auth'
 // import { useStreamMusicStore } from '../store/streamingMusic'
 import SvgIcon from './SvgIcon.vue'
-import { playlistSourceInfo, SourceType } from '@/types/music.d'
+import { PlaylistSourceInfo, SourceType } from '@/types/music.d'
 import { PluginId, Track } from '@/types/plugin'
 
 const props = withDefaults(
@@ -284,7 +284,7 @@ const currentIndex = computed(() => {
 const playThisList = (index: number | string) => {
   if (!props.dbclickEnable) return
 
-  const source: playlistSourceInfo = {
+  const source: PlaylistSourceInfo = {
     type: props.type,
     plugin: props.plugin,
     sourceContext: props.sourceContext

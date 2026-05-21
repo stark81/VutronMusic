@@ -32,7 +32,7 @@ import { storeToRefs } from 'pinia'
 // import { getPlaylistDetail } from '../api/playlist'
 // import { getArtist } from '../api/artist'
 // import { getAlbum } from '../api/album'
-import { serviceName, CoverType, playlistSourceInfo } from '@/types/music.d'
+import { serviceName, CoverType, PlaylistSourceInfo } from '@/types/music.d'
 import { PluginId, Track } from '@/types/plugin'
 
 const props = defineProps({
@@ -114,7 +114,7 @@ const play = async () => {
     )
   }
 
-  const source: playlistSourceInfo = {
+  const source: PlaylistSourceInfo = {
     type: props.type as Exclude<typeof props.type, 'User'>,
     plugin,
     sourceContext: props.sourceContext

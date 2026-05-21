@@ -33,7 +33,7 @@ import SearchBox from '../components/SearchBox.vue'
 import { dailyRecommendTracks } from '../api/playlist'
 import { usePlayerStore } from '../store/player'
 import { PluginId } from '@/types/schemas'
-import { playlistSourceInfo } from '@/types/music'
+import { PlaylistSourceInfo } from '@/types/music'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
@@ -75,7 +75,7 @@ const play = () => {
     Record<string, any>
   ][]
   const idx = isShuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
-  const source: playlistSourceInfo = {
+  const source: PlaylistSourceInfo = {
     type: 'DailySongs',
     plugin: pluginId.value,
     sourceContext: {}
