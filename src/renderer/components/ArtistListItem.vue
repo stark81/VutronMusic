@@ -11,7 +11,7 @@
 </template>
 <script setup lang="ts">
 import { PropType, computed } from 'vue'
-import { Track, Artist } from '@/types/music.d'
+import { Track, Artist } from '@/types/plugin'
 
 const props = defineProps({
   trackProp: {
@@ -30,14 +30,7 @@ const props = defineProps({
 
 const artist = computed(() => props.artistProp)
 
-const image = computed(() => {
-  const url = artist.value.matched
-    ? (artist.value.img1v1Url ??
-      artist.value.picUrl ??
-      'https://p1.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg')
-    : artist.value.picUrl
-  return props.trackProp[0]?.type === 'local' ? url + '?param=64y64' : url
-})
+const image = computed(() => artist.value.picUrl)
 </script>
 
 <style scoped lang="scss">
@@ -90,6 +83,7 @@ img {
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 1;
+    line-clamp: 1;
     overflow: hidden;
     a {
       span {

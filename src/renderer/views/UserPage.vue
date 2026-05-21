@@ -71,7 +71,7 @@
       <div v-if="currentTab === 'playlist'">
         <CoverRow
           :items="filterPlaylists"
-          type="playlist"
+          type="Playlist"
           :show-play-count="true"
           :is-end="true"
           :item-height="260"
@@ -101,10 +101,13 @@
         <TrackList
           :items="playHistoryList"
           :colunm-number="1"
+          :plugin="'' as PluginId"
+          :is-group-by="false"
+          :source-context="{}"
           :is-end="true"
           :item-height="60"
           :padding-bottom="96"
-          type="tracklist"
+          type="TrackList"
         />
       </div>
     </div>
@@ -140,6 +143,7 @@ import TrackList from '../components/VirtualTrackList.vue'
 import ButtonTwoTone from '../components/ButtonTwoTone.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import CoverRow from '../components/VirtualCoverRow.vue'
+import { PluginId } from '@/types/schemas'
 
 const show = ref(false)
 const user = ref<{ [key: string]: any }>({})

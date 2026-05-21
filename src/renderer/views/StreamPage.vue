@@ -102,8 +102,11 @@
           <TrackList
             :id="0"
             ref="streamListRef"
-            :items="sortedLocalTracks"
-            :type="'streamPlaylist'"
+            :items="[]"
+            :type="'Playlist'"
+            :plugin="'' as PluginId"
+            :is-group-by="false"
+            :source-context="{}"
             :group-by="defaultGroupBy"
             :show-service="true"
             :colunm-number="1"
@@ -114,14 +117,14 @@
         <div v-show="idx === 1">
           <CoverRow
             :items="defaultPlaylists"
-            type="streamPlaylist"
+            type="Playlist"
             sub-text="creator"
             :colunm-number="5"
             :is-end="true"
           />
         </div>
         <div v-show="idx === 2">
-          <AlbumList :tracks="sortedLocalTracks" />
+          <AlbumList :tracks="[]" :plugin="'' as PluginId" />
         </div>
         <div v-show="idx === 3">
           <ArtistList :tracks="sortedLocalTracks" :type="tabs[3][artistBy]" />
@@ -163,7 +166,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, inject, computed, provide, watch, shallowRef, onBeforeUnmount } from 'vue'
+import {
+  ref,
+  onMounted,
+  inject,
+  computed,
+  provide,
+  watch,
+  shallowRef,
+  onBeforeUnmount,
+  Plugin
+} from 'vue'
 import { storeToRefs } from 'pinia'
 import { useStreamMusicStore } from '../store/streamingMusic'
 import { useNormalStateStore } from '../store/state'
@@ -180,6 +193,7 @@ import { useI18n } from 'vue-i18n'
 import { randomNum, pickedLyric } from '../utils'
 import { Track, lyricLine, serviceName } from '@/types/music.d'
 import _ from 'lodash'
+import { PluginId } from '@/types/schemas'
 
 const stateStore = useNormalStateStore()
 const { newPlaylistModal, modalOpen } = storeToRefs(stateStore)
@@ -334,7 +348,7 @@ const addToPlaylist = () => {
 }
 
 const addTracksToQueue = () => {
-  streamListRef.value?.addToQueue()
+  // streamListRef.value?.addToQueue()
 }
 
 const finishBatchOp = () => {
@@ -366,14 +380,14 @@ const goToLikedSongsList = () => {
 const openAddPlaylistModal = () => {
   if (groundBy.value === 'all' && loginedServices.value.length > 1) {
     showToast('在聚合视图下无法进行操作，请先选择具体的流媒体服务')
-    return
+    // return
   }
-  newPlaylistModal.value = {
-    type:
-      groundBy.value === 'all' ? loginedServices.value[0].name : (groundBy.value as serviceName),
-    afterCreateAddTrackID: [],
-    show: true
-  }
+  // newPlaylistModal.value = {
+  //   type:
+  //     groundBy.value === 'all' ? loginedServices.value[0].name : (groundBy.value as serviceName),
+  //   afterCreateAddTrackID: [],
+  //   show: true
+  // }
 }
 
 const getRandomTrack = async () => {

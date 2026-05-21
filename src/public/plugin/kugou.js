@@ -206,6 +206,12 @@ apis.store.get('').then((store) => {
     const vip = result.data.busi_vip.some((item) => item.is_vip === 1)
     user.isVip = vip
 
+    if (!user.isVip) youthVip()
+
+    // const tomorrow = new Date()
+    // tomorrow.setDate(tomorrow.getDate() + 1)
+    // youthVip(_formatDate(tomorrow))
+
     get('user/playlist', { pagesize: 100 })
       .then((res) => {
         collectedPlaylists.ids = res.data.info.map((item) => ({
@@ -216,6 +222,24 @@ apis.store.get('').then((store) => {
       .catch()
   })
 })
+
+const youthVip = async (date = _formatDate()) => {
+  await get('youth/day/vip', { receive_day: date })
+  setTimeout(() => {
+    get('youth/day/vip/upgrade')
+  }, 10 * 1000)
+  return { code: 200 }
+}
+
+const _formatDate = (date = new Date()) => {
+  return (
+    date.getFullYear() +
+    '-' +
+    String(date.getMonth() + 1).padStart(2, '0') +
+    '-' +
+    String(date.getDate()).padStart(2, '0')
+  )
+}
 
 /**
  * @param {string} url

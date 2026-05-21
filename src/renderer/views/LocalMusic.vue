@@ -99,8 +99,11 @@
           <TrackList
             :id="0"
             ref="trackListRef"
-            :items="sortedLocalTracks"
-            :type="'localPlaylist'"
+            :items="[] as Track[]"
+            :type="'Playlist'"
+            :plugin="'' as PluginId"
+            :source-context="{}"
+            :is-group-by="false"
             :colunm-number="1"
             :is-end="true"
             :extra-context-menu-item="[
@@ -115,18 +118,19 @@
         <div v-show="idx === 1">
           <CoverRow
             v-if="playlists.length"
-            :items="playlists"
-            type="localPlaylist"
+            :items="[]"
+            type="Playlist"
+            :is-end="true"
             :style="{ paddingBottom: '96px' }"
           />
         </div>
 
         <div v-show="idx === 2">
-          <AlbumList :tracks="sortedLocalTracks" :plugin="plugin" />
+          <AlbumList :tracks="[]" :plugin="plugin" />
         </div>
 
         <div v-show="idx === 3">
-          <ArtistList :tracks="sortedLocalTracks" :type="tabs[3][artistBy]" />
+          <ArtistList :tracks="[]" :type="tabs[3][artistBy]" />
         </div>
 
         <div v-show="idx === 4">
@@ -192,8 +196,9 @@ import ContextMenu from '../components/ContextMenu.vue'
 import AccurateMatchModal from '../components/ModalAccurateMatch.vue'
 import { randomNum, pickedLyric } from '../utils'
 import { useI18n } from 'vue-i18n'
-import { lyricLine, Track } from '@/types/music.d'
+import { lyricLine } from '@/types/music.d'
 import { PluginId } from '@/types/schemas'
+import { Track } from '@/types/plugin'
 
 // load
 const localMusicStore = useLocalMusicStore()
@@ -293,7 +298,7 @@ const addToPlaylist = () => {
 }
 
 const addTracksToQueue = () => {
-  trackListRef.value?.addToQueue()
+  trackListRef.value?.addToQueue([])
 }
 
 const keyword = computed(() => localSearchBoxRef.value?.keywords || '')
@@ -368,7 +373,7 @@ const getFirstDirName = (baseDirs: string[], filePath: string) => {
 // const scrollToItem = inject('scrollToItem') as (idx: number) => void
 
 const playThisTrack = () => {
-  addTrackToPlayNext(randomID.value, true, true)
+  // addTrackToPlayNext(randomID.value, true, true)
 }
 
 const openLocalTracksTabMenu = (ref: 'playlist' | 'artist', e: MouseEvent): void => {
@@ -381,7 +386,7 @@ const openLocalTracksTabMenu = (ref: 'playlist' | 'artist', e: MouseEvent): void
 
 const openAddPlaylistModal = () => {
   newPlaylistModal.value = {
-    type: 'local',
+    plugin: 'local' as PluginId,
     afterCreateAddTrackID: [],
     show: true
   }
@@ -466,7 +471,7 @@ const getRandomTrack = async () => {
     }
     i++
   }
-  randomTrack.value = defaultTracks.value.find((t) => t.id === randomId)!
+  // randomTrack.value = defaultTracks.value.find((t) => t.id === randomId)!
 }
 
 const updatePadding = inject('updatePadding') as (padding: number) => void

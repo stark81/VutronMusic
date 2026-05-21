@@ -14,11 +14,11 @@
           <button-icon
             :title="$t(isPlaying ? 'player.pause' : 'player.play')"
             class="play"
-            @click="playPersonalFM"
+            @click="() => {}"
           >
             <svg-icon :icon-class="isPlaying ? 'pause' : 'play'" />
           </button-icon>
-          <button-icon :title="$t('player.next')" @click="playNextFMTrack">
+          <button-icon :title="$t('player.next')" @click="() => {}">
             <svg-icon icon-class="next" />
           </button-icon>
         </div>
@@ -41,7 +41,7 @@ import Color from 'color'
 
 const router = useRouter()
 const playerStore = usePlayerStore()
-const { moveToFMTrash, playPersonalFM, playNextFMTrack } = playerStore
+const { moveToFMTrash /* playPersonalFM, playNextFMTrack */ } = playerStore
 const { personalFMTrack, playing, isPersonalFM } = storeToRefs(playerStore)
 
 const background = ref<string>()

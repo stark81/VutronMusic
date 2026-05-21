@@ -165,9 +165,9 @@ const categoryMap = {
 }
 
 const toExplore = (Category: string) => {
-  exploreTab.value = Category
-  const cat = ['chart', 'artist'].includes(Category) ? categoryMap[Category] : '全部'
-  router.push({ name: 'explore', query: { category: cat, tab: Category } })
+  // exploreTab.value = Category
+  // const cat = ['chart', 'artist'].includes(Category) ? categoryMap[Category] : '全部'
+  // router.push({ name: 'explore', query: { category: cat, tab: Category } })
 }
 
 const logout = () => {

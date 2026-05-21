@@ -16,7 +16,7 @@
             loading="lazy"
           />
         </div>
-        <span class="title">{{ currentTrack?.name }}&nbsp;-&nbsp;{{ artist.name }}</span>
+        <span class="title">{{ currentTrack?.name }}&nbsp;-&nbsp;{{ artist?.name }}</span>
       </div>
       <div class="play-bar" :class="{ hover: hoverParent }">
         <div class="player-progress-bar">
@@ -25,7 +25,7 @@
             <vue-slider
               v-model="position"
               :min="0"
-              :max="currentTrackDuration"
+              :max="duration"
               :interval="1"
               :duration="0.5"
               :dot-size="12"
@@ -44,7 +44,7 @@
               :silent="true"
             ></vue-slider>
           </div>
-          <div class="time">{{ formatTime(currentTrackDuration) }}</div>
+          <div class="time">{{ formatTime(duration) }}</div>
         </div>
         <div class="player-media-control">
           <button-icon
@@ -55,8 +55,8 @@
             <svg-icon v-show="repeatMode !== 'one'" icon-class="repeat" />
             <svg-icon v-show="repeatMode === 'one'" icon-class="repeat-1" />
           </button-icon>
-          <button-icon :class="{ active: !shuffle }" @click="shuffle = !shuffle"
-            ><svg-icon icon-class="shuffle"
+          <button-icon :class="{ active: !isShuffle }" @click="isShuffle = !isShuffle"
+            ><svg-icon icon-class="isShuffle"
           /></button-icon>
           <div class="middle">
             <button-icon v-show="!isPersonalFM" :title="$t('player.previous')" @click="playPrev"
@@ -74,7 +74,7 @@
               @click="playOrPause"
               ><svg-icon :icon-class="playing ? 'pause' : 'play'"
             /></button-icon>
-            <button-icon :title="$t('player.next')" @click="_playNextTrack(isPersonalFM)"
+            <button-icon :title="$t('player.next')" @click="playNext(isPersonalFM)"
               ><svg-icon icon-class="next"
             /></button-icon>
           </div>
@@ -135,6 +135,7 @@
           <Comment
             v-else-if="show === 'comment'"
             :id="currentTrack!.id"
+            :plugin="currentTrack!.pluginId"
             type="music"
             padding-right="0vh"
             :style="{ width: '90%', paddingTop: '4vw' }"
@@ -180,19 +181,19 @@ const {
   playbackRate,
   seek,
   currentTrack,
-  currentTrackDuration,
+  duration,
   lyrics,
   repeatMode,
   isPersonalFM,
   isLiked,
-  shuffle,
+  isShuffle,
   list,
-  _playNextList,
+  playNextList,
   currentTrackIndex,
   volume
 } = storeToRefs(playerStore)
 
-const { playPrev, playOrPause, _playNextTrack, switchRepeatMode, moveToFMTrash } = playerStore
+const { playPrev, playOrPause, playNext, switchRepeatMode, moveToFMTrash } = playerStore
 
 const settingsStore = useSettingsStore()
 const { general } = storeToRefs(settingsStore)
@@ -307,8 +308,8 @@ const selectedIdx = computed(() => {
   const list2 = list.value.slice(index + 1)
 
   let result = pre.concat(list1)
-  result.push(currentTrack.value!.id)
-  result = result.concat(_playNextList.value).concat(list2).concat(next)
+  result.push([currentTrack.value!.pluginId, currentTrack.value!.sourceContext])
+  result = result.concat(playNextList.value).concat(list2).concat(next)
   const idx = currentTrackIndex.value + 2
   return result.slice(idx - 2, idx + 3)
 })
@@ -347,7 +348,7 @@ const splitWithSpaces = (str: string) => {
 }
 
 const artist = computed(() => {
-  return currentTrack.value?.artists ? currentTrack.value.artists[0] : currentTrack.value?.ar[0]
+  return currentTrack.value?.artists[0]
 })
 
 const position = computed({
@@ -371,9 +372,7 @@ const position = computed({
   }
 })
 
-const heartDisabled = computed(() => {
-  return currentTrack.value?.type === 'local' && !currentTrack.value?.matched
-})
+const heartDisabled = computed(() => true)
 
 const shouldAni = computed(() => {
   if (activeTheme.value.theme.activeLayout === 'Classic') return true
@@ -586,12 +585,12 @@ const animations = computed(() => ({
 }))
 
 const likeTrack = () => {
-  if (currentTrack.value?.type === 'stream') {
-    const op = currentTrack.value.starred ? 'unstar' : 'star'
-    likeAStreamTrack(op, currentTrack.value)
-  } else if (currentTrack.value?.matched) {
-    likeATrack(currentTrack.value.id)
-  }
+  // if (currentTrack.value?.type === 'stream') {
+  //   const op = currentTrack.value.starred ? 'unstar' : 'star'
+  //   likeAStreamTrack(op, currentTrack.value)
+  // } else if (currentTrack.value?.matched) {
+  //   likeATrack(currentTrack.value.id)
+  // }
 }
 
 const showContextMenu = (e: MouseEvent): void => {
@@ -746,29 +745,26 @@ const formatTime = (time: number) => {
 }
 
 const loadTracks = async () => {
-  const tracks: Track[] = []
-  const onlineIDs: number[] = []
-
-  for (const id of selectedIdx.value) {
-    let track = getALocalTrack({ id })
-    if (track) {
-      tracks.push(track)
-      continue
-    }
-    track = getAStreamTrack(id)
-    if (track) {
-      tracks.push(track)
-      continue
-    }
-    onlineIDs.push(id)
-  }
-
-  if (onlineIDs.length) {
-    const data = await getTrackDetail(onlineIDs.join(','))
-    tracks.push(...data.songs)
-  }
-
-  selectedTracks.value = selectedIdx.value.map((id) => tracks.find((track) => track.id === id)!)
+  // const tracks: Track[] = []
+  // const onlineIDs: number[] = []
+  // for (const id of selectedIdx.value) {
+  //   let track = getALocalTrack({ id })
+  //   if (track) {
+  //     tracks.push(track)
+  //     continue
+  //   }
+  //   track = getAStreamTrack(id)
+  //   if (track) {
+  //     tracks.push(track)
+  //     continue
+  //   }
+  //   onlineIDs.push(id)
+  // }
+  // if (onlineIDs.length) {
+  //   const data = await getTrackDetail(onlineIDs.join(','))
+  //   tracks.push(...data.songs)
+  // }
+  // selectedTracks.value = selectedIdx.value.map((id) => tracks.find((track) => track.id === id)!)
 }
 
 const getImg = (track: Track) => {

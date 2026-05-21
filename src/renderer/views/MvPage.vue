@@ -36,7 +36,7 @@
       </div>
     </div>
     <div class="right">
-      <Comment v-if="mv.data.id" :id="mv.data.id" type="mv" />
+      <Comment v-if="mv.data.id" :id="mv.data.id" :plugin="'' as PluginId" type="mv" />
     </div>
   </div>
 </template>
@@ -56,6 +56,7 @@ import Plyr from 'plyr'
 import { isAccountLoggedIn } from '../utils/auth'
 import { useI18n } from 'vue-i18n'
 import { useNormalStateStore } from '../store/state'
+import { PluginId } from '@/types/schemas'
 
 const mv = ref<{ [key: string]: any }>({
   url: '',

@@ -34,7 +34,7 @@
           :track-prop="item"
           :track-no="item.no || index + 1"
           :show-service="item.type === 'stream'"
-          type-prop="album"
+          type-prop="Album"
           :style="{ marginLeft: '20px' }"
           @dblclick="playThisList(item.id)"
         />
@@ -95,7 +95,7 @@ const playThisList = (id: number | string) => {
   ][]
   const idx = showTracks.value.findIndex((item) => item.id === id)
   const type = showTracks.value[0].type
-  replacePlaylist(type === 'local' ? 'localPlaylist' : 'streamPlaylist', 0, IDs, idx)
+  // replacePlaylist(type === 'local' ? 'localPlaylist' : 'streamPlaylist', 0, IDs, idx)
 }
 
 const updatePadding = inject('updatePadding') as (padding: number) => void

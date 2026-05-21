@@ -25,7 +25,7 @@
           :key="index"
           :track-prop="item"
           :track-no="item.no || index + 1"
-          type-prop="localPlaylist"
+          type-prop="Playlist"
           @dblclick="playThisList(item.id)"
         />
       </template>
@@ -59,7 +59,7 @@ const showTracks = computed(() => {
 const playThisList = (id: number) => {
   const ids = showTracks.value.map((track) => track.id)
   const idx = showTracks.value.findIndex((item) => item.id === id)
-  replacePlaylist('localPlaylist', 0, ids, idx)
+  // replacePlaylist('localPlaylist', 0, ids, idx)
 }
 
 const updatePadding = inject('updatePadding') as (padding: number) => void

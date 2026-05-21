@@ -14,13 +14,7 @@
           :selected="selectedIdx === index"
           :style="{ marginRight: '20px' }"
           :artist-prop="item"
-          :track-prop="
-            tracks.filter((track) =>
-              (type === 'artist' ? track.artists : track.albumArtist).some(
-                (ar) => ar.name === item.name
-              )
-            )
-          "
+          :track-prop="tracks.filter((track) => track.artists.some((ar) => ar.name === item.name))"
           @click="selectedIdx = index"
         />
       </template>
@@ -38,14 +32,14 @@
           :key="index"
           :track-prop="item"
           :track-no="index + 1"
-          type-prop="artist"
+          type-prop="Artist"
           :show-service="item.type === 'stream'"
           :style="{ marginLeft: '20px' }"
           @dblclick="playThisList(item.id)"
         />
       </template>
       <template #footer>
-        <div v-if="artistsArray[selectedIdx]?.matched" class="listen-more">
+        <div class="listen-more">
           <span
             >听听<router-link :to="`/artist/${artistsArray[selectedIdx].id}`">{{
               artistsArray[selectedIdx].name
@@ -61,7 +55,7 @@
 <script setup lang="ts">
 import { computed, ref, toRefs, onMounted, onBeforeUnmount, provide, inject } from 'vue'
 import VirtualScroll from './VirtualScrollNoHeight.vue'
-import { Track } from '@/types/music.d'
+import { Track } from '@/types/plugin'
 import ArtistListItem from './ArtistListItem.vue'
 import TrackListItem from './TrackListItem.vue'
 import { usePlayerStore } from '../store/player'
@@ -82,9 +76,7 @@ const { replacePlaylist } = playerStore
 
 // ==================== computed ==================== //
 const artistsArray = computed(() => {
-  const ar = props.tracks
-    .map((track) => (props.type === 'artist' ? track.artists : track.albumArtist))
-    .flat()
+  const ar = props.tracks.map((track) => track.artists).flat()
   return [...new Map(ar.map((item) => [item.name, item])).values()]
 })
 
@@ -92,17 +84,17 @@ const artistsArray = computed(() => {
 const showTracks = computed(() => {
   const artist = artistsArray.value[selectedIdx.value]
   const trackArray = tracks.value.filter((track) => {
-    const artists = props.type === 'artist' ? track.artists : track.albumArtist
+    const artists = track.artists
     return artists.some((item) => item.name === artist.name)
   })
   return trackArray
 })
 
-const playThisList = (id: number) => {
+const playThisList = (id: number | string) => {
   const IDs = showTracks.value.map((track) => track.id)
   const idx = showTracks.value.findIndex((item) => item.id === id)
   const type = showTracks.value[0].type
-  replacePlaylist(type === 'local' ? 'localPlaylist' : 'streamPlaylist', 0, IDs, idx)
+  // replacePlaylist(type === 'local' ? 'localPlaylist' : 'streamPlaylist', 0, IDs, idx)
 }
 
 const updatePadding = inject('updatePadding') as (padding: number) => void

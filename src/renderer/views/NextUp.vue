@@ -2,9 +2,11 @@
   <div class="next-tracks">
     <h1>{{ $t('next.nowPlaying') }}</h1>
     <TrackList
-      :id="playlistSource.id"
-      :items="[currentTrack!]"
-      :type="playlistSource.type"
+      :plugin="'' as PluginId"
+      :source-context="{}"
+      :items="[]"
+      :type="'Album'"
+      :is-group-by="false"
       :colunm-number="1"
       :show-service="true"
       :show-position="false"
@@ -12,15 +14,17 @@
       :is-end="false"
     />
 
-    <h1 v-if="_playNextList.length > 0">
+    <h1 v-if="playNextList.length > 0">
       {{ $t('next.insertPlaying') }}
       <button @click="clearPlayNextList">清除队列</button>
     </h1>
     <TrackList
       v-if="tracks.length > 0"
-      :id="playlistSource.id"
-      :items="playNextTracks"
-      :type="playlistSource.type"
+      :plugin="'' as PluginId"
+      :source-context="{}"
+      :items="[]"
+      :type="'Album'"
+      :is-group-by="false"
       :colunm-number="1"
       :show-service="true"
       :highlight-playing-track="false"
@@ -30,10 +34,13 @@
     />
 
     <h1 class="next">{{ $t('next.nextPlaying') }}</h1>
+    <!-- @vue-ignore -->
     <TrackList
       v-if="filteredTracks.length > 0"
-      :id="playlistSource.id"
-      :items="filteredTracks"
+      :items="[]"
+      :plugin="''"
+      :source-context="{}"
+      :is-group-by="false"
       :type="playlistSource.type"
       :show-service="true"
       :show-position="true"
@@ -55,11 +62,12 @@ import { useStreamMusicStore } from '../store/streamingMusic'
 import { storeToRefs } from 'pinia'
 import { getTrackDetail } from '../api/track'
 import _ from 'lodash'
+import { PluginId } from '@/types/schemas'
 
 const playerStore = usePlayerStore()
 const localMusicStore = useLocalMusicStore()
 const streamMusicStore = useStreamMusicStore()
-const { currentTrack, shuffle, currentTrackIndex, list, _playNextList, playlistSource } =
+const { currentTrack, isShuffle, currentTrackIndex, list, playNextList, playlistSource } =
   storeToRefs(playerStore)
 const { localTracks } = storeToRefs(localMusicStore)
 const { streamTracks } = storeToRefs(streamMusicStore)
@@ -68,11 +76,9 @@ const { clearPlayNextList } = playerStore
 
 const tracks = ref<any[]>([])
 
-const playNextTracks = computed(() => {
-  return _playNextList.value.map((trackID: number) => {
-    return tracks.value.find((t) => t.id === trackID)
-  })
-})
+// const playNextTracks = computed(() => {
+//   return []
+// })
 
 const filteredTracks = computed(() => {
   const trackIDs = list.value.slice(currentTrackIndex.value + 1, currentTrackIndex.value + 100)
@@ -82,19 +88,19 @@ const filteredTracks = computed(() => {
 const loadTracks = async () => {
   const trackIDs = [
     ...list.value.slice(currentTrackIndex.value + 1, currentTrackIndex.value + 100),
-    ..._playNextList.value.slice()
+    ...playNextList.value.slice()
   ]
   const loadedTrackIDs = tracks.value.map((t) => t.id)
-  const localMusics = localTracks.value.filter((t) => trackIDs.includes(t.id))
+  const localMusics = localTracks.value
   const streamMusics = _.flatten(Object.values(streamTracks.value)).filter((t) =>
     trackIDs.includes(t.id)
   )
 
   let newTracks = localMusics.filter((t) => !loadedTrackIDs.includes(t.id))
 
-  const onlineTrackIDs = trackIDs.filter(
-    (t) => !(localMusics.map((s) => s.id).includes(t) || streamMusics.map((s) => s.id).includes(t))
-  )
+  const onlineTrackIDs = trackIDs // filter(
+  //   (t) => !(localMusics.map((s) => s.id).includes(t) || streamMusics.map((s) => s.id).includes(t))
+  // )
   if (onlineTrackIDs.length > 0) {
     await getTrackDetail(onlineTrackIDs.join(',')).then((data) => {
       newTracks.push(...data.songs)
@@ -102,16 +108,16 @@ const loadTracks = async () => {
   }
   const sMusic = streamMusics.filter((t) => !loadedTrackIDs.includes(t.id))
   newTracks = [...newTracks, ...sMusic]
-  newTracks = newTracks
-    .filter((t) => trackIDs.includes(t.id))
-    .sort((a, b) => trackIDs.indexOf(a.id) - trackIDs.indexOf(b.id))
+  // newTracks = newTracks
+  // .filter((t) => trackIDs.includes(t.id))
+  // .sort((a, b) => trackIDs.indexOf(a.id) - trackIDs.indexOf(b.id))
 
   tracks.value.push(...newTracks)
 }
 
 watch(currentTrack, loadTracks)
-watch(shuffle, loadTracks)
-watch(_playNextList, loadTracks)
+watch(isShuffle, loadTracks)
+watch(playNextList, loadTracks)
 
 onMounted(() => {
   loadTracks()

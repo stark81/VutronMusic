@@ -17,7 +17,7 @@ const thumbsDown = new URL('../assets/tray/thumbs_down.png', import.meta.url).hr
 const trayIcon = new URL('../assets/tray/menu_white.png', import.meta.url).href
 
 const playerStore = usePlayerStore()
-const { playPrev, _playNextTrack, moveToFMTrash, playOrPause } = playerStore
+const { playPrev, playNext, moveToFMTrash, playOrPause } = playerStore
 const { isPersonalFM, playing, currentTrack, isLiked, currentLyric } = storeToRefs(playerStore)
 
 const settingsStore = useSettingsStore()
@@ -110,12 +110,12 @@ class TrayLyric {
           playOrPause()
           break
         case 2:
-          _playNextTrack(isPersonalFM.value)
+          playNext(isPersonalFM.value)
           break
         case 3:
-          if (currentTrack.value && currentTrack.value.matched) {
-            likeATrack(currentTrack.value.id)
-          }
+          // if (currentTrack.value && currentTrack.value.matched) {
+          //   likeATrack(currentTrack.value.id)
+          // }
           break
         case 4:
           window.mainApi?.send('showWindow')

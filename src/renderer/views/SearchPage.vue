@@ -8,26 +8,32 @@
       <TrackList
         :items="result[searchTab]"
         :colunm-number="1"
+        :plugin="'' as PluginId"
+        :is-group-by="false"
+        :source-context="{}"
         :load-more="() => loadData(keywords, searchTab)"
-        :type="'playlist'"
+        :type="'Playlist'"
         :is-end="true"
       />
     </div>
     <div v-else-if="searchTab === 'lyric'" class="container">
       <TrackList
-        :items="result[searchTab]"
+        :items="[]"
+        :plugin="'' as PluginId"
+        :is-group-by="false"
+        :source-context="{}"
         :colunm-number="1"
         :item-height="152.5"
         :is-lyric="true"
         :load-more="() => loadData(keywords, searchTab)"
-        :type="'playlist'"
+        :type="'Playlist'"
         :is-end="true"
       />
     </div>
     <div v-else class="container">
       <CoverRow
         :items="result[searchTab]"
-        :type="searchTab"
+        :type="'User'"
         :item-height="260"
         :colunm-number="5"
         :sub-text="'artist'"
@@ -47,6 +53,7 @@ import { useRoute, onBeforeRouteUpdate } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import TrackList from '../components/VirtualTrackList.vue'
 import CoverRow from '../components/VirtualCoverRow.vue'
+import { PluginId } from '@/types/schemas'
 
 const show = ref(false)
 const keywords = ref('')
