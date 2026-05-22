@@ -163,6 +163,7 @@ export type SourceType =
   | 'SearchTrack'
   | 'History'
   | 'CloudDisk'
+  | 'personalFM'
 
 export type PlaylistSourceInfo = {
   type: SourceType

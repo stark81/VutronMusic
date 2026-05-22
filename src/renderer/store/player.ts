@@ -269,17 +269,38 @@ export const usePlayerStore = defineStore('player', () => {
     const result = await pluginMethodCall(plugin, 'songUrl', sourceContext)
     const { url, replayGain, peak } = result.data
     engineStore.playAudioSource(url, replayGain, peak, autoPlay)
+
+    // 发送 Last.fm "now playing" 更新
+    if (autoPlay && currentTrack.value) {
+      const duration = currentTrack.value.duration ? Math.round(currentTrack.value.duration / 1000) : 0
+      window.mainApi?.send('track-scrobble', {
+        title: currentTrack.value.name,
+        artist: currentTrack.value.artists?.[0]?.name || '',
+        album: currentTrack.value.album?.name || '',
+        duration,
+        timestamp: Math.floor(Date.now() / 1000),
+        nowPlaying: true
+      })
+    }
   }
 
   // function getTrackInfo() {}
 
-  const playOrPause = () => {
+  const playOrPause = async () => {
     if (playing.value) {
-      engineStore.pause()
+      await engineStore.pause()
       playing.value = false
+      // 暂停时更新 Discord 状态
+      if (currentTrack.value) {
+        window.mainApi?.send('pauseDiscordPresence', currentTrack.value)
+      }
     } else {
-      engineStore.play()
+      await engineStore.play()
       playing.value = true
+      // 播放时更新 Discord 状态
+      if (currentTrack.value) {
+        window.mainApi?.send('playDiscordPresence', currentTrack.value)
+      }
     }
   }
 
@@ -351,6 +372,20 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   function _nextTrackCallback() {
+    // 歌曲播放完成，发送 Last.fm scrobble
+    if (currentTrack.value) {
+      const duration = currentTrack.value.duration ? Math.round(currentTrack.value.duration / 1000) : 0
+      if (duration > 0) {
+        window.mainApi?.send('track-scrobble', {
+          title: currentTrack.value.name,
+          artist: currentTrack.value.artists?.[0]?.name || '',
+          album: currentTrack.value.album?.name || '',
+          duration,
+          timestamp: Math.floor(Date.now() / 1000)
+        })
+      }
+    }
+
     seek.value = 0
     if (!isPersonalFM.value && repeatMode.value === 'one') {
       const { pluginId, sourceContext } = currentTrack.value!
@@ -397,9 +432,124 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   // const updateLocalID2OnlineID = playbackStore.updateLocalID2OnlineID
+  // ─────────────────────────────────────────────
+  // Personal FM 相关
+  // ─────────────────────────────────────────────
+
+  const personalFMNextTrack = ref<Track>()
+  const _personalFMLoading = ref(false)
+
+  async function playNextFMTrack() {
+    if (_personalFMLoading.value) return false
+
+    isPersonalFM.value = true
+    if (!personalFMTrack.value) {
+      _personalFMLoading.value = true
+      let result: any = null
+      let retryCount = 5
+      try {
+        for (; retryCount >= 0; retryCount--) {
+          result = await (await import('@/renderer/api/other')).personalFM().catch(() => null)
+          if (!result) {
+            _personalFMLoading.value = false
+            showToast('获取 FM 超时，请稍后重试')
+            return false
+          }
+          if (result.data?.length > 0) {
+            break
+          } else if (retryCount > 0) {
+            await new Promise((resolve) => setTimeout(resolve, 1000))
+          }
+        }
+        _personalFMLoading.value = false
+        if (retryCount < 0) {
+          showToast('获取 FM 次数过多，请稍后重试')
+          return false
+        }
+        const fmTrack = result.data[0]
+        if (fmTrack) {
+          personalFMTrack.value = fmTrack
+        }
+      } finally {
+        _personalFMLoading.value = false
+      }
+    } else {
+      if (personalFMNextTrack.value && personalFMNextTrack.value.id === personalFMTrack.value.id) {
+        return false
+      }
+      personalFMTrack.value = personalFMNextTrack.value
+    }
+
+    if (isPersonalFM.value && personalFMTrack.value) {
+      // Personal FM 的曲目通过网易云插件播放
+      // 这里假设 personalFMTrack 已经有完整的信息
+      // 实际实现可能需要调用特定的插件方法
+      currentTrack.value = personalFMTrack.value
+    }
+
+    // 预加载下一首
+    loadPersonalFMNextTrack()
+    return true
+  }
+
+  async function loadPersonalFMNextTrack() {
+    try {
+      const result = await (await import('@/renderer/api/other')).personalFM().catch(() => null)
+      if (result?.data?.[0]) {
+        personalFMNextTrack.value = result.data[0]
+      }
+    } catch (error) {
+      // 预加载失败不应该影响当前播放
+    }
+  }
+
+  function playPersonalFM() {
+    isPersonalFM.value = true
+    if (!enabled.value) enabled.value = true
+    if (currentTrack.value?.id !== personalFMTrack.value?.id) {
+      playlistSource.value.type = 'personalFM'
+      playlistSource.value.plugin = 'cloudmusic' as PluginId
+      playlistSource.value.sourceContext = { type: 'personalFM' }
+      playNextFMTrack()
+    } else {
+      playOrPause()
+    }
+  }
+
+  async function moveToFMTrash() {
+    isPersonalFM.value = true
+    if (personalFMTrack.value?.id && (await playNextFMTrack())) {
+      try {
+        const fmTrashFn = (await import('@/renderer/api/other')).fmTrash
+        const id = typeof personalFMTrack.value.id === 'string' 
+          ? parseInt(personalFMTrack.value.id) 
+          : personalFMTrack.value.id
+        await fmTrashFn(id)
+      } catch (error) {
+        // 标记为垃圾失败不影响播放
+      }
+    }
+  }
+
   // const playPersonalFM = playbackStore.playPersonalFM
-  const moveToFMTrash = () => {}
-  const resetPlayer = () => {}
+
+  function resetPlayer() {
+    // 重置播放器状态
+    playing.value = false
+    currentTrackIndex.value = 0
+    currentTrack.value = undefined
+    personalFMTrack.value = undefined
+    personalFMNextTrack.value = undefined
+    isPersonalFM.value = false
+    playList.value = []
+    shuffleList.value = []
+    playNextList.value = []
+    playlistSource.value = {
+      type: 'Playlist',
+      plugin: '' as PluginId,
+      sourceContext: {}
+    }
+  }
 
   // —— useAudioEngineStore 的方法 ——
   const setConvolver = engineStore.setConvolver
@@ -495,7 +645,11 @@ export const usePlayerStore = defineStore('player', () => {
 
   watch(playing, (value) => {
     progress.value = engineStore.getCurrentTime()
-    lyricStore.updateIndex()
+    // 只在开始播放时更新歌词索引，暂停时不需要
+    // 这样做是为了避免audio.currentTime还未稳定导致的索引跳变
+    if (value) {
+      lyricStore.updateIndex()
+    }
     if (osdLyricStore.show) return
     window.mainApi?.sendMessage({ type: 'update-osd-status', data: { playing: value } })
   })
@@ -513,22 +667,34 @@ export const usePlayerStore = defineStore('player', () => {
 
   function initMediaSession() {
     if ('mediaSession' in navigator) {
-      navigator.mediaSession.setActionHandler('play', () => {
-        engineStore.play()
+      navigator.mediaSession.setActionHandler('play', async () => {
+        await engineStore.play()
         playing.value = true
+        // 播放时更新 Discord 状态
+        if (currentTrack.value) {
+          window.mainApi?.send('playDiscordPresence', currentTrack.value)
+        }
       })
-      navigator.mediaSession.setActionHandler('pause', () => {
-        engineStore.pause()
+      navigator.mediaSession.setActionHandler('pause', async () => {
+        await engineStore.pause()
         playing.value = false
+        // 暂停时更新 Discord 状态
+        if (currentTrack.value) {
+          window.mainApi?.send('pauseDiscordPresence', currentTrack.value)
+        }
       })
       navigator.mediaSession.setActionHandler('previoustrack', () => {
         if (!isPersonalFM.value) playPrev()
         else moveToFMTrash()
       })
       navigator.mediaSession.setActionHandler('nexttrack', () => playNext(isPersonalFM.value))
-      navigator.mediaSession.setActionHandler('stop', () => {
-        engineStore.pause()
+      navigator.mediaSession.setActionHandler('stop', async () => {
+        await engineStore.pause()
         playing.value = false
+        // 停止时更新 Discord 状态
+        if (currentTrack.value) {
+          window.mainApi?.send('pauseDiscordPresence', currentTrack.value)
+        }
       })
       navigator.mediaSession.setActionHandler('seekto', (event) => {
         seek.value = event.seekTime!
@@ -682,8 +848,10 @@ export const usePlayerStore = defineStore('player', () => {
     switchRepeatMode,
     addTrackToPlayNext,
     clearPlayNextList,
-    // playPersonalFM,
+    playPersonalFM,
     moveToFMTrash,
+    playNextFMTrack,
+    personalFMNextTrack,
     resetPlayer,
 
     // ── 来自 lyric ──
