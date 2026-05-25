@@ -55,9 +55,11 @@
     </div>
     <hr v-show="type !== 'CloudDisk'" />
     <div class="item" @click="play">{{ $t('contextMenu.play') }}</div>
-    <div class="item" @click="addToQueue([rightClickedTrack.sourceContext])">{{
-      $t('contextMenu.addToQueue')
-    }}</div>
+    <div
+      class="item"
+      @click="addToQueue([[rightClickedTrack.pluginId, rightClickedTrack.sourceContext]])"
+      >{{ $t('contextMenu.addToQueue') }}</div
+    >
     <div v-if="type !== 'CloudDisk'" class="item" @click="openComment">{{
       $t('contextMenu.showComment')
     }}</div>
@@ -127,7 +129,6 @@ import {
 import { usePlayerStore } from '../store/player'
 import { useNormalStateStore } from '../store/state'
 import { usePluginMusic } from '../store/pluginMusic'
-// import { useLocalMusicStore } from '../store/localMusic'
 import VirtualScroll from './VirtualScrollNoHeight.vue'
 import CommentPage from './CommentPage.vue'
 import { storeToRefs } from 'pinia'
@@ -136,8 +137,6 @@ import ContextMenu from './ContextMenu.vue'
 import { useI18n } from 'vue-i18n'
 import merge from 'lodash/merge'
 import isEqual from 'lodash/isEqual'
-// import { isAccountLoggedIn } from '../utils/auth'
-// import { useStreamMusicStore } from '../store/streamingMusic'
 import SvgIcon from './SvgIcon.vue'
 import { PlaylistSourceInfo, SourceType } from '@/types/music.d'
 import { PluginId, Track } from '@/types/plugin'
@@ -194,7 +193,7 @@ const props = withDefaults(
 
 const { items, colunmNumber } = toRefs(props)
 const trackListMenuRef = ref<InstanceType<typeof ContextMenu>>()
-const selectedList = ref<Record<string, any>[]>([])
+const selectedList = ref<[PluginId, Record<string, any>][]>([])
 const rightClickedTrackIndex = ref(-1)
 const showComment = ref(false)
 const rightClickedTrack = ref({
@@ -205,6 +204,7 @@ const rightClickedTrack = ref({
   source: '',
   playlistItemId: null,
   mvid: 0,
+  picUrl: '',
   artists: [{ name: '' }],
   album: { picUrl: '' },
   sourceContext: {}
@@ -244,6 +244,7 @@ const rightClickedTrackComputed = computed(() => {
         mvid: 0,
         filePath: '',
         source: '',
+        picUrl: '',
         pluginId: '' as PluginId,
         playlistItemId: null,
         artists: [{ name: '' }],
@@ -256,16 +257,16 @@ const rightClickedTrackComputed = computed(() => {
 
 const image = computed(() => {
   let url: string
-  if (rightClickedTrackComputed.value.type === 'online') {
-    url = rightClickedTrackComputed.value.album?.picUrl
-    if (url && url.startsWith('http')) url = url.replace('http:', 'https:')
-    if (url) url += '?param=64y64'
+  const track = rightClickedTrackComputed.value
+
+  if (!track.id) return ''
+  if (track.type === 'library') {
+    url = track.picUrl
     return url
-  } else if (rightClickedTrackComputed.value.type === 'stream') {
-    url = rightClickedTrackComputed.value.album?.picUrl
-    return url
+  } else if (track.type === 'stream') {
+    return track.picUrl
   } else {
-    url = `atom://local-asset?type=pic&id=${rightClickedTrackComputed.value.id}&size=64`
+    url = `vutron://local-asset?type=pic&id=${track.id}&size=64`
     return url
   }
 })
@@ -308,6 +309,7 @@ const closeMenu = () => {
     pluginId: '' as PluginId,
     source: '',
     playlistItemId: null,
+    picUrl: '',
     mvid: 0,
     artists: [{ name: '' }],
     album: { picUrl: '' },
@@ -325,7 +327,7 @@ const accurateMatchTrack = () => {
 
 const selectAll = () => {
   if (!isSelectAll.value) {
-    selectedList.value = items.value.map((track) => track.sourceContext)
+    selectedList.value = items.value.map((track) => [track.pluginId, track.sourceContext])
   } else {
     selectedList.value = []
   }
@@ -335,7 +337,8 @@ const doFinish = () => {
 }
 
 const play = () => {
-  // addTrackToPlayNext(rightClickedTrack.value.id, true, true)
+  const { pluginId, sourceContext } = rightClickedTrack.value
+  addTrackToPlayNext([[pluginId, sourceContext]], true, true)
 }
 
 const showInFolder = () => {
@@ -470,6 +473,7 @@ const closeComment = () => {
     pluginId: '' as PluginId,
     source: '',
     playlistItemId: null,
+    picUrl: '',
     mvid: 0,
     artists: [{ name: '' }],
     album: { picUrl: '' },
@@ -478,11 +482,11 @@ const closeComment = () => {
   rightClickedTrackIndex.value = -1
 }
 
-const addToQueue = (ids: Record<string, any>[]) => {
+const addToQueue = (ids: [PluginId, Record<string, any>][]) => {
   if (!ids) {
     ids = selectedList.value
   }
-  // addTrackToPlayNext(ids)
+  addTrackToPlayNext(ids)
 }
 const updatePadding = inject('updatePadding') as (padding: number) => void
 const removeTrack = inject('removeTrack', (idx: number) => {})

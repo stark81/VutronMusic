@@ -142,15 +142,15 @@ const track = computed(() => props.trackProp)
 
 const image = computed(() => {
   // let url: string = ''
-  if (track.value.type === 'online') {
+  if (track.value.type === 'library') {
     return track.value.picUrl
   } else if (track.value.type === 'stream') {
-    const url = track.value.album?.picUrl || track.value.picUrl
-    return stateStore.virtualScrolling ? 'atom://get-default-pic' : url
+    const url = track.value.picUrl || track.value.album?.picUrl
+    return stateStore.virtualScrolling ? 'vutron://get-default-pic' : url
   } else {
     // url = localMusic.value.scanning
-    //   ? `atom://get-pic-path/${track.value.filePath}`
-    //   : `atom://local-asset?type=pic&id=${track.value.id}&size=64`
+    //   ? `vutron://get-pic-path/${track.value.filePath}`
+    //   : `vutron://local-asset?type=pic&id=${track.value.id}&size=64`
     return ''
   }
 })

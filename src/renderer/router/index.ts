@@ -97,6 +97,11 @@ const routes = [
     }
   },
   {
+    path: '/login/:service/:type',
+    name: 'login',
+    component: () => import('../views/StreamLogin.vue')
+  },
+  {
     path: '/login/account',
     name: 'loginAccount',
     component: () => import('../views/LoginAccount.vue'),

@@ -40,6 +40,7 @@ import { registerGlobalShortcuts } from './globalShortcut'
 import { initAutoUpdater } from './checkUpdate'
 import log from './log'
 import { lyricLine } from '@/types/music'
+import { pluginManager } from './pluginManager'
 
 const closeOnLinux = (e: any, win: BrowserWindow | null) => {
   const closeOpt = store.get('settings.closeAppOption') || 'ask'
@@ -466,7 +467,7 @@ class BackGround {
   }
 
   handleProtocol() {
-    protocol.handle('atom', async (request) => {
+    protocol.handle('vutron', async (request) => {
       const { host, pathname, searchParams, search } = new URL(request.url)
 
       if (host === 'get-default-pic') {
@@ -474,7 +475,7 @@ class BackGround {
         return new Response(new Uint8Array(pic))
       } else if (host === 'get-pic-path') {
         const filePath = pathname.slice(1)
-        const track = { matched: false, filePath, album: { picUrl: 'atom://get-default-pic' } }
+        const track = { matched: false, filePath, album: { picUrl: 'vutron://get-default-pic' } }
 
         const result = await getPic(track)
         return new Response(new Uint8Array(result.pic), {
@@ -520,7 +521,7 @@ class BackGround {
             url.searchParams.set('param', `${size}y${size}`)
             ;(track.album || track.al).picUrl = track.matched
               ? url.toString()
-              : 'atom://get-default-pic'
+              : 'vutron://get-default-pic'
 
             const result = await getPic(track)
             let pic = result.pic
@@ -696,6 +697,44 @@ class BackGround {
             status: 500,
             statusText: 'Internal Server Error'
           })
+        }
+      } else if (host === 'get-plugin-asset') {
+        const pluginId = searchParams.get('plugin')!
+        const plugin = pluginManager.get(pluginId)
+        if (!plugin) {
+          return new Response('Not Found', {
+            status: 404,
+            headers: { 'Content-Type': 'text/plain' }
+          })
+        }
+
+        const type = searchParams.get('type')
+        switch (type) {
+          case 'stream':
+            const id = searchParams.get('id')
+            const { url, headers } = await plugin.call('getStream', { id })
+            try {
+              const response = await proxyFetch(url, {
+                method: 'GET',
+                headers: {
+                  ...Object.fromEntries(request.headers),
+                  ...headers
+                }
+              })
+
+              return new Response(response.body, {
+                status: response.status,
+                headers: response.headers
+              })
+            } catch (error) {
+              log.error('== get-online-music error ==', error)
+              return new Response(null, {
+                status: 500,
+                statusText: 'Internal Server Error'
+              })
+            }
+          default:
+            break
         }
       }
       return new Response('Not Found', { status: 404, headers: { 'Content-Type': 'text/plain' } })

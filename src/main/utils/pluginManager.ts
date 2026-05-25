@@ -5,7 +5,7 @@ import electronStore from '../store'
 import cache from '../cache'
 import { CacheAPIs } from './CacheApis'
 import { fetch, Agent } from 'undici'
-import { yrcLyricParse, lrcLyricParse } from '.'
+import { yrcLyricParse, lrcLyricParse, parseLyricString } from '.'
 import { LyricLine } from '@/types/plugin'
 
 const dispatcher = new Agent({
@@ -130,8 +130,10 @@ export class PluginInstance {
         let data: LyricLine[] = []
         if (msg.msg.yrc?.lyric) {
           data = yrcLyricParse(msg.msg) || []
-        } else if (msg.msg.lrc.lyric) {
+        } else if (msg.msg.lrc?.lyric) {
           data = lrcLyricParse(msg.msg) || []
+        } else {
+          data = parseLyricString(msg.msg)
         }
         this.worker.postMessage({
           type: 'LYRIC_RESPONSE',
@@ -245,7 +247,7 @@ export class PluginInstance {
       response = await fetch(fullUrl, {
         method,
         headers: finalHeaders,
-        body: method === 'POST' ? JSON.stringify(data ?? {}) : undefined,
+        body: method === 'GET' ? undefined : JSON.stringify(data ?? {}),
         redirect: 'manual',
         signal: controller.signal,
         dispatcher

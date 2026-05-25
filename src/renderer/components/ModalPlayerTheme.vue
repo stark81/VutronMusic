@@ -48,7 +48,7 @@ const { themes, currentPath } = storeToRefs(playerTheme)
 
 const getThemeImg = (type: 'Classic' | 'Creative' | 'Customize', name: string) => {
   if (type === 'Customize') {
-    return `atom://local-resource/${encodeURIComponent(name)}`
+    return `vutron://local-resource/${encodeURIComponent(name)}`
   }
   return new URL(`../assets/images/${name}.png`, import.meta.url).href
 }

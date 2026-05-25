@@ -41,9 +41,9 @@
       <template #footer>
         <div class="listen-more">
           <span
-            >听听<router-link :to="`/artist/${artistsArray[selectedIdx].id}`">{{
-              artistsArray[selectedIdx].name
-            }}</router-link
+            >听听<router-link
+              :to="`/artist/${artistsArray[selectedIdx]?.pluginId}/${artistsArray[selectedIdx]?.id}`"
+              >{{ artistsArray[selectedIdx]?.name }}</router-link
             >的其他歌曲</span
           >
         </div>

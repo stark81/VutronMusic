@@ -562,6 +562,7 @@ export const useAudioEngineStore = defineStore('audioEngine', () => {
     await resumeContext()
 
     nodes.fade!.gain.setValueAtTime(0, nodes.ctx!.currentTime)
+    progress.value = nodes.audio.currentTime
     await nodes.audio.play()
     await smoothGain(1, fadeDuration.value)
     retryCount.value = 0
@@ -570,7 +571,6 @@ export const useAudioEngineStore = defineStore('audioEngine', () => {
       playing: true,
       progress: nodes.audio.currentTime
     })
-    progress.value = nodes.audio.currentTime
   }
 
   function setPosition(time: number) {
@@ -578,6 +578,11 @@ export const useAudioEngineStore = defineStore('audioEngine', () => {
     progress.value = time
     nodes.audio.currentTime = time
     lastUpdateTime = time
+  }
+
+  function setPlaybackRate(rate: number) {
+    if (!nodes.audio) return
+    nodes.audio.playbackRate = rate
   }
 
   // ── 内部 helpers ─────────────────────────
@@ -643,7 +648,8 @@ export const useAudioEngineStore = defineStore('audioEngine', () => {
     getCurrentTime,
     play,
     pause,
-    setPosition
+    setPosition,
+    setPlaybackRate
   }
 })
 

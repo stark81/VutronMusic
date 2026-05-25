@@ -21,7 +21,7 @@ const httpHandler: FastifyPluginAsync = async (fastify: FastifyInstance) => {
         track = res.songs[0]
       }
       if (!track.matched) {
-        ;(track.album || track.al).picUrl = 'atom://get-default-pic'
+        ;(track.album || track.al).picUrl = 'vutron://get-default-pic'
       } else {
         const url = new URL((track.album || track.al).picUrl)
         url.searchParams.set('param', `${size}y${size}`)

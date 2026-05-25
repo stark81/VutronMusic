@@ -355,7 +355,6 @@ class Emby implements EmbyImpl {
 
   getPic(id: number, primary: string, size: number) {
     const baseUrl = store.get('accounts.emby.url') as string
-
     const url = `${baseUrl}/emby/Items/${id}/Images/Primary?maxHeight=${size}&maxWidth=${size}&tag=${primary}&quality=90`
     return url
   }

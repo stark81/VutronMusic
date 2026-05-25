@@ -56,15 +56,18 @@ import { useRouter } from 'vue-router'
 import { useSettingsStore } from '../store/settings'
 import { useNormalStateStore } from '../store/state'
 import { usePluginMusic } from '../store/pluginMusic'
+import { usePlayerStore } from '../store/player'
 import { storeToRefs } from 'pinia'
 import Utils from '../utils'
 import { Album, Artist, Banner, ExploreTab, Playlist, PluginId } from '@/types/plugin'
 
 const { general } = storeToRefs(useSettingsStore())
-const { exploreTab, showLyrics, dailyTracks } = storeToRefs(useNormalStateStore())
+const { exploreTab, showLyrics } = storeToRefs(useNormalStateStore())
 
 const pluginMusicStore = usePluginMusic()
 const { pluginMethodCall } = pluginMusicStore
+
+const { addTrackToPlayNext } = usePlayerStore()
 
 const router = useRouter()
 
@@ -149,7 +152,7 @@ const handleBannerContainerClick = (e: MouseEvent) => {
 
 const handleBannerClick = (bannerItem: Banner) => {
   if (bannerItem.type === 'track') {
-    // addTrackToPlayNext(bannerItem.pluginId as PluginId, { id: Number(bannerItem.sourceId) }, true, true)
+    addTrackToPlayNext([[bannerItem.pluginId, bannerItem.sourceContext]], true, true)
   } else if (bannerItem.type === 'album') {
     router.push(`/album/${pluginId.value}/${JSON.stringify(bannerItem.sourceContext)}`)
   } else if (bannerItem.type === 'playlist') {

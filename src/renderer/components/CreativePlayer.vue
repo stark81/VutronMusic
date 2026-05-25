@@ -778,7 +778,7 @@ const getImg = (track: Track) => {
     url = track.al?.picUrl || track.album?.picUrl || track.picUrl
     return url
   } else {
-    url = `atom://local-asset?type=pic&id=${track.id}&size=256`
+    url = `vutron://local-asset?type=pic&id=${track.id}&size=256`
     return url
   }
 }

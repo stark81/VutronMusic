@@ -27,7 +27,7 @@
       <div class="songs">
         <TrackList
           :items="filterLikedTracks.slice(0, 8)"
-          :plugin="tool.groundBy === 'all' ? services[0].code : tool.groundBy"
+          :plugin="tool.groundBy === 'all' ? services?.[0]?.code : tool.groundBy"
           :is-group-by="tool.groundBy === 'all'"
           type="TrackList"
           :source-context="{}"
@@ -151,7 +151,7 @@
           <TrackList
             :items="filterCloudDisk"
             :colunm-number="1"
-            :plugin="tool.groundBy === 'all' ? services[0].code : tool.groundBy"
+            :plugin="tool.groundBy === 'all' ? services?.[0]?.code : tool.groundBy"
             :is-group-by="tool.groundBy === 'all'"
             :source-context="{}"
             type="CloudDisk"
@@ -180,7 +180,7 @@
           </button>
           <TrackList
             :items="playHistoryList"
-            :plugin="tool.groundBy === 'all' ? services[0].code : tool.groundBy"
+            :plugin="tool.groundBy === 'all' ? services?.[0]?.code : tool.groundBy"
             :is-group-by="tool.groundBy === 'all'"
             :source-context="{}"
             :colunm-number="1"
@@ -243,7 +243,7 @@ import Mvrow from '../components/MvRow.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import { useRouter } from 'vue-router'
 import { lyricLine } from '@/types/music'
-import { Track } from '@/types/plugin'
+import { PluginId, Track } from '@/types/plugin'
 
 const dataStore = useDataStore()
 const { liked, libraryPlaylistFilter } = storeToRefs(dataStore)
@@ -278,9 +278,11 @@ const hasCustomTitleBar = inject('hasCustomTitleBar', ref(true))
 
 const isMac = computed(() => window.env?.isMac)
 const services = computed(() =>
-  pluginStore.services.filter((item) => item.status === 'login' && item.type === 'online')
+  pluginStore.services.filter((item) => item.status === 'login' && item.type === 'library')
 )
-const tool = computed(() => pluginStore.tools.online)
+const tool = computed(() => pluginStore.tools.library)
+
+const sers = computed(() => services.value.map((item) => item.code))
 
 const tabStyle = computed(() => {
   const marginTop = hasCustomTitleBar.value ? 20 : 0
@@ -306,8 +308,8 @@ const playlistFilter = computed(() => {
 })
 
 const filterPlaylists = computed(() => {
-  const onlineServices = services.value.filter((item) => item.type === 'online')
-  const onlineTool = pluginStore.tools.online
+  const onlineServices = services.value.filter((item) => item.type === 'library')
+  const onlineTool = pluginStore.tools.library
 
   const onlinePlaylists = onlineServices
     .map((item) => (playlists.value[item.code]?.data ?? []).flat())
@@ -327,8 +329,9 @@ const filterPlaylists = computed(() => {
 const filterLikedTracks = computed(() => {
   const tracks =
     tool.value.groundBy === 'all'
-      ? Object.values(likedTracks.value)
-          .map((item) => item.data)
+      ? Object.entries(likedTracks.value)
+          .filter(([plugin]) => sers.value.includes(plugin as PluginId))
+          .map(([, item]) => item.data)
           .flat()
       : likedTracks.value[tool.value.groundBy].data
   return tracks

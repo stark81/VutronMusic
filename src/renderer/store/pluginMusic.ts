@@ -64,7 +64,7 @@ export const usePluginMusic = defineStore(
     const playHistory = reactive<Record<PluginId, { week: Track[]; all: Track[] }[]>>({})
 
     const tools = reactive<Record<service['type'], Tool>>({
-      online: { groundBy: 'all', sortBy: 'id', orderBy: 'ASC', artistBy: 'artist' },
+      library: { groundBy: 'all', sortBy: 'id', orderBy: 'ASC', artistBy: 'artist' },
       stream: { groundBy: 'all', sortBy: 'id', orderBy: 'ASC', artistBy: 'artist' },
       local: { groundBy: 'all', sortBy: 'id', orderBy: 'ASC', artistBy: 'artist' }
     })
@@ -198,6 +198,9 @@ export const usePluginMusic = defineStore(
       if (!additionalTags[pluginId]) {
         additionalTags[pluginId] = []
       }
+      if (!users[pluginId]) {
+        users[pluginId] = { userId: '', nickname: '', avatarUrl: '', isVip: false, signature: '' }
+      }
       activeCats[pluginId] = { playlist: '', track: '', album: '', artist: [] }
     }
 
@@ -209,9 +212,7 @@ export const usePluginMusic = defineStore(
       return Promise.all(
         plugins.map(async (item) => {
           if (!playlists[item]) playlists[item] = { liked: null, data: [], sourceContext: {} }
-
           if (!albums[item]) albums[item] = { data: [], sourceContext: {} }
-
           const result = await pluginMethodCall(
             item,
             'userPlaylist',

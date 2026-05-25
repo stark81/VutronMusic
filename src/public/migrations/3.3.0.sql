@@ -42,6 +42,10 @@ FROM "Track";
 DROP TABLE "Track";
 ALTER TABLE "Track_new" RENAME TO "Track";
 
+UPDATE Track
+SET json = replace(json, 'atom://', 'vutron://')
+WHERE json LIKE '%atom://%';
+
 --------------------------------------------------
 -- Album
 --------------------------------------------------
@@ -119,6 +123,10 @@ FROM "Playlist";
 
 DROP TABLE "Playlist";
 ALTER TABLE "Playlist_new" RENAME TO "Playlist";
+
+UPDATE Playlist
+SET json = replace(json, 'atom://', 'vutron://')
+WHERE json LIKE '%atom://%';
 
 --------------------------------------------------
 -- Audio

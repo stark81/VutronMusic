@@ -104,8 +104,8 @@
     </div>
 
     <div v-if="isLikedSongsPage" class="special-playlist">
-      <div v-show="playlistType === 'online'" class="title gradient-green">我喜欢的音乐</div>
-      <div v-show="playlistType === 'streamLiked'" class="title gradient-sky-blue"
+      <div v-show="playlistType === 'liked-library'" class="title gradient-green">我喜欢的音乐</div>
+      <div v-show="playlistType === 'liked-stream'" class="title gradient-sky-blue"
         >我收藏的流媒体</div
       >
       <div class="buttons">
@@ -195,14 +195,11 @@
 
 <script setup lang="ts">
 import { computed, ref, provide, onMounted, watch } from 'vue'
-// import { useDataStore } from '../store/data'
-// import { useLocalMusicStore } from '../store/localMusic'
-// import { useStreamMusicStore } from '../store/streamingMusic'
 import { useNormalStateStore } from '../store/state'
 import { usePlayerStore } from '../store/player'
 import { usePluginMusic } from '../store/pluginMusic'
 import { storeToRefs } from 'pinia'
-import { useRoute, useRouter } from 'vue-router'
+import { onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import { formatDate, openExternal } from '../utils'
 import Cover from '../components/CoverBox.vue'
 import CommentPage from '../components/CommentPage.vue'
@@ -214,7 +211,6 @@ import SvgIcon from '../components/SvgIcon.vue'
 import Modal from '../components/BaseModal.vue'
 import { tricklingProgress } from '../utils/tricklingProgress'
 import { useI18n } from 'vue-i18n'
-// import { intelligencePlaylist, deletePlaylist } from '../api/playlist'
 import { CoverType, PlaylistSourceInfo, serviceName } from '@/types/music.d'
 import { PluginId, Track, PlaylistDetail } from '@/types/plugin'
 
@@ -291,14 +287,11 @@ const { replacePlaylist } = playerStore
 const { t } = useI18n()
 
 const playlistType = computed(() => {
-  if (route.name === 'localPlaylist') {
-    return 'local'
-  } else if (route.name === 'streamPlaylist') {
-    return 'stream'
-  } else if (route.name === 'streamLikedSongs') {
-    return 'streamLiked'
+  const type = services.value.find((item) => item.code === pluginId.value)?.type
+  if (route.name === 'Playlist') {
+    return `playlist-${type}`
   } else {
-    return 'online'
+    return `liked-${type}`
   }
 })
 
@@ -310,13 +303,6 @@ const isGroupBy = computed(() => {
   if (route.name === 'likedSongs' && tools.value[service.type].groundBy === 'all') return true
   return false
 })
-
-// const typeMap = {
-//   local: 'localPlaylist',
-//   stream: 'streamPlaylist',
-//   streamLiked: 'streamLiked',
-//   online: 'playlist'
-// }
 
 const isLikedSongsPage = computed(
   () => route.name === 'likedSongs' || route.name === 'streamLikedSongs'
@@ -439,18 +425,18 @@ const deleteAPlaylist = () => {
 }
 
 const editPlaylist = () => {
-  if (playlistType.value === 'streamLiked') return
-  editPlaylistModal.value = {
-    show: true,
-    type:
-      playlistType.value === 'stream' ? (currentService.value as serviceName) : playlistType.value,
-    playlistID: playlist.value.id as number,
-    info: {
-      title: playlist.value.name,
-      description: playlist.value.description || '',
-      tags: playlist.value.tags || []
-    }
-  }
+  // if (playlistType.value === 'streamLiked') return
+  // editPlaylistModal.value = {
+  //   show: true,
+  //   type:
+  //     playlistType.value === 'stream' ? (currentService.value as serviceName) : playlistType.value,
+  //   playlistID: playlist.value.id as number,
+  //   info: {
+  //     title: playlist.value.name,
+  //     description: playlist.value.description || '',
+  //     tags: playlist.value.tags || []
+  //   }
+  // }
 }
 
 const copyUrl = () => {
@@ -482,9 +468,23 @@ const removeTrack = (idx: number) => {
 
 provide('removeTrack', removeTrack)
 
+onBeforeRouteUpdate((to, from, next) => {
+  show.value = false
+  const { pluginId: plugin, sourceContext } = to.params
+  if (route.name === 'likedSongs') {
+    pluginId.value = (plugin as PluginId[])[0]
+    loadLikedData(plugin as PluginId[])
+  } else {
+    pluginId.value = plugin as PluginId
+    loadData(pluginId.value, JSON.parse(sourceContext as string))
+  }
+  next()
+})
+
 onMounted(() => {
   const { pluginId: plugin, sourceContext } = route.params
   if (route.name === 'likedSongs') {
+    pluginId.value = (plugin as PluginId[])[0]
     loadLikedData(plugin as PluginId[])
   } else {
     pluginId.value = plugin as PluginId

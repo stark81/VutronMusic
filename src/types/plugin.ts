@@ -52,7 +52,7 @@ export type service = {
   code: PluginId
   name: string
   active: boolean
-  type: 'local' | 'online' | 'stream'
+  type: 'local' | 'library' | 'stream'
   status: 'logout' | 'login' | 'offline'
 }
 
@@ -76,6 +76,8 @@ export type PluginAPI = {
 export const defaultMap: {
   [K in keyof PluginAPI]: PluginAPI[K]['result']
 } = {
+  updateBaseUrl: { code: 404 },
+  getAccount: { code: 404, baseUrl: '', userName: '', pwd: '' },
   search: { code: 404, data: [] },
   getSongUrl: { code: 404, data: '' },
   getLyric: { code: 404, data: [] },
@@ -124,7 +126,8 @@ export const defaultMap: {
   getTrackCatlist: { code: 404, data: [] },
   getAlbumCatlist: { code: 404, data: [] },
   newAlbums: { code: 404, data: [], sourceContext: {} },
-  getArtistCatlist: { code: 404, data: [] }
+  getArtistCatlist: { code: 404, data: [] },
+  doLogin: { code: 404, message: '' }
 }
 
 export type PluginMethodCall = <K extends keyof PluginAPI>(
@@ -139,3 +142,5 @@ export type Tool = {
   orderBy: orderType
   artistBy: ArtistType
 }
+
+export type LoginType = 'Username' | 'Phone' | 'Email' | 'QrCode' | 'Cookie'

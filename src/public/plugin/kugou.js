@@ -187,23 +187,25 @@ apis.db.get('PluginData').then((result) => {
 apis.store.get('').then((store) => {
   baseUrl = store.baseUrl
 
+  if (!user.userId) return
+
   get('artist/lists', { type: 0, hotsize: 30 }).then((result) => {
     artistLists.status = result.status
     artistLists.data = result.data
   })
 
   get('user/follow').then((result) => {
-    collectedArtists.ids = result.data.lists.map((item) => String(item.singerid || item.userid))
+    collectedArtists.ids = result.data?.lists.map((item) => String(item.singerid || item.userid))
   })
 
   get('register/dev').then((res) => {
-    dfid = res.data.dfid
+    dfid = res.data?.dfid
   })
 
   // 获取用户vip情况以及该用户的收藏歌单id
   get('user/vip/detail').then((result) => {
-    user.userId = result.data.userid
-    const vip = result.data.busi_vip.some((item) => item.is_vip === 1)
+    user.userId = result.data?.userid
+    const vip = result.data?.busi_vip.some((item) => item.is_vip === 1)
     user.isVip = vip
 
     if (!user.isVip) youthVip()
@@ -214,7 +216,7 @@ apis.store.get('').then((store) => {
 
     get('user/playlist', { pagesize: 100 })
       .then((res) => {
-        collectedPlaylists.ids = res.data.info.map((item) => ({
+        collectedPlaylists.ids = res.data?.info.map((item) => ({
           id: item.list_create_gid || item.list_create_listid,
           listid: item.listid
         }))
@@ -643,7 +645,7 @@ const formatMv = (item) => ({
 
 const meta = {
   name: '酷狗音乐',
-  type: 'online' // online, stream
+  type: 'library' // library, stream
 }
 
 const pagesize = 100
@@ -651,7 +653,7 @@ const pagesize = 100
 /**
  * - meta：插件的基础信息
  * - meta.name: 中英文均可，用来表示这个插件的数据来源；
- * - meta.type: online, local 或者 stream，表示插件类型是线上服务还是自建流媒体服务，作为本地音乐匹配的依据
+ * - meta.type: library, local 或者 stream，表示插件类型是线上服务还是自建流媒体服务，作为本地音乐匹配的依据
  */
 exports.meta = meta
 
@@ -724,8 +726,8 @@ exports.getBanner = async (params) => {
     .map((item) => {
       const map = {
         0: ['activity', '活动', {}],
-        1: ['album', '专辑购买', {}],
-        3: ['playlist', '歌单推荐', { ids: item.classid }],
+        1: ['activity', '专辑购买', {}],
+        3: ['playlist', '歌单推荐', { ids: item.type_id }],
         7: ['album', '新碟首发', { id: item.classid }]
       }
       return {
@@ -783,7 +785,7 @@ const topArtists = async (_params) => {
 
   let result = {}
   if (
-    artistLists.data?.info.length &&
+    artistLists.data?.info?.length &&
     params?.type?.code === 0 &&
     params?.sextypes?.code === 0 &&
     params?.musician?.code === 0
@@ -797,7 +799,7 @@ const topArtists = async (_params) => {
     })
   }
 
-  const data = result.data.info
+  const data = result.data?.info
     .find((item) => item.title === params.initial.name)
     .singer.map((item) => ({
       id: item.singerid,
@@ -1098,7 +1100,7 @@ exports.getPlaylistDetail = async (params) => {
     return await rankToPlaylistDetail(params)
   }
 
-  const ids = params.gid || params.id
+  const ids = params.gid || params.id || params.ids
   if (!ids) return { code: 200, data: null }
   const res = await get('playlist/detail', { ids })
   const playlist = res.data[0]
@@ -1150,7 +1152,7 @@ exports.catlist = async () => {
         sourceContext: { id: 1085, name: '官方歌单', loaded: false }
       }
     ],
-    tagList: result.data.map((item) => ({
+    tagList: result.data?.map((item) => ({
       id: Number(item.tag_id),
       name: item.tag_name,
       sub: item.son.map((it) => ({
@@ -1189,6 +1191,9 @@ exports.getCategoryPlaylist = async (params) => {
 }
 
 exports.userPlaylist = async (params) => {
+  if (!user.userId)
+    return { code: 200, liked: null, playlists: [], albums: [], sourceContext: { page: 1 } }
+
   const page = params.page ?? 1
   const result = await get('user/playlist', { page, pagesize, t: Date.now() })
   if (result.status === 1 && result.data.info) {
@@ -1217,6 +1222,8 @@ exports.userPlaylist = async (params) => {
  */
 
 exports.userLikedArtists = async () => {
+  if (!user.userId) return { code: 200, data: [], sourceContext: {} }
+
   const result = await get('user/follow', { t: Date.now() })
 
   if (result.status === 1) {
@@ -1239,6 +1246,8 @@ exports.userLikedArtists = async () => {
 }
 
 exports.userLikedMVs = async (params) => {
+  if (!user.userId) return { code: 200, data: [], sourceContext: {} }
+
   const page = params.page || 1
   const result = await get('user/video/collect', { page, pagesize })
 
@@ -1254,6 +1263,8 @@ exports.userLikedMVs = async (params) => {
  * @param {Record<string, any>} params
  */
 exports.cloudDisk = async (params) => {
+  if (!user.userId) return { code: 200, data: [], sourceContext: {} }
+
   const page = params.page || 1
   const result = await get('user/cloud', { page, pagesize })
   if (result.status === 1 && result.data.list) {

@@ -5,31 +5,32 @@
         <InfoBG />
         <div class="content">
           <label class="left-title"
-            >流媒体歌曲 - {{ defaultGroupBy === 'all' ? '聚合' : defaultGroupBy }}</label
+            >流媒体歌曲 - {{ tool.groundBy === 'all' ? '聚合' : tool.groundBy }}</label
           >
           <div class="content-info">
             <div>
               <div class="subtitle">全部歌曲</div>
-              <div class="text">{{ defaultTracks.length }}首</div>
+              <div class="text">{{ [].length }}首</div>
             </div>
             <div>
               <div class="subtitle">歌曲总时长</div>
-              <div class="text">{{ formatedTime }}</div>
+              <div class="text">{{ '' }}</div>
             </div>
             <div>
               <div class="subtitle">流媒体歌单</div>
-              <div class="text">{{ defaultPlaylists.length }}个</div>
+              <div class="text">{{ filterPlaylists.length }}个</div>
             </div>
             <div>
               <div class="subtitle">歌曲占用</div>
-              <div class="text">{{ formatedMemory }}</div>
+              <div class="text">{{ '' }}</div>
             </div>
           </div>
         </div>
       </div>
       <div class="right-top" @click="goToLikedSongsList">
         <div class="title"
-          >{{ $t('library.likedSongs') }} - {{ likedTracks.length }}{{ $t('common.songs') }}</div
+          >{{ $t('library.likedSongs') }} - {{ filterLikedTracks.length
+          }}{{ $t('common.songs') }}</div
         >
         <div>
           <div
@@ -41,7 +42,7 @@
           >
         </div>
       </div>
-      <div class="right-bottom">{{ randomTrack?.artists[0].name }} - {{ randomTrack?.name }}</div>
+      <div class="right-bottom">{{ randomtrack?.artists[0].name }} - {{ randomtrack?.name }}</div>
     </div>
     <div class="section-two">
       <div
@@ -79,7 +80,7 @@
           }}</div>
           <div v-else class="tab dropdown" :class="{ active: idx === 3 }" @click="idx = 3">
             <span class="text">{{
-              $t(artistBy === 0 ? 'streamMusic.artist' : 'localMusic.albumArtist')
+              $t(tool.artistBy === 'artist' ? 'streamMusic.artist' : 'localMusic.albumArtist')
             }}</span>
             <span class="icon" @click.stop="(e) => openTabMenu('artist', e)"
               ><svg-icon icon-class="dropdown"
@@ -89,34 +90,31 @@
         <div v-show="idx !== 1" class="search-box">
           <SearchBox
             ref="streamSearchBoxRef"
-            :placeholder="`搜索${placeHolderMap(idx === 3 ? (tabs[idx][artistBy] as string) : (tabs[idx] as string))}`"
+            :placeholder="`搜索${placeHolderMap(idx === 3 ? tool.artistBy : String(tabs[idx]))}`"
           />
         </div>
         <button v-show="idx === 1" class="tab-button" @click="openAddPlaylistModal"
           ><svg-icon icon-class="plus" />{{ $t('library.playlist.newPlaylist') }}</button
         >
       </div>
-      <div v-if="!loginedServices.length" class="errorInfo">{{ streamMessage }}</div>
+      <div v-if="!loginService.length" class="errorInfo">{{ 'streamMessage' }}</div>
       <div v-if="show" class="section-two-content" :style="tabStyle">
         <div v-show="idx === 0">
           <TrackList
-            :id="0"
             ref="streamListRef"
-            :items="[]"
+            :items="filterLikedTracks"
             :type="'Playlist'"
-            :plugin="'' as PluginId"
-            :is-group-by="false"
+            :plugin="tool.groundBy === 'all' ? services?.[0]?.code : tool.groundBy"
+            :is-group-by="tool.groundBy === 'all'"
             :source-context="{}"
-            :group-by="defaultGroupBy"
             :show-service="true"
             :colunm-number="1"
             :is-end="true"
-            :extra-context-menu-item="['addToStreamList']"
           />
         </div>
         <div v-show="idx === 1">
           <CoverRow
-            :items="defaultPlaylists"
+            :items="filterPlaylists"
             type="Playlist"
             sub-text="creator"
             :colunm-number="5"
@@ -124,15 +122,15 @@
           />
         </div>
         <div v-show="idx === 2">
-          <AlbumList :tracks="[]" :plugin="'' as PluginId" />
+          <!-- <AlbumList :tracks="[]" :plugin="''" /> -->
         </div>
         <div v-show="idx === 3">
-          <ArtistList :tracks="sortedLocalTracks" :type="tabs[3][artistBy]" />
+          <!-- <ArtistList :tracks="[]" :type="tool.artistBy" /> -->
         </div>
       </div>
     </div>
 
-    <ContextMenu ref="streamTabMenu">
+    <!-- <ContextMenu ref="streamTabMenu">
       <div class="item" :class="{ active: groundBy === 'all' }" @click="groundBy = 'all'">聚合</div>
       <div
         v-for="service in loginedServices"
@@ -156,29 +154,19 @@
       <div v-show="!isBatchOp" class="item" @click="isBatchOp = true">{{
         $t('contextMenu.batchOperation')
       }}</div>
-    </ContextMenu>
+    </ContextMenu> -->
 
-    <ContextMenu ref="artistTabMenu">
+    <!-- <ContextMenu ref="artistTabMenu">
       <div class="item" @click="artistBy = 0">{{ $t('localMusic.artists') }}</div>
       <div class="item" @click="artistBy = 1">{{ $t('localMusic.albumArtist') }}</div>
-    </ContextMenu>
+    </ContextMenu> -->
   </div>
 </template>
 
 <script setup lang="ts">
-import {
-  ref,
-  onMounted,
-  inject,
-  computed,
-  provide,
-  watch,
-  shallowRef,
-  onBeforeUnmount,
-  Plugin
-} from 'vue'
+import { onMounted, onBeforeUnmount, computed, watch, inject, ref, provide, shallowRef } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useStreamMusicStore } from '../store/streamingMusic'
+import { usePluginMusic } from '../store/pluginMusic'
 import { useNormalStateStore } from '../store/state'
 import { useRouter } from 'vue-router'
 import InfoBG from '../components/InfoBG.vue'
@@ -191,27 +179,35 @@ import CoverRow from '../components/VirtualCoverRow.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import { useI18n } from 'vue-i18n'
 import { randomNum, pickedLyric } from '../utils'
-import { Track, lyricLine, serviceName } from '@/types/music.d'
-import _ from 'lodash'
+import { lyricLine } from '@/types/music.d'
+import { Track, LoginType } from '@/types/plugin'
+// import _ from 'lodash'
 import { PluginId } from '@/types/schemas'
 
 const stateStore = useNormalStateStore()
 const { newPlaylistModal, modalOpen } = storeToRefs(stateStore)
 const { showToast } = stateStore
 
-const streamMusicStore = useStreamMusicStore()
+const pluginStore = usePluginMusic()
 const {
-  sortBy,
-  streamTracks,
+  // sortBy,
+  // streamTracks,
   playlists,
-  message,
-  streamLikedTracks,
-  loginedServices,
-  groundBy,
-  artistBy
-} = storeToRefs(streamMusicStore)
-const { fetchStreamMusic, fetchStreamPlaylist, getStreamLyric, checkStreamStatus } =
-  streamMusicStore
+  // message,
+  // streamLikedTracks,
+  // loginedServices,
+  tools,
+  likedTracks,
+  // artistBy,
+  services
+} = storeToRefs(pluginStore)
+const { fetchLikedPlaylists, fetchLikedSongsWithDetails, fetchLyric } = pluginStore
+
+const streamService = computed(() => services.value.filter((item) => item.type === 'stream'))
+
+const loginService = computed(() => streamService.value.filter((item) => item.status === 'login'))
+
+const tool = computed(() => tools.value.stream)
 
 const router = useRouter()
 
@@ -223,121 +219,153 @@ const streamListRef = shallowRef<InstanceType<typeof TrackList>>()
 const tabsRowRef = ref()
 const isBatchOp = ref(false)
 const show = ref(false)
-
+const lyric = ref<{ content: string }[]>([])
+const randomtrack = ref<Track>()
 const idx = ref(0)
-const randomTrack = ref<Track>()
-const randomLyric = ref<{ content: string }[]>([])
 
 const tabs = ['track', 'playlist', 'album', ['artist', 'albumArtist']] as const
 
 const { t } = useI18n()
-const sortOptions = [
-  { name: t('contextMenu.defaultSort'), value: 'default' },
-  { name: t('contextMenu.sortByName'), value: 'byname' },
-  { name: t('contextMenu.ascendSort'), value: 'ascend' },
-  { name: t('contextMenu.descendSort'), value: 'descend' }
-]
+// const sortOptions = [
+//   { name: t('contextMenu.defaultSort'), value: 'default' },
+//   { name: t('contextMenu.sortByName'), value: 'byname' },
+//   { name: t('contextMenu.ascendSort'), value: 'ascend' },
+//   { name: t('contextMenu.descendSort'), value: 'descend' }
+// ]
 
 const tabStyle = computed(() => {
   const marginTop = hasCustomTitleBar.value ? 20 : 0
   return { marginTop: `${marginTop}px` }
 })
 
-const defaultGroupBy = computed(() => {
-  if (loginedServices.value.length === 1) {
-    return loginedServices.value[0].name
-  }
-  return groundBy.value
+const sers = computed(() => loginService.value.map((it) => it.code))
+
+const filterLikedTracks = computed(() => {
+  const tracks =
+    tool.value.groundBy === 'all'
+      ? Object.entries(likedTracks.value)
+          .filter(([plugin]) => sers.value.includes(plugin as PluginId))
+          .map(([, item]) => item.data)
+          .flat()
+      : likedTracks.value[tool.value.groundBy].data
+  return tracks
 })
 
-const streamMessage = computed(() => {
-  return loginedServices.value.length === 0 ? message.value : '当前服务离线，请稍后再试'
+const filterPlaylists = computed(() => {
+  const streamServices = services.value.filter((item) => item.type === 'stream')
+  const streamTool = pluginStore.tools.stream
+
+  const onlinePlaylists = streamServices
+    .map((item) => (playlists.value[item.code]?.data ?? []).flat())
+    .flat()
+  const plists =
+    streamTool.groundBy === 'all' ? onlinePlaylists : playlists.value[streamTool.groundBy].data
+  return plists
+
+  // if (libraryPlaylistFilter.value === 'mine') {
+  //   return plists.filter((item) => item.isMine)
+  // } else if (libraryPlaylistFilter.value === 'liked') {
+  //   return plists.filter((item) => !item.isMine)
+  // } else {
+  //   return plists
+  // }
 })
 
-const defaultPlaylists = computed(() => {
-  if (groundBy.value === 'all') {
-    return _.cloneDeep(_.flatten(Object.values(playlists.value)))
-  }
-  return playlists.value[groundBy.value]
-})
+// const defaultGroupBy = computed(() => {
+//   if (loginedServices.value.length === 1) {
+//     return loginedServices.value[0].name
+//   }
+//   return groundBy.value
+// })
 
-const likedTracks = computed(() => {
-  return groundBy.value === 'all'
-    ? _.flatten(Object.values(streamLikedTracks.value))
-    : streamLikedTracks.value[groundBy.value]
-})
+// const streamMessage = computed(() => {
+//   return loginedServices.value.length === 0 ? message.value : '当前服务离线，请稍后再试'
+// })
+
+// const defaultPlaylists = computed(() => {
+//   if (groundBy.value === 'all') {
+//     return _.cloneDeep(_.flatten(Object.values(playlists.value)))
+//   }
+//   return playlists.value[groundBy.value]
+// })
+
+// const likedTracks = computed(() => {
+//   return groundBy.value === 'all'
+//     ? _.flatten(Object.values(streamLikedTracks.value))
+//     : streamLikedTracks.value[groundBy.value]
+// })
 
 const pickedLyricLines = computed(() => {
-  const randomLines = pickedLyric(randomLyric.value)
+  const randomLines = pickedLyric(lyric.value)
   return randomLines
 })
 
-const keyword = computed(() => streamSearchBoxRef.value?.keywords || '')
+// const keyword = computed(() => streamSearchBoxRef.value?.keywords || '')
 
-const defaultTracks = computed(() => {
-  if (groundBy.value === 'all') {
-    return _.cloneDeep(
-      _.flatten(Object.values(streamTracks.value)).map((track, index) => ({ ...track, index }))
-    )
-  }
-  return streamTracks.value[groundBy.value].map((track, index) => ({ ...track, index }))
-})
+// const defaultTracks = computed(() => {
+//   if (groundBy.value === 'all') {
+//     return _.cloneDeep(
+//       _.flatten(Object.values(streamTracks.value)).map((track, index) => ({ ...track, index }))
+//     )
+//   }
+//   return streamTracks.value[groundBy.value].map((track, index) => ({ ...track, index }))
+// })
 
-const filterStreamTracks = computed(() => {
-  return defaultTracks.value.filter(
-    (track) =>
-      (track.name && track.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
-      (track.album?.name &&
-        track.album.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
-      track.artists.find(
-        (ar) => ar.name && ar.name.toLowerCase().includes(keyword.value?.toLowerCase())
-      ) ||
-      track.albumArtist.find(
-        (ar) => ar.name && ar.name.toLowerCase().includes(keyword.value?.toLowerCase())
-      )
-  )
-})
+// const filterStreamTracks = computed(() => {
+//   return defaultTracks.value.filter(
+//     (track) =>
+//       (track.name && track.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
+//       (track.album?.name &&
+//         track.album.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
+//       track.artists.find(
+//         (ar) => ar.name && ar.name.toLowerCase().includes(keyword.value?.toLowerCase())
+//       ) ||
+//       track.albumArtist.find(
+//         (ar) => ar.name && ar.name.toLowerCase().includes(keyword.value?.toLowerCase())
+//       )
+//   )
+// })
 
-const sortedLocalTracks = computed(() => {
-  return filterStreamTracks.value.slice().sort((a, b) => {
-    if (sortBy.value === 'default') {
-      return a.index - b.index
-    } else if (sortBy.value === 'ascend') {
-      const timeA = new Date(a.createTime).getTime()
-      const timeB = new Date(b.createTime).getTime()
-      return timeA - timeB
-    } else if (sortBy.value === 'descend') {
-      const timeA = new Date(a.createTime).getTime()
-      const timeB = new Date(b.createTime).getTime()
-      return timeB - timeA
-    } else return a.name.localeCompare(b.name, 'zh-CN', { numeric: true })
-  })
-})
+// const sortedLocalTracks = computed(() => {
+//   return filterStreamTracks.value.slice().sort((a, b) => {
+//     if (sortBy.value === 'default') {
+//       return a.index - b.index
+//     } else if (sortBy.value === 'ascend') {
+//       const timeA = new Date(a.createTime).getTime()
+//       const timeB = new Date(b.createTime).getTime()
+//       return timeA - timeB
+//     } else if (sortBy.value === 'descend') {
+//       const timeA = new Date(a.createTime).getTime()
+//       const timeB = new Date(b.createTime).getTime()
+//       return timeB - timeA
+//     } else return a.name.localeCompare(b.name, 'zh-CN', { numeric: true })
+//   })
+// })
 
-const formatedTime = computed(() => {
-  const dt =
-    defaultTracks.value
-      .map((track) => track.dt)
-      .filter((dt) => dt && !isNaN(Number(dt)))
-      .reduce((acc, cur) => acc + cur, 0) / 1000
-  const hourse = Math.floor(dt / 3600)
-  const minutes = Math.floor((dt % 3600) / 60)
-  const seconds = Math.floor(dt % 60)
-  return `${hourse}:${minutes < 10 ? '0' + minutes : minutes}:${seconds < 10 ? '0' + seconds : seconds}`
-})
+// const formatedTime = computed(() => {
+//   const dt =
+//     defaultTracks.value
+//       .map((track) => track.dt)
+//       .filter((dt) => dt && !isNaN(Number(dt)))
+//       .reduce((acc, cur) => acc + cur, 0) / 1000
+//   const hourse = Math.floor(dt / 3600)
+//   const minutes = Math.floor((dt % 3600) / 60)
+//   const seconds = Math.floor(dt % 60)
+//   return `${hourse}:${minutes < 10 ? '0' + minutes : minutes}:${seconds < 10 ? '0' + seconds : seconds}`
+// })
 
-const formatedMemory = computed(() => {
-  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
-  let memory = defaultTracks.value
-    .map((track) => track.size!)
-    .reduce((acc, cur) => acc + cur, 0) as number
-  let i = 0
-  while (memory >= 1024 && i < units.length - 1) {
-    memory /= 1024
-    i++
-  }
-  return `${memory.toFixed(2)} ${units[i]}`
-})
+// const formatedMemory = computed(() => {
+//   const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
+//   let memory = defaultTracks.value
+//     .map((track) => track.size!)
+//     .reduce((acc, cur) => acc + cur, 0) as number
+//   let i = 0
+//   while (memory >= 1024 && i < units.length - 1) {
+//     memory /= 1024
+//     i++
+//   }
+//   return `${memory.toFixed(2)} ${units[i]}`
+// })
 
 const selectAll = () => {
   streamListRef.value?.selectAll()
@@ -374,119 +402,141 @@ const placeHolderMap = (tab: string) => {
 }
 
 const goToLikedSongsList = () => {
-  router.push({ path: `/stream-liked-songs/${groundBy.value}` })
+  if (tool.value.groundBy === 'all') {
+    const plugins = loginService.value.map((it) => it.code).join('/')
+    router.push({ path: `/library/liked-songs/${plugins}` })
+  } else {
+    router.push({ path: `/library/liked-songs/${tool.value.groundBy}` })
+  }
 }
 
 const openAddPlaylistModal = () => {
-  if (groundBy.value === 'all' && loginedServices.value.length > 1) {
+  if (tool.value.groundBy === 'all' && loginService.value.length > 1) {
     showToast('在聚合视图下无法进行操作，请先选择具体的流媒体服务')
-    // return
+    return
   }
-  // newPlaylistModal.value = {
-  //   type:
-  //     groundBy.value === 'all' ? loginedServices.value[0].name : (groundBy.value as serviceName),
-  //   afterCreateAddTrackID: [],
-  //   show: true
-  // }
+  newPlaylistModal.value = {
+    plugin: tool.value.groundBy === 'all' ? loginService.value[0].code : tool.value.groundBy,
+    afterCreateAddTrackID: [],
+    show: true
+  }
 }
 
 const getRandomTrack = async () => {
+  if (filterLikedTracks.value.length === 0) return
+
   let i = 0
   let data: lyricLine[]
-  let randomT: Track
-  while (i < likedTracks.value.length - 1) {
-    randomT = likedTracks.value[randomNum(0, likedTracks.value.length - 1)]
-    data = await getStreamLyric(randomT)
-    if (data.length > 0) {
-      const isInstrumental = data
-        .map((lien) => lien.lyric)
-        .filter((l) => l.text.includes('纯音乐，请欣赏'))
-      if (!isInstrumental.length) {
-        randomLyric.value = data.map((l) => ({ content: l.lyric.text }))
-        randomTrack.value = randomT
-        break
-      }
+  while (i < filterLikedTracks.value.length) {
+    const track = filterLikedTracks.value[randomNum(0, filterLikedTracks.value.length - 1)]
+    data = await fetchLyric(track.pluginId, track.sourceContext)
+    const isInstrumental = data.map((l) => l.lyric.text).filter((l) => l.includes('纯音乐，请欣赏'))
+    if (data.length && !isInstrumental.length) {
+      lyric.value = data.map((l) => ({ content: l.lyric.text }))
+      randomtrack.value = track
+      break
     }
     i++
   }
 }
 
-watch(modalOpen, (value) => {
-  if (!value) {
-    isBatchOp.value = false
-  }
-})
+// watch(modalOpen, (value) => {
+//   if (!value) {
+//     isBatchOp.value = false
+//   }
+// })
 
 provide('isBatchOp', isBatchOp)
 
-const navBarRef = inject('navBarRef', ref())
-const observeTab = new IntersectionObserver(
-  (entries) => {
-    entries.forEach((entry) => {
-      const intersectionRatio = entry.intersectionRatio
-      const maxPadding = 42
-      const maxPaddingRight = 42
-      if (intersectionRatio > 0) {
-        if (window.env?.isMac) {
-          const paddingLeft = maxPadding * (1 - intersectionRatio)
-          tabsRowRef.value.style.paddingLeft = `${paddingLeft}px`
-        }
-        const paddingRight = maxPaddingRight * (1 - intersectionRatio)
-        tabsRowRef.value.style.width = `calc(100% - ${paddingRight}px)`
-        if (navBarRef.value) navBarRef.value.searchBoxRef.$el.style.display = ''
-      } else {
-        if (window.env?.isMac) {
-          tabsRowRef.value.style.paddingLeft = `${maxPadding}px`
-        }
-        tabsRowRef.value.style.width = `calc(100% - ${maxPaddingRight}px)`
-        if (navBarRef.value) navBarRef.value.searchBoxRef.$el.style.display = 'none'
-      }
-    })
-  },
-  {
-    root: null,
-    rootMargin: `-${hasCustomTitleBar.value ? 84 : 64}px 0px 0px 0px`,
-    threshold: Array.from({ length: 101 }, (v, i) => i / 100)
-  }
-)
+// const navBarRef = inject('navBarRef', ref())
+// const observeTab = new IntersectionObserver(
+//   (entries) => {
+//     entries.forEach((entry) => {
+//       const intersectionRatio = entry.intersectionRatio
+//       const maxPadding = 42
+//       const maxPaddingRight = 42
+//       if (intersectionRatio > 0) {
+//         if (window.env?.isMac) {
+//           const paddingLeft = maxPadding * (1 - intersectionRatio)
+//           tabsRowRef.value.style.paddingLeft = `${paddingLeft}px`
+//         }
+//         const paddingRight = maxPaddingRight * (1 - intersectionRatio)
+//         tabsRowRef.value.style.width = `calc(100% - ${paddingRight}px)`
+//         if (navBarRef.value) navBarRef.value.searchBoxRef.$el.style.display = ''
+//       } else {
+//         if (window.env?.isMac) {
+//           tabsRowRef.value.style.paddingLeft = `${maxPadding}px`
+//         }
+//         tabsRowRef.value.style.width = `calc(100% - ${maxPaddingRight}px)`
+//         if (navBarRef.value) navBarRef.value.searchBoxRef.$el.style.display = 'none'
+//       }
+//     })
+//   },
+//   {
+//     root: null,
+//     rootMargin: `-${hasCustomTitleBar.value ? 84 : 64}px 0px 0px 0px`,
+//     threshold: Array.from({ length: 101 }, (v, i) => i / 100)
+//   }
+// )
 
-const handleResize = () => {
-  observeTab.unobserve(tabsRowRef.value)
-  observeTab.disconnect()
-  if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
+// const handleResize = () => {
+//   observeTab.unobserve(tabsRowRef.value)
+//   observeTab.disconnect()
+//   if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
+// }
+
+const loadData = async () => {
+  const sers = loginService.value.map((item) => item.code)
+  await fetchLikedPlaylists(sers)
+  await fetchLikedSongsWithDetails(sers)
+  getRandomTrack()
+  show.value = true
 }
 
-onMounted(async () => {
-  checkStreamStatus()
-  if (loginedServices.value.length === 0) {
-    router.push(`/streamLogin/${groundBy.value === 'all' ? 'navidrome' : groundBy.value}`)
-    return
-  }
+watch(
+  loginService,
+  (value) => {
+    if (!value.length) {
+      const groupBy = tool.value.groundBy
+      const service = groupBy === 'all' ? streamService.value[0].code : groupBy
+      const loginTpye: LoginType = 'Username'
+      router.push(`/login/${service}/${loginTpye}`)
+    }
+  },
+  { immediate: true }
+)
 
-  if (!defaultTracks.value.length) {
-    fetchStreamPlaylist()
-    await fetchStreamMusic().then(() => {
-      show.value = true
-      getRandomTrack()
-    })
-  } else {
-    show.value = true
-    fetchStreamMusic().then(() => {
-      getRandomTrack()
-    })
-    fetchStreamPlaylist()
-  }
-  window.addEventListener('resize', handleResize)
-  setTimeout(() => {
-    if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
-  }, 100)
+onMounted(async () => {
+  loadData()
+  // checkStreamStatus()
+  // if (loginedServices.value.length === 0) {
+  //   router.push(`/streamLogin/${groundBy.value === 'all' ? 'navidrome' : groundBy.value}`)
+  //   return
+  // }
+  // if (!defaultTracks.value.length) {
+  //   fetchStreamPlaylist()
+  //   await fetchStreamMusic().then(() => {
+  //     show.value = true
+  //     getRandomTrack()
+  //   })
+  // } else {
+  //   show.value = true
+  //   fetchStreamMusic().then(() => {
+  //     getRandomTrack()
+  //   })
+  //   fetchStreamPlaylist()
+  // }
+  // window.addEventListener('resize', handleResize)
+  // setTimeout(() => {
+  //   if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
+  // }, 100)
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('resize', handleResize)
-  navBarRef.value.searchBoxRef.$el.style.display = ''
-  observeTab.unobserve(tabsRowRef.value)
-  observeTab.disconnect()
+  // window.removeEventListener('resize', handleResize)
+  // navBarRef.value.searchBoxRef.$el.style.display = ''
+  // observeTab.unobserve(tabsRowRef.value)
+  // observeTab.disconnect()
 })
 </script>
 

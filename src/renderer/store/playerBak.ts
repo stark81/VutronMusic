@@ -905,7 +905,7 @@ export const usePlayerStore = defineStore(
           return
         }
         if (window.env?.isElectron) {
-          fetch(`atom://local-asset?type=track&id=${id}`).then((data) => {
+          fetch(`vutron://local-asset?type=track&id=${id}`).then((data) => {
             if (data.status === 200) {
               data.json().then((track: Track) => {
                 resolve(track)
@@ -933,12 +933,12 @@ export const usePlayerStore = defineStore(
         }
         if (track.type === 'local' || track.cache) {
           resolve(
-            `atom://local-asset?type=stream&path=${encodeURIComponent(track.cache ? track.url : track.filePath)}`
+            `vutron://local-asset?type=stream&path=${encodeURIComponent(track.cache ? track.url : track.filePath)}`
           )
         } else {
           // 设置了代理的歌曲链接好像是 https，直通
           resolve(
-            track.url.startsWith('https') ? track.url : `atom://get-online-music/${track.url}`
+            track.url.startsWith('https') ? track.url : `vutron://get-online-music/${track.url}`
           )
         }
       })

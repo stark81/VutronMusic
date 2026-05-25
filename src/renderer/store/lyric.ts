@@ -124,6 +124,11 @@ export const useLyricStore = defineStore('lyric', () => {
     refreshLineIdx()
   }
 
+  function clearTimer() {
+    clearTimeout(timer)
+    timer = undefined as any
+  }
+
   function updateRate(_rate: number) {
     rate.value = _rate
   }
@@ -160,6 +165,7 @@ export const useLyricStore = defineStore('lyric', () => {
     currentLyric,
     currentIndex,
     getLyricIndex,
+    clearTimer,
     refreshLineIdx,
     updateIndex,
     updateRate,

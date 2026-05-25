@@ -32,7 +32,7 @@ class Cache {
         // playlists.forEach((p: any) => {
         //   if (p.trackIds.includes(track.id)) {
         //     p.trackIds.splice(p.trackIds.indexOf(track.id), 1, newTrack.id)
-        //     p.coverImgUrl = `atom://local-asset?type=pic&id=${p.trackIds[p.trackIds.length - 1]}&size=512`
+        //     p.coverImgUrl = `vutron://local-asset?type=pic&id=${p.trackIds[p.trackIds.length - 1]}&size=512`
         //     const playlist = {
         //       id: p.id,
         //       isLocal: 1,
@@ -117,7 +117,7 @@ class Cache {
             data: sData
           } = data as {
             platform: string
-            type: 'online' | 'stream' | 'local'
+            type: 'library' | 'stream' | 'local'
             data: Record<string, string>
           }
           const accounts = db.findAll(Tables.PluginData, { platform })
@@ -228,7 +228,7 @@ class Cache {
         if (infos.length) {
           return JSON.parse(infos[0].json)
         }
-        return { userId: 0, isVip: false, cookie: '', token: '' }
+        return { userId: 0, userName: '', pwd: '', isVip: false, cookie: '', token: '' }
       }
     }
   }

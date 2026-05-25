@@ -59,7 +59,7 @@
  */
 
 /**
- * @typedef {'local' | 'online' | 'stream'} MusicType
+ * @typedef {'local' | 'library' | 'stream'} MusicType
  */
 
 /**
@@ -250,7 +250,7 @@ const get = async (url, params) => {
 const post = async (url, data) => {
   try {
     const headers = user.cookie ? { Cookie: user.cookie } : {}
-    const response = await apis.http.get(`${baseUrl}/${url}`, data, headers)
+    const response = await apis.http.post(`${baseUrl}/${url}`, data, headers)
     if (response.code === 301) {
       user.userId = 0
       user.vipType = false
@@ -511,13 +511,13 @@ const formatPlaylist = (item) => ({
 
 const meta = {
   name: '网易云音乐',
-  type: 'online' // online, stream
+  type: 'library' // library, stream
 }
 
 /**
  * - meta：插件的基础信息
  * - meta.name: 中英文均可，用来表示这个插件的数据来源；
- * - meta.type: online, local 或者 stream，表示插件类型是线上服务还是自建流媒体服务，作为本地音乐匹配的依据
+ * - meta.type: library, local 或者 stream，表示插件类型是线上服务还是自建流媒体服务，作为本地音乐匹配的依据
  */
 exports.meta = meta
 
@@ -1202,7 +1202,7 @@ exports.songUrl = async (params) => {
     if (!item || !item.url || item.freeTrialInfo !== null) {
       const res = await get('unblock/song/url', { id: params.id })
       if (res.url) {
-        url = [`atom://get-online-music/${res.url}`]
+        url = [`vutron://get-online-music/${res.url}`]
       }
     }
 
@@ -1235,7 +1235,6 @@ exports.likeATrack = async (params) => {
  */
 exports.createPlaylist = async (params) => {
   const { name, isPrivate } = params
-  // const
   const result = await get('playlist/create', { name, privacy: isPrivate ? '10' : '0' })
   if (result.code === 200) {
     const data = formatPlaylist(result.playlist)
@@ -1244,12 +1243,6 @@ exports.createPlaylist = async (params) => {
   return { code: 404 }
 }
 
-/**
- * 删除歌单
- * @param {any}
- * @param {'GET' | "POST"} method
- * @returns {boolean} 删除结果
- */
 exports.deletePlaylist = async (params) => {
   const result = await get('playlist/delete', { id: params.id })
   return { code: result.code }

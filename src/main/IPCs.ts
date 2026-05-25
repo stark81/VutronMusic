@@ -18,10 +18,11 @@ import navidrome from './streaming/navidrome'
 import emby from './streaming/emby'
 import jellyfin from './streaming/jellyfin'
 import { Worker } from 'worker_threads'
-import { Track, Album, Artist, scanTrack, serviceName, streamStatus } from '@/types/music'
+import { Track, Album, Artist, scanTrack, serviceName } from '@/types/music'
 // @ts-ignore
 import _ from 'lodash'
 import { requestUserAuth, scrobbleTrack, updateNowPlaying } from './utils/lastfm'
+import { pluginManager } from './pluginManager'
 import { PluginInstance } from './utils/pluginManager'
 
 let isLock = store.get('osdWin.isLock') as boolean
@@ -515,7 +516,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
             let newTrack: Track = {}
             const id = existingTracks.size + 1
             newTrack.id = id
-            newTrack.picUrl = `atom://local-asset?type=pic&id=${id}`
+            newTrack.picUrl = `vutron://local-asset?type=pic&id=${id}`
 
             if (existingAlbums.has(track.album)) {
               newTrack.album = existingAlbums.get(track.album)!
@@ -523,7 +524,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
               const newAl = {
                 id: existingAlbums.size + 1,
                 name: track.album,
-                picUrl: `atom://local-asset?type=pic&id=${id}`,
+                picUrl: `vutron://local-asset?type=pic&id=${id}`,
                 matched: false
               }
               newTrack.album = newAl
@@ -1024,8 +1025,6 @@ async function initStreaming() {
 }
 
 async function initPluginIpcMain() {
-  const plugMap = new Map<string, PluginInstance>()
-
   const pluginDir = Constants.IS_DEV_ENV
     ? path.join(process.cwd(), `./src/public/plugin`)
     : path.join(__dirname, `../plugin`)
@@ -1050,10 +1049,11 @@ async function initPluginIpcMain() {
   ).flat()
 
   files.forEach((file) => {
-    const id = path.basename(file, '.js')
-    // const url = path.join(pluginDir, file)
-    const plugin = new PluginInstance(file, id)
-    plugMap.set(id, plugin)
+    try {
+      const id = path.basename(file, '.js')
+      const plugin = new PluginInstance(file, id)
+      pluginManager.register(id, plugin)
+    } catch {}
   })
 
   ipcMain.handle('upload-plugin', () => {
@@ -1081,7 +1081,7 @@ async function initPluginIpcMain() {
 
       const id = path.basename(fileName, '.js')
       const plugin = new PluginInstance(targetPath, id)
-      plugMap.set(id, plugin)
+      pluginManager.register(id, plugin)
 
       store.set(`plugins.${id}`, { path: targetPath })
       return { code: 200, message: 'Plugin uploaded successfully' }
@@ -1093,7 +1093,7 @@ async function initPluginIpcMain() {
 
   ipcMain.handle('get-plugins', () => {
     const result: Record<string, any> = {}
-    plugMap.forEach((instance, id) => {
+    pluginManager.plugins.forEach((instance, id) => {
       result[id] = { name: instance.meta.name, type: instance.meta.type }
     })
     return result
@@ -1109,8 +1109,7 @@ async function initPluginIpcMain() {
         params: Record<string, any>
       }
     ) => {
-      const plugin = plugMap.get(data.pluginId)!
-      return plugin.call(data.methodName, data.params)
+      return pluginManager.call(data.pluginId, data.methodName, data.params)
     }
   )
 }

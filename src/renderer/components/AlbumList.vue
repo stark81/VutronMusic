@@ -43,9 +43,10 @@
         <div v-if="albums[selectedIdx]?.id !== 0" class="listen-more">
           <span
             >听听
-            <router-link :to="`/album/${albums[selectedIdx].id}`">{{
-              albums[selectedIdx].name
-            }}</router-link>
+            <router-link
+              :to="`/album/${albums[selectedIdx]?.pluginId}/${albums[selectedIdx]?.sourceContext}`"
+              >{{ albums[selectedIdx]?.name }}</router-link
+            >
             的其他歌曲</span
           >
         </div>

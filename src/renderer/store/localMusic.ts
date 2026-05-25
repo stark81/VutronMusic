@@ -28,7 +28,7 @@ export const useLocalMusicStore = defineStore(
       playlists.value.forEach((p) => {
         if (p.trackIds.includes(localTrack.id)) {
           p.trackIds.splice(p.trackIds.indexOf(localTrack.id), 1, track.id)
-          p.coverImgUrl = `atom://local-asset?type=pic&id=${p.trackIds[p.trackIds.length - 1]}&size=512`
+          p.coverImgUrl = `vutron://local-asset?type=pic&id=${p.trackIds[p.trackIds.length - 1]}&size=512`
           p.updateTime = Date.now()
         }
       })
@@ -69,7 +69,7 @@ export const useLocalMusicStore = defineStore(
         if (newIDs.length === 0) return resolve(false)
         const idx = tracks.length - 1
         const imgID = tracks[idx]
-        playlist.coverImgUrl = `atom://local-asset?type=pic&id=${imgID}&size=512`
+        playlist.coverImgUrl = `vutron://local-asset?type=pic&id=${imgID}&size=512`
         playlist.trackIds = [...playlist.trackIds, ...newIDs]
         playlist.trackCount = playlist.trackIds.length
         window.mainApi?.invoke('upsertLocalPlaylist', toRaw(playlist))
@@ -109,7 +109,7 @@ export const useLocalMusicStore = defineStore(
         const idx = playlist.trackIds.length - 1
         playlist.coverImgUrl =
           idx >= 0
-            ? `atom://local-asset?type=pic&id=${playlist.trackIds[idx]}&size=512`
+            ? `vutron://local-asset?type=pic&id=${playlist.trackIds[idx]}&size=512`
             : 'https://p1.music.126.net/jWE3OEZUlwdz0ARvyQ9wWw==/109951165474121408.jpg?param=512y512'
         playlist.trackCount = playlist.trackIds.length
         window.mainApi?.invoke('upsertLocalPlaylist', toRaw(playlist))
@@ -139,7 +139,7 @@ export const useLocalMusicStore = defineStore(
     }
 
     const getLocalLyric = async (id: number) => {
-      const res = await fetch(`atom://local-asset?type=lyric&id=${id}`)
+      const res = await fetch(`vutron://local-asset?type=lyric&id=${id}`)
       return (await res.json()) as lyricLine[]
     }
 
@@ -151,7 +151,7 @@ export const useLocalMusicStore = defineStore(
 
     const getLocalPic = async (id: number, size: number) => {
       const pic = new URL(`../assets/images/default.jpg`, import.meta.url).href
-      const result = await fetch(`atom://local-asset?type=pic&id=${id}&size=${size}`)
+      const result = await fetch(`vutron://local-asset?type=pic&id=${id}&size=${size}`)
         .then((res) => res.blob())
         .then((res) => URL.createObjectURL(res))
         .catch(() => null)

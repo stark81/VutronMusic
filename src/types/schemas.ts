@@ -5,7 +5,7 @@ import { z } from 'zod'
  * - 公共平台
  * - 私有媒体库
  */
-export const MusicTypeSchema = z.enum(['local', 'online', 'stream'])
+export const MusicTypeSchema = z.enum(['local', 'library', 'stream'])
 export type PluginId = string & { __brand: 'PluginId' }
 const asPluginId = (str: string): PluginId => str as PluginId
 
@@ -229,8 +229,20 @@ export const ArtistCatlistSchema = z.object({
 })
 
 export const PluginResultSchema = {
+  updateBaseUrl: z.object({ code: z.number() }),
+  getAccount: z.object({
+    code: z.number(),
+    baseUrl: z.string(),
+    userName: z.string(),
+    pwd: z.string()
+  }),
   loginQrKey: LoginQrKeySchema,
   loginQrCodeCheck: LoginQrCodeCheckResultSchema,
+  doLogin: z.object({
+    code: z.number(),
+    data: UserResultSchema.optional(),
+    message: z.string().optional()
+  }),
   search: z.object({ code: z.number(), data: z.array(TrackSchema) }),
   getSongUrl: z.object({ code: z.number(), data: z.string() }),
   getLyric: z.object({ code: z.number(), data: z.array(LyricLineSchema) }),
