@@ -13,30 +13,39 @@
         </button-icon>
       </div>
       <div v-if="route.name === 'search'" class="search-tabs">
-        <div :class="{ active: searchTab === 'track' }" class="item" @click="searchTab = 'track'">{{
-          $t('nav.track')
-        }}</div>
-        <div :class="{ active: searchTab === 'album' }" class="item" @click="searchTab = 'album'">{{
-          $t('nav.album')
-        }}</div>
         <div
-          :class="{ active: searchTab === 'artist' }"
+          :class="{ active: searchTab === 'tracks' }"
           class="item"
-          @click="searchTab = 'artist'"
+          @click="searchTab = 'tracks'"
+          >{{ $t('nav.track') }}</div
+        >
+        <div
+          :class="{ active: searchTab === 'albums' }"
+          class="item"
+          @click="searchTab = 'albums'"
+          >{{ $t('nav.album') }}</div
+        >
+        <div
+          :class="{ active: searchTab === 'artists' }"
+          class="item"
+          @click="searchTab = 'artists'"
           >{{ $t('nav.artist') }}</div
         >
         <div
-          :class="{ active: searchTab === 'playlist' }"
+          :class="{ active: searchTab === 'playlists' }"
           class="item"
-          @click="searchTab = 'playlist'"
+          @click="searchTab = 'playlists'"
           >{{ $t('nav.playlist') }}</div
         >
-        <div :class="{ active: searchTab === 'user' }" class="item" @click="searchTab = 'user'">{{
-          $t('nav.user')
+        <div :class="{ active: searchTab === 'mvs' }" class="item" @click="searchTab = 'mvs'">{{
+          $t('nav.mv')
         }}</div>
-        <div :class="{ active: searchTab === 'lyric' }" class="item" @click="searchTab = 'lyric'">{{
-          $t('nav.lyric')
-        }}</div>
+        <div
+          :class="{ active: searchTab === 'lyrics' }"
+          class="item"
+          @click="searchTab = 'lyrics'"
+          >{{ $t('nav.lyric') }}</div
+        >
       </div>
       <div v-if="route.name === 'explore'" class="search-tabs">
         <div
@@ -68,7 +77,12 @@
         >
       </div>
       <div class="right-part">
-        <SearchBox ref="searchBoxRef" :clear-keywords="true" @keydown-enter="doSearch($event)" />
+        <SearchBox
+          ref="searchBoxRef"
+          :services="services"
+          :clear-keywords="true"
+          @keydown-enter="doSearch"
+        />
         <img class="avatar" :src="avatarUrl" loading="lazy" @click="showUserProfileMenu" />
       </div>
     </nav>
@@ -102,13 +116,13 @@ import ContextMenu from './ContextMenu.vue'
 import LinuxTitleBar from './LinuxTitleBar.vue'
 import Win32TitleBar from './Win32TitleBar.vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useDataStore } from '../store/data'
 import { useNormalStateStore } from '../store/state'
 import { useSettingsStore } from '../store/settings'
 import { usePluginMusic } from '../store/pluginMusic'
 import { storeToRefs } from 'pinia'
 import { doLogout } from '../utils/auth'
 import { openExternal } from '../utils'
+import { PluginId } from '@/types/schemas'
 
 const { searchTab, exploreTab } = storeToRefs(useNormalStateStore())
 const { general } = storeToRefs(useSettingsStore())
@@ -119,7 +133,7 @@ const { services, users } = toRefs(usePluginMusic())
 const router = useRouter()
 const route = useRoute()
 
-const searchBoxRef = ref()
+const searchBoxRef = ref<InstanceType<typeof SearchBox>>()
 const keywords = ref('')
 const useCustomBar = ref(false)
 
@@ -176,8 +190,6 @@ const logout = () => {
   router.push({ name: 'HomePage' })
 }
 
-const data = storeToRefs(useDataStore())
-
 const avatarUrl = computed(() => {
   return `${activeUser.value?.avatarUrl || 'https://s4.music.126.net/style/web2/img/default/default_avatar.jpg?param=60y60'}`
 })
@@ -188,12 +200,12 @@ const showUserProfileMenu = (e: MouseEvent): void => {
   userProfileMenu.value?.openMenu(e)
 }
 
-const doSearch = (keyword: string, tab: string | null = null) => {
+const doSearch = (keyword: string, plugin: PluginId) => {
   keywords.value = keyword
   if (!keyword) return
   router.push({
     name: 'search',
-    query: { keywords: keyword }
+    query: { keywords: keyword, plugin }
   })
 }
 
@@ -226,7 +238,6 @@ nav.has-custom-titlebar {
 }
 
 .navigation-buttons {
-  flex: 0.8;
   display: flex;
   align-items: center;
   .svg-icon {
@@ -240,13 +251,11 @@ nav.has-custom-titlebar {
 
 .search-tabs {
   display: flex;
-  flex: 2;
   justify-content: center;
   align-items: center;
+  gap: 40px;
   .item {
-    padding: 8px 14px;
     cursor: pointer;
-    margin: 0 10px;
     border-radius: 8px;
     font-size: 18px;
     font-weight: 600;
@@ -261,7 +270,6 @@ nav.has-custom-titlebar {
 }
 
 .right-part {
-  flex: 1;
   display: flex;
   align-items: center;
   justify-content: flex-end;

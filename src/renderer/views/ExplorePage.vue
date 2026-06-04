@@ -161,7 +161,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, onBeforeUnmount, reactive, inject, watch, nextTick } from 'vue'
+import { ref, onMounted, computed, onBeforeUnmount, reactive, inject, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useNormalStateStore } from '../store/state'
 import { usePluginMusic } from '../store/pluginMusic'
@@ -247,7 +247,7 @@ const updateAlbumCat = (cat: string) => {
 }
 
 const toggleArtistCategory = (bigCat: string, category: string) => {
-  const tag = activeTags.value.artist.find(([big, _]) => big === bigCat)!
+  const tag = activeTags.value.artist.find(([big]) => big === bigCat)!
   tag[1] = category
 
   getArtists()
@@ -360,7 +360,7 @@ const getArtists = (reset = true) => {
   const query = artistTags.value.map((item) => {
     const { sub, ...rest } = item
     const result: Record<string, any> = { ...rest }
-    const cat = cats.find(([big, value]) => big === rest.name)!
+    const cat = cats.find(([big]) => big === rest.name)!
     const tag = sub.find((it) => it.name === cat[1])!
     result.tag = tag
     return result

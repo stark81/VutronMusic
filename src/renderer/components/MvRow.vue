@@ -17,20 +17,22 @@
           class="cover"
           @mousemove="hoverVideoID = item.id"
           @mouseleave="hoverVideoID = 0"
-          @click="goToMv(item.id)"
+          @click="goToMv(item)"
         >
-          <img :src="getUrl(item)" loading="lazy" />
+          <img :src="item.picUrl" loading="lazy" />
           <transition name="fade">
             <div
-              v-show="hoverVideoID === getID(item)"
+              v-show="hoverVideoID === item.id"
               class="shadow"
-              :style="{ background: 'url(' + getUrl(item) + ')' }"
+              :style="{ background: 'url(' + item.picUrl + ')' }"
             ></div>
           </transition>
         </div>
         <div class="info">
           <div class="title" :title="item.name">
-            <router-link :to="`/mv/${getID(item)}`">{{ item.name }}</router-link>
+            <router-link :to="`/mv/${item.pluginId}/${item.sourceContext}`">{{
+              item.name
+            }}</router-link>
           </div>
           <div v-same-html="getSubTitle(item)" class="artist"></div>
         </div>
@@ -40,7 +42,7 @@
 </template>
 
 <script setup lang="ts">
-import { PropType, ref, toRefs } from 'vue'
+import { inject, onBeforeUnmount, onMounted, PropType, ref, toRefs } from 'vue'
 import VirtualList from './VirtualScrollNoHeight.vue'
 import { useRouter } from 'vue-router'
 import { Mv } from '@/types/plugin'
@@ -87,53 +89,33 @@ const props = defineProps({
 
 const { mvs } = toRefs(props)
 const hoverVideoID = ref<number | string>(0)
-const listRef = ref()
+// const listRef = ref()
 const router = useRouter()
 
-const getID = (item: { [key: string]: any }) => {
-  if (item.id !== undefined) {
-    return item.id
-  } else {
-    return item.vid
-  }
-}
-
-const goToMv = (id: number | string) => {
-  router.push(`/mv/${id}`)
+const goToMv = (mv: Mv) => {
+  router.push(`/mv/${mv.pluginId}/${JSON.stringify(mv.sourceContext)}`)
 }
 
 const getSubTitle = (item: Mv) => {
   if (props.subtitle === 'artist') {
-    let artistName = ''
-    let artistID: number | string = 0
-    artistName = item.artists[0].name
-    artistID = item.artists[0].id
-    return `<a href="/#/artist/${artistID}">${artistName}</a>`
+    const artist = item.artists?.[0]
+    if (!artist) return ''
+    const artistName = artist.name
+    const sourceContext = JSON.stringify(artist.sourceContext)
+    return `<a href='/#/artist/${artist.pluginId}/${sourceContext}''>${artistName}</a>`
   } else if (props.subtitle === 'publishTime') {
     return formatDate(item.publishTime, 'YYYY-MM-DD')
   }
 }
 
-const getUrl = (item: Mv) => {
-  const url = item.picUrl // item.imgurl16v9 ?? item.cover ?? item.coverUrl
-  return url.replace(/^http:/, 'https:') + '?param=464y260'
-}
+const updatePadding = inject('updatePadding') as (padding: number) => void
 
-// const updatePadding = inject('updatePadding') as (padding: number) => void
-
-// onActivated(() => {
-//   updatePadding(0)
-// })
-// onDeactivated(() => {
-//   updatePadding(96)
-// })
-
-// onMounted(() => {
-//   updatePadding(0)
-// })
-// onBeforeUnmount(() => {
-//   updatePadding(96)
-// })
+onMounted(() => {
+  updatePadding(0)
+})
+onBeforeUnmount(() => {
+  updatePadding(96)
+})
 </script>
 
 <style scoped lang="scss">

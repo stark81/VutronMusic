@@ -4,7 +4,7 @@ import { type UpdateCheckResult } from 'electron-updater'
 import { type IFontInfo } from 'font-list'
 import type { TrackSourceType } from '@/types/music'
 import type { LayoutMode } from '@/types/theme'
-import { Track, PluginId, ExploreTab } from '@/types/plugin'
+import { Track, PluginId, ExploreTab, SearchTab } from '@/types/plugin'
 
 type ScrollState = {
   scrollTop: number
@@ -16,7 +16,7 @@ export const useNormalStateStore = defineStore('state', () => {
   const enableScrolling = ref(true)
   const virtualScrolling = ref(false)
   const showLyrics = ref(false)
-  const searchTab = ref('track')
+  const searchTab = ref<SearchTab>('tracks')
   const exploreTab = ref<ExploreTab>('playlist')
   const setConvolverModal = ref(false)
   const setPlaybackRateModal = ref(false)

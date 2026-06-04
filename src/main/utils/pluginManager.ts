@@ -236,8 +236,6 @@ export class PluginInstance {
         ...(headers || {})
       }
 
-      // 不再把 Cookie 塞进 query
-      // 直接走 header
       if (headers?.Cookie) {
         finalHeaders.Cookie = headers.Cookie
       }

@@ -2,13 +2,14 @@
   <div ref="commentPageRef" class="comment-page">
     <CommentList
       v-show="currentPage === 'comment'"
-      :id="props.id"
+      :source-context="sourceContext"
+      :plugin="plugin"
       :type="props.type"
       :padding-right="paddingRight"
     />
     <FloorComment
       v-if="currentPage === 'floorComment'"
-      :id="props.id"
+      :id="0"
       :type="props.type"
       :padding-right="paddingRight"
       :be-replied-comment-id="beRepliedCommentId"
@@ -23,7 +24,7 @@ import FloorComment from './CommentFloor.vue'
 import { PluginId } from '@/types/plugin'
 
 interface Props {
-  id: number | string
+  sourceContext: Record<string, any>
   type?: string
   plugin: PluginId
   paddingRight?: string
@@ -38,7 +39,7 @@ const currentPage = ref('comment')
 const beRepliedCommentId = ref(0)
 
 watch(
-  () => props.id,
+  () => props.sourceContext,
   () => {
     currentPage.value = 'comment'
   }
@@ -54,6 +55,5 @@ provide('beRepliedCommentId', beRepliedCommentId)
   height: 100%;
   box-sizing: border-box;
   margin: 0 auto;
-  // background-color: red;
 }
 </style>

@@ -1,6 +1,6 @@
 <template>
-  <VueDraggable v-model="list" class="cover-row" :disabled="!isLocal" :style="rowStyles">
-    <div v-for="item in list" :key="item?.id" class="item" :class="{ artist: type === 'Artist' }">
+  <VueDraggable v-model="test" class="cover-row" :disabled="false" :style="rowStyles">
+    <div v-for="item in items" :key="item?.id" class="item" :class="{ artist: type === 'Artist' }">
       <Cover
         :id="item.id"
         :plugin-id="item.pluginId!"
@@ -37,15 +37,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, PropType } from 'vue'
-import { storeToRefs } from 'pinia'
-import { useLocalMusicStore } from '../store/localMusic'
+import { computed, PropType, ref } from 'vue'
 import Cover from './CoverBox.vue'
 import SvgIcon from './SvgIcon.vue'
 import ExplicitSymbol from './ExplicitSymbol.vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import { formatPlayCount } from '../utils'
-import { Album, Artist, Playlist, PlaylistDetail } from '@/types/plugin'
+import { Album, Artist, PlaylistDetail } from '@/types/plugin'
 import { CoverType } from '@/types/music'
 
 const props = defineProps({
@@ -62,19 +60,21 @@ const props = defineProps({
   playButtonSize: { type: Number, default: 22 }
 })
 
-const localMusicStore = useLocalMusicStore()
-const { sortPlaylistsIDs } = storeToRefs(localMusicStore)
-const isLocal = computed(() => props.type.includes('local'))
+// const localMusicStore = useLocalMusicStore()
+// const { sortPlaylistsIDs } = storeToRefs(localMusicStore)
+// const isLocal = computed(() => props.type.includes('local'))
 
-const list = computed({
-  get: () =>
-    isLocal.value
-      ? sortPlaylistsIDs.value.map((id: number) => props.items.find((item) => item.id === id)!)
-      : props.items,
-  set: (value) => {
-    sortPlaylistsIDs.value = value.map((item) => item.id) as number[]
-  }
-})
+// const list = computed({
+//   get: () =>
+//     // isLocal.value
+//     //   ? sortPlaylistsIDs.value.map((id: number) => props.items.find((item) => item.id === id)!)
+//        props.items,
+//   set: (value) => {
+//     sortPlaylistsIDs.value = value.map((item) => item.id) as number[]
+//   }
+// })
+
+const test = ref([])
 
 const rowStyles = computed(() => {
   return {

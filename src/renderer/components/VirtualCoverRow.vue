@@ -93,7 +93,10 @@ const isPrivacy = (item: any) => {
 const getSubText = (item: any) => {
   let subText = ''
   if (props.subText === 'artist') {
-    subText = `<a href='/artist/${item.pluginId}/${JSON.stringify(item.sourceContext)}'>${item.name}</a>`
+    const ar = item.artists?.[0] || null
+    subText = ar
+      ? `<a href='/artist/${ar.pluginId}/${JSON.stringify(ar.sourceContext)}'>${ar.name}</a>`
+      : ''
   } else if (props.subText === 'updateFrequency') {
     subText = item.updateFrequency
   } else if (props.subText === 'copywriter') {

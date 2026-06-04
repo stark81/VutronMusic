@@ -339,14 +339,20 @@ export const usePlayerStore = defineStore(
     ) {
       if (autoPlay && currentTrack.value?.name) {
         scrobbleFM(currentTrack.value as Track, seek.value)
+        if (seek.value >= currentTrack.value.duration / 2 || seek.value >= 240000) {
+          pluginMethodCall(currentTrack.value.pluginId, 'scrobble', {
+            ...currentTrack.value.sourceContext,
+            time: seek.value
+          })
+        }
       }
 
-      const res = await pluginMethodCall(plugin, 'getTrackDetail', sourceContext)
+      const res = await pluginMethodCall(plugin, 'getTrackDetail', { tracks: [sourceContext] })
 
       currentTrack.value = {
-        ...res.data!,
-        album: { ...res.data!.album, pluginId: plugin },
-        artists: res.data!.artists.map((it) => ({ ...it, pluginId: plugin })),
+        ...res.data[0],
+        album: { ...res.data[0].album, pluginId: plugin },
+        artists: res.data[0].artists.map((it) => ({ ...it, pluginId: plugin })),
         pluginId: plugin
       }
 
@@ -439,6 +445,10 @@ export const usePlayerStore = defineStore(
     function _nextTrackCallback() {
       seek.value = 0
       scrobbleFM(currentTrack.value as Track, 0, true)
+      pluginMethodCall(currentTrack.value!.pluginId, 'scrobble', {
+        ...currentTrack.value!.sourceContext,
+        time: currentTrack.value!.duration
+      })
       if (!isPersonalFM.value && repeatMode.value === 'one') {
         const { pluginId, sourceContext } = currentTrack.value!
         replaceCurrentTrack(pluginId, sourceContext)
@@ -635,7 +645,18 @@ export const usePlayerStore = defineStore(
         ),
         pluginMethodCall(plugin, 'getLyric', { ...value.sourceContext })
           .then((res) => {
-            lyrics.value = res.data
+            let data = res.data.filter((l) => !/^作(词|曲)\s*(:|：)\s*无$/.exec(l.lyric.text))
+            const includeAM =
+              data.length <= 10 &&
+              data.some((l) => ['纯音乐，请欣赏', '暂无歌词'].includes(l.lyric.text))
+            const reg = /^作(词|曲)\s*(:|：)\s*/
+            const artists = currentTrack.value!.artists
+            const author = artists[0]?.name
+            data = data.filter((l) => {
+              const regExpArr = l.lyric.text.match(reg)
+              return !regExpArr || l.lyric.text.replace(regExpArr[0], '') !== author
+            })
+            lyrics.value = data.length === 1 && includeAM ? [] : data
           })
           .catch()
       ])

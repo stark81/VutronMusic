@@ -27,102 +27,74 @@
       </div>
       <div class="right-top" @click="playThisTrack">
         <div>
-          <div
-            v-for="(line, index) in pickedLyricLines"
-            v-show="line !== ''"
-            :key="`${line}${index}`"
-            class="lyric-p"
-            >{{ line }}</div
-          >
+          <div v-for="(line, index) in pickedLyricLines" v-show="line !== ''" :key="`${line}${index}`" class="lyric-p">
+            {{ line }}</div>
         </div>
       </div>
       <div class="right-bottom">{{ randomTrack?.artists[0].name }} - {{ randomTrack?.name }}</div>
     </div>
     <div class="section-two">
-      <div
-        ref="tabsRowRef"
-        class="tabs-row"
-        :style="{
-          height: (hasCustomTitleBar ? 84 : 64) + 'px',
-          paddingTop: (hasCustomTitleBar ? 20 : 0) + 'px'
-        }"
-      >
+      <div ref="tabsRowRef" class="tabs-row" :style="{
+        height: (hasCustomTitleBar ? 84 : 64) + 'px',
+        paddingTop: (hasCustomTitleBar ? 20 : 0) + 'px'
+      }">
         <div class="tabs">
           <div class="tab dropdown" :class="{ active: idx === 0 }" @click="updateTab(0)">
             <span class="text">{{ $t('localMusic.songs') }}</span>
-            <span class="icon" @click.stop="(e) => openLocalTracksTabMenu('playlist', e)"
-              ><svg-icon icon-class="dropdown"
-            /></span>
+            <span class="icon" @click.stop="(e) => openLocalTracksTabMenu('playlist', e)"><svg-icon
+                icon-class="dropdown" /></span>
           </div>
           <div v-if="isBatchOp" class="tab" @click="selectAll">{{
             $t('contextMenu.selectAll')
-          }}</div>
+            }}</div>
           <div v-if="isBatchOp" class="tab" @click="addToPlaylist">{{
             $t('localMusic.playlist.addToPlaylist')
-          }}</div>
+            }}</div>
           <div v-else class="tab" :class="{ active: idx === 1 }" @click="updateTab(1)">
             {{ $t('localMusic.playlist.text') }}
           </div>
           <div v-if="isBatchOp" class="tab" @click="addTracksToQueue">{{
             $t('contextMenu.addToQueue')
-          }}</div>
+            }}</div>
           <div v-else class="tab" :class="{ active: idx === 2 }" @click="updateTab(2)">
             {{ $t('localMusic.albums') }}
           </div>
           <div v-if="isBatchOp" class="tab" @click="finishBatchOp">{{
             $t('contextMenu.finish')
-          }}</div>
+            }}</div>
           <div v-else class="tab dropdown" :class="{ active: idx === 3 }" @click="updateTab(3)">
             <span class="text">{{
               $t(artistBy === 0 ? 'localMusic.artists' : 'localMusic.albumArtist')
-            }}</span>
-            <span class="icon" @click.stop="(e) => openLocalTracksTabMenu('artist', e)"
-              ><svg-icon icon-class="dropdown"
-            /></span>
+              }}</span>
+            <span class="icon" @click.stop="(e) => openLocalTracksTabMenu('artist', e)"><svg-icon
+                icon-class="dropdown" /></span>
           </div>
           <div v-if="!isBatchOp" class="tab" :class="{ active: idx === 4 }" @click="updateTab(4)">{{
             $t('localMusic.dirName')
-          }}</div>
+            }}</div>
         </div>
         <div v-if="idx !== 1" class="search-box">
-          <SearchBox
-            ref="localSearchBoxRef"
-            :placeholder="`搜索${placeHolderMap(idx === 3 ? (tabs[idx][artistBy] as string) : (tabs[idx] as string))}`"
-          />
+          <SearchBox ref="localSearchBoxRef"
+            :placeholder="`搜索${placeHolderMap(idx === 3 ? (tabs[idx][artistBy] as string) : (tabs[idx] as string))}`" />
         </div>
-        <button v-show="idx === 1" class="tab-button" @click="openAddPlaylistModal"
-          ><svg-icon icon-class="plus" />{{ $t('library.playlist.newPlaylist') }}
+        <button v-show="idx === 1" class="tab-button" @click="openAddPlaylistModal"><svg-icon icon-class="plus" />{{
+          $t('library.playlist.newPlaylist') }}
         </button>
       </div>
       <div class="section-two-content" :style="tabStyle">
         <div v-show="idx === 0">
-          <TrackList
-            :id="0"
-            ref="trackListRef"
-            :items="[] as Track[]"
-            :type="'Playlist'"
-            :plugin="'' as PluginId"
-            :source-context="{}"
-            :is-group-by="false"
-            :colunm-number="1"
-            :is-end="true"
-            :extra-context-menu-item="[
+          <TrackList :id="0" ref="trackListRef" :items="[] as Track[]" :type="'Playlist'" :plugin="'' as PluginId"
+            :source-context="{}" :is-group-by="false" :colunm-number="1" :is-end="true" :extra-context-menu-item="[
               'showInFolder',
               'removeLocalTrack',
               'addToLocalList',
               'accurateMatch'
-            ]"
-          ></TrackList>
+            ]"></TrackList>
         </div>
 
         <div v-show="idx === 1">
-          <CoverRow
-            v-if="playlists.length"
-            :items="[]"
-            type="Playlist"
-            :is-end="true"
-            :style="{ paddingBottom: '96px' }"
-          />
+          <CoverRow v-if="playlists.length" :items="[]" type="Playlist" :is-end="true"
+            :style="{ paddingBottom: '96px' }" />
         </div>
 
         <div v-show="idx === 2">
@@ -142,21 +114,15 @@
     <AccurateMatchModal />
 
     <ContextMenu ref="playlistTabMenu">
-      <div
-        v-for="sortOption in sortOptions"
-        :key="sortOption.value"
-        class="item"
-        :class="{ active: sortOption.value === sortBy }"
-        @click="sortBy = sortOption.value"
-        >{{ sortOption.name }}</div
-      >
+      <div v-for="sortOption in sortOptions" :key="sortOption.value" class="item"
+        :class="{ active: sortOption.value === sortBy }" @click="sortBy = sortOption.value">{{ sortOption.name }}</div>
       <hr v-show="!isBatchOp" />
       <div v-show="!isBatchOp" class="item" @click="scanLocalMusic(false)">{{
         $t('contextMenu.reScan')
-      }}</div>
+        }}</div>
       <div v-show="!isBatchOp" class="item" @click="isBatchOp = true">{{
         $t('contextMenu.batchOperation')
-      }}</div>
+        }}</div>
     </ContextMenu>
 
     <ContextMenu ref="artistTabMenu">
@@ -294,7 +260,7 @@ const finishBatchOp = () => {
 }
 
 const addToPlaylist = () => {
-  trackListRef.value?.addToLocalPlaylist()
+  trackListRef.value?.addTrackToPlaylist()
 }
 
 const addTracksToQueue = () => {
@@ -518,11 +484,13 @@ onUnmounted(() => {
   width: 100%;
   transition: all 0.4s;
   position: relative;
+
   .left {
     position: absolute;
     height: 100%;
     border-radius: 12px;
     overflow: hidden;
+
     .content {
       display: flex;
       flex-direction: column;
@@ -546,14 +514,17 @@ onUnmounted(() => {
         grid-gap: 20px 40px;
         align-items: center;
       }
+
       .subtitle {
         font-size: 14px;
       }
+
       .text {
         font-size: 18px;
       }
     }
   }
+
   .right-top {
     position: absolute;
     height: 190px;
@@ -575,6 +546,7 @@ onUnmounted(() => {
       text-overflow: ellipsis;
     }
   }
+
   .right-bottom {
     position: absolute;
     white-space: nowrap;
@@ -614,6 +586,7 @@ onUnmounted(() => {
       flex-wrap: wrap;
       font-size: 18px;
       -webkit-app-region: no-drag;
+
       .tab {
         font-weight: 600;
         padding: 8px 14px;
@@ -623,28 +596,34 @@ onUnmounted(() => {
         user-select: none;
         transition: 0.2s;
         opacity: 0.68;
+
         &:hover {
           opacity: 0.88;
           background-color: var(--color-secondary-bg);
         }
       }
+
       .tab.active {
         opacity: 0.88;
         background-color: var(--color-secondary-bg);
       }
+
       .tab.dropdown {
         display: flex;
         align-items: center;
         padding: 0;
         overflow: hidden;
+
         .text {
           padding: 8px 3px 8px 14px;
         }
+
         .icon {
           height: 100%;
           display: flex;
           align-items: center;
           padding: 0 8px 0 3px;
+
           .svg-icon {
             height: 16px;
             width: 16px;
@@ -666,15 +645,18 @@ button.tab-button {
   opacity: 0.68;
   font-weight: 500;
   font-size: 14px;
+
   .svg-icon {
     width: 14px;
     height: 14px;
     margin-right: 8px;
   }
+
   &:hover {
     opacity: 1;
     background: var(--color-secondary-bg);
   }
+
   &:active {
     opacity: 1;
     transform: scale(0.92);

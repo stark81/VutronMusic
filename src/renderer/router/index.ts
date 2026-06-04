@@ -152,7 +152,7 @@ const routes = [
     component: () => import('../views/UserPage.vue')
   },
   {
-    path: '/mv/:id',
+    path: '/mv/:pluginId/:sourceContext',
     name: 'mv',
     component: () => import('../views/MvPage.vue')
   },

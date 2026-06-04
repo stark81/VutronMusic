@@ -103,7 +103,7 @@
       <div class="section-title">{{ $t('artist.popularSongs') }}</div>
       <TrackList
         :items="popularTracks.slice(0, showMorePopTracks ? 24 : 12)"
-        :type="'Artist'"
+        :type="'TrackList'"
         :is-group-by="false"
         :plugin="pluginId"
         :source-context="sourceContext"

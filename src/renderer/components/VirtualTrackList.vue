@@ -39,9 +39,9 @@
     <div class="comment-container-parent" @click.stop>
       <CommentPage
         v-if="showComment"
-        :id="rightClickedTrackComputed.id"
-        :plugin="plugin"
-        type="music"
+        :source-context="rightClickedTrackComputed.sourceContext"
+        :plugin="rightClickedTrackComputed.pluginId"
+        type="track"
       />
     </div>
   </div>
@@ -91,22 +91,10 @@
       >{{ $t('contextMenu.removeFromQueue') }}</div
     >
     <div
-      v-show="extraContextMenuItem.includes('addToStreamList')"
-      class="item"
-      @click="addToSteamPlaylist([rightClickedTrackComputed.id])"
-      >{{ $t('streamMusic.playlist.addToPlaylist') }}</div
-    >
-    <div
       v-if="extraContextMenuItem.includes('removeTrackFromPlaylist')"
       class="item"
       @click="rmTrackFromPlaylist"
       >{{ $t('contextMenu.removeFromPlaylist') }}</div
-    >
-    <div
-      v-if="extraContextMenuItem.includes('addToLocalList')"
-      class="item"
-      @click="addToLocalPlaylist([rightClickedTrackComputed.id])"
-      >{{ $t('contextMenu.addToLocalPlaylist') }}</div
     >
     <div v-if="extraContextMenuItem.includes('showInFolder')" class="item" @click="showInFolder">{{
       $t('contextMenu.showInFolder')
@@ -275,7 +263,7 @@ const showScrollTo = computed(() => {
   return (
     currentTrack.value &&
     props.showTrackPosition &&
-    isEqual(playlistSource.value, currentSource.value)
+    isEqual(playlistSource.value.sourceContext.id, currentSource.value.sourceContext.id)
   )
 })
 const currentIndex = computed(() => {
@@ -388,20 +376,6 @@ const rmTrackFromPlaylist = () => {
   }
 }
 
-const addToLocalPlaylist = (trackIDs: number[] = []) => {
-  // 设置延迟执行，保证contextMenu的滚动效果生效后再打开弹窗，以避免两者的滚动效果冲突
-  // if (!trackIDs.length) {
-  //   trackIDs = selectedList.value
-  // }
-  // setTimeout(() => {
-  //   addTrackToPlaylistModal.value = {
-  //     show: true,
-  //     selectedTrackID: trackIDs,
-  //     type: 'local'
-  //   }
-  // })
-}
-
 const removeFromQueue = (playlist: 'insert' | 'next', id: string | number) => {
   // if (playlist === 'insert') {
   //   const index = playNextList.value.findIndex((idx) => idx === id)
@@ -412,23 +386,6 @@ const removeFromQueue = (playlist: 'insert' | 'next', id: string | number) => {
   // }
 }
 
-const addToSteamPlaylist = (trackIDs: number[] = []) => {
-  // if (props.groupBy === 'all') {
-  //   showToast('在聚合视图下无法进行操作，请先选择具体的流媒体服务')
-  //   // return
-  // }
-  // if (!trackIDs.length) {
-  //   trackIDs = selectedList.value
-  // }
-  // setTimeout(() => {
-  //   addTrackToPlaylistModal.value = {
-  //     show: true,
-  //     selectedTrackID: trackIDs,
-  //     type: props.groupBy as serviceName
-  //   }
-  // })
-}
-
 const copyId = () => {
   navigator.clipboard.writeText(rightClickedTrackComputed.value.id.toString()).then(() => {
     showToast(t('toast.copySuccess'))
@@ -437,18 +394,21 @@ const copyId = () => {
 
 const addTrackToPlaylist = () => {
   let ids = [] as Record<string, any>[]
+  let plugin: PluginId
 
   if (rightClickedTrackComputed.value.id === 0) {
     if (props.isGroupBy) {
       showToast('在聚合视图下无法进行操作，请先选择具体的音源服务')
       return
     }
-    ids = selectedList.value
+    ids = selectedList.value.map((it) => it[1])
+    plugin = selectedList.value[0][0]
   } else {
     ids = [rightClickedTrackComputed.value.sourceContext]
+    plugin = rightClickedTrackComputed.value.pluginId
   }
 
-  if (!isAccountLoggedIn(rightClickedTrackComputed.value.pluginId)) {
+  if (!isAccountLoggedIn(plugin)) {
     showToast(t('toast.needToLogin'))
     return
   }
@@ -456,7 +416,7 @@ const addTrackToPlaylist = () => {
   addTrackToPlaylistModal.value = {
     show: true,
     selectedTrackID: ids,
-    plugin: rightClickedTrackComputed.value.pluginId
+    plugin
   }
 }
 
@@ -494,7 +454,7 @@ const removeTrack = inject('removeTrack', (idx: number) => {})
 provide('playThisList', playThisList)
 provide('selectedList', selectedList)
 provide('rightClickedTrack', rightClickedTrack)
-defineExpose({ selectAll, doFinish, addToLocalPlaylist, addToSteamPlaylist, addToQueue })
+defineExpose({ selectAll, doFinish, addTrackToPlaylist, addToQueue })
 
 onActivated(() => {
   if (props.isEnd) updatePadding(0)
@@ -516,6 +476,7 @@ onBeforeUnmount(() => {
   width: 100%;
   // padding-bottom: 4px;
 }
+
 .comment {
   background-color: rgba(0, 0, 0, 0.38);
   position: fixed;

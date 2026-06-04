@@ -11,7 +11,7 @@
           <img
             v-for="track in selectedTracks"
             :key="track.name"
-            :src="getImg(track)"
+            :src="track.picUrl"
             :alt="track.name"
             loading="lazy"
           />
@@ -136,7 +136,8 @@
             v-else-if="show === 'comment'"
             :id="currentTrack!.id"
             :plugin="currentTrack!.pluginId"
-            type="music"
+            :source-context="currentTrack?.sourceContext || {}"
+            type="track"
             padding-right="0vh"
             :style="{ width: '90%', paddingTop: '4vw' }"
           />
@@ -148,12 +149,10 @@
 
 <script setup lang="ts">
 import { ref, watch, onBeforeUnmount, computed, onMounted, nextTick, inject } from 'vue'
-import { useDataStore } from '../store/data'
 import { usePlayerStore } from '../store/player'
 import { useSettingsStore } from '../store/settings'
-import { useStreamMusicStore } from '../store/streamingMusic'
-import { useLocalMusicStore } from '../store/localMusic'
 import { usePlayerThemeStore } from '../store/playerTheme'
+import { usePluginMusic } from '../store/pluginMusic'
 import { storeToRefs } from 'pinia'
 import { gsap } from 'gsap'
 import VueSlider from './VueSlider.vue'
@@ -162,9 +161,9 @@ import SvgIcon from './SvgIcon.vue'
 import LyricPage from './LyricPage.vue'
 import Comment from './CommentPage.vue'
 import ContextMenu from './ContextMenu.vue'
-import { Track } from '@/types/music'
-import { getTrackDetail } from '../api/track'
+import { Track } from '@/types/plugin'
 import { AniName } from '@/types/theme'
+import { PluginId } from '@/types/schemas'
 
 const props = withDefaults(
   defineProps<{ show: 'fullLyric' | 'pickLyric' | 'comment'; hoverParent: boolean }>(),
@@ -198,16 +197,10 @@ const { playPrev, playOrPause, playNext, switchRepeatMode, moveToFMTrash } = pla
 const settingsStore = useSettingsStore()
 const { general } = storeToRefs(settingsStore)
 
-const localMusicStore = useLocalMusicStore()
-const { getALocalTrack } = localMusicStore
-
-const streamMusicStore = useStreamMusicStore()
-const { likeAStreamTrack, getAStreamTrack } = streamMusicStore
+const { pluginMethodCall, likeATrack } = usePluginMusic()
 
 const playerTheme = usePlayerThemeStore()
 const { activeTheme, senses, activeBG } = storeToRefs(playerTheme)
-
-const { likeATrack } = useDataStore()
 
 const hover = ref(false)
 const pickLyricRef = ref<HTMLElement>()
@@ -585,12 +578,8 @@ const animations = computed(() => ({
 }))
 
 const likeTrack = () => {
-  // if (currentTrack.value?.type === 'stream') {
-  //   const op = currentTrack.value.starred ? 'unstar' : 'star'
-  //   likeAStreamTrack(op, currentTrack.value)
-  // } else if (currentTrack.value?.matched) {
-  //   likeATrack(currentTrack.value.id)
-  // }
+  if (!currentTrack.value) return
+  likeATrack(currentTrack.value)
 }
 
 const showContextMenu = (e: MouseEvent): void => {
@@ -745,42 +734,50 @@ const formatTime = (time: number) => {
 }
 
 const loadTracks = async () => {
-  // const tracks: Track[] = []
-  // const onlineIDs: number[] = []
-  // for (const id of selectedIdx.value) {
-  //   let track = getALocalTrack({ id })
-  //   if (track) {
-  //     tracks.push(track)
-  //     continue
-  //   }
-  //   track = getAStreamTrack(id)
-  //   if (track) {
-  //     tracks.push(track)
-  //     continue
-  //   }
-  //   onlineIDs.push(id)
-  // }
-  // if (onlineIDs.length) {
-  //   const data = await getTrackDetail(onlineIDs.join(','))
-  //   tracks.push(...data.songs)
-  // }
-  // selectedTracks.value = selectedIdx.value.map((id) => tracks.find((track) => track.id === id)!)
-}
+  const map = new Map<
+    PluginId,
+    {
+      index: number
+      sourceContext: Record<string, any>
+    }[]
+  >()
 
-const getImg = (track: Track) => {
-  let url: string
-  if (track.type === 'online') {
-    url = track.al?.picUrl || track.album?.picUrl || track.picUrl
-    if (url && url.startsWith('http')) url = url.replace('http:', 'https:')
-    url += '?param=256y256'
-    return url
-  } else if (track.type === 'stream') {
-    url = track.al?.picUrl || track.album?.picUrl || track.picUrl
-    return url
-  } else {
-    url = `vutron://local-asset?type=pic&id=${track.id}&size=256`
-    return url
-  }
+  selectedIdx.value.forEach(([plugin, sourceContext], index) => {
+    if (!map.has(plugin)) {
+      map.set(plugin, [])
+    }
+
+    map.get(plugin)!.push({
+      index,
+      sourceContext
+    })
+  })
+
+  const groups = Array.from(map, ([plugin, source]) => ({
+    plugin,
+    source
+  }))
+
+  groups.map((item) =>
+    pluginMethodCall(item.plugin, 'getTrackDetail', {
+      tracks: item.source.map((s) => s.sourceContext)
+    }).then((result) => {
+      result.data.forEach((track, i) => {
+        selectedTracks.value[item.source[i].index] = {
+          ...track,
+          album: {
+            ...track.album,
+            pluginId: item.plugin
+          },
+          artists: track.artists.map((it) => ({
+            ...it,
+            pluginId: item.plugin
+          })),
+          pluginId: item.plugin
+        }
+      })
+    })
+  )
 }
 
 watch(
@@ -926,6 +923,7 @@ $mid: math.ceil(math.div($count, 2));
     span {
       font-size: 3vw;
     }
+
     .title {
       display: block;
       font-size: 3vw;
@@ -982,13 +980,16 @@ $mid: math.ceil(math.div($count, 2));
   .button-icon.disabled {
     cursor: default;
     opacity: 0.48;
+
     &:hover {
       background: none;
     }
+
     &:active {
       transform: unset;
     }
   }
+
   .player-progress-bar {
     width: 22vw;
     display: flex;
@@ -1101,6 +1102,7 @@ $mid: math.ceil(math.div($count, 2));
       height: 120px;
       width: 120px;
     }
+
     .title-name {
       top: 40px !important;
       left: 0px !important;
@@ -1110,6 +1112,7 @@ $mid: math.ceil(math.div($count, 2));
       .title {
         display: none;
       }
+
       .fan-container {
         margin-bottom: 60px;
         height: 100px;
@@ -1122,6 +1125,7 @@ $mid: math.ceil(math.div($count, 2));
           width: 96%;
           border-radius: 0;
           border: 4px solid white;
+
           @for $i from 1 through $count {
             &:nth-child(#{$i}) {
               transform: rotate(0);

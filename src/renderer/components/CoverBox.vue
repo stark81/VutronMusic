@@ -98,11 +98,19 @@ const doHover = (isHover: boolean) => {
 
 const play = async () => {
   const plugin = props.pluginId as PluginId
+  const source: PlaylistSourceInfo = {
+    type: props.type as Exclude<typeof props.type, 'User'>,
+    plugin,
+    sourceContext: props.sourceContext
+  }
 
   let tracks = [] as Track[]
   if (props.type === 'Playlist') {
     tracks = await getPlaylistDetail(plugin, { ...props.sourceContext, reset: true }).then(
-      (result) => result.data?.tracks || []
+      (result) => {
+        source.sourceContext = result.data?.sourceContext ?? source.sourceContext
+        return result.data?.tracks || []
+      }
     )
   } else if (props.type === 'Album') {
     tracks = await pluginMethodCall(plugin, 'albumDetail', props.sourceContext).then(
@@ -112,12 +120,6 @@ const play = async () => {
     tracks = await pluginMethodCall(plugin, 'artistDetail', props.sourceContext).then(
       (result) => result.songs
     )
-  }
-
-  const source: PlaylistSourceInfo = {
-    type: props.type as Exclude<typeof props.type, 'User'>,
-    plugin,
-    sourceContext: props.sourceContext
   }
 
   const ids = tracks.map((item) => [plugin, item.sourceContext]) as [

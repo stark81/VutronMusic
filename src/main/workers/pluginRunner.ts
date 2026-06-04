@@ -81,37 +81,6 @@ const api = {
           requestId
         })
       })
-    },
-    delete(url: string, data?: any, headers?: Record<string, string>) {
-      return new Promise((resolve, reject) => {
-        const requestId = Math.random().toString(36).slice(2)
-
-        const requestTimeout = setTimeout(() => {
-          if (pendingRequests.has(requestId)) {
-            pendingRequests.get(requestId)?.reject(new Error('Request timeout'))
-            pendingRequests.delete(requestId)
-          }
-        }, 12000)
-
-        pendingRequests.set(requestId, {
-          resolve: (data) => {
-            clearTimeout(requestTimeout)
-            resolve(data)
-          },
-          reject: (err) => {
-            clearTimeout(requestTimeout)
-            reject(err)
-          }
-        })
-        parentPort?.postMessage({
-          type: 'HTTP_REQUEST',
-          url,
-          data,
-          headers,
-          method: 'DELETE',
-          requestId
-        })
-      })
     }
   },
 

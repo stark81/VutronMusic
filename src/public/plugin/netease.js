@@ -334,7 +334,7 @@ const formatTrack = (item, size = 64) => ({
   },
   artists: (item.ar || item.artists || [])?.map((it) => ({
     id: it.id,
-    name: it.name,
+    name: it.name || '',
     picUrl: it.img1v1Url ?? '',
     pluginId: '',
     sourceContext: { id: it.id }
@@ -371,7 +371,7 @@ const formatAlbum = (item, showArtists = false) => {
 const formatMv = (item) => ({
   id: item.id || item.vid,
   name: item.name || item.title,
-  picUrl: item.imgurl16v9 || item.coverUrl,
+  picUrl: item.imgurl16v9 || item.coverUrl || item.cover || '',
   publishTime: new Date(item.publishTime || 0).getTime(),
   pluginId: '',
   artists: (
@@ -508,6 +508,36 @@ const formatPlaylist = (item) => ({
   copywriter: item.copywriter || '',
   sourceContext: { id: item.id }
 })
+
+const formatComment = (item) => {
+  const _beReplied = item.beReplied?.[0]
+  const _user = item.user
+  return {
+    id: item.commentId || '',
+    content: item.content || '',
+    time: item.time || 0,
+    ipLocation: item.ipLocation?.location || '',
+    owner: item.owner,
+    liked: item.liked || false,
+    likedCount: item.likedCount || 0,
+    replyCount: item.replyCount || 0,
+    parentCommentId: item.parentCommentId || 0,
+    beReplied: _beReplied
+      ? {
+          id: _beReplied.commentId,
+          content: _beReplied.content,
+          beRepliedCommentId: _beReplied.beRepliedCommentId,
+          nickname: _beReplied.user.nickname
+        }
+      : null,
+    user: {
+      id: _user.userId,
+      nickname: _user.nickname,
+      avatarUrl: _user.avatarUrl + '?param=64y64'
+    },
+    sourceContext: { id: item.commentId || '' }
+  }
+}
 
 const meta = {
   name: '网易云音乐',
@@ -1138,6 +1168,8 @@ exports.artistAlbums = async (params) => {
         type = '单曲'
       } else if (item.type === '未知') {
         type = '其他'
+      } else if (item.type === 'DEMO') {
+        type = '其他'
       }
 
       return {
@@ -1161,7 +1193,84 @@ exports.artistAlbums = async (params) => {
  * @param {Object} params
  * @returns {Array} 列表形式的搜索结果
  */
-exports.search = (params) => get('search', { ...params })
+exports.search = async (params) => {
+  const { tab, keywords, page: _page = 1, reset = true, count = 0 } = params
+  const page = reset ? 1 : _page
+
+  if (!reset && count && page * 50 >= count) {
+    return { code: 200, data: [], count, sourceContext: params }
+  }
+
+  const map = {
+    tracks: 1,
+    albums: 10,
+    artists: 100,
+    playlists: 1000,
+    mvs: 1004,
+    lyrics: 1006
+  }
+
+  const type = map[tab]
+  const limit = 50
+  const offset = (page - 1) * 50
+  const result = await get('search', { type, keywords, limit, offset })
+
+  if (result.code === 200) {
+    if (tab === 'tracks') {
+      const ids = result.result.songs.map((item) => item.id).join(',')
+      const res = await get('song/detail', { ids })
+
+      res.songs = mapTrackPlayableStatus(res.songs, res.privileges)
+      const data = res.songs.map((item) => formatTrack(item, 64))
+
+      return {
+        code: 200,
+        data,
+        count: result.result.songCount,
+        sourceContext: { keywords, page: page + 1, count: result.result.songCount }
+      }
+    } else if (tab === 'albums') {
+      const data = result.result.albums.map((item) => formatAlbum(item, true))
+      return {
+        code: 200,
+        data,
+        count: result.result.albumCount,
+        sourceContext: { keywords, page: page + 1, count: result.result.albumCount }
+      }
+    } else if (tab === 'artists') {
+      const data = result.result.artists.map((item) => ({
+        id: item.id,
+        name: item.name,
+        picUrl: (item.picUrl || item.img1v1Url) + '?param=256y256',
+        pluginId: '',
+        sourceContext: { id: item.id }
+      }))
+      return {
+        code: 200,
+        data,
+        count: result.result.artistCount,
+        sourceContext: { keywords, page: page + 1, count: result.result.artistCount }
+      }
+    } else if (tab === 'playlists') {
+      const data = result.result.playlists.map(formatPlaylist)
+      return {
+        code: 200,
+        data,
+        count: result.result.playlistCount,
+        sourceContext: { keywords, page: page + 1, count: result.result.playlistCount }
+      }
+    } else if (tab === 'mvs') {
+      const data = result.result.mvs.map(formatMv)
+      return {
+        code: 200,
+        data,
+        count: result.result.mvCount,
+        sourceContext: { keywords, page: page + 1, count: result.result.mvCount }
+      }
+    }
+  }
+  return { code: 404, data: [], count: 0, sourceContext: {} }
+}
 
 /**
  * 获取歌词
@@ -1182,13 +1291,17 @@ exports.resizePicUrl = (params) => {
 }
 
 exports.getTrackDetail = async (params) => {
-  const result = await get('song/detail', { ids: params.id })
+  const sources = params.tracks
+  const size = sources.length === 1 ? 512 : 256
+  const ids = sources.map((item) => item.id).join(',')
+
+  const result = await get('song/detail', { ids })
   if (result.code === 200) {
     result.songs = mapTrackPlayableStatus(result.songs, result.privileges)
-    const songs = result.songs.map((item) => formatTrack(item, 64))
-    return { code: 200, data: songs[0] || null }
+    const songs = result.songs.map((item) => formatTrack(item, size))
+    return { code: 200, data: songs || [] }
   }
-  return { code: 404, data: null }
+  return { code: 404, data: [] }
 }
 
 exports.songUrl = async (params) => {
@@ -1197,7 +1310,7 @@ exports.songUrl = async (params) => {
   if (result.code === 200) {
     const item = result.data[0]
     let url = [item.url]
-    const replayGain = item.gain || -14
+    const replayGain = item.gain || 0
     const peak = item.peak || 1
     if (!item || !item.url || item.freeTrialInfo !== null) {
       const res = await get('unblock/song/url', { id: params.id })
@@ -1208,7 +1321,7 @@ exports.songUrl = async (params) => {
 
     return { code: 200, data: { url, replayGain, peak } }
   }
-  return { code: 200, data: { url: [], replayGain: -14, peak: 1 } }
+  return { code: 200, data: { url: [], replayGain: 0, peak: 1 } }
 }
 
 exports.addOrRemoveTracksToPlaylist = async (params) => {
@@ -1473,4 +1586,216 @@ exports.artistsList = async (_params) => {
   }
 
   return { code: 200, data: [], sourceContext: _params }
+}
+
+exports.scrobble = async () => ({ code: 200 })
+
+exports.mvDetail = async (params) => {
+  const [result, result1] = await Promise.all([
+    get('mv/detail', { mvid: params.id }),
+    get('mv/detail/info', { mvid: params.id })
+  ])
+
+  if (result.code === 200) {
+    const item = result.data
+    const request = item.brs.map((item) => get('mv/url', { id: params.id, r: item.br }))
+    const res = await Promise.all(request)
+    const sources = res.map((item) => ({
+      url: item.data.url,
+      type: 'video/mp4',
+      quality: String(item.data.r)
+    }))
+
+    const data = {
+      id: item.id,
+      name: item.name,
+      desc: item.briefDesc,
+      publishTime: new Date(item.publishTime).getTime(),
+      playCount: item.playCount,
+
+      subCount: item.subCount,
+      subed: result.subed,
+      likedCount: result1.likedCount || 0,
+      liked: result1.liked || false,
+      hasComment: true,
+
+      picUrl: item.cover + '?param=512y512',
+      sources,
+      artists: item.artists.map((it) => ({
+        id: it.id,
+        name: it.name,
+        picUrl: it.img1v1Url + '?param=256y256',
+        pluginId: '',
+        sourceContext: { id: it.id }
+      })),
+      pluginId: '',
+      sourceContext: { id: item.id }
+    }
+    return { code: 200, data }
+  }
+  return { code: 200, data: null }
+}
+
+exports.likeAMV = async (params) => {
+  try {
+    await get('resource/like', { id: params.id, type: 1, t: params.t })
+    return { code: 200 }
+  } catch (error) {
+    console.error(error)
+    return { code: 404 }
+  }
+}
+
+exports.subAMV = async (params) => {
+  try {
+    await get('mv/sub', { mvid: params.id, t: params.t })
+    return { code: 200 }
+  } catch (error) {
+    console.error(error)
+    return { code: 404 }
+  }
+}
+
+const commentType = {
+  track: 0,
+  mv: 1,
+  playlist: 2,
+  album: 3
+}
+
+const sortMap = {
+  推荐: 99,
+  最热: 2,
+  最新: 3
+}
+
+const sortMap1 = {
+  99: '推荐',
+  2: '最热',
+  3: '最新'
+}
+
+function isNumeric(str) {
+  if (typeof str !== 'string') return false
+  const trimmed = str.trim()
+  if (trimmed === '') return false
+  const num = Number(trimmed)
+  return !isNaN(num) && isFinite(num)
+}
+
+/**
+ * @param {Object} params
+ * @param {number} params.id
+ * @param {number} params.pageNo
+ * @param {number} params.cursor
+ * @param {boolean} params.hasMore
+ * @param {'track' | 'mv' | 'playlist' | 'album'} params.type
+ * @param {"推荐" | "最热" | "最新"} params.sortType
+ */
+exports.getComments = async (params) => {
+  try {
+    const {
+      id,
+      reset = true,
+      pageNo: _pageNo = 1,
+      cursor: _cursor = 0,
+      hasMore = true,
+      type: _type = 'track',
+      sortType: _sortType = '推荐'
+    } = params
+
+    let sortType = sortMap[_sortType]
+    let pageNo = reset ? 1 : _pageNo
+    let cursor = isNumeric(_cursor) ? _cursor : 0
+
+    if (!hasMore && sortType !== 99) {
+      return { code: 200, data: [], count: 0, sourceContext: params }
+    } else if (!hasMore && sortType === 99) {
+      sortType = 3
+      pageNo = 1
+      cursor = 0
+    }
+
+    const type = commentType[_type]
+    const pageSize = 50
+
+    let result = await get('comment/new', { id, type, sortType, pageSize, pageNo, cursor })
+    const count = result.data.totalCount
+    let data = result.data.comments.map(formatComment)
+
+    if (sortType === 99 && !data.length) {
+      sortType = 3
+      result = await get('comment/new', { id, type, sortType, pageSize, pageNo, cursor })
+      data = result.data.comments.map(formatComment)
+    }
+
+    return {
+      code: result.code,
+      data,
+      count,
+      sourceContext: {
+        type: _type,
+        pageNo: pageNo + 1,
+        cursor: result.data.cursor,
+        sortType: sortMap1[sortType],
+        hasMore: result.data.hasMore
+      }
+    }
+  } catch (error) {
+    console.log('[netease getComments]: ', error)
+    return { code: 404, data: [], count: 0, sourceContext: params }
+  }
+}
+
+/**
+ * @param {Object} params
+ * @param {Record<string, any>} params.sourceContext
+ * @param {Record<string, any>} params.commentInfo
+ * @param {boolean} params.currentStatus
+ * @param {'track' | 'mv' | 'playlist' | 'album'} params.type
+ */
+exports.likeAComment = async (params) => {
+  try {
+    const { sourceContext, commentInfo, currentStatus, type: _type } = params
+    const id = sourceContext.id
+    const cid = commentInfo.id
+    const type = commentType[_type]
+    const t = currentStatus ? 0 : 1
+    const result = await get('comment/like', { id, cid, type, t })
+    return { code: result.code }
+  } catch (error) {
+    console.log('[netease likeAComment]: ', error)
+    return { code: 404 }
+  }
+}
+
+const submitType = {
+  del: 0,
+  sub: 1,
+  reply: 2
+}
+
+exports.submitAComment = async (params) => {
+  try {
+    const { id, type: _type, comment: _comment, t: _t, commentId } = params
+    const type = commentType[_type]
+
+    const _data = { t: submitType[_t], type, id }
+    if (_t === 'sub') {
+      _data.content = _comment
+    } else if (_t === 'del') {
+      _data.commentId = commentId
+    }
+
+    const result = await get('comment', _data)
+    if (result.code !== 200) {
+      throw new Error('submit comment error')
+    }
+
+    const data = result.comment ? formatComment(result.comment) : null
+    return { code: 200, data }
+  } catch (error) {
+    console.log('[netease submitAComment]: ', error)
+    return { code: 404, data: null }
+  }
 }

@@ -89,6 +89,10 @@ const defaultImagePath = Constants.IS_DEV_ENV
   ? path.join(process.cwd(), `./src/public/images/default.jpg`)
   : path.join(__dirname, `../images/default.jpg`)
 
+const singerImagePath = Constants.IS_DEV_ENV
+  ? path.join(process.cwd(), `./src/public/images/singer.png`)
+  : path.join(__dirname, `../images/singer.png`)
+
 class BackGround {
   win: BrowserWindow | null = null
   osdMode: string = 'small'
@@ -472,6 +476,9 @@ class BackGround {
 
       if (host === 'get-default-pic') {
         const pic = fs.readFileSync(defaultImagePath)
+        return new Response(new Uint8Array(pic))
+      } else if (host === 'get-singer-pic') {
+        const pic = fs.readFileSync(singerImagePath)
         return new Response(new Uint8Array(pic))
       } else if (host === 'get-pic-path') {
         const filePath = pathname.slice(1)

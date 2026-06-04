@@ -64,9 +64,9 @@ export const usePluginMusic = defineStore(
     const playHistory = reactive<Record<PluginId, { week: Track[]; all: Track[] }[]>>({})
 
     const tools = reactive<Record<service['type'], Tool>>({
-      library: { groundBy: 'all', sortBy: 'id', orderBy: 'ASC', artistBy: 'artist' },
-      stream: { groundBy: 'all', sortBy: 'id', orderBy: 'ASC', artistBy: 'artist' },
-      local: { groundBy: 'all', sortBy: 'id', orderBy: 'ASC', artistBy: 'artist' }
+      library: { groundBy: 'all', sortBy: 'name', orderBy: 'ASC', artistBy: 'artist' },
+      stream: { groundBy: 'all', sortBy: 'name', orderBy: 'ASC', artistBy: 'artist' },
+      local: { groundBy: 'all', sortBy: 'name', orderBy: 'ASC', artistBy: 'artist' }
     })
 
     const additionalTags = reactive<Record<PluginId, PlaylistCatlist['static']>>({})

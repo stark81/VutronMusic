@@ -44,14 +44,14 @@
             {{ $t('common.play') }}
           </ButtonTwoTone>
           <ButtonTwoTone
-            v-if="playlistType === 'online'"
+            v-if="['playlist-library', 'album-library'].includes(playlistType)"
             icon-class="floor-comment"
             @click="openComment"
           >
             {{ '评论' }}
           </ButtonTwoTone>
           <ButtonTwoTone
-            v-if="playlistType === 'online' && playlist?.creator?.userId !== user.userId"
+            v-if="playlistType.includes('library') && playlist?.creator?.userId !== user.userId"
             :icon-class="playlist?.subscribed ? 'heart-solid' : 'heart'"
             :icon-button="true"
             :horizontal-padding="0"
@@ -62,7 +62,7 @@
           >
           </ButtonTwoTone>
           <ButtonTwoTone
-            v-if="playlistType !== 'online' || playlist?.creator?.userId === user.userId"
+            v-if="!playlistType.includes('library') || playlist?.creator?.userId === user.userId"
             icon-class="more"
             :icon-button="true"
             :horizontal-padding="0"
@@ -186,6 +186,7 @@
         v-if="showComment"
         :id="playlist.id"
         :plugin="playlist.pluginId"
+        :source-context="playlist.sourceContext"
         type="playlist"
         :style="{ width: '100%', padding: '40px 4vh 10px 4vh' }"
       />

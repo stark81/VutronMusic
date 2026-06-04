@@ -162,7 +162,8 @@
           v-else
           :id="currentTrack!.id"
           :plugin="currentTrack!.pluginId"
-          type="music"
+          :source-context="currentTrack?.sourceContext || {}"
+          type="track"
           :style="{
             width: isMobile ? '50vw' : '100%',
             padding: isMobile ? '0' : '40px 0 10px 4vh'

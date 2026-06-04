@@ -24,8 +24,12 @@
             {{ track.name }}
             <span v-if="isSubTitle" :title="subTitle" class="sub-title"> ({{ subTitle }}) </span>
             <span v-if="isAlbum" class="featured">
-              <ArtistsInLine :artists="track.artists" :exclude="albumObject.artist.name" prefix="-"
-            /></span>
+              <ArtistsInLine
+                :artists="track.artists"
+                :exclude="albumObject.artist.name"
+                prefix="-"
+              />
+            </span>
             <!-- <span v-if="isAlbum && track.mark === 1318912" class="explicit-symbol"
               ><ExplicitSymbol
             /></span> -->
@@ -78,9 +82,9 @@
       <div v-if="track.playCount >= 0" class="count"> {{ track.playCount }}</div>
     </div>
     <div v-show="isLyric && lyrics.length > 0" class="lyric-container">
-      <div
-        ><div v-for="(lyric, index) in lyrics" :key="index" class="lyric">{{ lyric }}</div></div
-      >
+      <div>
+        <div v-for="(lyric, index) in lyrics" :key="index" class="lyric">{{ lyric }}</div>
+      </div>
       <!-- <button>复制歌词</button> -->
     </div>
   </div>
@@ -239,12 +243,18 @@ const lyrics = computed(() => {
 })
 
 const isSelected = computed({
-  get: () => selectedList.value.includes(track.value.id),
+  get: () => {
+    return selectedList.value.some((id) =>
+      isEqual(id, [track.value.pluginId, track.value.sourceContext])
+    )
+  },
   set: (value) => {
     if (value) {
-      selectedList.value.push(track.value.id)
+      selectedList.value.push([track.value.pluginId, track.value.sourceContext])
     } else {
-      selectedList.value = selectedList.value.filter((id) => id !== track.value.id)
+      selectedList.value = selectedList.value.filter((id) =>
+        isEqual(id, [track.value.pluginId, track.value.sourceContext])
+      )
     }
   }
 })
@@ -272,7 +282,8 @@ const goToAlbum = () => {
 }
 
 const goToMv = () => {
-  router.push(`/mv/${track.value.mvid}`)
+  const sourceContext = { id: track.value.mvid }
+  router.push(`/mv/${track.value.pluginId}/${JSON.stringify(sourceContext)}`)
 }
 
 const likeThisSong = () => {
@@ -280,7 +291,7 @@ const likeThisSong = () => {
 }
 
 const isBatchOp = inject('isBatchOp', ref(false))
-const selectedList = inject('selectedList', ref<(number | string)[]>([]))
+const selectedList = inject('selectedList', ref<[PluginId, Record<string, any>][]>([]))
 const rightClickedTrack = inject('rightClickedTrack', ref({ id: 0 }))
 const playThisList = inject('playThisList') as (id: number | string) => void
 </script>
@@ -294,14 +305,17 @@ button {
   background: transparent;
   border-radius: 25%;
   transition: transform 0.2s;
+
   .svg-icon {
     height: 16px;
     width: 16px;
     color: var(--color-primary);
   }
+
   &:hover {
     transform: scale(1.12);
   }
+
   &:active {
     transform: scale(0.96);
   }
@@ -344,6 +358,7 @@ button {
     width: 12px;
     color: var(--color-text);
     cursor: default;
+
     span {
       opacity: 0.58;
     }
@@ -352,6 +367,7 @@ button {
   .explicit-symbol {
     opacity: 0.28;
     color: var(--color-text);
+
     .svg-icon {
       margin-bottom: -3px;
     }
@@ -379,10 +395,12 @@ button {
   .title-and-artist {
     flex: 1;
     display: flex;
+
     .container {
       display: flex;
       flex-direction: column;
     }
+
     .title {
       font-size: 18px;
       font-weight: 600;
@@ -395,18 +413,21 @@ button {
       line-clamp: 1;
       overflow: hidden;
       word-break: break-all;
+
       .featured {
         margin-right: 2px;
         font-weight: 500;
         font-size: 14px;
         opacity: 0.72;
       }
+
       .sub-title {
         color: #7a7a7a;
         opacity: 0.7;
         margin-left: 4px;
       }
     }
+
     .artist {
       margin-top: 2px;
       font-size: 13px;
@@ -419,19 +440,23 @@ button {
       -webkit-line-clamp: 1;
       line-clamp: 1;
       overflow: hidden;
+
       .artist-in-line {
         display: -webkit-box;
       }
+
       a {
         span {
           margin-right: 3px;
           opacity: 0.8;
         }
+
         &:hover {
           text-decoration: underline;
           cursor: pointer;
         }
       }
+
       .mv-icon {
         margin-left: 8px;
         color: var(--color-primary);
@@ -440,6 +465,7 @@ button {
       }
     }
   }
+
   .album {
     flex: 0.8;
     display: flex;
@@ -453,11 +479,13 @@ button {
     line-clamp: 1;
     overflow: hidden;
   }
+
   .service {
     flex: 0.8;
     font-size: 16px;
     opacity: 0.88;
   }
+
   .createTime {
     flex: 0.8;
     font-size: 16px;
@@ -467,6 +495,7 @@ button {
     opacity: 0.88;
     color: var(--color-text);
   }
+
   .time,
   .count {
     font-size: 16px;
@@ -479,6 +508,7 @@ button {
     opacity: 0.88;
     color: var(--color-text);
   }
+
   .count {
     font-weight: 600;
     font-size: 22px;
@@ -490,10 +520,12 @@ button {
   display: flex;
   justify-content: space-between;
   padding: 4px 0 4px 4px;
+
   .lyric {
     font-size: 14px;
     opacity: 0.68;
   }
+
   .lyric:first-child {
     opacity: 1;
     color: var(--color-primary);
@@ -505,6 +537,7 @@ button {
     img {
       filter: grayscale(1) opacity(0.6);
     }
+
     .title,
     .artist,
     .album,
@@ -514,6 +547,7 @@ button {
     .featured {
       opacity: 0.28 !important;
     }
+
     &:hover {
       background: none;
     }
@@ -530,9 +564,11 @@ button {
       margin-right: 14px;
       cursor: pointer;
     }
+
     .title {
       font-size: 16px;
     }
+
     .artist {
       font-size: 12px;
     }
@@ -549,6 +585,7 @@ button {
 .trackitem.playing {
   background: color-mix(in oklab, var(--color-primary) var(--bg-alpha), white);
   color: var(--color-primary);
+
   .track {
     .title,
     .album,
@@ -557,6 +594,7 @@ button {
     .title-and-artist .sub-title {
       color: var(--color-primary);
     }
+
     .title .featured,
     .artist,
     .explicit-symbol,
@@ -564,6 +602,7 @@ button {
       color: var(--color-primary);
       opacity: 0.88;
     }
+
     .no span {
       color: var(--color-primary);
       opacity: 0.78;

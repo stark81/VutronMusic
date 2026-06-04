@@ -338,21 +338,21 @@ const filterLikedTracks = computed(() => {
 })
 
 const filterLikedAlbums = computed(() => {
+  const servs = services.value.filter((item) => item.type === 'library')
+
   const albs =
     tool.value.groundBy === 'all'
-      ? Object.values(albums.value)
-          .map((item) => item.data)
-          .flat()
+      ? servs.map((item) => albums.value[item.code]?.data ?? []).flat()
       : albums.value[tool.value.groundBy].data
   return albs
 })
 
 const filterLikedArtists = computed(() => {
+  const servs = services.value.filter((item) => item.type === 'library')
+
   const ars =
     tool.value.groundBy === 'all'
-      ? Object.values(artists.value)
-          .map((item) => item.data)
-          .flat()
+      ? servs.map((item) => artists.value[item.code]?.data ?? []).flat()
       : artists.value[tool.value.groundBy].data
   return ars
 })

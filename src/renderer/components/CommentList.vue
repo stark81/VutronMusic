@@ -1,24 +1,24 @@
 <template>
   <div v-if="show" class="comment-container">
     <div class="comment-head">
-      <label>评论({{ commentInfo.totalCount }})</label>
+      <label>评论({{ totalCount }})</label>
       <div class="btns">
         <button
           class="btn"
-          :class="{ active: commentInfo.sortType === 1 }"
-          @click="handleClickSortType(1)"
+          :class="{ active: sortType === '推荐' }"
+          @click="handleClickSortType('推荐')"
           >推荐</button
         >
         <button
           class="btn"
-          :class="{ active: commentInfo.sortType === 2 }"
-          @click="handleClickSortType(2)"
+          :class="{ active: sortType === '最热' }"
+          @click="handleClickSortType('最热')"
           >最热</button
         >
         <button
           class="btn"
-          :class="{ active: commentInfo.sortType === 3 }"
-          @click="handleClickSortType(3)"
+          :class="{ active: sortType === '最新' }"
+          @click="handleClickSortType('最新')"
           >最新</button
         >
       </div>
@@ -34,12 +34,12 @@
         :above-value="5"
         :below-value="5"
         :show-position="false"
-        :load-more="loadComment"
+        :load-more="() => loadComment(false)"
       >
         <template #default="{ item }">
           <div class="comment-item">
             <div class="avatar" @click="goToUser(item)">
-              <img :src="getImage(item.user.avatarUrl)" alt="" loading="lazy"
+              <img :src="item.user.avatarUrl" alt="" loading="lazy"
             /></div>
             <div class="comment-info">
               <div class="comment">
@@ -49,24 +49,23 @@
                 <label>{{ item.content }}</label>
               </div>
               <div
-                v-if="
-                  item.beReplied?.length &&
-                  item.beReplied[0].beRepliedCommentId !== item.parentCommentId
-                "
+                v-if="item.beReplied && item.beReplied.beRepliedCommentId !== item.parentCommentId"
                 class="comment-beReplied"
               >
-                <label v-if="item.beReplied[0].content" class="comment-nickname"
-                  >@{{ item.beReplied[0].user.nickname }}:
+                <label v-if="item.beReplied?.content" class="comment-nickname"
+                  >@{{ item.beReplied?.nickname }}:
                 </label>
-                <label>{{ item.beReplied[0].content ?? '该评论已删除' }}</label>
+                <label>{{ item.beReplied?.content ?? '该评论已删除' }}</label>
               </div>
               <div class="comment-ex">
                 <div class="time-ip">
                   <span class="time">{{ formatDate(item.time, 'YYYY年MM月DD日 H:mm') }}</span>
-                  <span v-if="item.ipLocation?.location">来自{{ item.ipLocation.location }}</span>
+                  <span v-if="item.ipLocation">来自{{ item.ipLocation }}</span>
                 </div>
                 <div class="comment-btns">
-                  <button v-if="isAccountLoggedIn && item.owner" @click="handleDeleteComment(item)"
+                  <button
+                    v-if="isAccountLoggedIn(plugin) && item.owner"
+                    @click="handleDeleteComment(item)"
                     >删除</button
                   >
                   <button @click="handleLikeComment(item)"
@@ -74,9 +73,7 @@
                       item.likedCount
                     }}</button
                   >
-                  <button
-                    v-show="!item.beReplied?.length"
-                    @click="switchCommentPage(item.commentId)"
+                  <button v-show="!item.beReplied" @click="switchCommentPage(item.id)"
                     ><svg-icon icon-class="floor-comment" />{{ item.replyCount }}</button
                   >
                 </div>
@@ -105,44 +102,41 @@ import WriteComment from './WriteComment.vue'
 import SvgIcon from './SvgIcon.vue'
 import { useI18n } from 'vue-i18n'
 import { formatDate } from '../utils'
-import { isAccountLoggedIn } from '../utils/auth'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { debounce } from 'lodash'
+import { usePluginMusic } from '../store/pluginMusic'
+import { PluginId, CommentType } from '@/types/plugin'
 
-const props = defineProps({
-  id: {
-    type: [Number, String],
-    required: true
-  },
-  type: {
-    type: String,
-    default: 'music'
-  },
-  paddingRight: {
-    type: String,
-    default: '4vh'
-  }
+interface Props {
+  sourceContext: Record<string, any>
+  type: string
+  plugin: PluginId
+  paddingRight?: string
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  type: 'track',
+  paddingRight: '4vh'
 })
 
 const currentPage = inject('currentPage', ref('comment'))
-const beRepliedCommentId = inject('beRepliedCommentId', ref(0))
+const beRepliedCommentId = inject('beRepliedCommentId', ref<string | number>(0))
 const show = ref(false)
-const comments = ref<any[]>([])
+
 const mainRef = ref<HTMLElement>()
-const commentSubmitRef = ref()
+const commentSubmitRef = ref<InstanceType<typeof WriteComment>>()
 const router = useRouter()
-const commentInfo = reactive({
-  totalCount: 0,
-  sortType: 1,
-  paramType: 1,
-  pageNo: 1,
-  hasMore: true,
-  cursor: 0,
-  pageSize: 50
-})
+
+const totalCount = ref(0)
+const sortType = ref<'推荐' | '最热' | '最新'>('推荐')
+const comments = ref<CommentType[]>([])
+let sourceContext = props.sourceContext
 
 const commentHeight = ref(mainRef.value?.offsetHeight || 0)
+
+const pluginStore = usePluginMusic()
+const { pluginMethodCall, isAccountLoggedIn } = pluginStore
 
 const typeMap = {
   music: 0,
@@ -154,20 +148,17 @@ const typeMap = {
 }
 
 watch(
-  () => props.id,
-  () => {
-    if (props.type === 'music') {
-      commentInfo.totalCount = 0
-      commentInfo.sortType = 1
-      commentInfo.paramType = 1
-      commentInfo.pageNo = 1
-      commentInfo.hasMore = true
-      commentInfo.cursor = 0
-      commentInfo.pageSize = 50
+  () => props.sourceContext,
+  (value) => {
+    sourceContext = value
+    if (props.type === 'track') {
+      totalCount.value = 0
+      sortType.value = '推荐'
       comments.value = []
       loadComment()
     }
-  }
+  },
+  { deep: true }
 )
 
 const { t } = useI18n()
@@ -187,14 +178,11 @@ const updateWindowHeight = () => {
   commentHeight.value = mainRef.value?.offsetHeight || commentHeight.value
 }
 
-const handleClickSortType = (type: number) => {
-  commentInfo.sortType = type
-  commentInfo.paramType = type
-  commentInfo.pageNo = 1
-  commentInfo.hasMore = true
-  commentInfo.totalCount = 0
-  commentInfo.cursor = 0
+const handleClickSortType = (type: '推荐' | '最热' | '最新') => {
+  sortType.value = type
+  totalCount.value = 0
   comments.value = []
+  sourceContext.sortType = type
   loadComment()
 }
 
@@ -204,133 +192,110 @@ const handleClickSortType = (type: number) => {
  * 2. 加载最新评论时，评论列表为之前的推荐+最新评论，所以评论列表数量比评论总数要更多
  * 3. 网易评论返回的数据问题很大，要么是hasMore为true但实际没有更多数据，要么是hasMore为false但实际还有更多数据, 要么会出现评论数量和总数不一致的问题，所以处理有些复杂，本项目里暂时按评论数量大于总数 或者 评论数量和总数之间的差值小于3视为加载完毕
  */
-const loadComment = () => {
-  console.log('===2===', props)
-  // if (
-  //   !commentInfo.hasMore &&
-  //   (comments.value.length >= commentInfo.totalCount ||
-  //     Math.abs(comments.value.length - commentInfo.totalCount) < 3)
-  // ) {
-  //   return
-  // }
-  // const params = {
-  //   id: props.id,
-  //   type: typeMap[props.type],
-  //   sortType: commentInfo.paramType,
-  //   pageNo: commentInfo.pageNo,
-  //   pageSize: commentInfo.pageSize
-  // }
-  // if (!commentInfo.hasMore && commentInfo.sortType === 1 && commentInfo.paramType === 1) {
-  //   commentInfo.paramType = 3
-  //   params.sortType = 3
-  //   commentInfo.pageNo = 1
-  //   params.pageNo = 1
-  // }
+const loadComment = (reset = true) => {
+  if (reset) comments.value = []
 
-  // if (params.sortType === 3 && params.pageNo > 1) {
-  //   // @ts-ignore
-  //   params.cursor = commentInfo.cursor
-  // }
-  // getComment(params).then((res) => {
-  //   if (res.code === 200) {
-  //     commentInfo.totalCount = res.data.totalCount || commentInfo.totalCount
-  //     commentInfo.hasMore = res.data.hasMore
-  //     commentInfo.pageNo++
-  //     commentInfo.cursor = res.data.cursor
-  //     comments.value.push(...res.data.comments)
-  //   }
-  //   show.value = true
-  //   nextTick(() => {
-  //     commentHeight.value = mainRef.value?.offsetHeight || commentHeight.value
-  //   })
-  // })
+  pluginMethodCall(props.plugin, 'getComments', {
+    ...sourceContext,
+    reset,
+    type: props.type
+  }).then((result) => {
+    if (result.code !== 200 || !result.data.length) return
+    comments.value.push(...result.data)
+    totalCount.value = result.count
+    sourceContext = { ...sourceContext, ...result.sourceContext }
+    show.value = true
+
+    nextTick(() => {
+      commentHeight.value = mainRef.value?.offsetHeight || commentHeight.value
+    })
+  })
 }
 
 const goToUser = (item: any) => {
-  router.push(`/user/${item.user.userId}`)
-  showLyrics.value = false
+  // router.push(`/user/${item.user.userId}`)
+  // showLyrics.value = false
 }
 
-const switchCommentPage = (pid: number) => {
+const switchCommentPage = (pid: number | string) => {
   beRepliedCommentId.value = pid
   currentPage.value = 'floorComment'
 }
 
-const handleDeleteComment = (comment: any) => {
-  if (!isAccountLoggedIn()) {
+const handleDeleteComment = (comment: CommentType) => {
+  if (!isAccountLoggedIn(props.plugin)) {
     showToast(t('toast.needToLogin'))
     return
   }
   if (confirm(`确定要删除评论'${comment.content}'吗？`)) {
-    const params = {
-      t: 0,
-      type: typeMap[props.type],
-      id: props.id,
-      commentId: comment.commentId
-    }
-    submitComment(params).then((res) => {
-      if (res.code === 200) {
+    pluginMethodCall(props.plugin, 'submitAComment', {
+      ...sourceContext,
+      type: props.type,
+      t: 'del',
+      commentId: comment.id
+    }).then((result) => {
+      if (result.code === 200) {
         comments.value = comments.value.filter((item) => item !== comment)
-        commentInfo.totalCount -= 1
-      } else {
-        showToast(`${res.message}，${res.data?.dialog?.subtitle}`)
+        totalCount.value -= 1
       }
     })
+    // const params = {
+    //   t: 0,
+    //   type: typeMap[props.type],
+    //   id: props.id,
+    //   commentId: comment.commentId
+    // }
+    // submitComment(params).then((res) => {
+    //   if (res.code === 200) {
+    //     comments.value = comments.value.filter((item) => item !== comment)
+    //     commentInfo.totalCount -= 1
+    //   } else {
+    //     showToast(`${res.message}，${res.data?.dialog?.subtitle}`)
+    //   }
+    // })
   }
 }
 
-const handleLikeComment = (comment: any) => {
-  if (!isAccountLoggedIn()) {
+const handleLikeComment = (comment: CommentType) => {
+  if (!isAccountLoggedIn(props.plugin)) {
     showToast(t('toast.needToLogin'))
     return
   }
-  likeComment({
-    id: props.id,
-    cid: comment.commentId,
-    t: comment.liked ? 0 : 1,
-    type: typeMap[props.type]
+
+  pluginMethodCall(props.plugin, 'likeAComment', {
+    sourceContext,
+    commentInfo: comment.sourceContext,
+    currentStatus: comment.liked,
+    type: props.type
+  }).then((result) => {
+    if (result.code === 200) {
+      comment.likedCount += comment.liked ? -1 : 1
+      comment.liked = !comment.liked
+    } else {
+      showToast('操作失败')
+    }
   })
-    .then((res) => {
-      if (res.code === 200) {
-        comment.likedCount += comment.liked ? -1 : 1
-        comment.liked = !comment.liked
-      } else {
-        showToast(res.msg + res?.data?.dialog?.subtitle)
-      }
-    })
-    .catch((err) => {
-      showToast(err)
-    })
 }
 
 const handleSubmitComment = () => {
-  if (!isAccountLoggedIn()) {
+  if (!isAccountLoggedIn(props.plugin)) {
     showToast(t('toast.needToLogin'))
     return
   }
-  const params = {
-    t: 1,
-    type: typeMap[props.type],
-    id: props.id,
-    content: commentSubmitRef.value.comment
-  }
-  submitComment(params)
-    .then((res) => {
-      if (res.code === 200) {
-        const comment = res.comment
-        comment.liked = false
-        comment.likedCount = 0
-        comment.replyCount = 0
-        comments.value.unshift(comment)
-        commentInfo.totalCount += 1
-      } else {
-        showToast(`${res.message}，${res.data?.dialog?.subtitle}`)
+  pluginMethodCall(props.plugin, 'submitAComment', {
+    ...sourceContext,
+    type: props.type,
+    t: 'sub' as 'sub' | 'reply',
+    comment: commentSubmitRef.value?.comment || ''
+  })
+    .then((result) => {
+      if (result.code === 200) {
+        comments.value.unshift(result.data!)
+        totalCount.value += 1
       }
     })
-    .catch((error) => {
-      showToast(error)
-    })
     .finally(() => {
+      if (!commentSubmitRef.value) return
       commentSubmitRef.value.comment = ''
     })
 }

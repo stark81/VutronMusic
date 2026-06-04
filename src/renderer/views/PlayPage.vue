@@ -138,11 +138,11 @@ const theme = computed(() => {
 const tabs = computed(() => {
   let result: ('fullLyric' | 'pickLyric' | 'comment')[] = []
   if (activeTheme.value.theme.activeLayout === 'Classic') {
-    result = ['fullLyric']
+    result = ['fullLyric', 'comment']
   } else {
-    result = ['pickLyric', 'fullLyric']
+    result = ['pickLyric', 'fullLyric', 'comment']
   }
-  // if (currentTrack.value?.matched) {
+  // if (currentTrack.value?.type === 'library') {
   //   result.push('comment')
   // }
   return result
@@ -175,6 +175,10 @@ const getIcon = () => {
     return 'comment'
   }
 }
+
+watch(showLyrics, () => {
+  tabIdx.value = 0
+})
 
 watch(showSenseSelector, () => {
   titleIdx.value = 0

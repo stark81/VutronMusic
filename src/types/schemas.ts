@@ -99,6 +99,53 @@ export const MvSchema = z.object({
   sourceContext: z.record(z.string(), z.any())
 })
 
+export const MvDetailSchema = z.object({
+  id: z.number().or(z.string()),
+  name: z.string(),
+  desc: z.string(),
+  publishTime: z.number(),
+  playCount: z.number(),
+
+  subCount: z.number(),
+  subed: z.boolean(),
+  likedCount: z.number(),
+  liked: z.boolean(),
+  hasComment: z.boolean(),
+
+  picUrl: z.string(),
+  sources: z.array(z.object({ url: z.string(), quality: z.string(), type: z.string() })),
+
+  pluginId: z.string().transform(asPluginId),
+  artists: z.array(ArtistSchema),
+  sourceContext: z.record(z.string(), z.any())
+})
+
+export const CommentSchema = z.object({
+  id: z.string().or(z.number()),
+  content: z.string(),
+  time: z.number(),
+  ipLocation: z.string(),
+  owner: z.boolean(),
+  liked: z.boolean(),
+  likedCount: z.number(),
+  replyCount: z.number(),
+  parentCommentId: z.string().or(z.number()),
+  beReplied: z
+    .object({
+      id: z.string().or(z.number()),
+      beRepliedCommentId: z.string().or(z.number()),
+      content: z.string(),
+      nickname: z.string()
+    })
+    .or(z.null()),
+  user: z.object({
+    id: z.string().or(z.number()),
+    nickname: z.string(),
+    avatarUrl: z.string()
+  }),
+  sourceContext: z.record(z.string(), z.any())
+})
+
 export const UserSchema = z
   .object({
     userId: z.number().or(z.string()),
@@ -243,7 +290,6 @@ export const PluginResultSchema = {
     data: UserResultSchema.optional(),
     message: z.string().optional()
   }),
-  search: z.object({ code: z.number(), data: z.array(TrackSchema) }),
   getSongUrl: z.object({ code: z.number(), data: z.string() }),
   getLyric: z.object({ code: z.number(), data: z.array(LyricLineSchema) }),
   getBanner: z.object({ code: z.number(), data: z.array(BannerSchema) }),
@@ -360,7 +406,7 @@ export const PluginResultSchema = {
   }),
   getTrackDetail: z.object({
     code: z.number(),
-    data: TrackSchema.or(z.null())
+    data: z.array(TrackSchema)
   }),
   likeATrack: z.object({ code: z.number() }),
   addOrRemoveTracksToPlaylist: z.object({ code: z.number() }),
@@ -379,5 +425,38 @@ export const PluginResultSchema = {
   getArtistCatlist: z.object({
     code: z.number(),
     data: z.array(ArtistCatlistSchema)
-  })
+  }),
+  getAllTracks: z.object({
+    code: z.number(),
+    data: z.array(TrackSchema),
+    count: z.number(),
+    sourceContext: z.record(z.string(), z.any())
+  }),
+  scrobble: z.object({
+    code: z.number()
+  }),
+  search: z.object({
+    code: z.number(),
+    data: z.array(TrackSchema.or(AlbumSchema).or(ArtistSchema).or(PlaylistSchema).or(MvSchema)),
+    count: z.number(),
+    sourceContext: z.record(z.string(), z.any())
+  }),
+  mvDetail: z.object({
+    code: z.number(),
+    data: MvDetailSchema.or(z.null())
+  }),
+  subAMV: z.object({
+    code: z.number()
+  }),
+  likeAMV: z.object({
+    code: z.number()
+  }),
+  getComments: z.object({
+    code: z.number(),
+    data: z.array(CommentSchema),
+    count: z.number(),
+    sourceContext: z.record(z.string(), z.any())
+  }),
+  likeAComment: z.object({ code: z.number() }),
+  submitAComment: z.object({ code: z.number(), data: CommentSchema.or(z.null()) })
 } as const

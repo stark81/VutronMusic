@@ -166,57 +166,58 @@ const switchToCommentPage = () => {
 }
 
 const loadFloorComment = (pid: number | string) => {
-  if (!floorCommentInfo.hasMore) return
-  const params = {
-    parentCommentId: pid,
-    type: typeMap[props.type],
-    id: props.id,
-    limit: floorCommentInfo.limit,
-    time: floorCommentInfo.time
-  }
-  getFloorComment(params).then((res) => {
-    if (res.code === 200) {
-      floorCommentInfo.time = res.data.time
-      floorCommentInfo.hasMore = res.data.hasMore
-      floorCommentInfo.totalCount = res.data.totalCount || floorCommentInfo.totalCount
-      floorCommentInfo.commentId = res.data.ownerComment?.commentId || floorCommentInfo.commentId
-      if (res.data.ownerComment) {
-        selectedComment.value = res.data.ownerComment
-        floorComments.value.push(res.data.ownerComment)
-      }
-      floorComments.value.push(...res.data.bestComments)
-      floorComments.value.push(...res.data.comments)
-    }
-    show.value = true
-    nextTick(() => {
-      commentHeight.value = mainRef.value?.offsetHeight || commentHeight.value
-    })
-  })
+  console.log('=2=2=2=', pid)
+  // if (!floorCommentInfo.hasMore) return
+  // const params = {
+  //   parentCommentId: pid,
+  //   type: typeMap[props.type],
+  //   id: props.id,
+  //   limit: floorCommentInfo.limit,
+  //   time: floorCommentInfo.time
+  // }
+  // getFloorComment(params).then((res) => {
+  //   if (res.code === 200) {
+  //     floorCommentInfo.time = res.data.time
+  //     floorCommentInfo.hasMore = res.data.hasMore
+  //     floorCommentInfo.totalCount = res.data.totalCount || floorCommentInfo.totalCount
+  //     floorCommentInfo.commentId = res.data.ownerComment?.commentId || floorCommentInfo.commentId
+  //     if (res.data.ownerComment) {
+  //       selectedComment.value = res.data.ownerComment
+  //       floorComments.value.push(res.data.ownerComment)
+  //     }
+  //     floorComments.value.push(...res.data.bestComments)
+  //     floorComments.value.push(...res.data.comments)
+  //   }
+  //   show.value = true
+  //   nextTick(() => {
+  //     commentHeight.value = mainRef.value?.offsetHeight || commentHeight.value
+  //   })
+  // })
 }
 
 const handleLikeComment = (comment: any) => {
-  if (!isAccountLoggedIn()) {
-    showToast(t('toast.needToLogin'))
-    return
-  }
-  const params = {
-    id: props.id,
-    cid: comment.commentId,
-    t: comment.liked ? 0 : 1,
-    type: typeMap[props.type]
-  }
-  likeComment(params)
-    .then((res) => {
-      if (res.code === 200) {
-        comment.likedCount += comment.liked ? -1 : 1
-        comment.liked = !comment.liked
-      } else {
-        showToast(`${res.msg}, ${res?.data?.dialog?.subtitle}`)
-      }
-    })
-    .catch((err) => {
-      showToast(err)
-    })
+  // if (!isAccountLoggedIn()) {
+  //   showToast(t('toast.needToLogin'))
+  //   return
+  // }
+  // const params = {
+  //   id: props.id,
+  //   cid: comment.commentId,
+  //   t: comment.liked ? 0 : 1,
+  //   type: typeMap[props.type]
+  // }
+  // likeComment(params)
+  //   .then((res) => {
+  //     if (res.code === 200) {
+  //       comment.likedCount += comment.liked ? -1 : 1
+  //       comment.liked = !comment.liked
+  //     } else {
+  //       showToast(`${res.msg}, ${res?.data?.dialog?.subtitle}`)
+  //     }
+  //   })
+  //   .catch((err) => {
+  //     showToast(err)
+  //   })
 }
 
 const replyFloor = (comment: any) => {
@@ -224,60 +225,60 @@ const replyFloor = (comment: any) => {
 }
 
 const handleDeleteComment = (comment: any) => {
-  if (!isAccountLoggedIn()) {
-    showToast(t('toast.needToLogin'))
-    return
-  }
-  if (confirm(`确定要删除评论'${comment.content}'吗？`)) {
-    const params = {
-      t: 0,
-      type: typeMap[props.type],
-      id: props.id,
-      commentId: comment.commentId
-    }
-    submitComment(params).then((res) => {
-      if (res.code === 200) {
-        floorComments.value = floorComments.value.filter((item) => item !== comment)
-        floorCommentInfo.totalCount -= 1
-      } else {
-        showToast(`${res.message}，${res.data?.dialog?.subtitle}`)
-      }
-    })
-  }
+  // if (!isAccountLoggedIn()) {
+  //   showToast(t('toast.needToLogin'))
+  //   return
+  // }
+  // if (confirm(`确定要删除评论'${comment.content}'吗？`)) {
+  //   const params = {
+  //     t: 0,
+  //     type: typeMap[props.type],
+  //     id: props.id,
+  //     commentId: comment.commentId
+  //   }
+  //   submitComment(params).then((res) => {
+  //     if (res.code === 200) {
+  //       floorComments.value = floorComments.value.filter((item) => item !== comment)
+  //       floorCommentInfo.totalCount -= 1
+  //     } else {
+  //       showToast(`${res.message}，${res.data?.dialog?.subtitle}`)
+  //     }
+  //   })
+  // }
 }
 
 const handleSubmitComment = () => {
-  if (!isAccountLoggedIn()) {
-    showToast(t('toast.needToLogin'))
-    return
-  }
-  const params = {
-    t: 2,
-    type: typeMap[props.type],
-    id: props.id,
-    content: floorCommentRef.value.comment,
-    commentId: selectedComment.value.commentId
-  }
-  submitComment(params)
-    .then((res) => {
-      if (res.code === 200) {
-        const comment = res.comment
-        comment.owner = true
-        comment.beReplied = []
-        floorCommentInfo.totalCount += 1
-        if (selectedComment.value.commentId !== floorCommentInfo.commentId) {
-          comment.beReplied.push({
-            beRepliedCommentId: selectedComment.value.commentId,
-            content: selectedComment.value.content,
-            user: { nickname: selectedComment.value.user.nickname }
-          })
-        }
-        floorComments.value.splice(1, 0, comment)
-      }
-    })
-    .catch((err) => {
-      showToast(err)
-    })
+  // if (!isAccountLoggedIn()) {
+  //   showToast(t('toast.needToLogin'))
+  //   return
+  // }
+  // const params = {
+  //   t: 2,
+  //   type: typeMap[props.type],
+  //   id: props.id,
+  //   content: floorCommentRef.value.comment,
+  //   commentId: selectedComment.value.commentId
+  // }
+  // submitComment(params)
+  //   .then((res) => {
+  //     if (res.code === 200) {
+  //       const comment = res.comment
+  //       comment.owner = true
+  //       comment.beReplied = []
+  //       floorCommentInfo.totalCount += 1
+  //       if (selectedComment.value.commentId !== floorCommentInfo.commentId) {
+  //         comment.beReplied.push({
+  //           beRepliedCommentId: selectedComment.value.commentId,
+  //           content: selectedComment.value.content,
+  //           user: { nickname: selectedComment.value.user.nickname }
+  //         })
+  //       }
+  //       floorComments.value.splice(1, 0, comment)
+  //     }
+  //   })
+  //   .catch((err) => {
+  //     showToast(err)
+  //   })
 }
 
 onMounted(() => {

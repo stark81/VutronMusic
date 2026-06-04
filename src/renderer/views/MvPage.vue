@@ -1,42 +1,52 @@
 <template>
   <div class="mv-page" :style="mainStyle">
-    <div class="left">
+    <div class="left" :class="{ 'with-comment': mv?.hasComment && showComment }">
       <div class="current-video">
         <div class="video">
           <video ref="videoPlayer" class="plyr"></video>
         </div>
         <div class="video-info">
           <div class="title">
-            <router-link :to="`/artist/${mv.data.artistId}`">{{ mv.data.artistName }}</router-link>
-            -
-            {{ mv.data.name }}
+            <template v-if="mv?.artists?.[0]">
+              <router-link
+                :to="`/artist/${mv?.artists?.[0]?.pluginId}/${JSON.stringify(mv?.artists?.[0]?.sourceContext)}`"
+                >{{ mv?.artists?.[0]?.name }}</router-link
+              >
+              -
+            </template>
+            {{ mv?.name || '' }}
           </div>
-          <div class="desc">{{ mv.data.desc }}</div>
+          <div class="desc">{{ mv?.desc }}</div>
           <div class="info">
             <div>
-              <span>发布时间：{{ mv.data.publishTime }}</span>
-              <span style="margin-left: 20px"
-                >播放次数：{{ formatPlayCount(mv.data.playCount) }}</span
-              >
+              <span>{{ formatDate(mv?.publishTime) }}</span>
+              <span style="margin-left: 20px">播放次数：{{ formatPlayCount(mv?.playCount) }}</span>
             </div>
             <div class="btns">
-              <button @click="handleLikeMv(mv)"
-                ><svg-icon :icon-class="mv.data.liked ? 'liked' : 'like'" />{{
-                  mv.data.likedCount
+              <button v-if="mv && mv.likedCount > -1" @click="handleLikeMv(mv!)"
+                ><svg-icon :icon-class="mv?.liked ? 'liked' : 'like'" />{{ mv?.likedCount }}</button
+              >
+              <button @click="handleSubMv(mv!)"
+                ><svg-icon :icon-class="mv?.subed ? 'collected' : 'collect'" />{{
+                  mv?.subCount
                 }}</button
               >
-              <button @click="handleSubMv(mv)"
-                ><svg-icon :icon-class="mv.data.subed ? 'collected' : 'collect'" />{{
-                  mv.data.subCount
-                }}</button
-              >
+              <button v-if="mv?.hasComment" @click="showComment = !showComment"
+                ><svg-icon icon-class="comment"
+              /></button>
             </div>
           </div>
         </div>
       </div>
     </div>
-    <div class="right">
-      <Comment v-if="mv.data.id" :id="mv.data.id" :plugin="'' as PluginId" type="mv" />
+    <div class="right" :class="{ 'with-comment': mv?.hasComment && showComment }">
+      <Comment
+        v-if="mv?.hasComment && showComment"
+        :id="mv?.id"
+        :plugin="mv.pluginId"
+        :source-context="mv.sourceContext"
+        type="mv"
+      />
     </div>
   </div>
 </template>
@@ -44,34 +54,24 @@
 <script setup lang="ts">
 import { ref, onMounted, inject, onBeforeUnmount, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { mvDetail, mvDetailInfo, likeAMV, subAMV, mvUrl, simiMv } from '../api/mv'
 import { tricklingProgress } from '../utils/tricklingProgress'
 import { usePlayerStore } from '../store/player'
 import { storeToRefs } from 'pinia'
-import { formatPlayCount } from '../utils'
+import { formatPlayCount, formatDate } from '../utils'
 import SvgIcon from '../components/SvgIcon.vue'
 import Comment from '../components/CommentPage.vue'
 import '../assets/css/plyr.css'
 import Plyr from 'plyr'
-import { isAccountLoggedIn } from '../utils/auth'
 import { useI18n } from 'vue-i18n'
 import { useNormalStateStore } from '../store/state'
+import { usePluginMusic } from '../store/pluginMusic'
 import { PluginId } from '@/types/schemas'
+import { MvDetail } from '@/types/plugin'
 
-const mv = ref<{ [key: string]: any }>({
-  url: '',
-  data: {
-    name: '',
-    artistId: 0,
-    artistName: '',
-    cover: '',
-    playCount: 0,
-    publishTime: 0
-  }
-})
-const simiMvs = ref<any[]>([])
+const mv = ref<MvDetail>()
 const videoPlayer = ref()
 const player = ref()
+const showComment = ref(false)
 
 const hasCustomTitleBar = inject('hasCustomTitleBar', ref(true))
 
@@ -85,35 +85,55 @@ const playerStore = usePlayerStore()
 const { playing, volume } = storeToRefs(playerStore)
 const { playOrPause } = playerStore
 
+const pluginStore = usePluginMusic()
+const { pluginMethodCall, isAccountLoggedIn } = pluginStore
+
 const route = useRoute()
-const loadData = (id: string) => {
+
+const loadData = (plugin: PluginId, sourceContext: Record<string, any>) => {
   tricklingProgress.start()
-  mvDetail(Number(id)).then((res) => {
-    mv.value = res
-    const requests = res.data.brs.map((item: any) => mvUrl({ id: Number(id), r: item.br }))
-    Promise.all(requests).then((results) => {
-      const sources = results.map((result: any) => {
-        return {
-          src: result.data.url.replace(/^http:/, 'https:'),
-          type: 'video/mp4',
-          size: result.data.r
+
+  pluginMethodCall(plugin, 'mvDetail', sourceContext).then((res) => {
+    if (res.code === 200 && res.data) {
+      mv.value = {
+        ...res.data,
+        pluginId: plugin,
+        artists: res.data.artists.map((artist: any) => ({ ...artist, pluginId: plugin }))
+      }
+      const sources = mv.value.sources.map((item) => ({
+        src: item.url,
+        type: item.type,
+        size: item.quality
+      }))
+
+      const options = sources.map((item) => Number(item.size))
+      const videoOptions = {
+        settings: ['quality', 'speed'],
+        autoplay: false,
+        quality: {
+          default: options[0],
+          options
+        },
+        speed: {
+          selected: 1,
+          options: [0.5, 0.75, 1, 1.25, 1.5, 2]
         }
+      }
+      if (route.query.autoplay === 'true') videoOptions.autoplay = true
+      player.value = new Plyr(videoPlayer.value, videoOptions)
+      player.value.volume = volume.value
+      player.value.on('playing', () => {
+        if (playing.value) playOrPause()
       })
+
       player.value.source = {
         type: 'video',
-        title: mv.value.data.name,
+        title: mv.value.name,
         sources,
-        poster: mv.value.data.cover?.replace(/^http:/, 'https:')
+        poster: mv.value.picUrl.replace(/^http:/, 'https:')
       }
-      tricklingProgress.done()
-    })
-    mvDetailInfo(Number(id)).then((res) => {
-      mv.value.data.likedCount = res.likedCount
-      mv.value.data.liked = res.liked
-    })
-  })
-  simiMv(Number(id)).then((res) => {
-    simiMvs.value = res.mvs
+    }
+    tricklingProgress.done()
   })
 }
 
@@ -121,23 +141,21 @@ const stateStore = useNormalStateStore()
 const { showToast } = stateStore
 const { t } = useI18n()
 
-const handleLikeMv = (mv: any) => {
-  if (!isAccountLoggedIn()) {
+const handleLikeMv = (mv: MvDetail) => {
+  if (!isAccountLoggedIn(mv.pluginId)) {
     showToast(t('toast.needToLogin'))
     return
   }
-  const params = {
-    id: mv.data.id,
-    type: 1,
-    t: mv.data.liked ? 0 : 1
-  }
-  likeAMV(params)
+  pluginMethodCall(mv.pluginId, 'likeAMV', {
+    ...mv.sourceContext,
+    t: mv.subed ? 0 : 1
+  })
     .then((res) => {
       if (res.code === 200) {
-        mv.data.liked = !mv.data.liked
-        mv.data.likedCount += mv.data.liked ? 1 : -1
+        mv.liked = !mv.liked
+        mv.likedCount += mv.likedCount ? 1 : -1
       } else {
-        showToast(res.msg)
+        showToast('操作失败')
       }
     })
     .catch((err) => {
@@ -145,52 +163,53 @@ const handleLikeMv = (mv: any) => {
     })
 }
 
-const handleSubMv = (mv: any) => {
-  if (!isAccountLoggedIn()) {
+const handleSubMv = (mv: MvDetail) => {
+  if (!isAccountLoggedIn(mv.pluginId)) {
     showToast(t('toast.needToLogin'))
     return
   }
-  const params = {
-    mvid: mv.data.id,
-    t: mv.data.subed ? 0 : 1
-  }
-  subAMV(params)
+
+  pluginMethodCall(mv.pluginId, 'subAMV', {
+    ...mv.sourceContext,
+    t: mv.subed ? 0 : 1
+  })
     .then((res) => {
       if (res.code === 200) {
-        mv.data.subed = !mv.data.subed
-        mv.data.subCount += mv.data.subed ? 1 : -1
+        mv.subed = !mv.subed
+        mv.subCount += mv.subed ? 1 : -1
       } else {
-        showToast(res.msg)
+        showToast('操作失败')
       }
     })
     .catch((err) => {
       showToast(err)
     })
+
+  // const params = {
+  //   mvid: mv.data.id,
+  //   t: mv.data.subed ? 0 : 1
+  // }
+  // subAMV(params)
+  //   .then((res) => {
+  //     if (res.code === 200) {
+  //       mv.data.subed = !mv.data.subed
+  //       mv.data.subCount += mv.data.subed ? 1 : -1
+  //     } else {
+  //       showToast(res.msg)
+  //     }
+  //   })
+  //   .catch((err) => {
+  //     showToast(err)
+  //   })
 }
 
 const updatePadding = inject('updatePadding') as (val: number) => void
 
 onMounted(() => {
   updatePadding(0)
-  const videoOptions = {
-    settings: ['quality', 'speed'],
-    autoplay: false,
-    quality: {
-      default: 1080,
-      options: [1080, 720, 480, 240]
-    },
-    speed: {
-      selected: 1,
-      options: [0.5, 0.75, 1, 1.25, 1.5, 2]
-    }
-  }
-  if (route.query.autoplay === 'true') videoOptions.autoplay = true
-  player.value = new Plyr(videoPlayer.value, videoOptions)
-  player.value.volume = volume.value
-  player.value.on('playing', () => {
-    if (playing.value) playOrPause()
-  })
-  loadData(route.params.id as string)
+
+  const { pluginId, sourceContext } = route.params
+  loadData(pluginId as PluginId, JSON.parse(sourceContext as string))
 })
 
 onBeforeUnmount(() => {
@@ -202,13 +221,19 @@ onBeforeUnmount(() => {
 .mv-page {
   width: 100%;
   display: flex;
+  // padding-bottom: 40px;
 }
 
 .left {
-  width: 56%;
+  width: 100%;
   max-height: 100vh;
   overflow-y: auto;
   scrollbar-width: none;
+  transition: width 0.3s;
+
+  &.with-comment {
+    width: 56%;
+  }
 }
 
 .current-video {
@@ -216,7 +241,7 @@ onBeforeUnmount(() => {
 }
 
 .video {
-  --plyr-color-main: #335eea;
+  --plyr-color-main: var(--color-primary);
   --plyr-control-radius: 8px;
   aspect-ratio: 16 / 9;
   border-radius: 12px;
@@ -284,7 +309,12 @@ onBeforeUnmount(() => {
 }
 
 .right {
-  width: 44%;
-  padding: 0 0 10px 4vw;
+  width: 0%;
+  transition: all 0.3s;
+
+  &.with-comment {
+    width: 44%;
+    padding: 0 0 10px 4vw;
+  }
 }
 </style>

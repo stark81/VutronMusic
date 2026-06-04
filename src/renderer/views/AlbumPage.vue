@@ -155,6 +155,7 @@
         v-if="showComment && album"
         :id="album.id"
         :plugin="album.pluginId"
+        :source-context="album.sourceContext"
         type="album"
         :style="{ width: '100%', padding: '40px 4vh 10px 4vh' }"
       />

@@ -12,6 +12,8 @@ import {
   PlaylistDetailSchema,
   TrackSchema,
   MvSchema,
+  MvDetailSchema,
+  CommentSchema,
   UserSchema,
   WordSchema,
   PluginResultSchema,
@@ -30,6 +32,7 @@ export type Album = z.infer<typeof AlbumSchema>
 export type AlbumDetail = z.infer<typeof AlbumDetailSchema>
 export type Track = z.infer<typeof TrackSchema>
 export type Mv = z.infer<typeof MvSchema>
+export type MvDetail = z.infer<typeof MvDetailSchema>
 export type User = z.infer<typeof UserSchema>
 export type Playlist = z.infer<typeof PlaylistSchema>
 export type PlaylistDetail = z.infer<typeof PlaylistDetailSchema>
@@ -39,9 +42,9 @@ export type Banner = z.infer<typeof BannerSchema>
 export type LoginQrKeyResult = z.infer<typeof LoginQrKeySchema>
 export type LoginQrCodeCheckResult = z.infer<typeof LoginQrCodeCheckResultSchema>
 export type PlaylistCatlist = z.infer<typeof PlaylistCatlistSchema>
-// export type PluginId = string & { __brand: 'PluginId' }
+export type CommentType = z.infer<typeof CommentSchema>
 export type { PluginId }
-export type sortType = 'name' | 'createTime' | 'playCount' | 'id'
+export type sortType = 'name' | 'createTime' | 'playCount'
 export type orderType = 'ASC' | 'DESC'
 export type ArtistType = 'artist' | 'albumArtist'
 export type CatType = z.infer<typeof CategorySchema>
@@ -63,8 +66,10 @@ export interface Lyrics {
 }
 
 export const exploreTabList = ['playlist', 'artist', 'chart', 'newTrack', 'newAlbum'] as const
+export const searchTabList = ['tracks', 'albums', 'artists', 'playlists', 'mvs', 'lyrics'] as const
 
 export type ExploreTab = (typeof exploreTabList)[number]
+export type SearchTab = (typeof searchTabList)[number]
 
 export type PluginAPI = {
   [K in keyof typeof PluginResultSchema]: {
@@ -78,7 +83,7 @@ export const defaultMap: {
 } = {
   updateBaseUrl: { code: 404 },
   getAccount: { code: 404, baseUrl: '', userName: '', pwd: '' },
-  search: { code: 404, data: [] },
+  search: { code: 404, data: [], count: 0, sourceContext: {} },
   getSongUrl: { code: 404, data: '' },
   getLyric: { code: 404, data: [] },
   getBanner: { code: 404, data: [] },
@@ -115,7 +120,7 @@ export const defaultMap: {
   artistMVs: { code: 404, data: [], sourceContext: {} },
   // artistTracks: { code: 404, data: [], sourceContext: {} },
   simiArtists: { code: 404, data: [], sourceContext: {} },
-  getTrackDetail: { code: 404, data: null },
+  getTrackDetail: { code: 404, data: [] },
   likeATrack: { code: 404 },
   addOrRemoveTracksToPlaylist: { code: 404 },
   createPlaylist: { code: 404 },
@@ -127,7 +132,15 @@ export const defaultMap: {
   getAlbumCatlist: { code: 404, data: [] },
   newAlbums: { code: 404, data: [], sourceContext: {} },
   getArtistCatlist: { code: 404, data: [] },
-  doLogin: { code: 404, message: '' }
+  doLogin: { code: 404, message: '' },
+  getAllTracks: { code: 404, data: [], count: 0, sourceContext: {} },
+  scrobble: { code: 404 },
+  mvDetail: { code: 404, data: null },
+  subAMV: { code: 404 },
+  likeAMV: { code: 404 },
+  getComments: { code: 404, data: [], count: 0, sourceContext: {} },
+  likeAComment: { code: 404 },
+  submitAComment: { code: 404, data: null }
 }
 
 export type PluginMethodCall = <K extends keyof PluginAPI>(

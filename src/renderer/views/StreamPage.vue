@@ -10,7 +10,7 @@
           <div class="content-info">
             <div>
               <div class="subtitle">全部歌曲</div>
-              <div class="text">{{ [].length }}首</div>
+              <div class="text">{{ defaultTracks.length }}首</div>
             </div>
             <div>
               <div class="subtitle">歌曲总时长</div>
@@ -38,7 +38,8 @@
             v-show="line !== ''"
             :key="`${line}${index}`"
             class="lyric-p"
-            >{{ line }}</div
+          >
+            {{ line }}</div
           >
         </div>
       </div>
@@ -102,10 +103,10 @@
         <div v-show="idx === 0">
           <TrackList
             ref="streamListRef"
-            :items="filterLikedTracks"
-            :type="'Playlist'"
+            :items="filterTracks"
+            :type="'Track'"
             :plugin="tool.groundBy === 'all' ? services?.[0]?.code : tool.groundBy"
-            :is-group-by="tool.groundBy === 'all'"
+            :is-group-by="tool.groundBy === 'all' && loginService.length !== 1"
             :source-context="{}"
             :show-service="true"
             :colunm-number="1"
@@ -122,22 +123,36 @@
           />
         </div>
         <div v-show="idx === 2">
-          <!-- <AlbumList :tracks="[]" :plugin="''" /> -->
+          <CoverRow
+            :items="filterAlbums"
+            type="Album"
+            sub-text="artist"
+            :colunm-number="5"
+            :is-end="true"
+          />
         </div>
         <div v-show="idx === 3">
-          <!-- <ArtistList :tracks="[]" :type="tool.artistBy" /> -->
+          <CoverRow
+            :items="filterArtists"
+            type="Artist"
+            sub-text="artist"
+            :colunm-number="5"
+            :is-end="true"
+          />
         </div>
       </div>
     </div>
 
-    <!-- <ContextMenu ref="streamTabMenu">
-      <div class="item" :class="{ active: groundBy === 'all' }" @click="groundBy = 'all'">聚合</div>
+    <ContextMenu ref="streamTabMenu">
+      <div class="item" :class="{ active: tool.groundBy === 'all' }" @click="tool.groundBy = 'all'"
+        >聚合</div
+      >
       <div
-        v-for="service in loginedServices"
-        :key="service.name"
+        v-for="service in loginService"
+        :key="service.code"
         class="item"
-        :class="{ active: groundBy === service.name }"
-        @click="groundBy = service.name"
+        :class="{ active: tool.groundBy === service.code }"
+        @click="tool.groundBy = service.code"
       >
         {{ service.name }}
       </div>
@@ -146,15 +161,24 @@
         v-for="sortOption in sortOptions"
         :key="sortOption.value"
         class="item"
-        :class="{ active: sortOption.value === sortBy }"
-        @click="sortBy = sortOption.value"
+        :class="{ active: sortOption.value === tool.sortBy }"
+        @click="tool.sortBy = sortOption.value"
         >{{ sortOption.name }}</div
+      >
+      <hr v-show="!isBatchOp" />
+      <div
+        v-for="option in orderOptions"
+        :key="option.value"
+        class="item"
+        :class="{ active: option.value === tool.orderBy }"
+        @click="tool.orderBy = option.value"
+        >{{ option.name }}</div
       >
       <hr v-show="!isBatchOp" />
       <div v-show="!isBatchOp" class="item" @click="isBatchOp = true">{{
         $t('contextMenu.batchOperation')
       }}</div>
-    </ContextMenu> -->
+    </ContextMenu>
 
     <!-- <ContextMenu ref="artistTabMenu">
       <div class="item" @click="artistBy = 0">{{ $t('localMusic.artists') }}</div>
@@ -164,7 +188,17 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, computed, watch, inject, ref, provide, shallowRef } from 'vue'
+import {
+  onMounted,
+  onBeforeUnmount,
+  computed,
+  watch,
+  inject,
+  ref,
+  provide,
+  shallowRef,
+  reactive
+} from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePluginMusic } from '../store/pluginMusic'
 import { useNormalStateStore } from '../store/state'
@@ -173,14 +207,12 @@ import InfoBG from '../components/InfoBG.vue'
 import SvgIcon from '../components/SvgIcon.vue'
 import SearchBox from '../components/SearchBox.vue'
 import TrackList from '../components/VirtualTrackList.vue'
-import AlbumList from '../components/AlbumList.vue'
-import ArtistList from '../components/ArtistList.vue'
 import CoverRow from '../components/VirtualCoverRow.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import { useI18n } from 'vue-i18n'
 import { randomNum, pickedLyric } from '../utils'
 import { lyricLine } from '@/types/music.d'
-import { Track, LoginType } from '@/types/plugin'
+import { Track, LoginType, sortType, orderType } from '@/types/plugin'
 // import _ from 'lodash'
 import { PluginId } from '@/types/schemas'
 
@@ -189,26 +221,18 @@ const { newPlaylistModal, modalOpen } = storeToRefs(stateStore)
 const { showToast } = stateStore
 
 const pluginStore = usePluginMusic()
+const { playlists, tools, likedTracks, services, albums, artists } = storeToRefs(pluginStore)
 const {
-  // sortBy,
-  // streamTracks,
-  playlists,
-  // message,
-  // streamLikedTracks,
-  // loginedServices,
-  tools,
-  likedTracks,
-  // artistBy,
-  services
-} = storeToRefs(pluginStore)
-const { fetchLikedPlaylists, fetchLikedSongsWithDetails, fetchLyric } = pluginStore
+  fetchLikedPlaylists,
+  fetchLikedSongsWithDetails,
+  fetchLyric,
+  pluginMethodCall,
+  fetchLikedArtists
+} = pluginStore
 
 const streamService = computed(() => services.value.filter((item) => item.type === 'stream'))
-
 const loginService = computed(() => streamService.value.filter((item) => item.status === 'login'))
-
 const tool = computed(() => tools.value.stream)
-
 const router = useRouter()
 
 const hasCustomTitleBar = inject('hasCustomTitleBar', ref(true))
@@ -223,15 +247,22 @@ const lyric = ref<{ content: string }[]>([])
 const randomtrack = ref<Track>()
 const idx = ref(0)
 
+const tracks = reactive<
+  Record<PluginId, { data: Track[]; count: number; sourceContext: Record<string, any> }>
+>({})
+
 const tabs = ['track', 'playlist', 'album', ['artist', 'albumArtist']] as const
 
 const { t } = useI18n()
-// const sortOptions = [
-//   { name: t('contextMenu.defaultSort'), value: 'default' },
-//   { name: t('contextMenu.sortByName'), value: 'byname' },
-//   { name: t('contextMenu.ascendSort'), value: 'ascend' },
-//   { name: t('contextMenu.descendSort'), value: 'descend' }
-// ]
+const sortOptions: { name: string; value: sortType }[] = [
+  { name: t('contextMenu.name'), value: 'name' },
+  { name: t('contextMenu.createTime'), value: 'createTime' },
+  { name: t('contextMenu.playCount'), value: 'playCount' }
+]
+const orderOptions: { name: string; value: orderType }[] = [
+  { name: t('contextMenu.ascOrder'), value: 'ASC' },
+  { name: t('contextMenu.descOrder'), value: 'DESC' }
+]
 
 const tabStyle = computed(() => {
   const marginTop = hasCustomTitleBar.value ? 20 : 0
@@ -249,6 +280,17 @@ const filterLikedTracks = computed(() => {
           .flat()
       : likedTracks.value[tool.value.groundBy].data
   return tracks
+})
+
+const defaultTracks = computed(() => {
+  const _tracks =
+    tool.value.groundBy === 'all'
+      ? Object.entries(tracks)
+          .filter(([plugin]) => sers.value.includes(plugin as PluginId))
+          .map(([, item]) => item.data)
+          .flat()
+      : tracks[tool.value.groundBy]?.data || []
+  return _tracks
 })
 
 const filterPlaylists = computed(() => {
@@ -271,28 +313,26 @@ const filterPlaylists = computed(() => {
   // }
 })
 
-// const defaultGroupBy = computed(() => {
-//   if (loginedServices.value.length === 1) {
-//     return loginedServices.value[0].name
-//   }
-//   return groundBy.value
-// })
+const filterAlbums = computed(() => {
+  const streamServices = services.value.filter((item) => item.type === 'stream')
+  const streamTool = pluginStore.tools.stream
+
+  const al = streamServices.map((item) => (albums.value[item.code]?.data ?? []).flat()).flat()
+  const plists = streamTool.groundBy === 'all' ? al : albums.value[streamTool.groundBy].data
+  return plists
+})
+
+const filterArtists = computed(() => {
+  const streamServices = services.value.filter((item) => item.type === 'stream')
+  const streamTool = pluginStore.tools.stream
+
+  const ar = streamServices.map((item) => (artists.value[item.code]?.data ?? []).flat()).flat()
+  const plists = streamTool.groundBy === 'all' ? ar : artists.value[streamTool.groundBy].data
+  return plists
+})
 
 // const streamMessage = computed(() => {
 //   return loginedServices.value.length === 0 ? message.value : '当前服务离线，请稍后再试'
-// })
-
-// const defaultPlaylists = computed(() => {
-//   if (groundBy.value === 'all') {
-//     return _.cloneDeep(_.flatten(Object.values(playlists.value)))
-//   }
-//   return playlists.value[groundBy.value]
-// })
-
-// const likedTracks = computed(() => {
-//   return groundBy.value === 'all'
-//     ? _.flatten(Object.values(streamLikedTracks.value))
-//     : streamLikedTracks.value[groundBy.value]
 // })
 
 const pickedLyricLines = computed(() => {
@@ -300,47 +340,57 @@ const pickedLyricLines = computed(() => {
   return randomLines
 })
 
-// const keyword = computed(() => streamSearchBoxRef.value?.keywords || '')
+const keyword = computed(() => streamSearchBoxRef.value?.keywords || '')
 
-// const defaultTracks = computed(() => {
-//   if (groundBy.value === 'all') {
-//     return _.cloneDeep(
-//       _.flatten(Object.values(streamTracks.value)).map((track, index) => ({ ...track, index }))
-//     )
-//   }
-//   return streamTracks.value[groundBy.value].map((track, index) => ({ ...track, index }))
-// })
+const filterTracks = computed(() => {
+  return sortedLocalTracks.value.filter(
+    (track) =>
+      (track.name && track.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
+      (track.album?.name &&
+        track.album.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
+      track.artists.find(
+        (ar) => ar.name && ar.name.toLowerCase().includes(keyword.value?.toLowerCase())
+      )
+    // ||
+    // track.albumArtist.find(
+    //   (ar) => ar.name && ar.name.toLowerCase().includes(keyword.value?.toLowerCase())
+    // )
+  )
+})
 
-// const filterStreamTracks = computed(() => {
-//   return defaultTracks.value.filter(
-//     (track) =>
-//       (track.name && track.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
-//       (track.album?.name &&
-//         track.album.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
-//       track.artists.find(
-//         (ar) => ar.name && ar.name.toLowerCase().includes(keyword.value?.toLowerCase())
-//       ) ||
-//       track.albumArtist.find(
-//         (ar) => ar.name && ar.name.toLowerCase().includes(keyword.value?.toLowerCase())
-//       )
-//   )
-// })
+const sortedLocalTracks = computed(() => {
+  return defaultTracks.value.slice().sort((a, b) => {
+    const first = a[tool.value.sortBy]
+    const second = b[tool.value.sortBy]
 
-// const sortedLocalTracks = computed(() => {
-//   return filterStreamTracks.value.slice().sort((a, b) => {
-//     if (sortBy.value === 'default') {
-//       return a.index - b.index
-//     } else if (sortBy.value === 'ascend') {
-//       const timeA = new Date(a.createTime).getTime()
-//       const timeB = new Date(b.createTime).getTime()
-//       return timeA - timeB
-//     } else if (sortBy.value === 'descend') {
-//       const timeA = new Date(a.createTime).getTime()
-//       const timeB = new Date(b.createTime).getTime()
-//       return timeB - timeA
-//     } else return a.name.localeCompare(b.name, 'zh-CN', { numeric: true })
-//   })
-// })
+    if (tool.value.orderBy === 'ASC') {
+      if (typeof first === 'number' && typeof second === 'number') {
+        return first - second
+      }
+      return String(first).localeCompare(String(second), 'zh-CN', { numeric: true })
+    } else {
+      if (typeof first === 'number' && typeof second === 'number') {
+        return second - first
+      }
+      return String(second).localeCompare(String(first), 'zh-CN', { numeric: true })
+    }
+  })
+})
+
+watch(keyword, (value) => {
+  const count =
+    tool.value.groundBy === 'all'
+      ? Object.entries(tracks)
+          .filter(([plugin]) => sers.value.includes(plugin as PluginId))
+          .map(([, item]) => item.count)
+          .flat()
+          .reduce((acc, cur) => acc + cur, 0)
+      : tracks[tool.value.groundBy].count
+  if (count === defaultTracks.value.length) return
+
+  // 当两者数量不一致时，说明尚未歌曲并没有完全加载，需要对流媒体歌曲进行搜索
+  console.log('=2=2=22', value, count, defaultTracks.value.length)
+})
 
 // const formatedTime = computed(() => {
 //   const dt =
@@ -372,7 +422,7 @@ const selectAll = () => {
 }
 
 const addToPlaylist = () => {
-  streamListRef.value?.addToSteamPlaylist()
+  streamListRef.value?.addTrackToPlaylist()
 }
 
 const addTracksToQueue = () => {
@@ -440,56 +490,82 @@ const getRandomTrack = async () => {
   }
 }
 
-// watch(modalOpen, (value) => {
-//   if (!value) {
-//     isBatchOp.value = false
-//   }
-// })
+watch(modalOpen, (value) => {
+  if (!value) {
+    isBatchOp.value = false
+  }
+})
 
 provide('isBatchOp', isBatchOp)
 
-// const navBarRef = inject('navBarRef', ref())
-// const observeTab = new IntersectionObserver(
-//   (entries) => {
-//     entries.forEach((entry) => {
-//       const intersectionRatio = entry.intersectionRatio
-//       const maxPadding = 42
-//       const maxPaddingRight = 42
-//       if (intersectionRatio > 0) {
-//         if (window.env?.isMac) {
-//           const paddingLeft = maxPadding * (1 - intersectionRatio)
-//           tabsRowRef.value.style.paddingLeft = `${paddingLeft}px`
-//         }
-//         const paddingRight = maxPaddingRight * (1 - intersectionRatio)
-//         tabsRowRef.value.style.width = `calc(100% - ${paddingRight}px)`
-//         if (navBarRef.value) navBarRef.value.searchBoxRef.$el.style.display = ''
-//       } else {
-//         if (window.env?.isMac) {
-//           tabsRowRef.value.style.paddingLeft = `${maxPadding}px`
-//         }
-//         tabsRowRef.value.style.width = `calc(100% - ${maxPaddingRight}px)`
-//         if (navBarRef.value) navBarRef.value.searchBoxRef.$el.style.display = 'none'
-//       }
-//     })
-//   },
-//   {
-//     root: null,
-//     rootMargin: `-${hasCustomTitleBar.value ? 84 : 64}px 0px 0px 0px`,
-//     threshold: Array.from({ length: 101 }, (v, i) => i / 100)
-//   }
-// )
+const navBarRef = inject('navBarRef', ref())
+const observeTab = new IntersectionObserver(
+  (entries) => {
+    entries.forEach((entry) => {
+      const intersectionRatio = entry.intersectionRatio
+      const maxPadding = 42
+      const maxPaddingRight = 42
+      if (intersectionRatio > 0) {
+        if (window.env?.isMac) {
+          const paddingLeft = maxPadding * (1 - intersectionRatio)
+          tabsRowRef.value.style.paddingLeft = `${paddingLeft}px`
+        }
+        const paddingRight = maxPaddingRight * (1 - intersectionRatio)
+        tabsRowRef.value.style.width = `calc(100% - ${paddingRight}px)`
+        if (navBarRef.value) navBarRef.value.searchBoxRef.$el.style.display = ''
+      } else {
+        if (window.env?.isMac) {
+          tabsRowRef.value.style.paddingLeft = `${maxPadding}px`
+        }
+        tabsRowRef.value.style.width = `calc(100% - ${maxPaddingRight}px)`
+        if (navBarRef.value) navBarRef.value.searchBoxRef.$el.style.display = 'none'
+      }
+    })
+  },
+  {
+    root: null,
+    rootMargin: `-${hasCustomTitleBar.value ? 84 : 64}px 0px 0px 0px`,
+    threshold: Array.from({ length: 101 }, (v, i) => i / 100)
+  }
+)
 
-// const handleResize = () => {
-//   observeTab.unobserve(tabsRowRef.value)
-//   observeTab.disconnect()
-//   if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
-// }
+const handleResize = () => {
+  observeTab.unobserve(tabsRowRef.value)
+  observeTab.disconnect()
+  if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
+}
+
+const getAllTracks = (sers: PluginId[]) => {
+  sers.forEach((service) => {
+    if (!tracks[service]) {
+      tracks[service] = { data: [], count: 0, sourceContext: {} }
+    }
+
+    const sourceContext = tracks[service]?.sourceContext || {}
+    pluginMethodCall(service, 'getAllTracks', {
+      ...sourceContext,
+      sort: tool.value.sortBy,
+      order: tool.value.orderBy
+    }).then((result) => {
+      tracks[service].data = result.data.map((item) => ({
+        ...item,
+        album: { ...item.album, pluginId: service },
+        artists: item.artists.map((it) => ({ ...it, pluginId: service })),
+        pluginId: service
+      }))
+      tracks[service].count = result.count
+      tracks[service].sourceContext = result.sourceContext
+    })
+  })
+}
 
 const loadData = async () => {
   const sers = loginService.value.map((item) => item.code)
   await fetchLikedPlaylists(sers)
   await fetchLikedSongsWithDetails(sers)
+  fetchLikedArtists(sers)
   getRandomTrack()
+  getAllTracks(sers)
   show.value = true
 }
 
@@ -508,35 +584,17 @@ watch(
 
 onMounted(async () => {
   loadData()
-  // checkStreamStatus()
-  // if (loginedServices.value.length === 0) {
-  //   router.push(`/streamLogin/${groundBy.value === 'all' ? 'navidrome' : groundBy.value}`)
-  //   return
-  // }
-  // if (!defaultTracks.value.length) {
-  //   fetchStreamPlaylist()
-  //   await fetchStreamMusic().then(() => {
-  //     show.value = true
-  //     getRandomTrack()
-  //   })
-  // } else {
-  //   show.value = true
-  //   fetchStreamMusic().then(() => {
-  //     getRandomTrack()
-  //   })
-  //   fetchStreamPlaylist()
-  // }
-  // window.addEventListener('resize', handleResize)
-  // setTimeout(() => {
-  //   if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
-  // }, 100)
+  window.addEventListener('resize', handleResize)
+  setTimeout(() => {
+    if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
+  }, 100)
 })
 
 onBeforeUnmount(() => {
-  // window.removeEventListener('resize', handleResize)
-  // navBarRef.value.searchBoxRef.$el.style.display = ''
-  // observeTab.unobserve(tabsRowRef.value)
-  // observeTab.disconnect()
+  window.removeEventListener('resize', handleResize)
+  navBarRef.value.searchBoxRef.$el.style.display = ''
+  observeTab.unobserve(tabsRowRef.value)
+  observeTab.disconnect()
 })
 </script>
 
@@ -549,11 +607,13 @@ onBeforeUnmount(() => {
   height: 240px;
   transition: all 0.4s;
   position: relative;
+
   .left {
     position: absolute;
     height: 100%;
     border-radius: 12px;
     overflow: hidden;
+
     .content {
       display: flex;
       flex-direction: column;
@@ -577,20 +637,24 @@ onBeforeUnmount(() => {
         grid-gap: 20px 40px;
         align-items: center;
       }
+
       .subtitle {
         font-size: 14px;
       }
+
       .text {
         font-size: 18px;
       }
     }
   }
+
   .title {
     font-size: 22px;
     font-weight: 700;
     margin-bottom: 20px;
     color: var(--color-primary);
   }
+
   .right-top {
     position: absolute;
     height: 190px;
@@ -612,6 +676,7 @@ onBeforeUnmount(() => {
       text-overflow: ellipsis;
     }
   }
+
   .right-bottom {
     position: absolute;
     white-space: nowrap;
@@ -657,6 +722,7 @@ onBeforeUnmount(() => {
       flex-wrap: wrap;
       font-size: 18px;
       -webkit-app-region: no-drag;
+
       .tab {
         font-weight: 600;
         padding: 8px 14px;
@@ -666,28 +732,34 @@ onBeforeUnmount(() => {
         user-select: none;
         transition: 0.2s;
         opacity: 0.68;
+
         &:hover {
           opacity: 0.88;
           background-color: var(--color-secondary-bg);
         }
       }
+
       .tab.active {
         opacity: 0.88;
         background-color: var(--color-secondary-bg);
       }
+
       .tab.dropdown {
         display: flex;
         align-items: center;
         padding: 0;
         overflow: hidden;
+
         .text {
           padding: 8px 3px 8px 14px;
         }
+
         .icon {
           height: 100%;
           display: flex;
           align-items: center;
           padding: 0 8px 0 3px;
+
           .svg-icon {
             height: 16px;
             width: 16px;
@@ -709,15 +781,18 @@ button.tab-button {
   opacity: 0.68;
   font-weight: 500;
   font-size: 14px;
+
   .svg-icon {
     width: 14px;
     height: 14px;
     margin-right: 8px;
   }
+
   &:hover {
     opacity: 1;
     background: var(--color-secondary-bg);
   }
+
   &:active {
     opacity: 1;
     transform: scale(0.92);

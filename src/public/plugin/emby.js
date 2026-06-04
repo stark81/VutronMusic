@@ -24,7 +24,6 @@
  * @typedef {Object} PluginHttp
  * @property {(url: string, params?: object) => Promise<any>} get
  * @property {(url: string, data?: object) => Promise<any>} post
- * @property {(url: string, data?: object) => Promise<any>} delete
  */
 
 /**
@@ -111,9 +110,9 @@ const formatPlaylist = (item) => ({
 const formatPlaylistDetail = (playlist) => ({
   id: playlist.Id || -1,
   name: playlist.Name || '我喜欢的音乐',
-  subscribed: false,
+  subscribed: playlist.UserData?.IsFavorite || false,
   picUrl: playlist.ImageTags?.Primary
-    ? getPic(playlist.Id, playlist.ImageTags.Primary, 512)
+    ? getPic(playlist.Id, playlist.ImageTags?.Primary, 512)
     : 'vutron://get-default-pic',
   trackCount: playlist.ChildCount,
   updateTime: new Date(playlist.DateCreated || 0).getTime(),
@@ -168,8 +167,8 @@ const formatMilliseconds = (num) => {
   return `[${formattedMinutes}:${formattedSeconds}.${formattedMilliseconds}]`
 }
 
-const formatTrack = (item) => {
-  const lrcItem = item.MediaSources[0].MediaStreams.find((it) => it.Codec === 'lrc')
+const formatTrack = (item, size = 512, showPlayCount = true) => {
+  const lrcItem = item.MediaSources?.[0]?.MediaStreams?.find((it) => it.Codec === 'lrc')
 
   return {
     id: item.Id,
@@ -181,7 +180,7 @@ const formatTrack = (item) => {
     createTime: new Date(item.DateCreated).getTime(),
     no: item.IndexNumber || 1,
     mvid: 0,
-    playCount: item.UserData?.PlayCount ?? -1,
+    playCount: showPlayCount ? (item.UserData?.PlayCount ?? -1) : -1,
     album: {
       id: item.AlbumId ?? '',
       name: item.Album ?? '',
@@ -196,7 +195,9 @@ const formatTrack = (item) => {
       pluginId: '',
       sourceContext: { id: it.Id }
     })),
-    picUrl: getPic(item.Id, item.ImageTags?.Primary, 64),
+    picUrl: item.ImageTags?.Primary
+      ? getPic(item.Id, item.ImageTags.Primary, size)
+      : 'vutron://get-default-pic',
     pluginId: '',
     type: meta.type,
     sourceContext: {
@@ -207,6 +208,56 @@ const formatTrack = (item) => {
     }
   }
 }
+
+const formatAlbumDetail = (item) => {
+  return {
+    id: item.Id,
+    name: item.Name,
+    picUrl: item.PrimaryImageTag
+      ? getPic(item.PrimaryImageItemId || item.Id, item.PrimaryImageTag, 512)
+      : 'vutron://get-default-pic',
+    type: 'Album',
+    isExplicit: false,
+    subscribed: item.UserData?.IsFavorite || false,
+    publishTime: new Date(item.DateCreated).getTime(),
+    size: item.ChildCount || 0,
+    company: '',
+    description: item.description || '',
+    songs: item.tracks,
+    artists:
+      item.ArtistItems?.map((it) => ({
+        id: it.Id,
+        name: it.Name || '',
+        picUrl: it.img1v1Url || '',
+        pluginId: '',
+        sourceContext: { id: it.Id }
+      })) ?? [],
+
+    pluginId: '',
+    sourceContext: { id: item.Id }
+  }
+}
+
+const formatAlbum = (item) => ({
+  id: item.Id,
+  name: item.Name,
+  picUrl: item.PrimaryImageTag
+    ? getPic(item.PrimaryImageItemId || item.Id, item.PrimaryImageTag, 512)
+    : 'vutron://get-default-pic',
+  artists:
+    item.ArtistItems?.map((it) => ({
+      id: it.Id,
+      name: it.Name,
+      picUrl: '',
+      pluginId: '',
+      sourceContext: { id: it.Id }
+    })) || [],
+  createTime: new Date(item.DateCreated).getTime(),
+  copywriter: `专辑 · ${new Date(item.DateCreated).getFullYear()}`,
+  type: '专辑',
+  pluginId: '',
+  sourceContext: { id: item.Id }
+})
 
 const getLikedTracks = () => {
   return formatPlaylist({})
@@ -222,8 +273,33 @@ const getPlaylist = async () => {
   return playlists
 }
 
-const getAlbumlist = () => {
-  return []
+const getAlbumlist = async (_params) => {
+  const params = {
+    IncludeItemTypes: 'MusicAlbum',
+    Fields: 'ChildCount, DateCreated, ProductionYear',
+    Recursive: true,
+    Limit: 1000
+  }
+  const result = await get(`Users/${user.userId}/Items`, { ...params, ..._params })
+
+  return result.Items.map(formatAlbum)
+}
+
+const getArtists = async (_params) => {
+  const params = {
+    Recursive: true,
+    Limit: 1000
+  }
+  const result = await get('Artists', { ...params, ..._params })
+  return result.Items.map((item) => ({
+    id: item.Id,
+    name: item.Name,
+    picUrl: item.ImageTags?.Primary
+      ? getPic(item.Id, item.ImageTags?.Primary, 512)
+      : 'vutron://get-singer-pic',
+    pluginId: '',
+    sourceContext: { id: item.Id }
+  }))
 }
 
 const getUserLikedTracks = async () => {
@@ -231,14 +307,14 @@ const getUserLikedTracks = async () => {
     IsFavorite: true
   }
   const result = await getTracks(params)
-  const data = result.Items.map((item) => formatTrack(item))
+  const data = result.Items.map((item) => formatTrack(item, 64))
   return { tracks: data, counts: result.TotalRecordCount }
 }
 
 const getTracks = async (_params) => {
   const params = {
     IncludeItemTypes: 'Audio',
-    Fields: 'DateCreated, Size, Bitrate, IsFavorite, MediaSources',
+    Fields: 'DateCreated, Size, Bitrate, IsFavorite, MediaSources, UserDataPlayCount',
     Recursive: true
   }
 
@@ -302,18 +378,6 @@ const post = async (url, data, header = null) => {
     'X-Emby-Client-Version': '1.0.0'
   }
   const response = await apis.http.post(`${baseUrl}/${url}`, data, header ?? headers)
-  return response
-}
-
-const _delete = async (url, data, header = null) => {
-  const headers = {
-    'X-Emby-Token': user.token,
-    'X-Emby-Client': 'VutronMusic',
-    'X-Emby-Device-Name': 'Desktop',
-    'X-Emby-Device-Id': 'vutron-music',
-    'X-Emby-Client-Version': '1.0.0'
-  }
-  const response = await apis.http.delete(`${baseUrl}/${url}`, data, header ?? headers)
   return response
 }
 
@@ -382,7 +446,7 @@ exports.loginQrKey = async () => {}
 exports.userPlaylist = async () => {
   const [playlists, albums, liked] = await Promise.all([
     getPlaylist(),
-    getAlbumlist(),
+    getAlbumlist({ isFavorite: true }),
     getLikedTracks()
   ])
 
@@ -394,8 +458,9 @@ exports.userPlaylist = async () => {
  */
 exports.getPlaylistDetail = getPlaylistDetail
 
-exports.userLikedArtists = () => {
-  return { code: 404, data: [], sourceContext: {} }
+exports.userLikedArtists = async () => {
+  const data = await getArtists({ isFavorite: true })
+  return { code: 200, data, sourceContext: {} }
 }
 
 exports.userLikedMVs = () => {
@@ -407,11 +472,16 @@ exports.cloudDisk = () => {
 }
 
 exports.getTrackDetail = async (params) => {
-  const result = await get(`Users/${user.userId}/Items/${params.id}`, {
+  const ids = params.tracks.map((item) => item.id).join(',')
+  const size = params.tracks.length === 1 ? 512 : 256
+  const result = await get(`Users/${user.userId}/Items`, {
+    Ids: ids,
     Fields: 'DateCreated, Size, Bitrate, IsFavorite, MediaSources'
   })
-  result.PlaylistItemId = params.PlaylistItemId || ''
-  const data = formatTrack(result)
+  const data = result.Items.map((item, idx) => {
+    item.PlaylistItemId = params.tracks[idx].PlaylistItemId || ''
+    return formatTrack(item, size)
+  })
   return { code: 200, data }
 }
 
@@ -468,17 +538,16 @@ exports.addOrRemoveTracksToPlaylist = async (params) => {
 }
 
 exports.likeATrack = async (params) => {
-  const { op, tracks } = params
-
-  if (op === 'add') {
-    const result = await post(`Users/${user.userId}/FavoriteItems/${tracks[0].id}`)
-    return { code: result?.IsFavorite ? 200 : 404 }
-  } else if (op === 'del') {
-    const result = await _delete(`Users/${user.userId}/FavoriteItems/${tracks[0].id}`)
-    return { code: !result?.IsFavorite ? 200 : 404 }
+  try {
+    const { op, tracks } = params
+    const endPoint =
+      `Users/${user.userId}/FavoriteItems/${tracks[0].id}` + (op === 'add' ? '' : '/Delete')
+    await post(endPoint)
+    return { code: 200 }
+  } catch (error) {
+    console.log('[subscribeAlbum]: ', error)
+    return { code: 404 }
   }
-
-  return { code: 404 }
 }
 
 exports.createPlaylist = async (params) => {
@@ -511,11 +580,127 @@ exports.deletePlaylist = async (params) => {
 exports.getPlaylistTracks = async (params) => {
   if (params.hasMore === false) return { code: 200, data: [], sourceContext: params }
   const result = await getTracks({ ParentId: params.id })
-  const data = result.Items.map((item) => formatTrack(item))
+  const data = result.Items.map((item) => formatTrack(item, 64))
   return { code: 200, data, sourceContext: { id: params.id, hasMore: false } }
 }
 
-exports.getAllTracks = async (params) => {
-  console.log('[getAllTracks]: ', params)
-  return { code: 404, data: [] }
+exports.getAllTracks = async (_params) => {
+  const { page = 0, sort, order } = _params
+  const map = {
+    name: 'SortName',
+    createTime: 'DateCreated',
+    playCount: 'PlayCount'
+  }
+
+  const SortBy = sort === 'id' ? '' : map[sort]
+  const SortOrder = order === 'ASC' ? 'Ascending' : 'Descending'
+  const params = { SortBy, SortOrder, Limit: 1000, StartIndex: 1000 * page }
+
+  const result = await getTracks(params)
+  const data = result.Items.map((item) => formatTrack(item, 64))
+
+  return {
+    code: 200,
+    data,
+    count: result.TotalRecordCount || data.length,
+    sourceContext: { page: page + 1 }
+  }
+}
+
+exports.albumDetail = async (params) => {
+  const { id } = params
+  const result = await get(`Users/${user.userId}/Items/${id}`)
+  const res = await getTracks({ ParentId: id })
+  const tracks = res.Items.map((item) => formatTrack(item, 64))
+  result.tracks = tracks
+
+  const data = formatAlbumDetail(result)
+  return { code: 200, data, sourceContext: { id } }
+}
+
+exports.artistAlbums = async (params) => {
+  const data = await getAlbumlist({ artistIds: params.id })
+  return { code: 200, data, sourceContext: {} }
+}
+
+exports.artistDetail = async (params) => {
+  const [_artist, _songs] = await Promise.all([
+    get(`Users/${user.userId}/Items/${params.id}`),
+    getTracks({ ArtistIds: params.id })
+  ])
+
+  const artist = {
+    id: _artist.Id,
+    name: _artist.Name,
+    picUrl: _artist.ImageTags?.Primary
+      ? getPic(_artist.Id, _artist.ImageTags?.Primary, 512)
+      : 'vutron://get-singer-pic',
+    musicSize: _artist.ChildCount || 0,
+    albumSize: _artist.albumSize || _artist.ChildCount || 0,
+    mvSize: 0,
+    description: _artist.Overview || '',
+    followed: _artist.UserData?.IsFavorite || false,
+    pluginId: '',
+    sourceContext: { id: _artist.Id }
+  }
+
+  const songs = _songs.Items.map((item) => formatTrack(item, 64, false))
+
+  return { code: 200, artist, songs, sourceContext: { d: params.id } }
+}
+
+exports.artistMVs = async (params) => {
+  return { code: 200, data: [], sourceContext: { id: params.id } }
+}
+
+exports.simiArtists = async (params) => {
+  const result = await get(`Artists/${params.id}/Similar`, { Fields: 'Overview' })
+  const data = result.Items.map((item) => ({
+    id: item.Id,
+    name: item.Name,
+    pluginId: '',
+    picUrl: item.ImageTags?.Primary
+      ? getPic(item.Id, item.ImageTags?.Primary, 512)
+      : 'vutron://get-singer-pic',
+    sourceContext: { id: item.Id }
+  }))
+  return { code: 200, data, sourceContext: {} }
+}
+
+exports.followArtist = async (params) => {
+  try {
+    const { op, id } = params
+    const endPoint =
+      `Users/${user.userId}/FavoriteItems/${id}` + (op === 'unfollow' ? '/Delete' : '')
+    await post(endPoint)
+    return { code: 200 }
+  } catch (error) {
+    console.log('[followArtist]: ', error)
+    return { code: 404 }
+  }
+}
+
+exports.subscribeAlbum = async (params) => {
+  try {
+    const { op, id } = params
+    const endPoint = `Users/${user.userId}/FavoriteItems/${id}` + (op === 'add' ? '' : '/Delete')
+    await post(endPoint)
+    return { code: 200 }
+  } catch (error) {
+    console.log('[subscribeAlbum]: ', error)
+    return { code: 404 }
+  }
+}
+
+exports.scrobble = async (params) => {
+  try {
+    const time = new Date()
+      .toISOString()
+      .replace(/[-:TZ.]/g, '')
+      .slice(0, 14)
+    await post(`Users/${user.userId}/PlayedItems/${params.id}`, { datePlayed: time })
+    return { code: 200 }
+  } catch {
+    return { code: 404 }
+  }
 }
