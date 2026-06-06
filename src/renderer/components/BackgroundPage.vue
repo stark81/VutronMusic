@@ -192,13 +192,14 @@ const stopApiRefreshTimer = () => {
 
 const loadApiBgFromCache = async (replenish = true) => {
   const apiUrl = activeBG.value.src || undefined
-  const result = await window.mainApi?.invoke('apiBgCache-getRandom', apiUrl)
-  if (result) {
-    tempSrc.value = `url(${result})`
+  // 优先下载新的，网络失败时从缓存随机取
+  const fresh = await window.mainApi?.invoke('apiBgCache-getOne', apiUrl)
+  if (fresh) {
+    tempSrc.value = `url(${fresh})`
   } else {
-    const fallback = await window.mainApi?.invoke('apiBgCache-getOne', apiUrl)
-    if (fallback) {
-      tempSrc.value = `url(${fallback})`
+    const cached = await window.mainApi?.invoke('apiBgCache-getRandom', apiUrl)
+    if (cached) {
+      tempSrc.value = `url(${cached})`
     }
   }
   if (replenish) {
