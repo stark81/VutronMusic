@@ -11,8 +11,14 @@ interface CacheEntry {
   addedAt: number
 }
 
+const extMap: Record<string, string> = {
+  jpeg: 'jpg',
+  'svg+xml': 'svg'
+}
+
 class ApiBgCache {
   private cacheDir: string
+  private lock: Promise<void> = Promise.resolve()
 
   constructor() {
     this.cacheDir = path.join(app.getPath('userData'), CACHE_DIR)
@@ -23,6 +29,10 @@ class ApiBgCache {
     if (!fs.existsSync(this.cacheDir)) {
       fs.mkdirSync(this.cacheDir, { recursive: true })
     }
+  }
+
+  private async serialized<T>(fn: () => T | Promise<T>): Promise<T> {
+    return this.lock = this.lock.then(fn)
   }
 
   getCacheDir(): string {
@@ -62,23 +72,24 @@ class ApiBgCache {
   async downloadOne(apiUrl?: string): Promise<string | null> {
     try {
       const url = apiUrl || 'https://acg.suyanw.cn/random.php'
-      const response = await fetch(url, {
-        signal: AbortSignal.timeout(15000)
-      })
+      const response = await fetch(url, { signal: AbortSignal.timeout(15000) })
       if (!response.ok) {
         log.error('API bg cache download failed:', response.status)
         return null
       }
       const buffer = Buffer.from(await response.arrayBuffer())
       const contentType = response.headers.get('content-type') || 'image/jpeg'
-      const ext = contentType.split('/').pop() || 'jpg'
+      const rawExt = contentType.split('/').pop() || 'jpg'
+      const ext = extMap[rawExt] || rawExt
       const filename = `bg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`
       const filePath = path.join(this.cacheDir, filename)
       fs.writeFileSync(filePath, buffer)
 
-      const entries = this.getCacheIndex()
-      entries.push({ filename, addedAt: Date.now() })
-      this.saveCacheIndex(entries)
+      await this.serialized(() => {
+        const entries = this.getCacheIndex()
+        entries.push({ filename, addedAt: Date.now() })
+        this.saveCacheIndex(entries)
+      })
 
       return filePath
     } catch (error) {
@@ -90,12 +101,12 @@ class ApiBgCache {
   async fillTo(maxCount: number, apiUrl?: string): Promise<void> {
     const entries = this.getCacheIndex()
     let needed = maxCount - entries.length
-    if (needed <= 0) return
 
     for (let i = 0; i < needed; i++) {
       const result = await this.downloadOne(apiUrl)
       if (!result) break
     }
+
     this.evictToMax(maxCount)
   }
 
@@ -110,9 +121,11 @@ class ApiBgCache {
     for (const entry of toRemove) {
       const filePath = path.join(this.cacheDir, entry.filename)
       try {
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath)
-      } catch (e) {
-        log.error('Failed to remove cached bg file:', e)
+        fs.unlinkSync(filePath)
+      } catch (e: any) {
+        if (e?.code !== 'ENOENT') {
+          log.error('Failed to remove cached bg file:', e)
+        }
       }
     }
 
@@ -124,9 +137,11 @@ class ApiBgCache {
     for (const entry of entries) {
       const filePath = path.join(this.cacheDir, entry.filename)
       try {
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath)
-      } catch (e) {
-        log.error('Failed to clear cached bg file:', e)
+        fs.unlinkSync(filePath)
+      } catch (e: any) {
+        if (e?.code !== 'ENOENT') {
+          log.error('Failed to clear cached bg file:', e)
+        }
       }
     }
     this.saveCacheIndex([])
