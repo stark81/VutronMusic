@@ -191,18 +191,19 @@ const stopApiRefreshTimer = () => {
 }
 
 const loadApiBgFromCache = async (replenish = true) => {
-  const result = await window.mainApi?.invoke('apiBgCache-getRandom')
+  const apiUrl = activeBG.value.src || undefined
+  const result = await window.mainApi?.invoke('apiBgCache-getRandom', apiUrl)
   if (result) {
     tempSrc.value = `url(${result})`
   } else {
-    const fallback = await window.mainApi?.invoke('apiBgCache-getOne')
+    const fallback = await window.mainApi?.invoke('apiBgCache-getOne', apiUrl)
     if (fallback) {
       tempSrc.value = `url(${fallback})`
     }
   }
   if (replenish) {
     const maxCache = (activeBG.value as any).maxCache || 5
-    window.mainApi?.invoke('apiBgCache-fill', maxCache)
+    window.mainApi?.invoke('apiBgCache-fill', maxCache, apiUrl)
   }
 }
 

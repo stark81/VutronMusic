@@ -59,9 +59,10 @@ class ApiBgCache {
     return path.join(this.cacheDir, entry.filename)
   }
 
-  async downloadOne(): Promise<string | null> {
+  async downloadOne(apiUrl?: string): Promise<string | null> {
     try {
-      const response = await fetch('https://acg.suyanw.cn/random.php', {
+      const url = apiUrl || 'https://acg.suyanw.cn/random.php'
+      const response = await fetch(url, {
         signal: AbortSignal.timeout(15000)
       })
       if (!response.ok) {
@@ -86,13 +87,13 @@ class ApiBgCache {
     }
   }
 
-  async fillTo(maxCount: number): Promise<void> {
+  async fillTo(maxCount: number, apiUrl?: string): Promise<void> {
     const entries = this.getCacheIndex()
     let needed = maxCount - entries.length
     if (needed <= 0) return
 
     for (let i = 0; i < needed; i++) {
-      const result = await this.downloadOne()
+      const result = await this.downloadOne(apiUrl)
       if (!result) break
     }
     this.evictToMax(maxCount)

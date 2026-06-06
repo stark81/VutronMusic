@@ -794,10 +794,10 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     return path.join(app.getPath('userData'), 'audioCache')
   })
 
-  ipcMain.handle('apiBgCache-getRandom', async () => {
+  ipcMain.handle('apiBgCache-getRandom', async (_event, apiUrl?: string) => {
     let cachedPath = apiBgCache.getRandomCachedPath()
     if (!cachedPath) {
-      cachedPath = await apiBgCache.downloadOne()
+      cachedPath = await apiBgCache.downloadOne(apiUrl)
     }
     if (cachedPath) {
       return `atom://local-resource/${encodeURIComponent(cachedPath)}`
@@ -805,16 +805,16 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     return null
   })
 
-  ipcMain.handle('apiBgCache-getOne', async () => {
-    const cachedPath = await apiBgCache.downloadOne()
+  ipcMain.handle('apiBgCache-getOne', async (_event, apiUrl?: string) => {
+    const cachedPath = await apiBgCache.downloadOne(apiUrl)
     if (cachedPath) {
       return `atom://local-resource/${encodeURIComponent(cachedPath)}`
     }
     return null
   })
 
-  ipcMain.handle('apiBgCache-fill', async (_event, maxCount: number) => {
-    await apiBgCache.fillTo(maxCount)
+  ipcMain.handle('apiBgCache-fill', async (_event, maxCount: number, apiUrl?: string) => {
+    await apiBgCache.fillTo(maxCount, apiUrl)
   })
 
   ipcMain.handle('apiBgCache-setCount', async (_event, maxCount: number) => {
