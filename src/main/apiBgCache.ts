@@ -88,14 +88,13 @@ class ApiBgCache {
 
   async fillTo(maxCount: number): Promise<void> {
     const entries = this.getCacheIndex()
-    const needed = maxCount - entries.length
+    let needed = maxCount - entries.length
     if (needed <= 0) return
 
-    const downloads: Promise<string | null>[] = []
     for (let i = 0; i < needed; i++) {
-      downloads.push(this.downloadOne())
+      const result = await this.downloadOne()
+      if (!result) break
     }
-    await Promise.allSettled(downloads)
     this.evictToMax(maxCount)
   }
 
