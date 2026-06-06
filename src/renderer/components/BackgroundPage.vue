@@ -176,8 +176,9 @@ watch(
 watch(
   () => currentTrack.value?.id,
   () => {
-    stopApiRefreshTimer()
-    if (activeBG.value.type === 'api' && activeBG.value.switchMode === 'track') {
+    if (activeBG.value.type !== 'api') return
+    if (activeBG.value.switchMode === 'track') {
+      stopApiRefreshTimer()
       loadApiBgFromCache()
     }
   }

@@ -32,7 +32,7 @@ class ApiBgCache {
   }
 
   private async serialized<T>(fn: () => T | Promise<T>): Promise<T> {
-    return this.lock = this.lock.then(fn)
+    return (this.lock = this.lock.then(fn))
   }
 
   getCacheDir(): string {
