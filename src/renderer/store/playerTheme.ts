@@ -84,7 +84,8 @@ export const createBG = () => {
       color: 'auto',
       useExtractedColor: false,
       switchMode: 'track',
-      timer: 5
+      timer: 5,
+      maxCache: 5
     }
   ]
 
@@ -122,6 +123,7 @@ const createTheme = (name: 'default' | 'snow' | 'letter') => {
           font: 'system-ui',
           fontSize: 28,
           fontBold: false,
+          playedColor: 'var(--color-wbw-text-played)',
           gap: 0,
           mask: true,
           wbw: true,
@@ -136,6 +138,7 @@ const createTheme = (name: 'default' | 'snow' | 'letter') => {
           fontSize: 4.5,
           gap: 6,
           fontBold: false,
+          playedColor: 'var(--color-wbw-text-played)',
           align: {
             left: 'hingeFlyIn',
             center: 'splitAndMerge',
@@ -157,6 +160,7 @@ const createTheme = (name: 'default' | 'snow' | 'letter') => {
           font: 'system-ui',
           fontSize: 4.5,
           fontBold: false,
+          playedColor: 'var(--color-wbw-text-played)',
           gap: 6,
           align: {
             center: 'splitAndMerge'

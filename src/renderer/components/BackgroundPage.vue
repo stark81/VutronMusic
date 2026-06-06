@@ -178,7 +178,7 @@ watch(
   () => {
     stopApiRefreshTimer()
     if (activeBG.value.type === 'api' && activeBG.value.switchMode === 'track') {
-      tempSrc.value = `url(${activeBG.value.src}${activeBG.value.src.includes('?') ? '&' : '?'}t=${Date.now()})`
+      loadApiBgFromCache()
     }
   }
 )
@@ -190,12 +190,28 @@ const stopApiRefreshTimer = () => {
   }
 }
 
+const loadApiBgFromCache = async (replenish = true) => {
+  const result = await window.mainApi?.invoke('apiBgCache-getRandom')
+  if (result) {
+    tempSrc.value = `url(${result})`
+  } else {
+    const fallback = await window.mainApi?.invoke('apiBgCache-getOne')
+    if (fallback) {
+      tempSrc.value = `url(${fallback})`
+    }
+  }
+  if (replenish) {
+    const maxCache = (activeBG.value as any).maxCache || 5
+    window.mainApi?.invoke('apiBgCache-fill', maxCache)
+  }
+}
+
 const startApiRefreshTimer = () => {
   stopApiRefreshTimer()
   if (activeBG.value.type !== 'api' || activeBG.value.switchMode !== 'time') return
   const time = (activeBG.value.timer || 5) * 60 * 1000
   apiRefreshTimer = setInterval(() => {
-    tempSrc.value = `url(${activeBG.value.src}${activeBG.value.src.includes('?') ? '&' : '?'}t=${Date.now()})`
+    loadApiBgFromCache()
   }, time)
 }
 
@@ -230,7 +246,7 @@ watch(
     if (newType[0] === 'random-folder' && newType[1]) {
       loadRandomFolderSource()
     } else if (newType[0] === 'api') {
-      tempSrc.value = `url(${activeBG.value.src}${activeBG.value.src.includes('?') ? '&' : '?'}t=${Date.now()})`
+      loadApiBgFromCache()
       startApiRefreshTimer()
     }
   },
@@ -293,7 +309,7 @@ onMounted(async () => {
   if (activeBG.value.type === 'random-folder') {
     await loadRandomFolderSource()
   } else if (activeBG.value.type === 'api') {
-    tempSrc.value = `url(${activeBG.value.src}${activeBG.value.src.includes('?') ? '&' : '?'}t=${Date.now()})`
+    loadApiBgFromCache()
     startApiRefreshTimer()
   }
   if (playing.value) {

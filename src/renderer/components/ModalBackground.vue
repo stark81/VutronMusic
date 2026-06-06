@@ -65,6 +65,21 @@
               />
             </div>
           </div>
+          <div class="item">
+            <div class="left">
+              <div class="title">API 缓存数量</div>
+            </div>
+            <div class="right">
+              <input
+                :value="apiMaxCache"
+                class="cache-input"
+                type="number"
+                :min="1"
+                :max="20"
+                @input="onApiMaxCacheChange"
+              />
+            </div>
+          </div>
         </template>
         <div v-if="activeBG.type === 'custom-video'" class="item">
           <div class="left">
@@ -262,6 +277,21 @@ const selectSource = async () => {
   }
 }
 
+const apiMaxCache = computed({
+  get: () => (activeBG.value as any).maxCache ?? 5,
+  set: (val: number) => {
+    ;(activeBG.value as any).maxCache = val
+    window.mainApi?.invoke('apiBgCache-setCount', val)
+  }
+})
+
+const onApiMaxCacheChange = (e: Event) => {
+  const val = parseInt((e.target as HTMLInputElement).value)
+  if (!isNaN(val) && val >= 1 && val <= 20) {
+    apiMaxCache.value = val
+  }
+}
+
 const reset = () => {
   if (!isCustomize.value) return
   activeBG.value.src = activeBG.value.type === 'lottie' ? 'snow' : ''
@@ -448,5 +478,17 @@ const close = () => {
 }
 .toggle input:checked + label:after {
   left: 26px;
+}
+
+.cache-input {
+  width: 60px;
+  height: 32px;
+  background: var(--color-secondary-bg-for-transparent);
+  border: none;
+  border-radius: 8px;
+  color: var(--color-text);
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
 }
 </style>

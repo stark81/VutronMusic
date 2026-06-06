@@ -12,6 +12,7 @@ import { CacheAPIs } from './utils/CacheApis'
 import { deleteExcessCache, createWorker, getTrackDetail } from './utils'
 import cache from './cache'
 import { registerGlobalShortcuts } from './globalShortcut'
+import apiBgCache from './apiBgCache'
 import { createMenu } from './menu'
 import log from './log'
 import navidrome from './streaming/navidrome'
@@ -791,6 +792,33 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
 
   ipcMain.handle('get-cache-path', () => {
     return path.join(app.getPath('userData'), 'audioCache')
+  })
+
+  ipcMain.handle('apiBgCache-getRandom', async () => {
+    let cachedPath = apiBgCache.getRandomCachedPath()
+    if (!cachedPath) {
+      cachedPath = await apiBgCache.downloadOne()
+    }
+    if (cachedPath) {
+      return `atom://local-resource/${encodeURIComponent(cachedPath)}`
+    }
+    return null
+  })
+
+  ipcMain.handle('apiBgCache-getOne', async () => {
+    const cachedPath = await apiBgCache.downloadOne()
+    if (cachedPath) {
+      return `atom://local-resource/${encodeURIComponent(cachedPath)}`
+    }
+    return null
+  })
+
+  ipcMain.handle('apiBgCache-fill', async (_event, maxCount: number) => {
+    await apiBgCache.fillTo(maxCount)
+  })
+
+  ipcMain.handle('apiBgCache-setCount', async (_event, maxCount: number) => {
+    apiBgCache.evictToMax(maxCount)
   })
 }
 

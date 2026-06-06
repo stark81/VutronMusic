@@ -96,6 +96,18 @@
           </div>
           <div class="item">
             <div class="left">
+              <div class="title">歌词高亮颜色</div>
+            </div>
+            <div class="right">
+              <VuePickColors
+                v-model:value="playedColor"
+                :theme="activeTheme.theme.activeBG === 'gradient' ? 'dark' : 'light'"
+                format="rgb"
+              />
+            </div>
+          </div>
+          <div class="item">
+            <div class="left">
               <div class="title">
                 {{ $t('settings.osdLyric.textAlign.text') }}
               </div>
@@ -193,6 +205,7 @@ import { storeToRefs } from 'pinia'
 import { useNormalStateStore } from '../store/state'
 import { usePlayerThemeStore } from '../store/playerTheme'
 import VueSlider from 'vue-3-slider-component'
+import VuePickColors from 'vue-pick-colors'
 import CustomSelect from './CustomSelect.vue'
 import { useI18n } from 'vue-i18n'
 
@@ -279,6 +292,14 @@ const fontSize = computed({
   get: () => currentTheme.value.lyric.fontSize,
   set: (value: number) => {
     currentTheme.value.lyric.fontSize = value
+  }
+})
+
+const playedColor = computed({
+  get: () =>
+    activeTheme.value.theme.senses.Classic.lyric.playedColor || 'var(--color-wbw-text-played)',
+  set: (value: string) => {
+    activeTheme.value.theme.senses.Classic.lyric.playedColor = value
   }
 })
 
