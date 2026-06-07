@@ -66,7 +66,12 @@ const mainAvailChannels: string[] = [
   'track-scrobble',
   'get-screenshot',
   'delete-screenshot',
-  'get-cache-path'
+  'get-cache-path',
+  'apiBgCache-getRandom',
+  'apiBgCache-getOne',
+  'apiBgCache-fill',
+  'apiBgCache-setCount',
+  'save-api-bg'
 ]
 const rendererAvailChannels: string[] = [
   'msgHandleScanLocalMusic',

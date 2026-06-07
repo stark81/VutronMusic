@@ -253,6 +253,10 @@ const gap = computed(() => {
   return `${sense.lyric.gap}px`
 })
 
+const playedColor = computed(() => {
+  return activeTheme.value.theme.senses.Classic.lyric.playedColor || 'var(--color-wbw-text-played)'
+})
+
 const titleStyle = computed(() => {
   if (activeTheme.value.theme.activeLayout === 'Creative') {
     const sense = senses.value[activeTheme.value.theme.activeLayout]
@@ -952,6 +956,7 @@ $mid: math.ceil(math.div($count, 2));
 
   :deep(.lyric-item) {
     font-size: v-bind(fontSize);
+    color: v-bind(playedColor);
     user-select: none;
     will-change: transform;
   }

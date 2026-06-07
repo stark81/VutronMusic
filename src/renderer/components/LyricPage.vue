@@ -78,10 +78,10 @@ const stateStore = useNormalStateStore()
 const { showToast } = stateStore
 
 const playerThemeStore = usePlayerThemeStore()
-const { themes } = storeToRefs(playerThemeStore)
+const { activeTheme } = storeToRefs(playerThemeStore)
 
 const sense = computed(() => {
-  const theme = themes.value.Classic[0].theme
+  const theme = activeTheme.value.theme
   const result = theme.senses.Classic
   return result
 })
@@ -91,6 +91,7 @@ const isNWordByWord = computed(() => sense.value.lyric.wbw)
 const nTranslationMode = computed(() => sense.value.lyric.translation)
 const useMask = computed(() => sense.value.lyric.mask)
 const isZoom = computed(() => sense.value.lyric.zoom)
+const playedColor = computed(() => sense.value.lyric.playedColor || 'var(--color-wbw-text-played)')
 
 const lineMode = computed(() => {
   return !isNWordByWord.value || lyrics.value.every((line) => !line.lyric?.info)
@@ -376,7 +377,7 @@ onBeforeUnmount(() => {
         font-size: v-bind('`${nFontSize}px`');
         background: linear-gradient(
           to right,
-          var(--color-wbw-text-played) 50%,
+          v-bind(playedColor) 50%,
           v-bind('`${unplayColor}`') 50%
         );
         background-clip: text;
@@ -431,7 +432,7 @@ onBeforeUnmount(() => {
   :deep(.lyric.active) {
     .lyric-line span,
     .translation span {
-      color: var(--color-wbw-text-played);
+      color: v-bind(playedColor);
     }
   }
   :deep(.lyric) {

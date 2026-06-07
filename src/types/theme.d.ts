@@ -74,11 +74,13 @@ type BgSource =
       useExtractedColor: boolean
       switchMode: 'track' | 'time'
       timer: number
+      maxCache: number
     }
 
 export type Theme = {
   activeLayout: LayoutMode
   activeBG: BgType
+  playerBtnColor?: string
   senses: {
     Classic: {
       /**
@@ -90,6 +92,7 @@ export type Theme = {
         font: string
         fontSize: number
         fontBold: boolean
+        playedColor?: string
         gap: number
         mask: boolean
         wbw: boolean
@@ -110,6 +113,7 @@ export type Theme = {
         fontSize: number
         gap: number
         fontBold: boolean
+        playedColor?: string
         align: {
           left: AniName
           center: AniName
@@ -128,6 +132,7 @@ export type Theme = {
         font: string
         fontSize: number
         fontBold: boolean
+        playedColor?: string
         gap: number
         align: {
           center: AniName

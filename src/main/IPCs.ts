@@ -12,6 +12,7 @@ import { CacheAPIs } from './utils/CacheApis'
 import { deleteExcessCache, createWorker, getTrackDetail } from './utils'
 import cache from './cache'
 import { registerGlobalShortcuts } from './globalShortcut'
+import apiBgCache from './apiBgCache'
 import { createMenu } from './menu'
 import log from './log'
 import navidrome from './streaming/navidrome'
@@ -791,6 +792,45 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
 
   ipcMain.handle('get-cache-path', () => {
     return path.join(app.getPath('userData'), 'audioCache')
+  })
+
+  ipcMain.handle('apiBgCache-getRandom', async (_event, apiUrl?: string) => {
+    let cachedPath = apiBgCache.getRandomCachedPath()
+    if (!cachedPath) {
+      cachedPath = await apiBgCache.downloadOne(apiUrl)
+    }
+    if (cachedPath) {
+      return `atom://local-resource/${encodeURIComponent(cachedPath)}`
+    }
+    return null
+  })
+
+  ipcMain.handle('apiBgCache-getOne', async (_event, apiUrl?: string) => {
+    const cachedPath = await apiBgCache.downloadOne(apiUrl)
+    if (cachedPath) {
+      return `atom://local-resource/${encodeURIComponent(cachedPath)}`
+    }
+    return null
+  })
+
+  ipcMain.handle('apiBgCache-fill', async (_event, maxCount: number, apiUrl?: string) => {
+    await apiBgCache.fillTo(maxCount, apiUrl)
+  })
+
+  ipcMain.handle('apiBgCache-setCount', async (_event, maxCount: number) => {
+    apiBgCache.evictToMax(maxCount)
+  })
+
+  ipcMain.handle('save-api-bg', async (_event, filePath: string) => {
+    if (!filePath || !fs.existsSync(filePath)) return null
+    const { dialog } = await import('electron')
+    const result = await dialog.showSaveDialog({
+      defaultPath: path.basename(filePath),
+      filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif'] }]
+    })
+    if (result.canceled || !result.filePath) return null
+    fs.copyFileSync(filePath, result.filePath)
+    return result.filePath
   })
 }
 

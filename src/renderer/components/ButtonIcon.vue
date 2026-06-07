@@ -42,7 +42,7 @@ button {
   :deep(.svg-icon) {
     height: 16px;
     width: 16px;
-    color: var(--color-text);
+    color: inherit;
     transition: color 0.3s;
   }
   &:first-child {

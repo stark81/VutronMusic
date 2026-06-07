@@ -4,6 +4,7 @@
       <div
         v-if="showLyrics"
         class="player-container"
+        :style="{ '--player-btn-color': playerBtnColor }"
         @mouseenter="hover = true"
         @mouseleave="hover = false"
       >
@@ -122,6 +123,8 @@ const playerThemeStore = usePlayerThemeStore()
 const { activeTheme, activeBG } = storeToRefs(playerThemeStore)
 const { resetTheme } = playerThemeStore
 
+const playerBtnColor = computed(() => activeTheme.value.theme.playerBtnColor || 'var(--color-text)')
+
 const showSenseSelector = ref(false)
 const tabIdx = ref(0)
 const titleIdx = ref(0)
@@ -197,6 +200,10 @@ watch(
   height: 100%;
   z-index: 20;
   background-color: var(--bg-color);
+
+  :deep(.button-icon .svg-icon) {
+    color: var(--player-btn-color);
+  }
 }
 
 .buttons-icons {

@@ -44,6 +44,7 @@ import { usePlayerStore } from '../store/player'
 import { storeToRefs } from 'pinia'
 import { Vibrant } from 'node-vibrant/browser'
 import Color from 'color'
+import { currentApiBgPath } from '../store/currentBg'
 
 const playerThemeStore = usePlayerThemeStore()
 const { activeBG } = storeToRefs(playerThemeStore)
@@ -176,9 +177,10 @@ watch(
 watch(
   () => currentTrack.value?.id,
   () => {
-    stopApiRefreshTimer()
-    if (activeBG.value.type === 'api' && activeBG.value.switchMode === 'track') {
-      tempSrc.value = `url(${activeBG.value.src}${activeBG.value.src.includes('?') ? '&' : '?'}t=${Date.now()})`
+    if (activeBG.value.type !== 'api') return
+    if (activeBG.value.switchMode === 'track') {
+      stopApiRefreshTimer()
+      loadApiBgFromCache()
     }
   }
 )
@@ -190,12 +192,32 @@ const stopApiRefreshTimer = () => {
   }
 }
 
+const loadApiBgFromCache = async (replenish = true) => {
+  const apiUrl = activeBG.value.src || undefined
+  // 优先下载新的，网络失败时从缓存随机取
+  const fresh = await window.mainApi?.invoke('apiBgCache-getOne', apiUrl)
+  if (fresh) {
+    tempSrc.value = `url(${fresh})`
+    currentApiBgPath.value = decodeURIComponent(fresh.replace('atom://local-resource/', ''))
+  } else {
+    const cached = await window.mainApi?.invoke('apiBgCache-getRandom', apiUrl)
+    if (cached) {
+      tempSrc.value = `url(${cached})`
+      currentApiBgPath.value = decodeURIComponent(cached.replace('atom://local-resource/', ''))
+    }
+  }
+  if (replenish) {
+    const maxCache = (activeBG.value as any).maxCache || 5
+    window.mainApi?.invoke('apiBgCache-fill', maxCache, apiUrl)
+  }
+}
+
 const startApiRefreshTimer = () => {
   stopApiRefreshTimer()
   if (activeBG.value.type !== 'api' || activeBG.value.switchMode !== 'time') return
   const time = (activeBG.value.timer || 5) * 60 * 1000
   apiRefreshTimer = setInterval(() => {
-    tempSrc.value = `url(${activeBG.value.src}${activeBG.value.src.includes('?') ? '&' : '?'}t=${Date.now()})`
+    loadApiBgFromCache()
   }, time)
 }
 
@@ -230,7 +252,7 @@ watch(
     if (newType[0] === 'random-folder' && newType[1]) {
       loadRandomFolderSource()
     } else if (newType[0] === 'api') {
-      tempSrc.value = `url(${activeBG.value.src}${activeBG.value.src.includes('?') ? '&' : '?'}t=${Date.now()})`
+      loadApiBgFromCache()
       startApiRefreshTimer()
     }
   },
@@ -293,7 +315,7 @@ onMounted(async () => {
   if (activeBG.value.type === 'random-folder') {
     await loadRandomFolderSource()
   } else if (activeBG.value.type === 'api') {
-    tempSrc.value = `url(${activeBG.value.src}${activeBG.value.src.includes('?') ? '&' : '?'}t=${Date.now()})`
+    loadApiBgFromCache()
     startApiRefreshTimer()
   }
   if (playing.value) {
