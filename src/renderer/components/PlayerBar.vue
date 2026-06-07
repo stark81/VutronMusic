@@ -337,7 +337,7 @@ watch(showLyrics, (value) => {
   background-color: var(--color-navbar-bg);
   z-index: 20;
 
-  .svg-icon {
+  :deep(.svg-icon) {
     color: var(--player-btn-color);
   }
 }
