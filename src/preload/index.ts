@@ -70,7 +70,8 @@ const mainAvailChannels: string[] = [
   'apiBgCache-getRandom',
   'apiBgCache-getOne',
   'apiBgCache-fill',
-  'apiBgCache-setCount'
+  'apiBgCache-setCount',
+  'save-api-bg'
 ]
 const rendererAvailChannels: string[] = [
   'msgHandleScanLocalMusic',

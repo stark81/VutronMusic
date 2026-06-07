@@ -44,6 +44,7 @@ import { usePlayerStore } from '../store/player'
 import { storeToRefs } from 'pinia'
 import { Vibrant } from 'node-vibrant/browser'
 import Color from 'color'
+import { currentApiBgPath } from '../store/currentBg'
 
 const playerThemeStore = usePlayerThemeStore()
 const { activeBG } = storeToRefs(playerThemeStore)
@@ -197,10 +198,12 @@ const loadApiBgFromCache = async (replenish = true) => {
   const fresh = await window.mainApi?.invoke('apiBgCache-getOne', apiUrl)
   if (fresh) {
     tempSrc.value = `url(${fresh})`
+    currentApiBgPath.value = decodeURIComponent(fresh.replace('atom://local-resource/', ''))
   } else {
     const cached = await window.mainApi?.invoke('apiBgCache-getRandom', apiUrl)
     if (cached) {
       tempSrc.value = `url(${cached})`
+      currentApiBgPath.value = decodeURIComponent(cached.replace('atom://local-resource/', ''))
     }
   }
   if (replenish) {

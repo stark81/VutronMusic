@@ -80,6 +80,14 @@
               />
             </div>
           </div>
+          <div class="item">
+            <div class="left">
+              <div class="title">保存当前背景</div>
+            </div>
+            <div class="right">
+              <button class="btn save-bg-btn" @click="saveCurrentBg">保存</button>
+            </div>
+          </div>
         </template>
         <div v-if="activeBG.type === 'custom-video'" class="item">
           <div class="left">
@@ -172,6 +180,7 @@ import VueSlider from './VueSlider.vue'
 import { useNormalStateStore } from '../store/state'
 import { usePlayerThemeStore, createBG } from '../store/playerTheme'
 import { useI18n } from 'vue-i18n'
+import { currentApiBgPath } from '../store/currentBg'
 
 const stateStore = useNormalStateStore()
 const { backgroundModal } = storeToRefs(stateStore)
@@ -290,6 +299,11 @@ const onApiMaxCacheChange = (e: Event) => {
   if (!isNaN(val) && val >= 1 && val <= 20) {
     apiMaxCache.value = val
   }
+}
+
+const saveCurrentBg = async () => {
+  if (!currentApiBgPath.value) return
+  await window.mainApi?.invoke('save-api-bg', currentApiBgPath.value)
 }
 
 const reset = () => {

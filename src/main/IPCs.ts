@@ -820,6 +820,18 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
   ipcMain.handle('apiBgCache-setCount', async (_event, maxCount: number) => {
     apiBgCache.evictToMax(maxCount)
   })
+
+  ipcMain.handle('save-api-bg', async (_event, filePath: string) => {
+    if (!filePath || !fs.existsSync(filePath)) return null
+    const { dialog } = await import('electron')
+    const result = await dialog.showSaveDialog({
+      defaultPath: path.basename(filePath),
+      filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif'] }]
+    })
+    if (result.canceled || !result.filePath) return null
+    fs.copyFileSync(filePath, result.filePath)
+    return result.filePath
+  })
 }
 
 async function initMprisIpcMain(win: BrowserWindow, mpris: MprisImpl): Promise<void> {
