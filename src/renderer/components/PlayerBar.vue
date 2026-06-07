@@ -1,5 +1,5 @@
 <template>
-  <div class="player">
+  <div class="player" :style="{ '--player-btn-color': playerBtnColor }">
     <div class="progress-bar">
       <vue-slider
         ref="playerBarRef"
@@ -163,6 +163,7 @@ import { useNormalStateStore } from '../store/state'
 import { hasListSource, getListSourcePath } from '../utils/playlist'
 import { useStreamMusicStore } from '../store/streamingMusic'
 import { useSettingsStore } from '../store/settings'
+import { usePlayerThemeStore } from '../store/playerTheme'
 import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
 import { computed, ref, watch } from 'vue'
@@ -204,6 +205,9 @@ const { showLyrics, enableScrolling } = storeToRefs(stateStore)
 
 const dataStore = useDataStore()
 const { likeATrack } = dataStore
+
+const playerThemeStore = usePlayerThemeStore()
+const playerBtnColor = computed(() => playerThemeStore.activeTheme.theme.playerBtnColor)
 
 const streamMusicStore = useStreamMusicStore()
 const { likeAStreamTrack } = streamMusicStore
@@ -332,6 +336,10 @@ watch(showLyrics, (value) => {
   backdrop-filter: saturate(180%) blur(30px);
   background-color: var(--color-navbar-bg);
   z-index: 20;
+
+  .svg-icon {
+    color: var(--player-btn-color);
+  }
 }
 :deep(.progress-bar) {
   margin-top: -6px !important;

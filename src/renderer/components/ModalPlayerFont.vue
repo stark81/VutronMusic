@@ -108,6 +108,18 @@
           </div>
           <div class="item">
             <div class="left">
+              <div class="title">按钮颜色</div>
+            </div>
+            <div class="right">
+              <VuePickColors
+                v-model:value="playerBtnColorValue"
+                :theme="activeTheme.theme.activeBG === 'gradient' ? 'dark' : 'light'"
+                format="rgb"
+              />
+            </div>
+          </div>
+          <div class="item">
+            <div class="left">
               <div class="title">
                 {{ $t('settings.osdLyric.textAlign.text') }}
               </div>
@@ -300,6 +312,13 @@ const playedColor = computed({
     activeTheme.value.theme.senses.Classic.lyric.playedColor || 'var(--color-wbw-text-played)',
   set: (value: string) => {
     activeTheme.value.theme.senses.Classic.lyric.playedColor = value
+  }
+})
+
+const playerBtnColorValue = computed({
+  get: () => activeTheme.value.theme.playerBtnColor || 'var(--color-text)',
+  set: (value: string) => {
+    activeTheme.value.theme.playerBtnColor = value
   }
 })
 

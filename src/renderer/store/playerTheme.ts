@@ -115,6 +115,7 @@ const createTheme = (name: 'default' | 'snow' | 'letter') => {
   const theme: Theme = {
     activeLayout: option.layout,
     activeBG: option.bgType,
+    playerBtnColor: 'var(--color-text)',
     senses: {
       Classic: {
         cover: 0,

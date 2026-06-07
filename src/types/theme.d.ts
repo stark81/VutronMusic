@@ -80,6 +80,7 @@ type BgSource =
 export type Theme = {
   activeLayout: LayoutMode
   activeBG: BgType
+  playerBtnColor?: string
   senses: {
     Classic: {
       /**
