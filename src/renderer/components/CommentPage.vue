@@ -9,10 +9,11 @@
     />
     <FloorComment
       v-if="currentPage === 'floorComment'"
-      :id="0"
+      :source-context="sourceContext"
       :type="props.type"
+      :plugin="plugin"
       :padding-right="paddingRight"
-      :be-replied-comment-id="beRepliedCommentId"
+      :selected-comment="selectedComment"
     />
   </div>
 </template>
@@ -21,7 +22,7 @@
 import { ref, provide, watch } from 'vue'
 import CommentList from './CommentList.vue'
 import FloorComment from './CommentFloor.vue'
-import { PluginId } from '@/types/plugin'
+import { PluginId, CommentType } from '@/types/plugin'
 
 interface Props {
   sourceContext: Record<string, any>
@@ -36,7 +37,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const currentPage = ref('comment')
-const beRepliedCommentId = ref(0)
+const selectedComment = ref<CommentType | null>(null)
 
 watch(
   () => props.sourceContext,
@@ -46,7 +47,7 @@ watch(
 )
 
 provide('currentPage', currentPage)
-provide('beRepliedCommentId', beRepliedCommentId)
+provide('selectedComment', selectedComment)
 </script>
 
 <style scoped lang="scss">

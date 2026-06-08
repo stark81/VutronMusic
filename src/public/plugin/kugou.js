@@ -115,6 +115,7 @@
  * @property {Album} album
  * @property {number} no
  * @property {Artist[]} artists
+ * @property {Artist[]} albumArtists
  * @property {string} picUrl
  * @property {string} pluginId
  * @property {MusicType} type
@@ -424,6 +425,7 @@ const formatTrack = (item, size = 64, artistId = null) => {
       reason: result.reason,
       album,
       artists,
+      albumArtists: artists,
       picUrl,
       pluginId: '',
       type: meta.type,
@@ -655,7 +657,8 @@ const buildAlbumTrack = (item) => ({
       '{size}',
       '512'
     ),
-    fileid: ''
+    fileid: '',
+    mxid: item.base?.album_audio_id
   }
 })
 
@@ -725,7 +728,55 @@ const formatMvDetail = (item) => ({
 })
 
 const formatComment = (item) => {
-  return {}
+  return {
+    id: item.id || '',
+    content: item.content || '',
+    time: new Date(item.addtime).getTime(),
+    ipLocation: item.location || '',
+    owner: item.user_id === user.userId,
+    liked: item.like.haslike || false,
+    likedCount: item.like?.count || item.like?.likenum || 0,
+    replyCount: item.reply_num || 0,
+    parentCommentId: 0,
+    beReplied: item.beReplied ?? null,
+    user: {
+      id: item.user_id,
+      nickname: item.user_name,
+      avatarUrl: item.user_pic
+    },
+    sourceContext: {
+      id: item.id || '',
+      special_id: item.special_id,
+      special_child_id: item.special_child_id
+    }
+  }
+}
+
+const parseComment = (text) => {
+  const match = text.match(/^(.+?)\/\/@(.*?):(.+)$/s)
+  if (!match) return { content: text, nickname: '', pcontent: '' }
+  return {
+    content: match[1],
+    nickname: match[2],
+    pcontent: match[3]
+  }
+}
+
+const formatFloorComment = (item) => {
+  const { content, nickname, pcontent } = parseComment(item.content)
+  item.content = content
+
+  if (pcontent) {
+    const beReplied = {
+      id: item.pid,
+      content: pcontent,
+      beRepliedCommentId: item.pid,
+      nickname
+    }
+    item.beReplied = beReplied
+  }
+
+  return formatComment(item)
 }
 
 const meta = {
@@ -796,10 +847,25 @@ exports.loginQrCodeCheck = async (params) => {
   return res
 }
 
+exports.getAccount = () => {
+  return { code: 200, baseUrl, userName: '', pwd: '' }
+}
+
 /**
  * 插件平台的登陆功能，登陆成功后，需要使用apis.store.set来保存所需的帐号相关信息
  */
 exports.doLogin = () => true
+
+exports.doLogout = () => {
+  try {
+    user.userId = 0
+    user.token = ''
+    apis.db.set('PluginData', user)
+    return { code: 200 }
+  } catch {
+    return { code: 404 }
+  }
+}
 
 /**
  * @returns {{ code: number, data: Banner[] }}
@@ -1277,8 +1343,9 @@ exports.getCategoryPlaylist = async (params) => {
 }
 
 exports.userPlaylist = async (params) => {
-  if (!user.userId)
-    return { code: 200, liked: null, playlists: [], albums: [], sourceContext: { page: 1 } }
+  if (!user.userId) {
+    throw new Error('UNAUTHORIZED')
+  }
 
   const page = params.page ?? 1
   const result = await get('user/playlist', { page, pagesize, t: Date.now() })
@@ -1678,11 +1745,13 @@ const parseKrcLyricString = (lyrics) => {
 exports.getLyric = async (params) => {
   let result = null
   for (let i = 0; i < 3; i++) {
-    const r = await get('search/lyric', { hash: params.hash })
-    if (r.candidates?.length) {
-      result = r
-      break
-    }
+    try {
+      const r = await get('search/lyric', { hash: params.hash })
+      if (r.candidates?.length) {
+        result = r
+        break
+      }
+    } catch {}
   }
 
   if (!result || !result.candidates?.length) return []
@@ -1715,10 +1784,17 @@ exports.getTrackDetail = async (params) => {
 
   if (result.status === 1) {
     const data = result.data.map((item, idx) => {
-      const { album, artists, picUrl: image } = sources[idx]
+      const { album, artists: _ar, picUrl: image } = sources[idx]
 
       const res = isTrackPlayable(item)
       const picUrl = item.info?.image?.replace('{size}', size) || image.replace(/\/\d+\//, `/512/`)
+
+      const artists = _ar.map((it) => ({
+        ...it,
+        picUrl: '',
+        pluginId: '',
+        sourceContext: { id: it.id }
+      }))
       return {
         id: item.id,
         name: item.name?.split('-')[1]?.trim() ?? item.name ?? '',
@@ -1736,12 +1812,8 @@ exports.getTrackDetail = async (params) => {
           pluginId: '',
           sourceContext: { id: album.id }
         },
-        artists: artists.map((it) => ({
-          ...it,
-          picUrl: '',
-          pluginId: '',
-          sourceContext: { id: it.id }
-        })),
+        artists,
+        albumArtists: artists,
         picUrl,
         pluginId: '',
         type: meta.type,
@@ -2035,20 +2107,105 @@ exports.mvDetail = async (params) => {
 
 exports.subAMV = async () => ({ code: 404 })
 
+exports.getCommentTab = () => ({ code: 200, data: [{ name: '全部', code: 0, active: true }] })
+
 const getTrackComments = async (params) => {
-  console.log('[getTrackComments]: ', params)
-  return { code: 404, data: [], count: 0, sourceContext: {} }
+  try {
+    const { mxid: mixsongid, page = 1 } = params
+    const result = await get('comment/music', { mixsongid, page, pageSize: 50 })
+    if (!result.list) {
+      return { code: 200, data: [], count: 0, sourceContext: params }
+    }
+
+    const data = result.list.map(formatFloorComment)
+    const count = result.count
+    return { code: 200, data, count, sourceContext: { ...params, page: page + 1 } }
+  } catch (error) {
+    console.log('[kugou getTrackComment]', error)
+    return { code: 404, data: [], count: 0, sourceContext: {} }
+  }
+}
+
+const getPlaylistComments = async (params) => {
+  try {
+    const { id, reset = true, page: _page, hasMore = true } = params
+    const page = reset ? 1 : _page
+    const pagesize = 50
+
+    if (!hasMore) {
+      return { code: 200, data: [], count: 0, sourceContext: params }
+    }
+
+    const result = await get('comment/playlist', { id, pagesize, page })
+    if (!result.list) {
+      return { code: 200, data: [], count: 0, sourceContext: { ...params, hasMore: false } }
+    }
+
+    const data = result.list.map(formatFloorComment)
+    const count = result.count
+
+    return { code: 200, data, count, sourceContext: { ...params, page: page + 1 } }
+  } catch (error) {
+    console.log('[kugou getPlaylistComments]', error)
+    return { code: 404, data: [], count: 0, sourceContext: {} }
+  }
+}
+
+const getAlbumComments = async (params) => {
+  try {
+    const { id, reset = true, page: _page, hasMore = true } = params
+    const page = reset ? 1 : _page
+    const pagesize = 50
+
+    if (!hasMore) {
+      return { code: 200, data: [], count: 0, sourceContext: params }
+    }
+
+    const result = await get('comment/album', { id, pagesize, page })
+    if (!result.list) {
+      return { code: 200, data: [], count: 0, sourceContext: { ...params, hasMore: false } }
+    }
+
+    const data = result.list.map(formatFloorComment)
+    const count = result.count
+
+    return { code: 200, data, count, sourceContext: { ...params, page: page + 1 } }
+  } catch (error) {
+    console.log('[kugou getPlaylistComments]', error)
+    return { code: 404, data: [], count: 0, sourceContext: {} }
+  }
 }
 
 exports.getComments = async (params) => {
   const type = params.type || 'track'
   if (type === 'track') {
     return getTrackComments(params)
+  } else if (type === 'playlist') {
+    return getPlaylistComments(params)
+  } else if (type === 'album') {
+    return getAlbumComments(params)
   }
   return { code: 404, data: [], count: 0, sourceContext: {} }
 }
 
-exports.likeAComment = async (params) => {
-  console.log('[kugou likeAComment]: ', params)
-  return { code: 404 }
+exports.likeAComment = async () => ({ code: 404 })
+
+exports.submitAComment = () => ({ code: 404, data: null })
+
+exports.getFloorComments = async (params) => {
+  const { sourceContext, commentInfo } = params
+  const { mxid: mixsongid, page = 1, hasMore = true } = sourceContext
+  const { special_child_id: specialId, id: tid } = commentInfo
+
+  if (!hasMore || !mixsongid) {
+    return { code: 200, data: [], count: 0, sourceContext: { page, hasMore } }
+  }
+
+  const result = await get('comment/floor', { special_id: specialId, mixsongid, tid, page })
+  if (!result.list) {
+    return { code: 200, data: [], count: 0, sourceContext: { page, hasMore: false } }
+  }
+  const data = result.list.map(formatFloorComment)
+  const count = result.comments_num
+  return { code: 200, data, count, sourceContext: { page: page + 1 } }
 }

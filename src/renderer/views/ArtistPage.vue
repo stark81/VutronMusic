@@ -104,7 +104,6 @@
       <TrackList
         :items="popularTracks.slice(0, showMorePopTracks ? 24 : 12)"
         :type="'TrackList'"
-        :is-group-by="false"
         :plugin="pluginId"
         :source-context="sourceContext"
         :colunm-number="4"

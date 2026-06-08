@@ -188,7 +188,14 @@ const formatTrack = (item, size = 512, showPlayCount = true) => {
       pluginId: '',
       sourceContext: { id: item.AlbumId ?? '' }
     },
-    artists: item.ArtistItems?.map((it) => ({
+    artists: item.ArtistItems.map((it) => ({
+      id: it.Id,
+      name: it.Name,
+      picUrl: 'http://p1.music.126.net/6y-UleORITEDbvrOLV0Q8A==/5639395138885805.jpg?param=64y64',
+      pluginId: '',
+      sourceContext: { id: it.Id }
+    })),
+    albumArtists: item.AlbumArtists?.map((it) => ({
       id: it.Id,
       name: it.Name,
       picUrl: 'http://p1.music.126.net/6y-UleORITEDbvrOLV0Q8A==/5639395138885805.jpg?param=64y64',
@@ -362,10 +369,11 @@ const get = async (url, params) => {
     )
     return response
   } catch (error) {
+    // console.log('=2=2=2=2=2=2=', error)
     if (error.response) {
       //
     }
-    throw error
+    throw new Error('UNAUTHORIZED')
   }
 }
 
@@ -436,9 +444,27 @@ exports.doLogin = async (params) => {
   }
 }
 
+exports.doLogout = () => {
+  try {
+    user.userId = ''
+    user.token = ''
+    apis.db.set('PluginData', user)
+    return { code: 200 }
+  } catch {
+    return { code: 404 }
+  }
+}
+
 exports.systemPing = async () => {
-  // const data = await get('System/Ping')
-  return true
+  try {
+    await get('System/Ping')
+    return { code: 200, status: user.token ? 'login' : 'logout' }
+  } catch {
+    user.token = ''
+    user.userId = ''
+    apis.db.set('PluginData', user)
+    return { code: 404, status: 'offline' }
+  }
 }
 
 exports.loginQrKey = async () => {}
@@ -572,7 +598,7 @@ exports.deletePlaylist = async (params) => {
     await post('Items/Delete', { Ids: params.id })
     return { code: 200 }
   } catch (error) {
-    console.log('[deletePlaylist error]', error)
+    console.log('[emby deletePlaylist error]', error)
     return { code: 404 }
   }
 }

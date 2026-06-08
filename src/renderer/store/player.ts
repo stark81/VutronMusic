@@ -91,15 +91,25 @@ export const usePlayerStore = defineStore(
 
     const getListSourcePath = computed(() => {
       const { type, plugin, sourceContext } = playlistSource.value
+
       switch (type) {
         case 'Album':
           return `/album/${plugin}/${JSON.stringify(sourceContext)}`
         case 'Artist':
           return `/artist/${plugin}/${JSON.stringify(sourceContext)}`
         case 'Playlist':
+          if (plugin === 'all' || sourceContext.id === 0 || sourceContext.id === '0') {
+            const codes = pluginStore.services
+              .filter((item) => item.type === sourceContext.pluginType)
+              .map((item) => item.code)
+              .join('/')
+            return `/library/liked-songs/${plugin === 'all' ? codes : plugin}`
+          }
           return `/playlist/${plugin}/${JSON.stringify(sourceContext)}`
         case 'DailySongs':
           return `/daily/songs/${plugin}`
+        case 'Track':
+          return sourceContext.pluginType === 'stream' ? `/stream` : '/localMusic'
         default:
           return ''
       }
@@ -303,7 +313,7 @@ export const usePlayerStore = defineStore(
     // ─────────────────────────────────────────────
 
     function replacePlaylist(
-      source: { type: SourceType; plugin: PluginId; sourceContext: Record<string, any> },
+      source: { type: SourceType; plugin: PluginId | 'all'; sourceContext: Record<string, any> },
       sourceContext: [PluginId, Record<string, any>][],
       index: number
     ) {

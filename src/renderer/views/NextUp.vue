@@ -6,7 +6,6 @@
       :source-context="{}"
       :items="[]"
       :type="'Album'"
-      :is-group-by="false"
       :colunm-number="1"
       :show-service="true"
       :show-position="false"
@@ -20,11 +19,10 @@
     </h1>
     <TrackList
       v-if="tracks.length > 0"
-      :plugin="'' as PluginId"
+      :plugin="'all'"
       :source-context="{}"
       :items="[]"
       :type="'Album'"
-      :is-group-by="false"
       :colunm-number="1"
       :show-service="true"
       :highlight-playing-track="false"
@@ -38,9 +36,8 @@
     <TrackList
       v-if="filteredTracks.length > 0"
       :items="[]"
-      :plugin="''"
+      :plugin="'all'"
       :source-context="{}"
-      :is-group-by="false"
       :type="playlistSource.type"
       :show-service="true"
       :show-position="true"

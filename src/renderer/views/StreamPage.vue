@@ -10,7 +10,7 @@
           <div class="content-info">
             <div>
               <div class="subtitle">全部歌曲</div>
-              <div class="text">{{ defaultTracks.length }}首</div>
+              <div class="text">{{ tracksCount }}首</div>
             </div>
             <div>
               <div class="subtitle">歌曲总时长</div>
@@ -105,15 +105,15 @@
             ref="streamListRef"
             :items="filterTracks"
             :type="'Track'"
-            :plugin="tool.groundBy === 'all' ? services?.[0]?.code : tool.groundBy"
-            :is-group-by="tool.groundBy === 'all' && loginService.length !== 1"
-            :source-context="{}"
+            :plugin="tool.groundBy"
+            :source-context="{ pluginType: 'stream' }"
             :show-service="true"
             :colunm-number="1"
             :is-end="true"
           />
         </div>
         <div v-show="idx === 1">
+          <!-- {{ filterPlaylists }} -->
           <CoverRow
             :items="filterPlaylists"
             type="Playlist"
@@ -212,7 +212,7 @@ import ContextMenu from '../components/ContextMenu.vue'
 import { useI18n } from 'vue-i18n'
 import { randomNum, pickedLyric } from '../utils'
 import { lyricLine } from '@/types/music.d'
-import { Track, LoginType, sortType, orderType } from '@/types/plugin'
+import type { Track, LoginType, sortType, orderType, service } from '@/types/plugin'
 // import _ from 'lodash'
 import { PluginId } from '@/types/schemas'
 
@@ -278,7 +278,7 @@ const filterLikedTracks = computed(() => {
           .filter(([plugin]) => sers.value.includes(plugin as PluginId))
           .map(([, item]) => item.data)
           .flat()
-      : likedTracks.value[tool.value.groundBy].data
+      : likedTracks.value?.[tool.value.groundBy]?.data || []
   return tracks
 })
 
@@ -293,15 +293,27 @@ const defaultTracks = computed(() => {
   return _tracks
 })
 
+const tracksCount = computed(() => {
+  const groundByCount = Object.entries(tracks)
+    .filter(([plugin]) => sers.value.includes(plugin as PluginId))
+    .map(([, item]) => item.count)
+    .reduce((acc, cur) => acc + cur, 0)
+  return tool.value.groundBy === 'all'
+    ? groundByCount
+    : tracks[tool.value.groundBy]?.count || defaultTracks.value.length
+})
+
 const filterPlaylists = computed(() => {
-  const streamServices = services.value.filter((item) => item.type === 'stream')
   const streamTool = pluginStore.tools.stream
 
-  const onlinePlaylists = streamServices
+  const onlinePlaylists = streamService.value
     .map((item) => (playlists.value[item.code]?.data ?? []).flat())
     .flat()
+
   const plists =
-    streamTool.groundBy === 'all' ? onlinePlaylists : playlists.value[streamTool.groundBy].data
+    streamTool.groundBy === 'all'
+      ? onlinePlaylists
+      : playlists.value?.[streamTool.groundBy]?.data || []
   return plists
 
   // if (libraryPlaylistFilter.value === 'mine') {
@@ -314,19 +326,17 @@ const filterPlaylists = computed(() => {
 })
 
 const filterAlbums = computed(() => {
-  const streamServices = services.value.filter((item) => item.type === 'stream')
   const streamTool = pluginStore.tools.stream
 
-  const al = streamServices.map((item) => (albums.value[item.code]?.data ?? []).flat()).flat()
+  const al = streamService.value.map((item) => (albums.value[item.code]?.data ?? []).flat()).flat()
   const plists = streamTool.groundBy === 'all' ? al : albums.value[streamTool.groundBy].data
   return plists
 })
 
 const filterArtists = computed(() => {
-  const streamServices = services.value.filter((item) => item.type === 'stream')
   const streamTool = pluginStore.tools.stream
 
-  const ar = streamServices.map((item) => (artists.value[item.code]?.data ?? []).flat()).flat()
+  const ar = streamService.value.map((item) => (artists.value[item.code]?.data ?? []).flat()).flat()
   const plists = streamTool.groundBy === 'all' ? ar : artists.value[streamTool.groundBy].data
   return plists
 })
@@ -535,55 +545,77 @@ const handleResize = () => {
   if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
 }
 
-const getAllTracks = (sers: PluginId[]) => {
-  sers.forEach((service) => {
-    if (!tracks[service]) {
-      tracks[service] = { data: [], count: 0, sourceContext: {} }
-    }
+const getAllTracks = (service: PluginId) => {
+  if (!tracks[service]) {
+    tracks[service] = { data: [], count: 0, sourceContext: {} }
+  }
 
-    const sourceContext = tracks[service]?.sourceContext || {}
-    pluginMethodCall(service, 'getAllTracks', {
-      ...sourceContext,
-      sort: tool.value.sortBy,
-      order: tool.value.orderBy
-    }).then((result) => {
-      tracks[service].data = result.data.map((item) => ({
-        ...item,
-        album: { ...item.album, pluginId: service },
-        artists: item.artists.map((it) => ({ ...it, pluginId: service })),
-        pluginId: service
-      }))
-      tracks[service].count = result.count
-      tracks[service].sourceContext = result.sourceContext
-    })
+  const sourceContext = tracks[service]?.sourceContext || {}
+  pluginMethodCall(service, 'getAllTracks', {
+    ...sourceContext,
+    sort: tool.value.sortBy,
+    order: tool.value.orderBy
+  }).then((result) => {
+    tracks[service].data = result.data.map((item) => ({
+      ...item,
+      album: { ...item.album, pluginId: service },
+      artists: item.artists.map((it) => ({ ...it, pluginId: service })),
+      pluginId: service
+    }))
+    tracks[service].count = result.count
+    tracks[service].sourceContext = result.sourceContext
   })
 }
 
-const loadData = async () => {
-  const sers = loginService.value.map((item) => item.code)
-  await fetchLikedPlaylists(sers)
-  await fetchLikedSongsWithDetails(sers)
-  fetchLikedArtists(sers)
+const checkLoginStatus = async () => {
+  await Promise.all(
+    streamService.value.map(async (item) => {
+      const res = await pluginMethodCall(item.code, 'systemPing')
+      item.status = res.status
+    })
+  )
+  if (!services.value.length) {
+    const groundBy = tool.value.groundBy
+    router.push(`/login/${groundBy === 'all' ? streamService.value[0].code : groundBy}/Username`)
+  }
+}
+
+const loadData = async (ser: service) => {
+  await fetchLikedPlaylists(ser.code)
+  await fetchLikedSongsWithDetails(ser.code)
+  fetchLikedArtists(ser.code)
   getRandomTrack()
-  getAllTracks(sers)
+  getAllTracks(ser.code)
   show.value = true
 }
 
 watch(
   loginService,
-  (value) => {
+  (value, oldValue) => {
     if (!value.length) {
       const groupBy = tool.value.groundBy
       const service = groupBy === 'all' ? streamService.value[0].code : groupBy
       const loginTpye: LoginType = 'Username'
       router.push(`/login/${service}/${loginTpye}`)
+      return
     }
+    value.forEach((item) => {
+      if (!oldValue?.length) {
+        loadData(item)
+      } else {
+        const idx = oldValue.findIndex((it) => it.code === item.code)
+        if (idx === -1) {
+          loadData(item)
+        }
+      }
+    })
   },
   { immediate: true }
 )
 
 onMounted(async () => {
-  loadData()
+  await checkLoginStatus()
+  loginService.value.forEach(loadData)
   window.addEventListener('resize', handleResize)
   setTimeout(() => {
     if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)

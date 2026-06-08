@@ -120,7 +120,6 @@
         :items="data.newTrack"
         :plugin="pluginId"
         :source-context="{}"
-        :is-group-by="false"
         :colunm-number="1"
         :type="'Playlist'"
         :is-end="true"

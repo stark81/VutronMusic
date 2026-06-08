@@ -101,7 +101,7 @@ import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
 import { usePluginMusic } from '../store/pluginMusic'
 import { useRouter } from 'vue-router'
-import { useI18n } from 'vue-i18n'
+// import { useI18n } from 'vue-i18n'
 import { PluginId, Track } from '@/types/plugin'
 import { SourceType } from '@/types/music'
 import isEqual from 'lodash/isEqual'
@@ -126,7 +126,7 @@ const props = withDefaults(
 )
 
 const settingsStore = useSettingsStore()
-const { general, localMusic } = storeToRefs(settingsStore)
+const { general } = storeToRefs(settingsStore)
 const { subTitleDefault, showTrackTimeOrID } = toRefs(general.value)
 
 const pluginStore = usePluginMusic()
@@ -137,9 +137,9 @@ const playerStore = usePlayerStore()
 const { currentTrack, enabled } = storeToRefs(playerStore)
 
 const stateStore = useNormalStateStore()
-const { showToast } = stateStore
+// const { showToast } = stateStore
 
-const { t } = useI18n()
+// const { t } = useI18n()
 
 const type = computed(() => props.typeProp)
 const track = computed(() => props.trackProp)
@@ -167,7 +167,7 @@ const isPlaying = computed(() => {
   return (
     enabled.value &&
     currentTrack.value &&
-    isEqual(currentTrack.value.sourceContext, track.value.sourceContext)
+    isEqual(currentTrack.value.sourceContext.id, track.value.sourceContext.id)
   )
 })
 

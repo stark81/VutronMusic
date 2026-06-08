@@ -27,8 +27,7 @@
       <div class="songs">
         <TrackList
           :items="filterLikedTracks.slice(0, 8)"
-          :plugin="tool.groundBy === 'all' ? services?.[0]?.code : tool.groundBy"
-          :is-group-by="tool.groundBy === 'all'"
+          :plugin="tool.groundBy"
           type="TrackList"
           :source-context="{}"
           :show-position="false"
@@ -151,8 +150,7 @@
           <TrackList
             :items="filterCloudDisk"
             :colunm-number="1"
-            :plugin="tool.groundBy === 'all' ? services?.[0]?.code : tool.groundBy"
-            :is-group-by="tool.groundBy === 'all'"
+            :plugin="tool.groundBy"
             :source-context="{}"
             type="CloudDisk"
             :is-end="true"
@@ -180,8 +178,7 @@
           </button>
           <TrackList
             :items="playHistoryList"
-            :plugin="tool.groundBy === 'all' ? services?.[0]?.code : tool.groundBy"
-            :is-group-by="tool.groundBy === 'all'"
+            :plugin="tool.groundBy"
             :source-context="{}"
             :colunm-number="1"
             :height="historyHeight"
@@ -243,7 +240,7 @@ import Mvrow from '../components/MvRow.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import { useRouter } from 'vue-router'
 import { lyricLine } from '@/types/music'
-import { PluginId, Track } from '@/types/plugin'
+import type { PluginId, Track, service } from '@/types/plugin'
 
 const dataStore = useDataStore()
 const { liked, libraryPlaylistFilter } = storeToRefs(dataStore)
@@ -386,27 +383,25 @@ const playHistoryList = computed(() => {
   return []
 })
 
-const loadData = async () => {
+const loadData = async (ser: service) => {
   await nextTick()
-  const sers = services.value.map((item) => item.code)
-  if (!sers.length) return
   if (filterLikedTracks.value.length) {
     tricklingProgress.done()
     show.value = true
     getRandomLyric()
-    fetchLikedSongsWithDetails(sers)
-    fetchLikedPlaylists(sers)
+    fetchLikedSongsWithDetails(ser.code)
+    fetchLikedPlaylists(ser.code)
   } else {
-    await fetchLikedPlaylists(sers)
-    await fetchLikedSongsWithDetails(sers)
+    await fetchLikedPlaylists(ser.code)
+    await fetchLikedSongsWithDetails(ser.code)
     getRandomLyric()
     tricklingProgress.done()
     show.value = true
   }
-  fetchLikedArtists(sers)
-  fetchLikedMVs(sers)
+  fetchLikedArtists(ser.code)
+  fetchLikedMVs(ser.code)
   // fetchPlayHistory()
-  fetchCloudDisk(sers)
+  fetchCloudDisk(ser.code)
 }
 
 const getRandomLyric = async () => {
@@ -517,14 +512,15 @@ const handleResize = () => {
 // }
 
 onMounted(async () => {
-  // checkLoginStatus()
-
   window.addEventListener('resize', handleResize)
   if (tabsRowRef.value) {
     observeTab.observe(tabsRowRef.value)
   }
   await nextTick()
-  loadData()
+
+  services.value.forEach((ser) => {
+    loadData(ser)
+  })
 
   setTimeout(() => {
     updatePadding(0)

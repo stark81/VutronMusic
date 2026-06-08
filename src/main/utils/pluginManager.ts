@@ -171,7 +171,7 @@ export class PluginInstance {
   }
 
   private async handleHttp(msg: any) {
-    const { url, params, headers, requestId, method = 'GET', data } = msg
+    const { url, params, headers, requestId, method = 'GET', data, raw = false } = msg
 
     const controller = new AbortController()
 
@@ -313,11 +313,25 @@ export class PluginInstance {
       console.error('[HTTP PARSE ERROR]', fullUrl, err)
     }
 
+    if (response.status >= 400) {
+      this.worker.postMessage({
+        type: 'HTTP_RESPONSE',
+        requestId,
+        status: response.status,
+        error:
+          typeof resData === 'object' && resData?.error ? resData.error : `HTTP ${response.status}`
+      })
+
+      return
+    }
+
     this.worker.postMessage({
       type: 'HTTP_RESPONSE',
       requestId,
+      raw,
       data: resData,
-      status: response.status
+      status: response.status,
+      headers: Object.fromEntries(response.headers.entries())
     })
   }
 

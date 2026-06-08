@@ -433,18 +433,28 @@
             </div>
             <div class="right">
               <button @click="uploadPlugin">导入</button>
-              <button>刷新</button>
+              <button :style="{ marginLeft: '1rem' }">刷新</button>
             </div>
           </div>
-          <div>
+          <div class="plugin-container">
             <div
               v-for="plugin in pluginServices"
-              :key="plugin?.code ?? ''"
-              class="test"
-              @click="updateActivePlugin(plugin.code)"
+              :key="plugin.code"
+              class="plugin-item"
+              :class="{
+                library: plugin.type === 'library',
+                stream: plugin.type === 'stream',
+                local: plugin.type === 'local'
+              }"
             >
-              <label>{{ plugin?.name || '' }}</label>
-              <label>{{ plugin.active }}</label>
+              <div class="plugin-left">
+                <div>{{ plugin.name }}</div>
+                <div>{{ plugin.type }}</div>
+              </div>
+              <div class="plugin-right">
+                <div @click="updateActivePlugin(plugin.code)">{{ plugin.active }}</div>
+                <div @click="handleLogin(plugin)">{{ plugin.status }}</div>
+              </div>
             </div>
           </div>
         </div>
@@ -619,20 +629,20 @@
               <div>{{ $t('settings.stream.service') }}：</div>
               <!-- :class="{ itemSelected: service.selected }" -->
               <div
-                v-for="service of services"
-                :key="service.name"
-                :title="serviceTitle(service)"
+                v-for="ser of services"
+                :key="ser.name"
+                :title="serviceTitle(ser)"
                 class="stream-item"
-                @click.right="loginOrlogout(service)"
+                @click.right="loginOrlogout(ser)"
               >
-                <img :src="getImagePath(service.name)" />
+                <img :src="getImagePath(ser.name)" />
                 <div class="service-name">
                   <div
                     class="service-status"
-                    :title="$t(`settings.stream.${service.status}`)"
-                    :style="{ background: getStatusColor(service) }"
+                    :title="$t(`settings.stream.${ser.status}`)"
+                    :style="{ background: getStatusColor(ser) }"
                   ></div>
-                  <div>{{ service.name }}</div>
+                  <div>{{ ser.name }}</div>
                 </div>
               </div>
             </div>
@@ -1125,7 +1135,7 @@ import { VueDraggable } from 'vue-draggable-plus'
 import imageUrl from '../utils/settingImg.dataurl?raw'
 import { useRouter } from 'vue-router'
 import { serviceType, serviceName, Appearance, ProxyType } from '@/types/music.d'
-import { PluginId } from '@/types/plugin'
+import type { LoginType, PluginId, service } from '@/types/plugin'
 
 const router = useRouter()
 
@@ -1177,8 +1187,8 @@ const {
 const { showToast, checkUpdate, getFontList } = stateStore
 
 const pluginMusicStore = usePluginMusic()
-const { services: pluginServices } = storeToRefs(pluginMusicStore)
-const { uploadPlugin } = pluginMusicStore
+const { services: pluginServices, users } = storeToRefs(pluginMusicStore)
+const { uploadPlugin, pluginMethodCall } = pluginMusicStore
 
 const dataStore = useDataStore()
 const { user } = storeToRefs(dataStore)
@@ -1255,6 +1265,22 @@ const handleUpdate = () => {
     }
   } else {
     checkUpdate()
+  }
+}
+
+const handleLogin = (plugin: service) => {
+  if (plugin.status === 'logout') {
+    const loginType: LoginType = plugin.type === 'library' ? 'QrCode' : 'Username'
+    router.push(`/login/${plugin.code}/${loginType}`)
+  } else {
+    if (confirm(`确定登出${plugin.name}吗？`)) {
+      pluginMethodCall(plugin.code, 'doLogout').then(({ code }) => {
+        if (code === 200) {
+          delete users.value[plugin.code]
+          plugin.status = 'logout'
+        }
+      })
+    }
   }
 }
 
@@ -1888,6 +1914,7 @@ onBeforeUnmount(() => {
     outline: none;
   }
 }
+
 .item.no-flex {
   display: unset;
 }
@@ -2037,6 +2064,22 @@ onBeforeUnmount(() => {
     opacity: 0.5;
   }
 }
+
+.plugin-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+
+  .plugin-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: var(--color-primary);
+    padding: 1rem;
+    border-radius: 0.5rem;
+  }
+}
+
 button {
   position: relative;
   color: var(--color-text);

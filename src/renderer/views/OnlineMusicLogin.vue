@@ -120,7 +120,6 @@ const getQrCodeKey = async () => {
 onMounted(() => {
   const code = route.params.service as string
   const service = services.value.find((s) => s.code === code)
-  console.log('==2=2=2=', code, service)
   if (!service) return
   currentService.code = service.code
   currentService.name = service.name

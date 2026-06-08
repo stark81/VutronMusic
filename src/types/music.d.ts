@@ -157,6 +157,7 @@ export type SourceType =
   | 'Album'
   | 'Artist'
   | 'Track'
+  | 'LocalTrack'
   | 'TrackList'
   | 'DailySongs'
   | 'ExploreTrack'
@@ -166,6 +167,6 @@ export type SourceType =
 
 export type PlaylistSourceInfo = {
   type: SourceType
-  plugin: PluginId
+  plugin: PluginId | 'all'
   sourceContext: Record<string, any>
 }

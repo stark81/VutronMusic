@@ -1,7 +1,7 @@
 <template>
   <div v-if="show" class="comment-container">
     <div class="comment-head">
-      <label>回复({{ floorCommentInfo.totalCount }})</label>
+      <label>回复({{ totalCount }})</label>
       <div class="btns">
         <button class="btn" @click="switchToCommentPage">关闭</button>
       </div>
@@ -17,10 +17,10 @@
         :below-value="5"
         :show-position="false"
         :is-end="false"
-        :load-more="() => loadFloorComment(props.beRepliedCommentId)"
+        :load-more="() => loadFloorComment()"
       >
         <template #default="{ item, index }">
-          <div class="comment-item" :class="{ first: index === 0 }">
+          <div class="comment-item" :class="{ first: index === 0 && floorComments.length > 1 }">
             <div class="avatar" @click="goToUser(item)"
               ><img :src="getImage(item.user.avatarUrl)" alt="" loading="lazy"
             /></div>
@@ -32,21 +32,18 @@
                 <label>{{ item.content }}</label>
               </div>
               <div
-                v-if="
-                  item.beReplied?.length &&
-                  item.beReplied[0].beRepliedCommentId !== item.parentCommentId
-                "
+                v-if="item.beReplied && item.beReplied.beRepliedCommentId !== item.parentCommentId"
                 class="comment-beReplied"
               >
-                <label v-if="item.beReplied[0].content" class="comment-nickname"
-                  >@{{ item.beReplied[0].user.nickname }}:
+                <label v-if="item.beReplied" class="comment-nickname"
+                  >@{{ item.beReplied.nickname }}:
                 </label>
-                <label>{{ item.beReplied[0].content ?? '该评论已删除' }}</label>
+                <label>{{ item.beReplied.content || '该评论已删除' }}</label>
               </div>
               <div class="comment-ex">
                 <div class="time-ip">
                   <span class="time">{{ formatDate(item.time, 'YYYY年MM月DD日 H:mm') }}</span>
-                  <span v-if="item.ipLocation?.location">来自{{ item.ipLocation.location }}</span>
+                  <span v-if="item.ipLocation">来自{{ item.ipLocation }}</span>
                 </div>
                 <div class="comment-btns">
                   <button
@@ -77,70 +74,57 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, reactive, inject, onBeforeUnmount, nextTick } from 'vue'
-import { likeComment, getFloorComment, submitComment } from '../api/comment'
+import { ref, computed, onMounted, inject, onBeforeUnmount, nextTick, toRefs } from 'vue'
 import { useNormalStateStore } from '../store/state'
+import { usePluginMusic } from '../store/pluginMusic'
 import VirtualScroll from './VirtualScrollNoHeight.vue'
 import WriteComment from './WriteComment.vue'
 import SvgIcon from './SvgIcon.vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { formatDate } from '../utils'
-import { isAccountLoggedIn } from '../utils/auth'
-import { storeToRefs } from 'pinia'
+// import { storeToRefs } from 'pinia'
 import { debounce } from 'lodash'
+import { PluginId, CommentType } from '@/types/plugin'
 
-const props = defineProps({
-  beRepliedCommentId: {
-    type: [Number, String],
-    required: true
-  },
-  id: {
-    type: [Number, String],
-    required: true
-  },
-  type: {
-    type: String,
-    default: 'music'
-  },
-  paddingRight: {
-    type: String,
-    default: '4vh'
-  }
+interface Props {
+  selectedComment: CommentType | null
+  sourceContext: Record<string, any>
+  type: string
+  plugin: PluginId
+  paddingRight?: string
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  type: 'track',
+  paddingRight: '4vh'
 })
 
 const show = ref(false)
-const floorComments = ref<any[]>([])
+const floorComments = ref<CommentType[]>([])
 const mainRef = ref<HTMLElement>()
-const selectedComment = ref()
-const floorCommentRef = ref()
+const floorCommentRef = ref<InstanceType<typeof WriteComment>>()
 const currentPage = inject('currentPage', ref('floorComment'))
-const floorCommentInfo = reactive({
-  limit: 20,
-  time: 0,
-  hasMore: true,
-  totalCount: 0,
-  commentId: 0
-})
+const totalCount = ref(0)
+
 const placeholder = computed(() => {
-  return `回复${selectedComment.value.user.nickname}:`
+  return `回复${_selectedComment.value?.user.nickname}:`
 })
 
 const commentHeight = ref(mainRef.value?.offsetHeight || 0)
 
-const typeMap = {
-  music: 0,
-  mv: 1,
-  playlist: 2,
-  album: 3,
-  djRadio: 4,
-  video: 5
-}
+let sourceContext = props.sourceContext
+const { selectedComment } = toRefs(props)
+const _selectedComment = ref<CommentType | null>(selectedComment.value)
 
 const { t } = useI18n()
 const stateStore = useNormalStateStore()
-const { showLyrics } = storeToRefs(stateStore)
+// const { showLyrics } = storeToRefs(stateStore)
 const { showToast } = stateStore
+
+const { pluginMethodCall, isAccountLoggedIn } = usePluginMusic()
+
+if (selectedComment.value) floorComments.value.push(selectedComment.value)
 
 const getImage = (url: string) => {
   if (url.startsWith('http:')) {
@@ -155,9 +139,9 @@ const updateWindowHeight = () => {
 }
 
 const router = useRouter()
-const goToUser = (item: any) => {
-  router.push(`/user/${item.user.userId}`)
-  showLyrics.value = false
+const goToUser = (item: CommentType) => {
+  // router.push(`/user/${item.user.userId}`)
+  // showLyrics.value = false
 }
 
 const switchToCommentPage = () => {
@@ -165,120 +149,107 @@ const switchToCommentPage = () => {
   show.value = false
 }
 
-const loadFloorComment = (pid: number | string) => {
-  console.log('=2=2=2=', pid)
-  // if (!floorCommentInfo.hasMore) return
-  // const params = {
-  //   parentCommentId: pid,
-  //   type: typeMap[props.type],
-  //   id: props.id,
-  //   limit: floorCommentInfo.limit,
-  //   time: floorCommentInfo.time
-  // }
-  // getFloorComment(params).then((res) => {
-  //   if (res.code === 200) {
-  //     floorCommentInfo.time = res.data.time
-  //     floorCommentInfo.hasMore = res.data.hasMore
-  //     floorCommentInfo.totalCount = res.data.totalCount || floorCommentInfo.totalCount
-  //     floorCommentInfo.commentId = res.data.ownerComment?.commentId || floorCommentInfo.commentId
-  //     if (res.data.ownerComment) {
-  //       selectedComment.value = res.data.ownerComment
-  //       floorComments.value.push(res.data.ownerComment)
-  //     }
-  //     floorComments.value.push(...res.data.bestComments)
-  //     floorComments.value.push(...res.data.comments)
-  //   }
-  //   show.value = true
-  //   nextTick(() => {
-  //     commentHeight.value = mainRef.value?.offsetHeight || commentHeight.value
-  //   })
-  // })
+const loadFloorComment = () => {
+  pluginMethodCall(props.plugin, 'getFloorComments', {
+    sourceContext,
+    commentInfo: _selectedComment.value?.sourceContext,
+    type: props.type
+  }).then((result) => {
+    if (result.code !== 200) return
+    totalCount.value = result.count || totalCount.value
+
+    floorComments.value.push(...result.data)
+    sourceContext = { ...sourceContext, ...result.sourceContext }
+    show.value = true
+
+    nextTick(() => {
+      commentHeight.value = mainRef.value?.offsetHeight || commentHeight.value
+    })
+  })
 }
 
-const handleLikeComment = (comment: any) => {
-  // if (!isAccountLoggedIn()) {
-  //   showToast(t('toast.needToLogin'))
-  //   return
-  // }
-  // const params = {
-  //   id: props.id,
-  //   cid: comment.commentId,
-  //   t: comment.liked ? 0 : 1,
-  //   type: typeMap[props.type]
-  // }
-  // likeComment(params)
-  //   .then((res) => {
-  //     if (res.code === 200) {
-  //       comment.likedCount += comment.liked ? -1 : 1
-  //       comment.liked = !comment.liked
-  //     } else {
-  //       showToast(`${res.msg}, ${res?.data?.dialog?.subtitle}`)
-  //     }
-  //   })
-  //   .catch((err) => {
-  //     showToast(err)
-  //   })
+const handleLikeComment = (comment: CommentType) => {
+  if (!isAccountLoggedIn(props.plugin)) {
+    showToast(t('toast.needToLogin'))
+    return
+  }
+
+  pluginMethodCall(props.plugin, 'likeAComment', {
+    sourceContext,
+    commentInfo: comment.sourceContext,
+    currentStatus: comment.liked,
+    type: props.type
+  }).then((result) => {
+    if (result.code === 200) {
+      comment.likedCount += comment.liked ? -1 : 1
+      comment.liked = !comment.liked
+    } else {
+      showToast('操作失败')
+    }
+  })
 }
 
-const replyFloor = (comment: any) => {
-  selectedComment.value = comment
+const replyFloor = (comment: CommentType) => {
+  _selectedComment.value = comment
 }
 
-const handleDeleteComment = (comment: any) => {
-  // if (!isAccountLoggedIn()) {
-  //   showToast(t('toast.needToLogin'))
-  //   return
-  // }
-  // if (confirm(`确定要删除评论'${comment.content}'吗？`)) {
-  //   const params = {
-  //     t: 0,
-  //     type: typeMap[props.type],
-  //     id: props.id,
-  //     commentId: comment.commentId
-  //   }
-  //   submitComment(params).then((res) => {
-  //     if (res.code === 200) {
-  //       floorComments.value = floorComments.value.filter((item) => item !== comment)
-  //       floorCommentInfo.totalCount -= 1
-  //     } else {
-  //       showToast(`${res.message}，${res.data?.dialog?.subtitle}`)
-  //     }
-  //   })
-  // }
+const handleDeleteComment = (comment: CommentType) => {
+  if (!isAccountLoggedIn(props.plugin)) {
+    showToast(t('toast.needToLogin'))
+    return
+  }
+  if (confirm(`确定要删除评论'${comment.content}'吗？`)) {
+    pluginMethodCall(props.plugin, 'submitAComment', {
+      ...sourceContext,
+      type: props.type,
+      t: 'del',
+      commentId: comment.id
+    }).then((result) => {
+      if (result.code === 200) {
+        floorComments.value = floorComments.value.filter((item) => item !== comment)
+        totalCount.value -= 1
+      }
+    })
+  }
 }
 
 const handleSubmitComment = () => {
-  // if (!isAccountLoggedIn()) {
-  //   showToast(t('toast.needToLogin'))
-  //   return
-  // }
-  // const params = {
-  //   t: 2,
-  //   type: typeMap[props.type],
-  //   id: props.id,
-  //   content: floorCommentRef.value.comment,
-  //   commentId: selectedComment.value.commentId
-  // }
-  // submitComment(params)
-  //   .then((res) => {
-  //     if (res.code === 200) {
-  //       const comment = res.comment
-  //       comment.owner = true
-  //       comment.beReplied = []
-  //       floorCommentInfo.totalCount += 1
-  //       if (selectedComment.value.commentId !== floorCommentInfo.commentId) {
-  //         comment.beReplied.push({
-  //           beRepliedCommentId: selectedComment.value.commentId,
-  //           content: selectedComment.value.content,
-  //           user: { nickname: selectedComment.value.user.nickname }
-  //         })
-  //       }
-  //       floorComments.value.splice(1, 0, comment)
-  //     }
-  //   })
-  //   .catch((err) => {
-  //     showToast(err)
-  //   })
+  if (!isAccountLoggedIn(props.plugin)) {
+    showToast(t('toast.needToLogin'))
+    return
+  }
+
+  pluginMethodCall(props.plugin, 'submitAComment', {
+    ...sourceContext,
+    type: props.type,
+    t: 'reply' as 'sub' | 'reply',
+    comment: floorCommentRef.value?.comment || '',
+    commentId: _selectedComment.value?.id || ''
+  })
+    .then((res) => {
+      if (res.code === 200) {
+        const comment = res.data!
+        comment.owner = true
+        totalCount.value += 1
+
+        const parentId = floorComments.value[0].id
+        if (_selectedComment.value!.id !== parentId) {
+          comment.beReplied = {
+            id: _selectedComment.value!.id,
+            content: _selectedComment.value!.content,
+            nickname: _selectedComment.value!.user.nickname,
+            beRepliedCommentId: _selectedComment.value!.id
+          }
+        }
+        floorComments.value.splice(1, 0, comment)
+      } else {
+        showToast('操作失败')
+      }
+    })
+    .finally(() => {
+      if (!floorCommentRef.value) return
+      floorCommentRef.value.comment = ''
+    })
 }
 
 onMounted(() => {
@@ -286,7 +257,7 @@ onMounted(() => {
     'resize',
     debounce(() => updateWindowHeight(), 200)
   )
-  loadFloorComment(props.beRepliedCommentId)
+  loadFloorComment()
 })
 
 onBeforeUnmount(() => {
@@ -364,16 +335,18 @@ onBeforeUnmount(() => {
   padding-bottom: 10px;
   .comment-ex {
     padding-bottom: 20px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+    border-bottom: 1px solid rgba(205, 205, 205, 0.5);
   }
 }
 .comment-info {
   display: flex;
   flex-direction: column;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
 }
 .comment {
-  width: auto;
+  word-break: break-all;
+  overflow-wrap: anywhere;
 
   .comment-nickname {
     cursor: pointer;

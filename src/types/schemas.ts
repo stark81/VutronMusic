@@ -40,6 +40,7 @@ export const TrackSchema = z.object({
   album: AlbumSchema,
   no: z.number(),
   artists: z.array(ArtistSchema),
+  albumArtists: z.array(ArtistSchema),
   mvid: z.string().or(z.number()),
   playCount: z.number(),
   pluginId: z.string().transform(asPluginId),
@@ -275,6 +276,12 @@ export const ArtistCatlistSchema = z.object({
   sub: z.array(TrackCatlistSchema)
 })
 
+export const CommentTabSchema = z.object({
+  name: z.string(),
+  code: z.string().or(z.number()),
+  active: z.boolean()
+})
+
 export const PluginResultSchema = {
   updateBaseUrl: z.object({ code: z.number() }),
   getAccount: z.object({
@@ -290,6 +297,7 @@ export const PluginResultSchema = {
     data: UserResultSchema.optional(),
     message: z.string().optional()
   }),
+  doLogout: z.object({ code: z.number() }),
   getSongUrl: z.object({ code: z.number(), data: z.string() }),
   getLyric: z.object({ code: z.number(), data: z.array(LyricLineSchema) }),
   getBanner: z.object({ code: z.number(), data: z.array(BannerSchema) }),
@@ -451,6 +459,10 @@ export const PluginResultSchema = {
   likeAMV: z.object({
     code: z.number()
   }),
+  getCommentTab: z.object({
+    code: z.number(),
+    data: z.array(CommentTabSchema)
+  }),
   getComments: z.object({
     code: z.number(),
     data: z.array(CommentSchema),
@@ -458,5 +470,11 @@ export const PluginResultSchema = {
     sourceContext: z.record(z.string(), z.any())
   }),
   likeAComment: z.object({ code: z.number() }),
-  submitAComment: z.object({ code: z.number(), data: CommentSchema.or(z.null()) })
+  submitAComment: z.object({ code: z.number(), data: CommentSchema.or(z.null()) }),
+  getFloorComments: z.object({
+    code: z.number(),
+    data: z.array(CommentSchema),
+    count: z.number(),
+    sourceContext: z.record(z.string(), z.any())
+  })
 } as const

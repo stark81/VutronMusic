@@ -6,12 +6,12 @@
         :key="platform.name"
         ref="iconWrappers"
         class="icon-wrapper"
-        @click="selectPlatform(platform.name)"
+        @click="selectPlatform(platform.code)"
       >
         <img
-          :src="getImagePath(platform.name)"
-          :class="{ selected: platform.name === pluginId }"
-          alt="platform logo"
+          :src="getImagePath(platform.code)"
+          :class="{ selected: platform.code === pluginId }"
+          :alt="`${platform.name}`"
         />
       </div>
       <div class="indicator" :class="{ animated: isIndicatorReady }" :style="indicatorStyle"></div>
@@ -34,7 +34,7 @@
           </div>
         </div>
       </template>
-      <template v-else>
+      <template v-else-if="loginType === 'Username'">
         <div class="input-box">
           <div class="container" :class="{ active: inputFocus === 'user' }">
             <svg-icon icon-class="user" />
@@ -65,47 +65,16 @@
           </div>
         </div>
       </template>
+      <template v-else-if="loginType === 'QrCode'">
+        <div class="qr-code-container">
+          <img :src="qrCodeSvg" loading="lazy" />
+        </div>
+      </template>
 
-      <div class="confirm">
+      <div v-if="!step || loginType !== 'QrCode'" class="confirm">
         <div class="button" :class="{ disable: step === 0 }" @click="prev"> 上一步 </div>
         <div class="button" @click="step ? login() : next()">{{ step ? '登陆' : '下一步' }}</div>
       </div>
-
-      <!-- <div class="input-box">
-        <div class="container" :class="{ active: inputFocus === 'user' }">
-          <svg-icon icon-class="user" />
-          <div class="inputs">
-            <input
-              v-model="user"
-              type="text"
-              placeholder="账号"
-              @focus="inputFocus = 'user'"
-              @blur="inputFocus = ''"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div class="input-box">
-        <div class="container" :class="{ active: inputFocus === 'password' }">
-          <svg-icon icon-class="lock" />
-          <div class="inputs">
-            <input
-              v-model="password"
-              type="password"
-              placeholder="密码"
-              @focus="inputFocus = 'password'"
-              @blur="inputFocus = ''"
-            />
-          </div>
-        </div>
-      </div> -->
-
-      <!-- <div class="confirm">
-        <button @click="login">
-          {{ $t('login.login') }}
-        </button>
-      </div> -->
       <label v-if="error" style="color: red">{{ error }}</label>
     </div>
   </div>
@@ -114,16 +83,17 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, nextTick, watch, computed } from 'vue'
 import SvgIcon from '../components/SvgIcon.vue'
-// import { useStreamMusicStore } from '../store/streamingMusic'
+import qrCode from 'qrcode'
+import { useSettingsStore } from '../store/settings'
 import { usePluginMusic } from '../store/pluginMusic'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
-// import { serviceName } from '@/types/music.d'
 import { LoginType, PluginId } from '@/types/plugin'
 
 const iconWrappers = ref<HTMLElement[]>([])
 const indicatorStyle = ref({ width: '0px', left: '0px' })
 const isIndicatorReady = ref(false)
+const { theme } = storeToRefs(useSettingsStore())
 
 const pluginStore = usePluginMusic()
 const { services, users } = storeToRefs(pluginStore)
@@ -139,6 +109,10 @@ const user = ref('')
 const password = ref('')
 const error = ref<string | null>(null)
 
+const qrCodeSvg = ref('')
+const qrCodeKey = ref('')
+let qrCodeCheckInterval: ReturnType<typeof setInterval>
+
 const pluginId = ref<PluginId>()
 const loginType = ref<LoginType>('Username')
 const step = ref(0)
@@ -148,12 +122,28 @@ const saveTypeServices = computed(() => {
   return services.value.filter((item) => item.type === service?.type)
 })
 
+const selectedColor = computed(() => {
+  const color = theme.value.colors.find((c) => c.selected)?.color || 'rgba(51, 94, 234, 1)'
+  const parts = color.startsWith('rgba')
+    ? color.slice(5, -1).split(',')
+    : color.slice(4, -1).split(',')
+  const r = parseInt(parts[0].trim(), 10)
+  const g = parseInt(parts[1].trim(), 10)
+  const b = parseInt(parts[2].trim(), 10)
+
+  const red = Math.min(255, Math.max(0, r)).toString(16).padStart(2, '0')
+  const green = Math.min(255, Math.max(0, g)).toString(16).padStart(2, '0')
+  const blue = Math.min(255, Math.max(0, b)).toString(16).padStart(2, '0')
+
+  return `#${red}${green}${blue}`
+})
+
 const getImagePath = (platform: string) => {
   return new URL(`../assets/images/${platform}.png`, import.meta.url).href
 }
 
 const updateIndicatorPosition = () => {
-  const index = services.value.findIndex((s) => s.code === pluginId.value)
+  const index = saveTypeServices.value.findIndex((s) => s.code === pluginId.value)
   const wrapper = iconWrappers.value[index]
   const container = wrapper?.parentElement
 
@@ -168,10 +158,64 @@ const updateIndicatorPosition = () => {
   }
 }
 
-const selectPlatform = (platform: string) => {
-  // pluginId.value = platform
+const selectPlatform = (platform: PluginId) => {
+  pluginId.value = platform
   step.value = 0
   nextTick(updateIndicatorPosition)
+}
+
+const checkQrCodeLogin = () => {
+  if (qrCodeKey.value === '') return
+
+  qrCodeCheckInterval = setInterval(() => {
+    if (!pluginId.value) {
+      clearInterval(qrCodeCheckInterval)
+      return
+    }
+    pluginMethodCall(pluginId.value, 'loginQrCodeCheck', { key: qrCodeKey.value }).then((res) => {
+      if (res.code === 803) {
+        if (!pluginId.value) return
+
+        users.value[pluginId.value] = {
+          userId: res.user!.userId || '',
+          avatarUrl: res.user!.avatarUrl || '',
+          nickname: res.user!.nickname || '',
+          isVip: res.user!.isVip || false,
+          signature: res.user!.signature || ''
+        }
+
+        const service = services.value.find((item) => item.code === pluginId.value)
+        if (service) service.status = 'login'
+        router.push({ name: service?.type })
+        clearInterval(qrCodeCheckInterval)
+      }
+    })
+  }, 3000)
+}
+
+const getQrCodeKey = async () => {
+  if (!pluginId.value) return
+  const res = await pluginMethodCall(pluginId.value, 'loginQrKey')
+  if (res.code === 200) {
+    qrCodeKey.value = res.data.qrcode
+  }
+  qrCode
+    .toString(res.data.url, {
+      width: 192,
+      margin: 0,
+      color: {
+        dark: selectedColor.value,
+        light: '#00000000'
+      },
+      type: 'svg'
+    })
+    .then((svg: string) => {
+      qrCodeSvg.value = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
+    })
+    .catch((err: any) => {
+      console.log('err = ', err)
+    })
+  checkQrCodeLogin()
 }
 
 const login = () => {
@@ -218,16 +262,20 @@ const prev = () => {
   if (step.value > 0) step.value--
 }
 
-const next = () => {
+const next = async () => {
   if (!pluginId.value) return
   if (!saved.value) {
-    pluginMethodCall(pluginId.value, 'updateBaseUrl', { url: url.value }).then((result) => {
+    await pluginMethodCall(pluginId.value, 'updateBaseUrl', { url: url.value }).then((result) => {
       if (result.code !== 200) return
       step.value += 1
       saved.value = true
     })
   } else {
     step.value += 1
+  }
+
+  if (loginType.value === 'QrCode') {
+    getQrCodeKey()
   }
 }
 
@@ -241,9 +289,17 @@ watch(pluginId, (value) => {
   const service = services.value.find((s) => s.code === value)!
   if (service.status === 'login') {
     router.push('/stream')
-    return
+    // return
   }
-  console.log('')
+  // console.log('')
+
+  pluginMethodCall(service.code, 'getAccount').then((result) => {
+    user.value = result.userName
+    password.value = result.pwd
+    url.value = result.baseUrl
+    saved.value = !!result.baseUrl
+    if (result.baseUrl) step.value++
+  })
 
   // window.mainApi?.invoke('get-stream-account', { platform: value }).then((result) => {
   //   url.value = result?.url || ''
@@ -252,19 +308,21 @@ watch(pluginId, (value) => {
   // })
 })
 
-onMounted(() => {
+onMounted(async () => {
   const { service, type } = route.params as { service: PluginId; type: LoginType }
 
   pluginId.value = service
   loginType.value = type
 
-  pluginMethodCall(service, 'getAccount').then((result) => {
+  await pluginMethodCall(service, 'getAccount').then((result) => {
     user.value = result.userName
     password.value = result.pwd
     url.value = result.baseUrl
     saved.value = true
     if (result.baseUrl) step.value++
   })
+
+  if (type === 'QrCode') getQrCodeKey()
 
   // pluginId.value = (route.params.service as serviceName) || 'jellyfin'
 
@@ -286,6 +344,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  clearInterval(qrCodeCheckInterval)
   window.removeEventListener('resize', updateIndicatorPosition)
 })
 </script>
@@ -457,6 +516,13 @@ onBeforeUnmount(() => {
         width: 100%;
       }
     }
+  }
+
+  .qr-code-container {
+    background: color-mix(in oklab, var(--color-primary) var(--bg-alpha), white);
+    padding: 20px;
+    border-radius: 1.25rem;
+    margin-bottom: 12px;
   }
 }
 </style>

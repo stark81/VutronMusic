@@ -14,7 +14,6 @@
     <TrackList
       :items="filterTracks"
       :plugin="pluginId"
-      :is-group-by="false"
       :source-context="{}"
       :colunm-number="1"
       type="DailySongs"

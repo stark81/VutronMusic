@@ -134,8 +134,7 @@ const props = withDefaults(
     items: Track[]
     allItems?: Track[]
     type: SourceType
-    plugin: PluginId
-    isGroupBy: boolean
+    plugin: PluginId | 'all'
     isLyric?: boolean
     showPosition?: boolean
     showService?: boolean
@@ -190,7 +189,6 @@ const rightClickedTrack = ref({
   type: 'online',
   pluginId: '' as PluginId,
   source: '',
-  playlistItemId: null,
   mvid: 0,
   picUrl: '',
   artists: [{ name: '' }],
@@ -234,7 +232,6 @@ const rightClickedTrackComputed = computed(() => {
         source: '',
         picUrl: '',
         pluginId: '' as PluginId,
-        playlistItemId: null,
         artists: [{ name: '' }],
         album: { picUrl: '' },
         al: { picUrl: '' },
@@ -296,7 +293,6 @@ const closeMenu = () => {
     type: 'online',
     pluginId: '' as PluginId,
     source: '',
-    playlistItemId: null,
     picUrl: '',
     mvid: 0,
     artists: [{ name: '' }],
@@ -340,7 +336,7 @@ const openMenu = (e: MouseEvent, track: { [key: string]: any }, index: number) =
 }
 
 const rmTrackFromPlaylist = () => {
-  if (props.isGroupBy) {
+  if (props.plugin === 'all') {
     showToast('在聚合视图下无法进行操作，请先选择具体的音源服务')
     return
   }
@@ -397,7 +393,7 @@ const addTrackToPlaylist = () => {
   let plugin: PluginId
 
   if (rightClickedTrackComputed.value.id === 0) {
-    if (props.isGroupBy) {
+    if (props.plugin === 'all') {
       showToast('在聚合视图下无法进行操作，请先选择具体的音源服务')
       return
     }
@@ -432,7 +428,6 @@ const closeComment = () => {
     type: 'online',
     pluginId: '' as PluginId,
     source: '',
-    playlistItemId: null,
     picUrl: '',
     mvid: 0,
     artists: [{ name: '' }],

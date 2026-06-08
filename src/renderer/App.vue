@@ -76,12 +76,15 @@ const sers = computed(() =>
 )
 
 const fetchData = async () => {
-  await fetchLikedPlaylists(sers.value)
-  await fetchLikedSongsWithDetails(sers.value)
-  fetchLikedArtists(sers.value)
-  // fetchLikedAlbums(sers.value)
-  fetchLikedMVs(sers.value)
-  fetchCloudDisk(sers.value)
+  await Promise.all(
+    sers.value.map(async (item) => {
+      await fetchLikedPlaylists(item)
+      fetchLikedSongsWithDetails(item)
+      fetchLikedArtists(item)
+      fetchLikedMVs(item)
+      fetchCloudDisk(item)
+    })
+  )
 }
 
 const scrollEvent = () => {

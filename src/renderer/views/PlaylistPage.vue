@@ -137,8 +137,7 @@
         :items="filterTracks"
         type="Playlist"
         :plugin="pluginId"
-        :source-context="playlist.sourceContext"
-        :is-group-by="isGroupBy"
+        :source-context="{ ...playlist.sourceContext, pluginType }"
         :colunm-number="1"
         :show-service="['stream', 'streamLiked'].includes(playlistType)"
         :show-position="true"
@@ -213,7 +212,7 @@ import Modal from '../components/BaseModal.vue'
 import { tricklingProgress } from '../utils/tricklingProgress'
 import { useI18n } from 'vue-i18n'
 import { CoverType, PlaylistSourceInfo, serviceName } from '@/types/music.d'
-import { PluginId, Track, PlaylistDetail } from '@/types/plugin'
+import type { PluginId, Track, PlaylistDetail, MusicType } from '@/types/plugin'
 
 const rawPlaylist = {
   id: 0,
@@ -253,7 +252,8 @@ const showFullDescription = ref(false)
 const showComment = ref(false)
 const pSearchBoxRef = ref<InstanceType<typeof SearchBox>>()
 const currentService = ref<serviceName | 'all'>('all')
-const pluginId = ref('' as PluginId)
+const pluginId = ref<PluginId | 'all'>('all')
+const pluginType = ref<MusicType>('library')
 
 const pluginMusicStore = usePluginMusic()
 const { users, services, tools } = storeToRefs(pluginMusicStore)
@@ -288,22 +288,14 @@ const { replacePlaylist } = playerStore
 const { t } = useI18n()
 
 const playlistType = computed(() => {
-  const type = services.value.find((item) => item.code === pluginId.value)?.type
   if (route.name === 'Playlist') {
-    return `playlist-${type}`
+    return `playlist-${pluginType.value}`
   } else {
-    return `liked-${type}`
+    return `liked-${pluginType.value}`
   }
 })
 
 const user = computed(() => users.value[pluginId.value] || {})
-
-const isGroupBy = computed(() => {
-  const service = services.value.find((item) => item.code === pluginId.value)
-  if (!service) return false
-  if (route.name === 'likedSongs' && tools.value[service.type].groundBy === 'all') return true
-  return false
-})
 
 const isLikedSongsPage = computed(
   () => route.name === 'likedSongs' || route.name === 'streamLikedSongs'
@@ -334,7 +326,7 @@ const loadData = async (plugin: PluginId, params: Record<string, any>) => {
     tricklingProgress.done()
     show.value = true
     if (!result.data) return
-    playlist.value = result.data!
+    playlist.value = result.data
     tracks.value = result.data?.tracks ?? []
   })
 }
@@ -349,13 +341,13 @@ const loadMore = () => {
 }
 
 const likePlaylist = (toast = false) => {
-  if (!isAccountLoggedIn(pluginId.value)) {
+  if (!isAccountLoggedIn(pluginId.value as PluginId)) {
     showToast(t('toast.needToLogin'))
     return
   }
 
   const op = playlist.value.subscribed ? 'del' : 'add'
-  pluginMethodCall(pluginId.value, 'subscribePlaylist', {
+  pluginMethodCall(pluginId.value as PluginId, 'subscribePlaylist', {
     op,
     name: playlist.value.name,
     tracks: tracks.value.map((item) => item.sourceContext),
@@ -372,7 +364,7 @@ const play = () => {
   const source: PlaylistSourceInfo = {
     type: 'Playlist',
     plugin: pluginId.value,
-    sourceContext: playlist.value.sourceContext
+    sourceContext: { ...playlist.value.sourceContext, pluginType: pluginType.value }
   }
 
   const trackIDs = tracks.value.map((t) => [t.pluginId, t.sourceContext]) as [
@@ -412,7 +404,11 @@ const deleteAPlaylist = () => {
       })
     )
   ) {
-    pluginMethodCall(pluginId.value, 'deletePlaylist', playlist.value.sourceContext).then((res) => {
+    pluginMethodCall(
+      pluginId.value as PluginId,
+      'deletePlaylist',
+      playlist.value.sourceContext
+    ).then((res) => {
       if (res.code === 200) {
         show.value = false
         playlist.value = rawPlaylist
@@ -483,12 +479,15 @@ onBeforeRouteUpdate((to, from, next) => {
 })
 
 onMounted(() => {
-  const { pluginId: plugin, sourceContext } = route.params
+  const { pluginId: _plugin, sourceContext } = route.params
   if (route.name === 'likedSongs') {
-    pluginId.value = (plugin as PluginId[])[0]
-    loadLikedData(plugin as PluginId[])
+    const plugin = _plugin as PluginId[]
+    pluginType.value = services.value.find((item) => item.code === plugin[0])!.type
+    pluginId.value = tools.value[pluginType.value!].groundBy
+    loadLikedData(plugin)
   } else {
-    pluginId.value = plugin as PluginId
+    pluginId.value = _plugin as PluginId
+    pluginType.value = services.value.find((item) => item.code === _plugin)!.type
     loadData(pluginId.value, JSON.parse(sourceContext as string))
   }
 

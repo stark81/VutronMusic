@@ -365,7 +365,7 @@ const position = computed({
   }
 })
 
-const heartDisabled = computed(() => true)
+const heartDisabled = computed(() => false)
 
 const shouldAni = computed(() => {
   if (activeTheme.value.theme.activeLayout === 'Classic') return true
@@ -765,6 +765,7 @@ const loadTracks = async () => {
       result.data.forEach((track, i) => {
         selectedTracks.value[item.source[i].index] = {
           ...track,
+          // picUrl: data,
           album: {
             ...track.album,
             pluginId: item.plugin
@@ -779,6 +780,20 @@ const loadTracks = async () => {
     })
   )
 }
+
+watch(
+  selectedTracks,
+  (value) => {
+    value.forEach((item) => {
+      pluginMethodCall(item.pluginId, 'resizePicUrl', { url: item.picUrl, size: 256 }).then(
+        (result) => {
+          item.picUrl = result.data
+        }
+      )
+    })
+  },
+  { deep: true }
+)
 
 watch(
   () => props.show,

@@ -11,7 +11,6 @@
         :items="tracks[plugin]?.data || []"
         :colunm-number="1"
         :plugin="plugin"
-        :is-group-by="false"
         :source-context="{}"
         :load-more="() => loadData(false)"
         :type="'Playlist'"
@@ -22,7 +21,6 @@
       <TrackList
         :items="[]"
         :plugin="plugin"
-        :is-group-by="false"
         :source-context="{}"
         :colunm-number="1"
         :item-height="152.5"

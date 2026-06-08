@@ -117,6 +117,7 @@
  * @property {Album} album
  * @property {number} no
  * @property {Artist[]} artists
+ * @property {Artist[]} albumArtists
  * @property {string} picUrl
  * @property {string} pluginId
  * @property {MusicType} type
@@ -314,36 +315,41 @@ const mapTrackPlayableStatus = (tracks = [], privileges = []) => {
 /**
  * @returns {Track}
  */
-const formatTrack = (item, size = 64) => ({
-  id: item.id,
-  name: item.name,
-  duration: item.dt ?? item.duration ?? 0,
-  alias: item.alia ?? item.alias ?? [],
-  playable: item.playable ?? false,
-  reason: item.reason ?? '',
-  createTime: item.publishTime || item.album?.publishTime || 0,
-  no: item.no ?? 1,
-  mvid: item.mvid ?? 0,
-  playCount: item.playCount ?? -1,
-  album: {
-    id: item.al?.id ?? item.album?.id ?? '',
-    name: item.al?.name ?? item.album?.name ?? '',
-    pluginId: '',
-    picUrl: item.al?.picUrl + '?param=256y256' ?? item.album?.picUrl + '?param=256y256' ?? '',
-    sourceContext: { id: item.al?.id ?? item.album?.id ?? '' }
-  },
-  artists: (item.ar || item.artists || [])?.map((it) => ({
+const formatTrack = (item, size = 64) => {
+  const artists = (item.ar || item.artists || [])?.map((it) => ({
     id: it.id,
     name: it.name || '',
     picUrl: it.img1v1Url ?? '',
     pluginId: '',
     sourceContext: { id: it.id }
-  })),
-  picUrl: (item.al || item.album)?.picUrl + `?param=${size}y${size}`,
-  pluginId: '',
-  type: meta.type,
-  sourceContext: { id: item.id }
-})
+  }))
+
+  return {
+    id: item.id,
+    name: item.name,
+    duration: item.dt ?? item.duration ?? 0,
+    alias: item.alia ?? item.alias ?? [],
+    playable: item.playable ?? false,
+    reason: item.reason ?? '',
+    createTime: item.publishTime || item.album?.publishTime || 0,
+    no: item.no ?? 1,
+    mvid: item.mvid ?? 0,
+    playCount: item.playCount ?? -1,
+    album: {
+      id: item.al?.id ?? item.album?.id ?? '',
+      name: item.al?.name ?? item.album?.name ?? '',
+      pluginId: '',
+      picUrl: item.al?.picUrl + '?param=256y256' ?? item.album?.picUrl + '?param=256y256' ?? '',
+      sourceContext: { id: item.al?.id ?? item.album?.id ?? '' }
+    },
+    artists,
+    albumArtists: artists,
+    picUrl: (item.al || item.album)?.picUrl + `?param=${size}y${size}`,
+    pluginId: '',
+    type: meta.type,
+    sourceContext: { id: item.id }
+  }
+}
 
 /**
  * @returns {Album}
@@ -524,8 +530,8 @@ const formatComment = (item) => {
     parentCommentId: item.parentCommentId || 0,
     beReplied: _beReplied
       ? {
-          id: _beReplied.commentId,
-          content: _beReplied.content,
+          id: _beReplied.commentId || '',
+          content: _beReplied.content || '',
           beRepliedCommentId: _beReplied.beRepliedCommentId,
           nickname: _beReplied.user.nickname
         }
@@ -603,10 +609,25 @@ exports.loginQrCodeCheck = async (params) => {
   return result
 }
 
+exports.getAccount = () => {
+  return { code: 200, baseUrl, userName: '', pwd: '' }
+}
+
 /**
  * 插件平台的登陆功能，登陆成功后，需要使用apis.store.set来保存所需的帐号相关信息
  */
 exports.doLogin = async () => true
+
+exports.doLogout = () => {
+  try {
+    user.userId = 0
+    user.cookie = ''
+    apis.db.set('PluginData', user)
+    return { code: 200 }
+  } catch {
+    return { code: 404 }
+  }
+}
 
 /**
  * @returns {{ code: number, data: Banner[] }}
@@ -1656,6 +1677,14 @@ exports.subAMV = async (params) => {
   }
 }
 
+const tabs = [
+  { name: '推荐', code: 99, active: true },
+  { name: '最热', code: 2, active: false },
+  { name: '最新', code: 3, active: false }
+]
+
+exports.getCommentTab = () => ({ code: 200, data: tabs })
+
 const commentType = {
   track: 0,
   mv: 1,
@@ -1781,11 +1810,12 @@ exports.submitAComment = async (params) => {
     const type = commentType[_type]
 
     const _data = { t: submitType[_t], type, id }
-    if (_t === 'sub') {
+    if (['sub', 'reply'].includes(_t)) {
       _data.content = _comment
     } else if (_t === 'del') {
       _data.commentId = commentId
     }
+    if (commentId) _data.commentId = commentId
 
     const result = await get('comment', _data)
     if (result.code !== 200) {
@@ -1797,5 +1827,31 @@ exports.submitAComment = async (params) => {
   } catch (error) {
     console.log('[netease submitAComment]: ', error)
     return { code: 404, data: null }
+  }
+}
+
+exports.getFloorComments = async (params) => {
+  try {
+    const { sourceContext, commentInfo, type: _type } = params
+    const { id, time = 0, hasMore = true } = sourceContext
+    const parentCommentId = commentInfo.id
+
+    if (!hasMore) {
+      return { code: 200, data: [], count: 0, sourceContext: params }
+    }
+
+    const type = commentType[_type]
+    const result = await get('comment/floor', { id, parentCommentId, type, limit: 50, time })
+
+    const comments = result.data.comments.map(formatComment)
+
+    return {
+      code: 200,
+      data: comments,
+      count: result.data.totalCount,
+      sourceContext: { time: result.data.time, hasMore: result.data.hasMore }
+    }
+  } catch {
+    return { code: 200, data: [], count: 0, sourceContext: params }
   }
 }

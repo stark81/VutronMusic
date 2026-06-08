@@ -19,5 +19,6 @@
   "i18n-ally.keystyle": "nested",
   "[vue]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
-  }
+  },
+  "js/ts.tsserver.maxMemory": 2048
 }

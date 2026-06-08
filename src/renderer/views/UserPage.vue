@@ -101,8 +101,7 @@
         <TrackList
           :items="playHistoryList"
           :colunm-number="1"
-          :plugin="'' as PluginId"
-          :is-group-by="false"
+          :plugin="'all'"
           :source-context="{}"
           :is-end="true"
           :item-height="60"

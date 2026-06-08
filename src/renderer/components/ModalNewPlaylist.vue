@@ -13,7 +13,7 @@
           id="checkbox-private"
           v-model="isPrivate"
           type="checkbox"
-          :disabled="service?.type !== 'online'"
+          :disabled="service?.type !== 'library'"
           class="input"
           @input="checked = !checked"
         />
@@ -43,7 +43,7 @@ const { showToast } = stateStore
 const { t } = useI18n()
 
 const pluginStore = usePluginMusic()
-const { services, playlists: pluginPlaylist } = storeToRefs(pluginStore)
+const { services } = storeToRefs(pluginStore)
 const { pluginMethodCall, fetchLikedPlaylists } = pluginStore
 
 const title = ref('')
@@ -72,7 +72,7 @@ const ids = computed({
 
 const service = computed(() => services.value.find((item) => item.code === plugin.value))
 
-const playlists = computed(() => pluginPlaylist.value[plugin.value].data!)
+// const playlists = computed(() => pluginPlaylist.value[plugin.value].data!)
 
 const modelTitle = computed(() => {
   const service = services.value.find((item) => item.code === plugin.value)

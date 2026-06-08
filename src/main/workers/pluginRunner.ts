@@ -1,4 +1,5 @@
 import { parentPort } from 'node:worker_threads'
+import crypto from 'crypto'
 
 type PluginExports = Record<string, (...args: any[]) => any>
 
@@ -8,7 +9,15 @@ type PendingRequest = {
 }
 
 type LoadPluginMessage = { type: 'LOAD_PLUGIN'; code: string }
-type HttpResponseMessage = { type: 'HTTP_RESPONSE'; requestId: string; data?: any; error?: any }
+type HttpResponseMessage = {
+  type: 'HTTP_RESPONSE'
+  requestId: string
+  raw: boolean
+  data?: any
+  error?: any
+  status?: any
+  headers?: Record<string, string>
+}
 type CallMethodMessage = { type: 'CALL_METHOD'; callId: number; method: string; args: any[] }
 type StoreResponseMessage = { type: 'STORE_RESPONSE'; requestId: string; data?: any }
 type DBResponseMessage = { type: 'DB_RESPONSE'; requestId: string; data?: any }
@@ -27,7 +36,12 @@ const pendingRequests = new Map<string, PendingRequest>()
 
 const api = {
   http: {
-    get(url: string, params?: Record<string, any>, headers?: Record<string, string>) {
+    get(
+      url: string,
+      params?: Record<string, any>,
+      headers?: Record<string, string>,
+      raw?: boolean
+    ) {
       return new Promise((resolve, reject) => {
         const requestId = Math.random().toString(36).slice(2)
 
@@ -48,10 +62,18 @@ const api = {
             reject(err)
           }
         })
-        parentPort?.postMessage({ type: 'HTTP_REQUEST', url, params, headers, requestId })
+        parentPort?.postMessage({
+          type: 'HTTP_REQUEST',
+          url,
+          params,
+          headers,
+          method: 'GET',
+          requestId,
+          raw
+        })
       })
     },
-    post(url: string, data?: any, headers?: Record<string, string>) {
+    post(url: string, data?: any, headers?: Record<string, string>, raw?: boolean) {
       return new Promise((resolve, reject) => {
         const requestId = Math.random().toString(36).slice(2)
 
@@ -78,7 +100,40 @@ const api = {
           data,
           headers,
           method: 'POST',
-          requestId
+          requestId,
+          raw
+        })
+      })
+    },
+    delete(url: string, data?: any, headers?: Record<string, string>, raw?: boolean) {
+      return new Promise((resolve, reject) => {
+        const requestId = Math.random().toString(36).slice(2)
+
+        const requestTimeout = setTimeout(() => {
+          if (pendingRequests.has(requestId)) {
+            pendingRequests.get(requestId)?.reject(new Error('Request timeout'))
+            pendingRequests.delete(requestId)
+          }
+        }, 12000)
+
+        pendingRequests.set(requestId, {
+          resolve: (data) => {
+            clearTimeout(requestTimeout)
+            resolve(data)
+          },
+          reject: (err) => {
+            clearTimeout(requestTimeout)
+            reject(err)
+          }
+        })
+        parentPort?.postMessage({
+          type: 'HTTP_REQUEST',
+          url,
+          data,
+          headers,
+          method: 'DELETE',
+          requestId,
+          raw
         })
       })
     }
@@ -155,6 +210,18 @@ const api = {
         })
         parentPort?.postMessage({ type: 'LYRIC_PARSE', msg, requestId })
       })
+    },
+    md5(input: string) {
+      return crypto.createHash('md5').update(input).digest('hex')
+    },
+    generateSalt() {
+      return crypto.randomBytes(6).toString('hex')
+    },
+    generateToken(password: string, salt: string) {
+      return crypto
+        .createHash('md5')
+        .update(password + salt)
+        .digest('hex')
     }
   }
 }
@@ -177,7 +244,15 @@ parentPort?.on('message', async (msg: IncomingMessage) => {
     case 'HTTP_RESPONSE': {
       const req = pendingRequests.get(msg.requestId)
       if (!req) return
-      msg.error ? req.reject(new Error(msg.error)) : req.resolve(msg.data)
+
+      if (msg.error) {
+        req.reject(new Error(msg.error))
+      } else if (msg.raw) {
+        req.resolve({ data: msg.data, status: msg.status, headers: msg.headers })
+      } else {
+        req.resolve(msg.data)
+      }
+
       pendingRequests.delete(msg.requestId)
       break
     }

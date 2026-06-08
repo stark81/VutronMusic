@@ -4,22 +4,12 @@
       <label>评论({{ totalCount }})</label>
       <div class="btns">
         <button
+          v-for="tab in tabs"
+          :key="tab.name"
           class="btn"
-          :class="{ active: sortType === '推荐' }"
-          @click="handleClickSortType('推荐')"
-          >推荐</button
-        >
-        <button
-          class="btn"
-          :class="{ active: sortType === '最热' }"
-          @click="handleClickSortType('最热')"
-          >最热</button
-        >
-        <button
-          class="btn"
-          :class="{ active: sortType === '最新' }"
-          @click="handleClickSortType('最新')"
-          >最新</button
+          :class="{ active: sortType === tab.name }"
+          @click="handleClickSortType(tab.name)"
+          >{{ tab.name }}</button
         >
       </div>
     </div>
@@ -73,7 +63,7 @@
                       item.likedCount
                     }}</button
                   >
-                  <button v-show="!item.beReplied" @click="switchCommentPage(item.id)"
+                  <button v-show="!item.beReplied" @click="switchCommentPage(item)"
                     ><svg-icon icon-class="floor-comment" />{{ item.replyCount }}</button
                   >
                 </div>
@@ -106,7 +96,7 @@ import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { debounce } from 'lodash'
 import { usePluginMusic } from '../store/pluginMusic'
-import { PluginId, CommentType } from '@/types/plugin'
+import { PluginId, CommentType, CommentTab } from '@/types/plugin'
 
 interface Props {
   sourceContext: Record<string, any>
@@ -121,7 +111,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const currentPage = inject('currentPage', ref('comment'))
-const beRepliedCommentId = inject('beRepliedCommentId', ref<string | number>(0))
+const selectedComment = inject('selectedComment', ref<CommentType | null>(null))
 const show = ref(false)
 
 const mainRef = ref<HTMLElement>()
@@ -129,8 +119,9 @@ const commentSubmitRef = ref<InstanceType<typeof WriteComment>>()
 const router = useRouter()
 
 const totalCount = ref(0)
-const sortType = ref<'推荐' | '最热' | '最新'>('推荐')
+const sortType = ref('')
 const comments = ref<CommentType[]>([])
+const tabs = ref<CommentTab[]>([])
 let sourceContext = props.sourceContext
 
 const commentHeight = ref(mainRef.value?.offsetHeight || 0)
@@ -138,14 +129,10 @@ const commentHeight = ref(mainRef.value?.offsetHeight || 0)
 const pluginStore = usePluginMusic()
 const { pluginMethodCall, isAccountLoggedIn } = pluginStore
 
-const typeMap = {
-  music: 0,
-  mv: 1,
-  playlist: 2,
-  album: 3,
-  djRadio: 4,
-  video: 5
-}
+pluginMethodCall(props.plugin, 'getCommentTab').then((result) => {
+  tabs.value = result.data
+  sortType.value = tabs.value[0].name
+})
 
 watch(
   () => props.sourceContext,
@@ -163,22 +150,22 @@ watch(
 
 const { t } = useI18n()
 const stateStore = useNormalStateStore()
-const { showLyrics } = storeToRefs(stateStore)
+// const { showLyrics } = storeToRefs(stateStore)
 const { showToast } = stateStore
 
-const getImage = (url: string) => {
-  if (url.startsWith('http:')) {
-    url = url.replace('http:', 'https:')
-  }
-  return url + '?param=64y64'
-}
+// const getImage = (url: string) => {
+//   if (url.startsWith('http:')) {
+//     url = url.replace('http:', 'https:')
+//   }
+//   return url + '?param=64y64'
+// }
 
 const updateWindowHeight = () => {
   if (!mainRef.value) return
   commentHeight.value = mainRef.value?.offsetHeight || commentHeight.value
 }
 
-const handleClickSortType = (type: '推荐' | '最热' | '最新') => {
+const handleClickSortType = (type: string) => {
   sortType.value = type
   totalCount.value = 0
   comments.value = []
@@ -186,12 +173,6 @@ const handleClickSortType = (type: '推荐' | '最热' | '最新') => {
   loadComment()
 }
 
-/**
- * 加载评论。逻辑为：
- * 1. 先加载推荐评论，但推荐评论一般只有一页，所以之后需要自动切换到加载最新评论
- * 2. 加载最新评论时，评论列表为之前的推荐+最新评论，所以评论列表数量比评论总数要更多
- * 3. 网易评论返回的数据问题很大，要么是hasMore为true但实际没有更多数据，要么是hasMore为false但实际还有更多数据, 要么会出现评论数量和总数不一致的问题，所以处理有些复杂，本项目里暂时按评论数量大于总数 或者 评论数量和总数之间的差值小于3视为加载完毕
- */
 const loadComment = (reset = true) => {
   if (reset) comments.value = []
 
@@ -200,7 +181,7 @@ const loadComment = (reset = true) => {
     reset,
     type: props.type
   }).then((result) => {
-    if (result.code !== 200 || !result.data.length) return
+    if (result.code !== 200) return
     comments.value.push(...result.data)
     totalCount.value = result.count
     sourceContext = { ...sourceContext, ...result.sourceContext }
@@ -217,8 +198,8 @@ const goToUser = (item: any) => {
   // showLyrics.value = false
 }
 
-const switchCommentPage = (pid: number | string) => {
-  beRepliedCommentId.value = pid
+const switchCommentPage = (item: CommentType) => {
+  selectedComment.value = item
   currentPage.value = 'floorComment'
 }
 
@@ -239,20 +220,6 @@ const handleDeleteComment = (comment: CommentType) => {
         totalCount.value -= 1
       }
     })
-    // const params = {
-    //   t: 0,
-    //   type: typeMap[props.type],
-    //   id: props.id,
-    //   commentId: comment.commentId
-    // }
-    // submitComment(params).then((res) => {
-    //   if (res.code === 200) {
-    //     comments.value = comments.value.filter((item) => item !== comment)
-    //     commentInfo.totalCount -= 1
-    //   } else {
-    //     showToast(`${res.message}，${res.data?.dialog?.subtitle}`)
-    //   }
-    // })
   }
 }
 
@@ -292,6 +259,8 @@ const handleSubmitComment = () => {
       if (result.code === 200) {
         comments.value.unshift(result.data!)
         totalCount.value += 1
+      } else {
+        showToast('操作失败')
       }
     })
     .finally(() => {
@@ -388,11 +357,12 @@ onBeforeUnmount(() => {
 .comment-info {
   display: flex;
   flex-direction: column;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
 }
 .comment {
-  // width: auto;
   word-break: break-all;
+  overflow-wrap: anywhere;
 
   .comment-nickname {
     cursor: pointer;

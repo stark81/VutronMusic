@@ -2,7 +2,8 @@ import z from 'zod'
 import { defineStore } from 'pinia'
 import { computed, reactive, ref, toRaw, watch } from 'vue'
 import { PluginResultSchema } from '@/types/schemas'
-import router from '../router'
+import { useNormalStateStore } from './state'
+// import router from '../router'
 import {
   service,
   PluginMethodCall,
@@ -36,6 +37,8 @@ const _buildService = (code: PluginId, meta: { name: string; type: MusicType }):
 export const usePluginMusic = defineStore(
   'pluginMusic',
   () => {
+    const { showToast } = useNormalStateStore()
+
     const services = ref<service[]>([])
     const users = reactive<Record<PluginId, User>>({})
 
@@ -140,7 +143,10 @@ export const usePluginMusic = defineStore(
         }
       } catch (error: any) {
         if (error?.message.includes('UNAUTHORIZED')) {
-          await router.push(`/onlineMusic/login/${pluginId}`)
+          const service = services.value.find((item) => item.code === pluginId)
+          if (service) service.status = 'logout'
+          console.log(`${pluginId} UNAUTHORIZED`)
+          showToast(`${pluginId} UNAUTHORIZED`)
         }
 
         console.error(`[pluginMethodCall ${pluginId} ${methodName} ERROR]:`, error)
@@ -208,54 +214,48 @@ export const usePluginMusic = defineStore(
      * - 由于部分插件的用户歌单和收藏的专辑在同一个接口，所以这里也在统一接口里进行请求.
      * - 返回数据为红心歌单、用户歌单、专辑
      */
-    const fetchLikedPlaylists = (plugins: PluginId[], loadedMore: boolean = false) => {
-      return Promise.all(
-        plugins.map(async (item) => {
-          if (!playlists[item]) playlists[item] = { liked: null, data: [], sourceContext: {} }
-          if (!albums[item]) albums[item] = { data: [], sourceContext: {} }
-          const result = await pluginMethodCall(
-            item,
-            'userPlaylist',
-            loadedMore
-              ? {
-                  ...playlists[item].sourceContext
-                }
-              : {}
-          )
-          if (result.liked) {
-            playlists[item].liked = { ...result.liked, pluginId: item }
-          }
-          if (result.playlists?.length) {
-            if (loadedMore) {
-              playlists[item].data.push(
-                ...result.playlists.map((it) => ({ ...it, pluginId: item }))
-              )
-            } else {
-              playlists[item].data = result.playlists.map((it) => ({ ...it, pluginId: item }))
+    const fetchLikedPlaylists = async (item: PluginId, loadedMore: boolean = false) => {
+      if (!playlists[item]) playlists[item] = { liked: null, data: [], sourceContext: {} }
+      if (!albums[item]) albums[item] = { data: [], sourceContext: {} }
+      const result = await pluginMethodCall(
+        item,
+        'userPlaylist',
+        loadedMore
+          ? {
+              ...playlists[item].sourceContext
             }
-
-            playlists[item].sourceContext = result.sourceContext
-          }
-          if (result.albums.length) {
-            if (loadedMore) {
-              albums[item].data.push(
-                ...result.albums.map((it) => ({
-                  ...it,
-                  artists: it.artists?.map((i) => ({ ...i, pluginId: item })),
-                  pluginId: item
-                }))
-              )
-            } else {
-              albums[item].data = result.albums.map((it) => ({
-                ...it,
-                artists: it.artists?.map((i) => ({ ...i, pluginId: item })),
-                pluginId: item
-              }))
-            }
-            albums[item].sourceContext = result.sourceContext
-          }
-        })
+          : {}
       )
+      if (result.liked) {
+        playlists[item].liked = { ...result.liked, pluginId: item }
+      }
+      if (result.playlists?.length) {
+        if (loadedMore) {
+          playlists[item].data.push(...result.playlists.map((it) => ({ ...it, pluginId: item })))
+        } else {
+          playlists[item].data = result.playlists.map((it) => ({ ...it, pluginId: item }))
+        }
+
+        playlists[item].sourceContext = result.sourceContext
+      }
+      if (result.albums.length) {
+        if (loadedMore) {
+          albums[item].data.push(
+            ...result.albums.map((it) => ({
+              ...it,
+              artists: it.artists?.map((i) => ({ ...i, pluginId: item })),
+              pluginId: item
+            }))
+          )
+        } else {
+          albums[item].data = result.albums.map((it) => ({
+            ...it,
+            artists: it.artists?.map((i) => ({ ...i, pluginId: item })),
+            pluginId: item
+          }))
+        }
+        albums[item].sourceContext = result.sourceContext
+      }
     }
 
     const getPlaylistDetail = async (plugin: PluginId, params: Record<string, any>) => {
@@ -287,130 +287,114 @@ export const usePluginMusic = defineStore(
       return result
     }
 
-    const fetchLikedSongsWithDetails = (plugins: PluginId[]) => {
-      return Promise.all(
-        plugins.map(async (item) => {
-          if (!likedTracks[item]) {
-            likedTracks[item] = { data: [], sourceContext: {} }
-          }
-          const plists = playlists[item].liked
-          if (plists) {
-            const result = await getPlaylistDetail(item, { ...plists.sourceContext })
-            if (!result?.data) return
-            likedTracks[item].data = result.data?.tracks ?? []
-            likedTracks[item].sourceContext = result.data?.sourceContext ?? {}
-          }
-        })
-      )
+    const fetchLikedSongsWithDetails = async (item: PluginId) => {
+      if (!likedTracks[item]) {
+        likedTracks[item] = { data: [], sourceContext: {} }
+      }
+      const plists = playlists[item].liked
+      if (plists) {
+        const result = await getPlaylistDetail(item, { ...plists.sourceContext })
+        if (!result?.data) return
+        likedTracks[item].data = result.data?.tracks ?? []
+        likedTracks[item].sourceContext = result.data?.sourceContext ?? {}
+      }
     }
 
-    const fetchLikedArtists = (plugins: PluginId[], loadedMore: boolean = false) => {
-      return Promise.all(
-        plugins.map(async (item) => {
-          if (!artists[item]) {
-            artists[item] = { data: [], sourceContext: {} }
-          }
+    const fetchLikedArtists = async (item: PluginId, loadedMore: boolean = false) => {
+      if (!artists[item]) {
+        artists[item] = { data: [], sourceContext: {} }
+      }
 
-          const result = await pluginMethodCall(
-            item,
-            'userLikedArtists',
-            loadedMore
-              ? {
-                  ...artists[item].sourceContext
-                }
-              : {}
-          )
-          if (loadedMore) {
-            artists[item].data.push(
-              ...result.data.map((it) => ({
-                ...it,
-                pluginId: item
-              }))
-            )
-          } else {
-            artists[item].data = result.data.map((it) => ({
-              ...it,
-              pluginId: item
-            }))
-          }
-          artists[item].sourceContext = result.sourceContext
-        })
+      const result = await pluginMethodCall(
+        item,
+        'userLikedArtists',
+        loadedMore
+          ? {
+              ...artists[item].sourceContext
+            }
+          : {}
       )
+      if (loadedMore) {
+        artists[item].data.push(
+          ...result.data.map((it) => ({
+            ...it,
+            pluginId: item
+          }))
+        )
+      } else {
+        artists[item].data = result.data.map((it) => ({
+          ...it,
+          pluginId: item
+        }))
+      }
+      artists[item].sourceContext = result.sourceContext
     }
 
-    const fetchLikedMVs = (plugins: PluginId[], loadedMore: boolean = false) => {
-      return Promise.all(
-        plugins.map(async (item) => {
-          if (!mvs[item]) {
-            mvs[item] = { data: [], sourceContext: {} }
-          }
+    const fetchLikedMVs = async (item: PluginId, loadedMore: boolean = false) => {
+      if (!mvs[item]) {
+        mvs[item] = { data: [], sourceContext: {} }
+      }
 
-          const result = await pluginMethodCall(
-            item,
-            'userLikedMVs',
-            loadedMore
-              ? {
-                  ...mvs[item].sourceContext
-                }
-              : {}
-          )
-          if (loadedMore) {
-            mvs[item].data.push(
-              ...result.data.map((it) => ({
-                ...it,
-                pluginId: item,
-                artists: it.artists.map((i) => ({ ...i, pluginId: item }))
-              }))
-            )
-          } else {
-            mvs[item].data = result.data.map((it) => ({
-              ...it,
-              pluginId: item,
-              artists: it.artists.map((i) => ({ ...i, pluginId: item }))
-            }))
-          }
-
-          mvs[item].sourceContext = result.sourceContext
-        })
+      const result = await pluginMethodCall(
+        item,
+        'userLikedMVs',
+        loadedMore
+          ? {
+              ...mvs[item].sourceContext
+            }
+          : {}
       )
+      if (loadedMore) {
+        mvs[item].data.push(
+          ...result.data.map((it) => ({
+            ...it,
+            pluginId: item,
+            artists: it.artists.map((i) => ({ ...i, pluginId: item }))
+          }))
+        )
+      } else {
+        mvs[item].data = result.data.map((it) => ({
+          ...it,
+          pluginId: item,
+          artists: it.artists.map((i) => ({ ...i, pluginId: item }))
+        }))
+      }
+
+      mvs[item].sourceContext = result.sourceContext
     }
 
-    const fetchCloudDisk = (plugins: PluginId[], loadedMore: boolean = false) => {
-      return Promise.all(
-        plugins.map(async (item) => {
-          if (!cloudDisks[item]) {
-            cloudDisks[item] = { data: [], sourceContext: {} }
-          }
+    const fetchCloudDisk = async (item: PluginId, loadedMore: boolean = false) => {
+      if (!cloudDisks[item]) {
+        cloudDisks[item] = { data: [], sourceContext: {} }
+      }
 
-          const result = await pluginMethodCall(
-            item,
-            'cloudDisk',
-            loadedMore
-              ? {
-                  ...cloudDisks[item].sourceContext
-                }
-              : {}
-          )
-          if (loadedMore) {
-            cloudDisks[item].data.push(
-              ...result.data.map((it) => ({
-                ...it,
-                pluginId: item,
-                album: { ...it.album, pluginId: item },
-                artists: it.artists.map((i) => ({ ...i, pluginId: item }))
-              }))
-            )
-          } else {
-            cloudDisks[item].data = result.data.map((it) => ({
-              ...it,
-              pluginId: item,
-              album: { ...it.album, pluginId: item },
-              artists: it.artists.map((i) => ({ ...i, pluginId: item }))
-            }))
-          }
-          cloudDisks[item].sourceContext = result.sourceContext
-        })
+      const result = await pluginMethodCall(
+        item,
+        'cloudDisk',
+        loadedMore
+          ? {
+              ...cloudDisks[item].sourceContext
+            }
+          : {}
       )
+      if (loadedMore) {
+        cloudDisks[item].data.push(
+          ...result.data.map((it) => ({
+            ...it,
+            pluginId: item,
+            album: { ...it.album, pluginId: item },
+            artists: it.artists.map((i) => ({ ...i, pluginId: item }))
+          }))
+        )
+      } else {
+        cloudDisks[item].data = result.data.map((it) => ({
+          ...it,
+          pluginId: item,
+          album: { ...it.album, pluginId: item },
+          artists: it.artists.map((i) => ({ ...i, pluginId: item }))
+        }))
+      }
+      cloudDisks[item].sourceContext = result.sourceContext
     }
 
     const fetchLyric = async (plugin: PluginId, sourceContext: Record<string, any>) => {
@@ -498,9 +482,9 @@ export const usePluginMusic = defineStore(
     watch(
       services,
       async (value) => {
-        const plugin = value.find((service) => service.active)?.code
-        if (plugin) {
-          await getExploreBtn(plugin)
+        const service = value.find((service) => service.active)
+        if (service && service.type === 'library') {
+          await getExploreBtn(service.code)
         }
       },
       { immediate: true }

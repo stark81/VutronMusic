@@ -22,6 +22,7 @@ import {
   CategorySchema,
   TrackCatlistSchema,
   ArtistCatlistSchema,
+  CommentTabSchema,
   PluginId
 } from './schemas'
 
@@ -50,6 +51,7 @@ export type ArtistType = 'artist' | 'albumArtist'
 export type CatType = z.infer<typeof CategorySchema>
 export type TrackCatlist = z.infer<typeof TrackCatlistSchema>
 export type ArtistCatlist = z.infer<typeof ArtistCatlistSchema>
+export type CommentTab = z.infer<typeof CommentTabSchema>
 
 export type service = {
   code: PluginId
@@ -133,14 +135,17 @@ export const defaultMap: {
   newAlbums: { code: 404, data: [], sourceContext: {} },
   getArtistCatlist: { code: 404, data: [] },
   doLogin: { code: 404, message: '' },
+  doLogout: { code: 404 },
   getAllTracks: { code: 404, data: [], count: 0, sourceContext: {} },
   scrobble: { code: 404 },
   mvDetail: { code: 404, data: null },
   subAMV: { code: 404 },
   likeAMV: { code: 404 },
+  getCommentTab: { code: 404, data: [] },
   getComments: { code: 404, data: [], count: 0, sourceContext: {} },
   likeAComment: { code: 404 },
-  submitAComment: { code: 404, data: null }
+  submitAComment: { code: 404, data: null },
+  getFloorComments: { code: 404, data: [], count: 0, sourceContext: {} }
 }
 
 export type PluginMethodCall = <K extends keyof PluginAPI>(
