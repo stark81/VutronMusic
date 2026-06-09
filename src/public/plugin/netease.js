@@ -546,7 +546,7 @@ const formatComment = (item) => {
 }
 
 const meta = {
-  name: '网易云音乐',
+  name: '网易云',
   type: 'library' // library, stream
 }
 
@@ -1434,12 +1434,17 @@ exports.artistDetail = async (params) => {
 }
 
 exports.artistMVs = async (params) => {
-  const result = await get('artist/mv', { id: params.id })
+  const { id, limit = 10, offset = 0, hasMore = true } = params
+  if (!hasMore) {
+    return { code: 200, data: [], sourceContext: params }
+  }
+
+  const result = await get('artist/mv', { id, limit, offset })
   if (result.code === 200) {
     const data = result.mvs.map(formatMv)
-    return { code: 200, data, sourceContext: { id: params.id } }
+    return { code: 200, data, sourceContext: { id, hasMore: result.hasMore } }
   }
-  return { code: 200, data: [], sourceContext: { id: params.id } }
+  return { code: 200, data: [], sourceContext: params }
 }
 
 exports.simiArtists = async (params) => {

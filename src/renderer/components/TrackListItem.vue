@@ -79,7 +79,7 @@
         {{ formatedTime }}
       </div>
 
-      <div v-if="track.playCount >= 0" class="count"> {{ track.playCount }}</div>
+      <div v-if="showPlayCount" class="count"> {{ track.playCount }}</div>
     </div>
     <div v-show="isLyric && lyrics.length > 0" class="lyric-container">
       <div>
@@ -114,12 +114,14 @@ const props = withDefaults(
     typeProp: SourceType
     isLyric?: boolean
     showService?: boolean
+    showPlayCount?: boolean
     albumObject?: { artist: { name: string } }
     highlightPlayingTrack?: boolean
   }>(),
   {
     isLyric: false,
     showService: false,
+    showPlayCount: false,
     albumObject: () => ({ artist: { name: '' } }),
     highlightPlayingTrack: true
   }
@@ -481,13 +483,13 @@ button {
   }
 
   .service {
-    flex: 0.8;
+    flex: 0.7;
     font-size: 16px;
     opacity: 0.88;
   }
 
   .createTime {
-    flex: 0.8;
+    flex: 0.6;
     font-size: 16px;
     justify-content: flex-end;
     margin-right: 10px;

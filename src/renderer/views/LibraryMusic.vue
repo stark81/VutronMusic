@@ -425,9 +425,9 @@ const getRandomLyric = async () => {
 const goToLikedSongsList = () => {
   if (tool.value.groundBy === 'all') {
     const plugins = services.value.map((it) => it.code).join('/')
-    router.push({ path: `/library/liked-songs/${plugins}` })
+    router.push({ path: `/liked-songs/${plugins}` })
   } else {
-    router.push({ path: `/library/liked-songs/${tool.value.groundBy}` })
+    router.push({ path: `/liked-songs/${tool.value.groundBy}` })
   }
 }
 

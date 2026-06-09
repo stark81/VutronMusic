@@ -73,15 +73,20 @@
           <div v-if="isBatchOp" class="tab" @click="addTracksToQueue">{{
             $t('contextMenu.addToQueue')
           }}</div>
-          <div v-else class="tab" :class="{ active: idx === 2 }" @click="idx = 2">
-            {{ $t('streamMusic.album') }}
+          <div v-else class="tab dropdown" :class="{ active: idx === 2 }" @click="idx = 2">
+            <span class="text">{{
+              `${albumTab === 'default' ? '全部' : '收藏'} - ${$t('streamMusic.album')}`
+            }}</span>
+            <span class="icon" @click.stop="(e) => openTabMenu('album', e)"
+              ><svg-icon icon-class="dropdown"
+            /></span>
           </div>
           <div v-if="isBatchOp" class="tab" @click="finishBatchOp">{{
             $t('contextMenu.finish')
           }}</div>
           <div v-else class="tab dropdown" :class="{ active: idx === 3 }" @click="idx = 3">
             <span class="text">{{
-              $t(tool.artistBy === 'artist' ? 'streamMusic.artist' : 'localMusic.albumArtist')
+              `${artistTab === 'default' ? '全部' : '收藏'} - ${$t(tool.artistBy === 'artists' ? 'streamMusic.artist' : 'localMusic.albumArtist')}`
             }}</span>
             <span class="icon" @click.stop="(e) => openTabMenu('artist', e)"
               ><svg-icon icon-class="dropdown"
@@ -107,13 +112,12 @@
             :type="'Track'"
             :plugin="tool.groundBy"
             :source-context="{ pluginType: 'stream' }"
-            :show-service="true"
+            :show-service="tool.groundBy === 'all'"
             :colunm-number="1"
             :is-end="true"
           />
         </div>
         <div v-show="idx === 1">
-          <!-- {{ filterPlaylists }} -->
           <CoverRow
             :items="filterPlaylists"
             type="Playlist"
@@ -123,7 +127,9 @@
           />
         </div>
         <div v-show="idx === 2">
+          <AlbumList v-if="albumTab === 'default'" :tracks="filterTracks" />
           <CoverRow
+            v-else
             :items="filterAlbums"
             type="Album"
             sub-text="artist"
@@ -132,7 +138,9 @@
           />
         </div>
         <div v-show="idx === 3">
+          <ArtistList v-if="artistTab === 'default'" :tracks="filterTracks" :type="tool.artistBy" />
           <CoverRow
+            v-else
             :items="filterArtists"
             type="Artist"
             sub-text="artist"
@@ -148,13 +156,13 @@
         >聚合</div
       >
       <div
-        v-for="service in loginService"
-        :key="service.code"
+        v-for="se in loginService"
+        :key="se.code"
         class="item"
-        :class="{ active: tool.groundBy === service.code }"
-        @click="tool.groundBy = service.code"
+        :class="{ active: tool.groundBy === se.code }"
+        @click="tool.groundBy = se.code"
       >
-        {{ service.name }}
+        {{ se.name }}
       </div>
       <hr />
       <div
@@ -180,25 +188,41 @@
       }}</div>
     </ContextMenu>
 
-    <!-- <ContextMenu ref="artistTabMenu">
-      <div class="item" @click="artistBy = 0">{{ $t('localMusic.artists') }}</div>
-      <div class="item" @click="artistBy = 1">{{ $t('localMusic.albumArtist') }}</div>
-    </ContextMenu> -->
+    <ContextMenu ref="albumTabMenu">
+      <div class="item" :class="{ active: albumTab === 'default' }" @click="albumTab = 'default'"
+        >全部</div
+      >
+      <div class="item" :class="{ active: albumTab === 'liked' }" @click="albumTab = 'liked'"
+        >收藏</div
+      >
+    </ContextMenu>
+
+    <ContextMenu ref="artistTabMenu">
+      <div
+        class="item"
+        :class="{ active: tool.artistBy === 'artists' }"
+        @click="tool.artistBy = 'artists'"
+        >{{ $t('localMusic.artists') }}</div
+      >
+      <div
+        class="item"
+        :class="{ active: tool.artistBy === 'albumArtists' }"
+        @click="tool.artistBy = 'albumArtists'"
+        >{{ $t('localMusic.albumArtist') }}</div
+      >
+      <br />
+      <div class="item" :class="{ active: artistTab === 'default' }" @click="artistTab = 'default'"
+        >全部</div
+      >
+      <div class="item" :class="{ active: artistTab === 'liked' }" @click="artistTab = 'liked'"
+        >收藏</div
+      >
+    </ContextMenu>
   </div>
 </template>
 
 <script setup lang="ts">
-import {
-  onMounted,
-  onBeforeUnmount,
-  computed,
-  watch,
-  inject,
-  ref,
-  provide,
-  shallowRef,
-  reactive
-} from 'vue'
+import { onMounted, onBeforeUnmount, computed, watch, inject, ref, provide, shallowRef } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePluginMusic } from '../store/pluginMusic'
 import { useNormalStateStore } from '../store/state'
@@ -209,6 +233,8 @@ import SearchBox from '../components/SearchBox.vue'
 import TrackList from '../components/VirtualTrackList.vue'
 import CoverRow from '../components/VirtualCoverRow.vue'
 import ContextMenu from '../components/ContextMenu.vue'
+import AlbumList from '../components/AlbumList.vue'
+import ArtistList from '../components/ArtistList.vue'
 import { useI18n } from 'vue-i18n'
 import { randomNum, pickedLyric } from '../utils'
 import { lyricLine } from '@/types/music.d'
@@ -221,13 +247,15 @@ const { newPlaylistModal, modalOpen } = storeToRefs(stateStore)
 const { showToast } = stateStore
 
 const pluginStore = usePluginMusic()
-const { playlists, tools, likedTracks, services, albums, artists } = storeToRefs(pluginStore)
+const { playlists, tools, likedTracks, services, albums, artists, tracks } =
+  storeToRefs(pluginStore)
 const {
   fetchLikedPlaylists,
   fetchLikedSongsWithDetails,
   fetchLyric,
   pluginMethodCall,
-  fetchLikedArtists
+  fetchLikedArtists,
+  fetchAllTracks
 } = pluginStore
 
 const streamService = computed(() => services.value.filter((item) => item.type === 'stream'))
@@ -237,6 +265,7 @@ const router = useRouter()
 
 const hasCustomTitleBar = inject('hasCustomTitleBar', ref(true))
 const streamTabMenu = ref<InstanceType<typeof ContextMenu>>()
+const albumTabMenu = ref<InstanceType<typeof ContextMenu>>()
 const artistTabMenu = ref<InstanceType<typeof ContextMenu>>()
 const streamSearchBoxRef = ref<InstanceType<typeof SearchBox>>()
 const streamListRef = shallowRef<InstanceType<typeof TrackList>>()
@@ -247,9 +276,8 @@ const lyric = ref<{ content: string }[]>([])
 const randomtrack = ref<Track>()
 const idx = ref(0)
 
-const tracks = reactive<
-  Record<PluginId, { data: Track[]; count: number; sourceContext: Record<string, any> }>
->({})
+const albumTab = ref<'default' | 'liked'>('default')
+const artistTab = ref<'default' | 'liked'>('default')
 
 const tabs = ['track', 'playlist', 'album', ['artist', 'albumArtist']] as const
 
@@ -285,22 +313,22 @@ const filterLikedTracks = computed(() => {
 const defaultTracks = computed(() => {
   const _tracks =
     tool.value.groundBy === 'all'
-      ? Object.entries(tracks)
+      ? Object.entries(tracks.value)
           .filter(([plugin]) => sers.value.includes(plugin as PluginId))
           .map(([, item]) => item.data)
           .flat()
-      : tracks[tool.value.groundBy]?.data || []
+      : tracks.value[tool.value.groundBy]?.data || []
   return _tracks
 })
 
 const tracksCount = computed(() => {
-  const groundByCount = Object.entries(tracks)
+  const groundByCount = Object.entries(tracks.value)
     .filter(([plugin]) => sers.value.includes(plugin as PluginId))
     .map(([, item]) => item.count)
     .reduce((acc, cur) => acc + cur, 0)
   return tool.value.groundBy === 'all'
     ? groundByCount
-    : tracks[tool.value.groundBy]?.count || defaultTracks.value.length
+    : tracks.value[tool.value.groundBy]?.count || defaultTracks.value.length
 })
 
 const filterPlaylists = computed(() => {
@@ -315,14 +343,6 @@ const filterPlaylists = computed(() => {
       ? onlinePlaylists
       : playlists.value?.[streamTool.groundBy]?.data || []
   return plists
-
-  // if (libraryPlaylistFilter.value === 'mine') {
-  //   return plists.filter((item) => item.isMine)
-  // } else if (libraryPlaylistFilter.value === 'liked') {
-  //   return plists.filter((item) => !item.isMine)
-  // } else {
-  //   return plists
-  // }
 })
 
 const filterAlbums = computed(() => {
@@ -390,12 +410,12 @@ const sortedLocalTracks = computed(() => {
 watch(keyword, (value) => {
   const count =
     tool.value.groundBy === 'all'
-      ? Object.entries(tracks)
+      ? Object.entries(tracks.value)
           .filter(([plugin]) => sers.value.includes(plugin as PluginId))
           .map(([, item]) => item.count)
           .flat()
           .reduce((acc, cur) => acc + cur, 0)
-      : tracks[tool.value.groundBy].count
+      : tracks.value[tool.value.groundBy].count
   if (count === defaultTracks.value.length) return
 
   // 当两者数量不一致时，说明尚未歌曲并没有完全加载，需要对流媒体歌曲进行搜索
@@ -444,9 +464,10 @@ const finishBatchOp = () => {
   streamListRef.value?.doFinish()
 }
 
-const openTabMenu = (ref: 'track' | 'artist', e: MouseEvent): void => {
+const openTabMenu = (ref: 'track' | 'album' | 'artist', e: MouseEvent): void => {
   const map = {
     track: streamTabMenu.value,
+    album: albumTabMenu.value,
     artist: artistTabMenu.value
   }
   map[ref]?.openMenu(e)
@@ -464,9 +485,9 @@ const placeHolderMap = (tab: string) => {
 const goToLikedSongsList = () => {
   if (tool.value.groundBy === 'all') {
     const plugins = loginService.value.map((it) => it.code).join('/')
-    router.push({ path: `/library/liked-songs/${plugins}` })
+    router.push({ path: `/liked-songs/${plugins}` })
   } else {
-    router.push({ path: `/library/liked-songs/${tool.value.groundBy}` })
+    router.push({ path: `/liked-songs/${tool.value.groundBy}` })
   }
 }
 
@@ -545,27 +566,27 @@ const handleResize = () => {
   if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
 }
 
-const getAllTracks = (service: PluginId) => {
-  if (!tracks[service]) {
-    tracks[service] = { data: [], count: 0, sourceContext: {} }
-  }
+// const getAllTracks = (service: PluginId) => {
+//   if (!tracks[service]) {
+//     tracks[service] = { data: [], count: 0, sourceContext: {} }
+//   }
 
-  const sourceContext = tracks[service]?.sourceContext || {}
-  pluginMethodCall(service, 'getAllTracks', {
-    ...sourceContext,
-    sort: tool.value.sortBy,
-    order: tool.value.orderBy
-  }).then((result) => {
-    tracks[service].data = result.data.map((item) => ({
-      ...item,
-      album: { ...item.album, pluginId: service },
-      artists: item.artists.map((it) => ({ ...it, pluginId: service })),
-      pluginId: service
-    }))
-    tracks[service].count = result.count
-    tracks[service].sourceContext = result.sourceContext
-  })
-}
+//   const sourceContext = tracks[service]?.sourceContext || {}
+//   pluginMethodCall(service, 'getAllTracks', {
+//     ...sourceContext,
+//     sort: tool.value.sortBy,
+//     order: tool.value.orderBy
+//   }).then((result) => {
+//     tracks[service].data = result.data.map((item) => ({
+//       ...item,
+//       album: { ...item.album, pluginId: service },
+//       artists: item.artists.map((it) => ({ ...it, pluginId: service })),
+//       pluginId: service
+//     }))
+//     tracks[service].count = result.count
+//     tracks[service].sourceContext = result.sourceContext
+//   })
+// }
 
 const checkLoginStatus = async () => {
   await Promise.all(
@@ -581,12 +602,21 @@ const checkLoginStatus = async () => {
 }
 
 const loadData = async (ser: service) => {
-  await fetchLikedPlaylists(ser.code)
-  await fetchLikedSongsWithDetails(ser.code)
-  fetchLikedArtists(ser.code)
-  getRandomTrack()
-  getAllTracks(ser.code)
-  show.value = true
+  if (filterTracks.value.length) {
+    show.value = true
+    fetchLikedPlaylists(ser.code)
+    fetchLikedSongsWithDetails(ser.code)
+    fetchLikedArtists(ser.code)
+    getRandomTrack()
+    fetchAllTracks(ser.code)
+  } else {
+    await fetchLikedPlaylists(ser.code)
+    await fetchLikedSongsWithDetails(ser.code)
+    fetchLikedArtists(ser.code)
+    getRandomTrack()
+    fetchAllTracks(ser.code)
+    show.value = true
+  }
 }
 
 watch(
@@ -655,7 +685,7 @@ onBeforeUnmount(() => {
       left: 0;
       width: 410px;
       height: 100%;
-      padding: 36px 80px;
+      padding: 36px 60px;
       box-sizing: border-box;
 
       .left-title {

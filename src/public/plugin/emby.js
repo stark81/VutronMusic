@@ -467,8 +467,6 @@ exports.systemPing = async () => {
   }
 }
 
-exports.loginQrKey = async () => {}
-
 exports.userPlaylist = async () => {
   const [playlists, albums, liked] = await Promise.all([
     getPlaylist(),

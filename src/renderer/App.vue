@@ -51,7 +51,8 @@ const {
   fetchLikedSongsWithDetails,
   fetchLikedArtists,
   fetchLikedMVs,
-  fetchCloudDisk
+  fetchCloudDisk,
+  fetchAllTracks
 } = pluginMusicStore
 
 const localMusicStore = useLocalMusicStore()
@@ -78,6 +79,7 @@ const sers = computed(() =>
 const fetchData = async () => {
   await Promise.all(
     sers.value.map(async (item) => {
+      fetchAllTracks(item)
       await fetchLikedPlaylists(item)
       fetchLikedSongsWithDetails(item)
       fetchLikedArtists(item)

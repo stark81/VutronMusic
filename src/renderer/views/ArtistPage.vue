@@ -138,11 +138,13 @@
     <div v-if="MVs.length !== 0" id="mvs" class="mvs">
       <div class="section-title"
         >MVs
-        <router-link v-show="hasMoreMV" :to="`/artist/${artist?.id}/mv`">{{
-          $t('home.seeMore')
-        }}</router-link>
+        <router-link
+          v-show="artist && artist.mvSize > 10"
+          :to="`/artistmv/${artist?.pluginId}/${JSON.stringify(artist?.sourceContext || {})}`"
+          >{{ $t('home.seeMore') }}</router-link
+        >
       </div>
-      <MvRow :mvs="MVs" :item-size="180" :column-number="4" subtitle="publishTime" />
+      <MvRow :mvs="MVs" :item-size="180" :column-number="5" subtitle="publishTime" />
     </div>
 
     <div v-if="eps.length !== 0" class="eps">
@@ -222,7 +224,7 @@ const latestRelease = ref<Album>({
 const simiArtists = ref<Artist[]>([])
 const MVs = ref<Mv[]>([])
 const mvHover = ref(false)
-const hasMoreMV = ref(false)
+// const hasMoreMV = ref(false)
 const showMorePopTracks = ref(false)
 const showFullDescription = ref(false)
 const artistMenu = ref()
@@ -272,7 +274,7 @@ const loadData = (plugin: PluginId, params: Record<string, any>) => {
   })
 
   pluginMethodCall(plugin, 'artistMVs', params).then((res) => {
-    MVs.value = res.data.slice(0, 12).map((item) => ({ ...item, pluginId: plugin }))
+    MVs.value = res.data.slice(0, 10).map((item) => ({ ...item, pluginId: plugin }))
   })
 
   pluginMethodCall(plugin, 'simiArtists', params).then((result) => {

@@ -29,6 +29,7 @@
             </span>
           </div>
           <div class="title" :style="{ fontSize: subTextFontSize }">
+            {{ `[${getPluginName(item.pluginId)}]: ` }}
             <span v-show="isExplicit(item)" class="explicit-symbol">
               <ExplicitSymbol />
             </span>
@@ -54,6 +55,7 @@ import VirtualScroll from './VirtualScrollNoHeight.vue'
 import Cover from './CoverBox.vue'
 import SvgIcon from './SvgIcon.vue'
 import ExplicitSymbol from './ExplicitSymbol.vue'
+import { usePluginMusic } from '../store/pluginMusic'
 import { formatPlayCount } from '../utils'
 import { Album, Artist, Playlist, PlaylistDetail } from '@/types/plugin'
 import { CoverType } from '@/types/music'
@@ -83,6 +85,8 @@ const isPlaylist = (item: Playlist | Artist | Album | PlaylistDetail): item is P
   return 'playCount' in item
 }
 
+const { getPluginName } = usePluginMusic()
+
 const isExplicit = (item: any) => {
   return props.type === 'Album' && item.mark === 1056768
 }
@@ -91,7 +95,7 @@ const isPrivacy = (item: any) => {
   return props.type === 'Playlist' && item.isPrivate
 }
 const getSubText = (item: any) => {
-  let subText = ''
+  let subText = ``
   if (props.subText === 'artist') {
     const ar = item.artists?.[0] || null
     subText = ar

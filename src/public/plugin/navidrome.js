@@ -323,6 +323,34 @@ function formatAlbum(item) {
   }
 }
 
+function formatAlbumDetail(item) {
+  return {
+    id: item.id,
+    name: item.name,
+    picUrl: buildSubsonicUrl('getCoverArt', { id: item.id, size: 512 }),
+    type: 'Album',
+    isExplicit: false,
+    subscribed: item.starred || false,
+    publishTime: new Date(item.createdAt).getTime(),
+    size: item.songCount || 0,
+    company: '',
+    description: '',
+    songs: item.songs || [],
+    artists: [
+      {
+        id: item.albumArtistId,
+        name: item.albumArtist,
+        picUrl: buildSubsonicUrl('getCoverArt', { id: item.albumArtistId, size: 512 }),
+        pluginId: '',
+        sourceContext: { id: item.albumArtistId }
+      }
+    ],
+
+    pluginId: '',
+    sourceContext: { id: item.id }
+  }
+}
+
 async function getAlbumlist(params) {
   const result = await nativeRequest('album', { params, raw: true })
   const albums = result.data.map(formatAlbum)
@@ -341,6 +369,13 @@ async function getArtists(params) {
   }))
   const count = Number(result.headers?.['x-total-count']) || 0
   return { artists, count }
+}
+
+exports.updateBaseUrl = async (params) => {
+  const url = params.url.replace(/\/$/, '')
+  baseUrl = url
+  apis.store.set('baseUrl', url)
+  return { code: 200 }
 }
 
 exports.systemPing = async () => {
@@ -409,7 +444,10 @@ exports.doLogout = () => {
 }
 
 exports.getAllTracks = async (_params) => {
-  const { _start = 0, sort, order } = _params
+  const { _start = 0, sort, order, hasMore = true } = _params
+
+  if (!hasMore) return { code: 200, data: [], count: 0, sourceContext: _params }
+
   const map = {
     name: 'title',
     createTime: 'createdAt',
@@ -423,7 +461,7 @@ exports.getAllTracks = async (_params) => {
     code: 200,
     data: tracks,
     count,
-    sourceContext: { _start: _end }
+    sourceContext: { _start: _start + tracks.length }
   }
 }
 
@@ -550,14 +588,71 @@ exports.deletePlaylist = async (params) => {
   }
 }
 
-exports.getAllAlbums = async () => {
-  //
+exports.albumDetail = async (params) => {
+  const [result, { tracks }] = await Promise.all([
+    nativeRequest(`album/${params.id}`),
+    getTracks({ _start: 0, _end: 0, album_id: params.id })
+  ])
+  result.songs = tracks
+  const data = formatAlbumDetail(result)
+  return { code: 200, data, sourceContext: params }
 }
 
-exports.getAllArtists = async () => {}
+exports.artistAlbums = async (params) => {
+  const result = await getAlbumlist({ artist_id: params.id })
+  return { code: 404, data: result.albums, sourceContext: {} }
+}
 
-exports.albumDetail = async () => {
-  // getAlbumlist(params)
+exports.subscribeAlbum = async (params) => {
+  try {
+    const { op, id } = params
+    const endpoint = op === 'add' ? 'star' : 'unstar'
+    await subsonicRequest(endpoint, { albumId: id })
+    return { code: 200 }
+  } catch {
+    return { code: 404 }
+  }
+}
+
+exports.artistDetail = async (params) => {
+  const [_artist, { tracks: songs }] = await Promise.all([
+    nativeRequest(`artist/${params.id}`),
+    getTracks({ _start: 0, _end: 0, artist_id: params.id })
+  ])
+
+  const artist = {
+    id: _artist.id,
+    name: _artist.name,
+    picUrl: buildSubsonicUrl('getCoverArt', { id: _artist.id, size: 256 }),
+    musicSize: _artist.songCount || 0,
+    albumSize: _artist.albumCount || 0,
+    mvSize: 0,
+    description: '',
+    followed: _artist.starred || false,
+    pluginId: '',
+    sourceContext: { id: _artist.id }
+  }
+
+  return { code: 404, artist, songs, sourceContext: params }
+}
+
+exports.artistMVs = async (params) => {
+  return { code: 200, data: [], sourceContext: params }
+}
+
+exports.simiArtists = async (params) => {
+  return { code: 200, data: [], sourceContext: params }
+}
+
+exports.followArtist = async (params) => {
+  try {
+    const { op, id } = params
+    const endpoint = op === 'unfollow' ? 'unstar' : 'star'
+    await subsonicRequest(endpoint, { artistId: id })
+    return { code: 200 }
+  } catch {
+    return { code: 404 }
+  }
 }
 
 exports.scrobble = async (params) => {

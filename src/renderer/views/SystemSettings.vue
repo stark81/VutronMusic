@@ -446,14 +446,21 @@
                 stream: plugin.type === 'stream',
                 local: plugin.type === 'local'
               }"
+              @click="plugin.type === 'library' && updateActivePlugin(plugin.code)"
             >
               <div class="plugin-left">
-                <div>{{ plugin.name }}</div>
-                <div>{{ plugin.type }}</div>
+                <div class="name">{{ `音源：${plugin.name}` }}</div>
+                <div class="type">{{ `音源类型：${plugin.type}` }}</div>
+                <div v-if="plugin.type !== 'library'" @click="plugin.loadFull = !plugin.loadFull">{{
+                  plugin.loadFull || false ? '全量加载' : '按需加载'
+                }}</div>
               </div>
               <div class="plugin-right">
-                <div @click="updateActivePlugin(plugin.code)">{{ plugin.active }}</div>
-                <div @click="handleLogin(plugin)">{{ plugin.status }}</div>
+                <div v-if="plugin.type === 'library' && plugin.active">当前使用</div>
+                <div class="login-status" @click.stop="handleLogin(plugin)">
+                  <div class="circle" :style="{ background: getStatusColor(plugin) }"></div>
+                  <div>{{ $t(`settings.stream.${plugin.status}`) }}</div>
+                </div>
               </div>
             </div>
           </div>
@@ -637,10 +644,11 @@
               >
                 <img :src="getImagePath(ser.name)" />
                 <div class="service-name">
+                  <!-- :style="{ background: getStatusColor(ser) }" -->
                   <div
                     class="service-status"
                     :title="$t(`settings.stream.${ser.status}`)"
-                    :style="{ background: getStatusColor(ser) }"
+                    :style="{}"
                   ></div>
                   <div>{{ ser.name }}</div>
                 </div>
@@ -1532,7 +1540,7 @@ const updateUnblockSource = () => {
   }, 500)
 }
 
-const getStatusColor = (platform: serviceType) => {
+const getStatusColor = (platform: service) => {
   const colorMap = {
     login: 'green',
     logout: 'red',
@@ -2077,6 +2085,54 @@ onBeforeUnmount(() => {
     background-color: var(--color-primary);
     padding: 1rem;
     border-radius: 0.5rem;
+    cursor: pointer;
+
+    &.library {
+      color: white;
+    }
+
+    &.stream {
+      background-color: color-mix(in oklab, var(--color-primary) 50%, white);
+    }
+
+    &.local {
+      background-color: color-mix(in oklab, var(--color-primary) 20%, white);
+    }
+
+    .plugin-left {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+
+      .name {
+        font-size: 1.1rem;
+        font-weight: bold;
+      }
+    }
+
+    .plugin-right * {
+      text-align: center;
+    }
+
+    .plugin-right {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+
+      .login-status {
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+
+        .circle {
+          width: 0.6rem;
+          height: 0.6rem;
+          border-radius: 50%;
+          margin-right: 0.4rem;
+          background-color: red;
+        }
+      }
+    }
   }
 }
 

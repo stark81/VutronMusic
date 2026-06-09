@@ -42,8 +42,11 @@
         <div class="listen-more">
           <span
             >听听<router-link
-              :to="`/artist/${artistsArray[selectedIdx]?.pluginId}/${artistsArray[selectedIdx]?.id}`"
-              >{{ artistsArray[selectedIdx]?.name }}</router-link
+              v-for="value in plugins"
+              :key="value"
+              class="plugin-link"
+              :to="getArtistLink(value)"
+              >{{ ` ${value} - ${artistsArray[selectedIdx]?.name} ` }}</router-link
             >的其他歌曲</span
           >
         </div>
@@ -55,17 +58,17 @@
 <script setup lang="ts">
 import { computed, ref, toRefs, onMounted, onBeforeUnmount, provide, inject } from 'vue'
 import VirtualScroll from './VirtualScrollNoHeight.vue'
-import { Track } from '@/types/plugin'
+import { ArtistType, PluginId, Track } from '@/types/plugin'
 import ArtistListItem from './ArtistListItem.vue'
 import TrackListItem from './TrackListItem.vue'
 import { usePlayerStore } from '../store/player'
 
 const props = withDefaults(
   defineProps<{
-    type: 'artist' | 'albumArtist'
+    type: ArtistType
     tracks: Track[]
   }>(),
-  { type: 'artist' }
+  { type: 'artists' }
 )
 
 // ====================    ref   ==================== //
@@ -76,7 +79,7 @@ const { replacePlaylist } = playerStore
 
 // ==================== computed ==================== //
 const artistsArray = computed(() => {
-  const ar = props.tracks.map((track) => track.artists).flat()
+  const ar = props.tracks.map((track) => track[props.type]).flat()
   return [...new Map(ar.map((item) => [item.name, item])).values()]
 })
 
@@ -90,11 +93,18 @@ const showTracks = computed(() => {
   return trackArray
 })
 
+const plugins = computed(() => [...new Set(showTracks.value.map((track) => track.pluginId))])
+
 const playThisList = (id: number | string) => {
   const IDs = showTracks.value.map((track) => track.id)
   const idx = showTracks.value.findIndex((item) => item.id === id)
   const type = showTracks.value[0].type
   // replacePlaylist(type === 'local' ? 'localPlaylist' : 'streamPlaylist', 0, IDs, idx)
+}
+
+const getArtistLink = (code: PluginId) => {
+  const artist = showTracks.value.find((item) => item.pluginId === code)?.[props.type]
+  return `/artist/${code}/${JSON.stringify(artist?.[0]?.sourceContext || {})}`
 }
 
 const updatePadding = inject('updatePadding') as (padding: number) => void
@@ -130,6 +140,10 @@ onBeforeUnmount(() => {
     height: 40px;
     font-size: 14px;
     opacity: 0.75;
+
+    .plugin-link:not(:last-child)::after {
+      content: ', ';
+    }
   }
 }
 .artist-item {

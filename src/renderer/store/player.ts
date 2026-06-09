@@ -103,7 +103,7 @@ export const usePlayerStore = defineStore(
               .filter((item) => item.type === sourceContext.pluginType)
               .map((item) => item.code)
               .join('/')
-            return `/library/liked-songs/${plugin === 'all' ? codes : plugin}`
+            return `/liked-songs/${plugin === 'all' ? codes : plugin}`
           }
           return `/playlist/${plugin}/${JSON.stringify(sourceContext)}`
         case 'DailySongs':

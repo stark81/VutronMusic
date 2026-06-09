@@ -221,7 +221,6 @@ onBeforeUnmount(() => {
 .mv-page {
   width: 100%;
   display: flex;
-  // padding-bottom: 40px;
 }
 
 .left {
@@ -230,6 +229,7 @@ onBeforeUnmount(() => {
   overflow-y: auto;
   scrollbar-width: none;
   transition: width 0.3s;
+  padding-bottom: 40px;
 
   &.with-comment {
     width: 56%;

@@ -79,7 +79,11 @@
       <div class="title" :class="playlist.specialPlaylistInfo?.gradient">
         {{ playlist.specialPlaylistInfo.name }}
       </div>
-      <div class="subtitle">{{ playlist.copywriter }} · {{ playlist.updateFrequency }} </div>
+      <div class="subtitle">{{
+        playlist.copywriter
+          ? `${playlist.copywriter} · ${playlist.updateFrequency}`
+          : playlist.updateFrequency
+      }}</div>
 
       <div class="buttons">
         <ButtonTwoTone class="play-button" icon-class="play" color="grey" @click="play">
@@ -139,7 +143,7 @@
         :plugin="pluginId"
         :source-context="{ ...playlist.sourceContext, pluginType }"
         :colunm-number="1"
-        :show-service="['stream', 'streamLiked'].includes(playlistType)"
+        :show-service="playlistType.includes('liked')"
         :show-position="true"
         :load-more="loadMore"
         :extra-context-menu-item="isUserOwnPlaylist ? ['removeTrackFromPlaylist'] : []"

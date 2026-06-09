@@ -310,7 +310,7 @@ const pick = (...values) => values.find((v) => v != null && v !== '')
 const parseDate = (dateStr) => {
   if (!dateStr) return null
 
-  const fixed = dateStr.replace(/^(\d{4})-(\d{2})-(\d{2})/, (_, y, m, d) => {
+  const fixed = String(dateStr).replace(/^(\d{4})-(\d{2})-(\d{2})/, (_, y, m, d) => {
     const mm = Math.max(1, parseInt(m, 10)).toString().padStart(2, '0')
     const dd = Math.max(1, parseInt(d, 10)).toString().padStart(2, '0')
     return `${y}-${mm}-${dd}`
@@ -579,7 +579,7 @@ const formatAlbumDetail = (item) => {
     type: item.type,
     isExplicit: false,
     subscribed: idx !== -1,
-    publishTime: new Date(item.publish_date).getTime(),
+    publishTime: parseDate(item.publish_date),
     size: 0,
     company: item.publish_company || '',
     description: item.intro,
@@ -615,7 +615,7 @@ const buildAlbumTrack = (item) => ({
   name: item.base?.audio_name || '',
   duration: item.audio_info?.duration_flac || 0,
   alias: [],
-  createTime: item.musical?.publish_time || 0,
+  createTime: parseDate(item.musical?.publish_time || '0'),
   album: {
     id: item.base?.album_id || '',
     name: item.album_info?.album_name || '',
@@ -673,7 +673,7 @@ const formatMv = (item) => ({
   )
     .replace('{size}', '600')
     .replace('http://', 'https://'),
-  publishTime: new Date(item.collect_time || item.publish_date || 0).getTime(),
+  publishTime: parseDate(item.collect_time || item.publish_date) || 0,
   pluginId: '',
   artists: (
     item.Singers || [
@@ -702,7 +702,7 @@ const formatMvDetail = (item) => ({
   id: item.video_id || '',
   name: item.video_name || item.mv_name || '',
   desc: item.intro || item.desc || item.other_desc || '',
-  publishTime: new Date(item.publish_date || item.publish_time || 0).getTime(),
+  publishTime: parseDate(item.publish_date || item.publish_time) || 0,
   playCount: Number(item.history_heat || item.play_times) || 0,
 
   subCount: Number(item.collection_total) || 0,
@@ -780,7 +780,7 @@ const formatFloorComment = (item) => {
 }
 
 const meta = {
-  name: '酷狗音乐',
+  name: '酷狗',
   type: 'library' // library, stream
 }
 
@@ -1156,9 +1156,8 @@ const buildRankDetail = (item) => ({
   picUrl: item.imgurl.replace('{size}', '512'),
   subscribed: false,
   trackCount: item.extra?.resp?.all_total || 0,
-  updateTime: new Date(
-    item.extra?.resp?.scheduled_release_conf?.latest_rank_cid_publish_date || 0
-  ).getTime(),
+  updateTime:
+    parseDate(item.extra?.resp?.scheduled_release_conf?.latest_rank_cid_publish_date) || 0,
   description: item.intro,
   isPrivate: false,
   trackIds: [],
@@ -1462,7 +1461,7 @@ exports.artistAlbums = async (params) => {
         '{size}',
         '256'
       ),
-      createTime: new Date(item.publish_date || 0).getTime(),
+      createTime: parseDate(item.publish_date) || 0,
       copywriter: `${item.type} · ${new Date(item.publish_date).getFullYear()}`,
       type: albumTypeMap[item.type] || '其他',
       pluginId: '',
@@ -1504,15 +1503,16 @@ exports.artistDetail = async (params) => {
 }
 
 exports.artistMVs = async (params) => {
-  const { id, page } = params
-  const pagesize = 30
-  const result = await get('artist/videos', { id, pagesize, page: page || 1 })
+  const { id, page = 1, limit: pagesize = 30, offset = 0 } = params
+  const _page = Math.floor(offset / pagesize) + 1
+
+  const result = await get('artist/videos', { id, pagesize, page: Math.max(page, _page) })
   if (result.status === 1) {
     const data = result.data.map(formatMv)
-    return { code: 200, data, sourceContext: { id, page: (page || 1) + 1 } }
+    return { code: 200, data, sourceContext: { id, page: Math.max(page, _page) + 1 } }
   }
 
-  return { code: 200, data: [], sourceContext: { id, page: (page || 1) + 1 } }
+  return { code: 200, data: [], sourceContext: { id, page: Math.max(page, _page) + 1 } }
 }
 
 const shuffle = (arr) => {

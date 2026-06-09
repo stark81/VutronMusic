@@ -22,7 +22,6 @@ import { getTrackDetail } from '../api/track'
 import BaseModal from './BaseModal.vue'
 import { useLocalMusicStore } from '../store/localMusic'
 import { useNormalStateStore } from '../store/state'
-// import { usePlayerStore } from '../store/player'
 
 const localMusicStore = useLocalMusicStore()
 const { updateTrack } = localMusicStore

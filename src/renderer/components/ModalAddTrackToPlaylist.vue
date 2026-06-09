@@ -32,14 +32,9 @@ import BaseModal from './BaseModal.vue'
 import SvgIcon from './SvgIcon.vue'
 import { useNormalStateStore } from '../store/state'
 import { usePluginMusic } from '../store/pluginMusic'
-// import { useLocalMusicStore } from '../store/localMusic'
-// import { useStreamMusicStore } from '../store/streamingMusic'
-// import { useDataStore } from '../store/data'
 import { storeToRefs } from 'pinia'
 import { computed, toRaw, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-// import { addOrRemoveTrackFromPlaylist } from '../api/playlist'
-// import { serviceName } from '@/types/music.d'
 import { PluginId } from '@/types/plugin'
 
 const { t } = useI18n()
@@ -51,15 +46,6 @@ const { addTrackToPlaylistModal, newPlaylistModal, modalOpen } = storeToRefs(sta
 const pluginStore = usePluginMusic()
 const { playlists, services } = storeToRefs(pluginStore)
 const { pluginMethodCall } = pluginStore
-
-// const localMusicStore = useLocalMusicStore()
-// const { sortPlaylistsIDs, playlists } = storeToRefs(localMusicStore)
-// const { addTrackToLocalPlaylist } = localMusicStore
-
-// const streamMusicStore = useStreamMusicStore()
-// const { addOrRemoveTrackFromStreamPlaylist } = useStreamMusicStore()
-
-// const { liked, user, likedSongPlaylistID } = storeToRefs(useDataStore())
 
 const show = computed({
   get: () => addTrackToPlaylistModal.value.show,

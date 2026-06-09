@@ -84,16 +84,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, inject, onBeforeUnmount, watch, nextTick } from 'vue'
-import { getComment, likeComment, submitComment } from '../api/comment'
+import { ref, onMounted, inject, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useNormalStateStore } from '../store/state'
 import VirtualScroll from './VirtualScrollNoHeight.vue'
 import WriteComment from './WriteComment.vue'
 import SvgIcon from './SvgIcon.vue'
 import { useI18n } from 'vue-i18n'
 import { formatDate } from '../utils'
-import { useRouter } from 'vue-router'
-import { storeToRefs } from 'pinia'
 import { debounce } from 'lodash'
 import { usePluginMusic } from '../store/pluginMusic'
 import { PluginId, CommentType, CommentTab } from '@/types/plugin'
@@ -116,7 +113,6 @@ const show = ref(false)
 
 const mainRef = ref<HTMLElement>()
 const commentSubmitRef = ref<InstanceType<typeof WriteComment>>()
-const router = useRouter()
 
 const totalCount = ref(0)
 const sortType = ref('')

@@ -30,7 +30,8 @@ const _buildService = (code: PluginId, meta: { name: string; type: MusicType }):
     name: meta.name,
     type: meta.type,
     active: false,
-    status: 'logout'
+    status: 'logout',
+    loadFull: meta.type !== 'library'
   }
 }
 
@@ -43,7 +44,7 @@ export const usePluginMusic = defineStore(
     const users = reactive<Record<PluginId, User>>({})
 
     const tracks = reactive<
-      Record<PluginId, { data: Track[]; sourceContext: Record<string, any> }>
+      Record<PluginId, { data: Track[]; count: number; sourceContext: Record<string, any> }>
     >({})
     const albums = reactive<
       Record<PluginId, { data: Album[]; sourceContext: Record<string, any> }>
@@ -67,9 +68,9 @@ export const usePluginMusic = defineStore(
     const playHistory = reactive<Record<PluginId, { week: Track[]; all: Track[] }[]>>({})
 
     const tools = reactive<Record<service['type'], Tool>>({
-      library: { groundBy: 'all', sortBy: 'name', orderBy: 'ASC', artistBy: 'artist' },
-      stream: { groundBy: 'all', sortBy: 'name', orderBy: 'ASC', artistBy: 'artist' },
-      local: { groundBy: 'all', sortBy: 'name', orderBy: 'ASC', artistBy: 'artist' }
+      library: { groundBy: 'all', sortBy: 'name', orderBy: 'ASC', artistBy: 'artists' },
+      stream: { groundBy: 'all', sortBy: 'name', orderBy: 'ASC', artistBy: 'artists' },
+      local: { groundBy: 'all', sortBy: 'name', orderBy: 'ASC', artistBy: 'artists' }
     })
 
     const additionalTags = reactive<Record<PluginId, PlaylistCatlist['static']>>({})
@@ -176,6 +177,14 @@ export const usePluginMusic = defineStore(
             _initTempInfo(pluginId)
           }
         })
+
+      const typeOrder = {
+        library: 0,
+        stream: 1,
+        local: 2
+      }
+
+      services.value.sort((a, b) => typeOrder[a.type] - typeOrder[b.type])
       const active = services.value.find((item) => item.active)
       if (!active) {
         services.value.find((item) => item.code === 'netease')!.active = true
@@ -183,7 +192,7 @@ export const usePluginMusic = defineStore(
     }
 
     const _initPluginData = (pluginId: PluginId) => {
-      tracks[pluginId] = { data: [], sourceContext: {} }
+      tracks[pluginId] = { data: [], count: 0, sourceContext: {} }
       albums[pluginId] = { data: [], sourceContext: {} }
       artists[pluginId] = { data: [], sourceContext: {} }
       playlists[pluginId] = { liked: null, data: [], sourceContext: {} }
@@ -328,6 +337,52 @@ export const usePluginMusic = defineStore(
         }))
       }
       artists[item].sourceContext = result.sourceContext
+    }
+
+    const fetchAllTracks = async (item: PluginId) => {
+      const plugin = services.value.find((it) => it.code === item)!
+      if (plugin.type === 'library') return
+      if (!tracks[item]) tracks[item] = { data: [], count: 0, sourceContext: {} }
+
+      const tool = tools[plugin.type]
+      const pluginTracks = tracks[item]
+
+      const loadTracks = async () => {
+        const result = await pluginMethodCall(item, 'getAllTracks', {
+          ...pluginTracks.sourceContext,
+          sort: tool.sortBy,
+          order: tool.orderBy
+        })
+        pluginTracks.data.push(
+          ...result.data.map((_item) => ({
+            ..._item,
+            album: { ..._item.album, pluginId: item },
+            artists: _item.artists.map((it) => ({ ...it, pluginId: item })),
+            pluginId: item
+          }))
+        )
+        pluginTracks.count = result.data.length ? result.count : pluginTracks.data.length
+        pluginTracks.sourceContext = {
+          ...result.sourceContext,
+          hasMore: pluginTracks.count > pluginTracks.data.length
+        }
+      }
+
+      const backgroundSync = async () => {
+        try {
+          while (plugin.loadFull && pluginTracks.count > pluginTracks.data.length) {
+            await loadTracks()
+          }
+        } catch (err) {
+          console.log(err)
+        }
+      }
+
+      await loadTracks()
+
+      if (plugin.loadFull && pluginTracks.count > pluginTracks.data.length) {
+        backgroundSync()
+      }
     }
 
     const fetchLikedMVs = async (item: PluginId, loadedMore: boolean = false) => {
@@ -479,6 +534,11 @@ export const usePluginMusic = defineStore(
       )
     }
 
+    const getPluginName = (plugin: PluginId) => {
+      const service = services.value.find((it) => it.code === plugin)!
+      return service.name
+    }
+
     watch(
       services,
       async (value) => {
@@ -512,6 +572,7 @@ export const usePluginMusic = defineStore(
       activeCats,
 
       getExploreBtn,
+      getPluginName,
       likeATrack,
       fetchLyric,
       resizeImage,
@@ -522,6 +583,7 @@ export const usePluginMusic = defineStore(
       getPlugins,
       fetchLikedMVs,
       fetchCloudDisk,
+      fetchAllTracks,
       fetchLikedArtists,
       fetchLikedPlaylists,
       fetchPlaylistTracks,

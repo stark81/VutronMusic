@@ -47,7 +47,7 @@ export type CommentType = z.infer<typeof CommentSchema>
 export type { PluginId }
 export type sortType = 'name' | 'createTime' | 'playCount'
 export type orderType = 'ASC' | 'DESC'
-export type ArtistType = 'artist' | 'albumArtist'
+export type ArtistType = 'artists' | 'albumArtists'
 export type CatType = z.infer<typeof CategorySchema>
 export type TrackCatlist = z.infer<typeof TrackCatlistSchema>
 export type ArtistCatlist = z.infer<typeof ArtistCatlistSchema>
@@ -57,6 +57,7 @@ export type service = {
   code: PluginId
   name: string
   active: boolean
+  loadFull: boolean
   type: 'local' | 'library' | 'stream'
   status: 'logout' | 'login' | 'offline'
 }

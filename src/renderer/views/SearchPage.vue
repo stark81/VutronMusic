@@ -12,6 +12,7 @@
         :colunm-number="1"
         :plugin="plugin"
         :source-context="{}"
+        :show-service="true"
         :load-more="() => loadData(false)"
         :type="'Playlist'"
         :is-end="true"

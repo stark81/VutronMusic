@@ -186,8 +186,6 @@ const show = ref(false)
 const album = ref<AlbumDetail>()
 const tracks = ref<Track[]>([])
 
-const dynamicDetail = ref<{ [key: string]: any }>({})
-
 const moreAlbums = reactive<{ data: Album[]; sourceContext: Record<string, any> }>({
   data: [],
   sourceContext: {}

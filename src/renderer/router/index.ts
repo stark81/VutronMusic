@@ -6,36 +6,17 @@ const routes = [
   {
     path: '/',
     name: 'HomePage',
-    component: HomePage,
-    meta: {
-      titleKey: 'nav.home',
-      keepAlive: true,
-      savePosition: true
-    }
+    component: HomePage
   },
   {
     path: '/explore',
     name: 'explore',
-    component: () => import('../views/ExplorePage.vue'),
-    meta: {
-      titleKey: 'nav.search',
-      keepAlive: true,
-      savePosition: true
-    }
+    component: () => import('../views/ExplorePage.vue')
   },
   {
     path: '/library',
     name: 'library',
-    component: () => import(/* webpackPrefetch: true */ '../views/LibraryMusic.vue'),
-    meta: {
-      titleKey: 'nav.library'
-      // requireLogin: true
-    }
-  },
-  {
-    path: '/streamLogin/:service',
-    name: 'streamLogin',
-    component: () => import('../views/StreamLogin.vue')
+    component: () => import(/* webpackPrefetch: true */ '../views/LibraryMusic.vue')
   },
   {
     path: '/stream',
@@ -43,32 +24,14 @@ const routes = [
     component: () => import(/* webpackPrefetch: true */ '../views/StreamPage.vue')
   },
   {
-    path: '/streamPlaylist/:service/:id',
-    name: 'streamPlaylist',
-    component: () => import('../views/PlaylistPage.vue')
-  },
-  {
-    path: '/library/liked-songs/:pluginId+',
+    path: '/liked-songs/:pluginId+',
     name: 'likedSongs',
-    component: () => import('../views/PlaylistPage.vue'),
-    meta: {
-      // requireLogin: true
-    }
-  },
-  {
-    path: '/stream-liked-songs/:service',
-    name: 'streamLikedSongs',
     component: () => import('../views/PlaylistPage.vue')
   },
   {
     path: '/localMusic',
     name: 'localMusic',
-    component: () => import(/* webpackPrefetch: true */ '../views/LocalMusic.vue'),
-    meta: {
-      titleKey: 'nav.localMusic'
-      // keepAlive: true,
-      // savePosition: true
-    }
+    component: () => import(/* webpackPrefetch: true */ '../views/LocalMusic.vue')
   },
   {
     path: '/Playlist/:pluginId/:sourceContext',
@@ -83,39 +46,17 @@ const routes = [
   {
     path: '/settings',
     name: 'settings',
-    component: () => import('../views/SystemSettings.vue'),
-    meta: {
-      titleKey: 'nav.settings'
-    }
+    component: () => import('../views/SystemSettings.vue')
   },
   {
     path: '/daily/songs/:pluginId',
     name: 'dailySongs',
-    component: () => import('../views/DailyTracks.vue'),
-    meta: {
-      // requireLogin: true
-    }
+    component: () => import('../views/DailyTracks.vue')
   },
   {
     path: '/login/:service/:type',
     name: 'login',
-    component: () => import('../views/StreamLogin.vue')
-  },
-  {
-    path: '/login/account',
-    name: 'loginAccount',
-    component: () => import('../views/LoginAccount.vue'),
-    meta: {
-      // titleKey: 'title.login'
-    }
-  },
-  {
-    path: '/onlineMusic/login/:service',
-    name: 'onlineMusicLogin',
-    component: () => import('../views/OnlineMusicLogin.vue'),
-    meta: {
-      // titleKey: 'title.login'
-    }
+    component: () => import('../views/LoginAccount.vue')
   },
   {
     path: '/album/:pluginId/:sourceContext',
@@ -125,26 +66,17 @@ const routes = [
   {
     path: '/artist/:pluginId/:sourceContext',
     name: 'ArtistPage',
-    component: () => import('../views/ArtistPage.vue'),
-    meta: {
-      keepAlive: true
-    }
+    component: () => import('../views/ArtistPage.vue')
   },
   {
-    path: '/artist/:id/mv',
+    path: '/artistmv/:pluginId/:sourceContext',
     name: 'artistMV',
-    component: () => import('../views/ArtistMv.vue'),
-    meta: {
-      keepAlive: true
-    }
+    component: () => import('../views/ArtistMv.vue')
   },
   {
     path: '/search',
     name: 'search',
-    component: () => import('../views/SearchPage.vue'),
-    meta: {
-      keepAlive: true
-    }
+    component: () => import('../views/SearchPage.vue')
   },
   {
     path: '/user/:id',

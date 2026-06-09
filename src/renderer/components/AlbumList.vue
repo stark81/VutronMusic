@@ -40,13 +40,17 @@
         />
       </template>
       <template #footer>
+        <!-- {{ albums[selectedIdx] }} -->
         <div v-if="albums[selectedIdx]?.id !== 0" class="listen-more">
           <span
             >听听
             <router-link
-              :to="`/album/${albums[selectedIdx]?.pluginId}/${albums[selectedIdx]?.sourceContext}`"
-              >{{ albums[selectedIdx]?.name }}</router-link
-            >
+              v-for="plugin in plugins"
+              :key="plugin"
+              class="plugin-link"
+              :to="getAlbumLink(plugin)"
+              >{{ `${plugin} - ${albums[selectedIdx]?.name} ` }}
+            </router-link>
             的其他歌曲</span
           >
         </div>
@@ -66,7 +70,6 @@ import { PlaylistSourceInfo } from '@/types/music'
 
 const props = defineProps<{
   tracks: Track[]
-  plugin: PluginId
 }>()
 
 // ====================    ref   ==================== //
@@ -87,6 +90,8 @@ const showTracks = computed(() => {
   return tracks.value.filter((track) => track.album.name === album.name).sort((a, b) => a.no - b.no)
 })
 
+const plugins = computed(() => [...new Set(showTracks.value.map((track) => track.pluginId))])
+
 // ==================== function ==================== //
 const playThisList = (id: number | string) => {
   // const source: PlaylistSourceInfo = { type: 'Track', plugin: }
@@ -97,6 +102,11 @@ const playThisList = (id: number | string) => {
   const idx = showTracks.value.findIndex((item) => item.id === id)
   const type = showTracks.value[0].type
   // replacePlaylist(type === 'local' ? 'localPlaylist' : 'streamPlaylist', 0, IDs, idx)
+}
+
+const getAlbumLink = (code: PluginId) => {
+  const album = showTracks.value.find((item) => item.pluginId === code)?.album
+  return `/album/${code}/${JSON.stringify(album?.sourceContext || {})}`
 }
 
 const updatePadding = inject('updatePadding') as (padding: number) => void
@@ -133,6 +143,10 @@ onBeforeUnmount(() => {
     line-height: 40px;
     font-size: 14px;
     opacity: 0.75;
+
+    .plugin-link:not(:last-child)::after {
+      content: ', ';
+    }
   }
 }
 .album-item {

@@ -158,7 +158,7 @@ defineExpose({ searchBoxRef })
 const toLogin = (): void => {
   const active = services.value.find((item) => item.active)
   if (!active) return
-  router.push(`/onlineMusic/login/${active.code}`)
+  router.push(`/login/${active.code}/QrCode`)
 }
 
 const toGitHub = (): void => {

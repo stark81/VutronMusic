@@ -1,6 +1,6 @@
 <template>
   <div v-show="show">
-    <h1> <img class="avatar" :src="image" loading="lazy" />{{ artist.name }}的 MV </h1>
+    <h1> <img class="avatar" :src="artist?.picUrl" loading="lazy" />{{ artist?.name }}的 MV </h1>
     <MvRow
       :mvs="mvs"
       :is-end="true"
@@ -13,35 +13,53 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, inject, computed, onActivated, onDeactivated, onMounted, onBeforeUnmount } from 'vue'
+import { ref, inject, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
-import { artistMv, getArtist } from '../api/artist'
+import { usePluginMusic } from '../store/pluginMusic'
 import { tricklingProgress } from '../utils/tricklingProgress'
 import MvRow from '../components/MvRow.vue'
+import { PluginId } from '@/types/schemas'
+import { ArtistDetail, Mv } from '@/types/plugin'
 
 const show = ref(false)
 const hasMore = ref(true)
-const artist = ref<any>({})
-const mvs = ref<any[]>([])
-const image = computed(() => artist.value.img1v1Url + '?param=512y512')
+const artist = ref<ArtistDetail>()
+const mvs = ref<Mv[]>([])
+
+const pluginId = ref<PluginId>()
+const sourceContext = ref<Record<string, any>>({})
 
 const route = useRoute()
+const { pluginMethodCall } = usePluginMusic()
 
-const loadData = (id: string) => {
+const loadData = () => {
+  if (!pluginId.value) return
   setTimeout(() => {
     if (!show.value) tricklingProgress.start()
   }, 1000)
-  getArtist(Number(id)).then((res) => {
-    artist.value = res.artist
+
+  pluginMethodCall(pluginId.value, 'artistDetail', sourceContext.value).then((result) => {
+    if (!result.artist) return
+    artist.value = { ...result.artist, pluginId: pluginId.value! }
   })
+
   loadMVs()
 }
 
 const loadMVs = () => {
-  if (!hasMore.value) return
-  artistMv({ id: Number(route.params.id), limit: 100, offset: mvs.value.length }).then((data) => {
-    mvs.value.push(...data.mvs)
-    hasMore.value = data.hasMore
+  if (!hasMore.value || !pluginId.value) return
+  pluginMethodCall(pluginId.value, 'artistMVs', {
+    ...sourceContext.value,
+    hasMore: hasMore.value,
+    limit: 100,
+    offset: mvs.value.length
+  }).then((res) => {
+    if (!res.data.length) {
+      hasMore.value = false
+      show.value = true
+      return
+    }
+    mvs.value.push(...res.data.map((item) => ({ ...item, pluginId: pluginId.value! })))
     tricklingProgress.done()
     show.value = true
   })
@@ -49,16 +67,12 @@ const loadMVs = () => {
 
 const updatePadding = inject('updatePadding') as (value: number) => void
 
-onActivated(() => {
-  setTimeout(() => {
-    updatePadding(0)
-  }, 100)
-})
-onDeactivated(() => {
-  updatePadding(96)
-})
 onMounted(() => {
-  loadData(route.params.id as string)
+  const { pluginId: plugin, sourceContext: source } = route.params
+  pluginId.value = plugin as PluginId
+  sourceContext.value = JSON.parse(source as string)
+
+  loadData()
   setTimeout(() => {
     updatePadding(0)
   }, 100)

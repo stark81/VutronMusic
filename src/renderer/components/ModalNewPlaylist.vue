@@ -91,7 +91,7 @@ const createAPlaylist = async () => {
   const data = { name: title.value, isPrivate: isPrivate.value }
   const result = await pluginMethodCall(plugin.value, 'createPlaylist', data)
   if (result.code === 200 && result.data) {
-    fetchLikedPlaylists([plugin.value])
+    fetchLikedPlaylists(plugin.value)
     if (!ids.value.length) {
       showToast(t('toast.createLocalPlaylistSuccess'))
       close()
