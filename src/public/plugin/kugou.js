@@ -609,58 +609,62 @@ function canPlayWithConceptVIP(song) {
 /**
  * @returns {Track}
  */
-const buildAlbumTrack = (item) => ({
-  ...canPlayWithConceptVIP(item),
-  id: item.base?.audio_id || '',
-  name: item.base?.audio_name || '',
-  duration: item.audio_info?.duration_flac || 0,
-  alias: [],
-  createTime: parseDate(item.musical?.publish_time || '0'),
-  album: {
-    id: item.base?.album_id || '',
-    name: item.album_info?.album_name || '',
-    picUrl: (item.album_info?.cover || '').replace('{size}', '512'),
-    pluginId: '',
-    sourceContext: { id: item.base?.album_id || '' }
-  },
-  no: item.extend?.sort || 1,
-  artists: (item.authors || []).map((it) => ({
+const buildAlbumTrack = (item) => {
+  const artists = (item.authors || []).map((it) => ({
     id: it.author_id,
     name: it.author_name,
     picUrl: '',
     pluginId: '',
     sourceContext: { id: it.author_id }
-  })),
-  picUrl: (item.album_info?.cover || 'https://c1.kgimg.com/stdmusic/aaa/ddd/ddd.jpg').replace(
-    '{size}',
-    '512'
-  ),
-  mvid: item.mvid || 0,
-  playCount: -1,
-  pluginId: '',
-  type: meta.type,
-  sourceContext: {
+  }))
+  return {
+    ...canPlayWithConceptVIP(item),
     id: item.base?.audio_id || '',
     name: item.base?.audio_name || '',
-    hash:
-      item.audio_info.hash_flac ||
-      item.audio_info.hash_320 ||
-      item.audio_info.hash_128 ||
-      item.audio_info.hash ||
-      '',
-    album: { id: item.base?.album_id || '', name: item.album_info?.album_name || '' },
-    artists: (item.authors || []).map((it) => ({
-      id: it.author_id,
-      name: it.author_name
-    })),
+    duration: item.audio_info?.duration_flac || 0,
+    alias: [],
+    createTime: parseDate(item.musical?.publish_time || '0'),
+    album: {
+      id: item.base?.album_id || '',
+      name: item.album_info?.album_name || '',
+      picUrl: (item.album_info?.cover || '').replace('{size}', '512'),
+      pluginId: '',
+      sourceContext: { id: item.base?.album_id || '' }
+    },
+    no: item.extend?.sort || 1,
+    artists,
+    albumArtists: artists,
     picUrl: (item.album_info?.cover || 'https://c1.kgimg.com/stdmusic/aaa/ddd/ddd.jpg').replace(
       '{size}',
       '512'
     ),
-    fileid: '',
-    mxid: item.base?.album_audio_id
+    mvid: item.mvid || 0,
+    playCount: -1,
+    pluginId: '',
+    type: meta.type,
+    sourceContext: {
+      id: item.base?.audio_id || '',
+      name: item.base?.audio_name || '',
+      hash:
+        item.audio_info.hash_flac ||
+        item.audio_info.hash_320 ||
+        item.audio_info.hash_128 ||
+        item.audio_info.hash ||
+        '',
+      album: { id: item.base?.album_id || '', name: item.album_info?.album_name || '' },
+      artists: (item.authors || []).map((it) => ({
+        id: it.author_id,
+        name: it.author_name
+      })),
+      picUrl: (item.album_info?.cover || 'https://c1.kgimg.com/stdmusic/aaa/ddd/ddd.jpg').replace(
+        '{size}',
+        '512'
+      ),
+      fileid: '',
+      mxid: item.base?.album_audio_id
+    }
   }
-})
+}
 
 const formatMv = (item) => ({
   id: item.video_id || item.MvID || '',

@@ -3,7 +3,6 @@ import { defineStore } from 'pinia'
 import { computed, reactive, ref, toRaw, watch } from 'vue'
 import { PluginResultSchema } from '@/types/schemas'
 import { useNormalStateStore } from './state'
-// import router from '../router'
 import {
   service,
   PluginMethodCall,
@@ -535,8 +534,8 @@ export const usePluginMusic = defineStore(
     }
 
     const getPluginName = (plugin: PluginId) => {
-      const service = services.value.find((it) => it.code === plugin)!
-      return service.name
+      const service = services.value.find((it) => it.code === plugin)
+      return service?.name || ''
     }
 
     watch(

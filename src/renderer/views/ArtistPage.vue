@@ -6,7 +6,9 @@
       </div>
       <div>
         <div class="name">{{ artist?.name }}</div>
-        <div class="artist">{{ $t('artist.artist') }}</div>
+        <div class="artist">{{
+          `${getPluginName(artist?.pluginId || ('' as PluginId))}: ${$t('artist.artist')}`
+        }}</div>
         <div class="statistics">
           <a @click="scrollTo('popularTracks')">{{ artist?.musicSize }} {{ $t('common.songs') }}</a>
           ·
@@ -233,7 +235,7 @@ const pluginId = ref('' as PluginId)
 const sourceContext = ref<Record<string, any>>({})
 
 const pluginStore = usePluginMusic()
-const { pluginMethodCall, isAccountLoggedIn } = pluginStore
+const { pluginMethodCall, isAccountLoggedIn, getPluginName } = pluginStore
 
 const stateStore = useNormalStateStore()
 const { showToast } = stateStore
