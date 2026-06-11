@@ -11,7 +11,7 @@ import store from '../store'
 
 import log from '../log'
 import { Worker } from 'worker_threads'
-import { TrackInfoOrder, lyricLine } from '@/types/music'
+import { Track, TrackInfoOrder, lyricLine } from '@/types/music'
 
 export const isFileExist = (file: string) => {
   return fs.existsSync(file)
@@ -82,6 +82,11 @@ export const parseLyricString = (lyrics: string): lyricLine[] => {
         lyricMap.set(lyric.start, [])
       }
       lyricMap.get(lyric.start)?.push(lyric)
+    } else if (/^<[\d:.]+>/.test(content)) {
+      const lyric = _parseEnhancedLrcLine(line)
+      if (!lyric) continue
+      if (!lyricMap.has(lyric.start)) lyricMap.set(lyric.start, [])
+      lyricMap.get(lyric.start)!.push(lyric)
     } else {
       const _line = _parseLrcLine(line)
       const lyric = { start: _line.start, end: 0, lyric: { text: _line.cInfo } }
@@ -424,6 +429,24 @@ const _parseWrcLine = (line: RegExpExecArray) => {
   return { start, end, lyric: { info, text } }
 }
 
+const _parseEnhancedLrcLine = (line: RegExpExecArray) => {
+  const { lyricTimestamps, content } = line.groups!
+  const converted = content
+    .replace(/^<[\d:.]+>/, '') // 去掉开头与行时间戳重复的那个
+    .replace(/<([\d:.]+)>/g, '[$1]')
+  const fakeMatch = Object.assign([lyricTimestamps + converted] as unknown as RegExpExecArray, {
+    index: 0,
+    input: lyricTimestamps + converted,
+    groups: { lyricTimestamps, content: converted }
+  })
+  const result = _parseWrcLine(fakeMatch)
+  if (result?.lyric?.info) {
+    result.lyric.info = result.lyric.info.filter((item) => item.word.trim() !== '')
+    result.lyric.text = result.lyric.info.map((item) => item.word).join('')
+  }
+  return result
+}
+
 export const yrcLyricParse = (data: {
   yrc: { lyric: string }
   ytlrc: { lyric: string }
@@ -682,17 +705,16 @@ export const getAudioSourceFromUnblock = async (track: any) => {
 }
 
 export const deleteExcessCache = async (deleteAll = false): Promise<boolean> => {
-  const Cache = (await import('../cache')).default
   const { db, Tables } = await import('../db')
-  const tracks = Cache.get(CacheAPIs.LocalMusic, { sql: "type = 'online'" })
+  const tracks = db.sqlite.prepare(`SELECT * from Track WHERE type != 'local'`).all() as Track[]
 
   if (deleteAll) {
     try {
-      const ids = tracks.songs.map((s: any) => {
+      const ids = tracks.map((s: any) => {
         fs.promises.rm(s.url, { force: true })
         return s.id
       })
-      if (ids.length > 0) db.deleteMany(Tables.Track, ids)
+      if (ids.length > 0) db.deleteManyByIds(Tables.Track, ids, 'xxx')
       return true
     } catch (error) {
       log.error('清理全量缓存失败:', error)
@@ -703,7 +725,7 @@ export const deleteExcessCache = async (deleteAll = false): Promise<boolean> => 
   const sizeLimit = store.get('settings.autoCacheTrack.sizeLimit') as boolean | number
   if (sizeLimit === false) return true
 
-  const songs = [...tracks.songs].sort((a: any, b: any) => a.insertTime - b.insertTime)
+  const songs = [...tracks].sort((a: any, b: any) => a.insertTime - b.insertTime)
 
   let currentTotalSize = songs.reduce((acc: number, cur: any) => acc + Number(cur.size), 0)
   const limitInBytes = (sizeLimit as number) * 1024 * 1024
@@ -729,7 +751,7 @@ export const deleteExcessCache = async (deleteAll = false): Promise<boolean> => 
     }
 
     if (deletedIds.length > 0) {
-      db.deleteMany(Tables.Track, deletedIds)
+      db.deleteManyByIds(Tables.Track, deletedIds, 'xxx')
       log.info(`自动清理完成，共删除 ${deletedIds.length} 首缓存歌曲`)
     }
 

@@ -225,6 +225,7 @@ export const usePluginMusic = defineStore(
     const fetchLikedPlaylists = async (item: PluginId, loadedMore: boolean = false) => {
       if (!playlists[item]) playlists[item] = { liked: null, data: [], sourceContext: {} }
       if (!albums[item]) albums[item] = { data: [], sourceContext: {} }
+
       const result = await pluginMethodCall(
         item,
         'userPlaylist',
@@ -237,33 +238,23 @@ export const usePluginMusic = defineStore(
       if (result.liked) {
         playlists[item].liked = { ...result.liked, pluginId: item }
       }
-      if (result.playlists?.length) {
-        if (loadedMore) {
-          playlists[item].data.push(...result.playlists.map((it) => ({ ...it, pluginId: item })))
-        } else {
-          playlists[item].data = result.playlists.map((it) => ({ ...it, pluginId: item }))
-        }
 
-        playlists[item].sourceContext = result.sourceContext
+      if (!loadedMore) {
+        playlists[item].data = []
+        albums[item].data = []
       }
-      if (result.albums.length) {
-        if (loadedMore) {
-          albums[item].data.push(
-            ...result.albums.map((it) => ({
-              ...it,
-              artists: it.artists?.map((i) => ({ ...i, pluginId: item })),
-              pluginId: item
-            }))
-          )
-        } else {
-          albums[item].data = result.albums.map((it) => ({
-            ...it,
-            artists: it.artists?.map((i) => ({ ...i, pluginId: item })),
-            pluginId: item
-          }))
-        }
-        albums[item].sourceContext = result.sourceContext
-      }
+
+      playlists[item].data.push(...result.playlists.map((it) => ({ ...it, pluginId: item })))
+      playlists[item].sourceContext = { ...playlists[item].sourceContext, ...result.sourceContext }
+
+      albums[item].data.push(
+        ...result.albums.map((it) => ({
+          ...it,
+          artists: it.artists?.map((i) => ({ ...i, pluginId: item })),
+          pluginId: item
+        }))
+      )
+      albums[item].sourceContext = { ...albums[item].sourceContext, ...result.sourceContext }
     }
 
     const getPlaylistDetail = async (plugin: PluginId, params: Record<string, any>) => {

@@ -623,19 +623,7 @@ export const usePlayerStore = defineStore(
         ]
       }
       navigator.mediaSession.metadata = new MediaMetadata(metadata)
-
       if (window.env?.isLinux) {
-        if (track.type === 'stream') {
-          metadata.artwork.map((art) => {
-            const url = `http://localhost:${window.env?.isDev ? 40001 : 41830}` + art.src
-            art.src = url
-          })
-        } else if (track.type === 'local') {
-          metadata.artwork.map((art) => {
-            const url = `http://localhost:${window.env?.isDev ? 40001 : 41830}/local-asset?id=${track.id}&size=${art.sizes.split('x')[0]}`
-            art.src = url
-          })
-        }
         window.mainApi?.send('metadata', metadata)
       }
     }

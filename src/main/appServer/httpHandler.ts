@@ -1,11 +1,23 @@
 import { BrowserWindow } from 'electron'
 import { FastifyInstance, FastifyPluginAsync, FastifyRequest } from 'fastify'
+// import { fileTypeFromBuffer } from 'file-type'
+import Constants from '../utils/Constants'
+import path from 'path'
+import fs from 'fs'
 import cache from '../cache'
 import { CacheAPIs } from '../utils/CacheApis'
 import { getTrackDetail, getPic, getPicFromApi } from '../utils'
-import navidrome from '../streaming/navidrome'
-import jellyfin from '../streaming/jellyfin'
-import emby from '../streaming/emby'
+// import navidrome from '../streaming/navidrome'
+// import jellyfin from '../streaming/jellyfin'
+// import emby from '../streaming/emby'
+
+const defaultImagePath = Constants.IS_DEV_ENV
+  ? path.join(process.cwd(), `./src/public/images/default.jpg`)
+  : path.join(__dirname, `../images/default.jpg`)
+
+// const singerImagePath = Constants.IS_DEV_ENV
+//   ? path.join(process.cwd(), `./src/public/images/singer.png`)
+//   : path.join(__dirname, `../images/singer.png`)
 
 const httpHandler: FastifyPluginAsync = async (fastify: FastifyInstance) => {
   fastify.get(
@@ -37,6 +49,12 @@ const httpHandler: FastifyPluginAsync = async (fastify: FastifyInstance) => {
     }
   )
 
+  fastify.get('/local-asset/default-cover', async (req, reply) => {
+    const pic = await fs.promises.readFile(defaultImagePath)
+    reply.header('Cache-Control', 'no-store').type('image/jpeg')
+    return reply.send(pic)
+  })
+
   fastify.get('/local-asset/player', async (req, res) => {
     try {
       const win = (fastify as any).win as BrowserWindow
@@ -62,39 +80,39 @@ const httpHandler: FastifyPluginAsync = async (fastify: FastifyInstance) => {
     }
   })
 
-  fastify.get(
-    '/stream-asset',
-    async (req: FastifyRequest<{ Querystring: Record<string, string> }>, res) => {
-      const { service, id, primary, size } = req.query as {
-        service: 'navidrom' | 'jellyfin' | 'emby'
-        id: string
-        primary: string
-        size: string
-      }
+  // fastify.get(
+  //   '/stream-asset',
+  //   async (req: FastifyRequest<{ Querystring: Record<string, string> }>, res) => {
+  //     const { service, id, primary, size } = req.query as {
+  //       service: 'navidrom' | 'jellyfin' | 'emby'
+  //       id: string
+  //       primary: string
+  //       size: string
+  //     }
 
-      let url: string
+  //     let url: string
 
-      if (service === 'emby') {
-        url =
-          primary === 'undefined'
-            ? `https://p1.music.126.net/jWE3OEZUlwdz0ARvyQ9wWw==/109951165474121408.jpg?param=${size}y${size}`
-            : emby.getPic(Number(id), primary, Number(size))
-      } else if (service === 'jellyfin') {
-        url =
-          primary === 'undefined'
-            ? `https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg?param=${size}y${size}`
-            : jellyfin.getPic(id, Number(size))
-      } else {
-        url = navidrome.getPic(id, Number(size))
-      }
+  //     if (service === 'emby') {
+  //       url =
+  //         primary === 'undefined'
+  //           ? `https://p1.music.126.net/jWE3OEZUlwdz0ARvyQ9wWw==/109951165474121408.jpg?param=${size}y${size}`
+  //           : emby.getPic(Number(id), primary, Number(size))
+  //     } else if (service === 'jellyfin') {
+  //       url =
+  //         primary === 'undefined'
+  //           ? `https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg?param=${size}y${size}`
+  //           : jellyfin.getPic(id, Number(size))
+  //     } else {
+  //       url = navidrome.getPic(id, Number(size))
+  //     }
 
-      const result = await getPicFromApi(url)
-      const pic = result.pic!
-      const format = result.format
+  //     const result = await getPicFromApi(url)
+  //     const pic = result.pic!
+  //     const format = result.format
 
-      return new Response(new Uint8Array(pic), { headers: { 'Content-Type': format } })
-    }
-  )
+  //     return new Response(new Uint8Array(pic), { headers: { 'Content-Type': format } })
+  //   }
+  // )
 }
 
 export default httpHandler

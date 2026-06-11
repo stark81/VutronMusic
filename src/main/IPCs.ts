@@ -441,7 +441,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
 
     if (deletedTracks.length > 0) {
       try {
-        db.deleteMany(Tables.Track, deletedTracks)
+        db.deleteManyByIds(Tables.Track, deletedTracks, 'xxx')
         win.webContents.send('msgDeletedTracks', deletedTracks)
       } catch (e) {
         log.error(e)
@@ -629,13 +629,13 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
   ipcMain.on('deleteLocalMusicDB', () => {
     const trackIDs = cache.get(CacheAPIs.LocalMusic)?.songs.map((track: { id: number }) => track.id)
     if (!trackIDs.length) return
-    db.deleteMany(Tables.Track, trackIDs)
+    db.deleteManyByIds(Tables.Track, trackIDs, 'xxx')
 
     const playlistIDs = cache
       .get(CacheAPIs.LocalPlaylist)
       ?.map((playlist: { id: number }) => playlist.id)
     if (!playlistIDs.length) return
-    db.deleteMany(Tables.Playlist, playlistIDs)
+    db.deleteManyByIds(Tables.Playlist, playlistIDs, 'xxx')
   })
 
   ipcMain.handle('clearCacheTracks', async (event, clearAll: boolean) => {
@@ -644,11 +644,15 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
   })
 
   ipcMain.handle('getCacheTracksInfo', () => {
-    const tracks = cache.get(CacheAPIs.LocalMusic, { sql: "type = 'online'" })
-    const size = tracks.songs
+    // const tracks = cache.get(CacheAPIs.LocalMusic, { sql: "type = 'online'" })
+    const result = db.sqlite.prepare(`SELECT * from Track WHERE type != 'local'`).all() as {
+      json: string
+    }[]
+    const tracks = result.map((item) => JSON.parse(item.json))
+    const size = tracks
       .map((track: any) => track.size)
       .reduce((acc: string, cur: string) => Number(acc) + Number(cur), 0)
-    return { length: tracks.songs.length, size }
+    return { length: tracks.length, size }
   })
 
   /**
@@ -689,7 +693,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
 
   ipcMain.handle('deleteACacheTrack', (event, trackId: number) => {
     try {
-      db.delete(Tables.Track, trackId)
+      db.deleteManyByIds(Tables.Track, [trackId], 'xxx')
       return true
     } catch {
       return false
@@ -698,7 +702,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
 
   ipcMain.handle('deleteLocalPlaylist', (event, pid: number) => {
     try {
-      db.delete(Tables.Playlist, pid)
+      db.deleteManyByIds(Tables.Playlist, [pid], 'xxx')
       return true
     } catch (error) {
       log.error('删除本地歌单失败:', error)
@@ -708,7 +712,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
 
   ipcMain.handle('logout', (event, uid: string) => {
     try {
-      db.delete(Tables.AccountData, uid)
+      db.deleteManyByIds(Tables.PluginData, [uid], 'xxxx')
       return true
     } catch (error) {
       log.error('登出失败:', error)

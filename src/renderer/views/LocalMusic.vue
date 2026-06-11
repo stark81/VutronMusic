@@ -228,7 +228,7 @@ const tabs = [
   'localTracks',
   'localPlaylist',
   'album',
-  ['artist', 'albumArtist'],
+  ['artists', 'albumArtists'],
   'dirName'
 ] as const
 

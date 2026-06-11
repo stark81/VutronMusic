@@ -77,18 +77,18 @@ apis.db.get('PluginData').then((result) => {
 })
 
 apis.store.get('').then((store) => {
-  baseUrl = store.baseUrl
+  baseUrl = store.baseUrl || ''
 })
 
-const getPic = (id, primary, size) => {
-  return `${baseUrl}/emby/Items/${id}/Images/Primary?maxHeight=${size}&maxWidth=${size}&tag=${primary}&quality=90`
+const getPic = (id, size) => {
+  return `${baseUrl}/Items/${id}/Images/Primary?fillHeight=${size}&fillWidth=${size}`
 }
 
 const formatPlaylist = (item) => ({
   id: item.Id || '-1',
   name: item.Name || '我喜欢的音乐',
   picUrl: item.ImageTags?.Primary
-    ? getPic(item.Id, item.ImageTags.Primary, 256)
+    ? getPic(item.Id, 256)
     : `http://127.0.0.1:41830/local-asset/default-cover?v=${item.Id}`,
   isMine: true,
   trackCount: item.ChildCount || 0,
@@ -112,7 +112,7 @@ const formatPlaylistDetail = (playlist) => ({
   name: playlist.Name || '我喜欢的音乐',
   subscribed: playlist.UserData?.IsFavorite || false,
   picUrl: playlist.ImageTags?.Primary
-    ? getPic(playlist.Id, playlist.ImageTags?.Primary, 512)
+    ? getPic(playlist.Id, 512)
     : `http://127.0.0.1:41830/local-asset/default-cover?v=${playlist.Id}`,
   trackCount: playlist.ChildCount,
   updateTime: new Date(playlist.DateCreated || 0).getTime(),
@@ -153,23 +153,7 @@ const getPlaylistDetail = async (params) => {
   }
 }
 
-const formatMilliseconds = (num) => {
-  const milliseconds = num / 10000
-
-  const minutes = Math.floor(milliseconds / 60000)
-  const seconds = Math.floor((milliseconds % 60000) / 1000)
-  const remainingMilliseconds = Math.floor(milliseconds % 1000)
-
-  const formattedMinutes = minutes.toString().padStart(2, '0')
-  const formattedSeconds = seconds.toString().padStart(2, '0')
-  const formattedMilliseconds = remainingMilliseconds.toString().padStart(3, '0')
-
-  return `[${formattedMinutes}:${formattedSeconds}.${formattedMilliseconds}]`
-}
-
 const formatTrack = (item, size = 512, showPlayCount = true) => {
-  const lrcItem = item.MediaSources?.[0]?.MediaStreams?.find((it) => it.Codec === 'lrc')
-
   return {
     id: item.Id,
     name: item.Name,
@@ -184,33 +168,33 @@ const formatTrack = (item, size = 512, showPlayCount = true) => {
     album: {
       id: item.AlbumId ?? '',
       name: item.Album ?? '',
-      picUrl: `/stream-asset?service=emby&id=${item.Id}&primary=${item.ImageTags?.Primary}&size=64`,
+      picUrl: item.ImageTags?.Primary
+        ? getPic(item.Id, 64)
+        : `http://127.0.0.1:41830/local-asset/default-cover?v=${item.AlbumId}`,
       pluginId: '',
       sourceContext: { id: item.AlbumId ?? '' }
     },
     artists: item.ArtistItems.map((it) => ({
       id: it.Id,
       name: it.Name,
-      picUrl: 'http://p1.music.126.net/6y-UleORITEDbvrOLV0Q8A==/5639395138885805.jpg?param=64y64',
+      picUrl: it.ImageTags?.Primary ? getPic(it.Id, 64) : 'vutron://get-singer-pic',
       pluginId: '',
       sourceContext: { id: it.Id }
     })),
     albumArtists: item.AlbumArtists?.map((it) => ({
       id: it.Id,
       name: it.Name,
-      picUrl: 'http://p1.music.126.net/6y-UleORITEDbvrOLV0Q8A==/5639395138885805.jpg?param=64y64',
+      picUrl: it.ImageTags?.Primary ? getPic(it.Id, 64) : 'vutron://get-singer-pic',
       pluginId: '',
       sourceContext: { id: it.Id }
     })),
     picUrl: item.ImageTags?.Primary
-      ? getPic(item.Id, item.ImageTags.Primary, size)
+      ? getPic(item.Id, size)
       : `http://127.0.0.1:41830/local-asset/default-cover?v=${item.Id}`,
     pluginId: '',
     type: meta.type,
     sourceContext: {
       id: item.Id,
-      sourceId: item.MediaSources?.[0]?.Id || '',
-      idx: lrcItem?.Index || '',
       PlaylistItemId: item.PlaylistItemId || ''
     }
   }
@@ -220,8 +204,8 @@ const formatAlbumDetail = (item) => {
   return {
     id: item.Id,
     name: item.Name,
-    picUrl: item.PrimaryImageTag
-      ? getPic(item.PrimaryImageItemId || item.Id, item.PrimaryImageTag, 512)
+    picUrl: item.ImageTags?.Primary
+      ? getPic(item.Id, 512)
       : `http://127.0.0.1:41830/local-asset/default-cover?v=${item.Id}`,
     type: 'Album',
     isExplicit: false,
@@ -248,8 +232,8 @@ const formatAlbumDetail = (item) => {
 const formatAlbum = (item) => ({
   id: item.Id,
   name: item.Name,
-  picUrl: item.PrimaryImageTag
-    ? getPic(item.PrimaryImageItemId || item.Id, item.PrimaryImageTag, 512)
+  picUrl: item.ImageTags?.Primary
+    ? getPic(item.Id, 512)
     : `http://127.0.0.1:41830/local-asset/default-cover?v=${item.Id}`,
   artists:
     item.ArtistItems?.map((it) => ({
@@ -302,8 +286,8 @@ const getArtists = async (_params) => {
     id: item.Id,
     name: item.Name,
     picUrl: item.ImageTags?.Primary
-      ? getPic(item.Id, item.ImageTags?.Primary, 512)
-      : 'vutron://get-singer-pic',
+      ? getPic(item.Id, 512)
+      : `http://127.0.0.1:41830/local-asset/default-cover?v=${item.Id}`,
     pluginId: '',
     sourceContext: { id: item.Id }
   }))
@@ -328,29 +312,50 @@ const getTracks = async (_params) => {
   return get('Items', { ...params, ..._params })
 }
 
-const getFileLyric = async (id, sourceId, idx) => {
-  const url = `Items/${id}/${sourceId}/Subtitles/${idx}/Stream.js`
-  const result = await get(url)
-  if (!result) return ''
-  const lrc = result.TrackEvents.map((line) => {
-    const timeStamps = formatMilliseconds(line.StartPositionTicks)
-    return timeStamps + line.Text
-  }).join('\n')
-  return lrc || ''
+function ticksToLrc(ticks) {
+  const totalMs = ticks / 10000
+  const minutes = Math.floor(totalMs / 60000)
+  const seconds = Math.floor((totalMs % 60000) / 1000)
+  const centiseconds = Math.floor((totalMs % 1000) / 10)
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(centiseconds).padStart(2, '0')}`
 }
 
-const getEmbeddedLyric = async (id) => {
-  const result = await get(`Users/${user.userId}/Items/${id}`, {
-    fields: 'ShareLevel',
-    ExcludeFields: 'VideoChapters,VideoMediaSources,MediaStreams',
-    api_key: user.token
-  })
-
-  if (!result.MediaSources) return ''
-  for (const stream of result.MediaSources[0].MediaStreams) {
-    if (stream.Extradata) return stream.Extradata
+function buildInlineLine(text, cues) {
+  const cueMap = new Map()
+  for (const cue of cues) {
+    cueMap.set(cue.Position, cue)
   }
-  return ''
+  let result = ''
+  let nonSpaceIdx = 0
+  let lastCue = null
+  for (const ch of text) {
+    if (ch === ' ') {
+      result += ' '
+    } else {
+      const cue = cueMap.get(nonSpaceIdx)
+      if (cue) {
+        result += `<${ticksToLrc(cue.Start)}>`
+        lastCue = cue
+      }
+      result += ch
+      nonSpaceIdx++
+    }
+  }
+  if (lastCue) result += `<${ticksToLrc(lastCue.End)}>`
+  return result
+}
+
+function handleLyric(json) {
+  const lines = []
+  for (const entry of json.Lyrics) {
+    const lineTag = `[${ticksToLrc(entry.Start)}]`
+    if (entry.Cues?.length) {
+      lines.push(`${lineTag}${buildInlineLine(entry.Text, entry.Cues)}`)
+    } else {
+      lines.push(`${lineTag}${entry.Text}`)
+    }
+  }
+  return lines.join('\n')
 }
 
 const get = async (url, params) => {
@@ -390,8 +395,20 @@ const post = async (url, data, header = null) => {
   return response
 }
 
+const Delete = async (url, data, header = null) => {
+  const headers = {
+    'X-Emby-Token': user.token,
+    'X-Emby-Client': 'VutronMusic',
+    'X-Emby-Device-Name': 'Desktop',
+    'X-Emby-Device-Id': 'vutron-music',
+    'X-Emby-Client-Version': '1.0.0'
+  }
+  const response = await apis.http.delete(`${baseUrl}/${url}`, data, header ?? headers)
+  return response
+}
+
 const meta = {
-  name: 'Emby',
+  name: 'Jellyfin',
   type: 'stream'
 }
 
@@ -512,16 +529,17 @@ exports.getTrackDetail = async (params) => {
 
 exports.resizePicUrl = (params) => {
   const { url, size } = params
+  if (url.startsWith('vutron')) return { code: 200, data: url }
 
   const u = new URL(url)
-  u.searchParams.set('maxHeight', `${size}`)
-  u.searchParams.set('maxWidth', `${size}`)
+  u.searchParams.set('fillHeight', `${size}`)
+  u.searchParams.set('fillWidth', `${size}`)
 
   return { code: 200, data: u.href }
 }
 
 exports.songUrl = async (params) => {
-  const url = `vutron://get-plugin-asset?plugin=emby&type=stream&id=${params.id}`
+  const url = `vutron://get-plugin-asset?plugin=jellyfin&type=stream&id=${params.id}`
   return { code: 200, data: { url: [url], replayGain: 0, peak: 1 } }
 }
 
@@ -531,43 +549,41 @@ exports.getStream = (params) => {
 
     headers: {
       Authorization:
-        `MediaBrowser ` +
+        `MediaBrowser Client="VutronMusic" ` +
         `Token="${user.token}", ` +
         `Client="VutronMusic", ` +
         `Device="Desktop", ` +
-        `DeviceId="vutron-music", ` +
+        `DeviceId="VutronMusic", ` +
         `Version="1.0.0"`
     }
   }
 }
 
 exports.getLyric = async (params) => {
-  const { id, sourceId, idx } = params
-  let lyric
-  if (sourceId && idx) {
-    lyric = await getFileLyric(id, sourceId, idx)
-  } else {
-    lyric = await getEmbeddedLyric(id)
-  }
-  const data = await apis.utils.parseLyric(lyric)
+  const { id } = params
+  const result = await get(`Audio/${id}/Lyrics`)
+  if (!result?.Lyrics?.length) return { code: 200, data: [] }
+  const res = handleLyric(result)
+  const data = await apis.utils.parseLyric(res)
   return { code: 200, data }
 }
 
 exports.addOrRemoveTracksToPlaylist = async (params) => {
   const { op, playlist, tracks } = params
-  const endpoint = `Playlists/${playlist.id}/Items` + (op === 'del' ? '/Delete' : '')
+  const endpoint = `Playlists/${playlist.id}/Items`
   const ids = tracks.map((it) => (op === 'add' ? it.id : it.PlaylistItemId)).join(',')
   const data = op === 'add' ? { Ids: ids, UserId: user.userId } : { EntryIds: ids }
-  await post(endpoint, data)
+  const fn = op === 'add' ? post : Delete
+  await fn(endpoint, data)
   return { code: 200 }
 }
 
 exports.likeATrack = async (params) => {
   try {
     const { op, tracks } = params
-    const endPoint =
-      `Users/${user.userId}/FavoriteItems/${tracks[0].id}` + (op === 'add' ? '' : '/Delete')
-    await post(endPoint)
+    const endPoint = `Users/${user.userId}/FavoriteItems/${tracks[0].id}`
+    const fn = op === 'add' ? post : Delete
+    await fn(endPoint)
     return { code: 200 }
   } catch (error) {
     console.log('[subscribeAlbum]: ', error)
@@ -594,7 +610,7 @@ exports.createPlaylist = async (params) => {
 
 exports.deletePlaylist = async (params) => {
   try {
-    await post('Items/Delete', { Ids: params.id })
+    await Delete(`Items/${params.id}`)
     return { code: 200 }
   } catch (error) {
     console.log('[emby deletePlaylist error]', error)
@@ -657,9 +673,7 @@ exports.artistDetail = async (params) => {
   const artist = {
     id: _artist.Id,
     name: _artist.Name,
-    picUrl: _artist.ImageTags?.Primary
-      ? getPic(_artist.Id, _artist.ImageTags?.Primary, 512)
-      : 'vutron://get-singer-pic',
+    picUrl: _artist.ImageTags?.Primary ? getPic(_artist.Id, 512) : 'vutron://get-singer-pic',
     musicSize: _artist.ChildCount || 0,
     albumSize: _artist.albumSize || _artist.ChildCount || 0,
     mvSize: 0,
@@ -684,9 +698,7 @@ exports.simiArtists = async (params) => {
     id: item.Id,
     name: item.Name,
     pluginId: '',
-    picUrl: item.ImageTags?.Primary
-      ? getPic(item.Id, item.ImageTags?.Primary, 512)
-      : 'vutron://get-singer-pic',
+    picUrl: item.ImageTags?.Primary ? getPic(item.Id, 512) : 'vutron://get-singer-pic',
     sourceContext: { id: item.Id }
   }))
   return { code: 200, data, sourceContext: {} }
@@ -695,9 +707,9 @@ exports.simiArtists = async (params) => {
 exports.followArtist = async (params) => {
   try {
     const { op, id } = params
-    const endPoint =
-      `Users/${user.userId}/FavoriteItems/${id}` + (op === 'unfollow' ? '/Delete' : '')
-    await post(endPoint)
+    const endPoint = `Users/${user.userId}/FavoriteItems/${id}`
+    const fn = op === 'unfollow' ? Delete : post
+    await fn(endPoint)
     return { code: 200 }
   } catch (error) {
     console.log('[followArtist]: ', error)
@@ -708,8 +720,9 @@ exports.followArtist = async (params) => {
 exports.subscribeAlbum = async (params) => {
   try {
     const { op, id } = params
-    const endPoint = `Users/${user.userId}/FavoriteItems/${id}` + (op === 'add' ? '' : '/Delete')
-    await post(endPoint)
+    const endPoint = `Users/${user.userId}/FavoriteItems/${id}`
+    const fn = op === 'add' ? post : Delete
+    await fn(endPoint)
     return { code: 200 }
   } catch (error) {
     console.log('[subscribeAlbum]: ', error)

@@ -71,7 +71,6 @@ const parseMusicFile = async (data: { filePath: string }) => {
     peak: 1,
     br: format?.bitrate ?? 320000,
     filePath: data.filePath,
-    type: 'local',
     offset: 0,
     md5,
     createTime: birthDate,
@@ -79,9 +78,7 @@ const parseMusicFile = async (data: { filePath: string }) => {
     album,
     artists,
     albumArtist,
-    size: stat.size,
-    cache: false,
-    matched: false
+    size: stat.size
   }
 
   return track

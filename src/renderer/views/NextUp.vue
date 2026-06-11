@@ -73,10 +73,6 @@ const { clearPlayNextList } = playerStore
 
 const tracks = ref<any[]>([])
 
-// const playNextTracks = computed(() => {
-//   return []
-// })
-
 const filteredTracks = computed(() => {
   const trackIDs = list.value.slice(currentTrackIndex.value + 1, currentTrackIndex.value + 100)
   return tracks.value.filter((t) => trackIDs.includes(t.id))

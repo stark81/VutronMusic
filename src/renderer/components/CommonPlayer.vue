@@ -175,7 +175,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, inject, onBeforeUnmount, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import ButtonIcon from './ButtonIcon.vue'
@@ -186,14 +186,10 @@ import Comment from './CommentPage.vue'
 import { usePlayerStore } from '../store/player'
 import ContextMenu from './ContextMenu.vue'
 import { useSettingsStore } from '../store/settings'
-// import { getListSourcePath } from '../utils/playlist'
 import { useNormalStateStore } from '../store/state'
-// import { useStreamMusicStore } from '../store/streamingMusic'
-// import { useDataStore } from '../store/data'
 import { usePlayerThemeStore } from '../store/playerTheme'
 import { usePluginMusic } from '../store/pluginMusic'
 import { TranslationMode } from '@/types/music.d'
-import { PluginId } from '@/types/plugin'
 
 withDefaults(defineProps<{ show: 'fullLyric' | 'pickLyric' | 'comment' }>(), {
   show: 'fullLyric'

@@ -43,7 +43,9 @@
           >
         </div>
       </div>
-      <div class="right-bottom">{{ randomtrack?.artists[0].name }} - {{ randomtrack?.name }}</div>
+      <div class="right-bottom"
+        >{{ randomtrack?.artists?.[0]?.name }} - {{ randomtrack?.name }}</div
+      >
     </div>
     <div class="section-two">
       <div
@@ -238,7 +240,7 @@ import ArtistList from '../components/ArtistList.vue'
 import { useI18n } from 'vue-i18n'
 import { randomNum, pickedLyric } from '../utils'
 import { lyricLine } from '@/types/music.d'
-import type { Track, LoginType, sortType, orderType, service } from '@/types/plugin'
+import type { Track, LoginType, sortType, orderType } from '@/types/plugin'
 // import _ from 'lodash'
 import { PluginId } from '@/types/schemas'
 
@@ -252,7 +254,7 @@ const { playlists, tools, likedTracks, services, albums, artists, tracks } =
 const {
   fetchLikedPlaylists,
   fetchLikedSongsWithDetails,
-  fetchLyric,
+  // fetchLyric,
   pluginMethodCall,
   fetchLikedArtists,
   fetchAllTracks
@@ -510,9 +512,15 @@ const getRandomTrack = async () => {
   let data: lyricLine[]
   while (i < filterLikedTracks.value.length) {
     const track = filterLikedTracks.value[randomNum(0, filterLikedTracks.value.length - 1)]
-    data = await fetchLyric(track.pluginId, track.sourceContext)
-    const isInstrumental = data.map((l) => l.lyric.text).filter((l) => l.includes('纯音乐，请欣赏'))
-    if (data.length && !isInstrumental.length) {
+    // data = await fetchLyric(track.pluginId, track.sourceContext)
+    data = await pluginMethodCall(track.pluginId, 'getLyric', track.sourceContext).then(
+      (result) => {
+        if (result.code === 200) return result.data
+        return []
+      }
+    )
+    const isInstrumental = data.some((l) => l.lyric.text.includes('纯音乐，请欣赏'))
+    if (data.length && !isInstrumental) {
       lyric.value = data.map((l) => ({ content: l.lyric.text }))
       randomtrack.value = track
       break
@@ -601,51 +609,53 @@ const checkLoginStatus = async () => {
   }
 }
 
-const loadData = async (ser: service) => {
+const loadData = async (ser: PluginId) => {
   if (filterTracks.value.length) {
     show.value = true
-    fetchLikedPlaylists(ser.code)
-    fetchLikedSongsWithDetails(ser.code)
-    fetchLikedArtists(ser.code)
-    getRandomTrack()
-    fetchAllTracks(ser.code)
+    await fetchLikedPlaylists(ser)
+    fetchLikedSongsWithDetails(ser)
+    fetchLikedArtists(ser)
+    fetchAllTracks(ser)
   } else {
-    await fetchLikedPlaylists(ser.code)
-    await fetchLikedSongsWithDetails(ser.code)
-    fetchLikedArtists(ser.code)
-    getRandomTrack()
-    fetchAllTracks(ser.code)
+    await fetchLikedPlaylists(ser)
+    await fetchLikedSongsWithDetails(ser)
+    fetchLikedArtists(ser)
+    fetchAllTracks(ser)
     show.value = true
   }
 }
 
-watch(
-  loginService,
-  (value, oldValue) => {
-    if (!value.length) {
-      const groupBy = tool.value.groundBy
-      const service = groupBy === 'all' ? streamService.value[0].code : groupBy
-      const loginTpye: LoginType = 'Username'
-      router.push(`/login/${service}/${loginTpye}`)
-      return
-    }
-    value.forEach((item) => {
-      if (!oldValue?.length) {
-        loadData(item)
-      } else {
-        const idx = oldValue.findIndex((it) => it.code === item.code)
-        if (idx === -1) {
-          loadData(item)
-        }
+watch(loginService, (value, oldValue) => {
+  if (!value.length) {
+    const groupBy = tool.value.groundBy
+    const service = groupBy === 'all' ? streamService.value[0].code : groupBy
+    const loginTpye: LoginType = 'Username'
+    router.push(`/login/${service}/${loginTpye}`)
+    return
+  }
+  value.forEach((item) => {
+    if (!oldValue?.length) {
+      loadData(item.code)
+    } else {
+      const idx = oldValue.findIndex((it) => it.code === item.code)
+      if (idx === -1) {
+        loadData(item.code)
       }
-    })
+    }
+  })
+})
+
+watch(
+  filterLikedTracks,
+  () => {
+    getRandomTrack()
   },
-  { immediate: true }
+  { deep: true, immediate: true }
 )
 
 onMounted(async () => {
   await checkLoginStatus()
-  loginService.value.forEach(loadData)
+  loginService.value.forEach((item) => loadData(item.code))
   window.addEventListener('resize', handleResize)
   setTimeout(() => {
     if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)

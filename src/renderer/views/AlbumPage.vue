@@ -20,7 +20,10 @@
         <div class="artist">
           <span v-if="album?.artists?.[0]?.id !== 104700">
             <span
-              >{{ `${getPluginName(album?.pluginId || ('' as PluginId))}${album?.type}` }} by </span
+              >{{
+                `${getPluginName(album?.pluginId || ('' as PluginId))}:${album?.type}`
+              }}
+              by </span
             ><router-link
               :to="`/artist/${album?.pluginId}/${JSON.stringify(album?.artists?.[0].sourceContext)}`"
               >{{ album?.artists?.[0].name }}</router-link

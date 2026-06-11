@@ -1,8 +1,8 @@
 import { db, Tables } from './db'
 import { CacheAPIs } from './utils/CacheApis'
 // @ts-ignore
-import _ from 'lodash'
-import log from './log'
+// import _ from 'lodash'
+// import log from './log'
 
 class Cache {
   constructor() {}
@@ -21,6 +21,7 @@ class Cache {
         break
       }
       case CacheAPIs.searchMatch: {
+        console.log('=2=2=2=', query)
         // if (!data.result.songs.length) return
         // const trackRaw = db.find(Tables.Track, query.localID)!
         // const track = JSON.parse(trackRaw.json)
@@ -167,6 +168,10 @@ class Cache {
   get(api: string, params: any = {}): any {
     switch (api) {
       case CacheAPIs.LocalMusic: {
+        // const sql = params.sql ?? `type = 'local'`
+        // const { platform } = params
+        const data = db.findAll(Tables.Track, { ...params })
+        console.log('[cache get LocalMusic]:', params, data.length, data[0])
         // 此项用于获取所有本地歌曲
         // 注：是全部本地歌曲，不可获取部分，仅在扫描本地歌曲与程序启动时使用
         // const sql = params.sql ?? `type = 'local'`
@@ -179,6 +184,7 @@ class Cache {
         }
       }
       case CacheAPIs.Track: {
+        console.log('[cache get Track]:', params)
         // 根据歌曲ids获取歌曲，包括线上歌曲和本地歌曲
         // const ids = params?.ids.split(',').map((id: string) => Number(id))
         // if (!ids.length) return
