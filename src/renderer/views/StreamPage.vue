@@ -574,28 +574,6 @@ const handleResize = () => {
   if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
 }
 
-// const getAllTracks = (service: PluginId) => {
-//   if (!tracks[service]) {
-//     tracks[service] = { data: [], count: 0, sourceContext: {} }
-//   }
-
-//   const sourceContext = tracks[service]?.sourceContext || {}
-//   pluginMethodCall(service, 'getAllTracks', {
-//     ...sourceContext,
-//     sort: tool.value.sortBy,
-//     order: tool.value.orderBy
-//   }).then((result) => {
-//     tracks[service].data = result.data.map((item) => ({
-//       ...item,
-//       album: { ...item.album, pluginId: service },
-//       artists: item.artists.map((it) => ({ ...it, pluginId: service })),
-//       pluginId: service
-//     }))
-//     tracks[service].count = result.count
-//     tracks[service].sourceContext = result.sourceContext
-//   })
-// }
-
 const checkLoginStatus = async () => {
   await Promise.all(
     streamService.value.map(async (item) => {

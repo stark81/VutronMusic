@@ -107,7 +107,7 @@ export class PluginInstance {
           PluginData: CacheAPIs.PluginData,
           Track: CacheAPIs.LocalMusic
         }
-        const result = cache.get(map[key], { platform: this.id })
+        const result = cache.get(map[key], { pluginId: this.id })
         this.worker.postMessage({
           type: 'DB_RESPONSE',
           requestId,
@@ -122,7 +122,7 @@ export class PluginInstance {
           PluginData: CacheAPIs.PluginData,
           Track: CacheAPIs.LocalMusic
         }
-        cache.set(map[key], { platform: this.id, type: this.meta.type, data: value })
+        cache.set(map[key], { pluginId: this.id, type: this.meta.type, data: value })
         break
       }
 
@@ -254,9 +254,7 @@ export class PluginInstance {
       console.log('[HTTP RESPONSE]', response.status, fullUrl, `${Date.now() - start}ms`)
     } catch (err: any) {
       clearTimeout(timeout)
-
       const isTimeout = err?.name === 'AbortError'
-
       console.error('[HTTP ERROR]', fullUrl, isTimeout ? 'Request timeout' : err)
 
       this.worker.postMessage({

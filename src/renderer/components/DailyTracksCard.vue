@@ -55,7 +55,7 @@ const playerStore = usePlayerStore()
 const { isShuffle } = storeToRefs(playerStore)
 const { replacePlaylist } = playerStore
 
-const firstTrack = computed(() => dailyTracks.value[0])
+const firstTrack = computed(() => dailyTracks.value?.[0] || null)
 const image = ref('')
 
 const coverUrl = computed(() => {
@@ -67,7 +67,7 @@ const coverUrl = computed(() => {
 
 const router = useRouter()
 const goToDailyTracks = () => {
-  router.push({ name: 'dailySongs', params: { pluginId: firstTrack.value.pluginId } })
+  router.push({ name: 'dailySongs', params: { pluginId: firstTrack.value?.pluginId } })
 }
 
 const playDailyTracks = () => {
@@ -90,6 +90,10 @@ watch(showLyrics, (value) => {
 })
 
 watch(firstTrack, (value) => {
+  if (!value) {
+    image.value = coverUrl.value
+    return
+  }
   resizeImage(value.pluginId, value.picUrl, 512).then((result) => (image.value = result))
 })
 
@@ -105,6 +109,7 @@ onMounted(async () => {
       ...item,
       album: { ...item.album, pluginId: props.plugin },
       artists: item.artists.map((it) => ({ ...it, pluginId: props.plugin })),
+      albumArtists: item.albumArtists.map((it) => ({ ...it, pluginId: props.plugin })),
       pluginId: props.plugin
     }))
   })

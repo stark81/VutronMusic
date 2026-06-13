@@ -99,7 +99,7 @@ export const usePlayerStore = defineStore(
           return `/artist/${plugin}/${JSON.stringify(sourceContext)}`
         case 'Playlist':
           if (plugin === 'all' || sourceContext.id === 0 || sourceContext.id === '0') {
-            const codes = pluginStore.services
+            const codes = pluginStore.loggedInServices
               .filter((item) => item.type === sourceContext.pluginType)
               .map((item) => item.code)
               .join('/')
@@ -363,6 +363,7 @@ export const usePlayerStore = defineStore(
         ...res.data[0],
         album: { ...res.data[0].album, pluginId: plugin },
         artists: res.data[0].artists.map((it) => ({ ...it, pluginId: plugin })),
+        albumArtists: res.data[0].albumArtists.map((it) => ({ ...it, pluginId: plugin })),
         pluginId: plugin
       }
 

@@ -195,12 +195,12 @@
         >聚合</div
       >
       <div
-        v-for="service in services"
-        :key="service.code"
+        v-for="ser in services"
+        :key="ser.code"
         class="item"
-        :class="{ active: tool.groundBy === service.code }"
-        @click="tool.groundBy = service.code"
-        >{{ service.name }}</div
+        :class="{ active: tool.groundBy === ser.code }"
+        @click="tool.groundBy = ser.code"
+        >{{ ser.name }}</div
       >
       <hr />
       <div
@@ -230,7 +230,7 @@ import { storeToRefs } from 'pinia'
 import { useDataStore } from '../store/data'
 import { useNormalStateStore } from '../store/state'
 import { usePluginMusic } from '../store/pluginMusic'
-import { ref, computed, onMounted, onUnmounted, inject, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, inject, nextTick, watch } from 'vue'
 import { randomNum, pickedLyric } from '../utils'
 import { tricklingProgress } from '../utils/tricklingProgress'
 import SvgIcon from '../components/SvgIcon.vue'
@@ -275,7 +275,7 @@ const hasCustomTitleBar = inject('hasCustomTitleBar', ref(true))
 
 const isMac = computed(() => window.env?.isMac)
 const services = computed(() =>
-  pluginStore.services.filter((item) => item.status === 'login' && item.type === 'library')
+  pluginStore.loggedInServices.filter((item) => item.type === 'library')
 )
 const tool = computed(() => pluginStore.tools.library)
 
@@ -496,6 +496,19 @@ const handleResize = () => {
   if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
 }
 
+watch(
+  services,
+  (value) => {
+    if (!value.length) {
+      const groundBy = tool.value.groundBy
+      const ser = pluginStore.services.filter((item) => item.type === 'library')
+
+      router.push(`/login/${groundBy === 'all' ? ser[0].code : groundBy}/QrCode`)
+    }
+  },
+  { immediate: true }
+)
+
 // const checkLoginStatus = () => {
 //   pluginStore.services
 //     .filter((item) => item.type === 'online')
@@ -623,6 +636,8 @@ onUnmounted(() => {
 
     .tabs {
       display: flex;
+      align-items: center;
+      justify-content: space-between;
       flex-wrap: wrap;
       font-size: 18px;
       color: var(--color-text);

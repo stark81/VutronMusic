@@ -320,7 +320,7 @@ watch(
 
 const loadLikedData = (plugins: PluginId[]) => {
   const likedTracks = pluginMusicStore.likedTracks
-  tracks.value = plugins.map((item) => likedTracks[item].data).flat()
+  tracks.value = plugins.map((item) => likedTracks[item]?.data || []).flat()
   tricklingProgress.done()
   show.value = true
 }

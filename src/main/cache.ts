@@ -113,15 +113,15 @@ class Cache {
       case CacheAPIs.PluginData: {
         try {
           const {
-            platform,
+            pluginId,
             type,
             data: sData
           } = data as {
-            platform: string
+            pluginId: string
             type: 'library' | 'stream' | 'local'
             data: Record<string, string>
           }
-          const accounts = db.findAll(Tables.PluginData, { platform })
+          const accounts = db.findAll(Tables.PluginData, { pluginId })
           const json = JSON.stringify(sData)
           if (accounts.length) {
             const account = accounts[0]
@@ -130,8 +130,8 @@ class Cache {
             db.upsert(Tables.PluginData, account)
           } else {
             const account = {
-              id: `${platform}-1`,
-              platform,
+              id: `${pluginId}-1`,
+              pluginId,
               type,
               json,
               updatedAt: Date.now()
@@ -230,7 +230,7 @@ class Cache {
         }
       }
       case CacheAPIs.PluginData: {
-        const infos = db.findAll(Tables.PluginData, { platform: params.platform })
+        const infos = db.findAll(Tables.PluginData, { pluginId: params.pluginId })
         if (infos.length) {
           return JSON.parse(infos[0].json)
         }

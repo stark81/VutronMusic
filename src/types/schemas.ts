@@ -47,10 +47,19 @@ export const TrackSchema = z.object({
   playable: z.boolean(),
   reason: z.string(),
   type: MusicTypeSchema,
+
   /**
-   * - 用于保存各自插件音源的特殊数据，渲染进程把sourceContext作为参数完整传递回插件，由各个插件自主使用里面的参数来完成各自的功能
-   * - 例如：酷狗的sourceContext里可以保存歌曲hash，用来获取歌曲链接和歌词等数据；emby的sourceContext里可以保存歌曲的lrcId，用来获取歌词等数据
-   * - 该字段的设计初衷是为了确保各个插件的特殊数据能够完整地传递和使用，而不需要担心在渲染进程中丢失或被篡改，同时也避免了在Track对象上添加过多与特定插件相关的字段，从而保持了Track对象的通用性和简洁性
+   * 插件上下文。
+   *
+   * 保存插件后续操作所需的最小上下文信息。
+   * 该对象由插件生成并维护，
+   * 主程序只负责透传，不解析其内容。
+   *
+   * 例如：
+   * - 网易云：songId
+   * - 酷狗：hash、fileid、mixsongid
+   * - Emby：itemId、mediaSourceId
+   * - Jellyfin：itemId、userId
    */
   sourceContext: z.record(z.string(), z.any())
 })
@@ -85,7 +94,8 @@ export const AlbumDetailSchema = z.object({
 
   pluginId: z.string().transform(asPluginId),
   /**
-   * 可以用来存放专辑id，以及歌曲分页的相关信息
+   * 保存插件继续执行后续操作所需的上下文
+   * - 如：专辑id，专辑歌曲分页的相关信息
    */
   sourceContext: z.record(z.string(), z.any())
 })
@@ -215,7 +225,8 @@ export const PlaylistDetailSchema = z.object({
   specialPlaylistInfo: z.object({ name: z.string(), gradient: z.string() }).or(z.null()),
   tags: z.array(z.string()),
   /**
-   * 可以保存歌单id，以及歌曲分页的相关信息；
+   * 保存插件继续执行后续操作所需的上下文
+   * - 如：歌单id，歌单歌曲分页的相关信息
    */
   sourceContext: z.record(z.string(), z.any())
 })

@@ -462,7 +462,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
 
       const newTracks: Track[] = []
 
-      const { songs } = cache.get(CacheAPIs.LocalMusic)
+      const { songs } = cache.get(CacheAPIs.LocalMusic, { type: 'local' })
       const existingPaths = songs.map((song: Track) => {
         if (!existingTracks.has(song.filePath)) {
           existingTracks.set(song.filePath, song)
@@ -609,11 +609,12 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
       }
 
       if (newTracks.length > 0) {
-        await cache.set(CacheAPIs.LocalMusic, { newTracks })
+        console.log('[msgScanLocalMusic]: ', newTracks[0])
+        // await cache.set(CacheAPIs.LocalMusic, { newTracks })
       }
       if (data.update) {
-        cache.set(CacheAPIs.LocalMusic, { newTracks: [...existingTracks.values()] })
-        win.webContents.send('updateLocalMusic', { tracks: [...existingTracks.values()] })
+        // cache.set(CacheAPIs.LocalMusic, { newTracks: [...existingTracks.values()] })
+        // win.webContents.send('updateLocalMusic', { tracks: [...existingTracks.values()] })
       }
       win.webContents.send('scanLocalMusicDone')
     } catch (error: any) {

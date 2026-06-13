@@ -36,7 +36,7 @@ const readSqlFile = (filename: string) => {
 
 class DB {
   sqlite!: SQLite3.Database
-  dbFilePath: string = path.resolve(app.getPath('userData'), './api_cache/db.sqlite')
+  dbFilePath: string = path.resolve(app.getPath('userData'), './api_cache/vutron_music.sqlite')
 
   constructor() {
     try {
@@ -44,7 +44,7 @@ class DB {
       this.sqlite = new SQLite3(this.dbFilePath)
       this.sqlite.pragma('auto_vacuum = FULL')
       this.initTables()
-      this.migrate()
+      // this.migrate()
     } catch (error) {
       log.info('[db init error]:', error)
     }
@@ -57,7 +57,7 @@ class DB {
   }
 
   initTables() {
-    const init = readSqlFile('init.sql')
+    const init = readSqlFile('plugin.sql')
     this.sqlite.exec(init)
     this.sqlite.pragma('journal_mode=WAL')
   }

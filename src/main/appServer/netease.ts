@@ -1,8 +1,8 @@
 import { pathCase } from 'change-case'
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
-import cache from '../cache'
-import { CacheAPIs } from '../utils/CacheApis'
-import { handleNeteaseResult } from '../utils'
+// import cache from '../cache'
+// import { CacheAPIs } from '../utils/CacheApis'
+// import { handleNeteaseResult } from '../utils'
 import log from '../log'
 import store from '../store'
 
@@ -29,8 +29,8 @@ async function netease(fastify: FastifyInstance) {
         }
 
         const result = await neteaseApi(params)
-        result.body = await handleNeteaseResult(name as CacheAPIs, result?.body)
-        cache.set(name as CacheAPIs, result.body, req.query)
+        // result.body = await handleNeteaseResult(name as CacheAPIs, result?.body)
+        // cache.set(name as CacheAPIs, result.body, req.query)
         return reply.send(result.body)
       } catch (error: any) {
         log.error(`Netease API Error: ${name}`, error)

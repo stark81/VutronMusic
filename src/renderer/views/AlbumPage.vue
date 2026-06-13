@@ -303,6 +303,7 @@ const loadData = (plugin: PluginId, params: Record<string, any>) => {
         pluginId: plugin
       },
       artists: song.artists.map((it) => ({ ...it, pluginId: plugin })),
+      albumArtists: song.albumArtists.map((it) => ({ ...it, pluginId: plugin })),
       pluginId: plugin
     }))
     tricklingProgress.done()

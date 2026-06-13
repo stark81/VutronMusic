@@ -765,12 +765,15 @@ const loadTracks = async () => {
       result.data.forEach((track, i) => {
         selectedTracks.value[item.source[i].index] = {
           ...track,
-          // picUrl: data,
           album: {
             ...track.album,
             pluginId: item.plugin
           },
           artists: track.artists.map((it) => ({
+            ...it,
+            pluginId: item.plugin
+          })),
+          albumArtists: track.albumArtists.map((it) => ({
             ...it,
             pluginId: item.plugin
           })),

@@ -172,7 +172,7 @@ const loadData = async () => {
 
   if (general.value.showBanner) {
     pluginMethodCall(pluginId.value, 'getBanner').then((res) => {
-      banner.value = res.data
+      banner.value = res.data.map((it) => ({ ...it, pluginId: pluginId.value }))
       current.value = 0
       nextTick(() => {
         bannerChange()

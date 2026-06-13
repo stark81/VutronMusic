@@ -152,7 +152,8 @@ const loadData = async (reset = true) => {
           ...item,
           pluginId: plugin.value,
           album: { ...item.album, pluginId: plugin.value },
-          artists: item.artists.map((it) => ({ ...it, pluginId: plugin.value }))
+          artists: item.artists.map((it) => ({ ...it, pluginId: plugin.value })),
+          albumArtists: item.albumArtists.map((it) => ({ ...it, pluginId: plugin.value }))
         }))
       )
       show.value = true

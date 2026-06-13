@@ -265,6 +265,7 @@ export const usePluginMusic = defineStore(
         ...track,
         album: { ...track.album, pluginId: plugin },
         artists: track.artists.map((it) => ({ ...it, pluginId: plugin })),
+        albumArtists: track.albumArtists.map((it) => ({ ...it, pluginId: plugin })),
         pluginId: plugin
       }))
       if (result.data.trackCount > result.data.tracks.length) {
@@ -281,6 +282,7 @@ export const usePluginMusic = defineStore(
         ...item,
         album: { ...item.album, pluginId: plugin },
         artists: item.artists.map((it) => ({ ...it, pluginId: plugin })),
+        albumArtists: item.albumArtists.map((it) => ({ ...it, pluginId: plugin })),
         pluginId: plugin
       }))
       return result
@@ -348,6 +350,7 @@ export const usePluginMusic = defineStore(
             ..._item,
             album: { ..._item.album, pluginId: item },
             artists: _item.artists.map((it) => ({ ...it, pluginId: item })),
+            albumArtists: _item.albumArtists.map((it) => ({ ...it, pluginId: item })),
             pluginId: item
           }))
         )
@@ -428,7 +431,8 @@ export const usePluginMusic = defineStore(
             ...it,
             pluginId: item,
             album: { ...it.album, pluginId: item },
-            artists: it.artists.map((i) => ({ ...i, pluginId: item }))
+            artists: it.artists.map((i) => ({ ...i, pluginId: item })),
+            albumArtists: it.albumArtists.map((it) => ({ ...it, pluginId: item }))
           }))
         )
       } else {
@@ -436,7 +440,8 @@ export const usePluginMusic = defineStore(
           ...it,
           pluginId: item,
           album: { ...it.album, pluginId: item },
-          artists: it.artists.map((i) => ({ ...i, pluginId: item }))
+          artists: it.artists.map((i) => ({ ...i, pluginId: item })),
+          albumArtists: it.albumArtists.map((i) => ({ ...i, pluginId: item }))
         }))
       }
       cloudDisks[item].sourceContext = result.sourceContext
