@@ -7,7 +7,8 @@
     width="25vw"
   >
     <template #default>
-      <input v-model="title" type="text" :placeholder="selectedTrack?.name" maxlength="40" />
+      <!-- <input v-model="title" type="text" :placeholder="selectedTrack?.name" maxlength="40" /> -->
+      <input v-model="title" type="text" maxlength="40" />
     </template>
     <template #footer>
       <button class="primary block" @click="accurateMatchTrack">匹配</button>
@@ -20,12 +21,12 @@ import { ref, computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { getTrackDetail } from '../api/track'
 import BaseModal from './BaseModal.vue'
-import { useLocalMusicStore } from '../store/localMusic'
+// import { useLocalMusicStore } from '../store/localMusic'
 import { useNormalStateStore } from '../store/state'
 
-const localMusicStore = useLocalMusicStore()
-const { updateTrack } = localMusicStore
-const { localTracks } = storeToRefs(localMusicStore)
+// const localMusicStore = useLocalMusicStore()
+// const { updateTrack } = localMusicStore
+// const { localTracks } = storeToRefs(localMusicStore)
 
 const stateStore = useNormalStateStore()
 const { accurateMatchModal } = storeToRefs(stateStore)
@@ -46,28 +47,28 @@ const selectedTrackID = computed({
     accurateMatchModal.value.selectedTrackID = value
   }
 })
-const selectedTrack = computed(() => {
-  const track = localTracks.value.find((t) => t.id === selectedTrackID.value)!
-  return track
-})
+// const selectedTrack = computed(() => {
+//   const track = localTracks.value.find((t) => t.id === selectedTrackID.value)!
+//   return track
+// })
 
 const accurateMatchTrack = () => {
-  const filePath = selectedTrack.value.filePath
-  getTrackDetail(title.value).then(async (data) => {
-    const track = data.songs[0]
-    track.album = track.al
-    track.artists = track.ar
-    const result = await window.mainApi?.invoke('accurateMatch', track, selectedTrack.value.id)
-    if (result) {
-      // updateLocalID2OnlineID(selectedTrack.value.id, track.id)
-      updateTrack(filePath, track)
-      window.mainApi?.send('write-cover', {
-        filePath,
-        picUrl: track.album?.picUrl || track.al?.picUrl
-      })
-      close()
-    }
-  })
+  // const filePath = selectedTrack.value.filePath
+  // getTrackDetail(title.value).then(async (data) => {
+  //   const track = data.songs[0]
+  //   track.album = track.al
+  //   track.artists = track.ar
+  //   const result = await window.mainApi?.invoke('accurateMatch', track, selectedTrack.value.id)
+  //   if (result) {
+  //     updateLocalID2OnlineID(selectedTrack.value.id, track.id)
+  //     updateTrack(filePath, track)
+  //     window.mainApi?.send('write-cover', {
+  //       filePath,
+  //       picUrl: track.album?.picUrl || track.al?.picUrl
+  //     })
+  //     close()
+  //   }
+  // })
 }
 const close = () => {
   show.value = false

@@ -576,10 +576,12 @@ const handleResize = () => {
 
 const checkLoginStatus = async () => {
   await Promise.all(
-    streamService.value.map(async (item) => {
-      const res = await pluginMethodCall(item.code, 'systemPing')
-      item.status = res.status
-    })
+    streamService.value
+      .filter((item) => item.status !== 'logout')
+      .map(async (item) => {
+        const res = await pluginMethodCall(item.code, 'systemPing')
+        item.status = res.status
+      })
   )
   if (!services.value.length) {
     const groundBy = tool.value.groundBy

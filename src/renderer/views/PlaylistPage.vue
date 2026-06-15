@@ -1,6 +1,9 @@
 <template>
   <div v-if="show" class="playlist">
-    <div v-if="!playlist.specialPlaylistInfo && !isLikedSongsPage" class="playlist-info">
+    <div
+      v-if="!playlist.specialPlaylistInfo && !isLikedSongsPage && pluginId !== 'all'"
+      class="playlist-info"
+    >
       <Cover
         :id="playlist?.id"
         :source-context="playlist?.sourceContext || {}"
@@ -26,7 +29,7 @@
           {{ currentService + ' 歌单 by ' + playlist?.creator?.nickname }}
         </div>
         <div v-else class="artist">
-          {{ pluginId }} 歌单 by
+          {{ getPluginName(pluginId) }} 歌单 by
           <router-link :to="`/user/${playlist?.creator?.userId}`">{{
             playlist?.creator?.nickname
           }}</router-link>
@@ -261,8 +264,13 @@ const pluginType = ref<MusicType>('library')
 
 const pluginMusicStore = usePluginMusic()
 const { users, services, tools } = storeToRefs(pluginMusicStore)
-const { getPlaylistDetail, fetchPlaylistTracks, pluginMethodCall, isAccountLoggedIn } =
-  pluginMusicStore
+const {
+  getPlaylistDetail,
+  fetchPlaylistTracks,
+  pluginMethodCall,
+  isAccountLoggedIn,
+  getPluginName
+} = pluginMusicStore
 
 // const { user, likedSongPlaylistID } = storeToRefs(useDataStore())
 const listType = computed(() => route.name!.toString() as CoverType)

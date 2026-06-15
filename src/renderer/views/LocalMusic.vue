@@ -1,6 +1,6 @@
 <template>
   <div class="local-music">
-    <div class="section-one">
+    <!-- <div class="section-one">
       <div class="left" style="width: 100%">
         <InfoBG />
         <div class="content">
@@ -162,15 +162,15 @@
     <ContextMenu ref="artistTabMenu">
       <div class="item" @click="artistBy = 0">{{ $t('localMusic.artists') }}</div>
       <div class="item" @click="artistBy = 1">{{ $t('localMusic.albumArtist') }}</div>
-    </ContextMenu>
+    </ContextMenu> -->
   </div>
 </template>
 
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
 import { useNormalStateStore } from '../store/state'
-import { useLocalMusicStore, sortList } from '../store/localMusic'
-import { useSettingsStore } from '../store/settings'
+// import { useLocalMusicStore, sortList } from '../store/localMusic'
+import { usePluginMusic } from '../store/pluginMusic'
 import { usePlayerStore } from '../store/player'
 import {
   computed,
@@ -201,14 +201,14 @@ import { PluginId } from '@/types/schemas'
 import { Track } from '@/types/plugin'
 
 // load
-const localMusicStore = useLocalMusicStore()
-const { localTracks, playlists, sortBy, artistBy } = storeToRefs(localMusicStore)
-const { scanLocalMusic, getLocalLyric } = localMusicStore
+// const localMusicStore = useLocalMusicStore()
+// const { localTracks, playlists, sortBy, artistBy } = storeToRefs(localMusicStore)
+// const { scanLocalMusic, getLocalLyric } = localMusicStore
 
 const { newPlaylistModal, modalOpen } = storeToRefs(useNormalStateStore())
 const { addTrackToPlayNext } = usePlayerStore()
 
-const { scanDir } = toRefs(useSettingsStore().localMusic)
+const { scanDir } = toRefs(usePluginMusic())
 
 // ref
 const idx = ref(0)
@@ -241,31 +241,31 @@ const tabStyle = computed(() => {
   return { marginTop: `${marginTop}px` }
 })
 
-const formatedTime = computed(() => {
-  const dt =
-    defaultTracks.value
-      .map((track) => track.dt)
-      .filter((dt) => dt && !isNaN(Number(dt)))
-      .reduce((acc, cur) => acc + cur, 0) / 1000
-  const hourse = Math.floor(dt / 3600)
-  const minutes = Math.floor((dt % 3600) / 60)
-  const seconds = Math.floor(dt % 60)
-  return `${hourse}:${minutes < 10 ? '0' + minutes : minutes}:${seconds < 10 ? '0' + seconds : seconds}`
-})
+// const formatedTime = computed(() => {
+//   const dt =
+//     defaultTracks.value
+//       .map((track) => track.dt)
+//       .filter((dt) => dt && !isNaN(Number(dt)))
+//       .reduce((acc, cur) => acc + cur, 0) / 1000
+//   const hourse = Math.floor(dt / 3600)
+//   const minutes = Math.floor((dt % 3600) / 60)
+//   const seconds = Math.floor(dt % 60)
+//   return `${hourse}:${minutes < 10 ? '0' + minutes : minutes}:${seconds < 10 ? '0' + seconds : seconds}`
+// })
 
-const formatedMemory = computed(() => {
-  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
-  let memory = defaultTracks.value
-    .map((track) => track.size!)
-    .filter((size) => size && !isNaN(Number(size)))
-    .reduce((acc, cur) => acc + cur, 0) as number
-  let i = 0
-  while (memory >= 1024 && i < units.length - 1) {
-    memory /= 1024
-    i++
-  }
-  return `${memory.toFixed(2)} ${units[i]}`
-})
+// const formatedMemory = computed(() => {
+//   const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
+//   let memory = defaultTracks.value
+//     .map((track) => track.size!)
+//     .filter((size) => size && !isNaN(Number(size)))
+//     .reduce((acc, cur) => acc + cur, 0) as number
+//   let i = 0
+//   while (memory >= 1024 && i < units.length - 1) {
+//     memory /= 1024
+//     i++
+//   }
+//   return `${memory.toFixed(2)} ${units[i]}`
+// })
 
 const pickedLyricLines = computed(() => {
   const randomLines = pickedLyric(randomLyric.value)
@@ -303,53 +303,53 @@ const addTracksToQueue = () => {
 
 const keyword = computed(() => localSearchBoxRef.value?.keywords || '')
 
-const sortedLocalTracks = computed(() => {
-  return filterLocalTracks.value.slice().sort((a, b) => {
-    if (sortBy.value === 'default') {
-      return a.index - b.index
-    } else if (sortBy.value === 'ascend') {
-      const timeA = new Date(a.createTime).getTime()
-      const timeB = new Date(b.createTime).getTime()
-      return timeA - timeB
-    } else if (sortBy.value === 'descend') {
-      const timeA = new Date(a.createTime).getTime()
-      const timeB = new Date(b.createTime).getTime()
-      return timeB - timeA
-    } else return a.name.localeCompare(b.name, 'zh-CN', { numeric: true })
-  })
-})
+// const sortedLocalTracks = computed(() => {
+//   return filterLocalTracks.value.slice().sort((a, b) => {
+//     if (sortBy.value === 'default') {
+//       return a.index - b.index
+//     } else if (sortBy.value === 'ascend') {
+//       const timeA = new Date(a.createTime).getTime()
+//       const timeB = new Date(b.createTime).getTime()
+//       return timeA - timeB
+//     } else if (sortBy.value === 'descend') {
+//       const timeA = new Date(a.createTime).getTime()
+//       const timeB = new Date(b.createTime).getTime()
+//       return timeB - timeA
+//     } else return a.name.localeCompare(b.name, 'zh-CN', { numeric: true })
+//   })
+// })
 
-const defaultTracks = computed(() => {
-  const tracks = localTracks.value
-    .filter((track) =>
-      scanDir.value.some((baseDir) =>
-        normalizePath(track.filePath).startsWith(normalizePath(baseDir) + '/')
-      )
-    )
-    .map((track, index) => ({
-      ...track,
-      index,
-      dirName: getFirstDirName(scanDir.value, track.filePath)
-    }))
-  return tracks
-})
+// const defaultTracks = computed(() => {
+//   const tracks = localTracks.value
+//     .filter((track) =>
+//       scanDir.value.some((baseDir) =>
+//         normalizePath(track.filePath).startsWith(normalizePath(baseDir) + '/')
+//       )
+//     )
+//     .map((track, index) => ({
+//       ...track,
+//       index,
+//       dirName: getFirstDirName(scanDir.value, track.filePath)
+//     }))
+//   return tracks
+// })
 
-const filterLocalTracks = computed(() => {
-  return defaultTracks.value.filter(
-    (track) =>
-      (track.name && track.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
-      track.alias.find((al) => al.toLowerCase().includes(keyword.value?.toLowerCase())) ||
-      (track.album?.name &&
-        track.album.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
-      track.artists.find(
-        (ar) => ar.name && ar.name.toLowerCase().includes(keyword.value?.toLowerCase())
-      ) ||
-      track.albumArtist.find(
-        (ar) => ar.name && ar.name.toLowerCase().includes(keyword.value?.toLowerCase())
-      ) ||
-      track.dirName.toLowerCase().includes(keyword.value?.toLowerCase())
-  )
-})
+// const filterLocalTracks = computed(() => {
+//   return defaultTracks.value.filter(
+//     (track) =>
+//       (track.name && track.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
+//       track.alias.find((al) => al.toLowerCase().includes(keyword.value?.toLowerCase())) ||
+//       (track.album?.name &&
+//         track.album.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
+//       track.artists.find(
+//         (ar) => ar.name && ar.name.toLowerCase().includes(keyword.value?.toLowerCase())
+//       ) ||
+//       track.albumArtist.find(
+//         (ar) => ar.name && ar.name.toLowerCase().includes(keyword.value?.toLowerCase())
+//       ) ||
+//       track.dirName.toLowerCase().includes(keyword.value?.toLowerCase())
+//   )
+// })
 
 const normalizePath = (p: string) => p.replace(/\\/g, '/').replace(/\/+/g, '/').replace(/\/$/, '')
 
@@ -384,25 +384,25 @@ const openLocalTracksTabMenu = (ref: 'playlist' | 'artist', e: MouseEvent): void
   map[ref]?.openMenu(e)
 }
 
-const openAddPlaylistModal = () => {
-  newPlaylistModal.value = {
-    plugin: 'local' as PluginId,
-    afterCreateAddTrackID: [],
-    show: true
-  }
-}
+// const openAddPlaylistModal = () => {
+//   newPlaylistModal.value = {
+//     plugin: 'local' as PluginId,
+//     afterCreateAddTrackID: [],
+//     show: true
+//   }
+// }
 
 // provide
 provide('isBatchOp', isBatchOp)
 
 const { t } = useI18n()
 
-const sortOptions = [
-  { name: t('contextMenu.defaultSort'), value: 'default' as (typeof sortList)[number] },
-  { name: t('contextMenu.sortByName'), value: 'byname' as (typeof sortList)[number] },
-  { name: t('contextMenu.ascendSort'), value: 'ascend' as (typeof sortList)[number] },
-  { name: t('contextMenu.descendSort'), value: 'descend' as (typeof sortList)[number] }
-]
+// const sortOptions = [
+//   { name: t('contextMenu.defaultSort'), value: 'default' as (typeof sortList)[number] },
+//   { name: t('contextMenu.sortByName'), value: 'byname' as (typeof sortList)[number] },
+//   { name: t('contextMenu.ascendSort'), value: 'ascend' as (typeof sortList)[number] },
+//   { name: t('contextMenu.descendSort'), value: 'descend' as (typeof sortList)[number] }
+// ]
 
 const placeHolderMap = (tab: string) => {
   const pMap = {
@@ -455,24 +455,24 @@ const handleResize = () => {
   if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
 }
 
-const getRandomTrack = async () => {
-  const ids = defaultTracks.value.map((t) => t.id)
-  let i = 0
-  let data: lyricLine[]
-  let randomId: number
-  while (i < ids.length - 1) {
-    randomId = ids[randomNum(0, ids.length - 1)]
-    data = await getLocalLyric(randomId)
-    const isInstrumental = data.map((l) => l.lyric.text).filter((l) => l.includes('纯音乐，请欣赏'))
-    if (data.length && !isInstrumental.length) {
-      randomLyric.value = data.map((l) => ({ content: l.lyric.text }))
-      randomID.value = randomId
-      break
-    }
-    i++
-  }
-  // randomTrack.value = defaultTracks.value.find((t) => t.id === randomId)!
-}
+// const getRandomTrack = async () => {
+//   const ids = defaultTracks.value.map((t) => t.id)
+//   let i = 0
+//   let data: lyricLine[]
+//   let randomId: number
+//   while (i < ids.length - 1) {
+//     randomId = ids[randomNum(0, ids.length - 1)]
+//     data = await getLocalLyric(randomId)
+//     const isInstrumental = data.map((l) => l.lyric.text).filter((l) => l.includes('纯音乐，请欣赏'))
+//     if (data.length && !isInstrumental.length) {
+//       randomLyric.value = data.map((l) => ({ content: l.lyric.text }))
+//       randomID.value = randomId
+//       break
+//     }
+//     i++
+//   }
+//   // randomTrack.value = defaultTracks.value.find((t) => t.id === randomId)!
+// }
 
 const updatePadding = inject('updatePadding') as (padding: number) => void
 
@@ -483,21 +483,21 @@ watch(idx, () => {
 })
 
 window.mainApi?.on('scanLocalMusicDone', (_: any) => {
-  getRandomTrack()
+  // getRandomTrack()
 })
 
 onMounted(() => {
   window.addEventListener('resize', handleResize)
-  setTimeout(() => {
-    updatePadding(0)
-    if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
-  }, 100)
-  getRandomTrack()
-  const tmpSort = sortBy.value
-  sortBy.value = sortList.filter((s) => s !== tmpSort)[0]
-  nextTick(() => {
-    sortBy.value = tmpSort
-  })
+  // setTimeout(() => {
+  //   updatePadding(0)
+  //   if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
+  // }, 100)
+  // getRandomTrack()
+  // const tmpSort = sortBy.value
+  // sortBy.value = sortList.filter((s) => s !== tmpSort)[0]
+  // nextTick(() => {
+  //   sortBy.value = tmpSort
+  // })
 })
 
 onUnmounted(() => {

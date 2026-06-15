@@ -3,26 +3,33 @@ import { PluginId } from './plugin'
 export type TrackType = 'online' | 'local' | 'stream'
 
 export interface Artist {
-  id: number
+  id: string
+  pluginId: string
   name: string
   picUrl: string
-  matched: boolean
-  [key: string]: any
+  description: string
+  followed: boolean
+  updatedAt: number
 }
 
 export interface Album {
-  id: number
+  id: string
+  pluginId: string
   name: string
   picUrl: string
-  matched: boolean
-  artist?: Artist
-  [key: string]: any
+  type: string
+  company: string
+  description: string
+  subscribed: boolean
+  isExplicit: boolean
+
+  createTime: number
+  updatedAt: number
 }
 
 export interface scanTrack {
-  id: number
   name: string
-  dt: number
+  duration: number
   filePath: string
   type?: TrackType
   matched?: boolean
@@ -40,26 +47,32 @@ export interface scanTrack {
   picUrl: string
 }
 
+// 数据库的Track类型，和渲染进程的类型不一致
 export interface Track {
-  id: number
+  id: string
+  pluginId: string
   name: string
-  dt: number
-  filePath: string
-  type?: TrackType
-  matched?: boolean
-  offset?: number
-  md5?: string
-  createTime: number
-  alias: string[]
-  album: Album
-  artists: Artist[]
-  albumArtist: Artist[]
+  duration: number
   picUrl: string
-  source?: string
-  size?: number
+  no: number
+  alias: string
+  mvid: string
+  albumId: string
+
+  filePath: string
+  md5: string
+  playCount: number
+  bitrate: string
   gain: number
   peak: number
-  [key: string]: any
+  offset: number
+
+  type: TrackType
+  deleted: boolean
+  size: number
+
+  createTime: number
+  updatedAt: number
 }
 
 export interface Playlist {

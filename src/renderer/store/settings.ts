@@ -3,7 +3,6 @@ import { ref, reactive, watch, toRaw, onMounted } from 'vue'
 import DefaultShortcuts from '../utils/shortcuts'
 import { playlistCategories } from '../utils/common'
 import cloneDeep from 'lodash/cloneDeep'
-import { useLocalMusicStore } from './localMusic'
 import { TrackInfoOrder, Appearance } from '@/types/music'
 
 type BackgroundEffect = 'none' | 'true' | 'blur' | 'dynamic' | 'customize'
@@ -13,9 +12,6 @@ export type bgType = 'image' | 'video' | 'folder' | 'api'
 export const useSettingsStore = defineStore(
   'settings',
   () => {
-    const localMusicStore = useLocalMusicStore()
-    const { scanLocalMusic } = localMusicStore
-
     const enabledPlaylistCategories = playlistCategories.filter((c) => c.enable).map((c) => c.name)
     const theme = reactive({
       appearance: 'auto' as Appearance,
@@ -29,13 +25,11 @@ export const useSettingsStore = defineStore(
     })
     const localMusic = reactive({
       enble: true,
-      scanDir: [] as string[],
       replayGain: false,
       useInnerInfoFirst: false,
       embedCoverArt: 0, // 0: 不嵌入, 1: 内嵌, 2: 歌曲路径下, 3: 两者都嵌入
       embedStyle: 0, // 0: 跳过，1：覆盖
-      trackInfoOrder: ['online', 'path', 'embedded'] as TrackInfoOrder[],
-      scanning: false
+      trackInfoOrder: ['online', 'path', 'embedded'] as TrackInfoOrder[]
     })
     const general = reactive({
       language: 'zh',
@@ -110,13 +104,6 @@ export const useSettingsStore = defineStore(
       },
       {
         deep: true
-      }
-    )
-
-    watch(
-      () => localMusic.scanDir,
-      () => {
-        scanLocalMusic()
       }
     )
 
@@ -309,11 +296,6 @@ export const useSettingsStore = defineStore(
     })
 
     onMounted(() => {
-      const path = localMusic.scanDir as unknown
-      if (typeof path === 'string') {
-        localMusic.scanDir = path ? [path] : []
-      }
-
       window.mainApi?.invoke('get-lastfm-session').then((result: { name: string }) => {
         misc.lastfm.name = result.name
         misc.lastfm.enable = result.name !== ''

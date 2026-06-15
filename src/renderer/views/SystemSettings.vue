@@ -1126,7 +1126,7 @@ import pickColors, { Theme } from 'vue-pick-colors'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '../store/settings'
 import { usePlayerStore } from '../store/player'
-import { useLocalMusicStore } from '../store/localMusic'
+// import { useLocalMusicStore } from '../store/localMusic'
 import { useNormalStateStore } from '../store/state'
 import { useOsdLyricStore } from '../store/osdLyric'
 import { useStreamMusicStore } from '../store/streamingMusic'
@@ -1162,7 +1162,7 @@ const {
 
 const { deleteCacheTracks } = settingsStore
 
-const { scanDir, enble, trackInfoOrder } = toRefs(localMusic.value)
+const { enble, trackInfoOrder } = toRefs(localMusic.value)
 const {
   showTrackTimeOrID,
   useCustomTitlebar,
@@ -1195,7 +1195,7 @@ const {
 const { showToast, checkUpdate, getFontList } = stateStore
 
 const pluginMusicStore = usePluginMusic()
-const { services: pluginServices, users } = storeToRefs(pluginMusicStore)
+const { services: pluginServices, users, scanDir } = storeToRefs(pluginMusicStore)
 const { uploadPlugin, pluginMethodCall } = pluginMusicStore
 
 const dataStore = useDataStore()
@@ -1222,8 +1222,8 @@ const playerStore = usePlayerStore()
 const { resetPlayer } = playerStore
 const { outputDevice, currentTrack } = storeToRefs(playerStore)
 
-const localMusicStore = useLocalMusicStore()
-const { resetLocalMusic } = localMusicStore
+// const localMusicStore = useLocalMusicStore()
+// const { resetLocalMusic } = localMusicStore
 
 const { restoreDefaultShortcuts, updateShortcut, lastfmConnect, lastfmDisconnect } =
   useSettingsStore()
@@ -1558,7 +1558,7 @@ const updateProxy = () => {
 
 const deleteLocalMusic = () => {
   resetPlayer()
-  resetLocalMusic()
+  // resetLocalMusic()
   scanDir.value = []
   window.mainApi?.send('deleteLocalMusicDB')
 }

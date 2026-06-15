@@ -6,12 +6,12 @@ import iconv from 'iconv-lite'
 import { fileTypeFromBuffer } from 'file-type'
 import { IAudioMetadata, parseFile } from 'music-metadata'
 import request from '../appServer/request'
-import { CacheAPIs } from './CacheApis'
+// import { CacheAPIs } from './CacheApis'
 import store from '../store'
 
 import log from '../log'
 import { Worker } from 'worker_threads'
-import { Track, TrackInfoOrder, lyricLine } from '@/types/music'
+import { TrackInfoOrder, lyricLine } from '@/types/music'
 
 export const isFileExist = (file: string) => {
   return fs.existsSync(file)
@@ -287,77 +287,77 @@ export const getLyric = async (track: {
   return lyrics
 }
 
-export const handleNeteaseResult = async (name: string, result: any) => {
-  switch (name) {
-    case CacheAPIs.Playlist: {
-      if (!result) return result
-      if (result.playlist) {
-        result.playlist.tracks = await mapTrackPlayableStatus(
-          result.playlist.tracks,
-          result.privileges || []
-        )
-      }
-      return result
-    }
-    case CacheAPIs.Track: {
-      result.songs = mapTrackPlayableStatus(result.songs, result.privileges)
-      return result
-    }
-    case CacheAPIs.recommendTracks: {
-      result.data.dailySongs = mapTrackPlayableStatus(
-        result.data.dailySongs,
-        result.data.privileges
-      )
-      return result
-    }
-    case CacheAPIs.Artist: {
-      result.hotSongs = mapTrackPlayableStatus(result.hotSongs)
-      return result
-    }
-    case CacheAPIs.Album: {
-      result.songs = mapTrackPlayableStatus(result.songs)
-      return result
-    }
-    case CacheAPIs.ListenedRecords: {
-      if (result.weekData) {
-        result.weekData = result.weekData.map((item: any) => {
-          item.song = { ...item.song, type: 'online', matched: true }
-          return item
-        })
-      }
-      if (result.allData) {
-        result.allData = result.allData.map((item: any) => {
-          item.song = { ...item.song, type: 'online', matched: true }
-          return item
-        })
-      }
-      return result
-    }
-    case CacheAPIs.CloudDisk: {
-      result.data = result.data.map((item: any) => {
-        item.type = 'online'
-        item.matched = true
-        if (item.simpleSong) item.simpleSong = { ...item.simpleSong, type: 'online', matched: true }
-        return item
-      })
-      return result
-    }
-    case CacheAPIs.TopSong: {
-      result.data = mapTrackPlayableStatus(result.data)
-      return result
-    }
-    case CacheAPIs.LyricNew: {
-      if (result.yrc?.lyric) {
-        return yrcLyricParse(result)
-      } else if (result.lrc.lyric) {
-        return lrcLyricParse(result)
-      }
-      return []
-    }
-    default:
-      return result
-  }
-}
+// export const handleNeteaseResult = async (name: string, result: any) => {
+//   switch (name) {
+//     case CacheAPIs.Playlist: {
+//       if (!result) return result
+//       if (result.playlist) {
+//         result.playlist.tracks = await mapTrackPlayableStatus(
+//           result.playlist.tracks,
+//           result.privileges || []
+//         )
+//       }
+//       return result
+//     }
+//     case CacheAPIs.Track: {
+//       result.songs = mapTrackPlayableStatus(result.songs, result.privileges)
+//       return result
+//     }
+//     case CacheAPIs.recommendTracks: {
+//       result.data.dailySongs = mapTrackPlayableStatus(
+//         result.data.dailySongs,
+//         result.data.privileges
+//       )
+//       return result
+//     }
+//     case CacheAPIs.Artist: {
+//       result.hotSongs = mapTrackPlayableStatus(result.hotSongs)
+//       return result
+//     }
+//     case CacheAPIs.Album: {
+//       result.songs = mapTrackPlayableStatus(result.songs)
+//       return result
+//     }
+//     case CacheAPIs.ListenedRecords: {
+//       if (result.weekData) {
+//         result.weekData = result.weekData.map((item: any) => {
+//           item.song = { ...item.song, type: 'online', matched: true }
+//           return item
+//         })
+//       }
+//       if (result.allData) {
+//         result.allData = result.allData.map((item: any) => {
+//           item.song = { ...item.song, type: 'online', matched: true }
+//           return item
+//         })
+//       }
+//       return result
+//     }
+//     case CacheAPIs.CloudDisk: {
+//       result.data = result.data.map((item: any) => {
+//         item.type = 'online'
+//         item.matched = true
+//         if (item.simpleSong) item.simpleSong = { ...item.simpleSong, type: 'online', matched: true }
+//         return item
+//       })
+//       return result
+//     }
+//     case CacheAPIs.TopSong: {
+//       result.data = mapTrackPlayableStatus(result.data)
+//       return result
+//     }
+//     case CacheAPIs.LyricNew: {
+//       if (result.yrc?.lyric) {
+//         return yrcLyricParse(result)
+//       } else if (result.lrc.lyric) {
+//         return lrcLyricParse(result)
+//       }
+//       return []
+//     }
+//     default:
+//       return result
+//   }
+// }
 
 const _parseYrcLine = (line: RegExpExecArray) => {
   const timestampRegex = /\[(\d+),(\d+)\]/g
@@ -555,61 +555,61 @@ export const lrcLyricParse = (data: {
   return result
 }
 
-const mapTrackPlayableStatus = async (tracks: any[], privileges: any[] = []) => {
-  if (tracks?.length === undefined) return tracks
-  return await Promise.all(
-    tracks.map(async (t) => {
-      const privilege = privileges.find((item) => item.id === t.id) || {}
-      if (t.privilege) {
-        Object.assign(t.privilege, privilege)
-      } else {
-        t.privilege = privilege
-      }
-      const result = await isTrackPlayable(t)
-      t.playable = result.playable
-      t.reason = result.reason
-      t.type = 'online'
-      t.matched = true
-      t.cache = false
-      t.source = 'netease'
-      return t
-    })
-  )
-}
+// const mapTrackPlayableStatus = async (tracks: any[], privileges: any[] = []) => {
+//   if (tracks?.length === undefined) return tracks
+//   return await Promise.all(
+//     tracks.map(async (t) => {
+//       const privilege = privileges.find((item) => item.id === t.id) || {}
+//       if (t.privilege) {
+//         Object.assign(t.privilege, privilege)
+//       } else {
+//         t.privilege = privilege
+//       }
+//       const result = await isTrackPlayable(t)
+//       t.playable = result.playable
+//       t.reason = result.reason
+//       t.type = 'online'
+//       t.matched = true
+//       t.cache = false
+//       t.source = 'netease'
+//       return t
+//     })
+//   )
+// }
 
-const isTrackPlayable = async (track: any) => {
-  const Cache = (await import('../cache')).default
-  const user = Cache.get(CacheAPIs.loginStatus, { platform: 'netease' })
-  const result = {
-    playable: true,
-    reason: ''
-  }
-  if (track?.privilege?.pl > 0) {
-    return result
-  }
-  // cloud storage judgement logic
-  if (user.userId !== 0 && track?.privilege?.cs) {
-    return result
-  }
-  if (track.fee === 1 || track.privilege?.fee === 1) {
-    if (user.userId !== 0 && user.vipType === 11) {
-      result.playable = true
-    } else {
-      result.playable = false
-      result.reason = 'VIP Only'
-    }
-  } else if (track.fee === 4 || track.privilege?.fee === 4) {
-    result.playable = false
-    result.reason = '付费专辑'
-  } else if (track.noCopyrightRcmd !== null && track.noCopyrightRcmd !== undefined) {
-    result.playable = false
-    result.reason = '无版权'
-  } else if (track.privilege?.st < 0 && user.userId !== 0) {
-    result.playable = false
-    result.reason = '已下架'
-  }
-  return result
-}
+// const isTrackPlayable = async (track: any) => {
+//   const Cache = (await import('../cache')).default
+//   const user = Cache.get(CacheAPIs.loginStatus, { platform: 'netease' })
+//   const result = {
+//     playable: true,
+//     reason: ''
+//   }
+//   if (track?.privilege?.pl > 0) {
+//     return result
+//   }
+//   // cloud storage judgement logic
+//   if (user.userId !== 0 && track?.privilege?.cs) {
+//     return result
+//   }
+//   if (track.fee === 1 || track.privilege?.fee === 1) {
+//     if (user.userId !== 0 && user.vipType === 11) {
+//       result.playable = true
+//     } else {
+//       result.playable = false
+//       result.reason = 'VIP Only'
+//     }
+//   } else if (track.fee === 4 || track.privilege?.fee === 4) {
+//     result.playable = false
+//     result.reason = '付费专辑'
+//   } else if (track.noCopyrightRcmd !== null && track.noCopyrightRcmd !== undefined) {
+//     result.playable = false
+//     result.reason = '无版权'
+//   } else if (track.privilege?.st < 0 && user.userId !== 0) {
+//     result.playable = false
+//     result.reason = '已下架'
+//   }
+//   return result
+// }
 
 const getAudioSourceFromNetease = async (track: any): Promise<{ [key: string]: any }> => {
   const getBr = () => {
@@ -705,61 +705,62 @@ export const getAudioSourceFromUnblock = async (track: any) => {
 }
 
 export const deleteExcessCache = async (deleteAll = false): Promise<boolean> => {
-  const { db, Tables } = await import('../db')
-  const tracks = db.sqlite.prepare(`SELECT * from Track WHERE type != 'local'`).all() as Track[]
+  // const { db, Tables } = await import('../db')
+  // const tracks = db.sqlite.prepare(`SELECT * from Track WHERE type != 'local'`).all() as Track[]
 
-  if (deleteAll) {
-    try {
-      const ids = tracks.map((s: any) => {
-        fs.promises.rm(s.url, { force: true })
-        return s.id
-      })
-      if (ids.length > 0) db.deleteManyByIds(Tables.Track, ids, 'xxx')
-      return true
-    } catch (error) {
-      log.error('清理全量缓存失败:', error)
-      return false
-    }
-  }
+  // if (deleteAll) {
+  //   try {
+  //     const ids = tracks.map((s: any) => {
+  //       fs.promises.rm(s.url, { force: true })
+  //       return s.id
+  //     })
+  //     if (ids.length > 0) db.deleteManyByIds(Tables.Track, ids, 'xxx')
+  //     return true
+  //   } catch (error) {
+  //     log.error('清理全量缓存失败:', error)
+  //     return false
+  //   }
+  // }
 
-  const sizeLimit = store.get('settings.autoCacheTrack.sizeLimit') as boolean | number
-  if (sizeLimit === false) return true
+  // const sizeLimit = store.get('settings.autoCacheTrack.sizeLimit') as boolean | number
+  // if (sizeLimit === false) return true
 
-  const songs = [...tracks].sort((a: any, b: any) => a.insertTime - b.insertTime)
+  // const songs = [...tracks].sort((a: any, b: any) => a.insertTime - b.insertTime)
 
-  let currentTotalSize = songs.reduce((acc: number, cur: any) => acc + Number(cur.size), 0)
-  const limitInBytes = (sizeLimit as number) * 1024 * 1024
+  // let currentTotalSize = songs.reduce((acc: number, cur: any) => acc + Number(cur.size), 0)
+  // const limitInBytes = (sizeLimit as number) * 1024 * 1024
 
-  try {
-    const deletedIds: number[] = []
+  // try {
+  //   const deletedIds: number[] = []
 
-    while (currentTotalSize > limitInBytes && songs.length > 0) {
-      const target = songs.shift()
-      if (!target) break
+  //   while (currentTotalSize > limitInBytes && songs.length > 0) {
+  //     const target = songs.shift()
+  //     if (!target) break
 
-      try {
-        await fs.promises.unlink(target.url)
-        deletedIds.push(target.id)
-        currentTotalSize -= Number(target.size)
-      } catch (fileError: any) {
-        if (fileError.code === 'ENOENT') {
-          deletedIds.push(target.id)
-        } else {
-          log.error(`文件删除失败: ${target.url}`, fileError)
-        }
-      }
-    }
+  //     try {
+  //       await fs.promises.unlink(target.url)
+  //       deletedIds.push(target.id)
+  //       currentTotalSize -= Number(target.size)
+  //     } catch (fileError: any) {
+  //       if (fileError.code === 'ENOENT') {
+  //         deletedIds.push(target.id)
+  //       } else {
+  //         log.error(`文件删除失败: ${target.url}`, fileError)
+  //       }
+  //     }
+  //   }
 
-    if (deletedIds.length > 0) {
-      db.deleteManyByIds(Tables.Track, deletedIds, 'xxx')
-      log.info(`自动清理完成，共删除 ${deletedIds.length} 首缓存歌曲`)
-    }
+  //   if (deletedIds.length > 0) {
+  //     db.deleteManyByIds(Tables.Track, deletedIds, 'xxx')
+  //     log.info(`自动清理完成，共删除 ${deletedIds.length} 首缓存歌曲`)
+  //   }
 
-    return true
-  } catch (error) {
-    log.error('循环清理超额缓存失败:', error)
-    return false
-  }
+  //   return true
+  // } catch (error) {
+  //   log.error('循环清理超额缓存失败:', error)
+  //   return false
+  // }
+  return false
 }
 
 export const formatTime = (time: number, rate: number = 1000) => {

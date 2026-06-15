@@ -1,8 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, toRaw, toRefs } from 'vue'
-import { useSettingsStore } from './settings'
-import { useNormalStateStore } from './state'
-import { compare } from 'compare-versions'
+import { ref, toRaw } from 'vue'
 import difference from 'lodash/difference'
 import merge from 'lodash/merge'
 import { Track, Playlist, lyricLine } from '@/types/music'
@@ -158,25 +155,25 @@ export const useLocalMusicStore = defineStore(
       return result ?? pic
     }
 
-    const scanLocalMusic = async (update = false) => {
-      const settingsStore = useSettingsStore()
-      const { scanDir, scanning, enble } = toRefs(settingsStore.localMusic)
+    // const scanLocalMusic = async (update = false) => {
+    //   const settingsStore = useSettingsStore()
+    //   const { scanDir, scanning, enble } = toRefs(settingsStore.localMusic)
 
-      window.mainApi?.send('clearDeletedMusic')
+    //   window.mainApi?.send('clearDeletedMusic')
 
-      if (!scanDir.value.length || !enble.value) return
-      const existResults = (await window.mainApi?.invoke(
-        'msgCheckFileExist',
-        toRaw(scanDir.value)
-      )) as {
-        path: string
-        exist: boolean
-      }[]
-      const validDirs = existResults.filter((item) => item.exist).map((item) => item.path)
-      if (!validDirs.length) return
-      scanning.value = true
-      window.mainApi?.send('msgScanLocalMusic', { filePath: validDirs, update })
-    }
+    //   if (!scanDir.value.length || !enble.value) return
+    //   const existResults = (await window.mainApi?.invoke(
+    //     'msgCheckFileExist',
+    //     toRaw(scanDir.value)
+    //   )) as {
+    //     path: string
+    //     exist: boolean
+    //   }[]
+    //   const validDirs = existResults.filter((item) => item.exist).map((item) => item.path)
+    //   if (!validDirs.length) return
+    //   scanning.value = true
+    //   window.mainApi?.send('msgScanLocalMusic', { filePath: validDirs, update })
+    // }
 
     const resetLocalMusic = () => {
       localTracks.value = []
@@ -184,16 +181,16 @@ export const useLocalMusicStore = defineStore(
       sortBy.value = 'default'
     }
 
-    const updateApp = async () => {
-      const result = (await window.mainApi?.invoke('msgRequestGetVersion')) as string
-      if (compare(version.value || '2.4.0', '2.9.0', '<=')) {
-        const { showToast } = useNormalStateStore()
-        showToast('扫描歌曲开始')
-        scanLocalMusic(true)
-      }
-      version.value = result
-    }
-    updateApp()
+    // const updateApp = async () => {
+    //   const result = (await window.mainApi?.invoke('msgRequestGetVersion')) as string
+    //   if (compare(version.value || '2.4.0', '2.9.0', '<=')) {
+    //     const { showToast } = useNormalStateStore()
+    //     showToast('扫描歌曲开始')
+    //     scanLocalMusic(true)
+    //   }
+    //   version.value = result
+    // }
+    // updateApp()
 
     return {
       enable,
@@ -204,7 +201,7 @@ export const useLocalMusicStore = defineStore(
       sortBy,
       artistBy,
       updateTrack,
-      scanLocalMusic,
+      // scanLocalMusic,
       fetchLocalMusic,
       getLocalLyric,
       getALocalTrack,

@@ -29,7 +29,6 @@ import editPlaylist from './components/ModalEditPlaylist.vue'
 import selectPathModal from './components/ModalFilePaths.vue'
 import PlayPage from './views/PlayPage.vue'
 import { useDataStore } from './store/data'
-import { useLocalMusicStore } from './store/localMusic'
 import { useOsdLyricStore } from './store/osdLyric'
 import { usePlayerStore } from './store/player'
 import { useSettingsStore } from './store/settings'
@@ -41,10 +40,9 @@ import { useRoute } from 'vue-router'
 import { type ProgressInfo } from 'electron-updater'
 import router from './router'
 import eventBus from './utils/eventBus'
-import { Track } from '@/types/music'
 
 const pluginMusicStore = usePluginMusic()
-const { services } = storeToRefs(pluginMusicStore)
+const { services, scanning } = storeToRefs(pluginMusicStore)
 const {
   getPlugins,
   fetchLikedPlaylists,
@@ -54,10 +52,6 @@ const {
   fetchCloudDisk,
   fetchAllTracks
 } = pluginMusicStore
-
-const localMusicStore = useLocalMusicStore()
-const { localTracks } = storeToRefs(localMusicStore)
-const { deleteLocalTracks } = localMusicStore
 
 useDataStore()
 
@@ -125,9 +119,8 @@ const handleEventBus = () => {
 const padding = ref(96)
 const userSelectNone = ref(false)
 const settingsStore = useSettingsStore()
-const { theme, localMusic, general } = storeToRefs(settingsStore)
+const { theme, general } = storeToRefs(settingsStore)
 const appearance = ref(theme.value.appearance)
-const { scanning } = toRefs(localMusic.value)
 Utils.changeAppearance(appearance.value)
 
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
@@ -196,19 +189,19 @@ provide('scrollMainTo', (top: number, behavior = 'smooth') => {
 const handleChanelEvent = () => {
   window.mainApi?.send('updateOsdState', { show: show.value })
   getFontList()
-  window.mainApi?.on('msgHandleScanLocalMusic', (_: any, data: { track: any }) => {
-    const index = localTracks.value.findIndex((track) => track.filePath === data.track.filePath)
-    if (index !== -1) {
-      localTracks.value.splice(index, 1, data.track)
-    } else {
-      localTracks.value.push(data.track)
-    }
-  })
+  // window.mainApi?.on('msgHandleScanLocalMusic', (_: any, data: { track: any }) => {
+  //   const index = localTracks.value.findIndex((track) => track.filePath === data.track.filePath)
+  //   if (index !== -1) {
+  //     localTracks.value.splice(index, 1, data.track)
+  //   } else {
+  //     localTracks.value.push(data.track)
+  //   }
+  // })
 
-  window.mainApi?.on('updateLocalMusic', (event, data: { tracks: Track[] }) => {
-    showToast('更新本地歌曲成功')
-    localTracks.value = data.tracks
-  })
+  // window.mainApi?.on('updateLocalMusic', (event, data: { tracks: Track[] }) => {
+  //   showToast('更新本地歌曲成功')
+  //   localTracks.value = data.tracks
+  // })
 
   window.mainApi?.on(
     'msgHandleScanLocalMusicError',
@@ -220,9 +213,9 @@ const handleChanelEvent = () => {
   window.mainApi?.on('scanLocalMusicDone', (_: any) => {
     scanning.value = false
   })
-  window.mainApi?.on('msgDeletedTracks', (_: any, trackIDs: number[]) => {
-    deleteLocalTracks(trackIDs)
-  })
+  // window.mainApi?.on('msgDeletedTracks', (_: any, trackIDs: number[]) => {
+  //   deleteLocalTracks(trackIDs)
+  // })
   window.mainApi?.on('rememberCloseAppOption', (_: any, result: string) => {
     general.value.closeAppOption = result
   })

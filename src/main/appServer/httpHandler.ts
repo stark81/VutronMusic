@@ -1,12 +1,12 @@
 import { BrowserWindow } from 'electron'
-import { FastifyInstance, FastifyPluginAsync, FastifyRequest } from 'fastify'
+import { FastifyInstance, FastifyPluginAsync } from 'fastify' // FastifyRequest
 // import { fileTypeFromBuffer } from 'file-type'
 import Constants from '../utils/Constants'
 import path from 'path'
 import fs from 'fs'
-import cache from '../cache'
-import { CacheAPIs } from '../utils/CacheApis'
-import { getTrackDetail, getPic, getPicFromApi } from '../utils'
+// import cache from '../cache'
+// import { CacheAPIs } from '../utils/CacheApis'
+// import { getTrackDetail, getPic, getPicFromApi } from '../utils'
 // import navidrome from '../streaming/navidrome'
 // import jellyfin from '../streaming/jellyfin'
 // import emby from '../streaming/emby'
@@ -15,42 +15,48 @@ const defaultImagePath = Constants.IS_DEV_ENV
   ? path.join(process.cwd(), `./src/public/images/default.jpg`)
   : path.join(__dirname, `../images/default.jpg`)
 
-// const singerImagePath = Constants.IS_DEV_ENV
-//   ? path.join(process.cwd(), `./src/public/images/singer.png`)
-//   : path.join(__dirname, `../images/singer.png`)
+const singerImagePath = Constants.IS_DEV_ENV
+  ? path.join(process.cwd(), `./src/public/images/singer.png`)
+  : path.join(__dirname, `../images/singer.png`)
 
 const httpHandler: FastifyPluginAsync = async (fastify: FastifyInstance) => {
-  fastify.get(
-    '/local-asset',
-    async (req: FastifyRequest<{ Querystring: Record<string, string> }>) => {
-      const { id, size } = req.query
-      const res = cache.get(CacheAPIs.Track, { ids: id })
-      let track: any
-      if (res) {
-        track = res.songs[0]
-      } else {
-        const res = await getTrackDetail(id)
-        track = res.songs[0]
-      }
-      if (!track.matched) {
-        ;(track.album || track.al).picUrl = 'vutron://get-default-pic'
-      } else {
-        const url = new URL((track.album || track.al).picUrl)
-        url.searchParams.set('param', `${size}y${size}`)
-        ;(track.album || track.al).picUrl = url.toString()
-      }
+  // fastify.get(
+  //   '/local-asset',
+  //   async (req: FastifyRequest<{ Querystring: Record<string, string> }>) => {
+  //     const { id, size } = req.query
+  //     const res = cache.get(CacheAPIs.Track, { ids: id })
+  //     let track: any
+  //     if (res) {
+  //       track = res.songs[0]
+  //     } else {
+  //       const res = await getTrackDetail(id)
+  //       track = res.songs[0]
+  //     }
+  //     if (!track.matched) {
+  //       ;(track.album || track.al).picUrl = 'vutron://get-default-pic'
+  //     } else {
+  //       const url = new URL((track.album || track.al).picUrl)
+  //       url.searchParams.set('param', `${size}y${size}`)
+  //       ;(track.album || track.al).picUrl = url.toString()
+  //     }
 
-      const result = await getPic(track)
+  //     const result = await getPic(track)
 
-      const pic = result.pic
-      const format = result.format
+  //     const pic = result.pic
+  //     const format = result.format
 
-      return new Response(new Uint8Array(pic), { headers: { 'Content-Type': format } })
-    }
-  )
+  //     return new Response(new Uint8Array(pic), { headers: { 'Content-Type': format } })
+  //   }
+  // )
 
   fastify.get('/local-asset/default-cover', async (req, reply) => {
     const pic = await fs.promises.readFile(defaultImagePath)
+    reply.header('Cache-Control', 'no-store').type('image/jpeg')
+    return reply.send(pic)
+  })
+
+  fastify.get('/local-asset/singer-cover', async (req, reply) => {
+    const pic = await fs.promises.readFile(singerImagePath)
     reply.header('Cache-Control', 'no-store').type('image/jpeg')
     return reply.send(pic)
   })

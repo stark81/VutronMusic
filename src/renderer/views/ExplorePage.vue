@@ -336,7 +336,7 @@ const getPlaylist = (reset = true) => {
   const tag =
     staticTags.value.find((item) => item.name === activeTags.value.playlist) || staticTags.value[0]
 
-  pluginMethodCall(pluginId.value, 'getCategoryPlaylist', { ...tag.sourceContext, reset }).then(
+  pluginMethodCall(pluginId.value, 'getCategoryPlaylist', { ...tag?.sourceContext, reset }).then(
     (result) => {
       if (!result.data.length) {
         show.value = true

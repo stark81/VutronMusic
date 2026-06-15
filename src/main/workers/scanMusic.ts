@@ -65,8 +65,7 @@ const parseMusicFile = async (data: { filePath: string }) => {
 
   const track = {
     name: common?.title ?? getFileName(data.filePath) ?? '未知歌曲',
-    dt: (format?.duration ?? 0) * 1000,
-    source: 'localTrack',
+    duration: (format?.duration ?? 0) * 1000,
     gain: getReplayGainFromMetadata(metadata),
     peak: 1,
     br: format?.bitrate ?? 320000,

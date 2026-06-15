@@ -127,7 +127,7 @@ class Cache {
             const account = accounts[0]
             account.json = json
             account.updatedAt = Date.now()
-            db.upsert(Tables.PluginData, account)
+            db.replace(Tables.PluginData, account)
           } else {
             const account = {
               id: `${pluginId}-1`,
@@ -136,7 +136,7 @@ class Cache {
               json,
               updatedAt: Date.now()
             }
-            db.upsert(Tables.PluginData, account)
+            db.upsert(Tables.PluginData, account, [account.id])
           }
         } catch (error) {
           console.error('[db.set failed]: ', error)

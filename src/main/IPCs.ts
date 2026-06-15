@@ -7,10 +7,10 @@ import Constants from './utils/Constants'
 import store from './store'
 import fs from 'fs'
 import path from 'path'
-import { db, Tables } from './db'
+// import { db, Tables } from './db'
 import { CacheAPIs } from './utils/CacheApis'
 import { deleteExcessCache, createWorker, getTrackDetail } from './utils'
-import cache from './cache'
+// import cache from './cache'
 import { registerGlobalShortcuts } from './globalShortcut'
 import { createMenu } from './menu'
 import log from './log'
@@ -179,15 +179,15 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
           cacheWorker = createWorker('cacheTrack')
           cacheWorker?.on('message', async (msg) => {
             if (msg.type === 'task-done') {
-              const track = msg.data
-              await cache.set(CacheAPIs.LocalMusic, { newTracks: [track] })
+              // const track = msg.data
+              // await cache.set(CacheAPIs.LocalMusic, { newTracks: [track] })
               await deleteExcessCache()
-              const tracks = cache.get(CacheAPIs.LocalMusic, { sql: "type = 'online'" })
-              const size = tracks.songs
-                .map((track: any) => track.size)
-                .reduce((acc: string, cur: string) => Number(acc) + Number(cur), 0)
+              // const tracks = cache.get(CacheAPIs.LocalMusic, { sql: "type = 'online'" })
+              // const size = tracks.songs
+              //   .map((track: any) => track.size)
+              //   .reduce((acc: string, cur: string) => Number(acc) + Number(cur), 0)
 
-              win.webContents.send('receiveCacheInfo', { length: tracks.songs.length, size })
+              win.webContents.send('receiveCacheInfo', { length: 0, size: 0 })
             } else if (msg.type === 'finished') {
               closeCacheWorker()
             }
@@ -416,211 +416,244 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
   })
 
   ipcMain.handle('getLocalMusic', () => {
-    const { songs } = cache.get(CacheAPIs.LocalMusic)
-    const playlists = cache.get(CacheAPIs.LocalPlaylist)
-    return { songs, playlists }
+    // const { songs } = cache.get(CacheAPIs.LocalMusic)
+    // const playlists = cache.get(CacheAPIs.LocalPlaylist)
+    return { songs: [], playlists: [] }
   })
 
   ipcMain.handle('upsertLocalPlaylist', async (event, playlist: object) => {
-    const result = await cache.set(CacheAPIs.LocalPlaylist, playlist)
-    return result
+    // const result = await cache.set(CacheAPIs.LocalPlaylist, playlist)
+    return false
   })
 
   ipcMain.on('clearDeletedMusic', () => {
-    const { songs } = cache.get(CacheAPIs.LocalMusic)
-    const deletedTracks = []
-    if (songs.length === 0) return
-    for (let i = songs.length - 1; i >= 0; i--) {
-      const track = songs[i]
-      try {
-        fs.accessSync(track.filePath, fs.constants.F_OK)
-      } catch {
-        deletedTracks.push(track.id)
-      }
-    }
-
-    if (deletedTracks.length > 0) {
-      try {
-        db.deleteManyByIds(Tables.Track, deletedTracks, 'xxx')
-        win.webContents.send('msgDeletedTracks', deletedTracks)
-      } catch (e) {
-        log.error(e)
-      }
-    }
+    // const { songs } = cache.get(CacheAPIs.LocalMusic)
+    // const deletedTracks = []
+    // if (songs.length === 0) return
+    // for (let i = songs.length - 1; i >= 0; i--) {
+    //   const track = songs[i]
+    //   try {
+    //     fs.accessSync(track.filePath, fs.constants.F_OK)
+    //   } catch {
+    //     deletedTracks.push(track.id)
+    //   }
+    // }
+    // if (deletedTracks.length > 0) {
+    //   try {
+    //     db.deleteManyByIds(Tables.Track, deletedTracks, 'xxx')
+    //     win.webContents.send('msgDeletedTracks', deletedTracks)
+    //   } catch (e) {
+    //     log.error(e)
+    //   }
+    // }
   })
 
-  ipcMain.on('msgScanLocalMusic', async (event, data: { filePath: string[]; update: boolean }) => {
-    try {
-      const { default: Piscina } = (await import('piscina')) as typeof import('piscina')
-      const fg = await import('fast-glob')
-      const os = await import('os')
-
-      const existingTracks = new Map<string, Track>()
-      const existingAlbums = new Map<string, Album>()
-      const existingArtists = new Map<string, Artist>()
-      const existingAlArtists = new Map<string, Artist>()
-
-      const newTracks: Track[] = []
-
-      const { songs } = cache.get(CacheAPIs.LocalMusic, { type: 'local' })
-      const existingPaths = songs.map((song: Track) => {
-        if (!existingTracks.has(song.filePath)) {
-          existingTracks.set(song.filePath, song)
-
-          if (!existingAlbums.has(song.album.name) || song.album.matched) {
-            existingAlbums.set(song.album.name, song.album)
-          }
-
-          song.artists.forEach((artist) => {
-            if (!existingArtists.has(artist.name) || artist.matched) {
-              existingArtists.set(artist.name, artist)
-            }
-          })
-        }
-        return song.filePath
-      }) as string[]
-
-      const patterns = ['**/*.{mp3,aiff,flac,alac,m4a,aac,wav,opus}']
-
-      const results = await Promise.all(
-        data.filePath.map((dir) =>
-          fg.glob(patterns, {
-            cwd: dir,
-            absolute: true,
-            onlyFiles: true
-          })
-        )
-      )
-
-      const allFiles = results.flat()
-
-      const newFiles = data.update ? allFiles : allFiles.filter((f) => !existingPaths.includes(f))
-
-      const workerPath = path.join(__dirname, 'workers/scanMusic.js')
-      const piscina = new Piscina({
-        filename: workerPath,
-        minThreads: 2,
-        maxThreads: Math.min(os.cpus().length / 2, 6)
-      })
-
-      const batchSize = 100
-      for (let i = 0; i < newFiles.length; i += batchSize) {
-        const batch = newFiles.slice(i, i + batchSize)
-        const batchResults: scanTrack[] = await Promise.all(
-          batch.map((file) => piscina.run({ filePath: file }))
-        )
-
-        batchResults.forEach((track) => {
-          if (!existingTracks.has(track.filePath)) {
-            // @ts-ignore
-            let newTrack: Track = {}
-            const id = existingTracks.size + 1
-            newTrack.id = id
-            newTrack.picUrl = `vutron://local-asset?type=pic&id=${id}`
-
-            if (existingAlbums.has(track.album)) {
-              newTrack.album = existingAlbums.get(track.album)!
-            } else {
-              const newAl = {
-                id: existingAlbums.size + 1,
-                name: track.album,
-                picUrl: `vutron://local-asset?type=pic&id=${id}`,
-                matched: false
-              }
-              newTrack.album = newAl
-              existingAlbums.set(track.album, newAl)
-            }
-            newTrack.artists = track.artists.map((artist) => {
-              let newAr: Artist
-              if (existingArtists.has(artist)) {
-                newAr = existingArtists.get(artist)!
-              } else {
-                newAr = {
-                  id: existingArtists.size + 1,
-                  name: artist,
-                  matched: false,
-                  picUrl: 'https://p1.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg'
-                }
-                existingArtists.set(artist, newAr)
-              }
-              return newAr
-            })
-
-            newTrack.albumArtist = track.albumArtist.map((artist) => {
-              let newAr: Artist
-              if (existingAlArtists.has(artist)) {
-                newAr = existingAlArtists.get(artist)!
-              } else {
-                newAr = {
-                  id: existingAlArtists.size + 1,
-                  name: artist,
-                  matched: false,
-                  picUrl: 'https://p1.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg'
-                }
-                existingAlArtists.set(artist, newAr)
-              }
-              return newAr
-            })
-
-            newTrack = _.merge({}, track, newTrack)
-
-            win.webContents.send('msgHandleScanLocalMusic', { track: newTrack })
-            existingTracks.set(track.filePath, newTrack)
-            newTracks.push(newTrack)
-          } else {
-            const originTrack = existingTracks.get(track.filePath)!
-
-            originTrack.artists = track.artists.map((artist) => {
-              let newAr: Artist
-              if (existingArtists.has(artist)) {
-                newAr = existingArtists.get(artist)!
-              } else {
-                newAr = {
-                  id: existingArtists.size + 1,
-                  name: artist,
-                  matched: false,
-                  picUrl: 'https://p1.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg'
-                }
-                existingArtists.set(artist, newAr)
-              }
-              return newAr
-            })
-
-            originTrack.albumArtist = track.albumArtist.map((artist) => {
-              let newAr: Artist
-              if (existingAlArtists.has(artist)) {
-                newAr = existingAlArtists.get(artist)!
-              } else {
-                newAr = {
-                  id: existingAlArtists.size + 1,
-                  name: artist,
-                  matched: false,
-                  picUrl: 'https://p1.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg'
-                }
-                existingAlArtists.set(artist, newAr)
-              }
-              return newAr
-            })
-
-            const updatedTrack = _.merge({}, track, originTrack)
-            existingTracks.set(updatedTrack.filePath, updatedTrack)
-          }
-        })
-      }
-
-      if (newTracks.length > 0) {
-        console.log('[msgScanLocalMusic]: ', newTracks[0])
-        // await cache.set(CacheAPIs.LocalMusic, { newTracks })
-      }
-      if (data.update) {
-        // cache.set(CacheAPIs.LocalMusic, { newTracks: [...existingTracks.values()] })
-        // win.webContents.send('updateLocalMusic', { tracks: [...existingTracks.values()] })
-      }
-      win.webContents.send('scanLocalMusicDone')
-    } catch (error: any) {
-      log.error('+++++++++++++++++++++++++++++', error.stack || error)
+  /**
+   * @param {Object} data
+   * @param  data.filePath 待扫描的歌曲目录列表
+   * @param data.update 本次扫描的目的是新增歌曲还是更新已有歌曲的元数据
+   * @param data.cb 扫描结果是否通过webContents发送回渲染进程
+   */
+  ipcMain.on(
+    'msgScanLocalMusic',
+    async (event, data: { filePath: string[]; update: boolean; cb: boolean }) => {
+      // try {
+      //   const { default: Piscina } = (await import('piscina')) as typeof import('piscina')
+      //   const fg = await import('fast-glob')
+      //   const os = await import('os')
+      //   const existingTracks = new Map<string, Track>()
+      //   const existingAlbums = new Map<string, string>()
+      //   const existingArtists = new Map<string, string>()
+      //   // 需要存入数据库里的新数据
+      //   const newTracks: Track[] = []
+      //   const newAlbums: Album[] = []
+      //   const newArtists: Artist[] = []
+      //   const trackArtists: [string, string][] = []
+      //   // const { songs } = cache.get(CacheAPIs.LocalMusic, { type: 'local' })
+      //   const songs: Track[] = []
+      //   const existingPaths = songs.map((song: Track) => {
+      //     // if (!existingTracks.has(song.filePath)) {
+      //     //   existingTracks.set(song.filePath, song)
+      //     //   if (!existingAlbums.has(song.album.name)) {
+      //     //     existingAlbums.set(song.album.name, song.album)
+      //     //   }
+      //     //   song.artists.forEach((artist) => {
+      //     //     if (!existingArtists.has(artist.name) || artist.matched) {
+      //     //       existingArtists.set(artist.name, artist)
+      //     //     }
+      //     //   })
+      //     // }
+      //     return song.filePath
+      //   }) as string[]
+      //   const patterns = ['**/*.{mp3,aiff,flac,alac,m4a,aac,wav,opus}']
+      //   const results = await Promise.all(
+      //     data.filePath.map((dir) =>
+      //       fg.glob(patterns, {
+      //         cwd: dir,
+      //         absolute: true,
+      //         onlyFiles: true
+      //       })
+      //     )
+      //   )
+      //   const allFiles = results.flat()
+      //   const newFiles = data.update ? allFiles : allFiles.filter((f) => !existingPaths.includes(f))
+      //   const workerPath = path.join(__dirname, 'workers/scanMusic.js')
+      //   const piscina = new Piscina({
+      //     filename: workerPath,
+      //     minThreads: 2,
+      //     maxThreads: Math.min(os.cpus().length / 2, 6)
+      //   })
+      //   const batchSize = 100
+      //   for (let i = 0; i < newFiles.length; i += batchSize) {
+      //     const batch = newFiles.slice(i, i + batchSize)
+      //     const batchResults: scanTrack[] = await Promise.all(
+      //       batch.map((file) => piscina.run({ filePath: file }))
+      //     )
+      //     batchResults.forEach((item) => {
+      //       if (!existingTracks.has(item.filePath)) {
+      //         let track = {} as Track
+      //         const id = existingTracks.size + 1
+      //         track.id = id.toString()
+      //         track.pluginId = 'local'
+      //         track.name = item.name
+      //         track.picUrl = `http://127.0.0.1:41830/local-asset?type=pic&id=${id}`
+      //         if (existingAlbums.has(item.album)) {
+      //           track.albumId = existingAlbums.get(item.album)!
+      //         } else {
+      //           const newAl: Album = {
+      //             id: (existingAlbums.size + 1).toString(),
+      //             pluginId: 'local',
+      //             name: item.album,
+      //             picUrl: `http://127.0.0.1:41830/local-asset?type=pic&id=${id}`,
+      //             type: '专辑',
+      //             company: '',
+      //             createTime: track.createTime,
+      //             description: '',
+      //             subscribed: false,
+      //             isExplicit: false,
+      //             updatedAt: Date.now()
+      //           }
+      //           track.albumId = newAl.id
+      //           existingAlbums.set(item.album, newAl.id)
+      //           newAlbums.push(newAl)
+      //         }
+      //         item.artists.forEach((it) => {
+      //           if (existingArtists.has(it)) {
+      //             trackArtists.push([track.id, existingArtists.get(it)!])
+      //           } else {
+      //             const artist: Artist = {
+      //               id: (existingArtists.size + 1).toString(),
+      //               pluginId: 'local',
+      //               name: it,
+      //               picUrl: 'http://127.0.0.1:41830/local-asset/singer-cover',
+      //               description: '',
+      //               followed: false,
+      //               updatedAt: Date.now()
+      //             }
+      //             existingArtists.set(it, artist.id)
+      //             newArtists.push(artist)
+      //             trackArtists.push([track.id, artist.id])
+      //           }
+      //         })
+      //         track.artists = item.artists.map((artist) => {
+      //           let newAr: Artist
+      //           if (existingArtists.has(artist)) {
+      //             newAr = existingArtists.get(artist)!
+      //           } else {
+      //             newAr = {
+      //               id: existingArtists.size + 1,
+      //               name: artist,
+      //               matched: false,
+      //               picUrl:
+      //                 'https://p1.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg'
+      //             }
+      //             existingArtists.set(artist, newAr)
+      //           }
+      //           return newAr
+      //         })
+      //         track.albumArtist = item.albumArtist.map((artist) => {
+      //           let newAr: Artist
+      //           if (existingAlArtists.has(artist)) {
+      //             newAr = existingAlArtists.get(artist)!
+      //           } else {
+      //             newAr = {
+      //               id: existingAlArtists.size + 1,
+      //               name: artist,
+      //               matched: false,
+      //               picUrl:
+      //                 'https://p1.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg'
+      //             }
+      //             existingAlArtists.set(artist, newAr)
+      //           }
+      //           return newAr
+      //         })
+      //         track = _.merge({}, item, track)
+      //         win.webContents.send('msgHandleScanLocalMusic', { track })
+      //         existingTracks.set(item.filePath, track)
+      //         newTracks.push(track)
+      //       } else {
+      //         const originTrack = existingTracks.get(item.filePath)!
+      //         originTrack.artists = item.artists.map((artist) => {
+      //           let newAr: Artist
+      //           if (existingArtists.has(artist)) {
+      //             newAr = existingArtists.get(artist)!
+      //           } else {
+      //             newAr = {
+      //               id: existingArtists.size + 1,
+      //               name: artist,
+      //               matched: false,
+      //               picUrl:
+      //                 'https://p1.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg'
+      //             }
+      //             existingArtists.set(artist, newAr)
+      //           }
+      //           return newAr
+      //         })
+      //         originTrack.albumArtist = item.albumArtist.map((artist) => {
+      //           let newAr: Artist
+      //           if (existingAlArtists.has(artist)) {
+      //             newAr = existingAlArtists.get(artist)!
+      //           } else {
+      //             newAr = {
+      //               id: existingAlArtists.size + 1,
+      //               name: artist,
+      //               matched: false,
+      //               picUrl:
+      //                 'https://p1.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg'
+      //             }
+      //             existingAlArtists.set(artist, newAr)
+      //           }
+      //           return newAr
+      //         })
+      //         const updatedTrack = _.merge({}, item, originTrack)
+      //         existingTracks.set(updatedTrack.filePath, updatedTrack)
+      //       }
+      //     })
+      //   }
+      //   console.log(
+      //     '=2=2=2=',
+      //     newTracks.length,
+      //     existingAlbums.size,
+      //     existingArtists.size,
+      //     existingAlArtists.size
+      //   )
+      //   console.log(newTracks[0])
+      //   console.log(existingAlbums.entries().next())
+      //   console.log(existingArtists.entries().next())
+      //   if (newTracks.length > 0) {
+      //     // console.log('[msgScanLocalMusic]: ', newTracks[0])
+      //     // await cache.set(CacheAPIs.LocalMusic, { newTracks })
+      //   }
+      //   if (data.update) {
+      //     // cache.set(CacheAPIs.LocalMusic, { newTracks: [...existingTracks.values()] })
+      //     // win.webContents.send('updateLocalMusic', { tracks: [...existingTracks.values()] })
+      //   }
+      //   win.webContents.send('scanLocalMusicDone')
+      // } catch (error: any) {
+      //   log.error('+++++++++++++++++++++++++++++', error.stack || error)
+      // }
     }
-  })
+  )
 
   ipcMain.on('msgShowInFolder', async (event, path: string) => {
     const { shell } = await import('electron')
@@ -628,15 +661,14 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
   })
 
   ipcMain.on('deleteLocalMusicDB', () => {
-    const trackIDs = cache.get(CacheAPIs.LocalMusic)?.songs.map((track: { id: number }) => track.id)
-    if (!trackIDs.length) return
-    db.deleteManyByIds(Tables.Track, trackIDs, 'xxx')
-
-    const playlistIDs = cache
-      .get(CacheAPIs.LocalPlaylist)
-      ?.map((playlist: { id: number }) => playlist.id)
-    if (!playlistIDs.length) return
-    db.deleteManyByIds(Tables.Playlist, playlistIDs, 'xxx')
+    // const trackIDs = cache.get(CacheAPIs.LocalMusic)?.songs.map((track: { id: number }) => track.id)
+    // if (!trackIDs.length) return
+    // db.deleteManyByIds(Tables.Track, trackIDs, 'xxx')
+    // const playlistIDs = cache
+    //   .get(CacheAPIs.LocalPlaylist)
+    //   ?.map((playlist: { id: number }) => playlist.id)
+    // if (!playlistIDs.length) return
+    // db.deleteManyByIds(Tables.Playlist, playlistIDs, 'xxx')
   })
 
   ipcMain.handle('clearCacheTracks', async (event, clearAll: boolean) => {
@@ -646,14 +678,15 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
 
   ipcMain.handle('getCacheTracksInfo', () => {
     // const tracks = cache.get(CacheAPIs.LocalMusic, { sql: "type = 'online'" })
-    const result = db.sqlite.prepare(`SELECT * from Track WHERE type != 'local'`).all() as {
-      json: string
-    }[]
-    const tracks = result.map((item) => JSON.parse(item.json))
-    const size = tracks
-      .map((track: any) => track.size)
-      .reduce((acc: string, cur: string) => Number(acc) + Number(cur), 0)
-    return { length: tracks.length, size }
+    // const result = db.sqlite.prepare(`SELECT * from Track WHERE type != 'local'`).all() as {
+    //   json: string
+    // }[]
+    // const tracks = result.map((item) => JSON.parse(item.json))
+    // const size = tracks
+    //   .map((track: any) => track.size)
+    //   .reduce((acc: string, cur: string) => Number(acc) + Number(cur), 0)
+    // return { length: tracks.length, size }
+    return { length: 0, size: 0 }
   })
 
   /**
@@ -677,48 +710,51 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
   })
 
   ipcMain.handle('accurateMatch', (event, track, id) => {
-    const data = { result: { songs: [track] } }
-    const result = cache.set(CacheAPIs.searchMatch, data, { localID: id })
-    return result
+    // const data = { result: { songs: [track] } }
+    // const result = cache.set(CacheAPIs.searchMatch, data, { localID: id })
+    return false
   })
 
   ipcMain.handle('updateLocalTrackInfo', (event, trackId: number, data: any) => {
-    const result = cache.set(CacheAPIs.Track, data, { id: trackId })
-    return result
+    // const result = cache.set(CacheAPIs.Track, data, { id: trackId })
+    return false
   })
 
   ipcMain.handle('updateLocalPlaylist', (event, playlistId: number, data: any) => {
-    const result = cache.set(CacheAPIs.LocalPlaylist, data, { id: playlistId })
-    return result
+    // const result = cache.set(CacheAPIs.LocalPlaylist, data, { id: playlistId })
+    return false
   })
 
   ipcMain.handle('deleteACacheTrack', (event, trackId: number) => {
-    try {
-      db.deleteManyByIds(Tables.Track, [trackId], 'xxx')
-      return true
-    } catch {
-      return false
-    }
+    // try {
+    //   db.deleteManyByIds(Tables.Track, [trackId], 'xxx')
+    //   return true
+    // } catch {
+    //   return false
+    // }
+    return false
   })
 
   ipcMain.handle('deleteLocalPlaylist', (event, pid: number) => {
-    try {
-      db.deleteManyByIds(Tables.Playlist, [pid], 'xxx')
-      return true
-    } catch (error) {
-      log.error('删除本地歌单失败:', error)
-      return false
-    }
+    // try {
+    //   db.deleteManyByIds(Tables.Playlist, [pid], 'xxx')
+    //   return true
+    // } catch (error) {
+    //   log.error('删除本地歌单失败:', error)
+    //   return false
+    // }
+    return false
   })
 
   ipcMain.handle('logout', (event, uid: string) => {
-    try {
-      db.deleteManyByIds(Tables.PluginData, [uid], 'xxxx')
-      return true
-    } catch (error) {
-      log.error('登出失败:', error)
-      return false
-    }
+    // try {
+    //   db.deleteManyByIds(Tables.PluginData, [uid], 'xxxx')
+    //   return true
+    // } catch (error) {
+    //   log.error('登出失败:', error)
+    //   return false
+    // }
+    return false
   })
 
   ipcMain.handle('check-update', async () => {

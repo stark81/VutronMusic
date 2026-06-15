@@ -188,7 +188,7 @@ class DB {
     return this.sqlite.prepare(sql).run(...values, id, platform)
   }
 
-  upsert<T = any>(table: TableNames, data: T) {
+  replace<T = any>(table: TableNames, data: T) {
     this.assertTable(table)
 
     const keys = Object.keys(data as any)
@@ -200,15 +200,86 @@ class DB {
       .run(...Object.values(data as any))
   }
 
-  /* ---------------- 删除 ---------------- */
+  replaceMany<T = any>(table: TableNames, rows: T[]) {
+    this.assertTable(table)
+    if (!rows.length) return
 
-  deleteByIdPlatform(table: TableNames, id: string | number, platform: string) {
+    const keys = Object.keys(rows[0] as any)
+    const columns = keys.join(',')
+    const placeholders = keys.map(() => '?').join(',')
+
+    const stmt = this.sqlite.prepare(
+      `INSERT OR REPLACE INTO ${table} (${columns}) VALUES (${placeholders})`
+    )
+
+    const trx = this.sqlite.transaction((data: T[]) => {
+      data.forEach((row) => {
+        stmt.run(...Object.values(row as any))
+      })
+    })
+
+    trx(rows)
+  }
+
+  upsert<T = any>(table: TableNames, data: T, conflictKeys: string[]) {
     this.assertTable(table)
 
-    return this.sqlite
-      .prepare(`DELETE FROM ${table} WHERE id = ? AND platform = ?`)
-      .run(id, platform)
+    const keys = Object.keys(data as any)
+
+    const columns = keys.join(',')
+    const placeholders = keys.map(() => '?').join(',')
+
+    const updateKeys = keys.filter((k) => !conflictKeys.includes(k))
+
+    const updateClause = updateKeys.map((k) => `${k} = excluded.${k}`).join(', ')
+
+    const sql = `
+    INSERT INTO ${table}
+    (${columns})
+    VALUES (${placeholders})
+    ON CONFLICT (${conflictKeys.join(', ')})
+    DO UPDATE SET
+    ${updateClause}
+  `
+
+    return this.sqlite.prepare(sql).run(...Object.values(data as any))
   }
+
+  upsertMany<T = any>(table: TableNames, rows: T[], conflictKeys: string[]) {
+    this.assertTable(table)
+
+    if (!rows.length) return
+
+    const keys = Object.keys(rows[0] as any)
+
+    const columns = keys.join(',')
+    const placeholders = keys.map(() => '?').join(',')
+
+    const updateKeys = keys.filter((k) => !conflictKeys.includes(k))
+
+    const updateClause = updateKeys.map((k) => `${k} = excluded.${k}`).join(', ')
+
+    const sql = `
+    INSERT INTO ${table}
+    (${columns})
+    VALUES (${placeholders})
+    ON CONFLICT (${conflictKeys.join(', ')})
+    DO UPDATE SET
+    ${updateClause}
+  `
+
+    const stmt = this.sqlite.prepare(sql)
+
+    const trx = this.sqlite.transaction((data: T[]) => {
+      data.forEach((row) => {
+        stmt.run(...Object.values(row as any))
+      })
+    })
+
+    trx(rows)
+  }
+
+  /* ---------------- 删除 ---------------- */
 
   deleteManyByIds(table: TableNames, ids: (string | number)[], platform: string) {
     this.assertTable(table)

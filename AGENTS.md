@@ -22,6 +22,7 @@ src/
 ```
 
 **Two separate tsconfigs** — this is critical:
+
 - `tsconfig.json` → includes `src/renderer` + `src/types` only (renderer)
 - `tsconfig.node.json` → includes `src/main` + `src/preload` + `package.json` + `buildAssets/builder` (main/preload)
 
@@ -69,6 +70,10 @@ yarn rebuild          # fix-sandbox + fix-taglib-wasm + electron-rebuild
 - **Prettier**: no semicolons, single quotes, no trailing commas, LF line endings, 2-space indent
 - **ESLint**: `vue3-recommended` + `standard` + `prettier`; unused vars are warnings only
 - **TypeScript**: `noImplicitAny: false`, `strict: true` (mixed — implicit any is allowed)
+
+## Communication
+
+- All agent thoughts, plans, delegation messages, and replies must be in Simplified Chinese.
 
 ## Testing
 
