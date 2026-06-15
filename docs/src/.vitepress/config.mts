@@ -27,9 +27,11 @@ export default defineConfig({
       hyphenToSpace: true,
       capitalizeEachWords: true,
       manualSortFileNameByPriority: [
-        'installation-and-build',
-        'project-structures',
-        'electron-how-to'
+        'database',
+        'plugin-system',
+        'ui-design',
+        'stores',
+        'code-conventions'
       ]
     }),
     socialLinks: [{ icon: 'github', link: repository.url.replace('.git', '') }]
