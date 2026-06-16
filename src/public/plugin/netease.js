@@ -183,7 +183,7 @@ const apis = api
  */
 
 const user = { userId: 0, isVip: false, cookie: '' }
-let baseUrl = ''
+let baseUrl = 'http://127.0.0.1:41830/netease'
 const limit = 50
 const artistLists = { code: 0, artists: {} }
 
@@ -194,7 +194,10 @@ apis.db.get('PluginData').then((result) => {
 })
 
 apis.store.get('').then((store) => {
-  baseUrl = store.baseUrl
+  if (!store.baseUrl) {
+    apis.store.set('baseUrl', baseUrl)
+  }
+  baseUrl = store.baseUrl || baseUrl
 
   get('top/artists', { limit: 30 }).then((result) => {
     artistLists.code = result.code
@@ -226,7 +229,7 @@ const setCookies = (cookieStr) => {
  */
 const get = async (url, params) => {
   try {
-    const headers = user.cookie ? { Cookie: user.cookie } : {}
+    const headers = user.cookie ? { Cookie: user.cookie || '' } : {}
     const response = await apis.http.get(`${baseUrl}/${url}`, params, headers)
     if (response.code === 301) {
       user.userId = 0
@@ -250,7 +253,7 @@ const get = async (url, params) => {
  */
 const post = async (url, data) => {
   try {
-    const headers = user.cookie ? { Cookie: user.cookie } : {}
+    const headers = { Cookie: user.cookie || '' }
     const response = await apis.http.post(`${baseUrl}/${url}`, data, headers)
     if (response.code === 301) {
       user.userId = 0
@@ -377,6 +380,7 @@ const formatAlbum = (item, showArtists = false) => {
 const formatMv = (item) => ({
   id: item.id || item.vid,
   name: item.name || item.title,
+  icon: 'common',
   picUrl: item.imgurl16v9 || item.coverUrl || item.cover || '',
   publishTime: new Date(item.publishTime || 0).getTime(),
   pluginId: '',
@@ -497,6 +501,7 @@ const specialPlaylist = {
 const formatPlaylist = (item) => ({
   id: item.id,
   name: item.name,
+  icon: 'common',
   picUrl: (item.picUrl || item.coverImgUrl) + '?param=256y256',
   isMine: item.creator?.userId === user.userId,
   trackCount: item.trackIds?.length || item.trackCount || 0,
@@ -547,7 +552,21 @@ const formatComment = (item) => {
 
 const meta = {
   name: '网易云',
-  type: 'library' // library, stream
+  icon: 'common',
+  type: 'library', // library, stream
+  capabilities: {
+    matchTrack: 'official',
+    getLyric: true,
+    getComments: true,
+    comment: {
+      read: true,
+      like: true,
+      submit: true,
+      floor: true,
+      types: ['track', 'album', 'playlist', 'mv']
+    },
+    mv: { detail: true, like: true, subscribe: true }
+  }
 }
 
 /**
@@ -572,8 +591,12 @@ exports.systemPing = async () => true
  */
 exports.loginQrKey = async () => {
   const result = await get('login/qr/key', { timestamp: Date.now() })
+  const result2 = await get(
+    `login/qr/create?key=${result.data.unikey}&platform=web&qrimg=true&timestamp=${Date.now()}&ua=pc`
+  )
+
   const data = {
-    url: `https://music.163.com/login?codekey=${result.data.unikey}`,
+    url: result2.data.qrurl,
     qrcode: result.data.unikey
   }
   return { code: result?.code ?? 200, data }
@@ -583,14 +606,14 @@ exports.loginQrKey = async () => {
  * @returns {{ code: number, message: string, user: User }}
  */
 exports.loginQrCodeCheck = async (params) => {
-  const result = await get('login/qr/check', { ...params, timestamp: Date.now() })
+  const result = await get('login/qr/check', { ...params, timestamp: Date.now(), ua: 'pc' })
   if (result.code === 803) {
     result.cookie = result.cookie.replaceAll(' HTTPOnly', '')
 
     const cookie = setCookies(result.cookie)
     user.cookie = cookie
 
-    const res = await post(`login/status?timestamp=${Date.now()}`)
+    const res = await post(`login/status?timestamp=${Date.now()}&ua=pc`)
     const profile = res.data.profile
 
     const data = { userId: profile.userId, isVip: profile.vipType === 11, cookie }
@@ -609,6 +632,13 @@ exports.loginQrCodeCheck = async (params) => {
   return result
 }
 
+exports.updateBaseUrl = async (params) => {
+  const url = params.url.replace(/\/$/, '')
+  baseUrl = url
+  apis.store.set('baseUrl', url)
+  return { code: 200 }
+}
+
 exports.getAccount = () => {
   return { code: 200, baseUrl, userName: '', pwd: '' }
 }
@@ -616,7 +646,50 @@ exports.getAccount = () => {
 /**
  * 插件平台的登陆功能，登陆成功后，需要使用apis.store.set来保存所需的帐号相关信息
  */
-exports.doLogin = async () => true
+exports.doLogin = async (params) => {
+  if (params?.cookie) {
+    const cookies = {}
+    params.cookie.split(';').forEach((c) => {
+      const [key, ...rest] = c.trim().split('=')
+      const value = rest.join('=')
+      if (!key || !value) return
+      cookies[key] = decodeURIComponent(value)
+    })
+
+    const cookie = Object.entries(cookies)
+      .map(([key, value]) => `${key}=${value}`)
+      .join('; ')
+
+    user.cookie = cookie
+
+    try {
+      const res = await post(`login/status?timestamp=${Date.now()}`)
+      if (res.data?.profile) {
+        const profile = res.data.profile
+        user.userId = profile.userId
+        user.vipType = [11, 110].includes(profile.vipType)
+        apis.db.set('PluginData', { userId: profile.userId, isVip: user.vipType, cookie })
+
+        return {
+          code: 200,
+          data: {
+            userId: profile.userId,
+            avatarUrl: profile.avatarUrl,
+            nickname: profile.nickname,
+            isVip: [11, 110].includes(profile.vipType),
+            signature: profile.signature
+          }
+        }
+      }
+    } catch {
+      // 网络失败或 301 等异常
+    }
+
+    user.cookie = ''
+    return { code: 404, message: 'Cookie 无效或已过期' }
+  }
+  return { code: 404, message: '本插件不支持该登录方式' }
+}
 
 exports.doLogout = () => {
   try {
@@ -1130,6 +1203,34 @@ exports.userLikedMVs = async () => {
   return { code: result?.code ?? 200, data: [], sourceContext: {} }
 }
 
+/**
+ * 获取用户播放记录（听歌历史）
+ * @param {Object} params
+ * @param {number=} params.uid - 用户 ID，不传则使用已登录用户 ID
+ * @returns {{ code: number, weekData: Track[], allData: Track[], sourceContext: Record<string, any> }}
+ */
+exports.userRecord = async (params = {}) => {
+  const uid = params.uid ?? user.userId
+  const [allResult, weekResult] = await Promise.all([
+    get('user/record', { uid, type: 0 }),
+    get('user/record', { uid, type: 1 })
+  ])
+  const mapRecordData = (data = []) => {
+    if (!data.length) return []
+    return data.map((item) => {
+      const song = { ...item.song, playCount: item.playCount }
+      return formatTrack(song)
+    })
+  }
+  const allData = allResult.code === 200 ? mapRecordData(allResult.allData) : []
+  const weekData = weekResult.code === 200 ? mapRecordData(weekResult.weekData) : []
+  const code =
+    allResult.code === 200 || weekResult.code === 200
+      ? 200
+      : allResult.code || weekResult.code || 404
+  return { code, weekData, allData, sourceContext: { uid } }
+}
+
 exports.cloudDisk = async (params) => {
   const offset = params.offset || 0
   const result = await get('user/cloud', { limit, offset })
@@ -1294,6 +1395,37 @@ exports.search = async (params) => {
 }
 
 /**
+ * 歌曲匹配
+ *
+ * 使用网易云 search/match API 进行匹配。
+ * md5 不存在时传一个占位值即可，API 不校验其真实性。
+ */
+exports.matchTrack = async (params) => {
+  const result = await get('search/match', {
+    title: params.name,
+    album: params.album,
+    artist: params.artists.join(','),
+    duration: Math.round(params.duration / 1000),
+    md5: params.md5 || '0'
+  })
+  if (result.code !== 200 || !result.result?.songs?.length) return { code: 404 }
+  const song = formatTrack(result.result?.songs?.[0], 64)
+  return {
+    code: 200,
+    data: {
+      id: song.id,
+      name: song.name,
+      duration: song.duration,
+      artists: song.artists.map((a) => ({ id: a.id, name: a.name })),
+      album: { id: song.album.id, name: song.album.name },
+      picUrl: song.picUrl || song.al?.picUrl || song.album?.picUrl || '',
+      sourceContext: song.sourceContext,
+      confidence: 100
+    }
+  }
+}
+
+/**
  * 获取歌词
  * @param {Object} params
  * @returns {LyricLine[]}
@@ -1350,7 +1482,7 @@ exports.addOrRemoveTracksToPlaylist = async (params) => {
   const result = await get('playlist/tracks', {
     op,
     pid: playlist.id,
-    tracks: tracks.map((t) => t.id).join(','),
+    tracks: tracks.map((t) => t.sourceContext?.id || t.id).join(','),
     timestamp: Date.now()
   })
   return { code: result.code || result.body.code }
@@ -1408,6 +1540,20 @@ exports.subscribeAlbum = async (params) => {
     del: 2
   }
   const result = await get('album/sub', { id, t: map[op] })
+  return { code: result.code }
+}
+
+/**
+ * 编辑歌单信息
+ * @param {Object} params
+ * @param {number|string} params.id
+ * @param {string} params.name
+ * @param {string} params.desc
+ * @param {string} params.tags
+ */
+exports.editPlaylist = async (params) => {
+  const { id, name, desc, tags } = params
+  const result = await get('playlist/update', { id, name, desc, tags })
   return { code: result.code }
 }
 
@@ -1614,7 +1760,17 @@ exports.artistsList = async (_params) => {
   return { code: 200, data: [], sourceContext: _params }
 }
 
-exports.scrobble = async () => ({ code: 200 })
+exports.scrobble = async (params) => {
+  try {
+    const { id, time: _time, sourceCtx } = params
+    const time = (_time || 0) / 1000
+    const sourceid = sourceCtx.sourceContext?.id
+    const result = await get('scrobble/v1', { id, time, sourceid })
+    return { code: result.code || 200 }
+  } catch {
+    return { code: 404 }
+  }
+}
 
 exports.mvDetail = async (params) => {
   const [result, result1] = await Promise.all([
@@ -1643,7 +1799,6 @@ exports.mvDetail = async (params) => {
       subed: result.subed,
       likedCount: result1.likedCount || 0,
       liked: result1.liked || false,
-      hasComment: true,
 
       picUrl: item.cover + '?param=512y512',
       sources,
@@ -1742,7 +1897,7 @@ exports.getComments = async (params) => {
     let pageNo = reset ? 1 : _pageNo
     let cursor = isNumeric(_cursor) ? _cursor : 0
 
-    if (!hasMore && sortType !== 99) {
+    if (!hasMore && sortType !== 99 && !reset) {
       return { code: 200, data: [], count: 0, sourceContext: params }
     } else if (!hasMore && sortType === 99) {
       sortType = 3
@@ -1768,6 +1923,7 @@ exports.getComments = async (params) => {
       data,
       count,
       sourceContext: {
+        id,
         type: _type,
         pageNo: pageNo + 1,
         cursor: result.data.cursor,
@@ -1791,7 +1947,7 @@ exports.getComments = async (params) => {
 exports.likeAComment = async (params) => {
   try {
     const { sourceContext, commentInfo, currentStatus, type: _type } = params
-    const id = sourceContext.id
+    const id = sourceContext?.id || params.id
     const cid = commentInfo.id
     const type = commentType[_type]
     const t = currentStatus ? 0 : 1
@@ -1859,4 +2015,18 @@ exports.getFloorComments = async (params) => {
   } catch {
     return { code: 200, data: [], count: 0, sourceContext: params }
   }
+}
+
+exports.personalFM = async () => {
+  const result = await get('personal/fm', { timestamp: Date.now() })
+  if (result && result.code === 200 && result.data?.length) {
+    const data = result.data.map((item) => formatTrack(item, 64))
+    return { code: 200, data, sourceContext: {} }
+  }
+  return { code: 200, data: [], sourceContext: {} }
+}
+
+exports.fmTrash = async (params) => {
+  const result = await get('fm/trash', { timestamp: Date.now(), id: params.id })
+  return { code: result?.code ?? 200 }
 }

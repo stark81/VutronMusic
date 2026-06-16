@@ -14,11 +14,11 @@
           <button-icon
             :title="$t(isPlaying ? 'player.pause' : 'player.play')"
             class="play"
-            @click="() => {}"
+            @click="handlePlay"
           >
             <svg-icon :icon-class="isPlaying ? 'pause' : 'play'" />
           </button-icon>
-          <button-icon :title="$t('player.next')" @click="() => {}">
+          <button-icon :title="$t('player.next')" @click="playNext(true)">
             <svg-icon icon-class="next" />
           </button-icon>
         </div>
@@ -35,28 +35,46 @@ import SvgIcon from './SvgIcon.vue'
 import { ref, computed, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
+import { usePluginMusic } from '../store/pluginMusic'
 import { useRouter } from 'vue-router'
 import { Vibrant } from 'node-vibrant/browser'
 import Color from 'color'
+import { Track } from '@/types/plugin'
 
 const router = useRouter()
 const playerStore = usePlayerStore()
-const { moveToFMTrash /* playPersonalFM, playNextFMTrack */ } = playerStore
-const { personalFMTrack, playing, isPersonalFM } = storeToRefs(playerStore)
+const { moveToFMTrash, playPersonalFM, playNext, playOrPause } = playerStore
+const { currentTrack, fmTracks, playing, isPersonalFM } = storeToRefs(playerStore)
+
+const { pluginMethodCall } = usePluginMusic()
+
+const handlePlay = () => {
+  if (isPersonalFM.value && playing.value) {
+    playOrPause()
+  } else {
+    playPersonalFM(true)
+  }
+}
 
 const background = ref<string>()
 
-const track = computed(() => personalFMTrack.value)
+const track = computed(() => {
+  if (isPersonalFM.value) {
+    return currentTrack.value
+  }
+  return fmTracks.value[0]
+})
 const isPlaying = computed(() => playing.value && isPersonalFM.value)
 const artists = computed(() => track.value?.artists || [])
+const image = ref(track.value?.picUrl || '')
 
-const image = computed(() => {
-  const album = track.value?.album
-  return album ? album.picUrl + '?param=256y256' : ''
-})
+const getColor = async (track: Track) => {
+  const { data: cover } = await pluginMethodCall(track.pluginId, 'resizePicUrl', {
+    url: track.picUrl,
+    size: 512
+  })
+  image.value = cover
 
-const getColor = (track: any) => {
-  const cover = `${(track.album || track.al).picUrl.replace('http://', 'https://')}?param=512y512`
   Vibrant.from(cover)
     .getPalette()
     .then((palette) => {
@@ -78,11 +96,15 @@ const goToAlbum = () => {
   router.push({ path: `/album/${track.value.album.id}` })
 }
 
-watch(track, (val) => {
-  if (val) {
-    getColor(val)
-  }
-})
+watch(
+  track,
+  (val) => {
+    if (val) {
+      getColor(val)
+    }
+  },
+  { immediate: true }
+)
 </script>
 
 <style scoped lang="scss">

@@ -11,7 +11,7 @@ import eventBus from '../utils/eventBus'
 import shuffleFn from 'lodash/shuffle'
 import cloneDeep from 'lodash/cloneDeep'
 
-import { PluginId, Track } from '@/types/plugin'
+import { LyricLine, PluginId, Track } from '@/types/plugin'
 import { RepeatMode, SourceType, PlaylistSourceInfo } from '@/types/music'
 
 const formatTime = (seconds: number) => {
@@ -63,10 +63,26 @@ export const usePlayerStore = defineStore(
     const playingNext = ref(false)
     const currentTrackIndex = ref(0)
     const currentTrack = ref<Track>()
+    const nextTrack = ref<Track>()
     const chorus = ref(0)
-    const pic = ref('vutron://get-default-pic')
+    const pic = ref('http://localhost:41830/local-asset/default-cover')
 
-    const personalFMTrack = ref<Track>()
+    // FM 私有电台
+    const fmTracks = ref<Track[]>([])
+    const personalFMTrack = computed(() => (isPersonalFM.value ? currentTrack.value : undefined))
+
+    // 当前激活的 library 类型插件 code，用于监听切换后刷新 FM 队列
+    const activeLibraryCode = computed(() => {
+      const lib = pluginStore.services.find((s) => s.active && s.type === 'library')
+      return lib?.code ?? null
+    })
+
+    watch(activeLibraryCode, (newCode, oldCode) => {
+      if (newCode && newCode !== oldCode) {
+        fmTracks.value = []
+        refillFMTracks()
+      }
+    })
 
     // 播放列表相关
     const isShuffle = ref(false)
@@ -84,7 +100,6 @@ export const usePlayerStore = defineStore(
     })
 
     const enableDRP = computed(() => settingsStore.misc.enableDiscordRichPresence)
-
     const hasListSource = computed(
       () => !isPersonalFM.value && playlistSource.value.type !== 'SearchTrack'
     )
@@ -268,10 +283,31 @@ export const usePlayerStore = defineStore(
       window.mainApi?.send('updatePlayerState', { shuffle: value })
     })
 
+    // 监听播放列表/播放队列变化，自动清除缓存并触发预加载
+    watch(
+      [playNextList, () => (isShuffle.value ? shuffleList.value : playList.value)],
+      () => {
+        nextTrack.value = undefined
+        if (prefetchTimer) clearTimeout(prefetchTimer)
+        scheduleNextTrackPrefetch()
+      },
+      { deep: true }
+    )
+
     watch(
       () => playing.value && settingsStore.general.preventSuspension,
       (value) => {
         window.mainApi?.send('update-powersave', value)
+      }
+    )
+
+    // library 被禁用时清空 FM 缓存并退出 FM 模式
+    watch(
+      () => pluginStore.enableLibrary,
+      (enable) => {
+        if (!enable) {
+          isPersonalFM.value = false
+        }
       }
     )
 
@@ -320,6 +356,7 @@ export const usePlayerStore = defineStore(
       playlistSource.value = source
       isPersonalFM.value = false
       playList.value = sourceContext
+      nextTrack.value = undefined
 
       if (isShuffle.value) {
         shuffleTheList(index)
@@ -349,29 +386,55 @@ export const usePlayerStore = defineStore(
     ) {
       if (autoPlay && currentTrack.value?.name) {
         scrobbleFM(currentTrack.value as Track, seek.value)
-        if (seek.value >= currentTrack.value.duration / 2 || seek.value >= 240000) {
-          pluginMethodCall(currentTrack.value.pluginId, 'scrobble', {
-            ...currentTrack.value.sourceContext,
-            time: seek.value
-          })
+        if (seek.value >= currentTrack.value.duration / 1000 / 2 || seek.value >= 240) {
+          JSON.parse(
+            JSON.stringify({
+              rawCtx: currentTrack.value!.sourceContext,
+              time: seek.value * 1000,
+              sourceCtx: playlistSource.value
+            })
+          )
         }
       }
 
-      const res = await pluginMethodCall(plugin, 'getTrackDetail', { tracks: [sourceContext] })
+      if (
+        nextTrack.value?.pluginId === plugin &&
+        JSON.stringify(nextTrack.value?.sourceContext) === JSON.stringify(sourceContext)
+      ) {
+        currentTrack.value = nextTrack.value
+        nextTrack.value = undefined
+      } else {
+        nextTrack.value = undefined
+        const res = await pluginMethodCall(plugin, 'getTrackDetail', { tracks: [sourceContext] })
 
-      currentTrack.value = {
-        ...res.data[0],
-        album: { ...res.data[0].album, pluginId: plugin },
-        artists: res.data[0].artists.map((it) => ({ ...it, pluginId: plugin })),
-        albumArtists: res.data[0].albumArtists.map((it) => ({ ...it, pluginId: plugin })),
-        pluginId: plugin
+        currentTrack.value = {
+          ...res.data[0],
+          album: { ...res.data[0].album, pluginId: plugin },
+          artists: res.data[0].artists.map((it) => ({ ...it, pluginId: plugin })),
+          albumArtists: res.data[0].albumArtists.map((it) => ({ ...it, pluginId: plugin })),
+          pluginId: plugin
+        }
       }
 
-      const result = await pluginMethodCall(plugin, 'songUrl', sourceContext)
-      const { url, replayGain, peak } = result.data
-      engineStore.playAudioSource(url, replayGain, peak, autoPlay)
+      const songUrlResult: { url: string[]; replayGain: number; peak: number } =
+        (await window.mainApi?.invoke('get-song-url', {
+          pluginId: plugin,
+          sourceContext: JSON.parse(JSON.stringify(sourceContext)),
+          track: JSON.parse(JSON.stringify(currentTrack.value))
+        })) ?? { url: [], replayGain: 0, peak: 1 }
+
+      engineStore.playAudioSource(
+        songUrlResult.url,
+        songUrlResult.replayGain,
+        songUrlResult.peak,
+        autoPlay
+      )
+      playing.value = autoPlay
 
       updateNowPlaying(currentTrack.value)
+
+      triggerTrackMatch(currentTrack.value)
+      scheduleNextTrackPrefetch()
     }
 
     // function getTrackInfo() {}
@@ -400,6 +463,17 @@ export const usePlayerStore = defineStore(
       return [list.value[next], next, false]
     }
 
+    function _peekNextTrack(): [PluginId, Record<string, any>] | undefined {
+      if (playNextList.value.length > 0) {
+        return playNextList.value[0]
+      }
+      const next = currentTrackIndex.value + 1
+      if (repeatMode.value === 'on' && list.value.length === next) {
+        return list.value[0]
+      }
+      return list.value[next]
+    }
+
     function playPrev() {
       const [trackInfo, prev, isPlayingNext] = _getPrevTrack()
       playingNext.value = isPlayingNext
@@ -410,6 +484,7 @@ export const usePlayerStore = defineStore(
       } else {
         currentTrackIndex.value = prev
         replaceCurrentTrack(...trackInfo, true)
+        playing.value = true
       }
     }
 
@@ -442,12 +517,88 @@ export const usePlayerStore = defineStore(
       }
     }
 
-    function _playNextPersonal() {}
+    async function refillFMTracks() {
+      const plugin = pluginStore.services.find((s) => s.active && s.type === 'library')
+      if (!plugin) return
+
+      try {
+        const result = await pluginMethodCall(plugin.code, 'personalFM', {})
+        if (result.code === 200 && result.data?.length) {
+          for (const track of result.data) {
+            fmTracks.value.push({
+              ...track,
+              album: { ...track.album, pluginId: plugin.code },
+              artists: track.artists.map((it) => ({ ...it, pluginId: plugin.code })),
+              albumArtists: track.albumArtists.map((it) => ({ ...it, pluginId: plugin.code })),
+              pluginId: plugin.code
+            })
+          }
+        }
+      } catch {}
+    }
+
+    async function playNextFM() {
+      if (fmTracks.value.length === 0) {
+        await refillFMTracks()
+        if (fmTracks.value.length === 0) return
+      }
+      const track = fmTracks.value.shift()!
+      nextTrack.value = track
+      await replaceCurrentTrack(track.pluginId, track.sourceContext, true)
+      playing.value = true
+      if (fmTracks.value.length === 0) {
+        refillFMTracks()
+      }
+    }
+
+    async function playPersonalFM(playing: boolean) {
+      const plugin = pluginStore.services.find((s) => s.active && s.type === 'library')
+      if (!plugin) {
+        showToast('无可用的音乐源')
+        return
+      }
+
+      isPersonalFM.value = true
+      if (!enabled.value) enabled.value = true
+
+      if (fmTracks.value.length === 0) {
+        await refillFMTracks()
+        if (fmTracks.value.length === 0) {
+          showToast('获取 FM 歌曲失败')
+          isPersonalFM.value = false
+          return
+        }
+      }
+
+      const track = fmTracks.value.shift()!
+      nextTrack.value = track // 跳过 getTrackDetail
+      await replaceCurrentTrack(track.pluginId, track.sourceContext, playing)
+      if (fmTracks.value.length === 0) {
+        refillFMTracks()
+      }
+    }
+
+    async function moveToFMTrash() {
+      if (isPersonalFM.value) {
+        const track = currentTrack.value
+        if (track) {
+          pluginMethodCall(track.pluginId, 'fmTrash', { ...track.sourceContext }).catch(() => {})
+        }
+        await playNextFM()
+      } else {
+        if (fmTracks.value.length === 0) return
+        const track = fmTracks.value.shift()!
+        pluginMethodCall(track.pluginId, 'fmTrash', { ...track.sourceContext }).catch(() => {})
+        if (fmTracks.value.length === 0) {
+          refillFMTracks()
+        }
+      }
+    }
 
     async function playNext(isPersonal: boolean) {
       await engineStore.pause()
       if (isPersonal) {
-        _playNextPersonal()
+        await playNextFM()
       } else {
         _playNext()
       }
@@ -456,10 +607,25 @@ export const usePlayerStore = defineStore(
     function _nextTrackCallback() {
       seek.value = 0
       scrobbleFM(currentTrack.value as Track, 0, true)
-      pluginMethodCall(currentTrack.value!.pluginId, 'scrobble', {
-        ...currentTrack.value!.sourceContext,
-        time: currentTrack.value!.duration
-      })
+      window.mainApi?.send(
+        'scrobble-music',
+        currentTrack.value!.pluginId,
+        JSON.parse(
+          JSON.stringify({
+            rawCtx: currentTrack.value!.sourceContext,
+            time: currentTrack.value!.duration,
+            sourceCtx: {
+              ...playlistSource.value,
+              plugin: currentTrack.value?.pluginId || playlistSource.value.plugin
+            }
+          })
+        )
+      )
+      // pluginMethodCall(currentTrack.value!.pluginId, 'scrobble', {
+      //   ...currentTrack.value!.sourceContext,
+      //   time: currentTrack.value!.duration,
+      //   sourceCtx: { ...playlistSource.value }
+      // })
       if (!isPersonalFM.value && repeatMode.value === 'one') {
         const { pluginId, sourceContext } = currentTrack.value!
         replaceCurrentTrack(pluginId, sourceContext)
@@ -486,7 +652,6 @@ export const usePlayerStore = defineStore(
       window.mainApi?.send('pauseDiscordPresence', cloneDeep(track))
     }
 
-    // ── Last.fm 记录 ──────────────────────────
     const enableFM = computed(() => settingsStore.misc.lastfm.enable)
 
     function scrobbleFM(track: Track, time: number, completed = false) {
@@ -518,7 +683,6 @@ export const usePlayerStore = defineStore(
       window.mainApi?.send('update-now-playing', info)
     }
 
-    // const _playNextTrack = playbackStore.playNextTrack
     function switchRepeatMode() {
       if (repeatMode.value === 'on') {
         repeatMode.value = 'one'
@@ -541,24 +705,24 @@ export const usePlayerStore = defineStore(
       } else {
         playNextList.value.push(...trackInfos)
       }
+      nextTrack.value = undefined
       if (playNow) playNext(false)
     }
 
     function clearPlayNextList() {
       playNextList.value = []
+      nextTrack.value = undefined
     }
-
-    // const updateLocalID2OnlineID = playbackStore.updateLocalID2OnlineID
-    // const playPersonalFM = playbackStore.playPersonalFM
-    const moveToFMTrash = () => {}
 
     const resetPlayer = (resetAll = true) => {
       playList.value = []
       shuffleList.value = []
       playNextList.value = []
+      fmTracks.value = []
       enabled.value = false
       currentTrackIndex.value = 0
       currentTrack.value = undefined
+      nextTrack.value = undefined
       progress.value = 0
       isPersonalFM.value = false
       lyrics.value = []
@@ -634,30 +798,40 @@ export const usePlayerStore = defineStore(
 
       chorus.value = 0
       seek.value = playing.value ? 0 : progress.value
-      // 获取当前歌曲的封面、歌词信息
       const plugin = value.pluginId
+
+      if (value.type !== 'library') {
+        await triggerTrackMatch(value)
+      }
+
       await Promise.all([
         pluginMethodCall(plugin, 'resizePicUrl', { url: value.picUrl, size: 512 }).then(
           (result) => {
             pic.value = result.data
           }
         ),
-        pluginMethodCall(plugin, 'getLyric', { ...value.sourceContext })
-          .then((res) => {
-            let data = res.data.filter((l) => !/^作(词|曲)\s*(:|：)\s*无$/.exec(l.lyric.text))
-            const includeAM =
-              data.length <= 10 &&
-              data.some((l) => ['纯音乐，请欣赏', '暂无歌词'].includes(l.lyric.text))
-            const reg = /^作(词|曲)\s*(:|：)\s*/
-            const artists = currentTrack.value!.artists
-            const author = artists[0]?.name
-            data = data.filter((l) => {
-              const regExpArr = l.lyric.text.match(reg)
-              return !regExpArr || l.lyric.text.replace(regExpArr[0], '') !== author
-            })
-            lyrics.value = data.length === 1 && includeAM ? [] : data
+        (async () => {
+          const res = (await window.mainApi?.invoke('plugin-lyric', {
+            pluginId: value.pluginId,
+            sourceContext: { rawCtx: JSON.parse(JSON.stringify(value.sourceContext || {})) }
+          })) as { code: number; data: LyricLine[] }
+          if (!res || res.code !== 200 || !res.data?.length) {
+            lyrics.value = []
+            return
+          }
+          let data = res.data.filter((l) => !/^作(词|曲)\s*(:|：)\s*无$/.exec(l.lyric.text))
+          const includeAM =
+            data.length <= 10 &&
+            data.some((l) => ['纯音乐，请欣赏', '暂无歌词'].includes(l.lyric.text))
+          const reg = /^作(词|曲)\s*(:|：)\s*/
+          const artists = currentTrack.value!.artists
+          const author = artists[0]?.name
+          data = data.filter((l) => {
+            const regExpArr = l.lyric.text.match(reg)
+            return !regExpArr || l.lyric.text.replace(regExpArr[0], '') !== author
           })
-          .catch()
+          lyrics.value = data.length === 1 && includeAM ? [] : data
+        })()
       ])
 
       // if (settingsStore.general.showChorus) {
@@ -672,8 +846,6 @@ export const usePlayerStore = defineStore(
 
       updateMediaSessionMetaData(value)
       lyricStore.updateIndex()
-
-      // 缓存下一首歌的信息
     })
 
     watch(playing, (value) => {
@@ -882,8 +1054,86 @@ export const usePlayerStore = defineStore(
       }
     }
 
+    // ─────────────────────────────────────────────
+    // 跨平台歌曲匹配（播放时触发 + 预匹配下一首）
+    // ─────────────────────────────────────────────
+
+    function triggerTrackMatch(track: Track | undefined) {
+      if (!track) return Promise.resolve()
+      // 线上歌曲（网易云/酷狗）本身已有完整的歌词、评论等数据，不需要匹配
+      if (track.type === 'library') return Promise.resolve()
+
+      const meta = {
+        trackId: String(track.id),
+        name: track.name,
+        album: track.album?.name,
+        artists: track.artists.map((a) => a.name),
+        duration: track.duration,
+        sourcePlugin: track.pluginId,
+        sourceType: track.type,
+        sourceContext: { ...track.sourceContext }
+      }
+
+      return window.mainApi?.invoke('trackMatch', meta) ?? Promise.resolve()
+    }
+
+    let prefetchTimer: ReturnType<typeof setTimeout> | null = null
+
+    function scheduleNextTrackPrefetch() {
+      if (prefetchTimer) clearTimeout(prefetchTimer)
+
+      prefetchTimer = setTimeout(() => {
+        prefetchTimer = null
+
+        if (isPersonalFM.value) {
+          // FM 模式：队列中已是完整 Track，直接缓存 + 预热封面
+          const next = fmTracks.value[0]
+          if (!next) return
+          nextTrack.value = next
+          if (next.picUrl) {
+            fetch(next.picUrl).catch(() => {})
+          }
+          return
+        }
+
+        const nextInfo = _peekNextTrack()
+        if (!nextInfo) return
+
+        const [nextPlugin, nextSourceContext] = nextInfo
+
+        // 获取下一首的详细信息
+        pluginMethodCall(nextPlugin as PluginId, 'getTrackDetail', {
+          tracks: [nextSourceContext]
+        }).then((res) => {
+          if (!res.data?.[0]) return
+
+          const track = res.data[0] as Track
+
+          // 保存 nextTrack 缓存，供 replaceCurrentTrack 复用
+          nextTrack.value = {
+            ...track,
+            album: { ...track.album, pluginId: nextPlugin },
+            artists: track.artists.map((it) => ({ ...it, pluginId: nextPlugin })),
+            albumArtists: track.albumArtists.map((it) => ({ ...it, pluginId: nextPlugin })),
+            pluginId: nextPlugin
+          }
+
+          // 裸 fetch 触发 HTTP 缓存，切歌后封面图秒出
+          if (track.picUrl) {
+            fetch(track.picUrl).catch(() => {})
+          }
+
+          triggerTrackMatch(nextTrack.value)
+        })
+      }, 20000)
+    }
+
     onMounted(() => {
-      engineStore.setup({ onTimeUpdate: _handleTimeUpdate, onEnded: _nextTrackCallback })
+      engineStore
+        .setup({ onTimeUpdate: _handleTimeUpdate, onEnded: _nextTrackCallback })
+        .then(() => {
+          engineStore.applyVolume(_volume.value)
+        })
       lyricStore.setTimeGetter(engineStore.getCurrentTime)
       lyricStore.setPlayingGetter(() => playing.value)
       lyricStore.setRateGetter(() => playbackRate.value)
@@ -894,9 +1144,16 @@ export const usePlayerStore = defineStore(
       initMediaSession()
       handleIpcRenderer()
 
+      // FM 启动预取：library 开启且队列为空时后台获取
+      if (pluginStore.enableLibrary && fmTracks.value.length === 0) {
+        refillFMTracks()
+      }
+
       if (enabled.value && currentTrack.value) {
         const { pluginId, sourceContext } = currentTrack.value
-        replaceCurrentTrack(pluginId, sourceContext, false)
+        replaceCurrentTrack(pluginId, sourceContext, false).catch(() => {
+          playing.value = false
+        })
       }
     })
 
@@ -921,10 +1178,12 @@ export const usePlayerStore = defineStore(
       isLiked,
       source,
       playlistSource,
+      playList,
       shuffleList,
       playNextList,
       list,
       personalFMTrack,
+      fmTracks,
       hasListSource,
       getListSourcePath,
 
@@ -936,7 +1195,7 @@ export const usePlayerStore = defineStore(
       switchRepeatMode,
       addTrackToPlayNext,
       clearPlayNextList,
-      // playPersonalFM,
+      playPersonalFM,
       moveToFMTrash,
       resetPlayer,
 
@@ -962,7 +1221,7 @@ export const usePlayerStore = defineStore(
   },
   {
     persist: {
-      omit: ['pic', 'title']
+      omit: ['pic', 'title', 'fmTracks']
     }
   }
 )

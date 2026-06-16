@@ -65,7 +65,15 @@ const apis = api
 
 const meta = {
   name: 'Navidrome',
-  type: 'stream'
+  icon: 'navidrome',
+  type: 'stream',
+  capabilities: {
+    matchTrack: false,
+    getLyric: true,
+    getComments: false,
+    comment: { read: false, like: false, submit: false, floor: false },
+    mv: { detail: false, like: false, subscribe: false }
+  }
 }
 exports.meta = meta
 
@@ -187,6 +195,7 @@ function formatTrack(item, idx) {
     createTime: new Date(item.updatedAt || item.createdAt).getTime(),
     no: item.trackNumber || 1,
     mvid: 0,
+    size: item.size || 0,
     playCount: item.playCount || 0,
     album: {
       id: item.albumId,
@@ -444,7 +453,8 @@ exports.doLogout = () => {
 }
 
 exports.getAllTracks = async (_params) => {
-  const { _start = 0, sort, order, hasMore = true } = _params
+  const { _start: rawStart = 0, sort, order, hasMore = true, reset } = _params
+  const _start = reset ? 0 : rawStart
 
   if (!hasMore) return { code: 200, data: [], count: 0, sourceContext: _params }
 
@@ -671,11 +681,11 @@ exports.addOrRemoveTracksToPlaylist = async (_params) => {
     const params = {}
     let method = ''
     if (op === 'add') {
-      params.ids = tracks.map((it) => it.id)
+      params.ids = tracks.map((it) => it.sourceContext?.id || it.id)
       method = 'POST'
     } else {
       const __params = new URLSearchParams()
-      tracks.forEach((item) => __params.append('id', item.idx))
+      tracks.forEach((item) => __params.append('id', item.sourceContext?.idx || item.idx))
       endpoint = `${endpoint}?${__params.toString()}`
       method = 'DELETE'
     }
@@ -717,6 +727,24 @@ exports.deletePlaylist = async (params) => {
     return { code: 200 }
   } catch (error) {
     console.log('[navidrome deletePlaylist error]', error)
+    return { code: 404 }
+  }
+}
+
+/**
+ * 编辑歌单信息
+ * @param {Object} params
+ * @param {number|string} params.id
+ * @param {string} params.name
+ * @param {string} params.desc
+ */
+exports.editPlaylist = async (params) => {
+  try {
+    const { id, name, desc } = params
+    await subsonicRequest('updatePlaylist', { playlistId: id, name, comment: desc })
+    return { code: 200 }
+  } catch (error) {
+    console.log('[navidrome editPlaylist error]', error)
     return { code: 404 }
   }
 }
@@ -796,3 +824,5 @@ exports.scrobble = async (params) => {
     return { code: 404 }
   }
 }
+
+exports.userRecord = async () => ({ code: 404, weekData: [], allData: [], sourceContext: {} })

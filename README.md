@@ -3,7 +3,7 @@
     <img src="buildAssets/icons/icon.png" alt="Logo" width="156" height="156">
   </a>
   <h2  style="font-weight: 600">VutronMusic</h2>
-  <p>高颜值的第三方网易云播放器</p>
+  <p>多数据源桌面音乐播放器</p>
 </div>
 
 [![LocalMusic][localMusic-screenShot]](https://github.com/stark81/VutronMusic)
@@ -19,9 +19,12 @@
 ## 特点
 
 - ⚡️ 手脚架为：[vutron](https://github.com/jooy2/vutron)；
-- ⚡️ 使用 Vue3 + ts + pinia + fastify + better-sqlite3 进行开发；
+- ⚡️ 使用 Vue3 + TypeScript + Pinia + Fastify + better-sqlite3 + Zod 进行开发；
+- ⚡️ 插件化架构：支持多数据源聚合，可通过插件扩展新的音乐平台
 - ⚡️ 支持本地歌曲、离线歌单功能，本地歌曲支持读取外挂和内嵌封面歌词，支持逐字歌词功能，支持线上信息匹配；
 - ⚡️ 支持流媒体音乐，暂时包括：navidrome、jellyfin和emby；
+- ⚡️ 支持网易云、酷狗等在线音乐平台（通过插件系统）
+- ⚡️ 跨平台歌曲匹配：播放时自动匹配在线插件，获取歌词、评论等元数据
 - ⚡️ 支持Mac状态栏歌词、TouchBar歌词等；Linux下可通过[media-controls](https://github.com/stark81/media-controls)、[dynamic-music-pill](https://extensions.gnome.org/extension/9334/dynamic-music-pill/)插件(gnome桌面)或者[vutronmusic-lyrics](http://github.com/cmachsocket/org.kde.plasma.vutronmusic-lyrics)插件(kde桌面)将歌词显示在TopBar里；
 - ⚡️ 支持音效设置、变调变速等高级音频功能；
 - ⚡️ 支持云盘、歌曲评论等功能；
@@ -29,12 +32,13 @@
 ## 配置开发环境
 
 ```
-# 安装依赖，建议使用node21 + python3.9,其他的python版本可能会导致依赖安装失败的问题；
+# 环境要求：Node.js >= 22.6.0，Yarn 1.22.22
+# 安装依赖
 yarn install
 
 # 运行
-yarn run dev（开发）
-yarn run build（构建）
+yarn dev（开发）
+yarn build（构建）
 ```
 
 ## 开源许可

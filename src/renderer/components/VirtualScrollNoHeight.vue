@@ -96,6 +96,7 @@ const normalState = useNormalStateStore()
 const { enableScrolling, virtualScrolling } = storeToRefs(normalState)
 const { registerInstance, unregisterInstance, updateScroll } = normalState
 
+// 1. 恢复 _listData，做对象引用缓存
 const _listData = computed(() => {
   return list.value.reduce<{ _key: number; value: T }[]>((init, cur, index) => {
     init.push({
@@ -105,6 +106,7 @@ const _listData = computed(() => {
     return init
   }, [])
 })
+
 const listHeight = computed(() => {
   const totalRows = Math.ceil(_listData.value.length / props.columnNumber)
   const idx = Math.floor((position.value.length - 1) / props.columnNumber) * props.columnNumber
@@ -131,11 +133,14 @@ const visibleCount = computed(() => Math.floor(containerHeight.value / itemSize.
 const endRow = computed(() => startRow.value + visibleCount.value)
 const aboveCount = computed(() => Math.min(startRow.value, props.aboveValue))
 const belowCount = computed(() => Math.min(list.value.length - endRow.value, props.belowValue))
+
+// 2. visibleData 直接 slice 缓存
 const visibleData = computed(() => {
   const _start = (startRow.value - aboveCount.value) * props.columnNumber
   const _end = (endRow.value + belowCount.value) * props.columnNumber
   return _listData.value.slice(_start, _end)
 })
+
 const listStyles = computed(() => {
   return {
     gap: `0 ${props.gap}px`,
@@ -153,42 +158,54 @@ const scrollMainTo = inject('scrollMainTo', (to: number) => {})
 const _isPrefixSubset = (oldArray: any[], newArray: any[]) => {
   if (newArray.length < oldArray.length || !oldArray.length) return false
   for (let i = 0; i < oldArray.length; i++) {
-    if (
-      Object.prototype.hasOwnProperty.call(newArray[i].value, 'commentId') &&
-      newArray[i].value?.commentId !== oldArray[i].value?.commentId
-    ) {
-      return false
-    } else if (
-      Object.prototype.hasOwnProperty.call(newArray[i].value, 'id') &&
-      newArray[i].value?.id !== oldArray[i].value?.id
-    ) {
-      return false
-    }
+    if (oldArray[i] === newArray[i]) continue
+
+    const oldItem = oldArray[i]?.value || {}
+    const newItem = newArray[i]?.value || {}
+
+    const hasCommentId = Object.prototype.hasOwnProperty.call(newItem, 'commentId')
+    const hasId = Object.prototype.hasOwnProperty.call(newItem, 'id')
+
+    if (hasCommentId && newItem.commentId !== oldItem.commentId) return false
+    if (hasId && newItem.id !== oldItem.id) return false
+    if (!hasCommentId && !hasId) return false
   }
   return true
 }
 
+// 3. 移除 over 死代码
 const initPosition = () => {
-  position.value = _listData.value.map((d: any, index: number) => ({
-    index,
-    height: itemSize.value,
-    top: Math.floor(index / props.columnNumber) * itemSize.value,
-    bottom: (Math.floor(index / props.columnNumber) + 1) * itemSize.value
-  }))
+  const oldPositions = position.value
+  position.value = _listData.value.map((d: any, index: number) => {
+    const oldPos = oldPositions[index]
+    if (oldPos) {
+      return { index, height: oldPos.height, top: oldPos.top, bottom: oldPos.bottom }
+    }
+    return {
+      index,
+      height: itemSize.value,
+      top: Math.floor(index / props.columnNumber) * itemSize.value,
+      bottom: (Math.floor(index / props.columnNumber) + 1) * itemSize.value
+    }
+  })
 }
+
 const updateItemsSize = () => {
+  let dirty = false
   itemsRef.value?.forEach((node) => {
     if (node.id % props.columnNumber === 0) {
       const rect = node.getBoundingClientRect()
       const height = rect.height
       const index = +node.id
-      const oldHeight = position.value[index].height
+      const entry = position.value[index]
+      if (!entry) return
+      const oldHeight = entry.height
       const dValue = oldHeight - height
 
       if (dValue) {
-        position.value[index].bottom -= dValue
-        position.value[index].height = height
-        position.value[index].over = true
+        dirty = true
+        entry.bottom -= dValue
+        entry.height = height
 
         for (let k = index + 1; k < position.value.length; k++) {
           if (k % props.columnNumber !== 0) break
@@ -198,11 +215,12 @@ const updateItemsSize = () => {
       }
     }
   })
+  return dirty
 }
+
 const setStartOffset = () => {
   if (!position.value.length) return
   if (startRow.value >= 1) {
-    // 此处可能有bug
     const size =
       position.value[startRow.value * props.columnNumber]?.top -
       (position.value[(startRow.value - aboveCount.value) * props.columnNumber]?.top || 0)
@@ -220,24 +238,10 @@ watch(visibleMiddle, (value) => {
 
 let lastScrollTop = listRef.value?.scrollTop
 
-/**
- * 一、向下滚动: index > startRow.value
- *   1. 定位的元素小于窗口元素的一半时，此时虚拟列表不需要完全占据窗口，此时直接找到定位元素滚动到中间即可；
- *   2. 定位的元素大于窗口元素的一半时，虚拟列表完全占据窗口：
- *     1）、将虚拟列表滚动到占据整个窗口为止；
- *     2）、将定位的元素滚动到列表中间；
- * 二、向上滚动 index <= startRow.value
- *   1.定位元素大于窗口元素的一半时，虚拟列表完全占据窗口。此时虚拟列表滚动前后都完全占据窗口，只需要滚动元素即可；
- *   2. 定位元素大小窗口元素的一半时，说明虚拟列表由完全占据窗口滚动到部分占据窗口：
- *     1）、先把虚拟列表内部滚动到顶部；
- *     2）、然后找到定位元素滚动到页面中间；
- */
 const scrollTocurrent = (index: number, behavior: ScrollBehavior = 'smooth') => {
   scrollToIndex.value = index
   const idx = index / props.columnNumber - Math.floor(visibleCount.value / 2)
 
-  // 当定位元素和当前元素差距大于100时，会触发元素内的“快速”滚动，在一些流媒体音乐中可能会导致
-  // 短时间内大量加载图片，导致响应错误。因此设置一个标志位，处于快速滚动时请求本地图片；
   if (Math.abs(index - visibleMiddle.value) > 100) {
     virtualScrolling.value = true
   }
@@ -316,21 +320,11 @@ const scrollToTop = () => {
   }, 30)
 }
 
-/**
- * 为了防止虚拟列表滚动速度过快，导致频繁请求本地歌曲封面/流媒体音乐封面，我们可以对正处于
- * 快速滚动的歌曲返回一张程序内的图片资源，以减轻资源占用问题。
- * 快速滚动的判定条件为：
- * 1. 虚拟列表处于滚动状态；
- * 2. 计算目标位置与当前位置之间的关系，如果两者初始差距大于100,则认为它会发生快速滚动，
- *    这里的100需要再次查证后进行调整（小于100则认为仅仅会发生慢速滚动，不会导致资源占用
- *    问题）
- * 当满足以上两个条件时，则认为虚拟列表正在快速滚动，此时这两个封面图片返回两张asset内的图片
- */
-
 const getStartIndex = (scrollTop = 0) => {
   return binarySearch(scrollTop)
 }
 
+// 4. 修复 binarySearch 性能问题：end = midIndex - 1
 const binarySearch = (value: any) => {
   let start = 0
   let end = Math.ceil(position.value.length / props.columnNumber) - 1
@@ -347,7 +341,7 @@ const binarySearch = (value: any) => {
       if (tempIndex === null || tempIndex > midIndex) {
         tempIndex = midIndex
       }
-      end = end - 1
+      end = midIndex - 1 // 修复性能退化
     }
   }
   return tempIndex!
@@ -366,20 +360,36 @@ const rafThrottle = (fn: Function) => {
   }
 }
 
+const loadingMore = ref(false)
+let lastScrollSync = 0
+let loadMoreTimer: ReturnType<typeof setTimeout> | null = null
+
 const onScrollToBottom = () => {
   const scrollTop = listRef.value.scrollTop
   const containerHeight = listRef.value.clientHeight
   const contentHeight = listRef.value.scrollHeight
 
+  const now = Date.now()
   registerInstance(instanceId.value)
-  updateScroll(instanceId.value, {
-    scrollTop,
-    containerHeight,
-    listHeight: listHeight.value
-  })
+  if (now - lastScrollSync > 100) {
+    lastScrollSync = now
+    updateScroll(instanceId.value, {
+      scrollTop,
+      containerHeight,
+      listHeight: listHeight.value
+    })
+  }
 
   if (scrollTop + containerHeight >= contentHeight) {
-    props.loadMore()
+    if (!loadingMore.value) {
+      loadingMore.value = true
+      props.loadMore()
+      if (loadMoreTimer) clearTimeout(loadMoreTimer)
+      loadMoreTimer = setTimeout(() => {
+        loadingMore.value = false
+        loadMoreTimer = null
+      }, 5000)
+    }
   }
 }
 
@@ -396,12 +406,6 @@ const scrollEvent = rafThrottle(() => {
   onScroll()
 })
 
-/**
- * 条件：
- * 1. 该组件请在页面的最后来使用，如果在页面中间使用时，请确保传入的props.height小于window.innerHeight - 84(64)
- * 2. 当滚动组件与窗口的intersect为1时，将window设置为不可滚动，组件内部设置为可滚动，同时记录滚动距离；
- * 3. 当内部滚动到顶部、底部时，设置窗口可滚动、组件内部不可滚动；
- */
 const observer = new IntersectionObserver(
   (entries) => {
     entries.forEach((entry) => {
@@ -417,8 +421,6 @@ const observer = new IntersectionObserver(
   {
     root: null,
     rootMargin: `-64px 0px 0px 0px`,
-    // 这里设置成0.98的目的，是为了确保在special-playlist页面可以正常进入到滚动状态
-    // 某些情况下，页面会无法达到1，导致无法滚动
     threshold: 0.99
   }
 )
@@ -435,27 +437,36 @@ watch(enableScrolling, (value) => {
   }
 })
 
+// 5. 修正多列增量追加坐标计算，并移除无用 lock
 watch(_listData, (newList, oldList) => {
   const isMore = _isPrefixSubset(oldList, newList)
   if (isMore) {
-    lock.value = true
-    const newItems = newList.slice(oldList.length)
+    let lastBottom = 0
+    if (position.value.length > 0) {
+      // 考虑 columnNumber，取当前最后一行第一个元素的 bottom
+      const lastIdx = position.value.length - 1
+      const rowStartIdx = Math.floor(lastIdx / props.columnNumber) * props.columnNumber
+      lastBottom = position.value[rowStartIdx]?.bottom || 0
+    }
 
+    const newItems = newList.slice(oldList.length)
     newItems.forEach(({ _key }) => {
       const idx = _key
-      // idx的top，应该是上一行第一个的bottom，获取上一行第一个的index
-      const i = (Math.floor(idx / props.columnNumber) - 1) * props.columnNumber
-      const top = position.value[i]?.bottom
-      position.value.push({ index: idx, height: itemSize.value, top, bottom: top + itemSize.value })
+      // 如果当前元素是新一行的第一个元素，更新 lastBottom 为上一行最后一个元素的 bottom
+      if (idx % props.columnNumber === 0 && idx !== oldList.length) {
+        lastBottom = position.value[idx - 1]?.bottom || lastBottom
+      }
+      const top = lastBottom
+      const bottom = top + itemSize.value
+      position.value.push({ index: idx, height: itemSize.value, top, bottom })
     })
-
-    lock.value = false
   } else {
     if (newList.length < startRow.value) {
       startRow.value = 0
     }
     initPosition()
   }
+  loadingMore.value = false
 })
 
 initPosition()
@@ -490,14 +501,12 @@ onActivated(() => {
 })
 
 onDeactivated(() => {
-  // startRow.value = 0
   unregisterInstance(instanceId.value)
   observer.unobserve(listRef.value)
   virtualScrolling.value = false
 })
 
 onMounted(() => {
-  // startRow.value = 0
   instanceId.value = Math.random().toString(36).substring(2, 9)
   registerInstance(instanceId.value)
   window.addEventListener('resize', updateWindowHeight)
@@ -515,6 +524,7 @@ onUpdated(() => {
     setStartOffset()
   })
 })
+
 onBeforeUnmount(() => {
   unregisterInstance(instanceId.value)
   window.removeEventListener('resize', updateWindowHeight)

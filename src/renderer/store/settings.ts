@@ -1,9 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, reactive, watch, toRaw, onMounted } from 'vue'
 import DefaultShortcuts from '../utils/shortcuts'
-import { playlistCategories } from '../utils/common'
 import cloneDeep from 'lodash/cloneDeep'
-import { TrackInfoOrder, Appearance } from '@/types/music'
+import { Appearance } from '@/types/music'
 
 type BackgroundEffect = 'none' | 'true' | 'blur' | 'dynamic' | 'customize'
 type StandardBackgroundEffect = Exclude<BackgroundEffect, 'customize'>
@@ -12,7 +11,6 @@ export type bgType = 'image' | 'video' | 'folder' | 'api'
 export const useSettingsStore = defineStore(
   'settings',
   () => {
-    const enabledPlaylistCategories = playlistCategories.filter((c) => c.enable).map((c) => c.name)
     const theme = reactive({
       appearance: 'auto' as Appearance,
       colors: [
@@ -24,12 +22,12 @@ export const useSettingsStore = defineStore(
       ]
     })
     const localMusic = reactive({
+      /** @deprecated 已迁移至 pluginMusic.enableLocal，此字段仅保持持久化兼容 */
       enble: true,
       replayGain: false,
       useInnerInfoFirst: false,
       embedCoverArt: 0, // 0: 不嵌入, 1: 内嵌, 2: 歌曲路径下, 3: 两者都嵌入
-      embedStyle: 0, // 0: 跳过，1：覆盖
-      trackInfoOrder: ['online', 'path', 'embedded'] as TrackInfoOrder[]
+      embedStyle: 0 // 0: 跳过，1：覆盖
     })
     const general = reactive({
       language: 'zh',
@@ -42,7 +40,6 @@ export const useSettingsStore = defineStore(
       preventSuspension: false,
       lyricBackground: 'true' as BackgroundEffect,
       savedBackground: 'true' as StandardBackgroundEffect,
-      enabledPlaylistCategories,
       fadeDuration: 0.5, // 音频淡入淡出时长（秒）
       showBanner: true,
       autoUpdate: true,
@@ -50,7 +47,9 @@ export const useSettingsStore = defineStore(
       trayColor: 0, // 0: 彩色, 1: 白色, 2: 黑色, 3: 跟随系统
       showChorus: true, // 进度条显示副歌时间
       clickToLyric: false, // 点击播放栏打开歌词页
-      forceFactor: false
+      forceFactor: false,
+      /** 音量均衡（ReplayGain），自动平衡不同歌曲间的响度差异 */
+      volumeNormalization: true
     })
 
     const tray = reactive({
@@ -148,13 +147,6 @@ export const useSettingsStore = defineStore(
       () => localMusic.useInnerInfoFirst,
       (newValue) => {
         window.mainApi?.send('setStoreSettings', { innerFirst: newValue })
-      }
-    )
-
-    watch(
-      () => localMusic.trackInfoOrder,
-      (value) => {
-        window.mainApi?.send('setStoreSettings', { trackInfoOrder: toRaw(value) })
       }
     )
 
@@ -259,17 +251,6 @@ export const useSettingsStore = defineStore(
       window.mainApi?.send('disconnect-lastfm')
     }
 
-    const togglePlaylistCategory = (name: string) => {
-      const index = general.enabledPlaylistCategories.findIndex((c) => c === name)
-      if (index !== -1) {
-        general.enabledPlaylistCategories = general.enabledPlaylistCategories.filter(
-          (c) => c !== name
-        )
-      } else {
-        general.enabledPlaylistCategories.push(name)
-      }
-    }
-
     const updateShortcut = ({ id, type, shortcut }) => {
       const newShortcut = shortcuts.value.find((s) => s.id === id)!
       newShortcut[type] = shortcut
@@ -320,7 +301,6 @@ export const useSettingsStore = defineStore(
       unblockNeteaseMusic,
       updateShortcut,
       deleteCacheTracks,
-      togglePlaylistCategory,
       restoreDefaultShortcuts,
       lastfmConnect,
       lastfmDisconnect

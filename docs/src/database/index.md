@@ -11,7 +11,7 @@ VutronMusic 是一个 Electron 音乐播放器。原本只支持网易云音乐�
 - 酷狗音乐（kugou）
 - Navidrome / Emby / Jellyfin（自建流媒体）
 
-数据库使用 better-sqlite3，通过 SQL 文件 + 应用内 `migrate()` 管理结构变更（目前开发阶段 `migrate()` 已临时注释，历史迁移文件将在重构完成后清理）。
+数据库使用 better-sqlite3，通过 SQL 文件 + 应用内 `migrate()` 管理结构变更（当前 `migrate()` 已简化为仅追踪 appVersion，无历史 SQL 迁移逻辑）。
 
 ## 2. 核心架构理念
 
@@ -63,9 +63,8 @@ Track / Album / Artist 三张表是 canonical（规范化）实体表，只存�
 | 本地数据表 | Audio | 本地音频文件信息，一个 Track 可对应多个 Audio（不同格式/音质） |
 | 缓存表 | Lyrics | 各插件返回的歌词缓存 |
 | Source 映射表 | TrackSource, AlbumSource, ArtistSource | 元数据 → 各插件对应条目的映射 |
-| 系统表 | AppData, PluginData | 应用配置 / 插件自定义键值存储 |
-
-歌单（Playlist）相关设计本轮暂不涉及。
+| 歌单表 | Playlist, PlaylistEntry | 用户歌单及歌单条目 |
+| 系统表 | AppData, PluginData, Plugins | 应用配置 / 插件自定义键值存储 / 插件注册表 |
 
 ### 3.2 SQL 定义
 
@@ -98,15 +97,21 @@ CREATE TABLE IF NOT EXISTS "Album" (
 
 CREATE TABLE IF NOT EXISTS "Track" (
     "id" TEXT PRIMARY KEY,
+
     "name" TEXT NOT NULL,
     "duration" INTEGER NOT NULL,
+
     "albumId" TEXT,
     "no" INTEGER NOT NULL DEFAULT 0,
     "alias" TEXT NOT NULL DEFAULT '',
     "picUrl" TEXT NOT NULL DEFAULT '',
     "playCount" INTEGER NOT NULL DEFAULT 0,
+    "liked" INTEGER NOT NULL DEFAULT 0,
+    "deleted" INTEGER NOT NULL DEFAULT 0,
+    "musicBrainzTrackId" TEXT,
     "createTime" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updateTime" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
     FOREIGN KEY(albumId) REFERENCES Album(id)
 );
 
@@ -134,6 +139,8 @@ CREATE TABLE IF NOT EXISTS "Audio" (
     "bitrate" INTEGER NOT NULL DEFAULT 0,
     "gain" REAL NOT NULL DEFAULT 0,
     "peak" REAL NOT NULL DEFAULT 1,
+    "size" INTEGER NOT NULL DEFAULT 0,
+    "deleted" INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY(trackId) REFERENCES Track(id)
 );
 
@@ -189,6 +196,44 @@ CREATE TABLE IF NOT EXISTS "PluginData" (
     "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id)
 );
+
+-- ============ 插件注册表 ============
+
+CREATE TABLE IF NOT EXISTS "Plugins" (
+    "id" TEXT PRIMARY KEY,
+    "name" TEXT NOT NULL DEFAULT '',
+    "type" TEXT NOT NULL DEFAULT '',
+    "path" TEXT NOT NULL DEFAULT '',
+    "builtIn" INTEGER NOT NULL DEFAULT 0,
+    "enabled" INTEGER NOT NULL DEFAULT 1,
+    "createTime" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updateTime" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ============ 歌单表 ============
+
+CREATE TABLE IF NOT EXISTS "Playlist" (
+    "id" TEXT NOT NULL,
+    "pluginId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "description" TEXT NOT NULL DEFAULT '',
+    "picUrl" TEXT NOT NULL DEFAULT '',
+    "createTime" INTEGER NOT NULL,
+    "updateTime" INTEGER NOT NULL,
+    PRIMARY KEY (id, pluginId)
+);
+
+CREATE TABLE IF NOT EXISTS "PlaylistEntry" (
+    "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+    "playlistId" TEXT NOT NULL,
+    "pluginId" TEXT NOT NULL,
+    "sourceContext" TEXT NOT NULL,
+    "position" INTEGER NOT NULL DEFAULT 0,
+    "createTime" INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS "idx_playlist_entry_playlist_id" ON "PlaylistEntry" ("playlistId");
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_playlist_entry_unique" ON "PlaylistEntry" ("playlistId", "pluginId", "sourceContext");
 ```
 
 ## 4. 完整数据流示例：周杰伦《晴天》
@@ -245,6 +290,7 @@ CREATE TABLE IF NOT EXISTS "PluginData" (
 - 布尔值用 INTEGER（0/1）
 - 时间字段统一 `DATETIME DEFAULT CURRENT_TIMESTAMP`
 - `PluginData.updatedAt` 与其他表的 `updateTime` 命名不一致，属历史遗留，新表请统一用 `updateTime`/`createTime`
+- `TrackSource.matched` 字段含义：`1` = 已确认匹配（自动或用户确认），`0` = 待确认匹配（置信度不足，需用户在 UI 中确认）
 
 ### 待定事项
 
@@ -254,9 +300,8 @@ CREATE TABLE IF NOT EXISTS "PluginData" (
 - **Album/Artist 的本地去重规则**：第5节只细化了 Track 层级，Album/Artist 的归并策略待设计
 - **跨平台匹配的触发时机与 UI**：自动搜索匹配 vs 用户手动添加/确认的具体流程未设计
 - **sourceContext 反向查找**：是否约定所有插件的 sourceContext 包含统一的 id 字段
-- **Playlist / PlaylistEntry 设计**：本轮讨论暂未涉及
 - **插件卸载时的清理逻辑**：删除某 pluginId 在 TrackSource / AlbumSource / ArtistSource / Lyrics / PluginData 中的所有记录，以及孤儿 Track 的垃圾回收，尚未实现
-- **迁移机制**：开发阶段 `migrate()` 已临时注释，旧迁移 SQL 文件计划清理，重构完成后需要重新设计版本化迁移流程
+- **迁移机制**：`migrate()` 已简化为仅追踪 appVersion，旧迁移 SQL 文件已清理，后续需重新设计版本化迁移流程
 
 ---
 
@@ -268,9 +313,10 @@ CREATE TABLE IF NOT EXISTS "PluginData" (
 
 ```
 Track（歌曲元数据）
-  ├── id: md5("local_track:" + filePath)  — 确定性 ID
+  ├── id: crypto.randomUUID()             — 新 Track 用 UUID
   ├── name, duration, albumId
   ├── albumId → Album(id)
+  ├── musicBrainzTrackId                  — 强信号去重依据
   └── TrackArtist(trackId, artistId) → Artist(id)
 
 Album（专辑）
@@ -281,14 +327,14 @@ Artist（艺术家）
   └── id: md5("local_artist:" + name)     — 同名字符归并
 
 Audio（音频文件）— 本地音乐的核心数据
-  ├── id: 同 Track.id（1:1 关系，一个文件=一个 Track）
+  ├── id: md5("audio:" + filePath)        — 确定性 ID
   ├── trackId → Track(id)
   ├── filePath, md5, bitrate, gain, peak
   └── 一个 Track 可对应多个 Audio（不同格式/音质的同一首歌）
 
 TrackSource（数据来源标识）
   ├── pluginId = 'local'
-  ├── sourceContext: { filePath: "..." }
+  ├── sourceContext: '{}'                 — 文件路径查 Audio 表
   └── matched = 1（本地文件不需要人工确认）
 ```
 
@@ -303,7 +349,7 @@ TrackSource（数据来源标识）
     │
     ├── ① 读取现有 Artist/Album/Audio（用于去重）
     ├── ② fast-glob 搜索音频文件（mp3/aiff/flac/alac/m4a/aac/wav/opus）
-    ├── ③ 筛选新文件（或 update=true 时全量）
+    ├── ③ 筛选新文件（不在 Audio 表里的）
     ├── ④ Piscina 线程池 → scanMusic worker 解析元数据
     │     返回：{ name, duration, artists[], album, albumArtist[],
     │            filePath, md5, br, gain, peak, createTime }
@@ -360,3 +406,44 @@ TrackSource（数据来源标识）
 - **TrackSource 必定存在**：每首本地歌曲都会有一条 `pluginId='local'` 的 TrackSource 记录。这是本地数据能否被识别为「本地音乐」的关键标志
 - **Audio 表**是本地音乐的入口：渲染进程根据 Audio 表的 filePath 构建播放列表，而不是通过 Track 表
 - **picUrl**：本地歌曲的封面通过 `vutron://local-asset?type=pic&id={trackId}` 格式的内置协议获取
+
+---
+
+## 8. 跨插件歌曲匹配（trackMatch）
+
+### 8.1 触发时机
+
+播放器 store 中播放歌曲 20 秒后触发（`src/renderer/store/player.ts` 中的 prefetch 逻辑），通过 `trackMatch` IPC 调用主进程。
+
+### 8.2 匹配流程
+
+```
+渲染进程调用 trackMatch IPC
+    │  传入：trackId, name, album, artists, duration, sourcePlugin, sourceType, sourceContext
+    ▼
+主进程（src/main/IPCs.ts）
+    │
+    ├── ① 写入来源自身的 TrackSource（local 已在扫描时写入，INSERT OR IGNORE 会跳过）
+    │
+    ├── ② 遍历所有已注册插件
+    │     过滤条件：meta.type === 'library' && meta.capabilities?.matchTrack !== false
+    │
+    ├── ③ 跳过已有 TrackSource 记录的插件
+    │
+    ├── ④ 调用插件 matchTrack 方法
+    │     传入：name, album, artists, duration, ...sourceContext
+    │
+    ├── ⑤ 根据 capabilities.matchTrack 类型和置信度决定 matched 值
+    │     official 插件 → matched = 1
+    │     search 插件   → confidence ≥ 80 → matched = 1
+    │                      confidence ≥ 50 → matched = 0
+    │                      confidence < 50 → 丢弃
+    │
+    └── ⑥ 写入 TrackSource 表（INSERT OR REPLACE）
+```
+
+### 8.3 与其他功能的关联
+
+- **歌词来源选择**：通过 `get-content-candidates` IPC，查找 `capabilities.getLyric` 为 true 的插件
+- **评论来源选择**：通过 `plugin-comment` IPC，查找 `capabilities.getComments` 为 true 的插件
+- **播放链接**：直接通过 TrackSource 中的 pluginId 路由到对应插件的 `songUrl` 方法

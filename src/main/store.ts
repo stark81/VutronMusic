@@ -137,7 +137,17 @@ const store = new Store<TypeElectronStore>({
       enableAmuseServer: true,
       lastfmSession: { name: '', key: '', subscriber: 0 },
       proxy: { type: 0, address: '', port: '' },
-      forceFactor: false
+      forceFactor: false,
+      sourcePriority: {
+        lyric: ['self'] as string[],
+        comment: ['self'] as string[],
+        trackInfoOrder: ['path', 'online', 'embedded']
+      }
+    },
+    pluginEnable: {
+      library: true,
+      stream: true,
+      local: true
     },
     accounts: {
       selected: 'navidrome',

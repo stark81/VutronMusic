@@ -15,7 +15,6 @@
     "album": "专辑",
     "playlist": "歌单",
     "user": "用户",
-    "lyric": "歌词",
     "mv": "MV",
     "chart": "排行榜",
     "newTrack": "新歌速递",
@@ -105,8 +104,8 @@
     },
     "embeddedInformation": "优先使用歌曲内嵌信息",
     "trackInfoOrder": {
-      "text": "歌曲信息获取顺序设置",
-      "desc": "此功能用于设置本地歌曲信息（歌词、封面）的获取顺序，可拖拽调整顺序",
+      "text": "封面获取顺序",
+      "desc": "设置本地音乐封面的获取顺序，拖拽调整优先级",
       "path": "从歌曲目录下获取",
       "online": "从线上获取",
       "embedded": "从歌曲内嵌信息中获取"
@@ -162,6 +161,7 @@
     "descOrder": "降序排列",
     "selectAll": "全选",
     "batchOperation": "批量操作",
+    "refreshData": "重新获取数据",
     "reScan": "重新扫描歌曲",
     "showComment": "查看评论",
     "showLyric": "显示歌词",
@@ -187,6 +187,7 @@
     "openOnBrowser": "在浏览器中打开",
     "copyURL": "复制链接",
     "copyId": "复制ID",
+    "copySourceContext": "复制歌曲上下文",
     "playMV": "播放MV",
     "setFont": "设置字体"
   },
@@ -202,7 +203,14 @@
     "loginWithPhone": "手机号登录",
     "loginWithQr": "二维码登录",
     "loginWithCookie": "Cookie登录",
-    "noticeElectron": "你的密码会在本地进行MD5加密后再传输到网易云API。VutronMusic 不会传输你的账号数据到任何非网易云音乐官方的服务器。"
+    "cookiePlaceholder": "粘贴你的Cookie字符串",
+    "errorNoCookie": "请输入Cookie",
+    "noticeElectron": "你的密码会在本地进行MD5加密后再传输到网易云API。VutronMusic 不会传输你的账号数据到任何非网易云音乐官方的服务器。",
+    "removeDir": "删除",
+    "emptyScanDir": "请设置本地音乐扫描目录",
+    "chooseDir": "选择目录",
+    "setScanDir": "设置",
+    "errorNoScanDir": "请设置扫描目录"
   },
   "player": {
     "play": "播放",
@@ -263,6 +271,10 @@
     "fade": {
       "fadeDuration": "音频淡入淡出时长（秒）",
       "fadeDurationDesc": "切歌、播放、暂停时音量渐变的时长"
+    },
+    "volumeNormalization": {
+      "title": "音量平衡",
+      "desc": "自动平衡不同歌曲之间的响度差异，使所有歌曲在同一音量下听感一致"
     }
   },
   "common": {
@@ -277,6 +289,7 @@
       "extension": "歌词插件",
       "platformSetting": "平台设置",
       "plugin": "插件设置",
+      "musicSource": "音乐来源",
       "lyricSetting": "歌词设置",
       "lyric": "主窗口歌词",
       "osdLyric": "桌面歌词",
@@ -287,6 +300,7 @@
       "netease": "线上音乐",
       "stream": "流媒体音乐",
       "local": "本地音乐",
+      "library": "媒体库",
       "unblock": "音源设置",
       "shortcut": "快捷键设置",
       "misc": "杂项设置",
@@ -545,6 +559,9 @@
       "logout": "未登录",
       "offline": "服务器离线"
     },
+    "library": {
+      "enable": "启用媒体库"
+    },
     "update": {
       "autoUpdate": "自动检查更新",
       "currentVersion": "当前版本",
@@ -576,7 +593,7 @@
     "savedToPlaylist": "已添加到歌单",
     "saveFailed": "添加失败",
     "tracksAlreadyInPlaylist": "歌曲已在歌单中",
-    "needToLogin": "此操作需要登录网易云帐号",
+    "needToLogin": "此操作需要登录{serviceName}账号",
     "getColorFailed": "获取颜色失败",
     "scanning": "正在扫描本地音乐，请稍后",
     "addFailed": "操作失败，专辑下架或版权锁定",

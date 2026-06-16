@@ -26,9 +26,7 @@
         </div>
       </div>
       <div class="right-top" @click="goToLikedSongsList">
-        <div class="title"
-          >我喜欢的音乐 - {{ filterLikedTracks.length }}首</div
-        >
+        <div class="title">我喜欢的音乐 - {{ filterLikedTracks.length }}首</div>
         <div>
           <div
             v-for="(line, index) in pickedLyricLines"
@@ -40,7 +38,9 @@
           >
         </div>
       </div>
-      <div class="right-bottom">{{ randomTrack?.artists?.[0]?.name }} - {{ randomTrack?.name }}</div>
+      <div class="right-bottom"
+        >{{ randomTrack?.artists?.[0]?.name }} - {{ randomTrack?.name }}</div
+      >
     </div>
     <div class="section-two">
       <div
@@ -71,15 +71,23 @@
             $t('contextMenu.addToQueue')
           }}</div>
           <div v-else class="tab dropdown" :class="{ active: idx === 2 }" @click="updateTab(2)">
-            <span class="text">{{ `${albumTab === 'default' ? '全部' : '收藏'} - ${$t('localMusic.albums')}` }}</span>
-            <span class="icon" @click.stop="(e) => openLocalTracksTabMenu('album', e)"><svg-icon icon-class="dropdown" /></span>
+            <span class="text">{{
+              `${albumTab === 'default' ? '全部' : '收藏'} - ${$t('localMusic.albums')}`
+            }}</span>
+            <span class="icon" @click.stop="(e) => openLocalTracksTabMenu('album', e)"
+              ><svg-icon icon-class="dropdown"
+            /></span>
           </div>
           <div v-if="isBatchOp" class="tab" @click="finishBatchOp">{{
             $t('contextMenu.finish')
           }}</div>
           <div v-else class="tab dropdown" :class="{ active: idx === 3 }" @click="updateTab(3)">
-            <span class="text">{{ `${artistTab === 'default' ? '全部' : '收藏'} - ${$t(tool.artistBy === 'artists' ? 'localMusic.artists' : 'localMusic.albumArtist')}` }}</span>
-            <span class="icon" @click.stop="(e) => openLocalTracksTabMenu('artist', e)"><svg-icon icon-class="dropdown" /></span>
+            <span class="text">{{
+              `${artistTab === 'default' ? '全部' : '收藏'} - ${$t(tool.artistBy === 'artists' ? 'localMusic.artists' : 'localMusic.albumArtist')}`
+            }}</span>
+            <span class="icon" @click.stop="(e) => openLocalTracksTabMenu('artist', e)"
+              ><svg-icon icon-class="dropdown"
+            /></span>
           </div>
           <div v-if="!isBatchOp" class="tab" :class="{ active: idx === 4 }" @click="updateTab(4)">{{
             $t('localMusic.dirName')
@@ -99,28 +107,24 @@
         <div v-show="idx === 0">
           <TrackList
             ref="trackListRef"
-            :items="sortedLocalTracks as Track[]"
+            :items="sortedLocalTracks"
             :type="'Track'"
-            :plugin="'local' as PluginId"
+            :plugin="plugin"
             :source-context="{}"
             :colunm-number="1"
             :is-end="true"
-            :extra-context-menu-item="[
-              'showInFolder',
-              'removeLocalTrack',
-              'addToLocalList',
-              'accurateMatch'
-            ]"
+            :extra-context-menu-item="['showInFolder', 'removeLocalTrack', 'addToLocalList']"
           ></TrackList>
         </div>
 
         <div v-show="idx === 1">
           <CoverRow
             v-if="true"
-            :items="[]"
+            :items="filterPlaylists"
             type="Playlist"
+            :colunm-number="5"
             :is-end="true"
-            :style="{ paddingBottom: '96px' }"
+            :style="{ paddingBottom: '0px' }"
           />
         </div>
 
@@ -137,7 +141,11 @@
         </div>
 
         <div v-show="idx === 3">
-          <ArtistList v-if="artistTab === 'default'" :tracks="sortedLocalTracks" :type="tool.artistBy" />
+          <ArtistList
+            v-if="artistTab === 'default'"
+            :tracks="sortedLocalTracks"
+            :type="tool.artistBy"
+          />
           <CoverRow
             v-else
             :items="filterArtists"
@@ -166,6 +174,15 @@
         >{{ sortOption.name }}</div
       >
       <hr v-show="!isBatchOp" />
+      <div
+        v-for="option in orderOptions"
+        :key="option.value"
+        class="item"
+        :class="{ active: option.value === tool.orderBy }"
+        @click="tools.local.orderBy = option.value"
+        >{{ option.name }}</div
+      >
+      <hr v-show="!isBatchOp" />
       <div v-show="!isBatchOp" class="item" @click="scanLocalMusic">{{
         $t('contextMenu.reScan')
       }}</div>
@@ -175,16 +192,34 @@
     </ContextMenu>
 
     <ContextMenu ref="albumTabMenu">
-      <div class="item" :class="{ active: albumTab === 'default' }" @click="albumTab = 'default'">全部专辑</div>
-      <div class="item" :class="{ active: albumTab === 'liked' }" @click="albumTab = 'liked'">收藏专辑</div>
+      <div class="item" :class="{ active: albumTab === 'default' }" @click="albumTab = 'default'"
+        >全部专辑</div
+      >
+      <div class="item" :class="{ active: albumTab === 'liked' }" @click="albumTab = 'liked'"
+        >收藏专辑</div
+      >
     </ContextMenu>
 
     <ContextMenu ref="artistTabMenu">
-      <div class="item" :class="{ active: tool.artistBy === 'artists' }" @click="tools.local.artistBy = 'artists'">{{ $t('localMusic.artists') }}</div>
-      <div class="item" :class="{ active: tool.artistBy === 'albumArtists' }" @click="tools.local.artistBy = 'albumArtists'">{{ $t('localMusic.albumArtist') }}</div>
+      <div
+        class="item"
+        :class="{ active: tool.artistBy === 'artists' }"
+        @click="tools.local.artistBy = 'artists'"
+        >{{ $t('localMusic.artists') }}</div
+      >
+      <div
+        class="item"
+        :class="{ active: tool.artistBy === 'albumArtists' }"
+        @click="tools.local.artistBy = 'albumArtists'"
+        >{{ $t('localMusic.albumArtist') }}</div
+      >
       <br />
-      <div class="item" :class="{ active: artistTab === 'default' }" @click="artistTab = 'default'">全部</div>
-      <div class="item" :class="{ active: artistTab === 'liked' }" @click="artistTab = 'liked'">关注</div>
+      <div class="item" :class="{ active: artistTab === 'default' }" @click="artistTab = 'default'"
+        >全部</div
+      >
+      <div class="item" :class="{ active: artistTab === 'liked' }" @click="artistTab = 'liked'"
+        >关注</div
+      >
     </ContextMenu>
   </div>
 </template>
@@ -219,7 +254,7 @@ import { pickedLyric, randomNum } from '../utils'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { PluginId } from '@/types/schemas'
-import type { Track, sortType } from '@/types/plugin'
+import type { Track, sortType, orderType } from '@/types/plugin'
 import { lyricLine } from '@/types/music.d'
 
 const { newPlaylistModal, modalOpen } = storeToRefs(useNormalStateStore())
@@ -227,7 +262,14 @@ const { newPlaylistModal, modalOpen } = storeToRefs(useNormalStateStore())
 const pluginStore = usePluginMusic()
 const { tracks, playlists, tools, services, likedTracks, albums, artists } =
   storeToRefs(pluginStore)
-const { scanLocalMusic, pluginMethodCall, fetchLikedPlaylists, fetchLikedArtists, fetchLikedSongsWithDetails } = pluginStore
+const {
+  scanLocalMusic,
+  pluginMethodCall,
+  fetchLikedPlaylists,
+  fetchLikedArtists,
+  fetchLikedSongsWithDetails,
+  handleStatusChange
+} = pluginStore
 const router = useRouter()
 
 const localService = computed(() => services.value.find((s) => s.type === 'local'))
@@ -239,7 +281,26 @@ const { scanDir } = toRefs(pluginStore)
 const hasCustomTitleBar = inject('hasCustomTitleBar', ref(true))
 const isMac = computed(() => window.env?.isMac)
 
-// refs
+const checkLocalStatus = async () => {
+  const localSrv = services.value.find((s) => s.type === 'local')
+  if (!localSrv) return
+
+  try {
+    const res = await pluginMethodCall(localSrv.code, 'systemPing')
+    handleStatusChange(localSrv.code, res.status)
+    if (res.status === 'login' && res.scanDir) {
+      const newDirs = res.scanDir as string[]
+      const curDirs = scanDir.value
+      if (newDirs.length !== curDirs.length || newDirs.some((d, i) => d !== curDirs[i])) {
+        scanDir.value = newDirs
+      }
+    }
+  } catch {
+    handleStatusChange(localSrv.code, 'logout')
+  }
+}
+
+// ref
 const idx = ref(0)
 const isBatchOp = ref(false)
 const localSearchBoxRef = ref<InstanceType<typeof SearchBox>>()
@@ -268,6 +329,10 @@ const sortOptions: { name: string; value: sortType }[] = [
   { name: t('contextMenu.createTime'), value: 'createTime' },
   { name: t('contextMenu.playCount'), value: 'playCount' }
 ]
+const orderOptions: { name: string; value: orderType }[] = [
+  { name: t('contextMenu.ascOrder'), value: 'ASC' },
+  { name: t('contextMenu.descOrder'), value: 'DESC' }
+]
 const tabStyle = computed(() => {
   const marginTop = hasCustomTitleBar.value ? 20 : 0
   return { marginTop: `${marginTop}px` }
@@ -281,13 +346,13 @@ const defaultTracks = computed(() => {
   return rawTracks.value
     .filter((track) =>
       scanDir.value.some((baseDir) =>
-        normalizePath(track.filePath).startsWith(normalizePath(baseDir) + '/')
+        normalizePath(track.filePath ?? '').startsWith(normalizePath(baseDir) + '/')
       )
     )
     .map((track, index) => ({
       ...track,
       index,
-      dirName: getFirstDirName(scanDir.value, track.filePath)
+      dirName: getFirstDirName(scanDir.value, track.filePath ?? '')
     }))
 })
 
@@ -337,6 +402,10 @@ const filterAlbums = computed(() => {
 
 const filterArtists = computed(() => {
   return artists.value[plugin.value]?.data || []
+})
+
+const filterPlaylists = computed(() => {
+  return playlists.value[plugin.value]?.data || []
 })
 
 // ---- hero stats ----
@@ -445,10 +514,6 @@ const openAddPlaylistModal = () => {
   }
 }
 
-const playThisTrack = () => {
-  goToLikedSongsList()
-}
-
 const getRandomTrack = async () => {
   if (!filterLikedTracks.value.length) return
   let i = 0
@@ -536,7 +601,9 @@ watch(
   { immediate: true }
 )
 
-onMounted(() => {
+onMounted(async () => {
+  await checkLocalStatus()
+
   window.addEventListener('resize', handleResize)
   setTimeout(() => {
     updatePadding(0)
@@ -618,6 +685,13 @@ onBeforeUnmount(() => {
     justify-content: center;
     flex-direction: column;
     cursor: pointer;
+
+    .title {
+      font-size: 20px;
+      font-weight: 700;
+      margin: 24px 0 10px 0;
+      color: var(--color-primary);
+    }
 
     .lyric-p {
       height: 30px;

@@ -1,6 +1,6 @@
 <template>
   <div class="system-settings" :style="mainStyle" @click="clickOutside">
-    <div v-if="user.userId" class="user-info">
+    <div v-if="user?.userId" class="user-info">
       <div class="left">
         <img class="avatar" :src="user.avatarUrl" loading="lazy" />
         <div class="info">
@@ -8,14 +8,14 @@
           <div class="extra-info">
             <span v-if="user.vipType !== 0" class="vip"
               ><img class="cvip" :src="imageUrl" loading="lazy" />
-              <span class="text">黑胶VIP</span>
+              <span class="text">VIP</span>
             </span>
             <span v-else class="text">{{ user.signature }}</span>
           </div>
         </div>
       </div>
       <div class="right">
-        <button @click="doLogout">
+        <button @click="handleLogin(activePlugin)">
           <svg-icon icon-class="logout" />
           {{ $t('settings.general.logout') }}
         </button>
@@ -30,22 +30,19 @@
         <div class="tab" :class="{ active: tab === 'lyric' }" @click="updateTab(1)">{{
           isWindows ? $t('settings.nav.osdLyric') : $t('settings.nav.lyricSetting')
         }}</div>
-        <div class="tab" :class="{ active: tab === 'plugin' }" @click="updateTab(2)">{{
-          $t('settings.nav.plugin')
-        }}</div>
-        <div class="tab" :class="{ active: tab === 'music' }" @click="updateTab(3)">{{
+        <div class="tab" :class="{ active: tab === 'musicSource' }" @click="updateTab(2)">{{
           $t('settings.nav.music')
         }}</div>
-        <div class="tab" :class="{ active: tab === 'unblock' }" @click="updateTab(4)">{{
+        <div class="tab" :class="{ active: tab === 'unblock' }" @click="updateTab(3)">{{
           $t('settings.nav.unblock')
         }}</div>
-        <div class="tab" :class="{ active: tab === 'shortcut' }" @click="updateTab(5)">{{
+        <div class="tab" :class="{ active: tab === 'shortcut' }" @click="updateTab(4)">{{
           $t('settings.nav.shortcut')
         }}</div>
-        <div class="tab" :class="{ active: tab === 'misc' }" @click="updateTab(6)">{{
+        <div class="tab" :class="{ active: tab === 'misc' }" @click="updateTab(5)">{{
           $t('settings.nav.misc')
         }}</div>
-        <div class="tab" :class="{ active: tab === 'update' }" @click="updateTab(7)">{{
+        <div class="tab" :class="{ active: tab === 'update' }" @click="updateTab(6)">{{
           $t('settings.nav.update')
         }}</div>
       </div>
@@ -426,337 +423,445 @@
             </div>
           </div>
         </div>
-        <div v-show="tab === 'plugin'" key="plugin">
+        <div v-show="tab === 'musicSource'" key="musicSource">
+          <!-- 第一部分：插件管理 -->
           <div class="item">
-            <div class="left">
-              <div class="title">{{ $t('settings.plugin.title') }}</div>
-            </div>
+            <div class="left"
+              ><div class="title">{{ $t('settings.plugin.title') }}</div></div
+            >
             <div class="right">
               <button @click="uploadPlugin">导入</button>
               <button :style="{ marginLeft: '1rem' }">刷新</button>
             </div>
           </div>
-          <div class="plugin-container">
-            <div
-              v-for="plugin in pluginServices"
-              :key="plugin.code"
-              class="plugin-item"
-              :class="{
-                library: plugin.type === 'library',
-                stream: plugin.type === 'stream',
-                local: plugin.type === 'local'
-              }"
-              @click="plugin.type === 'library' && updateActivePlugin(plugin.code)"
-            >
-              <div class="plugin-left">
-                <div class="name">{{ `音源：${plugin.name}` }}</div>
-                <div class="type">{{ `音源类型：${plugin.type}` }}</div>
-                <div v-if="plugin.type !== 'library'" @click="plugin.loadFull = !plugin.loadFull">{{
-                  plugin.loadFull || false ? '全量加载' : '按需加载'
-                }}</div>
-              </div>
-              <div class="plugin-right">
-                <div v-if="plugin.type === 'library' && plugin.active">当前使用</div>
-                <div class="login-status" @click.stop="handleLogin(plugin)">
-                  <div class="circle" :style="{ background: getStatusColor(plugin) }"></div>
-                  <div>{{ $t(`settings.stream.${plugin.status}`) }}</div>
-                </div>
-              </div>
+
+          <!-- 第二部分：插件卡片列表 -->
+
+          <!-- 卡片 1：媒体库插件 -->
+          <div class="music-card" :class="{ collapsed: cardCollapsed.library }">
+            <div class="card-header" @click="cardCollapsed.library = !cardCollapsed.library">
+              <span class="card-title">📦 媒体库插件</span>
+              <span class="card-toggle">{{ cardCollapsed.library ? '▶' : '▼' }}</span>
             </div>
-          </div>
-        </div>
-        <div v-show="tab === 'music'" key="music">
-          <div class="lyric-tab">
-            <button
-              :class="{ 'lyric-button': true, 'lyric-button--selected': musicTab === 'netease' }"
-              @click="musicTab = 'netease'"
-              >{{ $t('settings.nav.netease') }}</button
-            >
-            <button
-              v-if="isElectron"
-              :class="{ 'lyric-button': true, 'lyric-button--selected': musicTab === 'local' }"
-              @click="musicTab = 'local'"
-              >{{ $t('settings.nav.local') }}</button
-            >
-            <button
-              :class="{ 'lyric-button': true, 'lyric-button--selected': musicTab === 'stream' }"
-              @click="musicTab = 'stream'"
-              >{{ $t('settings.nav.stream') }}</button
-            >
-            <button
-              :class="{ 'lyric-button': true, 'lyric-button--selected': musicTab === 'player' }"
-              @click="musicTab = 'player'"
-              >{{ $t('settings.nav.player') }}</button
-            >
-          </div>
-          <div v-show="musicTab === 'netease'">
-            <div class="item">
-              <div class="left">
-                <div class="title">{{ $t('settings.autoCacheTrack.enable') }}</div>
-              </div>
-              <div class="right">
-                <div class="toggle">
-                  <input
-                    id="autoCacheTrack"
-                    v-model="autoCacheTrack.enable"
-                    type="checkbox"
-                    name="autoCacheTrack"
-                  />
-                  <label for="autoCacheTrack"></label>
-                </div>
-              </div>
-            </div>
-            <div class="item">
-              <div class="left">
-                <div class="title"
-                  >{{ $t('settings.autoCacheTrack.path') }}: {{ autoCacheTrack.path }}</div
+            <div v-show="!cardCollapsed.library" class="card-body">
+              <div class="item">
+                <div class="left"
+                  ><div class="title">{{ $t('settings.library.enable') }}</div></div
                 >
-              </div>
-              <div class="right" :style="{ minWidth: '120px' }">
-                <button :style="{ marginRight: '16px' }" @click="autoCacheTrack.path = ''"
-                  >重置</button
-                >
-                <button @click="chooseDir(false)">{{
-                  autoCacheTrack.path ? '更改' : '选择'
-                }}</button>
-              </div>
-            </div>
-            <div class="item">
-              <div class="left">
-                <div class="title">{{ $t('settings.autoCacheTrack.sizeLimit') }}</div>
-              </div>
-              <div class="right">
-                <CustomSelect v-model="autoCacheTrack.sizeLimit" :options="sizeLimitOptions" />
-              </div>
-            </div>
-            <div class="item">
-              <div class="left">{{ $t('settings.general.musicQuality.text') }}</div>
-              <div class="right">
-                <CustomSelect v-model="musicQuality" :options="musicQualityOptions" />
-              </div>
-            </div>
-            <div class="item">
-              <div class="left">
-                <div class="title"
-                  >{{
-                    $t('settings.autoCacheTrack.sizeCached', { song: cacheTracksInfo.length })
-                  }}
-                  ({{ cacheSize }})</div
-                >
-              </div>
-              <div class="right">
-                <button class="clear-cache" @click="clearCache">{{
-                  $t('settings.autoCacheTrack.clearCache')
-                }}</button>
-              </div>
-            </div>
-          </div>
-          <div v-if="isElectron" v-show="musicTab === 'local'">
-            <div class="item">
-              <div class="left">
-                <div class="title">{{ $t('localMusic.enableLocalMusic') }}</div>
-              </div>
-              <div class="right">
-                <div class="toggle">
-                  <input id="local-enable" v-model="enble" type="checkbox" name="local-enable" />
-                  <label for="local-enable"></label>
+                <div class="right">
+                  <div class="toggle">
+                    <input
+                      id="card-enable-library"
+                      v-model="enableLibrary"
+                      type="checkbox"
+                      name="card-enable-library"
+                    />
+                    <label for="card-enable-library"></label>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div class="item">
-              <div class="left">
-                <div class="title">
-                  <label>{{ $t('localMusic.localMusicFolder.text') }}：</label>
-                  <template v-if="scanDir.length === 1">
-                    <label>{{ scanDir[0] }}</label>
-                  </template>
-                  <template v-else>
-                    <div v-for="(value, n) in scanDir" :key="value" class="hover" :title="value"
-                      >{{ n + 1 }}
-                    </div>
-                  </template>
-                </div>
-                <div class="description">{{ $t('localMusic.localMusicFolder.desc') }}</div>
-              </div>
-              <div class="right">
-                <button class="input-btn" @click="selectDirModal = true">输入</button>
-                <button @click="chooseDir(true)">选择</button>
-              </div>
-            </div>
-            <div class="item">
-              <div class="left">
-                <div class="title">{{ $t('localMusic.clearLocalMusic.text') }}</div>
-                <div class="description">{{ $t('localMusic.clearLocalMusic.desc') }}</div>
-              </div>
-              <div class="right">
-                <button @click="deleteLocalMusic">确定</button>
-              </div>
-            </div>
-            <div class="item">
-              <div class="left">
-                <div class="title">{{ $t('localMusic.embedCoverArt.text') }}</div>
-              </div>
-              <div class="right">
-                <CustomSelect v-model="localMusic.embedCoverArt" :options="embedCoverArtOption" />
-              </div>
-            </div>
-            <div class="item">
-              <div class="left">
-                <div class="title">{{ $t('localMusic.embedStyle.text') }}</div>
-              </div>
-              <div class="right">
-                <CustomSelect v-model="localMusic.embedStyle" :options="embedStyleOption" />
-              </div>
-            </div>
-            <div class="item no-flex">
-              <div class="left">
-                <div class="title">{{ $t('localMusic.trackInfoOrder.text') }}</div>
-                <div class="description">{{ $t('localMusic.trackInfoOrder.desc') }}</div>
-              </div>
-              <VueDraggable v-model="trackInfoOrder">
-                <div v-for="(item, index) in trackInfoOrder" :key="item" class="info-order">{{
-                  (index + 1).toString() + ' - ' + $t(`localMusic.trackInfoOrder.${item}`)
-                }}</div>
-              </VueDraggable>
-            </div>
-          </div>
-          <div v-show="musicTab === 'stream'">
-            <div class="item">
-              <div class="left">
-                <div class="title">{{ $t('settings.stream.enable') }}</div>
-              </div>
-              <div class="right">
-                <div class="toggle">
-                  <input id="stream" v-model="enable" type="checkbox" name="stream" />
-                  <label for="stream"></label>
-                </div>
-              </div>
-            </div>
-            <div class="item">
-              <div>{{ $t('settings.stream.service') }}：</div>
-              <!-- :class="{ itemSelected: service.selected }" -->
               <div
-                v-for="ser of services"
-                :key="ser.name"
-                :title="serviceTitle(ser)"
-                class="stream-item"
-                @click.right="loginOrlogout(ser)"
+                class="plugin-list"
+                :style="{
+                  gridTemplateColumns: `repeat(${Math.min(libraryPlugins.length, 3)}, 1fr)`
+                }"
               >
-                <img :src="getImagePath(ser.name)" />
-                <div class="service-name">
-                  <!-- :style="{ background: getStatusColor(ser) }" -->
-                  <div
-                    class="service-status"
-                    :title="$t(`settings.stream.${ser.status}`)"
-                    :style="{}"
-                  ></div>
-                  <div>{{ ser.name }}</div>
+                <div
+                  v-for="plugin in libraryPlugins"
+                  :key="plugin.code"
+                  class="plugin-list-item"
+                  :class="{ active: plugin.active }"
+                  @click="updateActivePlugin(plugin.code)"
+                >
+                  <img :src="getPluginIcon(plugin)" />
+                  <div class="plugin-info">
+                    <span class="status-dot" :style="{ background: getStatusColor(plugin) }"></span>
+                    <span class="plugin-name-text">{{ plugin.name }}</span>
+                    <span v-if="plugin.active" class="active-badge">★ 当前使用</span>
+                  </div>
+                  <span class="plugin-status-text" @click.stop="handleLogin(plugin)">{{
+                    $t(`settings.stream.${plugin.status}`)
+                  }}</span>
+                </div>
+              </div>
+              <template v-if="enableLibrary">
+                <!-- <div class="card-sub-section-title">线上音乐设置</div> -->
+                <div class="item">
+                  <div class="left"
+                    ><div class="title">{{ $t('settings.autoCacheTrack.enable') }}</div></div
+                  >
+                  <div class="right">
+                    <div class="toggle">
+                      <input
+                        id="autoCacheTrack"
+                        v-model="autoCacheTrack.enable"
+                        type="checkbox"
+                        name="autoCacheTrack"
+                      />
+                      <label for="autoCacheTrack"></label>
+                    </div>
+                  </div>
+                </div>
+                <div class="item">
+                  <div class="left"
+                    ><div class="title"
+                      >{{ $t('settings.autoCacheTrack.path') }}: {{ autoCacheTrack.path }}</div
+                    ></div
+                  >
+                  <div class="right" :style="{ minWidth: '120px' }">
+                    <button :style="{ marginRight: '16px' }" @click="autoCacheTrack.path = ''"
+                      >重置</button
+                    >
+                    <button @click="chooseDir(false)">{{
+                      autoCacheTrack.path ? '更改' : '选择'
+                    }}</button>
+                  </div>
+                </div>
+                <div class="item">
+                  <div class="left"
+                    ><div class="title">{{ $t('settings.autoCacheTrack.sizeLimit') }}</div></div
+                  >
+                  <div class="right"
+                    ><CustomSelect v-model="autoCacheTrack.sizeLimit" :options="sizeLimitOptions"
+                  /></div>
+                </div>
+                <div class="item">
+                  <div class="left">{{ $t('settings.general.musicQuality.text') }}</div>
+                  <div class="right"
+                    ><CustomSelect v-model="musicQuality" :options="musicQualityOptions"
+                  /></div>
+                </div>
+                <div class="item">
+                  <div class="left"
+                    ><div class="title"
+                      >{{
+                        $t('settings.autoCacheTrack.sizeCached', { song: cacheTracksInfo.length })
+                      }}
+                      ({{ cacheSize }})</div
+                    ></div
+                  >
+                  <div class="right"
+                    ><button class="clear-cache" @click="clearCache">{{
+                      $t('settings.autoCacheTrack.clearCache')
+                    }}</button></div
+                  >
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- 卡片 2：流媒体插件 -->
+          <div class="music-card" :class="{ collapsed: cardCollapsed.stream }">
+            <div class="card-header" @click="cardCollapsed.stream = !cardCollapsed.stream">
+              <span class="card-title">🌐 流媒体插件</span>
+              <span class="card-toggle">{{ cardCollapsed.stream ? '▶' : '▼' }}</span>
+            </div>
+            <div v-show="!cardCollapsed.stream" class="card-body">
+              <div class="item">
+                <div class="left"
+                  ><div class="title">{{ $t('settings.stream.enable') }}</div></div
+                >
+                <div class="right">
+                  <div class="toggle">
+                    <input
+                      id="card-enable-stream"
+                      v-model="enableStream"
+                      type="checkbox"
+                      name="card-enable-stream"
+                    />
+                    <label for="card-enable-stream"></label>
+                  </div>
+                </div>
+              </div>
+              <div
+                class="plugin-list"
+                :style="{
+                  gridTemplateColumns: `repeat(${Math.min(streamPlugins.length, 3)}, 1fr)`
+                }"
+              >
+                <div
+                  v-for="ser of streamPlugins"
+                  :key="ser.code"
+                  class="plugin-list-item"
+                  @click="handleLogin(ser)"
+                >
+                  <img :src="getPluginIcon(ser)" />
+                  <div class="plugin-info">
+                    <span class="status-dot" :style="{ background: getStatusColor(ser) }"></span>
+                    <span class="plugin-name-text">{{ ser.name }}</span>
+                  </div>
+                  <span class="plugin-status-text">{{ $t(`settings.stream.${ser.status}`) }}</span>
+                </div>
+              </div>
+              <div class="item">
+                <div class="left">
+                  <div class="title">已匹配流媒体歌曲</div>
+                </div>
+                <div class="right">
+                  <span class="plugin-status-text">{{ streamMatchCount }} 首</span>
+                </div>
+              </div>
+              <div class="item">
+                <div class="left">
+                  <div class="title">清理匹配信息</div>
+                </div>
+                <div class="right">
+                  <button @click="clearStreamMatchInfo">确定</button>
                 </div>
               </div>
             </div>
           </div>
-          <div v-show="musicTab === 'player'">
-            <div class="item">
-              <div class="left">
-                <div class="title">{{ $t('settings.general.showTimeOrID.text') }}</div>
+
+          <!-- 卡片 3：本地音乐 -->
+          <div class="music-card" :class="{ collapsed: cardCollapsed.local }">
+            <div class="card-header" @click="cardCollapsed.local = !cardCollapsed.local">
+              <span class="card-title">💿 本地音乐</span>
+              <span class="card-toggle">{{ cardCollapsed.local ? '▶' : '▼' }}</span>
+            </div>
+            <div v-show="!cardCollapsed.local" class="card-body">
+              <div class="item">
+                <div class="left"
+                  ><div class="title">{{ $t('localMusic.enableLocalMusic') }}</div></div
+                >
+                <div class="right">
+                  <div class="toggle">
+                    <input
+                      id="card-enable-local"
+                      v-model="enableLocal"
+                      type="checkbox"
+                      name="card-enable-local"
+                    />
+                    <label for="card-enable-local"></label>
+                  </div>
+                </div>
               </div>
-              <div class="right">
-                <CustomSelect v-model="showTrackInfo" :options="trackInfoOptions" />
+              <div
+                class="plugin-list"
+                :style="{ gridTemplateColumns: `repeat(${Math.min(localPlugins.length, 3)}, 1fr)` }"
+              >
+                <div
+                  v-for="plugin in localPlugins"
+                  :key="plugin.code"
+                  class="plugin-list-item"
+                  @click="handleLogin(plugin)"
+                >
+                  <img :src="getPluginIcon(plugin)" />
+                  <div class="plugin-info">
+                    <span class="status-dot" :style="{ background: getStatusColor(plugin) }"></span>
+                    <span class="plugin-name-text">{{ plugin.name }}</span>
+                  </div>
+                  <span class="plugin-status-text">{{
+                    $t(`settings.stream.${plugin.status}`)
+                  }}</span>
+                </div>
+              </div>
+              <div class="item">
+                <div class="left"
+                  ><div class="title">{{ $t('localMusic.clearLocalMusic.text') }}</div
+                  ><div class="description">{{ $t('localMusic.clearLocalMusic.desc') }}</div></div
+                >
+                <div class="right"><button @click="deleteLocalMusic">确定</button></div>
+              </div>
+              <div class="item">
+                <div class="left"
+                  ><div class="title">{{ $t('localMusic.embedCoverArt.text') }}</div></div
+                >
+                <div class="right"
+                  ><CustomSelect v-model="localMusic.embedCoverArt" :options="embedCoverArtOption"
+                /></div>
+              </div>
+              <div class="item">
+                <div class="left"
+                  ><div class="title">{{ $t('localMusic.embedStyle.text') }}</div></div
+                >
+                <div class="right"
+                  ><CustomSelect v-model="localMusic.embedStyle" :options="embedStyleOption"
+                /></div>
               </div>
             </div>
-            <div class="item">
-              <div class="left">
-                <div class="title">{{ $t('player.fade.fadeDuration') }}</div>
-                <div class="description">{{ $t('player.fade.fadeDurationDesc') }}</div>
-              </div>
-              <div class="right">
-                <input
-                  v-model.number="general.fadeDuration"
-                  type="number"
-                  step="0.1"
-                  class="text-input margin-right-0"
-                />
-              </div>
+          </div>
+
+          <!-- 卡片 4：播放器设置（默认折叠） -->
+          <div class="music-card" :class="{ collapsed: cardCollapsed.player }">
+            <div class="card-header" @click="cardCollapsed.player = !cardCollapsed.player">
+              <span class="card-title">▶ 播放器设置</span>
+              <span class="card-toggle">{{ cardCollapsed.player ? '▶' : '▼' }}</span>
             </div>
-            <div class="item">
-              <div class="left">
-                <div class="title">{{ $t('settings.general.outputDevice.text') }}</div>
+            <div v-show="!cardCollapsed.player" class="card-body">
+              <div class="item">
+                <div class="left"
+                  ><div class="title">{{ $t('settings.general.showTimeOrID.text') }}</div></div
+                >
+                <div class="right"
+                  ><CustomSelect v-model="showTrackInfo" :options="trackInfoOptions"
+                /></div>
               </div>
-              <div class="right">
-                <CustomSelect v-model="selectedOutputDevice" :options="devicesOptions" />
+              <div class="item">
+                <div class="left"
+                  ><div class="title">{{ $t('player.fade.fadeDuration') }}</div
+                  ><div class="description">{{ $t('player.fade.fadeDurationDesc') }}</div></div
+                >
+                <div class="right"
+                  ><input
+                    v-model.number="general.fadeDuration"
+                    type="number"
+                    step="0.1"
+                    class="text-input margin-right-0"
+                /></div>
               </div>
-            </div>
-            <div class="item">
-              <div class="left">
-                <div class="title">{{ $t('player.resetPlayer') }}</div>
+              <div class="item">
+                <div class="left"
+                  ><div class="title">{{ $t('settings.general.outputDevice.text') }}</div></div
+                >
+                <div class="right"
+                  ><CustomSelect v-model="selectedOutputDevice" :options="devicesOptions"
+                /></div>
               </div>
-              <div class="right">
-                <button @click="resetPlayer()">确定</button>
+              <div class="item">
+                <div class="left"
+                  ><div class="title">{{ $t('player.resetPlayer') }}</div></div
+                >
+                <div class="right"><button @click="resetPlayer()">确定</button></div>
               </div>
-            </div>
-            <div class="item">
-              <div class="left">
-                <div class="title">{{ $t('settings.general.showSongChorus') }}</div>
+              <div class="item">
+                <div class="left"
+                  ><div class="title">{{ $t('settings.general.showSongChorus') }}</div></div
+                >
+                <div class="right">
+                  <div class="toggle">
+                    <input
+                      id="show-song-chorus"
+                      v-model="showChorus"
+                      type="checkbox"
+                      name="show-song-chorus"
+                    />
+                    <label for="show-song-chorus"></label>
+                  </div>
+                </div>
               </div>
-              <div class="right">
-                <div class="toggle">
-                  <input
-                    id="show-song-chorus"
-                    v-model="showChorus"
-                    type="checkbox"
-                    name="show-song-chorus"
-                  />
-                  <label for="show-song-chorus"></label>
+              <div class="item">
+                <div class="left"
+                  ><div class="title">{{ $t('settings.general.clickToLyric') }}</div></div
+                >
+                <div class="right">
+                  <div class="toggle">
+                    <input
+                      id="click-to-lyric-page"
+                      v-model="clickToLyric"
+                      type="checkbox"
+                      name="click-to-lyric-page"
+                    />
+                    <label for="click-to-lyric-page"></label>
+                  </div>
+                </div>
+              </div>
+              <div class="item">
+                <div class="left"
+                  ><div class="title">{{ $t('settings.general.jumpToLyricBegin') }}</div></div
+                >
+                <div class="right">
+                  <div class="toggle">
+                    <input
+                      id="jump-to-lyric-begin"
+                      v-model="general.jumpToLyricBegin"
+                      type="checkbox"
+                      name="jump-to-lyric-begin"
+                    />
+                    <label for="jump-to-lyric-begin"></label>
+                  </div>
+                </div>
+              </div>
+              <div v-if="isElectron" class="item">
+                <div class="left"
+                  ><div class="title">{{ $t('settings.general.perventSuspend') }}</div></div
+                >
+                <div class="right">
+                  <div class="toggle">
+                    <input
+                      id="pervent-suspend"
+                      v-model="general.preventSuspension"
+                      type="checkbox"
+                      name="pervent-suspend"
+                    />
+                    <label for="pervent-suspend"></label>
+                  </div>
+                </div>
+              </div>
+              <div class="item">
+                <div class="left"
+                  ><div class="title">{{ $t('player.volumeNormalization.title') }}</div
+                  ><div class="description">{{ $t('player.volumeNormalization.desc') }}</div></div
+                >
+                <div class="right">
+                  <div class="toggle">
+                    <input
+                      id="volume-normalization"
+                      v-model="general.volumeNormalization"
+                      type="checkbox"
+                      name="volume-normalization"
+                    />
+                    <label for="volume-normalization"></label>
+                  </div>
                 </div>
               </div>
             </div>
-            <div class="item">
-              <div class="left">
-                <div class="title">{{ $t('settings.general.clickToLyric') }}</div>
-              </div>
-              <div class="right">
-                <div class="toggle">
-                  <input
-                    id="click-to-lyric-page"
-                    v-model="clickToLyric"
-                    type="checkbox"
-                    name="click-to-lyric-page"
-                  />
-                  <label for="click-to-lyric-page"></label>
-                </div>
-              </div>
+          </div>
+
+          <!-- 卡片 5：通用设置 -->
+          <div class="music-card" :class="{ collapsed: cardCollapsed.general }">
+            <div class="card-header" @click="cardCollapsed.general = !cardCollapsed.general">
+              <span class="card-title">⚙ 通用设置</span>
+              <span class="card-toggle">{{ cardCollapsed.general ? '▶' : '▼' }}</span>
             </div>
-            <div class="item">
-              <div class="left">
-                <div class="title">{{ $t('settings.general.jumpToLyricBegin') }}</div>
-              </div>
-              <div class="right">
-                <div class="toggle">
-                  <input
-                    id="jump-to-lyric-begin"
-                    v-model="general.jumpToLyricBegin"
-                    type="checkbox"
-                    name="jump-to-lyric-begin"
-                  />
-                  <label for="jump-to-lyric-begin"></label>
+            <div v-show="!cardCollapsed.general" class="card-body">
+              <div class="item" style="margin-top: 0">
+                <div class="left">
+                  <div class="title">歌词来源优先级</div>
+                  <div class="description">拖拽调整线上歌曲顺序，优先尝试排在前面的插件</div>
                 </div>
               </div>
-            </div>
-            <div v-if="isElectron" class="item">
-              <div class="left">
-                <div class="title">{{ $t('settings.general.perventSuspend') }}</div>
-              </div>
-              <div class="right">
-                <div class="toggle">
-                  <input
-                    id="pervent-suspend"
-                    v-model="general.preventSuspension"
-                    type="checkbox"
-                    name="pervent-suspend"
-                  />
-                  <label for="pervent-suspend"></label>
+              <VueDraggable
+                v-model="lyricPriority"
+                :item-key="(item) => item.code"
+                class="priority-list"
+              >
+                <div v-for="(item, index) in lyricPriority" :key="item.code" class="priority-item">
+                  <span class="priority-index">{{ index + 1 }}</span>
+                  <span>{{ item.name }}</span>
+                </div>
+              </VueDraggable>
+              <div class="item" style="margin-top: 1.5rem">
+                <div class="left">
+                  <div class="title">评论来源优先级</div>
+                  <div class="description">拖拽调整线上歌曲排序顺序</div>
                 </div>
               </div>
+              <VueDraggable
+                v-model="commentPriority"
+                :item-key="(item) => item.code"
+                class="priority-list"
+              >
+                <div
+                  v-for="(item, index) in commentPriority"
+                  :key="item.code"
+                  class="priority-item"
+                >
+                  <span class="priority-index">{{ index + 1 }}</span>
+                  <span>{{ item.name }}</span>
+                </div>
+              </VueDraggable>
+              <div class="item" style="margin-top: 1.5rem">
+                <div class="left">
+                  <div class="title">{{ $t('localMusic.trackInfoOrder.text') }}</div>
+                  <div class="description">{{ $t('localMusic.trackInfoOrder.desc') }}</div>
+                </div>
+              </div>
+              <VueDraggable v-model="trackInfoOrder" class="priority-list">
+                <div v-for="(item, index) in trackInfoOrder" :key="item" class="priority-item">
+                  <span class="priority-index">{{ index + 1 }}</span>
+                  <span>{{ $t(`localMusic.trackInfoOrder.${item}`) }}</span>
+                </div>
+              </VueDraggable>
             </div>
           </div>
         </div>
@@ -1121,19 +1226,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, toRefs, computed, inject, onMounted, onBeforeUnmount, reactive, watch } from 'vue'
+import {
+  ref,
+  toRefs,
+  computed,
+  inject,
+  onMounted,
+  onBeforeUnmount,
+  reactive,
+  watch,
+  toRaw
+} from 'vue'
 import pickColors, { Theme } from 'vue-pick-colors'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '../store/settings'
 import { usePlayerStore } from '../store/player'
-// import { useLocalMusicStore } from '../store/localMusic'
 import { useNormalStateStore } from '../store/state'
 import { useOsdLyricStore } from '../store/osdLyric'
-import { useStreamMusicStore } from '../store/streamingMusic'
 import { usePluginMusic } from '../store/pluginMusic'
-import { useDataStore } from '../store/data'
 import { storeToRefs } from 'pinia'
-import { doLogout } from '../utils/auth'
 import SvgIcon from '../components/SvgIcon.vue'
 import CustomSelect from '../components/CustomSelect.vue'
 import LatestVersion from '../components/LatestVersion.vue'
@@ -1142,8 +1253,9 @@ import { VueDraggable } from 'vue-draggable-plus'
 // @ts-ignore
 import imageUrl from '../utils/settingImg.dataurl?raw'
 import { useRouter } from 'vue-router'
-import { serviceType, serviceName, Appearance, ProxyType } from '@/types/music.d'
-import type { LoginType, PluginId, service } from '@/types/plugin'
+import { Appearance, ProxyType } from '@/types/music.d'
+import type { PluginId, service } from '@/types/plugin'
+import { getPluginIcon } from '../utils/common'
 
 const router = useRouter()
 
@@ -1162,7 +1274,6 @@ const {
 
 const { deleteCacheTracks } = settingsStore
 
-const { enble, trackInfoOrder } = toRefs(localMusic.value)
 const {
   showTrackTimeOrID,
   useCustomTitlebar,
@@ -1179,27 +1290,21 @@ const customizeColor = computed(() => colors.value[4])
 const { showLyric, showControl, lyricWidth, enableExtension } = toRefs(tray.value)
 const { proxy, realIp } = toRefs(misc.value)
 
-const streamMusicStore = useStreamMusicStore()
-const { enable, services } = storeToRefs(streamMusicStore)
-const { handleStreamLogout } = streamMusicStore
-
 const stateStore = useNormalStateStore()
-const {
-  extensionCheckResult,
-  updateStatus,
-  latestVersion,
-  isDownloading,
-  fontList,
-  selectDirModal
-} = toRefs(stateStore)
+const { extensionCheckResult, updateStatus, latestVersion, isDownloading, fontList } =
+  toRefs(stateStore)
 const { showToast, checkUpdate, getFontList } = stateStore
 
 const pluginMusicStore = usePluginMusic()
-const { services: pluginServices, users, scanDir } = storeToRefs(pluginMusicStore)
-const { uploadPlugin, pluginMethodCall } = pluginMusicStore
-
-const dataStore = useDataStore()
-const { user } = storeToRefs(dataStore)
+const {
+  services: pluginServices,
+  users,
+  scanDir,
+  enableLocal,
+  enableStream,
+  enableLibrary
+} = storeToRefs(pluginMusicStore)
+const { uploadPlugin, pluginMethodCall, handleStatusChange } = pluginMusicStore
 
 const osdLyric = useOsdLyricStore()
 const {
@@ -1230,14 +1335,21 @@ const { restoreDefaultShortcuts, updateShortcut, lastfmConnect, lastfmDisconnect
 
 const cacheTracksInfo = reactive({ length: 0, size: 0 })
 
-const getImagePath = (platform: serviceName) => {
-  return new URL(`../assets/images/${platform}.png`, import.meta.url).href
-}
-
 const isElectron = window.env?.isElectron || false
 const isMac = window.env?.isMac
 const isLinux = window.env?.isLinux
 const isWindows = window.env?.isWindows
+
+const activePlugin = computed(() => {
+  const libs = pluginServices.value.filter((item) => item.type === 'library')
+  const active = libs.find((item) => item.active) || libs[0]
+  return active!
+})
+
+const user = computed(() => {
+  if (!enableLibrary.value) return null
+  return users.value[activePlugin.value.code]
+})
 
 const showTrackInfo = computed({
   get: () => showTrackTimeOrID.value,
@@ -1245,6 +1357,23 @@ const showTrackInfo = computed({
     showTrackTimeOrID.value = value
   }
 })
+
+const libraryPlugins = computed(() => pluginServices.value.filter((s) => s.type === 'library'))
+const streamPlugins = computed(() => pluginServices.value.filter((s) => s.type === 'stream'))
+const localPlugins = computed(() => pluginServices.value.filter((s) => s.type === 'local'))
+
+const streamMatchCount = ref(0)
+
+const getStreamMatchCountData = async () => {
+  streamMatchCount.value = (await window.mainApi?.invoke('getStreamMatchCount')) as number
+}
+
+const clearStreamMatchInfo = async () => {
+  if (!confirm('确定清理所有流媒体匹配信息吗？')) return
+  await window.mainApi?.invoke('clearStreamMatches')
+  await getStreamMatchCountData()
+  showToast('清理完成')
+}
 
 const cacheSize = computed(() => {
   const size = cacheTracksInfo.size
@@ -1256,11 +1385,6 @@ const cacheSize = computed(() => {
     return `${(size / 1024 / 1024 / 1024).toFixed(2)} GB`
   }
 })
-
-const serviceTitle = (platform: serviceType) => {
-  const title = platform.status === 'logout' ? '登录' : '登出'
-  return `单击选择，右击选择并${title}`
-}
 
 const handleUpdate = () => {
   if (isDownloading.value) return
@@ -1278,26 +1402,16 @@ const handleUpdate = () => {
 
 const handleLogin = (plugin: service) => {
   if (plugin.status === 'logout') {
-    const loginType: LoginType = plugin.type === 'library' ? 'QrCode' : 'Username'
+    const map = { library: 'QrCode', local: 'LocalDir', stream: 'Username' } as const
+    const loginType = map[plugin.type]
     router.push(`/login/${plugin.code}/${loginType}`)
   } else {
-    if (plugin.type !== 'local' && confirm(`确定登出${plugin.name}吗？`)) {
+    if (confirm(`确定登出${plugin.name}吗？`)) {
       pluginMethodCall(plugin.code, 'doLogout').then(({ code }) => {
         if (code === 200) {
-          delete users.value[plugin.code]
-          plugin.status = 'logout'
+          handleStatusChange(plugin.code, 'logout')
         }
       })
-    }
-  }
-}
-
-const loginOrlogout = (platform: serviceType) => {
-  if (platform.status === 'logout') {
-    router.push(`/streamLogin/${platform.name}`)
-  } else {
-    if (confirm(`确定登出${platform.name}吗？`)) {
-      handleStreamLogout(platform.name)
     }
   }
 }
@@ -1456,14 +1570,70 @@ const getAllOutputDevices = () => {
 
 const tab = ref('general')
 const lyricTab = ref(isWindows ? 'osdLyric' : 'trayLyric')
-const musicTab = ref('netease')
+const cardCollapsed = reactive({
+  library: true,
+  stream: true,
+  local: true,
+  player: true, // 播放器卡片默认折叠
+  general: true
+})
 const updateTab = (index: number) => {
-  const tabs = ['general', 'lyric', 'plugin', 'music', 'unblock', 'shortcut', 'misc', 'update'] // 'appearance'
+  const tabs = ['general', 'lyric', 'musicSource', 'unblock', 'shortcut', 'misc', 'update']
   const tabName = tabs[index]
   tab.value = tabName
   slideTop.value = index * 40
 }
+
 const slideTop = ref(0)
+
+const lyricPriority = ref<{ code: string; name: string }[]>([])
+const commentPriority = ref<{ code: string; name: string }[]>([])
+const trackInfoOrder = ref<string[]>(['path', 'online', 'embedded'])
+
+const loadSourcePriority = () => {
+  window.mainApi?.invoke('get-source-priority').then((res: any) => {
+    const allLib = libraryPlugins.value.map((p: service) => ({ code: p.code, name: p.name }))
+
+    const lyricOrder: string[] = res?.lyric || ['self']
+    const lyricItems = [...allLib, { code: 'self', name: '自身插件' }]
+    lyricItems.sort((a, b) => {
+      const pa = lyricOrder.indexOf(a.code)
+      const pb = lyricOrder.indexOf(b.code)
+      if (pa === -1 && pb === -1) return 0
+      if (pa === -1) return 1
+      if (pb === -1) return -1
+      return pa - pb
+    })
+    lyricPriority.value = lyricItems
+
+    const commentOrder: string[] = res?.comment || ['self']
+    const commentItems = [...allLib]
+    commentItems.sort((a, b) => {
+      const pa = commentOrder.indexOf(a.code)
+      const pb = commentOrder.indexOf(b.code)
+      if (pa === -1 && pb === -1) return 0
+      if (pa === -1) return 1
+      if (pb === -1) return -1
+      return pa - pb
+    })
+    commentPriority.value = commentItems
+
+    const order = res?.trackInfoOrder
+    if (order) trackInfoOrder.value = order
+  })
+}
+
+const persistPriority = () => {
+  window.mainApi?.send('set-source-priority', {
+    lyric: lyricPriority.value.map((i) => i.code),
+    comment: commentPriority.value.map((i) => i.code),
+    trackInfoOrder: toRaw(trackInfoOrder.value)
+  })
+}
+
+watch(lyricPriority, persistPriority, { deep: true })
+watch(commentPriority, persistPriority, { deep: true })
+watch(trackInfoOrder, persistPriority, { deep: true })
 
 const getCacheTracksInfo = () => {
   window.mainApi?.invoke('getCacheTracksInfo').then((res) => {
@@ -1557,9 +1727,13 @@ const updateProxy = () => {
 }
 
 const deleteLocalMusic = () => {
-  resetPlayer()
-  // resetLocalMusic()
+  if (!confirm(`确定清空本地音乐数据吗？`)) return
+  const serv = pluginServices.value.find((item) => item.code === currentTrack.value?.pluginId)
+  if (serv?.type === 'local') {
+    resetPlayer()
+  }
   scanDir.value = []
+  pluginServices.value.find((item) => item.type === 'local')!.status = 'logout'
   window.mainApi?.send('deleteLocalMusicDB')
 }
 
@@ -1694,10 +1868,12 @@ onMounted(() => {
     marginTop: isMac || !useCustomTitlebar.value ? '20px' : '0'
   }
   getCacheTracksInfo()
+  getStreamMatchCountData()
   updatePadding(64)
   getAllOutputDevices()
   getVersion()
   getFontList()
+  loadSourcePriority()
   // 开始监听 body 元素的属性变化
   observer.observe(document.body, {
     attributes: true,
@@ -1711,6 +1887,40 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped lang="scss">
+.priority-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+  min-height: 40px;
+}
+.priority-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: var(--color-secondary-bg);
+  border-radius: 8px;
+  cursor: grab;
+  font-size: 14px;
+  user-select: none;
+}
+.priority-item:active {
+  cursor: grabbing;
+}
+.priority-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .system-settings {
   width: 100%;
 }
@@ -1936,19 +2146,6 @@ onBeforeUnmount(() => {
   .left {
     padding-right: 6vw;
   }
-  .info-order {
-    margin-top: 12px;
-    display: inline-block;
-    margin-right: 10px;
-    padding: 8px 10px;
-    border-radius: 8px;
-    border: 2px var(--color-primary) solid;
-    cursor: move;
-
-    &:last-child {
-      margin-right: unset;
-    }
-  }
   .title {
     display: flex;
     font-size: 16px;
@@ -2073,64 +2270,168 @@ onBeforeUnmount(() => {
   }
 }
 
-.plugin-container {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
+/* ===== 音乐来源卡片布局 ===== */
+.music-card {
+  width: 100%;
+  background: var(--color-primary-bg);
+  border: 1px solid var(--color-secondary-bg);
+  border-radius: 12px;
+  margin-bottom: 16px;
+  overflow: hidden;
+  transition: box-shadow 0.2s;
 
-  .plugin-item {
+  &:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+
+  &.collapsed .card-body {
+    display: none;
+  }
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  cursor: pointer;
+  user-select: none;
+  background: var(--color-secondary-bg);
+  font-weight: 600;
+
+  &:hover {
+    opacity: 0.85;
+  }
+
+  .card-title {
+    font-size: 1.05rem;
+    color: var(--color-text);
+  }
+
+  .card-toggle {
+    font-size: 0.75rem;
+    color: var(--color-text);
+    opacity: 0.6;
+  }
+}
+
+.card-body {
+  padding: 16px 18px;
+
+  .item:first-child {
+    margin-top: 0;
+  }
+
+  .card-sub-section-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--color-text);
+    opacity: 0.7;
+    margin: 16px 0 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--color-secondary-bg);
+  }
+}
+
+/* 插件网格列表 */
+.plugin-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 8px;
+}
+/* 状态圆点 */
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* 流媒体服务列表 */
+.plugin-list-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--color-secondary-bg);
+  cursor: pointer;
+  transition: opacity 0.2s;
+  position: relative;
+
+  &:hover {
+    opacity: 0.85;
+  }
+
+  &.active {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+  }
+
+  img {
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    object-fit: cover;
+  }
+
+  .plugin-info {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    background-color: var(--color-primary);
-    padding: 1rem;
-    border-radius: 0.5rem;
+    gap: 6px;
+    flex: 1;
+    overflow: hidden;
+
+    .plugin-name-text {
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .active-badge {
+      font-size: 0.75rem;
+      opacity: 0.9;
+      white-space: nowrap;
+    }
+  }
+
+  .plugin-status-text {
+    font-size: 0.8rem;
+    opacity: 0.7;
+    white-space: nowrap;
+    margin-left: auto;
+  }
+}
+
+.section-divider {
+  margin: 24px 0 12px;
+
+  h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--color-text);
+    opacity: 0.8;
+  }
+
+  .collapsible-header {
     cursor: pointer;
+    user-select: none;
 
-    &.library {
-      color: white;
+    &:hover {
+      opacity: 1;
     }
 
-    &.stream {
-      background-color: color-mix(in oklab, var(--color-primary) 50%, white);
-    }
+    .collapse-icon {
+      font-size: 0.7rem;
+      margin-left: 8px;
+      transition: transform 0.25s ease;
+      display: inline-block;
 
-    &.local {
-      background-color: color-mix(in oklab, var(--color-primary) 20%, white);
-    }
-
-    .plugin-left {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-
-      .name {
-        font-size: 1.1rem;
-        font-weight: bold;
-      }
-    }
-
-    .plugin-right * {
-      text-align: center;
-    }
-
-    .plugin-right {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-
-      .login-status {
-        display: flex;
-        align-items: center;
-        cursor: pointer;
-
-        .circle {
-          width: 0.6rem;
-          height: 0.6rem;
-          border-radius: 50%;
-          margin-right: 0.4rem;
-          background-color: red;
-        }
+      &.rotated {
+        transform: rotate(90deg);
       }
     }
   }

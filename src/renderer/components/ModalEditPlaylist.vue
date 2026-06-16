@@ -30,19 +30,15 @@
 import { storeToRefs } from 'pinia'
 import { computed } from 'vue'
 import BaseModal from './BaseModal.vue'
-// import { updatePlaylist as updateOnlinePlaylist } from '../api/playlist'
 import { useNormalStateStore } from '../store/state'
-// import { useLocalMusicStore } from '../store/localMusic'
-// import { useStreamMusicStore } from '../store/streamingMusic'
+import { usePluginMusic } from '../store/pluginMusic'
+import type { PluginId } from '@/types/plugin'
 
 const stateStore = useNormalStateStore()
-// const { showToast } = stateStore
+const { showToast } = stateStore
 const { editPlaylistModal } = storeToRefs(stateStore)
 
-// const { updateLocalPlaylist } = useLocalMusicStore()
-
-// const streamStore = useStreamMusicStore()
-// const { updateStreamPlaylist } = streamStore
+const { pluginMethodCall } = usePluginMusic()
 
 const show = computed({
   get: () => editPlaylistModal.value.show,
@@ -54,44 +50,27 @@ const show = computed({
 const close = () => {
   editPlaylistModal.value = {
     show: false,
-    type: 'online',
+    pluginId: '' as PluginId,
     playlistID: 0,
     info: { title: '', description: '', tags: [] }
   }
 }
 
 const updatePlaylist = () => {
-  // const modal = editPlaylistModal.value
-  // if (modal.type === 'local') {
-  //   return updateLocalPlaylist(modal.playlistID, {
-  //     name: modal.info.title,
-  //     desc: modal.info.description
-  //   }).then((result) => {
-  //     showToast(`更新歌单信息${result ? '成功' : '失败'}`)
-  //     if (result) close()
-  //     return result
-  //   })
-  // } else if (modal.type === 'online') {
-  //   return updateOnlinePlaylist({
-  //     id: modal.playlistID,
-  //     name: modal.info.title,
-  //     desc: modal.info.description,
-  //     tags: modal.info.tags.join(';')
-  //   }).then((result) => {
-  //     showToast(`更新歌单信息${result.code === 200 ? '成功' : '失败'}`)
-  //     if (result.code === 200) close()
-  //     return result
-  //   })
-  // } else {
-  //   return updateStreamPlaylist(modal.type, modal.playlistID as unknown as string, {
-  //     name: modal.info.title,
-  //     desc: modal.info.description
-  //   }).then((result) => {
-  //     showToast(`更新歌单信息${result ? '成功' : '失败'}`)
-  //     if (result) close()
-  //     return result
-  //   })
-  // }
+  const modal = editPlaylistModal.value
+  const pluginId = modal.pluginId as PluginId
+  if (!pluginId) return
+
+  pluginMethodCall(pluginId, 'editPlaylist', {
+    id: modal.playlistID,
+    name: modal.info.title,
+    desc: modal.info.description,
+    tags: modal.info.tags.join(';')
+  }).then((result) => {
+    showToast(`更新歌单信息${result.code === 200 ? '成功' : '失败'}`)
+    if (result.code === 200) close()
+    return result
+  })
 }
 </script>
 

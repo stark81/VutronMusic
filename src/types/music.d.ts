@@ -75,21 +75,41 @@ export interface Track {
   updatedAt: number
 }
 
-export interface Playlist {
-  id: number
+// export interface Playlist {
+//   id: number
+//   name: string
+//   description: string
+//   coverImgUrl: string
+//   updateTime: number
+//   trackCount: number
+//   trackIds: number[]
+//   creator?: any
+// }
+
+// Playlist/PlaylistEntry 数据库行类型
+export interface PlaylistRow {
+  id: string
+  pluginId: string
   name: string
+  picUrl: string
   description: string
-  coverImgUrl: string
+  createTime: number
   updateTime: number
-  trackCount: number
-  trackIds: number[]
-  creator?: any
 }
 
-export interface StreamPlaylist extends Omit<Playlist, 'id'> {
-  id: string
-  trackItemIds: Record<number, number>
+export interface PlaylistEntryRow {
+  id: number
+  playlistId: string
+  pluginId: string
+  sourceContext: string
+  position: number
+  createTime: number
 }
+
+// export interface StreamPlaylist extends Omit<Playlist, 'id'> {
+//   id: string
+//   trackItemIds: Record<number, number>
+// }
 
 export type serviceName = 'navidrome' | 'jellyfin' | 'emby'
 export type streamStatus = 'logout' | 'login' | 'offline'

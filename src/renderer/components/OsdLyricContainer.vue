@@ -31,6 +31,8 @@
         :is-word-by-word="!lineMode"
         :playback-rate="playbackRate"
         :is-mini="isMini"
+        :lyric-font="font || 'system-ui'"
+        :lyric-font-size="fontSize"
       />
     </div>
   </div>

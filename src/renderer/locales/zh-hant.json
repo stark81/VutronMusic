@@ -15,7 +15,6 @@
     "album": "專輯",
     "playlist": "歌單",
     "user": "用戶",
-    "lyric": "歌詞",
     "mv": "MV",
     "chart": "排行榜",
     "newTrack": "新歌速遞",
@@ -105,8 +104,8 @@
     },
     "embeddedInformation": "優先使用歌曲內嵌資訊",
     "trackInfoOrder": {
-      "text": "歌曲資訊獲取順序設定",
-      "desc": "此功能用於設定本地歌曲資訊（歌詞、封面）的獲取順序，可拖拽調整順序",
+      "text": "封面取得順序",
+      "desc": "設定本地音樂封面的取得順序，拖拽調整優先級",
       "path": "從歌曲目錄下獲取",
       "online": "從線上獲取",
       "embedded": "從歌曲內嵌資訊中獲取"
@@ -158,6 +157,7 @@
     "descOrder": "降序排列",
     "selectAll": "全選",
     "batchOperation": "批次操作",
+    "refreshData": "重新取得資料",
     "reScan": "重新掃描歌曲",
     "showComment": "查看評論",
     "showLyric": "顯示歌詞",
@@ -198,7 +198,14 @@
     "loginWithPhone": "手機號碼登入",
     "loginWithQr": "QrCode登入",
     "loginWithCookie": "Cookie登入",
-    "noticeElectron": "你的密碼會在本地進行MD5加密後傳輸到網易雲API。VutronMusic 不會傳輸你的帳號資料到任何非網易雲音樂官方的伺服器。"
+    "cookiePlaceholder": "貼上你的Cookie字串",
+    "errorNoCookie": "請輸入Cookie",
+    "noticeElectron": "你的密碼會在本地進行MD5加密後傳輸到網易雲API。VutronMusic 不會傳輸你的帳號資料到任何非網易雲音樂官方的伺服器。",
+    "removeDir": "刪除",
+    "emptyScanDir": "請設定本地音樂掃描目錄",
+    "chooseDir": "選擇目錄",
+    "setScanDir": "設定",
+    "errorNoScanDir": "請設定掃描目錄"
   },
   "player": {
     "play": "播放",
@@ -259,6 +266,10 @@
     "fade": {
       "fadeDuration": "音訊淡入淡出時長（秒）",
       "fadeDurationDesc": "切換歌曲、播放、暫停時音量漸變的時長"
+    },
+    "volumeNormalization": {
+      "title": "音量平衡",
+      "desc": "自動平衡不同歌曲之間的響度差異，使所有歌曲在同一音量下聽感一致"
     }
   },
   "common": {
@@ -273,6 +284,7 @@
       "extension": "歌詞插件",
       "platformSetting": "平台設定",
       "plugin": "插件設定",
+      "musicSource": "音樂來源",
       "lyricSetting": "歌詞設定",
       "lyric": "主視窗歌詞",
       "osdLyric": "桌面歌詞",
@@ -283,6 +295,7 @@
       "netease": "線上音樂",
       "stream": "串流媒體音樂",
       "local": "本地音樂",
+      "library": "媒體庫",
       "unblock": "音源設定",
       "shortcut": "快捷鍵設定",
       "misc": "雜項設定",
@@ -531,6 +544,9 @@
       "logout": "未登入",
       "offline": "伺服器離線"
     },
+    "library": {
+      "enable": "啟用媒體庫"
+    },
     "update": {
       "autoUpdate": "自動檢查更新",
       "currentVersion": "目前版本",
@@ -562,7 +578,7 @@
     "savedToPlaylist": "已新增至歌單",
     "saveFailed": "新增失敗",
     "tracksAlreadyInPlaylist": "歌曲已在歌單中",
-    "needToLogin": "此操作需要登入網易雲帳號",
+    "needToLogin": "此操作需要登入{serviceName}帳號",
     "getColorFailed": "取得顏色失敗",
     "scanning": "正在掃描本地音樂，請稍後",
     "addFailed": "操作失敗，專輯下架或版權鎖定",

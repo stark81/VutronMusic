@@ -142,7 +142,6 @@ import TrackList from '../components/VirtualTrackList.vue'
 import ButtonTwoTone from '../components/ButtonTwoTone.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import CoverRow from '../components/VirtualCoverRow.vue'
-import { PluginId } from '@/types/schemas'
 
 const show = ref(false)
 const user = ref<{ [key: string]: any }>({})

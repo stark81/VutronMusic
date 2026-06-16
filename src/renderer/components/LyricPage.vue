@@ -34,6 +34,8 @@
             :playing="playing"
             :is-word-by-word="!lineMode"
             :playback-rate="playbackRate"
+            :lyric-font="fontFamily || 'system-ui'"
+            :lyric-font-size="nFontSize"
           />
         </div>
       </div>

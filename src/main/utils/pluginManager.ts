@@ -2,8 +2,7 @@ import path from 'path'
 import fs from 'fs'
 import { Worker } from 'worker_threads'
 import electronStore from '../store'
-import cache from '../cache'
-import { CacheAPIs } from './CacheApis'
+import { pluginDbGet, pluginDbSet } from '../dbHelpers'
 import { fetch, Agent } from 'undici'
 import {
   yrcLyricParse,
@@ -13,6 +12,7 @@ import {
   getLyricFromPath
 } from '.'
 import { LyricLine } from '@/types/plugin'
+import type { PluginCapabilities } from '@/types/schemas'
 
 const dispatcher = new Agent({
   connections: 2,
@@ -23,7 +23,8 @@ const dispatcher = new Agent({
 
 export interface PluginMeta {
   name?: string
-  type?: 'online' | 'stream' | 'local'
+  type?: 'online' | 'stream' | 'local' | 'library'
+  capabilities?: PluginCapabilities
   [key: string]: any
 }
 
@@ -112,20 +113,16 @@ export class PluginInstance {
       }
 
       case 'DB_REQUEST': {
-        const { key, requestId } = msg as { key: string; requestId: string }
-        const cacheMap: Record<string, string> = {
-          PluginData: CacheAPIs.PluginData,
-          Track: CacheAPIs.LocalMusic,
-          Artist: CacheAPIs.Artist,
-          Album: CacheAPIs.Album
+        const { key, requestId, filter } = msg as {
+          key: string
+          requestId: string
+          filter?: Record<string, any>
         }
         let result: any = null
-        if (cacheMap[key]) {
-          try {
-            result = cache.get(cacheMap[key], { pluginId: this.id })
-          } catch (err) {
-            console.error('[Plugin DB_REQUEST error] key=' + key + ':', err)
-          }
+        try {
+          result = pluginDbGet(key, { pluginId: this.id, filter })
+        } catch (err) {
+          console.error('[Plugin DB_REQUEST error] key=' + key + ':', err)
         }
         this.worker.postMessage({
           type: 'DB_RESPONSE',
@@ -137,18 +134,10 @@ export class PluginInstance {
 
       case 'DB_SET': {
         const { key, value } = msg as { key: string; value: any }
-        const cacheMap: Record<string, string> = {
-          PluginData: CacheAPIs.PluginData,
-          Track: CacheAPIs.LocalMusic,
-          Artist: CacheAPIs.Artist,
-          Album: CacheAPIs.Album
-        }
-        if (cacheMap[key]) {
-          try {
-            cache.set(cacheMap[key], { pluginId: this.id, type: this.meta.type, data: value })
-          } catch (err) {
-            console.error('[Plugin DB_SET error] key=' + key + ':', err)
-          }
+        try {
+          pluginDbSet(key, value, { pluginId: this.id, type: this.meta.type })
+        } catch (err) {
+          console.error('[Plugin DB_SET error] key=' + key + ':', err)
         }
         break
       }
@@ -191,13 +180,31 @@ export class PluginInstance {
         let pathLyric: LyricLine[] = []
         try {
           pathLyric = await getLyricFromPath(pathFile)
-        } catch (e) {
-          console.error('[LYRIC_PATH error]', e)
-        }
+        } catch {}
         this.worker.postMessage({
           type: 'LYRIC_RESPONSE',
           requestId: msg.requestId,
           data: pathLyric
+        })
+        break
+      }
+
+      case 'CHECK_FILE_EXIST': {
+        const paths = msg.paths as string[]
+        const results = await Promise.all(
+          paths.map(async (filePath) => {
+            try {
+              await fs.promises.access(filePath)
+              return { path: filePath, exist: true }
+            } catch {
+              return { path: filePath, exist: false }
+            }
+          })
+        )
+        this.worker.postMessage({
+          type: 'STORE_RESPONSE',
+          requestId: msg.requestId,
+          data: results
         })
         break
       }
@@ -236,7 +243,7 @@ export class PluginInstance {
 
     const timeout = setTimeout(() => {
       controller.abort()
-    }, 12000)
+    }, 20000)
 
     let fullUrl: string
 

@@ -98,7 +98,6 @@ import { usePlayerStore } from '../store/player'
 import { usePlayerThemeStore } from '../store/playerTheme'
 import { storeToRefs } from 'pinia'
 import { ref, provide, computed, watch } from 'vue'
-// import { TrackSourceType } from '@/types/music.d'
 
 const playPageContextMenu = ref<InstanceType<typeof ContextMenu>>()
 
@@ -111,8 +110,8 @@ const {
   setFontModal,
   setPlaybackRateModal,
   backgroundModal,
-  setSaveThemeModal
-  // addTrackToPlaylistModal
+  setSaveThemeModal,
+  addTrackToPlaylistModal
 } = storeToRefs(stateStore)
 
 const playerStore = usePlayerStore()
@@ -142,22 +141,18 @@ const tabs = computed(() => {
   } else {
     result = ['pickLyric', 'fullLyric', 'comment']
   }
-  // if (currentTrack.value?.type === 'library') {
-  //   result.push('comment')
-  // }
   return result
 })
 
 const addTrackToPlaylist = () => {
-  // if (!currentTrack.value) return
-  // addTrackToPlaylistModal.value = {
-  //   show: true,
-  //   selectedTrackID: [currentTrack.value.id],
-  //   type:
-  //     currentTrack.value.type === 'stream'
-  //       ? (currentTrack.value.source as TrackSourceType)
-  //       : (currentTrack.value.type as TrackSourceType)
-  // }
+  if (!currentTrack.value) return
+  addTrackToPlaylistModal.value = {
+    show: true,
+    selectedTrackID: [
+      { pluginId: currentTrack.value.pluginId, sourceContext: currentTrack.value.sourceContext }
+    ],
+    plugin: currentTrack.value.pluginId
+  }
 }
 
 provide('playPageContextMenu', playPageContextMenu)

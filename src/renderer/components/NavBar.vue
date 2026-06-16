@@ -40,12 +40,6 @@
         <div :class="{ active: searchTab === 'mvs' }" class="item" @click="searchTab = 'mvs'">{{
           $t('nav.mv')
         }}</div>
-        <div
-          :class="{ active: searchTab === 'lyrics' }"
-          class="item"
-          @click="searchTab = 'lyrics'"
-          >{{ $t('nav.lyric') }}</div
-        >
       </div>
       <div v-if="route.name === 'explore'" class="search-tabs">
         <div
@@ -79,7 +73,7 @@
       <div class="right-part">
         <SearchBox
           ref="searchBoxRef"
-          :services="services"
+          :services="services.filter((s) => s.type !== 'local')"
           :clear-keywords="true"
           @keydown-enter="doSearch"
         />
@@ -123,6 +117,7 @@ import { storeToRefs } from 'pinia'
 import { doLogout } from '../utils/auth'
 import { openExternal } from '../utils'
 import { PluginId } from '@/types/schemas'
+import { ExploreTab } from '@/types/plugin.js'
 
 const { searchTab, exploreTab } = storeToRefs(useNormalStateStore())
 const { general } = storeToRefs(useSettingsStore())
@@ -169,19 +164,8 @@ const openLogFile = () => {
   window.mainApi?.send('openLogFile')
 }
 
-// const handleRoute = (path: string): void => {
-//   router.push(path)
-// }
-
-const categoryMap = {
-  chart: '排行榜',
-  artist: '歌手'
-}
-
-const toExplore = (Category: string) => {
-  // exploreTab.value = Category
-  // const cat = ['chart', 'artist'].includes(Category) ? categoryMap[Category] : '全部'
-  // router.push({ name: 'explore', query: { category: cat, tab: Category } })
+const toExplore = (Category: ExploreTab) => {
+  exploreTab.value = Category
 }
 
 const logout = () => {

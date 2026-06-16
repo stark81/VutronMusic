@@ -1,6 +1,6 @@
 <template>
   <div class="mv-page" :style="mainStyle">
-    <div class="left" :class="{ 'with-comment': mv?.hasComment && showComment }">
+    <div class="left" :class="{ 'with-comment': canComment && showComment }">
       <div class="current-video">
         <div class="video">
           <video ref="videoPlayer" class="plyr"></video>
@@ -31,7 +31,7 @@
                   mv?.subCount
                 }}</button
               >
-              <button v-if="mv?.hasComment" @click="showComment = !showComment"
+              <button v-if="canComment" @click="showComment = !showComment"
                 ><svg-icon icon-class="comment"
               /></button>
             </div>
@@ -39,10 +39,10 @@
         </div>
       </div>
     </div>
-    <div class="right" :class="{ 'with-comment': mv?.hasComment && showComment }">
+    <div class="right" :class="{ 'with-comment': canComment && showComment }">
       <Comment
-        v-if="mv?.hasComment && showComment"
-        :id="mv?.id"
+        v-if="canComment && showComment && mv"
+        :id="mv.id"
         :plugin="mv.pluginId"
         :source-context="mv.sourceContext"
         type="mv"
@@ -65,8 +65,7 @@ import Plyr from 'plyr'
 import { useI18n } from 'vue-i18n'
 import { useNormalStateStore } from '../store/state'
 import { usePluginMusic } from '../store/pluginMusic'
-import { PluginId } from '@/types/schemas'
-import { MvDetail } from '@/types/plugin'
+import { PluginId, MvDetail } from '@/types/plugin'
 
 const mv = ref<MvDetail>()
 const videoPlayer = ref()
@@ -86,9 +85,17 @@ const { playing, volume } = storeToRefs(playerStore)
 const { playOrPause } = playerStore
 
 const pluginStore = usePluginMusic()
-const { pluginMethodCall, isAccountLoggedIn } = pluginStore
+const { pluginMethodCall, isAccountLoggedIn, services } = pluginStore
 
 const route = useRoute()
+
+const pluginId = computed(() => route.params.pluginId as PluginId)
+const capabilities = computed(() => {
+  return services.find((s) => s.code === pluginId.value)?.capabilities
+})
+const canComment = computed(() => {
+  return capabilities.value?.comment?.types?.includes('mv') ?? false
+})
 
 const loadData = (plugin: PluginId, sourceContext: Record<string, any>) => {
   tricklingProgress.start()
@@ -143,7 +150,11 @@ const { t } = useI18n()
 
 const handleLikeMv = (mv: MvDetail) => {
   if (!isAccountLoggedIn(mv.pluginId)) {
-    showToast(t('toast.needToLogin'))
+    showToast(
+      t('toast.needToLogin', {
+        serviceName: services.find((s) => s.code === mv.pluginId)?.name || ''
+      })
+    )
     return
   }
   pluginMethodCall(mv.pluginId, 'likeAMV', {
@@ -165,7 +176,11 @@ const handleLikeMv = (mv: MvDetail) => {
 
 const handleSubMv = (mv: MvDetail) => {
   if (!isAccountLoggedIn(mv.pluginId)) {
-    showToast(t('toast.needToLogin'))
+    showToast(
+      t('toast.needToLogin', {
+        serviceName: services.find((s) => s.code === mv.pluginId)?.name || ''
+      })
+    )
     return
   }
 

@@ -1,7 +1,7 @@
 <template>
   <div v-if="show" class="comment-container">
     <div class="comment-head">
-      <label>回复({{ totalCount }})</label>
+      <label>[{{ pluginName }}]:回复({{ totalCount }})</label>
       <div class="btns">
         <button class="btn" @click="switchToCommentPage">关闭</button>
       </div>
@@ -17,7 +17,7 @@
         :below-value="5"
         :show-position="false"
         :is-end="false"
-        :load-more="() => loadFloorComment()"
+        :load-more="() => loadFloorComment(false)"
       >
         <template #default="{ item, index }">
           <div class="comment-item" :class="{ first: index === 0 && floorComments.length > 1 }">
@@ -48,10 +48,13 @@
                 <div class="comment-btns">
                   <button
                     v-if="isAccountLoggedIn && item.owner"
+                    :disabled="!commentEnabled || !capableComment.submit"
                     @click.stop="handleDeleteComment(item)"
                     >删除</button
                   >
-                  <button @click.stop="handleLikeComment(item)"
+                  <button
+                    :disabled="!commentEnabled || !capableComment.like"
+                    @click.stop="handleLikeComment(item)"
                     ><svg-icon :icon-class="item.liked ? 'liked' : 'like'" />{{
                       item.likedCount
                     }}</button
@@ -66,6 +69,7 @@
     <div class="write-comment">
       <WriteComment
         ref="floorCommentRef"
+        :disabled="!commentEnabled || !capableComment.submit"
         :placeholder="placeholder"
         @keydown-enter="handleSubmitComment"
       />
@@ -80,17 +84,17 @@ import { usePluginMusic } from '../store/pluginMusic'
 import VirtualScroll from './VirtualScrollNoHeight.vue'
 import WriteComment from './WriteComment.vue'
 import SvgIcon from './SvgIcon.vue'
-import { useRouter } from 'vue-router'
+// import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { formatDate } from '../utils'
-// import { storeToRefs } from 'pinia'
 import { debounce } from 'lodash'
 import { PluginId, CommentType } from '@/types/plugin'
+import { CommentContentType } from '@/types/schemas'
 
 interface Props {
   selectedComment: CommentType | null
   sourceContext: Record<string, any>
-  type: string
+  type: CommentContentType
   plugin: PluginId
   paddingRight?: string
 }
@@ -122,7 +126,20 @@ const stateStore = useNormalStateStore()
 // const { showLyrics } = storeToRefs(stateStore)
 const { showToast } = stateStore
 
-const { pluginMethodCall, isAccountLoggedIn } = usePluginMusic()
+const { pluginMethodCall, isAccountLoggedIn, services } = usePluginMusic()
+
+const capabilities = computed(() => {
+  return services.find((s) => s.code === props.plugin)?.capabilities
+})
+const commentEnabled = computed(() => {
+  return capabilities.value?.comment?.types?.includes(props.type) ?? false
+})
+const capableComment = computed(() => {
+  return capabilities.value?.comment ?? {}
+})
+const pluginName = computed(() => {
+  return services.find((s) => s.code === props.plugin)?.name || ''
+})
 
 if (selectedComment.value) floorComments.value.push(selectedComment.value)
 
@@ -138,7 +155,7 @@ const updateWindowHeight = () => {
   commentHeight.value = mainRef.value?.offsetHeight || commentHeight.value
 }
 
-const router = useRouter()
+// const router = useRouter()
 const goToUser = (item: CommentType) => {
   // router.push(`/user/${item.user.userId}`)
   // showLyrics.value = false
@@ -149,9 +166,9 @@ const switchToCommentPage = () => {
   show.value = false
 }
 
-const loadFloorComment = () => {
+const loadFloorComment = (reset = true) => {
   pluginMethodCall(props.plugin, 'getFloorComments', {
-    sourceContext,
+    sourceContext: { ...sourceContext, reset },
     commentInfo: _selectedComment.value?.sourceContext,
     type: props.type
   }).then((result) => {
@@ -170,7 +187,7 @@ const loadFloorComment = () => {
 
 const handleLikeComment = (comment: CommentType) => {
   if (!isAccountLoggedIn(props.plugin)) {
-    showToast(t('toast.needToLogin'))
+    showToast(t('toast.needToLogin', { serviceName: pluginName.value }))
     return
   }
 
@@ -195,7 +212,7 @@ const replyFloor = (comment: CommentType) => {
 
 const handleDeleteComment = (comment: CommentType) => {
   if (!isAccountLoggedIn(props.plugin)) {
-    showToast(t('toast.needToLogin'))
+    showToast(t('toast.needToLogin', { serviceName: pluginName.value }))
     return
   }
   if (confirm(`确定要删除评论'${comment.content}'吗？`)) {
@@ -215,7 +232,7 @@ const handleDeleteComment = (comment: CommentType) => {
 
 const handleSubmitComment = () => {
   if (!isAccountLoggedIn(props.plugin)) {
-    showToast(t('toast.needToLogin'))
+    showToast(t('toast.needToLogin', { serviceName: pluginName.value }))
     return
   }
 
@@ -257,7 +274,7 @@ onMounted(() => {
     'resize',
     debounce(() => updateWindowHeight(), 200)
   )
-  loadFloorComment()
+  loadFloorComment(true)
 })
 
 onBeforeUnmount(() => {
@@ -273,7 +290,6 @@ onBeforeUnmount(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  overflow-y: hidden;
   scrollbar-width: none;
   box-sizing: border-box;
   transition: all 0.5s;
@@ -389,6 +405,11 @@ onBeforeUnmount(() => {
     svg {
       margin-right: 2px;
     }
+  }
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
   }
 }
 .write-comment {

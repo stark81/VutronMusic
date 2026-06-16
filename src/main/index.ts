@@ -23,24 +23,12 @@ import { startInstance as startAmuseFastifyInstance } from './appServer/6kLabsAm
 import IPCs from './IPCs'
 import fastifyStatic from '@fastify/static'
 import path from 'path'
-import cache from './cache'
 import { db, Tables } from './db'
-import sharp from 'sharp'
-import {
-  getPic,
-  getPicFromApi,
-  getLyric,
-  getLyricFromApi,
-  getPicColor,
-  getTrackDetail,
-  getAudioSource
-} from './utils'
-import { CacheAPIs } from './utils/CacheApis'
+import { getPic, getPicFromApi, getPicColor } from './utils'
 import { proxyFetch } from './utils/proxyFetch'
 import { registerGlobalShortcuts } from './globalShortcut'
 import { initAutoUpdater } from './checkUpdate'
 import log from './log'
-import { lyricLine } from '@/types/music'
 import { pluginManager } from './pluginManager'
 
 const closeOnLinux = (e: any, win: BrowserWindow | null) => {
@@ -155,6 +143,10 @@ class BackGround {
     server.register(fastifyStatic, {
       root: path.join(__dirname, '../')
     })
+
+    const generateConfig = require('@neteasecloudmusicapienhanced/api/generateConfig')
+    await generateConfig()
+
     server.register(netease)
     server.register(httpHandler)
     server.decorate('win', null)
@@ -521,29 +513,8 @@ class BackGround {
         })
       } else if (host === 'local-asset') {
         const type = searchParams.get('type')
-        let ids: string
-        let res: Record<string, any>
 
         switch (type) {
-          case 'pic':
-            const size = Number(searchParams.get('size'))
-            ids = searchParams.get('id')!
-            res = cache.get(CacheAPIs.Track, { ids })
-
-            const track = res.songs[0]
-            const url = new URL((track.album || track.al).picUrl)
-            url.searchParams.set('param', `${size}y${size}`)
-            ;(track.album || track.al).picUrl = track.matched
-              ? url.toString()
-              : 'vutron://get-default-pic'
-
-            const result = await getPic(track)
-            let pic = result.pic
-            pic = await sharp(pic).resize(size, size, { fit: 'cover' }).toBuffer()
-            const format = result.format
-
-            return new Response(new Uint8Array(pic), { headers: { 'Content-Type': format } })
-
           case 'stream':
             const mime = require('mime-types')
             try {
@@ -605,34 +576,7 @@ class BackGround {
               console.error('[vutron stream error]', streamErr)
               return new Response('Stream Error', { status: 500 })
             }
-          case 'track':
-            ids = searchParams.get('id')!
-            res = cache.get(CacheAPIs.Track, { ids })
-            if (res) {
-              const track = res.songs[0]
-              return new Response(JSON.stringify(track), {
-                headers: { 'content-type': 'application/json' }
-              })
-            } else {
-              res = await getTrackDetail(ids)
-              if (!res || !res.songs?.length) {
-                log.error('======get-track-error=====', ids)
-                return new Response(JSON.stringify({ status: 404 }), {
-                  headers: { 'content-type': 'application/json' }
-                })
-              }
-              const track = res.songs[0]
-              const { url, br, gain, peak, source } = await getAudioSource(track)
-              track.url = url
-              track.source = source
-              track.gain = gain
-              track.peak = peak
-              track.br = br
 
-              return new Response(JSON.stringify(track), {
-                headers: { 'content-type': 'application/json' }
-              })
-            }
           case 'json':
             const jsonFile = searchParams.get('path')!
             if (!fs.existsSync(jsonFile)) {
@@ -650,21 +594,6 @@ class BackGround {
                 headers: { 'Content-Type': 'application/json' }
               })
             }
-          case 'lyric':
-            ids = searchParams.get('id')!
-            res = cache.get(CacheAPIs.Track, { ids })
-            let lyrics: lyricLine[] = []
-
-            if (res?.songs?.length > 0) {
-              const track = res.songs[0]
-              lyrics = await getLyric(track)
-            } else {
-              lyrics = await getLyricFromApi(Number(ids))
-            }
-
-            return new Response(JSON.stringify(lyrics), {
-              headers: { 'content-type': 'application/json' }
-            })
         }
       } else if (host === 'local-resource') {
         const mime = require('mime-types')

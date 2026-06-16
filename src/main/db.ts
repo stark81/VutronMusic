@@ -6,7 +6,6 @@ import log from './log'
 import { app } from 'electron'
 import { createFileIfNotExist } from './utils'
 import Constants from './utils/Constants'
-import { compare, validate } from 'compare-versions'
 
 export enum Tables {
   Track = 'Track',
@@ -25,7 +24,9 @@ export enum Tables {
   TrackArtist = 'TrackArtist',
   TrackSource = 'TrackSource',
   AlbumSource = 'AlbumSource',
-  ArtistSource = 'ArtistSource'
+  ArtistSource = 'ArtistSource',
+  Plugins = 'Plugins',
+  PlaylistEntry = 'PlaylistEntry'
 }
 
 type TableNames = `${Tables}`
@@ -48,7 +49,7 @@ class DB {
       this.sqlite = new SQLite3(this.dbFilePath)
       this.sqlite.pragma('auto_vacuum = FULL')
       this.initTables()
-      // this.migrate()
+      this.migrate()
     } catch (error) {
       log.info('[db init error]:', error)
     }
@@ -64,44 +65,14 @@ class DB {
     const init = readSqlFile('plugin.sql')
     this.sqlite.exec(init)
     this.sqlite.pragma('journal_mode=WAL')
-
-    // schema-level online migrations for existing databases
-    try {
-      this.sqlite.exec(`ALTER TABLE ${Tables.Track} ADD COLUMN liked INTEGER NOT NULL DEFAULT 0`)
-    } catch (e) {
-      // column already exists, safe to ignore
-    }
   }
 
   migrate() {
     const key = 'appVersion'
     const appVersion = this.findAppData(key)
-
-    const updateVersion = () => {
+    if (appVersion?.value !== Constants.APP_VERSION) {
       this.upsertAppData({ id: key, value: Constants.APP_VERSION })
     }
-
-    if (!appVersion?.value) {
-      if (compare(Constants.APP_VERSION, '1.5.0', '>=')) {
-        this.sqlite.exec(readSqlFile('1.5.0.sql'))
-      }
-      updateVersion()
-      return
-    }
-
-    const sqlFiles = fs.readdirSync(migrationsDir)
-
-    sqlFiles.forEach((sqlFile: string) => {
-      const match = sqlFile.match(/^(\d+(\.\d+)*)(?=\.)/)
-      const version = match ? match[0] : ''
-      if (!validate(version)) return
-
-      if (compare(version, appVersion.value, '>')) {
-        this.sqlite.exec(readSqlFile(sqlFile))
-      }
-    })
-
-    updateVersion()
   }
 
   /* ---------------- 基础查询 ---------------- */

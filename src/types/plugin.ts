@@ -23,7 +23,8 @@ import {
   TrackCatlistSchema,
   ArtistCatlistSchema,
   CommentTabSchema,
-  PluginId
+  PluginId,
+  PluginCapabilities
 } from './schemas'
 
 export type MusicType = z.infer<typeof MusicTypeSchema>
@@ -56,10 +57,12 @@ export type CommentTab = z.infer<typeof CommentTabSchema>
 export type service = {
   code: PluginId
   name: string
+  icon?: string
   active: boolean
   loadFull: boolean
   type: 'local' | 'library' | 'stream'
   status: 'logout' | 'login' | 'offline'
+  capabilities?: PluginCapabilities
 }
 
 export interface Lyrics {
@@ -69,7 +72,7 @@ export interface Lyrics {
 }
 
 export const exploreTabList = ['playlist', 'artist', 'chart', 'newTrack', 'newAlbum'] as const
-export const searchTabList = ['tracks', 'albums', 'artists', 'playlists', 'mvs', 'lyrics'] as const
+export const searchTabList = ['tracks', 'albums', 'artists', 'playlists', 'mvs'] as const
 
 export type ExploreTab = (typeof exploreTabList)[number]
 export type SearchTab = (typeof searchTabList)[number]
@@ -87,18 +90,15 @@ export const defaultMap: {
   updateBaseUrl: { code: 404 },
   getAccount: { code: 404, baseUrl: '', userName: '', pwd: '' },
   search: { code: 404, data: [], count: 0, sourceContext: {} },
-  getSongUrl: { code: 404, data: '' },
   getLyric: { code: 404, data: [] },
   getBanner: { code: 404, data: [] },
   userPlaylist: { code: 404, liked: null, playlists: [], albums: [], sourceContext: {} },
-  vipStatus: { code: 404 },
-  receiveVip: { code: 404 },
-  updateVip: { code: 404 },
   getRecommendPlaylist: { code: 404, data: [] },
   getRecommendTracks: { code: 404, data: [], sourceContext: {} },
   getPlaylistDetail: { code: 404, data: null },
   getPlaylistTracks: { code: 404, data: [], sourceContext: {} },
-  personerFM: { code: 404 },
+  personalFM: { code: 404, data: [], sourceContext: {} },
+  fmTrash: { code: 404 },
   topSong: { code: 404, data: [], sourceContext: {} },
   topArtists: { code: 404, data: [], sourceContext: {} },
   artistsList: { code: 404, data: [], sourceContext: {} },
@@ -115,6 +115,7 @@ export const defaultMap: {
   // userLikedAlbums: { code: 404, data: [], sourceContext: {} },
   userLikedArtists: { code: 404, data: [], sourceContext: {} },
   userLikedMVs: { code: 404, data: [], sourceContext: {} },
+  userRecord: { code: 404, weekData: [], allData: [], sourceContext: {} },
   cloudDisk: { code: 404, data: [], sourceContext: {} },
   resizePicUrl: { code: 404, data: '' },
   albumDetail: { code: 404, data: null },
@@ -127,6 +128,7 @@ export const defaultMap: {
   likeATrack: { code: 404 },
   addOrRemoveTracksToPlaylist: { code: 404 },
   createPlaylist: { code: 404 },
+  editPlaylist: { code: 404 },
   deletePlaylist: { code: 404 },
   subscribePlaylist: { code: 404 },
   followArtist: { code: 404 },
@@ -146,7 +148,8 @@ export const defaultMap: {
   getComments: { code: 404, data: [], count: 0, sourceContext: {} },
   likeAComment: { code: 404 },
   submitAComment: { code: 404, data: null },
-  getFloorComments: { code: 404, data: [], count: 0, sourceContext: {} }
+  getFloorComments: { code: 404, data: [], count: 0, sourceContext: {} },
+  matchTrack: { code: 404 }
 }
 
 export type PluginMethodCall = <K extends keyof PluginAPI>(
@@ -162,4 +165,4 @@ export type Tool = {
   artistBy: ArtistType
 }
 
-export type LoginType = 'Username' | 'Phone' | 'Email' | 'QrCode' | 'Cookie'
+export type LoginType = 'Username' | 'Phone' | 'Email' | 'QrCode' | 'Cookie' | 'LocalDir'

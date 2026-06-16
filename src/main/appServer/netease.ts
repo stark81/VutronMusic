@@ -1,8 +1,5 @@
 import { pathCase } from 'change-case'
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
-// import cache from '../cache'
-// import { CacheAPIs } from '../utils/CacheApis'
-// import { handleNeteaseResult } from '../utils'
 import log from '../log'
 import store from '../store'
 

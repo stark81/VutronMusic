@@ -2,7 +2,6 @@ import { defineStore } from 'pinia'
 import { nextTick, reactive, ref, watch } from 'vue'
 import { type UpdateCheckResult } from 'electron-updater'
 import { type IFontInfo } from 'font-list'
-import type { TrackSourceType } from '@/types/music'
 import type { LayoutMode } from '@/types/theme'
 import { Track, PluginId, ExploreTab, SearchTab } from '@/types/plugin'
 
@@ -49,7 +48,7 @@ export const useNormalStateStore = defineStore('state', () => {
   })
   const editPlaylistModal = ref({
     show: false,
-    type: 'online' as TrackSourceType,
+    pluginId: '' as PluginId,
     playlistID: 0,
     info: { title: '', description: '', tags: [] as string[] }
   })

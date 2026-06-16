@@ -23,14 +23,19 @@ import {
   exploreTabList
 } from '@/types/plugin'
 
-const _buildService = (code: PluginId, meta: { name: string; type: MusicType }): service => {
+const _buildService = (
+  code: PluginId,
+  meta: { name: string; type: MusicType; icon?: string; capabilities?: service['capabilities'] }
+): service => {
   return {
     code,
     name: meta.name,
+    icon: meta.icon,
     type: meta.type,
     active: false,
     status: 'logout',
-    loadFull: meta.type !== 'library'
+    loadFull: meta.type !== 'library',
+    capabilities: meta.capabilities
   }
 }
 
@@ -43,7 +48,7 @@ export const usePluginMusic = defineStore(
     const services = ref<service[]>([])
     const users = reactive<Record<PluginId, User>>({})
 
-    const enablelibrary = ref(true)
+    const enableLibrary = ref(true)
     const enableStream = ref(true)
     const enableLocal = ref(true)
 
@@ -69,7 +74,7 @@ export const usePluginMusic = defineStore(
     const cloudDisks = reactive<
       Record<PluginId, { data: Track[]; sourceContext: Record<string, any> }>
     >({})
-    const playHistory = reactive<Record<PluginId, { week: Track[]; all: Track[] }[]>>({})
+    const playHistory = reactive<Record<PluginId, { week: Track[]; all: Track[] }>>({})
 
     const tools = reactive<Record<service['type'], Tool>>({
       library: { groundBy: 'all', sortBy: 'name', orderBy: 'ASC', artistBy: 'artists' },
@@ -147,7 +152,7 @@ export const usePluginMusic = defineStore(
           return defaultMap[methodName] as PluginAPI[typeof methodName]['result']
         }
       } catch (error: any) {
-        if (error?.message.includes('UNAUTHORIZED')) {
+        if (error instanceof Error && error.message.includes('UNAUTHORIZED')) {
           const service = services.value.find((item) => item.code === pluginId)
           if (service) service.status = 'logout'
           console.log(`${pluginId} UNAUTHORIZED`)
@@ -170,17 +175,24 @@ export const usePluginMusic = defineStore(
     const getPlugins = async () => {
       await window.mainApi
         ?.invoke('get-plugins')
-        .then((result: Record<PluginId, { name: string; type: MusicType }>) => {
-          for (const [code, meta] of Object.entries(result)) {
-            const pluginId = code as PluginId
-            if (!pluginIdSet.value.has(pluginId)) {
-              const info = _buildService(pluginId, meta)
-              services.value.push(info)
-              _initPluginData(pluginId)
+        .then(
+          (
+            result: Record<
+              PluginId,
+              { name: string; type: MusicType; capabilities?: service['capabilities'] }
+            >
+          ) => {
+            for (const [code, meta] of Object.entries(result)) {
+              const pluginId = code as PluginId
+              if (!pluginIdSet.value.has(pluginId)) {
+                const info = _buildService(pluginId, meta)
+                services.value.push(info)
+                _initPluginData(pluginId)
+              }
+              _initTempInfo(pluginId)
             }
-            _initTempInfo(pluginId)
           }
-        })
+        )
 
       const typeOrder = {
         library: 0,
@@ -191,7 +203,14 @@ export const usePluginMusic = defineStore(
       services.value.sort((a, b) => typeOrder[a.type] - typeOrder[b.type])
       const active = services.value.find((item) => item.active)
       if (!active) {
-        services.value.find((item) => item.code === 'netease')!.active = true
+        const fallback = services.value.find(
+          (item) =>
+            (item.type === 'library' && enableLibrary.value) ||
+            (item.type === 'stream' && enableStream.value) ||
+            (item.type === 'local' && enableLocal.value)
+        )
+        if (fallback) fallback.active = true
+        else services.value.find((item) => item.code === 'netease')!.active = true
       }
     }
 
@@ -336,19 +355,24 @@ export const usePluginMusic = defineStore(
       artists[item].sourceContext = result.sourceContext
     }
 
-    const fetchAllTracks = async (item: PluginId) => {
-      const plugin = services.value.find((it) => it.code === item)!
-      if (plugin.type === 'library') return
+    const fetchAllTracks = async (item: PluginId, reset = false) => {
+      const plugin = services.value.find((it) => it.code === item)
+      if (!plugin || plugin.type === 'library') return
       if (!tracks[item]) tracks[item] = { data: [], count: 0, sourceContext: {} }
 
       const tool = tools[plugin.type]
       const pluginTracks = tracks[item]
 
+      if (reset) {
+        pluginTracks.data = []
+      }
+
       const loadTracks = async () => {
         const result = await pluginMethodCall(item, 'getAllTracks', {
           ...pluginTracks.sourceContext,
           sort: tool.sortBy,
-          order: tool.orderBy
+          order: tool.orderBy,
+          ...(reset && { reset: true })
         })
         pluginTracks.data.push(
           ...result.data.map((_item) => ({
@@ -452,11 +476,39 @@ export const usePluginMusic = defineStore(
       cloudDisks[item].sourceContext = result.sourceContext
     }
 
-    const fetchLyric = async (plugin: PluginId, sourceContext: Record<string, any>) => {
-      return pluginMethodCall(plugin, 'getLyric', { ...sourceContext }).then((result) => {
-        if (result.code === 200) return result.data
-        return []
+    const fetchPlayHistory = async (item: PluginId) => {
+      if (!playHistory[item]) {
+        playHistory[item] = { week: [], all: [] }
+      }
+
+      const result = await pluginMethodCall(item, 'userRecord', {})
+
+      if (result.code === 200) {
+        const injectPluginId = (tracks: Track[]) =>
+          tracks.map((track) => ({
+            ...track,
+            album: { ...track.album, pluginId: item },
+            artists: track.artists.map((it) => ({ ...it, pluginId: item })),
+            albumArtists: track.albumArtists.map((it) => ({ ...it, pluginId: item })),
+            pluginId: item
+          }))
+
+        playHistory[item] = {
+          week: injectPluginId(result.weekData),
+          all: injectPluginId(result.allData)
+        }
+      }
+
+      return result
+    }
+
+    const fetchLyric = async (track: Track) => {
+      const res = await window.mainApi?.invoke('plugin-lyric', {
+        pluginId: track.pluginId,
+        sourceContext: { rawCtx: JSON.parse(JSON.stringify(track.sourceContext || {})) }
       })
+      if (res?.code === 200 && res.data?.length) return res.data
+      return []
     }
 
     const resizeImage = async (plugin: PluginId, pic: string, size: number) => {
@@ -487,8 +539,24 @@ export const usePluginMusic = defineStore(
     }
 
     const isAccountLoggedIn = (plugin: PluginId) => {
-      const user = users[plugin]?.userId
-      return !!user
+      const service = services.value.find((s) => s.code === plugin)
+      if (!service) return false
+
+      const hasUser = !!users[plugin]?.userId
+      const isLogin = service.status === 'login'
+
+      return hasUser && isLogin
+    }
+
+    const handleStatusChange = (pluginId: PluginId, status: 'login' | 'logout' | 'offline') => {
+      const service = services.value.find((s) => s.code === pluginId)
+      if (!service) return
+
+      service.status = status
+
+      if (status === 'logout') {
+        delete users[pluginId]
+      }
     }
 
     const _getPlaylistCategory = (plugin: PluginId) =>
@@ -529,7 +597,7 @@ export const usePluginMusic = defineStore(
             newTrack: _getTrackCategory,
             newAlbum: _getAlbumCategory
           }
-          map[tab]?.(plugin)
+          return map[tab]?.(plugin)
         })
       )
     }
@@ -552,9 +620,13 @@ export const usePluginMusic = defineStore(
       const validDirs = existResults.filter((item) => item.exist).map((item) => item.path)
       if (!validDirs.length) return
       scanning.value = true
+
+      const localService = services.value.find((s) => s.type === 'local')
+      const cb = localService?.status === 'login' && enableLocal.value
+
       window.mainApi?.send('msgScanLocalMusic', {
         filePath: validDirs,
-        cb: enableLocal.value ?? true
+        cb
       })
     }
 
@@ -573,6 +645,118 @@ export const usePluginMusic = defineStore(
       scanLocalMusic()
     })
 
+    const _syncToMain = () => {
+      window.mainApi?.send('setPluginEnable', {
+        enableLibrary: enableLibrary.value,
+        enableStream: enableStream.value,
+        enableLocal: enableLocal.value
+      })
+    }
+
+    // 当前活跃服务类型被禁用时，降级到第一个可用的替代服务
+    const _fallbackActiveService = () => {
+      const activeService = services.value.find((s) => s.active)
+      if (!activeService) return
+
+      const disabled =
+        (activeService.type === 'library' && !enableLibrary.value) ||
+        (activeService.type === 'stream' && !enableStream.value) ||
+        (activeService.type === 'local' && !enableLocal.value)
+      if (!disabled) return
+
+      const fallbackType = enableLibrary.value
+        ? 'library'
+        : enableStream.value
+          ? 'stream'
+          : enableLocal.value
+            ? 'local'
+            : null
+      if (!fallbackType) return
+
+      const fallback = services.value.find((s) => s.type === fallbackType)
+      if (fallback) {
+        activeService.active = false
+        fallback.active = true
+      }
+    }
+
+    // 高优先级类型重新启用时，自动切换到该类型
+    const _applyReenablePriority = (oldVals: any[], newVals: any[]) => {
+      const activeService = services.value.find((s) => s.active)
+      if (!activeService) return
+
+      const typePriority: Record<string, number> = { library: 0, stream: 1, local: 2 }
+      const [newLib, newStr, newLoc] = newVals
+      const [oldLib, oldStr, oldLoc] = oldVals
+
+      const reenabled: string[] = []
+      if (!oldLib && newLib) reenabled.push('library')
+      if (!oldStr && newStr) reenabled.push('stream')
+      if (!oldLoc && newLoc) reenabled.push('local')
+      if (reenabled.length === 0) return
+
+      const highestReenabled = reenabled.sort((a, b) => typePriority[a] - typePriority[b])[0]
+      if (typePriority[highestReenabled] >= (typePriority[activeService.type] ?? 99)) return
+
+      const target = services.value.find((s) => s.type === highestReenabled)
+      if (target) {
+        activeService.active = false
+        target.active = true
+      }
+    }
+
+    watch([enableLibrary, enableStream, enableLocal], (newVals, oldVals) => {
+      _syncToMain()
+
+      const [newLib, newStr, newLoc] = newVals as boolean[]
+      const [oldLib, oldStr, oldLoc] = oldVals as boolean[]
+
+      const anyDisabled = (oldLib && !newLib) || (oldStr && !newStr) || (oldLoc && !newLoc)
+      const anyReenabled = (!oldLib && newLib) || (!oldStr && newStr) || (!oldLoc && newLoc)
+
+      if (anyDisabled) {
+        _fallbackActiveService()
+      } else if (anyReenabled) {
+        _applyReenablePriority(oldVals, newVals)
+      }
+    })
+
+    // IPC 监听：扫描进度和完成
+    const _registerScanListeners = () => {
+      window.mainApi?.on(
+        'scanLocalMusicProgress',
+        (
+          _: any,
+          data: {
+            newTracks: number
+          }
+        ) => {
+          const plugin = services.value.find((item) => item.type === 'local')
+          if (!plugin) return
+          const key = plugin.code
+          if (tracks[key]) tracks[key].count += data.newTracks
+        }
+      )
+
+      window.mainApi?.on('scanLocalMusicDone', async () => {
+        scanning.value = false
+        showToast('scanLocalMusicDone')
+        const key = 'local' as PluginId
+        if (tracks[key]) {
+          tracks[key].data = []
+          tracks[key].count = 0
+        }
+        if (albums[key]) {
+          albums[key].data = []
+        }
+        if (artists[key]) {
+          artists[key].data = []
+        }
+        await fetchAllTracks(key)
+      })
+    }
+    _registerScanListeners()
+
     return {
       scanDir,
       scanning,
@@ -590,7 +774,7 @@ export const usePluginMusic = defineStore(
       additionalTags,
       users,
 
-      enablelibrary,
+      enableLibrary,
       enableStream,
       enableLocal,
 
@@ -608,21 +792,34 @@ export const usePluginMusic = defineStore(
       pluginMethodCall,
       getPlaylistDetail,
       isAccountLoggedIn,
+      handleStatusChange,
       uploadPlugin,
       scanLocalMusic,
       getPlugins,
       fetchLikedMVs,
       fetchCloudDisk,
+      fetchPlayHistory,
       fetchAllTracks,
       fetchLikedArtists,
       fetchLikedPlaylists,
       fetchPlaylistTracks,
-      fetchLikedSongsWithDetails
+      fetchLikedSongsWithDetails,
+
+      syncPluginEnable: _syncToMain
     }
   },
   {
     persist: {
-      pick: ['services', 'additionalTags', 'users', 'tools', 'scanDir']
+      pick: [
+        'services',
+        'additionalTags',
+        'users',
+        'tools',
+        'scanDir',
+        'enableLibrary',
+        'enableStream',
+        'enableLocal'
+      ]
     }
   }
 )

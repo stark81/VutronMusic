@@ -148,6 +148,20 @@ export const useAudioEngineStore = defineStore('audioEngine', () => {
     return Math.max(0.1, Math.min(1, Number(d)))
   })
 
+  const volumeNormalizationEnabled = computed(() => {
+    return settingsStore.general.volumeNormalization !== false
+  })
+
+  /** 缓存最近一次曲目的 ReplayGain 值，供开关实时切换时重用 */
+  let _lastReplayGain: { gain: number; peak: number } | null = null
+
+  // 开关变化时立即生效
+  watch(volumeNormalizationEnabled, (enabled) => {
+    if (_lastReplayGain) {
+      _applyReplayGain(_lastReplayGain.gain, _lastReplayGain.peak, enabled)
+    }
+  })
+
   // ── 响应式副作用 ─────────────────────────
 
   // EQ 参数实时生效（固定拓扑，20ms ramp 消除 zipper noise）
@@ -531,7 +545,8 @@ export const useAudioEngineStore = defineStore('audioEngine', () => {
       return
     }
 
-    _applyReplayGain(gain, peak)
+    _lastReplayGain = { gain, peak }
+    _applyReplayGain(gain, peak, volumeNormalizationEnabled.value)
     let sourceIndex = 0
     nodes.audio.src = sources[sourceIndex]
     nodes.audio.load()

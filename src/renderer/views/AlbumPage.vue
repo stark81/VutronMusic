@@ -246,7 +246,7 @@ const play = () => {
 
 const likeAlbum = () => {
   if (!isAccountLoggedIn(pluginId.value)) {
-    showToast(t('toast.needToLogin'))
+    showToast(t('toast.needToLogin', { serviceName: getPluginName(pluginId.value) }))
     return
   }
 

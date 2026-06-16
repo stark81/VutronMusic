@@ -9,7 +9,7 @@
         @click="selectPlatform(platform.code)"
       >
         <img
-          :src="getImagePath(platform.code)"
+          :src="getPluginIcon(platform)"
           :class="{ selected: platform.code === pluginId }"
           :alt="`${platform.name}`"
         />
@@ -18,7 +18,7 @@
     </div>
     <div class="title">{{ pluginId }}</div>
     <div class="section-2">
-      <template v-if="!step">
+      <template v-if="!step && loginType !== 'LocalDir' && currentMode !== 'Cookie'">
         <div class="input-box">
           <div class="container" :class="{ active: inputFocus === 'web' }">
             <svg-icon icon-class="web" />
@@ -65,15 +65,73 @@
           </div>
         </div>
       </template>
-      <template v-else-if="loginType === 'QrCode'">
+      <template v-else-if="loginType === 'QrCode' && currentMode === 'QrCode'">
         <div class="qr-code-container">
           <img :src="qrCodeSvg" loading="lazy" />
         </div>
       </template>
+      <template v-else-if="loginType === 'QrCode' && currentMode === 'Cookie'">
+        <div class="input-box">
+          <div class="container cookie-container">
+            <textarea
+              v-model="cookie"
+              class="cookie-input"
+              :placeholder="$t('login.cookiePlaceholder')"
+            ></textarea>
+          </div>
+        </div>
+      </template>
+      <template v-else-if="loginType === 'LocalDir'">
+        <div class="local-dir-container">
+          <div class="dir-list">
+            <div v-for="(dir, index) in localScanDir" :key="dir" class="dir-item">
+              <label>{{ dir }}</label>
+              <button class="remove-btn" @click="removeDir(index)">{{
+                $t('login.removeDir')
+              }}</button>
+            </div>
+            <div v-if="!localScanDir.length" class="empty-hint">{{ $t('login.emptyScanDir') }}</div>
+          </div>
+          <div class="dir-actions">
+            <button @click="chooseDir">{{ $t('login.chooseDir') }}</button>
+            <button @click="showManualInput = !showManualInput">手动输入</button>
+          </div>
+          <div v-if="showManualInput" class="manual-input-row">
+            <input
+              v-model="manualDir"
+              type="text"
+              class="manual-input"
+              placeholder="/home/user/Music"
+              @keyup.enter="addManualDir"
+            />
+            <button class="add-btn" @click="addManualDir">添加</button>
+          </div>
+        </div>
+      </template>
 
-      <div v-if="!step || loginType !== 'QrCode'" class="confirm">
-        <div class="button" :class="{ disable: step === 0 }" @click="prev"> 上一步 </div>
-        <div class="button" @click="step ? login() : next()">{{ step ? '登陆' : '下一步' }}</div>
+      <div
+        v-if="loginType !== 'QrCode' || currentMode === 'Cookie'"
+        class="confirm"
+        :class="{ 'confirm-single': loginType === 'LocalDir' }"
+      >
+        <div v-if="step > 0 && loginType !== 'LocalDir'" class="button" @click="prev"> 上一步 </div>
+        <div
+          class="button"
+          :class="{ disable: loginType === 'LocalDir' && !localScanDir.length }"
+          @click="step ? login() : next()"
+        >
+          {{
+            loginType === 'LocalDir' ? $t('login.setScanDir') : step ? $t('login.login') : '下一步'
+          }}
+        </div>
+      </div>
+      <div v-if="loginType === 'QrCode' && loginModes.length > 1" class="other-login">
+        <a
+          v-for="mode in loginModes.filter((m) => m.mode !== currentMode)"
+          :key="mode.mode"
+          @click="switchMode(mode.mode)"
+          >{{ mode.text }}</a
+        >
       </div>
       <label v-if="error" style="color: red">{{ error }}</label>
     </div>
@@ -88,7 +146,11 @@ import { useSettingsStore } from '../store/settings.js'
 import { usePluginMusic } from '../store/pluginMusic.js'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { LoginType, PluginId } from '@/types/plugin'
+import { getPluginIcon } from '../utils/common'
+
+const { t } = useI18n()
 
 const iconWrappers = ref<HTMLElement[]>([])
 const indicatorStyle = ref({ width: '0px', left: '0px' })
@@ -96,8 +158,8 @@ const isIndicatorReady = ref(false)
 const { theme } = storeToRefs(useSettingsStore())
 
 const pluginStore = usePluginMusic()
-const { services, users } = storeToRefs(pluginStore)
-const { pluginMethodCall } = pluginStore
+const { services, users, scanDir: pluginScanDir } = storeToRefs(pluginStore)
+const { pluginMethodCall, handleStatusChange } = pluginStore
 
 const router = useRouter()
 const route = useRoute()
@@ -116,6 +178,32 @@ let qrCodeCheckInterval: ReturnType<typeof setInterval>
 const pluginId = ref<PluginId>()
 const loginType = ref<LoginType>('Username')
 const step = ref(0)
+const currentMode = ref<LoginType>('QrCode')
+
+watch(step, (newStep) => {
+  if (newStep === 1 && loginType.value === 'QrCode' && currentMode.value === 'QrCode') {
+    getQrCodeKey()
+  } else {
+    clearInterval(qrCodeCheckInterval)
+    qrCodeSvg.value = ''
+    qrCodeKey.value = ''
+  }
+})
+
+const loginModes = computed(() => {
+  const service = services.value.find((it) => it.code === pluginId.value)
+  if (service?.type !== 'library') return []
+  return [
+    { mode: 'QrCode' as LoginType, text: t('login.loginWithQr') },
+    { mode: 'Cookie' as LoginType, text: t('login.loginWithCookie') }
+  ]
+})
+
+const cookie = ref('')
+
+const localScanDir = ref<string[]>([])
+const showManualInput = ref(false)
+const manualDir = ref('')
 
 const saveTypeServices = computed(() => {
   const service = services.value.find((it) => it.code === pluginId.value)
@@ -137,10 +225,6 @@ const selectedColor = computed(() => {
 
   return `#${red}${green}${blue}`
 })
-
-const getImagePath = (platform: string) => {
-  return new URL(`../assets/images/${platform}.png`, import.meta.url).href
-}
 
 const updateIndicatorPosition = () => {
   const index = saveTypeServices.value.findIndex((s) => s.code === pluginId.value)
@@ -164,6 +248,14 @@ const selectPlatform = (platform: PluginId) => {
   nextTick(updateIndicatorPosition)
 }
 
+const switchMode = (mode: LoginType) => {
+  currentMode.value = mode
+  step.value = 0
+  error.value = null
+  saved.value = false
+  qrCodeSvg.value = ''
+}
+
 const checkQrCodeLogin = () => {
   if (qrCodeKey.value === '') return
 
@@ -176,6 +268,7 @@ const checkQrCodeLogin = () => {
       if (res.code === 803) {
         if (!pluginId.value) return
 
+        handleStatusChange(pluginId.value, 'login')
         users.value[pluginId.value] = {
           userId: res.user!.userId || '',
           avatarUrl: res.user!.avatarUrl || '',
@@ -185,7 +278,6 @@ const checkQrCodeLogin = () => {
         }
 
         const service = services.value.find((item) => item.code === pluginId.value)
-        if (service) service.status = 'login'
         router.push({ name: service?.type })
         clearInterval(qrCodeCheckInterval)
       }
@@ -218,44 +310,87 @@ const getQrCodeKey = async () => {
   checkQrCodeLogin()
 }
 
+const chooseDir = () => {
+  window.mainApi?.invoke('selecteFolder', { multi: true }).then((folderPath: string[]) => {
+    if (!folderPath) return
+    localScanDir.value = [...new Set([...localScanDir.value, ...folderPath])]
+    step.value++
+  })
+}
+
+const removeDir = (index: number) => {
+  localScanDir.value.splice(index, 1)
+}
+
+const addManualDir = () => {
+  const path = manualDir.value.trim()
+  if (!path) return
+  if (!localScanDir.value.includes(path)) {
+    localScanDir.value.push(path)
+  }
+  manualDir.value = ''
+}
+
 const login = () => {
   if (!pluginId.value) return
+
+  const handleLoginSuccess = (
+    result: { code: number; data?: any; message?: string },
+    onRoute: () => void
+  ) => {
+    if (result.code === 200) {
+      handleStatusChange(pluginId.value!, 'login')
+      users.value[pluginId.value!] = {
+        userId: result.data!.userId || '',
+        avatarUrl: result.data!.avatarUrl || '',
+        nickname: result.data!.nickname || '',
+        isVip: result.data!.isVip || false,
+        signature: result.data!.signature || ''
+      }
+      onRoute()
+    } else {
+      error.value = result.message || ''
+    }
+  }
+
+  if (loginType.value === 'LocalDir') {
+    if (!localScanDir.value.length) {
+      error.value = t('login.errorNoScanDir')
+      return
+    }
+    pluginMethodCall(pluginId.value, 'doLogin', { dirs: localScanDir.value }).then((result) => {
+      handleLoginSuccess(result, () => {
+        if (result.data?.scanDir) {
+          pluginScanDir.value = result.data.scanDir
+        }
+        router.push('/localMusic')
+      })
+    })
+    return
+  }
+
+  if (currentMode.value === 'Cookie') {
+    if (!cookie.value.trim()) {
+      error.value = t('login.errorNoCookie')
+      return
+    }
+    pluginMethodCall(pluginId.value, 'doLogin', { cookie: cookie.value.trim() }).then((result) => {
+      handleLoginSuccess(result, () => {
+        const ser = services.value.find((item) => item.code === pluginId.value)
+        router.push({ name: ser?.type || 'library' })
+      })
+    })
+    return
+  }
+
   pluginMethodCall(pluginId.value, 'doLogin', { userName: user.value, pwd: password.value }).then(
     (result) => {
-      if (result.code === 200) {
-        users.value[pluginId.value!] = {
-          userId: result.data!.userId || '',
-          avatarUrl: result.data!.avatarUrl || '',
-          nickname: result.data!.nickname || '',
-          isVip: result.data!.isVip || false,
-          signature: result.data!.signature || ''
-        }
-        const service = services.value.find((item) => item.code === pluginId.value)
-        if (service) service.status = 'login'
-        router.push({ name: 'stream' })
-      } else {
-        error.value = result.message || ''
-      }
+      handleLoginSuccess(result, () => {
+        const ser = services.value.find((item) => item.code === pluginId.value)
+        router.push({ name: ser?.type || 'stream' })
+      })
     }
   )
-  // const params = {
-  //   platform: pluginId.value,
-  //   baseURL: url.value,
-  //   username: user.value,
-  //   password: password.value
-  // }
-  // window.mainApi?.invoke('stream-login', params).then((res: { code: number; message: any }) => {
-  //   if (res.code === 200) {
-  //     services.value = services.value.map((service) =>
-  //       service.name === pluginId.value ? { ...service, status: 'login' } : service
-  //     )
-  //     nextTick(() => {
-  //       router.push('/stream')
-  //     })
-  //   } else {
-  //     error.value = res.message
-  //   }
-  // })
 }
 
 const prev = () => {
@@ -264,6 +399,17 @@ const prev = () => {
 
 const next = async () => {
   if (!pluginId.value) return
+
+  if (loginType.value === 'LocalDir') {
+    step.value = 1
+    return
+  }
+
+  if (currentMode.value === 'Cookie') {
+    step.value = 1
+    return
+  }
+
   if (!saved.value) {
     await pluginMethodCall(pluginId.value, 'updateBaseUrl', { url: url.value }).then((result) => {
       if (result.code !== 200) return
@@ -272,10 +418,6 @@ const next = async () => {
     })
   } else {
     step.value += 1
-  }
-
-  if (loginType.value === 'QrCode') {
-    getQrCodeKey()
   }
 }
 
@@ -286,7 +428,18 @@ watch(url, (value, old) => {
 
 watch(pluginId, (value) => {
   step.value = 0
+  error.value = null
+  currentMode.value = 'QrCode'
   const service = services.value.find((s) => s.code === value)!
+
+  if (loginType.value === 'LocalDir') {
+    if (service.status === 'login') {
+      router.push('/localMusic')
+    }
+    localScanDir.value = [...pluginScanDir.value]
+    return
+  }
+
   if (service.status === 'login') {
     router.push('/stream')
   }
@@ -305,6 +458,13 @@ onMounted(async () => {
 
   pluginId.value = service
   loginType.value = type
+  currentMode.value = type
+
+  if (type === 'LocalDir') {
+    step.value = 1
+    localScanDir.value = [...pluginStore.scanDir]
+    return
+  }
 
   await pluginMethodCall(service, 'getAccount').then((result) => {
     user.value = result.userName
@@ -313,26 +473,6 @@ onMounted(async () => {
     saved.value = true
     if (result.baseUrl) step.value++
   })
-
-  if (type === 'QrCode') getQrCodeKey()
-
-  // pluginId.value = (route.params.service as serviceName) || 'jellyfin'
-
-  // window.mainApi
-  //   ?.invoke('get-stream-account', { platform: pluginId.value })
-  //   .then((result) => {
-  //     url.value = result?.url || ''
-  //     user.value = result?.username || ''
-  //     password.value = result?.password || ''
-  //   })
-  // window.addEventListener('resize', updateIndicatorPosition)
-  // nextTick(() => {
-  //   updateIndicatorPosition()
-  //   // 延迟100ms后启用过渡效果，确保首次渲染无动画
-  //   setTimeout(() => {
-  //     isIndicatorReady.value = true
-  //   }, 100)
-  // })
 })
 
 onBeforeUnmount(() => {
@@ -451,6 +591,11 @@ onBeforeUnmount(() => {
     width: 100%;
     display: flex;
 
+    &.confirm-single .button {
+      width: 100%;
+      margin-right: 0;
+    }
+
     .button {
       // 基础样式
       display: flex;
@@ -515,6 +660,162 @@ onBeforeUnmount(() => {
     padding: 20px;
     border-radius: 1.25rem;
     margin-bottom: 12px;
+  }
+
+  .cookie-container {
+    height: 108px !important;
+    box-sizing: border-box;
+  }
+
+  .cookie-input {
+    font-size: 16px;
+    border: none;
+    background: transparent;
+    width: 100%;
+    height: 100%;
+    font-weight: 600;
+    margin-top: -1px;
+    color: var(--color-text);
+    box-sizing: border-box;
+    resize: none;
+    outline: none;
+    border-radius: 8px;
+    padding: 12px 20px;
+    scrollbar-width: none;
+  }
+
+  .cookie-input::placeholder {
+    color: var(--color-text);
+    opacity: 0.38;
+    font-size: 16px;
+  }
+
+  .other-login {
+    margin-top: 24px;
+    font-size: 13px;
+    opacity: 0.68;
+    a {
+      padding: 0 8px;
+      border-right: 2px solid var(--color-text);
+      cursor: pointer;
+      &:last-child {
+        border-right: 0;
+      }
+      &:hover {
+        opacity: 1;
+      }
+    }
+  }
+
+  .local-dir-container {
+    width: 400px;
+
+    .dir-list {
+      max-height: 200px;
+      overflow-y: auto;
+      margin-bottom: 16px;
+      padding: 8px;
+      background: var(--color-secondary-bg);
+      border-radius: 8px;
+
+      .dir-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px;
+        margin-bottom: 4px;
+        background: var(--color-primary-bg);
+        border-radius: 4px;
+
+        label {
+          font-size: 14px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          flex: 1;
+          margin-right: 8px;
+        }
+
+        .remove-btn {
+          color: var(--color-text);
+          opacity: 0.6;
+          font-size: 12px;
+          padding: 4px 8px;
+          border-radius: 4px;
+          background: transparent;
+          border: none;
+          cursor: pointer;
+
+          &:hover {
+            opacity: 1;
+          }
+        }
+      }
+
+      .empty-hint {
+        text-align: center;
+        color: var(--color-text);
+        opacity: 0.5;
+        padding: 20px 0;
+      }
+    }
+
+    .dir-actions {
+      display: flex;
+      gap: 12px;
+
+      button {
+        flex: 1;
+        padding: 8px 16px;
+        border-radius: 8px;
+        background: color-mix(in oklab, var(--color-primary) var(--bg-alpha), white);
+        color: var(--color-primary);
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        border: none;
+
+        &:hover {
+          opacity: 0.9;
+        }
+      }
+    }
+
+    .manual-input-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+
+      .manual-input {
+        flex: 1;
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: 1px solid var(--color-secondary-bg);
+        background: var(--color-secondary-bg);
+        color: var(--color-text);
+        font-size: 14px;
+        outline: none;
+
+        &:focus {
+          border-color: var(--color-primary);
+        }
+      }
+
+      .add-btn {
+        padding: 8px 16px;
+        border-radius: 8px;
+        background: color-mix(in oklab, var(--color-primary) var(--bg-alpha), white);
+        color: var(--color-primary);
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        border: none;
+
+        &:hover {
+          opacity: 0.9;
+        }
+      }
+    }
   }
 }
 </style>

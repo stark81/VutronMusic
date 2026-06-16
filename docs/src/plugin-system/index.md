@@ -39,24 +39,23 @@ Worker 线程 (main/workers/pluginRunner.ts)
 
 ### 2.1 启动时加载
 
-应用启动时，`IPCs.initialize()` 调用 `initPluginIpcMain()`：
+应用启动时，`IPCs.initialize()` 调用 `initPluginIpcMain()`，采用 **DB 驱动加载**：
 
 ```
-① 获取插件目录
-   开发环境：src/public/plugin/
-   生产环境：{app.getPath('userData')}/plugins/
-   两个目录都会扫描，结果合并
+① 从 Plugins 表读取所有已注册插件
+   SELECT * FROM Plugins WHERE enabled = 1
 
-② 过滤规则
-   只保留 .js 文件
-   排除包含 'demo.js' 的文件（demo.js 作为示例不加载）
+② 获取插件文件路径
+   内置插件：src/public/plugin/ (开发) 或 dist/plugin/ (生产)
+   用户插件：{app.getPath('userData')}/plugins/
 
 ③ 创建并注册
-   for each file:
-     id = path.basename(file, '.js')        // "netease", "kugou", ...
-     plugin = new PluginInstance(file, id)   // 创建 Worker 线程
-     pluginManager.register(id, plugin)       // 注册到管理器
+   for each plugin:
+     plugin = new PluginInstance(filePath, id)   // 创建 Worker 线程
+     pluginManager.register(id, plugin)          // 注册到管理器
 ```
+
+内置插件（local、kugou、netease、emby、jellyfin、navidrome）在 `plugin.sql` 中通过 `INSERT OR IGNORE` 自动注册。用户上传的新插件会同时写入 `Plugins` 表和复制文件。
 
 ### 2.2 用户上传插件
 
@@ -570,7 +569,7 @@ exports.search = async (_params) => {
 
 不同插件的分页字段名各不相同（`_start`、`StartIndex`、`page`、`offset`），且 `sourceContext` 是插件私有不透明的，框架层不解析其内部字段。因此框架无法统一处理分页重置——只能通过 `reset: true` 告知插件"这是新的查询"，由插件自行决定如何重置。
 
-### 5.6 sourceContext 规范
+### 5.7 sourceContext 规范
 
 `sourceContext` 是插件私有、不透明的 JSON 对象：
 
@@ -668,38 +667,43 @@ result.data = result.data.map((item) => ({
 
 ---
 
-## 8. 当前已注册的方法
+## 8. 当前已注册的方法（60 个）
 
-完整方法列表见 `src/types/plugin.ts` 的 `PluginAPI` 类型和 `defaultMap`（约 50 个方法）。
+完整方法列表见 `src/types/plugin.ts` 的 `PluginAPI` 类型和 `defaultMap`。分类如下：
 
-常见的核心方法：
-
-| 方法 | 用途 | params | result 主要字段 |
-| --- | --- | --- | --- |
-| `search` | 搜索歌曲/专辑/歌手/歌单 | `{ tab, keywords, reset, ...sourceContext }` | `{ code, data: (Track\|Album\|Artist\|Playlist)[], count, sourceContext }` |
-| `getSongUrl` | 获取播放地址 | `{ id }` | `{ code, data: string }` |
-| `getLyric` | 获取歌词 | `{ id }` | `{ code, data: LyricLine[] }` |
-| `albumDetail` | 专辑详情 | `{ id }` | `{ code, data: AlbumDetail }` |
-| `artistDetail` | 歌手详情+歌曲 | `{ id }` | `{ code, artist, songs, sourceContext }` |
-| `getComments` | 获取评论 | `{ id, type, offset }` | `{ code, data: Comment[], count, sourceContext }` |
-| `loginQrKey` | 获取登录二维码 | 无 | `{ code, data: { url, qrcode } }` |
-| `userPlaylist` | 用户歌单 | `{ id, offset }` | `{ code, liked, playlists, albums }` |
-| `likeATrack` | 收藏/取消歌曲 | `{ id, like }` | `{ code }` |
-| `songUrl` | 获取歌曲链接 | `{ id }` | `{ code, data: { url, replayGain, peak } }` |
+```
+账号类：     updateBaseUrl, getAccount, loginQrKey, loginQrCodeCheck, doLogin, doLogout
+平台状态：   systemPing
+歌曲类：     songUrl, getLyric, getTrackDetail, matchTrack, resizePicUrl,
+             likeATrack, likelist, scrobble, personalFM, fmTrash
+歌单类：     userPlaylist, getPlaylistDetail, getPlaylistTracks, createPlaylist,
+             deletePlaylist, subscribePlaylist, catlist, getCategoryPlaylist,
+             getAllTracks, addOrRemoveTracksToPlaylist
+推荐类：     getRecommendPlaylist, getRecommendTracks, rankTop, rankList, getBanner
+专辑类：     albumDetail, artistAlbums, topAlbums, newAlbums, subscribeAlbum, getAlbumCatlist
+艺人类：     artistDetail, artistMVs, simiArtists, topArtists, artistsList,
+             followArtist, userLikedArtists, getArtistCatlist
+MV类：       mvDetail, subAMV, likeAMV, userLikedMVs
+分类：       topSong, getTrackCatlist
+云盘：       cloudDisk
+听歌记录：   userRecord
+评论：       getCommentTab, getComments, likeAComment, submitAComment, getFloorComments
+搜索：       search
+```
 
 ---
 
 ## 9. 现有插件
 
-| 插件 ID | 文件 | meta.name | meta.type | 功能 |
-| --- | --- | --- | --- | --- |
-| `netease` | `netease.js` | 「网易云」 | `library` | 在线音乐全功能（搜索、播放、评论、收藏、歌单） |
-| `kugou` | `kugou.js` | 「酷狗」 | `library` | 歌词/封面补充 |
-| `navidrome` | `navidrome.js` | 「Navidrome」 | `stream` | 自建流媒体 |
-| `emby` | `emby.js` | 「Emby」 | `stream` | 自建流媒体（初步） |
-| `jellyfin` | `jellyfin.js` | 「Jellyfin」 | `stream` | 自建流媒体 |
-| `local` | `local.js` | 「本地音乐」 | `local` | 本地音乐管理 |
-| `demo` | `demo.js` | — | — | 示例插件（不加载） |
+| 插件 ID | 文件 | meta.name | meta.type | 导出函数数 | 功能 |
+| --- | --- | --- | --- | --- | --- |
+| `netease` | `netease.js` | 「网易云」 | `library` | 59 | 在线音乐全功能（搜索、播放、FM、评论、收藏、歌单、听歌记录） |
+| `kugou` | `kugou.js` | 「酷狗」 | `library` | 58 | 歌词/评论补充、封面、FM |
+| `navidrome` | `navidrome.js` | 「Navidrome」 | `stream` | 32 | 自建流媒体 |
+| `emby` | `emby.js` | 「Emby」 | `stream` | 33 | 自建流媒体 |
+| `jellyfin` | `jellyfin.js` | 「Jellyfin」 | `stream` | 33 | 自建流媒体 |
+| `local` | `local.js` | 「本地音乐」 | `local` | 58 | 本地音乐管理 |
+| `demo` | `demo.js` | 「测试」 | `library` | 61（全） | 完整插件模板（不会被加载） |
 
 ---
 
@@ -710,3 +714,17 @@ result.data = result.data.map((item) => ({
 - HTTP 域名白名单校验：只允许发往 `plugins.{id}.baseUrl` 配置中的域名
 - **不支持热重载**：修改插件代码后需要重启应用
 - 插件只能用 JavaScript 编写（不能直接用 TypeScript）
+
+---
+
+## 11. 专用 IPC 通道
+
+以下 IPC 通道不走 `plugin-method-call`，在 `src/main/IPCs.ts` 中有独立的 handler：
+
+| IPC 通道 | 用途 | 说明 |
+| --- | --- | --- |
+| `trackMatch` | 跨插件歌曲匹配 | 遍历所有 `type='library'` 且 `capabilities.matchTrack` 非 false 的插件，调用 `matchTrack` 方法，结果写入 `TrackSource` 表。匹配成功后自动更新本地 `Track.picUrl` |
+| `plugin-lyric` | 歌词获取路由 | 接收 `{ pluginId, sourceContext: { rawCtx } }`，通过 sourceContext 匹配 TrackSource 找有 `getLyric` 能力的插件，按用户优先级遍历 |
+| `plugin-comment` | 评论 CRUD 路由 | 通过 `rawCtx/mapCtx/mapPlugin` 映射机制，将评论操作路由到有 `getComments` 能力的插件。支持分页缓存（`mapCtx` 合并分页状态） |
+| `get-source-priority` | 读取来源优先级 | 从 electron-store 读取用户设置的歌词/评论插件优先级顺序 |
+| `set-source-priority` | 保存来源优先级 | 写入 electron-store，供 `plugin-lyric` / `plugin-comment` 排序候选人 |

@@ -69,3 +69,8 @@ tmp/
 
 # TypeScript incremental compilation cache
 *.tsbuildinfo
+.claudeignore
+.mimocode
+docs/superpowers
+.codegraph
+.kunsdd

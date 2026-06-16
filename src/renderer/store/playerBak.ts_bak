@@ -13,7 +13,7 @@ import {
   nextTick
 } from 'vue'
 import { useLocalMusicStore } from './localMusic'
-import { useStreamMusicStore } from './streamingMusic'
+// import { useStreamMusicStore } from './streamingMusic'
 import { useSettingsStore } from './settings'
 import { useNormalStateStore } from './state'
 import { useOsdLyricStore } from './osdLyric'

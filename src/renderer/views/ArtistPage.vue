@@ -313,7 +313,7 @@ const toggleFullDescription = () => {
 
 const followArtist = () => {
   if (!isAccountLoggedIn(pluginId.value)) {
-    showToast(t('toast.needToLogin'))
+    showToast(t('toast.needToLogin', { serviceName: getPluginName(pluginId.value) }))
     return
   }
   const op = artist.value?.followed ? 'unfollow' : 'follow'

@@ -328,7 +328,9 @@ const addTrackToPlaylist = () => {
   if (!currentTrack.value) return
   addTrackToPlaylistModal.value = {
     show: true,
-    selectedTrackID: [currentTrack.value.sourceContext],
+    selectedTrackID: [
+      { pluginId: currentTrack.value.pluginId, sourceContext: currentTrack.value.sourceContext }
+    ],
     plugin: currentTrack.value.pluginId
   }
 }

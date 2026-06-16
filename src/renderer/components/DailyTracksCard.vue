@@ -74,7 +74,7 @@ const playDailyTracks = () => {
   const source: PlaylistSourceInfo = {
     type: 'DailySongs',
     plugin: props.plugin,
-    sourceContext: {}
+    sourceContext: { id: '/daily/songs' }
   }
 
   const trackIDs = dailyTracks.value.map((t) => [t.pluginId, t.sourceContext]) as [

@@ -22,7 +22,7 @@ class Cache {
             })
             db.sqlite
               .prepare(`UPDATE ${Tables.Track} SET ${setClause}, updateTime = ? WHERE id = ?`)
-              .run(...values, Date.now(), id)
+              .run(...values, Date.now(), String(id))
           }
         } catch (error) {
           console.error('[cache set LocalMusic error]:', error)
@@ -184,7 +184,7 @@ class Cache {
             })
             db.sqlite
               .prepare(`UPDATE ${Tables.Artist} SET ${setClause}, updateTime = ? WHERE id = ?`)
-              .run(...values, Date.now(), id)
+              .run(...values, Date.now(), String(id))
           }
         } catch (error) {
           console.error('[cache set Artist error]:', error)
@@ -205,7 +205,7 @@ class Cache {
             })
             db.sqlite
               .prepare(`UPDATE ${Tables.Album} SET ${setClause}, updateTime = ? WHERE id = ?`)
-              .run(...values, Date.now(), id)
+              .run(...values, Date.now(), String(id))
           }
         } catch (error) {
           console.error('[cache set Album error]:', error)
@@ -269,13 +269,13 @@ class Cache {
         const audioPathMap = new Map(
           (
             db.sqlite
-              .prepare(`SELECT trackId, filePath, size FROM ${Tables.Audio}`)
+              .prepare(`SELECT trackId, filePath, size, md5 FROM ${Tables.Audio}`)
               .all() as Record<string, any>[]
-          ).map((a) => [a.trackId, { filePath: a.filePath, size: a.size }])
+          ).map((a) => [a.trackId, { filePath: a.filePath, size: a.size, md5: a.md5 }])
         )
 
         const songs = trackRows.map((track) => {
-          const audioInfo = audioPathMap.get(track.id) || { filePath: '', size: 0 }
+          const audioInfo = audioPathMap.get(track.id) || { filePath: '', size: 0, md5: '' }
           return {
             id: track.id,
             name: track.name,
@@ -286,6 +286,8 @@ class Cache {
             albumArtists: albumArtistMap.get(track.albumId) || [],
             filePath: audioInfo.filePath,
             size: audioInfo.size,
+            md5: audioInfo.md5,
+            picUrl: track.picUrl,
             playCount: track.playCount,
             liked: track.liked || 0,
             createTime: track.createTime,

@@ -17,7 +17,7 @@
 </template>
 
 <script setup lang="tsx">
-import { onMounted, ref, provide, toRefs, watch, computed, onBeforeUnmount, nextTick } from 'vue'
+import { onMounted, ref, provide, watch, computed, onBeforeUnmount } from 'vue'
 import ScrollBar from './components/ScrollBar.vue'
 import PlayerBar from './components/PlayerBar.vue'
 import NavBar from './components/NavBar.vue'
@@ -42,7 +42,7 @@ import router from './router'
 import eventBus from './utils/eventBus'
 
 const pluginMusicStore = usePluginMusic()
-const { services, scanning } = storeToRefs(pluginMusicStore)
+const { services, enableLibrary, enableStream, enableLocal } = storeToRefs(pluginMusicStore)
 const {
   getPlugins,
   fetchLikedPlaylists,
@@ -50,7 +50,8 @@ const {
   fetchLikedArtists,
   fetchLikedMVs,
   fetchCloudDisk,
-  fetchAllTracks
+  fetchAllTracks,
+  fetchPlayHistory
 } = pluginMusicStore
 
 useDataStore()
@@ -66,21 +67,23 @@ const { extensionCheckResult, showLyrics, isDownloading } = storeToRefs(stateSto
 const { showToast, checkUpdate, registerInstance, unregisterInstance, updateScroll, getFontList } =
   stateStore
 
+const enableMap = { library: enableLibrary, stream: enableStream, local: enableLocal }
+
 const sers = computed(() =>
-  services.value.filter((item) => item.status === 'login').map((item) => item.code)
+  services.value
+    .filter((item) => enableMap[item.type].value && item.status === 'login')
+    .map((item) => item.code)
 )
 
-const fetchData = async () => {
-  await Promise.all(
-    sers.value.map(async (item) => {
-      fetchAllTracks(item)
-      await fetchLikedPlaylists(item)
-      fetchLikedSongsWithDetails(item)
-      fetchLikedArtists(item)
-      fetchLikedMVs(item)
-      fetchCloudDisk(item)
-    })
-  )
+const fetchData = () => {
+  sers.value.map((item) => {
+    fetchAllTracks(item)
+    fetchLikedPlaylists(item).then(() => fetchLikedSongsWithDetails(item))
+    fetchLikedArtists(item)
+    fetchLikedMVs(item)
+    fetchCloudDisk(item)
+    fetchPlayHistory(item)
+  })
 }
 
 const scrollEvent = () => {
@@ -130,6 +133,43 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () 
 })
 
 const route = useRoute()
+
+// 运行时切换 enable 开关时，若当前路由类型已被禁用则直接重定向
+watch(
+  [
+    () => pluginMusicStore.enableLibrary,
+    () => pluginMusicStore.enableStream,
+    () => pluginMusicStore.enableLocal
+  ],
+  () => {
+    const sourceType = router.currentRoute.value.meta.sourceType as
+      | 'library'
+      | 'stream'
+      | 'local'
+      | undefined
+    if (!sourceType) return
+
+    const enableMap: Record<string, boolean> = {
+      library: enableLibrary.value,
+      stream: enableStream.value,
+      local: enableLocal.value
+    }
+    if (enableMap[sourceType]) return
+
+    const fallbacks: [string, string][] = [
+      ['library', '/'],
+      ['stream', '/stream'],
+      ['local', '/localMusic']
+    ]
+    for (const [type, path] of fallbacks) {
+      if (enableMap[type]) {
+        router.replace(path)
+        return
+      }
+    }
+    router.replace('/settings')
+  }
+)
 
 const scrollBarRef = ref()
 const instanceId = ref('appInstance')
@@ -210,9 +250,6 @@ const handleChanelEvent = () => {
       showToast(`扫描本地歌曲出错, 详情见：开发者工具-控制台`)
     }
   )
-  window.mainApi?.on('scanLocalMusicDone', (_: any) => {
-    scanning.value = false
-  })
   // window.mainApi?.on('msgDeletedTracks', (_: any, trackIDs: number[]) => {
   //   deleteLocalTracks(trackIDs)
   // })
@@ -236,7 +273,7 @@ const handleChanelEvent = () => {
     showToast(`下载更新：${parseFloat(data.percent.toFixed(2))}%`)
     if (data.percent === 100) isDownloading.value = false
   })
-  window.mainApi?.on('update-error', (_: any) => {
+  window.mainApi?.on('update-error', () => {
     isDownloading.value = false
     showToast('下载错误')
   })
@@ -247,7 +284,10 @@ const handleChanelEvent = () => {
 }
 
 watchOsdEvent()
-getPlugins().then(fetchData)
+getPlugins().then(async () => {
+  pluginMusicStore.syncPluginEnable()
+  fetchData()
+})
 
 onMounted(() => {
   registerInstance(instanceId.value)

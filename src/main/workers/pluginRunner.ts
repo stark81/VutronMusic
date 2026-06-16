@@ -157,7 +157,7 @@ const api = {
   },
 
   db: {
-    get(table: string) {
+    get(table: string, filter?: Record<string, any>) {
       return new Promise((resolve, reject) => {
         const requestId = Math.random().toString(36).slice(2)
 
@@ -178,7 +178,7 @@ const api = {
             reject(err)
           }
         })
-        parentPort?.postMessage({ type: 'DB_REQUEST', key: table, requestId })
+        parentPort?.postMessage({ type: 'DB_REQUEST', key: table, requestId, filter })
       })
     },
     set(key: string, value: any) {
@@ -265,6 +265,28 @@ const api = {
           }
         })
         parentPort?.postMessage({ type: 'LYRIC_PATH', filePath, requestId })
+      })
+    },
+    checkFileExist(paths: string[]) {
+      return new Promise((resolve, reject) => {
+        const requestId = Math.random().toString(36).slice(2)
+        const requestTimeout = setTimeout(() => {
+          if (pendingRequests.has(requestId)) {
+            pendingRequests.get(requestId)?.reject(new Error('Request timeout'))
+            pendingRequests.delete(requestId)
+          }
+        }, 12000)
+        pendingRequests.set(requestId, {
+          resolve: (data) => {
+            clearTimeout(requestTimeout)
+            resolve(data)
+          },
+          reject: (err) => {
+            clearTimeout(requestTimeout)
+            reject(err)
+          }
+        })
+        parentPort?.postMessage({ type: 'CHECK_FILE_EXIST', paths, requestId })
       })
     }
   }

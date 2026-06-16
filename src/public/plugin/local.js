@@ -22,8 +22,11 @@
 
 /**
  * @typedef {Object} DB
- * @property {(key: 'PluginData' | 'Track') => Promise<any>} get
- * @property {(key: 'PluginData' | 'Track', value: any) => void} set
+ * @property {(key: 'PluginData' | 'Track' | 'Album' | 'Artist' | 'Playlist' | 'PlaylistEntry', filter?: object) => Promise<any>} get
+ *   Playlist 支持 filter: { id }，PlaylistEntry 支持 filter: { playlistId } 或 { playlistIds, $count }
+ * @property {(key: 'PluginData' | 'Track' | 'Artist' | 'Album' | 'Playlist' | 'PlaylistEntry', value: any) => void} set
+ *   Playlist 支持 { id, name, description } 更新 或 { id, _delete } 删除
+ *   PlaylistEntry 支持 { playlistId, pluginId, sourceContext } 添加 或 { id, _delete } 删除
  */
 
 /**
@@ -47,7 +50,15 @@ const apis = api
 
 const meta = {
   name: '本地音乐',
-  type: 'local'
+  icon: 'common',
+  type: 'local',
+  capabilities: {
+    matchTrack: false,
+    getLyric: true,
+    getComments: false,
+    comment: { read: false, like: false, submit: false, floor: false },
+    mv: { detail: false, like: false, subscribe: false }
+  }
 }
 exports.meta = meta
 
@@ -63,14 +74,8 @@ const streamUrl = (id) => `vutron://local-asset?type=stream&id=${id}`
 /**
  * 构建本地封面 URL（走 HTTP 服务器）
  *
- * 开发环境端口为 40001，生产环境为 41830。
- * 可通过 updateBaseUrl 配置 localServerUrl 覆盖默认值。
  */
-let localServerUrl = 'http://127.0.0.1:41830'
-
-apis.store.get('').then((store) => {
-  if (store?.localServerUrl) localServerUrl = store.localServerUrl
-})
+const localServerUrl = 'http://localhost:41830' // 默认生产端口
 
 const picUrl = (id, size = 512) => `${localServerUrl}/local-asset?trackId=${id}&size=${size}`
 const singerPicUrl = `${localServerUrl}/local-asset/singer-cover`
@@ -81,8 +86,9 @@ const singerPicUrl = `${localServerUrl}/local-asset/singer-cover`
 const formatTrack = (item) => ({
   id: item.id || '',
   name: item.name || '未知歌曲',
+  icon: 'common',
   duration: item.duration || 0,
-  alias: item.alias || [],
+  alias: Array.isArray(item.alias) ? item.alias : item.alias ? [item.alias] : [],
   playable: true,
   reason: '',
   createTime: item.createTime || Date.now(),
@@ -115,7 +121,7 @@ const formatTrack = (item) => ({
   })),
   pluginId: '',
   type: meta.type,
-  sourceContext: { id: item.id || '', filePath: item.filePath || '' }
+  sourceContext: { id: item.id || '', filePath: item.filePath || '', md5: item.md5 || '' }
 })
 
 /**
@@ -124,6 +130,7 @@ const formatTrack = (item) => ({
 const formatAlbum = (item) => ({
   id: item.albumId || item.id || '',
   name: item.albumName || item.name || '未知专辑',
+  icon: 'common',
   picUrl: picUrl(item.albumId || item.id, 256),
   artists: (item.artists || []).map((a) => ({
     id: a.id || '',
@@ -145,6 +152,7 @@ const formatAlbum = (item) => ({
 const formatArtist = (item) => ({
   id: item.id || '',
   name: item.name || '未知艺人',
+  icon: 'common',
   picUrl: item.picUrl || singerPicUrl,
   pluginId: '',
   sourceContext: { id: item.id || '' }
@@ -156,7 +164,8 @@ const formatArtist = (item) => ({
 const formatPlaylist = (item) => ({
   id: item.id || '',
   name: item.name || '本地歌单',
-  picUrl: picUrl(item.id, 256),
+  icon: 'common',
+  picUrl: item.picUrl || picUrl(item.id, 256),
   isMine: true,
   trackCount: item.trackCount || 0,
   playCount: 0,
@@ -180,7 +189,8 @@ const formatPlaylist = (item) => ({
 const formatPlaylistDetail = (item) => ({
   id: item.id || '',
   name: item.name || '本地歌单',
-  picUrl: picUrl(item.id, 256),
+  icon: 'common',
+  picUrl: item.picUrl || picUrl(item.id, 256),
   subscribed: item.subscribed || false,
   trackCount: item.trackCount || 0,
   updateTime: item.updateTime || item.createTime || Date.now(),
@@ -208,11 +218,7 @@ const formatPlaylistDetail = (item) => ({
 // 身份验证（本地音乐始终可用）
 // ===================================================
 
-exports.updateBaseUrl = async (params) => {
-  if (params?.url) {
-    localServerUrl = params.url.replace(/\/$/, '')
-    apis.store.set('localServerUrl', localServerUrl)
-  }
+exports.updateBaseUrl = async () => {
   return { code: 200 }
 }
 
@@ -220,25 +226,72 @@ exports.getAccount = () => {
   return { code: 200, baseUrl: '', userName: 'Local', pwd: '' }
 }
 
-exports.doLogin = async () => {
-  return {
-    code: 200,
-    data: {
-      userId: 'local',
-      avatarUrl: '',
-      nickname: '本地音乐',
-      isVip: true,
-      signature: ''
+exports.doLogin = async (params) => {
+  if (params?.dirs) {
+    const results = await apis.utils.checkFileExist(params.dirs)
+    const validDirs = results.filter((r) => r.exist).map((r) => r.path)
+
+    if (!validDirs.length) {
+      return { code: 400, message: '扫描目录无效或不存在' }
+    }
+
+    await apis.store.set('scanDir', validDirs)
+
+    return {
+      code: 200,
+      data: {
+        userId: 'local',
+        avatarUrl: '',
+        nickname: '本地音乐',
+        isVip: true,
+        signature: '',
+        scanDir: validDirs
+      }
     }
   }
+
+  const savedDirs = await apis.store.get('scanDir')
+  if (savedDirs?.length) {
+    const results = await apis.utils.checkFileExist(savedDirs)
+    const validDirs = results.filter((r) => r.exist).map((r) => r.path)
+
+    if (validDirs.length) {
+      return {
+        code: 200,
+        data: {
+          userId: 'local',
+          avatarUrl: '',
+          nickname: '本地音乐',
+          isVip: true,
+          signature: '',
+          scanDir: validDirs
+        }
+      }
+    }
+  }
+
+  return { code: 400, message: '请先设置扫描目录' }
 }
 
-exports.doLogout = () => {
+exports.doLogout = async () => {
+  await apis.store.set('scanDir', [])
   return { code: 200 }
 }
 
 exports.systemPing = async () => {
-  return { code: 200, status: 'login' }
+  const savedDirs = await apis.store.get('scanDir')
+  if (!savedDirs?.length) {
+    return { code: 200, status: 'logout' }
+  }
+
+  const results = await apis.utils.checkFileExist(savedDirs)
+  const validDirs = results.filter((r) => r.exist).map((r) => r.path)
+
+  if (!validDirs.length) {
+    return { code: 200, status: 'logout' }
+  }
+
+  return { code: 200, status: 'login', scanDir: validDirs }
 }
 
 // ===================================================
@@ -251,7 +304,7 @@ exports.systemPing = async () => {
  * 从缓存中读取本地音乐列表。当前缓存通过 CacheAPIs.LocalMusic 提供数据，
  * 需确保扫描本地音乐后缓存已填充。
  */
-exports.getAllTracks = async (_params) => {
+exports.getAllTracks = async () => {
   try {
     const result = await apis.db.get('Track')
     const items = result?.songs || []
@@ -267,10 +320,10 @@ exports.getAllTracks = async (_params) => {
  */
 exports.getTrackDetail = async (params) => {
   try {
-    const result = await apis.db.get('Track')
-    const items = result?.songs || []
     const ids = params.tracks.map((t) => t.id)
-    const data = items.filter((item) => ids.includes(item.id)).map(formatTrack)
+    const result = await apis.db.get('Track', { ids })
+    const items = result?.songs || []
+    const data = items.map(formatTrack)
     return { code: 200, data }
   } catch (e) {
     return { code: 200, data: [] }
@@ -339,7 +392,7 @@ exports.getLyric = async (params) => {
 
 exports.search = async (_params) => {
   const { tab, keywords, reset } = _params
-  const _start = reset ? 0 : (_params._start || 0)
+  const _start = reset ? 0 : _params._start || 0
   if (!keywords) return { code: 200, data: [], count: 0, sourceContext: {} }
 
   const kw = keywords.toLowerCase()
@@ -355,28 +408,51 @@ exports.search = async (_params) => {
           (item.artists || []).some((a) => a.name.toLowerCase().includes(kw))
       )
       const page = filtered.slice(_start, _start + pageSize).map(formatTrack)
-      return { code: 200, data: page, count: filtered.length, sourceContext: { _start: _start + page.length } }
+      return {
+        code: 200,
+        data: page,
+        count: filtered.length,
+        sourceContext: { _start: _start + page.length }
+      }
     }
     case 'albums': {
       const allAlbums = (await apis.db.get('Album')) || []
       const filtered = allAlbums.filter((item) => item.name.toLowerCase().includes(kw))
       const page = filtered.slice(_start, _start + pageSize).map(formatAlbum)
-      return { code: 200, data: page, count: filtered.length, sourceContext: { _start: _start + page.length } }
+      return {
+        code: 200,
+        data: page,
+        count: filtered.length,
+        sourceContext: { _start: _start + page.length }
+      }
     }
     case 'artists': {
       const allArtists = (await apis.db.get('Artist')) || []
       const filtered = allArtists.filter((item) => item.name.toLowerCase().includes(kw))
       const page = filtered.slice(_start, _start + pageSize).map(formatArtist)
-      return { code: 200, data: page, count: filtered.length, sourceContext: { _start: _start + page.length } }
+      return {
+        code: 200,
+        data: page,
+        count: filtered.length,
+        sourceContext: { _start: _start + page.length }
+      }
     }
     case 'playlists': {
-      const pd = await loadPluginData()
-      const playlists = pd.playlists || []
-      const filtered = playlists.filter((p) => p.name.toLowerCase().includes(kw))
-      const page = filtered.slice(_start, _start + pageSize).map((p) =>
-        formatPlaylist({ ...p, trackCount: (p.trackIds || []).length })
-      )
-      return { code: 200, data: page, count: filtered.length, sourceContext: { _start: _start + page.length } }
+      const playlistRows = (await apis.db.get('Playlist')) || []
+      const allIds = playlistRows.map((p) => p.id)
+      const countMap = allIds.length
+        ? (await apis.db.get('PlaylistEntry', { playlistIds: allIds, $count: true })) || {}
+        : {}
+      const filtered = playlistRows.filter((p) => p.name.toLowerCase().includes(kw))
+      const page = filtered
+        .slice(_start, _start + pageSize)
+        .map((p) => formatPlaylist({ ...p, trackCount: countMap[p.id] || 0 }))
+      return {
+        code: 200,
+        data: page,
+        count: filtered.length,
+        sourceContext: { _start: _start + page.length }
+      }
     }
     default:
       return { code: 200, data: [], count: 0, sourceContext: {} }
@@ -395,25 +471,12 @@ const loadAllTracks = async () => {
   }
 }
 
-const loadPluginData = async () => {
-  try {
-    const data = await apis.db.get('PluginData')
-    return data || {}
-  } catch {
-    return {}
-  }
-}
-
-const savePluginData = (data) => {
-  apis.db.set('PluginData', data)
-}
-
 function generateId() {
   return 'pl_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8)
 }
 
 // ===================================================
-// 收藏 / 社交功能（存储在 SQLite PluginData 中）
+// 收藏 / 社交功能（Artist.followed 字段 + Album.subscribed）
 // ===================================================
 
 exports.likeATrack = async (params) => {
@@ -427,16 +490,6 @@ exports.likeATrack = async (params) => {
 
 exports.followArtist = async (params) => {
   const { op, id } = params
-  const pd = await loadPluginData()
-  const followed = pd.followedArtists || []
-  if (op === 'follow' || op === 'add') {
-    if (id && !followed.includes(id)) followed.push(id)
-  } else {
-    pd.followedArtists = followed.filter((a) => a !== id)
-  }
-  pd.followedArtists = followed
-  apis.db.set('PluginData', pd)
-  // 同步更新 Artist 表的 followed 字段
   if (id) apis.db.set('Artist', { id, followed: op === 'follow' || op === 'add' })
   return { code: 200 }
 }
@@ -449,13 +502,9 @@ exports.subscribeAlbum = async (params) => {
 }
 
 exports.userLikedArtists = async () => {
-  const pd = await loadPluginData()
-  const followedIds = pd.followedArtists || []
-  if (!followedIds.length) return { code: 200, data: [], sourceContext: {} }
-
-  // 从 Artist 表读取被关注的艺人
+  // 从 Artist 表读取关注状态
   const allArtists = (await apis.db.get('Artist')) || []
-  const data = allArtists.filter((a) => followedIds.includes(a.id)).map(formatArtist)
+  const data = allArtists.filter((a) => a.followed).map(formatArtist)
 
   // 如果 Artist 表里还没有（本地音乐首次扫描时未写全），从 tracks 中提取
   if (!data.length) {
@@ -463,7 +512,7 @@ exports.userLikedArtists = async () => {
     const seen = new Set()
     for (const item of items) {
       for (const a of item.artists || []) {
-        if (followedIds.includes(a.id) && !seen.has(a.id)) {
+        if (a.followed && !seen.has(a.id)) {
           seen.add(a.id)
           data.push(formatArtist(a))
         }
@@ -548,50 +597,134 @@ exports.artistAlbums = async (params) => {
   return { code: 200, data: albums, sourceContext: {} }
 }
 
+// ===================================================
+// 歌单操作（使用 Playlist / PlaylistEntry 表）
+// ===================================================
+
+/**
+ * 从 PlaylistEntry 中提取本地歌曲详情
+ * 仅处理 pluginId === 'local' 的条目，跨平台条目暂不处理
+ */
+const loadPlaylistTracksFromEntries = async (entries) => {
+  if (!entries || !entries.length) return []
+  const localIds = entries
+    .filter((e) => e.pluginId === 'local')
+    .map((e) => {
+      try {
+        const ctx =
+          typeof e.sourceContext === 'string' ? JSON.parse(e.sourceContext) : e.sourceContext
+        return ctx && ctx.id
+      } catch {
+        return null
+      }
+    })
+    .filter(Boolean)
+  if (!localIds.length) return []
+  const result = await apis.db.get('Track', { ids: localIds })
+  return (result?.songs || []).map(formatTrack)
+}
+
 exports.addOrRemoveTracksToPlaylist = async (_params) => {
   const { op, playlist, tracks } = _params
-  const pd = await loadPluginData()
-  const pl = (pd.playlists || []).find((p) => p.id === playlist?.id)
-  if (!pl) return { code: 404 }
-  const trackIds = tracks.map((t) => t.id).filter(Boolean)
+  if (!playlist?.id) return { code: 404 }
+
   if (op === 'add') {
-    trackIds.forEach((id) => {
-      if (!pl.trackIds.includes(id)) pl.trackIds.push(id)
-    })
+    for (const t of tracks) {
+      await apis.db.set('PlaylistEntry', {
+        playlistId: playlist.id,
+        pluginId: t.pluginId || 'local',
+        sourceContext: t.sourceContext
+      })
+    }
+    // 取最后添加的那首歌的封面更新歌单封面
+    if (tracks.length > 0) {
+      const last = tracks[tracks.length - 1]
+      if (last.pluginId === 'local' && last.sourceContext?.id) {
+        try {
+          await apis.db.set('Playlist', {
+            id: playlist.id,
+            picUrl: picUrl(last.sourceContext.id, 512)
+          })
+        } catch {
+          /* 静默失败，不影响添加操作 */
+        }
+      }
+    }
   } else {
-    pl.trackIds = pl.trackIds.filter((id) => !trackIds.includes(id))
+    // 移除时需要查出对应的 PlaylistEntry id
+    const entries = await apis.db.get('PlaylistEntry', { playlistId: playlist.id })
+    // tracks 为 [{ pluginId, sourceContext }]，按 (pluginId, sourceContext JSON) 匹配
+    const targetKeys = new Set(
+      tracks.map((t) => `${t.pluginId || 'local'}|${JSON.stringify(t.sourceContext)}`)
+    )
+    let deletedCount = 0
+    for (const entry of entries || []) {
+      const key = `${entry.pluginId}|${entry.sourceContext}`
+      if (targetKeys.has(key)) {
+        await apis.db.set('PlaylistEntry', { id: entry.id, _delete: true })
+        deletedCount++
+      }
+    }
+    // 如果删除了歌曲，更新封面为现在排第一（最新添加）的歌
+    if (deletedCount > 0) {
+      const remaining = await apis.db.get('PlaylistEntry', {
+        playlistId: playlist.id,
+        $first: true
+      })
+      if (remaining && remaining.pluginId === 'local') {
+        try {
+          const ctx =
+            typeof remaining.sourceContext === 'string'
+              ? JSON.parse(remaining.sourceContext)
+              : remaining.sourceContext
+          if (ctx?.id)
+            await apis.db.set('Playlist', { id: playlist.id, picUrl: picUrl(ctx.id, 512) })
+        } catch {}
+      } else if (!remaining) {
+        // 没有剩余歌曲，回退到默认封面
+        await apis.db.set('Playlist', { id: playlist.id, picUrl: picUrl(playlist.id, 256) })
+      }
+    }
   }
-  savePluginData(pd)
   return { code: 200 }
 }
 
 exports.createPlaylist = async (_params) => {
   const { name, description = '' } = _params
-  const pd = await loadPluginData()
-  const playlists = pd.playlists || []
+  const id = generateId()
+  await apis.db.set('Playlist', { id, name: name || '新建歌单', description })
   const newPlaylist = {
-    id: generateId(),
+    id,
     name: name || '新建歌单',
     description,
-    trackIds: [],
+    trackCount: 0,
     createTime: Date.now()
   }
-  playlists.push(newPlaylist)
-  pd.playlists = playlists
-  savePluginData(pd)
   return { code: 200, data: formatPlaylist(newPlaylist) }
 }
 
 exports.deletePlaylist = async (_params) => {
   const { id } = _params
-  const pd = await loadPluginData()
-  pd.playlists = (pd.playlists || []).filter((p) => p.id !== id)
-  savePluginData(pd)
+  if (!id) return { code: 404 }
+  await apis.db.set('Playlist', { id, _delete: true })
+  return { code: 200 }
+}
+
+/**
+ * 编辑歌单信息
+ * @param {Object} params
+ * @param {number|string} params.id
+ * @param {string} params.name
+ * @param {string} params.desc
+ */
+exports.editPlaylist = async (params) => {
+  const { id, name, desc } = params
+  if (!id) return { code: 404 }
+  await apis.db.set('Playlist', { id, name, description: desc })
   return { code: 200 }
 }
 
 exports.userPlaylist = async () => {
-  const pd = await loadPluginData()
   const allTracks = await loadAllTracks()
   const likedCount = allTracks.filter((t) => t.liked).length
   const liked = formatPlaylist({
@@ -599,8 +732,56 @@ exports.userPlaylist = async () => {
     name: '我喜欢的音乐',
     trackCount: likedCount
   })
-  const playlists = (pd.playlists || []).map((p) =>
-    formatPlaylist({ ...p, trackCount: (p.trackIds || []).length })
+  const playlistRows = (await apis.db.get('Playlist')) || []
+  const playlistIds = playlistRows.map((p) => p.id)
+  const countMap = playlistIds.length
+    ? (await apis.db.get('PlaylistEntry', { playlistIds, $count: true })) || {}
+    : {}
+
+  // 批量获取各歌单第一首歌的封面
+  const coverMap = {}
+  const firstEntryIds = []
+  const firstEntryPidMap = {}
+  for (const pid of playlistIds) {
+    if (countMap[pid] > 0) {
+      firstEntryIds.push(pid)
+    }
+  }
+  if (firstEntryIds.length) {
+    const firstEntries = await Promise.all(
+      firstEntryIds.map((pid) => apis.db.get('PlaylistEntry', { playlistId: pid, $first: true }))
+    )
+    const trackIds = []
+    for (let i = 0; i < firstEntries.length; i++) {
+      const entry = firstEntries[i]
+      if (entry && entry.pluginId === 'local') {
+        try {
+          const ctx =
+            typeof entry.sourceContext === 'string'
+              ? JSON.parse(entry.sourceContext)
+              : entry.sourceContext
+          if (ctx?.id) {
+            trackIds.push(ctx.id)
+            firstEntryPidMap[ctx.id] = firstEntryIds[i]
+          }
+        } catch {}
+      }
+    }
+    if (trackIds.length) {
+      const trackResult = await apis.db.get('Track', { ids: trackIds })
+      for (const song of trackResult?.songs || []) {
+        const pid = firstEntryPidMap[song.id]
+        if (pid && song.picUrl) coverMap[pid] = song.picUrl
+      }
+    }
+  }
+
+  const playlists = playlistRows.map((p) =>
+    formatPlaylist({
+      ...p,
+      picUrl: coverMap[p.id] || picUrl(p.id, 256),
+      trackCount: countMap[p.id] || 0
+    })
   )
   const allAlbums = (await apis.db.get('Album')) || []
   const albums = allAlbums.filter((a) => a.subscribed).map(formatAlbum)
@@ -609,7 +790,6 @@ exports.userPlaylist = async () => {
 
 exports.getPlaylistDetail = async (_params) => {
   const { id } = _params
-  const pd = await loadPluginData()
   const allTracks = await loadAllTracks()
 
   if (id === '-1') {
@@ -623,14 +803,17 @@ exports.getPlaylistDetail = async (_params) => {
     return { code: 200, data }
   }
 
-  const pl = (pd.playlists || []).find((p) => p.id === id)
+  const playlistRows = await apis.db.get('Playlist', { id })
+  const pl = playlistRows && playlistRows[0]
   if (!pl) return { code: 200, data: null }
-  const tracks = allTracks.filter((t) => (pl.trackIds || []).includes(t.id)).map(formatTrack)
+  const entries = await apis.db.get('PlaylistEntry', { playlistId: id })
+  const tracks = await loadPlaylistTracksFromEntries(entries)
   const data = formatPlaylistDetail({
     id: pl.id,
     name: pl.name,
     description: pl.description,
-    trackCount: (pl.trackIds || []).length,
+    picUrl: pl.picUrl || (tracks.length > 0 ? tracks[0].picUrl : ''),
+    trackCount: tracks.length,
     tracks,
     createTime: pl.createTime
   })
@@ -639,18 +822,15 @@ exports.getPlaylistDetail = async (_params) => {
 
 exports.getPlaylistTracks = async (_params) => {
   const { id } = _params
-  const pd = await loadPluginData()
-  const allTracks = await loadAllTracks()
 
   if (id === '-1') {
+    const allTracks = await loadAllTracks()
     const data = allTracks.filter((t) => t.liked).map(formatTrack)
     return { code: 200, data, sourceContext: { id } }
   }
 
-  const pl = (pd.playlists || []).find((p) => p.id === id)
-  if (!pl) return { code: 200, data: [], sourceContext: { id } }
-  const matchedIds = pl.trackIds || []
-  const data = allTracks.filter((t) => matchedIds.includes(t.id)).map(formatTrack)
+  const entries = await apis.db.get('PlaylistEntry', { playlistId: id })
+  const data = await loadPlaylistTracksFromEntries(entries)
   return { code: 200, data, sourceContext: { id } }
 }
 
@@ -658,12 +838,8 @@ exports.scrobble = async (_params) => {
   const { id } = _params
   if (!id) return { code: 200 }
   try {
-    const result = await apis.db.get('Track')
-    const track = (result?.songs || []).find((t) => t.id === id)
-    if (track) {
-      apis.db.set('Track', { id, playCount: (track.playCount || 0) + 1 })
-    }
-  } catch (e) {
+    apis.db.set('Track', { id, $inc: { playCount: 1 } })
+  } catch {
     // 静默失败，不影响播放
   }
   return { code: 200 }
@@ -697,8 +873,6 @@ exports.mvDetail = () => ({ code: 404, data: null })
 exports.subAMV = () => ({ code: 404 })
 exports.likeAMV = () => ({ code: 404 })
 exports.likelist = () => ({ code: 404, data: [], sourceContext: {} })
-exports.vipStatus = () => ({ code: 404 })
-exports.receiveVip = () => ({ code: 404 })
-exports.updateVip = () => ({ code: 404 })
-exports.personerFM = () => ({ code: 404 })
-exports.getSongUrl = () => ({ code: 404, data: '' })
+exports.personalFM = () => ({ code: 404, data: [], sourceContext: {} })
+
+exports.userRecord = async () => ({ code: 404, weekData: [], allData: [], sourceContext: {} })

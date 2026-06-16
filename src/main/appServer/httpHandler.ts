@@ -5,7 +5,7 @@ import Constants from '../utils/Constants'
 import path from 'path'
 import fs from 'fs'
 import sharp from 'sharp'
-import { db, Tables } from '../db'
+import { findLocalTrackAudio } from '../dbHelpers'
 import { getPic } from '../utils'
 
 const defaultImagePath = Constants.IS_DEV_ENV
@@ -35,34 +35,17 @@ const httpHandler: FastifyPluginAsync = async (fastify: FastifyInstance) => {
         return reply.type('image/jpeg').send(pic)
       }
 
-      // 从 Audio 表查询本地文件路径
-      // 支持 trackId 直接查找，也支持 albumId 间接查找
-      let audio = db.sqlite
-        .prepare(`SELECT filePath FROM ${Tables.Audio} WHERE trackId = ?`)
-        .get(trackId) as { filePath: string } | undefined
-
-      // 如果是 albumId，先找到该专辑下的第一个 track
-      if (!audio) {
-        const track = db.sqlite
-          .prepare(`SELECT id FROM ${Tables.Track} WHERE albumId = ? LIMIT 1`)
-          .get(trackId) as { id: string } | undefined
-        if (track) {
-          audio = db.sqlite
-            .prepare(`SELECT filePath FROM ${Tables.Audio} WHERE trackId = ?`)
-            .get(track.id) as { filePath: string } | undefined
-        }
-      }
-
-      if (!audio) {
+      const localAudio = findLocalTrackAudio(trackId)
+      if (!localAudio) {
         const pic = await fs.promises.readFile(defaultImagePath)
         return reply.type('image/jpeg').send(pic)
       }
 
       // 构建 getPic 需要的 track 对象
       const track = {
-        filePath: audio.filePath,
+        filePath: localAudio.filePath,
         matched: false,
-        album: {},
+        album: { picUrl: localAudio.picUrl },
         al: {}
       }
 

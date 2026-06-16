@@ -4,13 +4,17 @@
 
 ## 规范文档索引
 
-| 文档       | 路径                                 | 内容                                   |
-| ---------- | ------------------------------------ | -------------------------------------- |
-| 数据库设计 | `docs/src/database/index.md`         | 表结构、SQL 定义、业务规则、待定事项   |
-| 插件系统   | `docs/src/plugin-system/index.md`    | 插件架构、Zod 验证、sourceContext 规范 |
-| Store 模式 | `docs/src/stores/index.md`           | Pinia Composition API 风格、持久化策略 |
-| 代码风格   | `docs/src/code-conventions/index.md` | Prettier/ESLint/TypeScript 配置        |
-| UI 设计    | `docs/src/ui-design/index.md`        | 布局、组件、主题、样式规范             |
+| 文档 | 路径 | 内容 |
+| --- | --- | --- |
+| 数据库设计 | `docs/src/database/index.md` | 表结构、SQL 定义、业务规则、待定事项 |
+| 数据库迁移 | `docs/src/database/migrations.md` | 迁移机制、幂等初始化、版本追踪 |
+| 插件系统 | `docs/src/plugin-system/index.md` | 插件架构、Zod 验证、sourceContext 规范、60 方法 |
+| Store 模式 | `docs/src/stores/index.md` | Pinia Composition API 风格、持久化策略 |
+| 代码风格 | `docs/src/code-conventions/index.md` | Prettier/ESLint/TypeScript 配置 |
+| UI 设计 | `docs/src/ui-design/index.md` | 布局、组件、主题、样式规范 |
+| 插件开发快速参考 | `docs/src/plugin-development/index.md` | 新增插件步骤、已注册方法清单 |
+| 自动缓存歌曲实现 | `docs/src/cache-restore-plan.md` | 缓存 Worker、Plugins 表、超额清理策略 |
+| 重构状态 | `docs/src/migration-status.md` | 当前进度、待完善项、待定设计决策 |
 
 ## 快速参考
 
@@ -19,6 +23,7 @@
 - canonical 实体表（Track/Album/Artist）只存储用户拥有的歌曲
 - sourceContext 是不透明 JSON 字符串，框架层不解析
 - 多源聚合：一首歌可有多个数据来源
+- Plugins 表：DB 驱动加载，内置 6 个插件种子数据
 
 ### 插件调用链
 
@@ -28,6 +33,12 @@ Renderer → mainApi.invoke('plugin-method-call', pluginId, methodName, ...args)
          → Zod schema validation
          → Renderer receives typed result
 ```
+
+### 当前插件方法与导出数
+
+- **已注册方法**：60 个（`defaultMap`），详见插件系统文档
+- 网易云：59 导出 | 酷狗：58 | 本地：58
+- Emby：33 | Jellyfin：33 | Navidrome：32 | Demo：61（全）
 
 ### 代码风格
 

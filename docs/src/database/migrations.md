@@ -1,27 +1,62 @@
-# 迁移历史
+# 数据库迁移机制
 
-数据库迁移文件位于 `src/public/migrations/`，通过应用内 `migrate()` 函数按版本号执行。
+数据库文件路径：`<userData>/api_cache/vutron_music.sqlite`
 
-## 当前状态
+## 当前机制
 
-开发阶段 `migrate()` 已临时注释（`src/main/db.ts` 构造函数中），每次启动直接执行 `plugin.sql` 重建表结构。历史迁移文件将在重构完成后清理。
+数据库使用**单文件幂等初始化**模式，没有版本化迁移流程：
 
-## 迁移文件列表
+### 初始化阶段
 
-| 文件 | 版本 | 说明 |
-| --- | --- | --- |
-| `init.sql` | 初始 | 旧版 schema，使用 `json TEXT` 列，包含 AccountData 等旧表 |
-| `1.5.0.sql` | 1.5.0 | Track 表增加 `type` 列，移除 `isLocal`/`deleted` |
-| `2.4.0.sql` | 2.4.0 | 更新未匹配本地歌曲的 Track picUrl |
-| `2.5.0.sql` | 2.5.0 | 协议从 `atom://` 改为 `vutron://` |
-| `3.3.0.sql` | 3.3.0 | **重大重构**：所有表增加 `platform` 列作为 composite PK，AccountData 替换为 PluginData，迁移至 `(id, platform)` 复合主键 |
-| `plugin.sql` | 当前 | **现行 schema**，每次启动执行，创建所有表（见数据库设计文档） |
+应用启动时 `src/main/db.ts` 构造函数依次执行：
 
-## 迁移机制设计（待实现）
+1. **`initTables()`** — 读取并执行 `plugin.sql`，其中所有 `CREATE TABLE` 使用 `IF NOT EXISTS`，幂等安全
+2. **`migrate()`** — 检查 `AppData` 表中的 `appVersion` 值，若与 `Constants.APP_VERSION` 不符则更新
 
-重构完成后需要重新设计版本化迁移流程，预期方案：
+```typescript
+// src/main/db.ts（简化）
+constructor() {
+  createFileIfNotExist(this.dbFilePath)
+  this.sqlite = new SQLite3(this.dbFilePath)
+  this.sqlite.pragma('auto_vacuum = FULL')
+  this.initTables()   // 执行 plugin.sql（幂等）
+  this.migrate()      // 追踪版本号
+}
 
-1. `AppData` 表存储当前数据库版本号
+migrate() {
+  const key = 'appVersion'
+  const appVersion = this.findAppData(key)
+  if (appVersion?.value !== Constants.APP_VERSION) {
+    this.upsertAppData({ id: key, value: Constants.APP_VERSION })
+  }
+}
+```
+
+### 迁移文件
+
+当前仅有**一个**迁移文件 `plugin.sql`，位置：
+
+- 开发环境：`src/public/migrations/plugin.sql`
+- 生产环境：`dist/migrations/plugin.sql`
+
+该文件包含全部 15 张表的 `CREATE TABLE IF NOT EXISTS`：
+
+- `PluginData` / `AppData` — 键值存储
+- `Plugins` — 插件注册表
+- `Artist` / `Album` / `Track` — 元数据
+- `TrackArtist` / `ArtistAlbum` — 关联关系
+- `Audio` — 音频文件信息
+- `Lyrics` — 歌词缓存
+- `TrackSource` / `AlbumSource` / `ArtistSource` — 多源映射
+- `Playlist` / `PlaylistEntry` — 歌单及歌单条目
+
+> **注意**：`init.sql`、`1.5.0.sql`、`2.4.0.sql`、`2.5.0.sql`、`3.3.0.sql` 等历史迁移文件已随架构重构全部清理。旧版使用的是 `json TEXT` 列和 `(id, platform)` 复合主键，已在 `plugin.sql` 中被规范化表和 UUID 主键替代。
+
+## 未来改进（待定）
+
+当需要增量 Schema 变更时，预计改为版本化迁移流程：
+
+1. `AppData` 表存储数据库版本号
 2. 启动时比较应用版本与数据库版本
 3. 按顺序执行版本间的迁移 SQL
 4. 更新版本号
@@ -39,3 +74,5 @@ migrate() {
   }
 }
 ```
+
+当前 `migrate()` 仅做版本号记录，未实际执行增量 SQL。

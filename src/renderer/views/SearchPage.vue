@@ -18,19 +18,6 @@
         :is-end="true"
       />
     </div>
-    <div v-else-if="searchTab === 'lyrics'" class="container">
-      <TrackList
-        :items="[]"
-        :plugin="plugin"
-        :source-context="{}"
-        :colunm-number="1"
-        :item-height="152.5"
-        :is-lyric="true"
-        :load-more="() => loadData(false)"
-        :type="'Playlist'"
-        :is-end="true"
-      />
-    </div>
     <div v-else-if="searchTab === 'mvs'" class="container">
       <MvRow
         :mvs="searchResult['mvs'][plugin]?.data || []"
@@ -63,7 +50,7 @@ import TrackList from '../components/VirtualTrackList.vue'
 import CoverRow from '../components/VirtualCoverRow.vue'
 import MvRow from '../components/MvRow.vue'
 import { PluginId } from '@/types/schemas'
-import { Album, Artist, LyricLine, Mv, Playlist, Track } from '@/types/plugin'
+import { Album, Artist, Mv, Playlist, Track } from '@/types/plugin'
 
 const show = ref(false)
 const keywords = ref('')
@@ -73,8 +60,7 @@ const tagMap = {
   albums: '张专辑',
   artists: '位歌手',
   playlists: '个歌单',
-  mvs: '个视频',
-  lyrics: '个歌词'
+  mvs: '个视频'
 }
 
 const pluginStore = usePluginMusic()
@@ -110,13 +96,7 @@ const mvs = reactive<
   Object.fromEntries(services.value.map((s) => [s.code, { data: [], count: 0, sourceContext: {} }]))
 )
 
-const lyrics = reactive<
-  Record<PluginId, { data: LyricLine[]; count: number; sourceContext: Record<string, any> }>
->(
-  Object.fromEntries(services.value.map((s) => [s.code, { data: [], count: 0, sourceContext: {} }]))
-)
-
-const searchResult = { tracks, albums, artists, playlists, mvs, lyrics }
+const searchResult = { tracks, albums, artists, playlists, mvs }
 const { searchTab } = storeToRefs(useNormalStateStore())
 const { pluginMethodCall } = pluginStore
 const route = useRoute()
@@ -125,8 +105,7 @@ const typeMap = {
   albums: 'Album',
   artists: 'Artist',
   playlists: 'Playlist',
-  mvs: 'Mv',
-  lyrics: 'Lyric'
+  mvs: 'Mv'
 } as const
 
 const loadData = async (reset = true) => {

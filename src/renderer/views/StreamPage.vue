@@ -14,7 +14,7 @@
             </div>
             <div>
               <div class="subtitle">歌曲总时长</div>
-              <div class="text">{{ '' }}</div>
+              <div class="text">{{ formatedTime }}</div>
             </div>
             <div>
               <div class="subtitle">流媒体歌单</div>
@@ -22,7 +22,7 @@
             </div>
             <div>
               <div class="subtitle">歌曲占用</div>
-              <div class="text">{{ '' }}</div>
+              <div class="text">{{ formatedMemory }}</div>
             </div>
           </div>
         </div>
@@ -153,6 +153,8 @@
       </div>
     </div>
 
+    <AccurateMatchModal />
+
     <ContextMenu ref="streamTabMenu">
       <div class="item" :class="{ active: tool.groundBy === 'all' }" @click="tool.groundBy = 'all'"
         >聚合</div
@@ -185,6 +187,9 @@
         >{{ option.name }}</div
       >
       <hr v-show="!isBatchOp" />
+      <div v-show="!isBatchOp" class="item" @click="refreshTracks">{{
+        $t('contextMenu.refreshData')
+      }}</div>
       <div v-show="!isBatchOp" class="item" @click="isBatchOp = true">{{
         $t('contextMenu.batchOperation')
       }}</div>
@@ -233,6 +238,7 @@ import InfoBG from '../components/InfoBG.vue'
 import SvgIcon from '../components/SvgIcon.vue'
 import SearchBox from '../components/SearchBox.vue'
 import TrackList from '../components/VirtualTrackList.vue'
+import AccurateMatchModal from '../components/ModalAccurateMatch.vue'
 import CoverRow from '../components/VirtualCoverRow.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import AlbumList from '../components/AlbumList.vue'
@@ -240,7 +246,7 @@ import ArtistList from '../components/ArtistList.vue'
 import { useI18n } from 'vue-i18n'
 import { randomNum, pickedLyric } from '../utils'
 import { lyricLine } from '@/types/music.d'
-import type { Track, LoginType, sortType, orderType } from '@/types/plugin'
+import type { Track, sortType, orderType } from '@/types/plugin'
 // import _ from 'lodash'
 import { PluginId } from '@/types/schemas'
 
@@ -257,7 +263,8 @@ const {
   // fetchLyric,
   pluginMethodCall,
   fetchLikedArtists,
-  fetchAllTracks
+  fetchAllTracks,
+  handleStatusChange
 } = pluginStore
 
 const streamService = computed(() => services.value.filter((item) => item.type === 'stream'))
@@ -424,30 +431,31 @@ watch(keyword, (value) => {
   console.log('=2=2=22', value, count, defaultTracks.value.length)
 })
 
-// const formatedTime = computed(() => {
-//   const dt =
-//     defaultTracks.value
-//       .map((track) => track.dt)
-//       .filter((dt) => dt && !isNaN(Number(dt)))
-//       .reduce((acc, cur) => acc + cur, 0) / 1000
-//   const hourse = Math.floor(dt / 3600)
-//   const minutes = Math.floor((dt % 3600) / 60)
-//   const seconds = Math.floor(dt % 60)
-//   return `${hourse}:${minutes < 10 ? '0' + minutes : minutes}:${seconds < 10 ? '0' + seconds : seconds}`
-// })
+const formatedTime = computed(() => {
+  const dt =
+    filterTracks.value
+      .map((track) => track.duration)
+      .filter((dt) => dt && !isNaN(Number(dt)))
+      .reduce((acc, cur) => acc + cur, 0) / 1000
+  const hourse = Math.floor(dt / 3600)
+  const minutes = Math.floor((dt % 3600) / 60)
+  const seconds = Math.floor(dt % 60)
+  return `${hourse}:${minutes < 10 ? '0' + minutes : minutes}:${seconds < 10 ? '0' + seconds : seconds}`
+})
 
-// const formatedMemory = computed(() => {
-//   const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
-//   let memory = defaultTracks.value
-//     .map((track) => track.size!)
-//     .reduce((acc, cur) => acc + cur, 0) as number
-//   let i = 0
-//   while (memory >= 1024 && i < units.length - 1) {
-//     memory /= 1024
-//     i++
-//   }
-//   return `${memory.toFixed(2)} ${units[i]}`
-// })
+const formatedMemory = computed(() => {
+  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
+  let memory = filterTracks.value
+    .map((track) => track.size)
+    .filter((size) => size && !isNaN(Number(size)))
+    .reduce((acc, cur) => acc + cur, 0) as number
+  let i = 0
+  while (memory >= 1024 && i < units.length - 1) {
+    memory /= 1024
+    i++
+  }
+  return `${memory.toFixed(2)} ${units[i]}`
+})
 
 const selectAll = () => {
   streamListRef.value?.selectAll()
@@ -464,6 +472,14 @@ const addTracksToQueue = () => {
 const finishBatchOp = () => {
   isBatchOp.value = false
   streamListRef.value?.doFinish()
+}
+
+const refreshTracks = () => {
+  if (tool.value.groundBy === 'all') {
+    loginService.value.forEach((se) => fetchAllTracks(se.code, true))
+  } else {
+    fetchAllTracks(tool.value.groundBy, true)
+  }
 }
 
 const openTabMenu = (ref: 'track' | 'album' | 'artist', e: MouseEvent): void => {
@@ -512,7 +528,6 @@ const getRandomTrack = async () => {
   let data: lyricLine[]
   while (i < filterLikedTracks.value.length) {
     const track = filterLikedTracks.value[randomNum(0, filterLikedTracks.value.length - 1)]
-    // data = await fetchLyric(track.pluginId, track.sourceContext)
     data = await pluginMethodCall(track.pluginId, 'getLyric', track.sourceContext).then(
       (result) => {
         if (result.code === 200) return result.data
@@ -580,13 +595,9 @@ const checkLoginStatus = async () => {
       .filter((item) => item.status !== 'logout')
       .map(async (item) => {
         const res = await pluginMethodCall(item.code, 'systemPing')
-        item.status = res.status
+        handleStatusChange(item.code, res.status)
       })
   )
-  if (!services.value.length) {
-    const groundBy = tool.value.groundBy
-    router.push(`/login/${groundBy === 'all' ? streamService.value[0].code : groundBy}/Username`)
-  }
 }
 
 const loadData = async (ser: PluginId) => {
@@ -606,13 +617,6 @@ const loadData = async (ser: PluginId) => {
 }
 
 watch(loginService, (value, oldValue) => {
-  if (!value.length) {
-    const groupBy = tool.value.groundBy
-    const service = groupBy === 'all' ? streamService.value[0].code : groupBy
-    const loginTpye: LoginType = 'Username'
-    router.push(`/login/${service}/${loginTpye}`)
-    return
-  }
   value.forEach((item) => {
     if (!oldValue?.length) {
       loadData(item.code)

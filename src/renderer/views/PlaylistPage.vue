@@ -22,17 +22,9 @@
           ><span v-if="playlist?.isPrivate" class="lock-icon"><svg-icon icon-class="lock" /></span
           >{{ playlist?.name }}</div
         >
-        <div v-if="playlistType === 'local'" class="artist">
-          离线歌单 {{ user.nickname ? `by ${user.nickname}` : `` }}
-        </div>
-        <div v-else-if="playlistType === 'stream'" class="artist">
-          {{ currentService + ' 歌单 by ' + playlist?.creator?.nickname }}
-        </div>
-        <div v-else class="artist">
+        <div class="artist">
           {{ getPluginName(pluginId) }} 歌单 by
-          <router-link :to="`/user/${playlist?.creator?.userId}`">{{
-            playlist?.creator?.nickname
-          }}</router-link>
+          {{ playlist?.creator?.nickname }}
         </div>
         <div class="date-and-count">
           {{ $t('library.playlist.updatedAt') }}
@@ -221,7 +213,7 @@ import SvgIcon from '../components/SvgIcon.vue'
 import Modal from '../components/BaseModal.vue'
 import { tricklingProgress } from '../utils/tricklingProgress'
 import { useI18n } from 'vue-i18n'
-import { CoverType, PlaylistSourceInfo, serviceName } from '@/types/music.d'
+import { CoverType, PlaylistSourceInfo } from '@/types/music.d'
 import type { PluginId, Track, PlaylistDetail, MusicType } from '@/types/plugin'
 
 const rawPlaylist = {
@@ -261,7 +253,6 @@ const show = ref(false)
 const showFullDescription = ref(false)
 const showComment = ref(false)
 const pSearchBoxRef = ref<InstanceType<typeof SearchBox>>()
-const currentService = ref<serviceName | 'all'>('all')
 const pluginId = ref<PluginId | 'all'>('all')
 const pluginType = ref<MusicType>('library')
 
@@ -357,7 +348,7 @@ const loadMore = () => {
 
 const likePlaylist = (toast = false) => {
   if (!isAccountLoggedIn(pluginId.value as PluginId)) {
-    showToast(t('toast.needToLogin'))
+    showToast(t('toast.needToLogin', { serviceName: getPluginName(pluginId.value as PluginId) }))
     return
   }
 
@@ -437,18 +428,17 @@ const deleteAPlaylist = () => {
 }
 
 const editPlaylist = () => {
-  // if (playlistType.value === 'streamLiked') return
-  // editPlaylistModal.value = {
-  //   show: true,
-  //   type:
-  //     playlistType.value === 'stream' ? (currentService.value as serviceName) : playlistType.value,
-  //   playlistID: playlist.value.id as number,
-  //   info: {
-  //     title: playlist.value.name,
-  //     description: playlist.value.description || '',
-  //     tags: playlist.value.tags || []
-  //   }
-  // }
+  if (isLikedSongsPage.value) return
+  editPlaylistModal.value = {
+    show: true,
+    pluginId: pluginId.value as PluginId,
+    playlistID: playlist.value.id as number,
+    info: {
+      title: playlist.value.name,
+      description: playlist.value.description || '',
+      tags: playlist.value.tags || []
+    }
+  }
 }
 
 const copyUrl = () => {

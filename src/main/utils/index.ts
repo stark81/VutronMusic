@@ -1,12 +1,12 @@
-import { net } from 'electron'
+import { app, net } from 'electron'
 import fs from 'fs'
 import path from 'path'
 import jschardet from 'jschardet'
 import iconv from 'iconv-lite'
 import { fileTypeFromBuffer } from 'file-type'
 import { IAudioMetadata, parseFile } from 'music-metadata'
-import request from '../appServer/request'
-// import { CacheAPIs } from './CacheApis'
+import { db, Tables } from '../db'
+import { deleteCacheFromDB } from '../dbHelpers'
 import store from '../store'
 
 import log from '../log'
@@ -191,17 +191,15 @@ export const getPicFromPath = async (filePath: string) => {
 }
 
 export const getPic = async (track: any): Promise<{ pic: Buffer; format: string }> => {
-  const trackInfoOrder = (store.get('settings.trackInfoOrder') as TrackInfoOrder[]) || [
-    'path',
-    'online',
-    'embedded'
-  ]
+  const trackInfoOrder = (store.get(
+    'settings.sourcePriority.trackInfoOrder'
+  ) as TrackInfoOrder[]) || ['path', 'online', 'embedded']
 
   let res: { pic: Buffer<ArrayBufferLike> | null; format: string } = { pic: null, format: '' }
   const url = track.album?.picUrl || track.al?.picUrl
 
   for (const order of trackInfoOrder) {
-    if (order === 'online' && track.matched) {
+    if (order === 'online') {
       res = (await getPicFromApi(url)) as { pic: Buffer; format: string }
     } else if (order === 'path' && track.filePath) {
       const prefixs = ['.jpg', '.png', '.jpeg', '.webp']
@@ -240,124 +238,6 @@ export const getPicColor = async (pic: Buffer) => {
     return { color: null, color2: null }
   }
 }
-
-export const getLyricFromApi = async (id: number): Promise<lyricLine[]> => {
-  return await request({
-    url: '/lyric/new',
-    method: 'get',
-    params: { id }
-  }).catch(() => [])
-}
-
-export const getLyric = async (track: {
-  id: number
-  matched: boolean
-  filePath?: string
-}): Promise<lyricLine[]> => {
-  const trackInfoOrder = (store.get('settings.trackInfoOrder') as TrackInfoOrder[]) || [
-    'path',
-    'online',
-    'embedded'
-  ]
-
-  let lyrics: lyricLine[] = []
-
-  for (const order of trackInfoOrder) {
-    if (order === 'online') {
-      if (track.matched) {
-        lyrics = await getLyricFromApi(track.id)
-      }
-    } else if (order === 'embedded') {
-      if (track.filePath) {
-        lyrics = await getLyricFromEmbedded(track.filePath)
-      }
-    } else if (order === 'path') {
-      if (track.filePath) {
-        const filePath = track.filePath.replace(/\.[^/.]+$/, '.lrc')
-        lyrics = await fs.promises
-          .access(filePath, fs.constants.F_OK)
-          .then(async () => {
-            return await getLyricFromPath(filePath)
-          })
-          .catch(() => [])
-      }
-    }
-    if (lyrics.length) return lyrics
-  }
-  return lyrics
-}
-
-// export const handleNeteaseResult = async (name: string, result: any) => {
-//   switch (name) {
-//     case CacheAPIs.Playlist: {
-//       if (!result) return result
-//       if (result.playlist) {
-//         result.playlist.tracks = await mapTrackPlayableStatus(
-//           result.playlist.tracks,
-//           result.privileges || []
-//         )
-//       }
-//       return result
-//     }
-//     case CacheAPIs.Track: {
-//       result.songs = mapTrackPlayableStatus(result.songs, result.privileges)
-//       return result
-//     }
-//     case CacheAPIs.recommendTracks: {
-//       result.data.dailySongs = mapTrackPlayableStatus(
-//         result.data.dailySongs,
-//         result.data.privileges
-//       )
-//       return result
-//     }
-//     case CacheAPIs.Artist: {
-//       result.hotSongs = mapTrackPlayableStatus(result.hotSongs)
-//       return result
-//     }
-//     case CacheAPIs.Album: {
-//       result.songs = mapTrackPlayableStatus(result.songs)
-//       return result
-//     }
-//     case CacheAPIs.ListenedRecords: {
-//       if (result.weekData) {
-//         result.weekData = result.weekData.map((item: any) => {
-//           item.song = { ...item.song, type: 'online', matched: true }
-//           return item
-//         })
-//       }
-//       if (result.allData) {
-//         result.allData = result.allData.map((item: any) => {
-//           item.song = { ...item.song, type: 'online', matched: true }
-//           return item
-//         })
-//       }
-//       return result
-//     }
-//     case CacheAPIs.CloudDisk: {
-//       result.data = result.data.map((item: any) => {
-//         item.type = 'online'
-//         item.matched = true
-//         if (item.simpleSong) item.simpleSong = { ...item.simpleSong, type: 'online', matched: true }
-//         return item
-//       })
-//       return result
-//     }
-//     case CacheAPIs.TopSong: {
-//       result.data = mapTrackPlayableStatus(result.data)
-//       return result
-//     }
-//     case CacheAPIs.LyricNew: {
-//       if (result.yrc?.lyric) {
-//         return yrcLyricParse(result)
-//       } else if (result.lrc.lyric) {
-//         return lrcLyricParse(result)
-//       }
-//       return []
-//     }
-//     default:
-//       return result
-//   }
-// }
 
 const _parseYrcLine = (line: RegExpExecArray) => {
   const timestampRegex = /\[(\d+),(\d+)\]/g
@@ -555,212 +435,67 @@ export const lrcLyricParse = (data: {
   return result
 }
 
-// const mapTrackPlayableStatus = async (tracks: any[], privileges: any[] = []) => {
-//   if (tracks?.length === undefined) return tracks
-//   return await Promise.all(
-//     tracks.map(async (t) => {
-//       const privilege = privileges.find((item) => item.id === t.id) || {}
-//       if (t.privilege) {
-//         Object.assign(t.privilege, privilege)
-//       } else {
-//         t.privilege = privilege
-//       }
-//       const result = await isTrackPlayable(t)
-//       t.playable = result.playable
-//       t.reason = result.reason
-//       t.type = 'online'
-//       t.matched = true
-//       t.cache = false
-//       t.source = 'netease'
-//       return t
-//     })
-//   )
-// }
-
-// const isTrackPlayable = async (track: any) => {
-//   const Cache = (await import('../cache')).default
-//   const user = Cache.get(CacheAPIs.loginStatus, { platform: 'netease' })
-//   const result = {
-//     playable: true,
-//     reason: ''
-//   }
-//   if (track?.privilege?.pl > 0) {
-//     return result
-//   }
-//   // cloud storage judgement logic
-//   if (user.userId !== 0 && track?.privilege?.cs) {
-//     return result
-//   }
-//   if (track.fee === 1 || track.privilege?.fee === 1) {
-//     if (user.userId !== 0 && user.vipType === 11) {
-//       result.playable = true
-//     } else {
-//       result.playable = false
-//       result.reason = 'VIP Only'
-//     }
-//   } else if (track.fee === 4 || track.privilege?.fee === 4) {
-//     result.playable = false
-//     result.reason = '付费专辑'
-//   } else if (track.noCopyrightRcmd !== null && track.noCopyrightRcmd !== undefined) {
-//     result.playable = false
-//     result.reason = '无版权'
-//   } else if (track.privilege?.st < 0 && user.userId !== 0) {
-//     result.playable = false
-//     result.reason = '已下架'
-//   }
-//   return result
-// }
-
-const getAudioSourceFromNetease = async (track: any): Promise<{ [key: string]: any }> => {
-  const getBr = () => {
-    const quality = store.get('settings.musicQuality')
-    return quality === 'flac' ? 350000 : quality
-  }
-  const getMP3 = async (id: string) => {
-    return request({
-      url: '/song/url',
-      method: 'get',
-      params: {
-        id,
-        br: getBr()
-      }
-    })
-  }
-
-  return getMP3(track.id)
-    .then((result: any) => {
-      const br = result.data[0]?.br || 128000
-      const gain = result.data[0]?.gain || 0
-      const peak = result.data[0]?.peak || 1
-      // if (!result.data[0]) return null
-      if (!result.data[0] || !result.data[0].url || result.data[0].freeTrialInfo !== null) {
-        return { url: null, br, gain, peak }
-      }
-      const source = result.data[0].url.replace(/^http:/, 'https:')
-      return { url: source, br, gain, peak }
-    })
-    .catch(() => {
-      const url = `https://music.163.com/song/media/outer/url?id=${track.id}`
-      return { url, br: 128000, gain: 0, peak: 1 }
-    })
-}
-
-export const getAudioSource = async (track: any) => {
-  const enableUNM = (store.get('settings.unblockNeteaseMusic.enable') as boolean) || true
-  let source = 'netease'
-
-  // 缓存里没有，从网易云里获取
-  const trackInfo = await getAudioSourceFromNetease(track)
-
-  // 网易云里没有，从unblock里获取
-  if (!trackInfo.url && enableUNM) {
-    const res = await getAudioSourceFromUnblock(track)
-    trackInfo.url = res.url
-    source = res.source
-  }
-  trackInfo.source = source
-  return trackInfo
-}
-
-export const getTrackDetail = (ids: string) => {
-  return request({
-    url: '/song/detail',
-    method: 'get',
-    params: { ids }
-  })
-}
-
-export const getAudioSourceFromUnblock = async (track: any) => {
-  const source = (store.get('settings.unblockNeteaseMusic.source') as string) || ''
-  const sourceList = source
-    ? source.split(',').map((s) => s.trim().toLowerCase())
-    : ['bodian', 'kuwo', 'kugou', 'ytdlp', 'qq', 'bilibili', 'pyncmd', 'migu']
-
-  const qqCookie = (store.get('settings.unblockNeteaseMusic.qqCookie') as string) || ''
-  const jooxCookie = store.get('settings.unblockNeteaseMusic.jooxCookie') as string
-  const enableFlac = store.get('settings.unblockNeteaseMusic.enableFlac') as boolean
-  const orderFirst = store.get('settings.unblockNeteaseMusic.orderFirst') as boolean
-
-  process.env.ENABLE_LOCAL_VIP = 'true'
-  process.env.QQ_COOKIE = qqCookie || ''
-  process.env.JOOX_COOKIE = jooxCookie || ''
-  process.env.ENABLE_FLAC = enableFlac ? 'true' : 'false'
-  process.env.FOLLOW_SOURCE_ORDER = orderFirst ? 'true' : 'false'
-
-  const match = require('@unblockneteasemusic/server')
-
-  const proxy = store.get('settings.proxy') as { type: 0 | 1 | 2; address: string; port: string }
-  const map = { 1: 'http', 2: 'https' }
-  const url =
-    proxy && proxy.type !== 0 ? `${map[proxy.type]}://${proxy.address}:${proxy.port}` : null
-
-  // @ts-ignore
-  global.proxy = url
-
-  return match(track.id, sourceList).catch((error: any) => {
-    // @ts-ignore
-    console.log('=== unblock error ===', global.proxy, error)
-    return null
-  })
-}
-
 export const deleteExcessCache = async (deleteAll = false): Promise<boolean> => {
-  // const { db, Tables } = await import('../db')
-  // const tracks = db.sqlite.prepare(`SELECT * from Track WHERE type != 'local'`).all() as Track[]
+  const audioCachePath =
+    (store.get('settings.autoCacheTrack.path') as string) ||
+    path.join(app.getPath('userData'), 'audioCache')
 
-  // if (deleteAll) {
-  //   try {
-  //     const ids = tracks.map((s: any) => {
-  //       fs.promises.rm(s.url, { force: true })
-  //       return s.id
-  //     })
-  //     if (ids.length > 0) db.deleteManyByIds(Tables.Track, ids, 'xxx')
-  //     return true
-  //   } catch (error) {
-  //     log.error('清理全量缓存失败:', error)
-  //     return false
-  //   }
-  // }
+  const rows = db.sqlite
+    .prepare(`SELECT rowid, * FROM ${Tables.Audio} WHERE filePath LIKE ?  ORDER BY rowid ASC`)
+    .all(`${audioCachePath}%`) as Record<string, any>[]
 
-  // const sizeLimit = store.get('settings.autoCacheTrack.sizeLimit') as boolean | number
-  // if (sizeLimit === false) return true
+  if (deleteAll) {
+    try {
+      // 先删磁盘文件，文件删除失败不阻塞 DB 操作
+      for (const r of rows) {
+        fs.promises.unlink(r.filePath).catch(() => {})
+      }
+      const ids = rows.map((r) => r.id)
+      const trackIds = [...new Set(rows.map((r) => r.trackId))]
+      deleteCacheFromDB(ids, trackIds)
+      log.info(`全量清理完成，共删除 ${ids.length} 首缓存歌曲`)
+      return true
+    } catch (error) {
+      log.error('清理全量缓存失败:', error)
+      return false
+    }
+  }
 
-  // const songs = [...tracks].sort((a: any, b: any) => a.insertTime - b.insertTime)
+  const sizeLimit = store.get('settings.autoCacheTrack.sizeLimit') as boolean | number
+  if (sizeLimit === false) return true
 
-  // let currentTotalSize = songs.reduce((acc: number, cur: any) => acc + Number(cur.size), 0)
-  // const limitInBytes = (sizeLimit as number) * 1024 * 1024
+  let currentTotalSize = rows.reduce((acc: number, cur: any) => acc + Number(cur.size), 0)
+  const limitInBytes = (sizeLimit as number) * 1024 * 1024
 
-  // try {
-  //   const deletedIds: number[] = []
+  try {
+    const deletedIds: string[] = []
 
-  //   while (currentTotalSize > limitInBytes && songs.length > 0) {
-  //     const target = songs.shift()
-  //     if (!target) break
+    for (const row of rows) {
+      if (currentTotalSize <= limitInBytes) break
+      deletedIds.push(row.id)
+      currentTotalSize -= Number(row.size)
+    }
 
-  //     try {
-  //       await fs.promises.unlink(target.url)
-  //       deletedIds.push(target.id)
-  //       currentTotalSize -= Number(target.size)
-  //     } catch (fileError: any) {
-  //       if (fileError.code === 'ENOENT') {
-  //         deletedIds.push(target.id)
-  //       } else {
-  //         log.error(`文件删除失败: ${target.url}`, fileError)
-  //       }
-  //     }
-  //   }
+    if (deletedIds.length > 0) {
+      const deletedIdSet = new Set(deletedIds)
+      // 先删磁盘文件
+      for (const row of rows) {
+        if (deletedIdSet.has(row.id)) {
+          fs.promises.unlink(row.filePath).catch(() => {})
+        }
+      }
+      // 再删 DB 记录
+      const deletedAudios = rows.filter((r) => deletedIdSet.has(r.id))
+      const trackIds = [...new Set(deletedAudios.map((r) => r.trackId))]
+      deleteCacheFromDB(deletedIds, trackIds)
+      log.info(`自动清理完成，共删除 ${deletedIds.length} 首缓存歌曲`)
+    }
 
-  //   if (deletedIds.length > 0) {
-  //     db.deleteManyByIds(Tables.Track, deletedIds, 'xxx')
-  //     log.info(`自动清理完成，共删除 ${deletedIds.length} 首缓存歌曲`)
-  //   }
-
-  //   return true
-  // } catch (error) {
-  //   log.error('循环清理超额缓存失败:', error)
-  //   return false
-  // }
-  return false
+    return true
+  } catch (error) {
+    log.error('清理超额缓存失败:', error)
+    return false
+  }
 }
 
 export const formatTime = (time: number, rate: number = 1000) => {

@@ -87,9 +87,10 @@ const getPic = (id, primary, size) => {
 const formatPlaylist = (item) => ({
   id: item.Id || '-1',
   name: item.Name || '我喜欢的音乐',
+  icon: 'emby',
   picUrl: item.ImageTags?.Primary
     ? getPic(item.Id, item.ImageTags.Primary, 256)
-    : `http://127.0.0.1:41830/local-asset/default-cover?v=${item.Id}`,
+    : `http://localhost:41830/local-asset/default-cover?v=${item.Id}`,
   isMine: true,
   trackCount: item.ChildCount || 0,
   playCount: item?.UserData?.PlayCount || 0,
@@ -110,10 +111,11 @@ const formatPlaylist = (item) => ({
 const formatPlaylistDetail = (playlist) => ({
   id: playlist.Id || -1,
   name: playlist.Name || '我喜欢的音乐',
+  icon: 'emby',
   subscribed: playlist.UserData?.IsFavorite || false,
   picUrl: playlist.ImageTags?.Primary
     ? getPic(playlist.Id, playlist.ImageTags?.Primary, 512)
-    : `http://127.0.0.1:41830/local-asset/default-cover?v=${playlist.Id}`,
+    : `http://localhost:41830/local-asset/default-cover?v=${playlist.Id}`,
   trackCount: playlist.ChildCount,
   updateTime: new Date(playlist.DateCreated || 0).getTime(),
   description: playlist.Overview || '',
@@ -202,9 +204,10 @@ const formatTrack = (item, size = 512, showPlayCount = true) => {
       pluginId: '',
       sourceContext: { id: it.Id }
     })),
+    size: item.Size || 0,
     picUrl: item.ImageTags?.Primary
       ? getPic(item.Id, item.ImageTags.Primary, size)
-      : `http://127.0.0.1:41830/local-asset/default-cover?v=${item.Id}`,
+      : `http://localhost:41830/local-asset/default-cover?v=${item.Id}`,
     pluginId: '',
     type: meta.type,
     sourceContext: {
@@ -222,7 +225,7 @@ const formatAlbumDetail = (item) => {
     name: item.Name,
     picUrl: item.PrimaryImageTag
       ? getPic(item.PrimaryImageItemId || item.Id, item.PrimaryImageTag, 512)
-      : `http://127.0.0.1:41830/local-asset/default-cover?v=${item.Id}`,
+      : `http://localhost:41830/local-asset/default-cover?v=${item.Id}`,
     type: 'Album',
     isExplicit: false,
     subscribed: item.UserData?.IsFavorite || false,
@@ -248,9 +251,10 @@ const formatAlbumDetail = (item) => {
 const formatAlbum = (item) => ({
   id: item.Id,
   name: item.Name,
+  icon: 'emby',
   picUrl: item.PrimaryImageTag
     ? getPic(item.PrimaryImageItemId || item.Id, item.PrimaryImageTag, 512)
-    : `http://127.0.0.1:41830/local-asset/default-cover?v=${item.Id}`,
+    : `http://localhost:41830/local-asset/default-cover?v=${item.Id}`,
   artists:
     item.ArtistItems?.map((it) => ({
       id: it.Id,
@@ -392,7 +396,15 @@ const post = async (url, data, header = null) => {
 
 const meta = {
   name: 'Emby',
-  type: 'stream'
+  icon: 'emby',
+  type: 'stream',
+  capabilities: {
+    matchTrack: false,
+    getLyric: true,
+    getComments: false,
+    comment: { read: false, like: false, submit: false, floor: false },
+    mv: { detail: false, like: false, subscribe: false }
+  }
 }
 
 exports.meta = meta
@@ -639,7 +651,13 @@ exports.getLyric = async (params) => {
 exports.addOrRemoveTracksToPlaylist = async (params) => {
   const { op, playlist, tracks } = params
   const endpoint = `Playlists/${playlist.id}/Items` + (op === 'del' ? '/Delete' : '')
-  const ids = tracks.map((it) => (op === 'add' ? it.id : it.PlaylistItemId)).join(',')
+  const ids = tracks
+    .map((it) =>
+      op === 'add'
+        ? it.sourceContext?.id || it.id
+        : it.sourceContext?.PlaylistItemId || it.PlaylistItemId
+    )
+    .join(',')
   const data = op === 'add' ? { Ids: ids, UserId: user.userId } : { EntryIds: ids }
   await post(endpoint, data)
   return { code: 200 }
@@ -685,6 +703,31 @@ exports.deletePlaylist = async (params) => {
   }
 }
 
+/**
+ * 编辑歌单信息
+ * @param {Object} params
+ * @param {number|string} params.id
+ * @param {string} params.name
+ * @param {string} params.desc
+ */
+exports.editPlaylist = async (params) => {
+  try {
+    const { id, name, desc } = params
+    // Emby API 需要先获取完整数据，修改后全量更新
+    const item = await get(`Users/${user.userId}/Items/${id}`)
+    item.Name = name
+    item.Overview = desc
+    delete item.ServerId
+    delete item.Etag
+    delete item.DateCreated
+    await post(`Items/${id}`, item)
+    return { code: 200 }
+  } catch (error) {
+    console.log('[emby editPlaylist error]', error)
+    return { code: 404 }
+  }
+}
+
 exports.getPlaylistTracks = async (params) => {
   if (params.hasMore === false) return { code: 200, data: [], sourceContext: params }
   const result = await getTracks({ ParentId: params.id })
@@ -693,7 +736,8 @@ exports.getPlaylistTracks = async (params) => {
 }
 
 exports.getAllTracks = async (_params) => {
-  const { page = 0, sort, order } = _params
+  const { page: rawPage = 0, sort, order, reset } = _params
+  const page = reset ? 0 : rawPage
   const map = {
     name: 'SortName',
     createTime: 'DateCreated',
@@ -812,3 +856,5 @@ exports.scrobble = async (params) => {
     return { code: 404 }
   }
 }
+
+exports.userRecord = async () => ({ code: 404, weekData: [], allData: [], sourceContext: {} })

@@ -8,19 +8,39 @@ import store from './store'
 import fs from 'fs'
 import path from 'path'
 import crypto from 'crypto'
-import { db, Tables } from './db'
-import { CacheAPIs } from './utils/CacheApis'
-import { deleteExcessCache, createWorker, getTrackDetail } from './utils'
-// import cache from './cache'
+import {
+  getLocalMusicData,
+  loadScanDedupData,
+  writeBatchData,
+  markAllLocalMusicDeleted,
+  restoreLocalMusicDeleted,
+  restoreAllLocalMusic,
+  findTrackIdBySourceContext,
+  findTrackSourcesByTrackId,
+  insertTrackSourceOnce,
+  upsertTrackSource,
+  checkTrackSourceExists,
+  updateTrackPicUrl,
+  refreshPlaylistCoverAfterMatch,
+  deleteAllLocalMusicData,
+  saveCacheResult,
+  getAudioCacheStats,
+  getAudioCacheStatsAll,
+  findCachedAudio,
+  hasCachedAudio,
+  deleteCacheAudio,
+  deleteCacheTrackSources,
+  getAllPlugins,
+  upsertPlugin,
+  getStreamMatchCount,
+  clearStreamMatches
+} from './dbHelpers'
+import { deleteExcessCache, createWorker } from './utils'
 import { registerGlobalShortcuts } from './globalShortcut'
 import { createMenu } from './menu'
 import log from './log'
-import navidrome from './streaming/navidrome'
-import emby from './streaming/emby'
-import jellyfin from './streaming/jellyfin'
 import { Worker } from 'worker_threads'
-import { Track, Album, Artist, scanTrack, serviceName } from '@/types/music'
-import type { Track as NewTrack } from '@/types/plugin'
+import type { Track as NewTrack, PluginId } from '@/types/plugin'
 // @ts-ignore
 import _ from 'lodash'
 import { requestUserAuth, scrobbleTrack, updateNowPlaying } from './utils/lastfm'
@@ -32,6 +52,8 @@ let blockerId: number | null = null
 let isScanningLocalMusic = false
 let coverWorker: Worker
 let cacheWorker: Worker | null = null
+/** 暂存待缓存的歌曲播放参数（gain/peak/pluginId），task-done 时取出写入 Audio 和 TrackSource */
+const pendingCacheMeta = new Map<string, { gain: number; peak: number; plugin: string }>()
 
 const closeCacheWorker = async () => {
   await cacheWorker?.terminate()
@@ -54,7 +76,6 @@ export default class IPCs {
     initTaskbarIpcMain()
     initMprisIpcMain(win, mpris)
     initOtherIpcMain(win)
-    initStreaming()
     initPluginIpcMain()
 
     coverWorker = createWorker('writeCover')
@@ -182,15 +203,20 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
           cacheWorker = createWorker('cacheTrack')
           cacheWorker?.on('message', async (msg) => {
             if (msg.type === 'task-done') {
-              // const track = msg.data
-              // await cache.set(CacheAPIs.LocalMusic, { newTracks: [track] })
-              await deleteExcessCache()
-              // const tracks = cache.get(CacheAPIs.LocalMusic, { sql: "type = 'online'" })
-              // const size = tracks.songs
-              //   .map((track: any) => track.size)
-              //   .reduce((acc: string, cur: string) => Number(acc) + Number(cur), 0)
+              const data = msg.data
+              const meta = pendingCacheMeta.get(String(data.id))
+              pendingCacheMeta.delete(String(data.id))
 
-              win.webContents.send('receiveCacheInfo', { length: 0, size: 0 })
+              if (data.url && data.size !== undefined) {
+                saveCacheResult(data, meta)
+              }
+
+              await deleteExcessCache()
+              const audioCachePath =
+                (store.get('settings.autoCacheTrack.path') as string) ||
+                path.join(app.getPath('userData'), 'audioCache')
+              const stats = getAudioCacheStats(audioCachePath)
+              win.webContents.send('receiveCacheInfo', stats)
             } else if (msg.type === 'finished') {
               closeCacheWorker()
             }
@@ -415,19 +441,8 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
   })
 
   ipcMain.handle('getLocalMusic', () => {
-    const tracks = db.findAll(Tables.Track)
-    const albums = db.findAll(Tables.Album)
-    const artists = db.findAll(Tables.Artist)
-    const audios = db.findAll(Tables.Audio)
-    const trackArtists = db.findAll(Tables.TrackArtist)
-    const artistAlbums = db.findAll(Tables.ArtistAlbum)
-    const playlists: any[] = []
-    return { tracks, albums, artists, audios, trackArtists, artistAlbums, playlists }
-  })
-
-  ipcMain.handle('upsertLocalPlaylist', async (event, playlist: object) => {
-    // const result = await cache.set(CacheAPIs.LocalPlaylist, playlist)
-    return false
+    const data = getLocalMusicData()
+    return { ...data, playlists: [] }
   })
 
   ipcMain.on('clearDeletedMusic', () => {
@@ -460,7 +475,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
   ipcMain.on('msgScanLocalMusic', async (event, data: { filePath: string[]; cb: boolean }) => {
     let piscina: any = null
     if (isScanningLocalMusic) {
-      if (data.cb) win.webContents.send('scanLocalMusicDone')
+      log.warn('扫描已在执行中，忽略重复请求')
       return
     }
     isScanningLocalMusic = true
@@ -468,33 +483,21 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
       const { default: Piscina } = (await import('piscina')) as typeof import('piscina')
       const fg = await import('fast-glob')
       const os = await import('os')
-      const existingArtists = db.findAll<{ id: string; name: string }>(Tables.Artist)
-      const existingAlbums = db.findAll<{
-        id: string
-        name: string
-      }>(Tables.Album)
-      const existingTracks = db.findAll<{
-        id: string
-        name: string
-        albumId: string
-        duration: number
-        musicBrainzTrackId?: string
-      }>(Tables.Track)
-      const existingAudios = db.findAll<{ id: string; trackId: string; filePath: string }>(
-        Tables.Audio
-      )
-      const existingTrackArtists = db.findAll<{
-        trackId: string
-        artistId: string
-      }>(Tables.TrackArtist)
-      const existingArtistAlbums = db.findAll<{
-        artistId: string
-        albumId: string
-      }>(Tables.ArtistAlbum)
-      const existingTrackSources = db.findAll<{
-        trackId: string
-        pluginId: string
-      }>(Tables.TrackSource)
+      const {
+        existingArtists,
+        existingAlbums,
+        existingTracks,
+        existingAudios,
+        existingTrackArtists,
+        existingArtistAlbums,
+        existingTrackSources
+      } = loadScanDedupData()
+
+      // 软删除：先把所有本地 Track/Audio 标记为 deleted=1。
+      // 注意：必须在 loadScanDedupData() 读取快照之后调用，
+      // 否则去重比对数据会被清空，导致全表重复插入。
+      // 本轮扫描命中的文件稍后通过 restoreLocalMusicDeleted 恢复为 deleted=0。
+      markAllLocalMusicDeleted()
 
       // 归一化函数：trim空格、统一全角/半角字符、忽略大小写
       const normalize = (str: string) => {
@@ -600,12 +603,16 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
         data.filePath.map((dir) => fg.glob(patterns, { cwd: dir, absolute: true, onlyFiles: true }))
       )
       const allFiles = [...new Set(results.flat())]
-      // 只扫描新文件（不存在于 Audio 表中的）
-      const filesToProcess = allFiles.filter((f) => !existingAudioPathSet.has(f))
-      if (filesToProcess.length === 0) {
+      // 命中文件为空：扫描目录下无音频文件。
+      // 此时 markAllLocalMusicDeleted 已把所有记录标 deleted=1，
+      // 直接 return 会清空列表 —— 这是用户清空扫描目录后的预期行为，
+      // 无需回滚，保持 deleted=1（用户下次重新设置目录再恢复）。
+      if (allFiles.length === 0) {
         if (data.cb) win.webContents.send('scanLocalMusicDone')
         return
       }
+      // 只扫描新文件（不存在于 Audio 表中的）
+      const filesToProcess = allFiles.filter((f) => !existingAudioPathSet.has(f))
       const workerPath = path.join(__dirname, 'workers/scanMusic.js')
       piscina = new Piscina({
         filename: workerPath,
@@ -649,6 +656,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
         const batchResults = await Promise.allSettled(
           batch.map((file) => piscina.run({ filePath: file }))
         )
+        const _beforeTrack = dataToInsert.Track.length
         for (const item of batchResults
           .filter((r) => r.status === 'fulfilled')
           .map((r) => r.value)) {
@@ -828,39 +836,45 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
             dataToInsert.TrackSource.push({
               trackId,
               pluginId: 'local',
-              sourceContext: '{}',
+              sourceContext: JSON.stringify({
+                id: trackId,
+                filePath: item.filePath,
+                md5: item.md5 || ''
+              }),
               matched: 1,
               createTime: now,
               updateTime: now
             })
           }
         }
+        // 通知进度（每批次）
+        win.webContents.send('scanLocalMusicProgress', {
+          newTracks: dataToInsert.Track.length - _beforeTrack
+        })
       }
-      // 单事务批量写入，避免嵌套事务
-      db.sqlite.transaction(() => {
-        for (const [table, rows] of Object.entries(dataToInsert)) {
-          if (!rows.length) continue
-          const keys = Object.keys(rows[0])
-          const columns = keys.join(',')
-          const placeholders = keys.map(() => '?').join(',')
-          const stmt = db.sqlite.prepare(
-            `INSERT OR IGNORE INTO ${Tables[table as keyof typeof Tables]} (${columns}) VALUES (${placeholders})`
-          )
-          for (const row of rows) {
-            stmt.run(...Object.values(row as any))
-          }
-        }
-      })()
-      if (data.cb) win.webContents.send('scanLocalMusicDone')
+      // 单事务批量写入
+      const hasNewData = Object.values(dataToInsert).some((arr) => arr.length > 0)
+      writeBatchData(dataToInsert)
+      // 恢复本轮命中的文件：writeBatchData 之后调用，
+      // 以便反查到新插入 Audio 关联的 trackId，一并恢复。
+      restoreLocalMusicDeleted(allFiles)
+      if (data.cb) win.webContents.send('scanLocalMusicDone', { hasNewData })
     } catch (error: any) {
       log.error('扫描本地歌曲失败:', error?.stack || error)
+      // 回滚 markAllLocalMusicDeleted：扫描失败时恢复数据到扫描前状态，
+      // 避免所有歌曲被错误标记为 deleted 导致列表清空。
+      try {
+        restoreAllLocalMusic()
+      } catch (rollbackError: any) {
+        log.error('回滚 deleted 标记失败:', rollbackError?.stack || rollbackError)
+      }
       try {
         // 通知渲染进程
         win.webContents.send('msgHandleScanLocalMusicError', {
           err: String(error?.stack || error),
           filePath: ''
         })
-      } catch (_) {}
+      } catch {}
     } finally {
       isScanningLocalMusic = false
       if (piscina) await piscina.destroy().catch(() => {})
@@ -873,14 +887,8 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
   })
 
   ipcMain.on('deleteLocalMusicDB', () => {
-    // const trackIDs = cache.get(CacheAPIs.LocalMusic)?.songs.map((track: { id: number }) => track.id)
-    // if (!trackIDs.length) return
-    // db.deleteManyByIds(Tables.Track, trackIDs, 'xxx')
-    // const playlistIDs = cache
-    //   .get(CacheAPIs.LocalPlaylist)
-    //   ?.map((playlist: { id: number }) => playlist.id)
-    // if (!playlistIDs.length) return
-    // db.deleteManyByIds(Tables.Playlist, playlistIDs, 'xxx')
+    deleteAllLocalMusicData()
+    pluginManager.call('local', 'doLogout', {})
   })
 
   ipcMain.handle('clearCacheTracks', async (event, clearAll: boolean) => {
@@ -888,85 +896,111 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     return result
   })
 
-  ipcMain.handle('getCacheTracksInfo', () => {
-    // const tracks = cache.get(CacheAPIs.LocalMusic, { sql: "type = 'online'" })
-    // const result = db.sqlite.prepare(`SELECT * from Track WHERE type != 'local'`).all() as {
-    //   json: string
-    // }[]
-    // const tracks = result.map((item) => JSON.parse(item.json))
-    // const size = tracks
-    //   .map((track: any) => track.size)
-    //   .reduce((acc: string, cur: string) => Number(acc) + Number(cur), 0)
-    // return { length: tracks.length, size }
-    return { length: 0, size: 0 }
+  ipcMain.handle('getStreamMatchCount', () => {
+    return getStreamMatchCount()
   })
 
-  /**
-   * 歌曲id，用来获取track信息，url 是歌曲链接，可能是官方链接也可能是解灰链接，
-   * 用来获取歌曲音频流
-   */
-  ipcMain.on('cacheATrack', async (event, da: { id: number; url: string }) => {
-    const res = await getTrackDetail(da.id.toString())
-    if (!res || !res.songs?.length) {
-      log.error('Get track failed, id = ', da.id)
-      return
-    }
-    const track = res.songs[0]
+  ipcMain.handle('clearStreamMatches', () => {
+    clearStreamMatches()
+    return true
+  })
+
+  ipcMain.handle('getCacheTracksInfo', () => {
     const audioCachePath =
       (store.get('settings.autoCacheTrack.path') as string) ||
       path.join(app.getPath('userData'), 'audioCache')
-    if (!fs.existsSync(audioCachePath)) {
-      fs.mkdirSync(audioCachePath)
+    return getAudioCacheStatsAll(audioCachePath)
+  })
+
+  /**
+   * 获取歌曲播放地址。优先使用本地缓存，无缓存时通过插件获取线上地址并触发异步缓存。
+   */
+  ipcMain.handle(
+    'get-song-url',
+    async (
+      _,
+      params: {
+        pluginId: string
+        sourceContext: Record<string, any>
+        track: NewTrack
+      }
+    ) => {
+      const { pluginId, sourceContext, track } = params
+
+      // 1. 查缓存， 线上歌曲缓存之后继续播放好像获取不到，可能需要去TrackSource表里进行查询
+      const audioCachePath =
+        (store.get('settings.autoCacheTrack.path') as string) ||
+        path.join(app.getPath('userData'), 'audioCache')
+
+      const cached = findCachedAudio(String(track.id), audioCachePath)
+
+      if (cached?.filePath) {
+        return {
+          url: [`vutron://local-asset?type=stream&path=${cached.filePath}`],
+          replayGain: cached.gain,
+          peak: cached.peak
+        }
+      }
+
+      // 2. 无缓存，调插件获取线上地址
+      try {
+        const result = await pluginManager.call(pluginId, 'songUrl', sourceContext)
+        if (result?.code === 200 && result.data?.url?.length) {
+          const { url, replayGain, peak } = result.data
+
+          // 3. 异步触发缓存（仅 library 插件）
+          const autoCacheSettings = store.get('settings.autoCacheTrack') as any
+          const pType = pluginManager.get(pluginId)?.meta?.type
+          if (autoCacheSettings?.enable && pType === 'library' && cacheWorker && url[0]) {
+            if (!fs.existsSync(audioCachePath)) {
+              fs.mkdirSync(audioCachePath, { recursive: true })
+            }
+            if (!hasCachedAudio(String(track?.id || ''))) {
+              pendingCacheMeta.set(track.id.toString(), {
+                gain: replayGain,
+                peak,
+                plugin: pluginId
+              })
+              cacheWorker.postMessage({ type: 'task', track, url: url[0], audioCachePath })
+            }
+          }
+
+          return { url, replayGain, peak }
+        }
+      } catch (err) {
+        log.error('[get-song-url] 获取失败:', err)
+      }
+
+      return { url: '', replayGain: 0, peak: 1 }
     }
-    cacheWorker?.postMessage({ type: 'task', track, url: da.url, audioCachePath })
+  )
+
+  ipcMain.handle('accurateMatch', (event, { trackId, pluginId, sourceContext, picUrl }) => {
+    insertTrackSourceOnce(trackId, pluginId, JSON.stringify(sourceContext))
+    if (picUrl) updateTrackPicUrl(trackId, picUrl)
+    refreshPlaylistCoverAfterMatch(trackId, picUrl)
+    return { code: 200 }
   })
 
-  ipcMain.handle('accurateMatch', (event, track, id) => {
-    // const data = { result: { songs: [track] } }
-    // const result = cache.set(CacheAPIs.searchMatch, data, { localID: id })
-    return false
-  })
-
-  ipcMain.handle('updateLocalTrackInfo', (event, trackId: number, data: any) => {
-    // const result = cache.set(CacheAPIs.Track, data, { id: trackId })
-    return false
-  })
-
-  ipcMain.handle('updateLocalPlaylist', (event, playlistId: number, data: any) => {
-    // const result = cache.set(CacheAPIs.LocalPlaylist, data, { id: playlistId })
-    return false
-  })
-
-  ipcMain.handle('deleteACacheTrack', (event, trackId: number) => {
-    // try {
-    //   db.deleteManyByIds(Tables.Track, [trackId], 'xxx')
-    //   return true
-    // } catch {
-    //   return false
-    // }
-    return false
-  })
-
-  ipcMain.handle('deleteLocalPlaylist', (event, pid: number) => {
-    // try {
-    //   db.deleteManyByIds(Tables.Playlist, [pid], 'xxx')
-    //   return true
-    // } catch (error) {
-    //   log.error('删除本地歌单失败:', error)
-    //   return false
-    // }
-    return false
-  })
-
-  ipcMain.handle('logout', (event, uid: string) => {
-    // try {
-    //   db.deleteManyByIds(Tables.PluginData, [uid], 'xxxx')
-    //   return true
-    // } catch (error) {
-    //   log.error('登出失败:', error)
-    //   return false
-    // }
-    return false
+  ipcMain.handle('deleteACacheTrack', (event, trackId: string) => {
+    const audioCachePath =
+      (store.get('settings.autoCacheTrack.path') as string) ||
+      path.join(app.getPath('userData'), 'audioCache')
+    try {
+      const audio = findCachedAudio(trackId, audioCachePath)
+      if (audio?.filePath) {
+        fs.promises.unlink(audio.filePath).catch(() => {})
+        deleteCacheAudio(String(audio.id))
+      }
+      // 删除对应的 TrackSource（仅清理 library 插件，保留 local/stream 映射）
+      const libraryPluginIds = [...pluginManager.plugins.entries()]
+        .filter(([_, p]) => p.meta.type === 'library')
+        .map(([id]) => id)
+      deleteCacheTrackSources(trackId, libraryPluginIds)
+      return true
+    } catch {
+      return false
+    }
   })
 
   ipcMain.handle('check-update', async () => {
@@ -1108,173 +1142,13 @@ async function initMprisIpcMain(win: BrowserWindow, mpris: MprisImpl): Promise<v
   })
 }
 
-async function initStreaming() {
-  ipcMain.handle('stream-login', async (event, data: any) => {
-    const { platform } = data
-    store.set('accounts.selected', platform)
-    store.set(`accounts.${data.platform}.url`, data.baseURL)
-    store.set(`accounts.${data.platform}.username`, data.username)
-    store.set(`accounts.${data.platform}.password`, data.password)
-    if (platform === 'navidrome') {
-      const response = await navidrome.doLogin(data.baseURL, data.username, data.password)
-      return response
-    } else if (platform === 'emby') {
-      const response = await emby.doLogin(data.baseURL, data.username, data.password)
-      return response
-    } else if (platform === 'jellyfin') {
-      const response = await jellyfin.doLogin(data.baseURL, data.username, data.password)
-      return response
-    }
-  })
+type PluginEnableState = { library: boolean; stream: boolean; local: boolean }
 
-  ipcMain.handle(
-    'get-stream-songs',
-    async (event, data: { platforms: ('navidrome' | 'emby' | 'jellyfin')[] }) => {
-      const platformMap = { navidrome, emby, jellyfin }
-      const result = await Promise.all(
-        data.platforms.map(async (platform) => {
-          const tracks = await platformMap[platform].getTracks()
-          return { platform, tracks: tracks.data }
-        })
-      )
-      return result
-    }
-  )
-
-  ipcMain.handle('get-stream-account', (event, data) => {
-    const url = (store.get(`accounts.${data.platform}.url`) as string) || ''
-    const username = (store.get(`accounts.${data.platform}.username`) as string) || ''
-    const password = (store.get(`accounts.${data.platform}.password`) as string) || ''
-    return { url, username, password }
-  })
-
-  ipcMain.handle(
-    'get-stream-lyric',
-    async (event, data: { platform: 'navidrome' | 'emby' | 'jellyfin'; id: number | string }) => {
-      const platformMap = { navidrome, emby, jellyfin }
-      const lyric = await platformMap[data.platform].getLyric(data.id.toString())
-      return lyric
-    }
-  )
-
-  ipcMain.handle(
-    'get-stream-playlists',
-    async (event, data: { platforms: ('navidrome' | 'emby' | 'jellyfin')[] }) => {
-      const platformMap = { navidrome, emby, jellyfin }
-      const result = await Promise.all(
-        data.platforms.map(async (platform) => {
-          const playlists = await platformMap[platform].getPlaylists()
-          return { platform, playlists: playlists.data }
-        })
-      )
-      return result
-    }
-  )
-
-  ipcMain.handle('logoutStreamMusic', (event, data) => {
-    if (data.platform === 'navidrome') {
-      store.set('accounts.navidrome.clientID', '')
-      store.set('accounts.navidrome.anthorization', '')
-      store.set('accounts.navidrome.token', '')
-      store.set('accounts.navidrome.salt', '')
-      store.set('accounts.navidrome.status', 'logout')
-      return true
-    } else if (data.platform === 'emby') {
-      store.set('accounts.emby.userId', '')
-      store.set('accounts.emby.accessToken', '')
-      store.set('accounts.emby.status', 'logout')
-      return true
-    } else if (data.platform === 'jellyfin') {
-      store.set('accounts.jellyfin.userId', '')
-      store.set('accounts.jellyfin.accessToken', '')
-      store.set('accounts.jellyfin.status', 'logout')
-      return true
-    }
-  })
-
-  ipcMain.handle('deleteStreamPlaylist', async (event, data) => {
-    if (data.platform === 'navidrome') {
-      const result = await navidrome.deletePlaylist(data.id)
-      return result
-    } else if (data.platform === 'emby') {
-      const result = await emby.deletePlaylist(data.id)
-      return result
-    } else if (data.platform === 'jellyfin') {
-      const result = await jellyfin.deletePlaylist(data.id)
-      return result
-    }
-  })
-
-  ipcMain.handle('createStreamPlaylist', async (event, data) => {
-    if (data.platform === 'navidrome') {
-      const result = await navidrome.createPlaylist(data.name)
-      return result
-    } else if (data.platform === 'emby') {
-      const result = await emby.createPlaylist(data.name)
-      return result
-    } else if (data.platform === 'jellyfin') {
-      const result = await jellyfin.createPlaylist(data.name)
-      return result
-    }
-  })
-
-  ipcMain.handle('updateStreamPlaylist', async (event, data) => {
-    if (data.platform === 'navidrome') {
-      const result = await navidrome.addTracksToPlaylist(data.op, data.playlistId, data.ids)
-      return result
-    } else if (data.platform === 'emby') {
-      const result = await emby.addTracksToPlaylist(data.op, data.playlistId, data.ids)
-      return result
-    } else if (data.platform === 'jellyfin') {
-      const result = await jellyfin.addTracksToPlaylist(data.op, data.playlistId, data.ids)
-      return result
-    }
-  })
-
-  ipcMain.on('scrobbleStreamMusic', (event, data) => {
-    if (data.platform === 'navidrome') {
-      navidrome.scrobble(data.id)
-    } else if (data.platform === 'emby') {
-      emby.scrobble(data.id)
-    } else if (data.platform === 'jellyfin') {
-      jellyfin.scrobble(data.id)
-    }
-  })
-
-  ipcMain.handle('likeAStreamTrack', async (event, data) => {
-    if (data.platform === 'navidrome') {
-      const result = await navidrome.likeATrack(data.operation, data.id)
-      return result
-    } else if (data.platform === 'emby') {
-      const result = await emby.likeATrack(data.operation, data.id)
-      return result
-    } else if (data.platform === 'jellyfin') {
-      const result = await jellyfin.likeATrack(data.operation, data.id)
-      return result
-    }
-  })
-
-  ipcMain.handle('systemPing', async () => {
-    const res = await Promise.all([
-      navidrome.systemPing(),
-      emby.systemPing(),
-      jellyfin.systemPing()
-    ])
-    return { navidrome: res[0], emby: res[1], jellyfin: res[2] }
-  })
-
-  ipcMain.handle(
-    'updateStreamPlaylistInfo',
-    async (
-      event,
-      data: { platform: serviceName; id: string; info: { name: string; desc: string } }
-    ) => {
-      const platformMap = { navidrome, emby, jellyfin }
-      const client = platformMap[data.platform]
-      const result = await client.updatePlaylistInfo(data.id, data.info)
-      return result
-    }
-  )
+function isPluginTypeEnabled(enable: PluginEnableState, type: string | undefined): boolean {
+  if (type === 'library') return enable.library
+  if (type === 'stream') return enable.stream
+  if (type === 'local') return enable.local
+  return true // 未知类型放行
 }
 
 async function initPluginIpcMain() {
@@ -1284,30 +1158,41 @@ async function initPluginIpcMain() {
 
   const uploadDir = path.join(app.getPath('userData'), 'plugins')
 
-  const files = (
-    await Promise.all([
-      fs.promises
-        .readdir(pluginDir)
-        .then((files) =>
-          files
-            .map((file) => path.join(pluginDir, file))
-            .filter((file) => file.endsWith('.js') && !file.includes('demo.js'))
-        )
-        .catch(() => [] as string[]),
-      fs.promises
-        .readdir(uploadDir)
-        .then((files) => files.map((file) => path.join(uploadDir, file)))
-        .catch(() => [] as string[])
-    ])
-  ).flat()
+  // 加载所有已注册插件（从 DB 读取，文件不存在则跳过）
+  const pluginRows = getAllPlugins()
 
-  files.forEach((file) => {
+  for (const row of pluginRows) {
+    const filePath = row.builtIn
+      ? path.join(pluginDir, `${row.id}.js`)
+      : row.path || path.join(uploadDir, `${row.id}.js`)
+
+    if (!fs.existsSync(filePath)) continue
+
     try {
-      const id = path.basename(file, '.js')
-      const plugin = new PluginInstance(file, id)
-      pluginManager.register(id, plugin)
+      const plugin = new PluginInstance(filePath, row.id)
+      pluginManager.register(row.id, plugin)
     } catch {}
-  })
+  }
+
+  // 兼容升级：uploadDir 中有文件但 DB 无记录，自动补录
+  try {
+    const uploadFiles = await fs.promises
+      .readdir(uploadDir)
+      .then((files) => files.filter((f) => f.endsWith('.js')))
+      .catch(() => [] as string[])
+
+    for (const file of uploadFiles) {
+      const id = path.basename(file, '.js')
+      if (pluginManager.plugins.has(id)) continue // 已从 DB 加载
+
+      const filePath = path.join(uploadDir, file)
+      const plugin = new PluginInstance(filePath, id)
+      pluginManager.register(id, plugin)
+
+      // 补录到 DB
+      upsertPlugin(id, filePath)
+    }
+  } catch {}
 
   ipcMain.handle('upload-plugin', () => {
     try {
@@ -1330,11 +1215,18 @@ async function initPluginIpcMain() {
 
       const fileName = path.basename(filePath)
       const targetPath = path.join(targetDir, fileName)
-      fs.copyFileSync(filePath, targetPath)
+
+      // 同名文件已存在则跳过复制
+      if (!fs.existsSync(targetPath)) {
+        fs.copyFileSync(filePath, targetPath)
+      }
 
       const id = path.basename(fileName, '.js')
       const plugin = new PluginInstance(targetPath, id)
       pluginManager.register(id, plugin)
+
+      // 写入 Plugins 表
+      upsertPlugin(id, targetPath)
 
       store.set(`plugins.${id}`, { path: targetPath })
       return { code: 200, message: 'Plugin uploaded successfully' }
@@ -1347,10 +1239,336 @@ async function initPluginIpcMain() {
   ipcMain.handle('get-plugins', () => {
     const result: Record<string, any> = {}
     pluginManager.plugins.forEach((instance, id) => {
-      result[id] = { name: instance.meta.name, type: instance.meta.type }
+      result[id] = {
+        name: instance.meta.name,
+        type: instance.meta.type,
+        capabilities: instance.meta.capabilities
+      }
     })
     return result
   })
+
+  ipcMain.handle(
+    'trackMatch',
+    async (
+      _event,
+      params: {
+        trackId: string
+        name: string
+        album?: string
+        artists: string[]
+        duration: number
+        sourcePlugin?: string
+        sourceType?: string // 'local' | 'stream' | 'library'
+        sourceContext?: Record<string, any>
+      }
+    ) => {
+      const { trackId, name, album, artists, duration, sourcePlugin, sourceType, sourceContext } =
+        params
+      const results: { pluginId: string; matched: number; confidence: number }[] = []
+
+      if (sourceType === 'library') return { code: 200, data: results }
+
+      // 写入来源自身 TrackSource（local 已在扫描时写入，INSERT OR IGNORE 会跳过）
+      if (sourcePlugin && sourceType && sourceType !== 'library') {
+        insertTrackSourceOnce(trackId, sourcePlugin, JSON.stringify(sourceContext ?? {}))
+      }
+
+      // trackMatch 仅匹配 library 类插件
+      const pluginEnable = store.get('pluginEnable') as PluginEnableState
+      if (!pluginEnable.library) return { code: 200, data: results }
+
+      for (const [pluginId, instance] of pluginManager.plugins) {
+        const meta = instance.meta
+        if (meta.type !== 'library') continue
+        if (!meta.capabilities?.matchTrack) continue
+
+        if (checkTrackSourceExists(trackId, pluginId)) continue
+
+        try {
+          const result = await instance.call('matchTrack', {
+            name,
+            album,
+            artists,
+            duration,
+            ...sourceContext
+          })
+          if (result.code !== 200 || !result.data) continue
+
+          const confidence = result.data.confidence ?? 100
+
+          let matched: number
+          if (meta.capabilities.matchTrack === 'official') {
+            matched = 1
+          } else {
+            if (confidence >= 80) matched = 1
+            else if (confidence >= 50) matched = 0
+            else continue
+          }
+
+          try {
+            upsertTrackSource(
+              trackId,
+              pluginId,
+              JSON.stringify(result.data.sourceContext ?? {}),
+              matched
+            )
+
+            // 匹配成功且返回了封面时，更新本地歌曲的 picUrl
+            if (result.data.picUrl) {
+              updateTrackPicUrl(trackId, result.data.picUrl)
+            }
+
+            results.push({ pluginId, matched, confidence })
+          } catch (dbErr) {
+            console.error(`[trackMatch] Failed to write TrackSource for ${pluginId}:`, dbErr)
+          }
+        } catch (err) {
+          console.error(`[trackMatch] Plugin ${pluginId} matchTrack failed:`, err)
+          continue
+        }
+      }
+
+      return { code: 200, data: results }
+    }
+  )
+
+  ipcMain.handle(
+    'plugin-comment',
+    async (
+      _event,
+      params: {
+        pluginId: string
+        sourceContext: Record<string, any> // { rawCtx, mapCtx, mapPlugin, ...callParams }
+        method: string // 'getCommentTab' | 'getComments' | 'likeAComment' | 'submitAComment' | 'getFloorComments'
+        extraParams?: Record<string, any>
+      }
+    ) => {
+      const { pluginId, sourceContext, method, extraParams = {} } = params
+      const { rawCtx, mapCtx, mapPlugin, ...callParams } = sourceContext
+
+      const isDataMethod =
+        method === 'getComments' || method === 'getCommentTab' || method === 'getFloorComments'
+
+      // 构建候选列表
+      const candidates: { pluginId: string; ctx: Record<string, any> }[] = []
+
+      if (mapPlugin && Object.keys(mapCtx || {}).length > 0) {
+        candidates.push({ pluginId: mapPlugin, ctx: mapCtx })
+      } else {
+        const matchedMap = new Map<string, number>()
+        try {
+          const trackId = findTrackIdBySourceContext(pluginId, rawCtx)
+          if (trackId) {
+            const rows = findTrackSourcesByTrackId(trackId)
+            for (const row of rows) {
+              if (row.pluginId === pluginId) {
+                matchedMap.set(row.pluginId, row.matched)
+                continue
+              }
+              const plugin = pluginManager.get(row.pluginId)
+              if (!plugin?.meta?.capabilities?.getComments) continue
+              candidates.push({ pluginId: row.pluginId, ctx: JSON.parse(row.sourceContext) })
+              matchedMap.set(row.pluginId, row.matched)
+            }
+          }
+        } catch {}
+        // 自身插件兜底
+        candidates.push({ pluginId, ctx: { ...rawCtx } })
+
+        // 按匹配度 + 用户优先级排序
+        const priority: string[] = store.get('settings.sourcePriority.comment', ['self'])
+        const resolved = priority.map((p) => (p === 'self' ? pluginId : p))
+        candidates.sort((a, b) => {
+          const ma = matchedMap.get(a.pluginId) ?? 0
+          const mb = matchedMap.get(b.pluginId) ?? 0
+          if (ma !== mb) return mb - ma
+          const pa = resolved.indexOf(a.pluginId)
+          const pb = resolved.indexOf(b.pluginId)
+          if (pa === -1 && pb === -1) return 0
+          if (pa === -1) return 1
+          if (pb === -1) return -1
+          return pa - pb
+        })
+      }
+
+      // 遍历候选，第一个成功且（非数据类方法 或 有数据）即返回
+      const pluginEnable = store.get('pluginEnable') as PluginEnableState
+      for (const candidate of candidates) {
+        const pType = pluginManager.get(candidate.pluginId)?.meta?.type
+        if (!isPluginTypeEnabled(pluginEnable, pType)) continue
+        try {
+          const result = await pluginManager.call(candidate.pluginId, method, {
+            ...candidate.ctx,
+            ...callParams,
+            ...extraParams
+          })
+          if (result?.code !== 200) continue
+          // 数据类方法返回空数据时继续尝试下一个候选人
+          if (isDataMethod && !result.data?.length) continue
+          return {
+            ...result,
+            mapPlugin: candidate.pluginId,
+            mapCtx: { ...candidate.ctx, ...result?.sourceContext }
+          }
+        } catch {
+          continue
+        }
+      }
+
+      // 全部候选均失败
+      return {
+        code: 200,
+        data: [],
+        count: 0,
+        mapPlugin: pluginId,
+        mapCtx: { ...rawCtx }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'plugin-lyric',
+    async (
+      _event,
+      params: {
+        pluginId: string
+        sourceContext: Record<string, any> // { rawCtx }
+      }
+    ) => {
+      const { pluginId, sourceContext } = params
+      const { rawCtx } = sourceContext
+
+      // 收集候选人
+      const candidates: { pluginId: string; ctx: Record<string, any> }[] = []
+      const matchedMap = new Map<string, number>()
+
+      try {
+        // 通过 rawCtx 匹配 TrackSource sourceContext 来找 trackId
+        const trackId = findTrackIdBySourceContext(pluginId, rawCtx)
+        if (trackId) {
+          const rows = findTrackSourcesByTrackId(trackId)
+          for (const row of rows) {
+            if (row.pluginId === pluginId) {
+              matchedMap.set(row.pluginId, row.matched)
+              continue
+            }
+            const plugin = pluginManager.get(row.pluginId)
+            if (!plugin?.meta?.capabilities?.getLyric) continue
+            candidates.push({ pluginId: row.pluginId, ctx: JSON.parse(row.sourceContext) })
+            matchedMap.set(row.pluginId, row.matched)
+          }
+        }
+      } catch {}
+
+      // 自身插件兜底（matched=0 即视为未匹配）
+      candidates.push({ pluginId, ctx: { ...rawCtx } })
+
+      // 按匹配度 + 用户优先级排序
+      const priority: string[] = store.get('settings.sourcePriority.lyric', ['self'])
+      const resolved = priority.map((p) => (p === 'self' ? pluginId : p))
+      candidates.sort((a, b) => {
+        const ma = matchedMap.get(a.pluginId) ?? 0
+        const mb = matchedMap.get(b.pluginId) ?? 0
+        if (ma !== mb) return mb - ma
+        const pa = resolved.indexOf(a.pluginId)
+        const pb = resolved.indexOf(b.pluginId)
+        if (pa === -1 && pb === -1) return 0
+        if (pa === -1) return 1
+        if (pb === -1) return -1
+        return pa - pb
+      })
+
+      // 遍历候选，返回第一个成功的
+      const pluginEnable = store.get('pluginEnable') as PluginEnableState
+      for (const candidate of candidates) {
+        const pType = pluginManager.get(candidate.pluginId)?.meta?.type
+        if (!isPluginTypeEnabled(pluginEnable, pType)) continue
+        try {
+          const result = await pluginManager.call(candidate.pluginId, 'getLyric', candidate.ctx)
+          if (result?.code === 200 && result.data?.length) return result
+        } catch {
+          continue
+        }
+      }
+
+      return { code: 200, data: [] }
+    }
+  )
+
+  ipcMain.handle('get-source-priority', async () => {
+    // 迁移兼容：旧路径 settings.trackInfoOrder -> settings.sourcePriority.trackInfoOrder
+    let trackInfoOrder = store.get('settings.sourcePriority.trackInfoOrder') as string[] | undefined
+    if (!trackInfoOrder || trackInfoOrder.length === 0) {
+      const oldValue = store.get('settings.trackInfoOrder') as string[] | undefined
+      if (oldValue && oldValue.length > 0) {
+        trackInfoOrder = oldValue
+        store.set('settings.sourcePriority.trackInfoOrder', oldValue)
+      } else {
+        trackInfoOrder = ['path', 'online', 'embedded']
+      }
+    }
+    return {
+      lyric: store.get('settings.sourcePriority.lyric'),
+      comment: store.get('settings.sourcePriority.comment'),
+      trackInfoOrder
+    }
+  })
+
+  ipcMain.on(
+    'scrobble-music',
+    (
+      _,
+      plugin: PluginId,
+      params: { rawCtx: Record<string, any>; time: number; sourceCtx: Record<string, any> }
+    ) => {
+      const { rawCtx, time, sourceCtx } = params
+
+      try {
+        const pluginEnable = store.get('pluginEnable') as PluginEnableState
+        const trackId = findTrackIdBySourceContext(plugin, rawCtx)
+        if (pluginEnable.library && trackId) {
+          const rows = findTrackSourcesByTrackId(trackId)
+          for (const row of rows) {
+            pluginManager.call(row.pluginId, 'scrobble', {
+              ...JSON.parse(row.sourceContext),
+              time,
+              sourceCtx
+            })
+          }
+        } else {
+          pluginManager.call(sourceCtx.plugin, 'scrobble', {
+            ...rawCtx,
+            time,
+            sourceCtx
+          })
+        }
+      } catch (error) {
+        console.log('[scrobble error]: ', error)
+      }
+    }
+  )
+
+  ipcMain.on(
+    'set-source-priority',
+    (_event, data: { lyric?: string[]; comment?: string[]; trackInfoOrder?: string[] }) => {
+      if (data.lyric) store.set('settings.sourcePriority.lyric', data.lyric)
+      if (data.comment) store.set('settings.sourcePriority.comment', data.comment)
+      if (data.trackInfoOrder)
+        store.set('settings.sourcePriority.trackInfoOrder', data.trackInfoOrder)
+    }
+  )
+
+  ipcMain.on(
+    'setPluginEnable',
+    (_event, data: { enableLibrary: boolean; enableStream: boolean; enableLocal: boolean }) => {
+      store.set('pluginEnable', {
+        library: data.enableLibrary,
+        stream: data.enableStream,
+        local: data.enableLocal
+      })
+    }
+  )
 
   ipcMain.handle(
     'plugin-method-call',

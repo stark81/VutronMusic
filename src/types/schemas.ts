@@ -9,6 +9,26 @@ export const MusicTypeSchema = z.enum(['local', 'library', 'stream'])
 export type PluginId = string & { __brand: 'PluginId' }
 const asPluginId = (str: string): PluginId => str as PluginId
 
+export type CommentContentType = 'track' | 'album' | 'playlist' | 'mv'
+
+export interface PluginCapabilities {
+  matchTrack?: 'official' | 'search' | false
+  getLyric?: boolean
+  getComments?: boolean
+  comment?: {
+    read?: boolean
+    like?: boolean
+    submit?: boolean
+    floor?: boolean
+    types?: CommentContentType[]
+  }
+  mv?: {
+    detail?: boolean
+    like?: boolean
+    subscribe?: boolean
+  }
+}
+
 export const ArtistSchema = z.object({
   id: z.number().or(z.string()),
   name: z.string(),
@@ -49,7 +69,7 @@ export const TrackSchema = z.object({
   type: MusicTypeSchema,
 
   // 本地音乐专用
-  filePath: z.string().default(''),
+  filePath: z.string().optional(),
   size: z.number().default(0),
 
   /**
@@ -125,7 +145,6 @@ export const MvDetailSchema = z.object({
   subed: z.boolean(),
   likedCount: z.number(),
   liked: z.boolean(),
-  hasComment: z.boolean(),
 
   picUrl: z.string(),
   sources: z.array(z.object({ url: z.string(), quality: z.string(), type: z.string() })),
@@ -309,11 +328,19 @@ export const PluginResultSchema = {
   loginQrCodeCheck: LoginQrCodeCheckResultSchema,
   doLogin: z.object({
     code: z.number(),
-    data: UserResultSchema.optional(),
+    data: z
+      .object({
+        userId: z.string().or(z.number()),
+        avatarUrl: z.string(),
+        nickname: z.string(),
+        isVip: z.boolean(),
+        signature: z.string(),
+        scanDir: z.array(z.string()).optional()
+      })
+      .optional(),
     message: z.string().optional()
   }),
   doLogout: z.object({ code: z.number() }),
-  getSongUrl: z.object({ code: z.number(), data: z.string() }),
   getLyric: z.object({ code: z.number(), data: z.array(LyricLineSchema) }),
   getBanner: z.object({ code: z.number(), data: z.array(BannerSchema) }),
   userPlaylist: z.object({
@@ -329,16 +356,18 @@ export const PluginResultSchema = {
     data: z.array(TrackSchema),
     sourceContext: z.record(z.string(), z.any())
   }),
-  vipStatus: z.object({ code: z.number() }),
-  receiveVip: z.object({ code: z.number() }),
-  updateVip: z.object({ code: z.number() }),
   getRecommendPlaylist: z.object({ code: z.number(), data: z.array(PlaylistSchema) }),
   getRecommendTracks: z.object({
     code: z.number(),
     data: z.array(TrackSchema),
     sourceContext: z.record(z.string(), z.any())
   }),
-  personerFM: z.object({ code: z.number() }),
+  personalFM: z.object({
+    code: z.number(),
+    data: z.array(TrackSchema),
+    sourceContext: z.record(z.string(), z.any())
+  }),
+  fmTrash: z.object({ code: z.number() }),
   topSong: z.object({
     code: z.number(),
     data: z.array(TrackSchema),
@@ -380,7 +409,11 @@ export const PluginResultSchema = {
     data: z.array(PlaylistSchema),
     sourceContext: z.record(z.string(), z.any())
   }),
-  systemPing: z.object({ code: z.number(), status: z.enum(['logout', 'login', 'offline']) }),
+  systemPing: z.object({
+    code: z.number(),
+    status: z.enum(['logout', 'login', 'offline']),
+    scanDir: z.array(z.string()).optional()
+  }),
   likelist: z.object({
     code: z.number(),
     data: z.array(TrackSchema),
@@ -399,6 +432,12 @@ export const PluginResultSchema = {
   cloudDisk: z.object({
     code: z.number(),
     data: z.array(TrackSchema),
+    sourceContext: z.record(z.string(), z.any())
+  }),
+  userRecord: z.object({
+    code: z.number(),
+    weekData: z.array(TrackSchema),
+    allData: z.array(TrackSchema),
     sourceContext: z.record(z.string(), z.any())
   }),
   resizePicUrl: z.object({
@@ -434,6 +473,7 @@ export const PluginResultSchema = {
   likeATrack: z.object({ code: z.number() }),
   addOrRemoveTracksToPlaylist: z.object({ code: z.number() }),
   createPlaylist: z.object({ code: z.number(), data: PlaylistSchema.optional() }),
+  editPlaylist: z.object({ code: z.number() }),
   deletePlaylist: z.object({ code: z.number() }),
   subscribePlaylist: z.object({ code: z.number() }),
   followArtist: z.object({ code: z.number() }),
@@ -491,5 +531,19 @@ export const PluginResultSchema = {
     data: z.array(CommentSchema),
     count: z.number(),
     sourceContext: z.record(z.string(), z.any())
+  }),
+  matchTrack: z.object({
+    code: z.number(),
+    data: z
+      .object({
+        id: z.string().or(z.number()),
+        name: z.string(),
+        duration: z.number(),
+        artists: z.array(z.object({ id: z.string().or(z.number()), name: z.string() })),
+        album: z.object({ id: z.string().or(z.number()), name: z.string() }),
+        sourceContext: z.record(z.string(), z.any()),
+        confidence: z.number().optional()
+      })
+      .optional()
   })
 } as const

@@ -27,6 +27,7 @@
           :is-lyric="isLyric"
           :show-service="showService"
           :album-object="albumObject"
+          :show-play-count="showPlayCount"
           :highlight-playing-track="highlightPlayingTrack"
           @dblclick="playThisList(item.id)"
           @click.right="openMenu($event, item, index)"
@@ -63,15 +64,12 @@
     <div v-if="type !== 'CloudDisk'" class="item" @click="openComment">{{
       $t('contextMenu.showComment')
     }}</div>
-    <div
-      v-if="extraContextMenuItem.includes('accurateMatch')"
-      class="item"
-      @click="accurateMatchTrack"
-      >{{ $t('contextMenu.accurateMatch') }}</div
-    >
+    <div v-if="trackType !== 'library'" class="item" @click="accurateMatchTrack">{{
+      $t('contextMenu.accurateMatch')
+    }}</div>
     <hr v-show="type !== 'CloudDisk'" />
-    <div v-if="!type.includes('local') && !type.includes('stream')" class="item" @click="copyId">{{
-      $t('contextMenu.copyId')
+    <div v-if="trackType === 'library'" class="item" @click="copySourceContext">{{
+      $t('contextMenu.copySourceContext')
     }}</div>
     <div v-show="type !== 'CloudDisk'" class="item" @click="addTrackToPlaylist">{{
       $t('player.addToPlaylist')
@@ -85,7 +83,8 @@
       @click="
         removeFromQueue(
           extraContextMenuItem.includes('removeTrackFromNext') ? 'next' : 'insert',
-          rightClickedTrackComputed.id
+          rightClickedTrackComputed.pluginId,
+          rightClickedTrackComputed.sourceContext
         )
       "
       >{{ $t('contextMenu.removeFromQueue') }}</div
@@ -152,6 +151,7 @@ const props = withDefaults(
     loadMore?: () => void
     highlightPlayingTrack?: boolean
     isEnd: boolean
+    showPlayCount?: boolean
     paddingBottom?: number
     enableVirtualScroll?: boolean
   }>(),
@@ -172,6 +172,7 @@ const props = withDefaults(
     itemHeight: 64,
     dbclickEnable: true,
     loadMore: () => {},
+    showPlayCount: false,
     highlightPlayingTrack: true,
     paddingBottom: 96,
     enableVirtualScroll: true
@@ -189,6 +190,7 @@ const rightClickedTrack = ref({
   type: 'online',
   pluginId: '' as PluginId,
   source: '',
+  filePath: '',
   mvid: 0,
   picUrl: '',
   artists: [{ name: '' }],
@@ -197,7 +199,7 @@ const rightClickedTrack = ref({
 })
 const { t } = useI18n()
 const playerStore = usePlayerStore()
-const { playlistSource, currentTrack /* list, playNextList */ } = storeToRefs(playerStore)
+const { playlistSource, currentTrack, list, playNextList } = storeToRefs(playerStore)
 const { replacePlaylist, addTrackToPlayNext } = playerStore
 
 const stateStore = useNormalStateStore()
@@ -219,6 +221,11 @@ const currentSource = computed(() => ({
   plugin: props.plugin,
   sourceContext: props.sourceContext
 }))
+
+const trackType = computed(() => {
+  const plugin = rightClickedTrackComputed.value.pluginId
+  return services.value.find((item) => item.code === plugin)?.type
+})
 
 const rightClickedTrackComputed = computed(() => {
   return props.type === 'CloudDisk'
@@ -251,18 +258,18 @@ const image = computed(() => {
   } else if (track.type === 'stream') {
     return track.picUrl
   } else {
-    url = `http://127.0.0.1:41830/local-asset?trackId=${track.id}&size=64`
+    url = `http://localhost:41830/local-asset?trackId=${track.id}&size=64`
     return url
   }
 })
 
-const showScrollTo = computed(() => {
-  return (
+const showScrollTo = computed(
+  () =>
     currentTrack.value &&
     props.showTrackPosition &&
+    playlistSource.value.plugin === props.plugin &&
     isEqual(playlistSource.value.sourceContext.id, currentSource.value.sourceContext.id)
-  )
-})
+)
 const currentIndex = computed(() => {
   return items.value.findIndex((item) => item.id === currentTrack.value?.id)
 })
@@ -293,6 +300,7 @@ const closeMenu = () => {
     type: 'online',
     pluginId: '' as PluginId,
     source: '',
+    filePath: '',
     picUrl: '',
     mvid: 0,
     artists: [{ name: '' }],
@@ -326,7 +334,8 @@ const play = () => {
 }
 
 const showInFolder = () => {
-  // window.mainApi?.send('msgShowInFolder', rightClickedTrackComputed.value.filePath)
+  if (!rightClickedTrackComputed.value.filePath) return
+  window.mainApi?.send('msgShowInFolder', rightClickedTrackComputed.value.filePath)
 }
 
 const openMenu = (e: MouseEvent, track: { [key: string]: any }, index: number) => {
@@ -342,7 +351,11 @@ const rmTrackFromPlaylist = () => {
   }
 
   if (!isAccountLoggedIn(props.plugin)) {
-    showToast(t('toast.needToLogin'))
+    showToast(
+      t('toast.needToLogin', {
+        serviceName: services.value.find((s) => s.code === props.plugin)?.name || ''
+      })
+    )
     return
   }
 
@@ -362,7 +375,7 @@ const rmTrackFromPlaylist = () => {
     pluginMethodCall(props.plugin, 'addOrRemoveTracksToPlaylist', {
       op: 'del',
       playlist: props.sourceContext,
-      tracks: [source]
+      tracks: [{ pluginId: props.plugin, sourceContext: source }]
     }).then((res) => {
       if (res.code === 200) {
         removeTrack(idx)
@@ -372,18 +385,31 @@ const rmTrackFromPlaylist = () => {
   }
 }
 
-const removeFromQueue = (playlist: 'insert' | 'next', id: string | number) => {
-  // if (playlist === 'insert') {
-  //   const index = playNextList.value.findIndex((idx) => idx === id)
-  //   if (index > -1) playNextList.value.splice(index, 1)
-  // } else {
-  //   const index = list.value.findIndex((idx) => idx === id)
-  //   if (index > -1) list.value.splice(index, 1)
-  // }
+const removeFromQueue = (
+  playlist: 'insert' | 'next',
+  pluginId: PluginId,
+  sourceContext: Record<string, any>
+) => {
+  const item = [pluginId, sourceContext]
+  if (playlist === 'insert') {
+    const index = playNextList.value.findIndex(
+      ([plugin, source]) => plugin === pluginId && isEqual(source, sourceContext)
+    )
+    if (index > -1) playNextList.value.splice(index, 1)
+  } else {
+    const index = list.value.findIndex(
+      ([plugin, source]) => plugin === pluginId && isEqual(source, sourceContext)
+    )
+    if (index > -1) list.value.splice(index, 1)
+  }
 }
 
-const copyId = () => {
-  navigator.clipboard.writeText(rightClickedTrackComputed.value.id.toString()).then(() => {
+const copySourceContext = () => {
+  const data = JSON.stringify({
+    pluginId: rightClickedTrackComputed.value.pluginId,
+    sourceContext: rightClickedTrackComputed.value.sourceContext
+  })
+  navigator.clipboard.writeText(data).then(() => {
     showToast(t('toast.copySuccess'))
   })
 }
@@ -397,15 +423,24 @@ const addTrackToPlaylist = () => {
       showToast('在聚合视图下无法进行操作，请先选择具体的音源服务')
       return
     }
-    ids = selectedList.value.map((it) => it[1])
+    ids = selectedList.value.map((it) => ({ pluginId: it[0], sourceContext: it[1] }))
     plugin = selectedList.value[0][0]
   } else {
-    ids = [rightClickedTrackComputed.value.sourceContext]
+    ids = [
+      {
+        pluginId: rightClickedTrackComputed.value.pluginId,
+        sourceContext: rightClickedTrackComputed.value.sourceContext
+      }
+    ]
     plugin = rightClickedTrackComputed.value.pluginId
   }
 
   if (!isAccountLoggedIn(plugin)) {
-    showToast(t('toast.needToLogin'))
+    showToast(
+      t('toast.needToLogin', {
+        serviceName: services.value.find((s) => s.code === plugin)?.name || ''
+      })
+    )
     return
   }
 
@@ -428,6 +463,7 @@ const closeComment = () => {
     type: 'online',
     pluginId: '' as PluginId,
     source: '',
+    filePath: '',
     picUrl: '',
     mvid: 0,
     artists: [{ name: '' }],

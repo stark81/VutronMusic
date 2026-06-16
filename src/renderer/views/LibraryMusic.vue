@@ -152,6 +152,7 @@
             :colunm-number="1"
             :plugin="tool.groundBy"
             :source-context="{}"
+            :show-service="true"
             type="CloudDisk"
             :is-end="true"
           />
@@ -181,6 +182,8 @@
             :plugin="tool.groundBy"
             :source-context="{}"
             :colunm-number="1"
+            :show-service="true"
+            :show-play-count="true"
             :height="historyHeight"
             :item-height="60"
             type="History"
@@ -230,7 +233,7 @@ import { storeToRefs } from 'pinia'
 import { useDataStore } from '../store/data'
 import { useNormalStateStore } from '../store/state'
 import { usePluginMusic } from '../store/pluginMusic'
-import { ref, computed, onMounted, onUnmounted, inject, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, inject, nextTick } from 'vue'
 import { randomNum, pickedLyric } from '../utils'
 import { tricklingProgress } from '../utils/tricklingProgress'
 import SvgIcon from '../components/SvgIcon.vue'
@@ -243,16 +246,17 @@ import { lyricLine } from '@/types/music'
 import type { PluginId, Track, service } from '@/types/plugin'
 
 const dataStore = useDataStore()
-const { liked, libraryPlaylistFilter } = storeToRefs(dataStore)
+const { libraryPlaylistFilter } = storeToRefs(dataStore)
 
 const stateStore = useNormalStateStore()
 const { newPlaylistModal } = storeToRefs(stateStore)
 const { showToast } = stateStore
 
 const pluginStore = usePluginMusic()
-const { playlists, likedTracks, albums, artists, mvs, cloudDisks } = storeToRefs(pluginStore)
+const { playlists, likedTracks, albums, artists, mvs, cloudDisks, playHistory } =
+  storeToRefs(pluginStore)
 const {
-  // pluginMethodCall,
+  fetchPlayHistory,
   fetchLikedPlaylists,
   fetchLikedSongsWithDetails,
   fetchLikedArtists,
@@ -330,7 +334,7 @@ const filterLikedTracks = computed(() => {
           .filter(([plugin]) => sers.value.includes(plugin as PluginId))
           .map(([, item]) => item.data)
           .flat()
-      : likedTracks.value[tool.value.groundBy].data
+      : likedTracks.value[tool.value.groundBy]?.data || []
   return tracks
 })
 
@@ -376,16 +380,28 @@ const filterCloudDisk = computed(() => {
 
 const playHistoryList = computed(() => {
   if (show.value && playHistoryMode.value === 'week') {
-    return liked.value.playHistory.weekData
+    const res =
+      tool.value.groundBy === 'all'
+        ? Object.values(playHistory.value)
+            .map((item) => item.week)
+            .flat()
+        : playHistory.value[tool.value.groundBy].week
+    return res
   } else if (show.value && playHistoryMode.value === 'all') {
-    return liked.value.playHistory.allData
+    const res =
+      tool.value.groundBy === 'all'
+        ? Object.values(playHistory.value)
+            .map((item) => item.all)
+            .flat()
+        : playHistory.value[tool.value.groundBy].all
+    return res
   }
   return []
 })
 
 const loadData = async (ser: service) => {
   await nextTick()
-  if (filterLikedTracks.value.length) {
+  if (likedTracks.value[ser.code]?.data.length) {
     tricklingProgress.done()
     show.value = true
     getRandomLyric()
@@ -400,7 +416,7 @@ const loadData = async (ser: service) => {
   }
   fetchLikedArtists(ser.code)
   fetchLikedMVs(ser.code)
-  // fetchPlayHistory()
+  fetchPlayHistory(ser.code)
   fetchCloudDisk(ser.code)
 }
 
@@ -411,7 +427,7 @@ const getRandomLyric = async () => {
   let data: lyricLine[]
   while (i < filterLikedTracks.value.length) {
     const track = filterLikedTracks.value[randomNum(0, filterLikedTracks.value.length - 1)]
-    data = await fetchLyric(track.pluginId, track.sourceContext)
+    data = await fetchLyric(track)
     const isInstrumental = data.map((l) => l.lyric.text).filter((l) => l.includes('纯音乐，请欣赏'))
     if (data.length && !isInstrumental.length) {
       lyric.value = data.map((l) => ({ content: l.lyric.text }))
@@ -495,34 +511,6 @@ const handleResize = () => {
   observeTab.disconnect()
   if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
 }
-
-watch(
-  services,
-  (value) => {
-    if (!value.length) {
-      const groundBy = tool.value.groundBy
-      const ser = pluginStore.services.filter((item) => item.type === 'library')
-
-      router.push(`/login/${groundBy === 'all' ? ser[0].code : groundBy}/QrCode`)
-    }
-  },
-  { immediate: true }
-)
-
-// const checkLoginStatus = () => {
-//   pluginStore.services
-//     .filter((item) => item.type === 'online')
-//     .forEach(async (item) => {
-//       const res = await pluginMethodCall(item.code, 'systemPing')
-//       item.status = res.status
-//     })
-//   if (!services.value.length) {
-//     const groundBy = tool.value.groundBy
-//     router.push(
-//       `/onlineMusic/login/${groundBy === 'all' ? pluginStore.services[0].code : groundBy}`
-//     )
-//   }
-// }
 
 onMounted(async () => {
   window.addEventListener('resize', handleResize)

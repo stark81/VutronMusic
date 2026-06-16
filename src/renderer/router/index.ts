@@ -1,27 +1,32 @@
 import { HomePage } from '../views'
 import { createRouter, createWebHashHistory, createWebHistory } from 'vue-router'
-import { isAccountLoggedIn } from '../utils/auth'
+import { usePluginMusic } from '../store/pluginMusic'
+import type { LoginType, MusicType } from '@/types/plugin'
 
 const routes = [
   {
     path: '/',
     name: 'HomePage',
-    component: HomePage
+    component: HomePage,
+    meta: { sourceType: 'library' as MusicType }
   },
   {
     path: '/explore',
     name: 'explore',
-    component: () => import('../views/ExplorePage.vue')
+    component: () => import('../views/ExplorePage.vue'),
+    meta: { sourceType: 'library' as MusicType }
   },
   {
     path: '/library',
     name: 'library',
-    component: () => import(/* webpackPrefetch: true */ '../views/LibraryMusic.vue')
+    component: () => import(/* webpackPrefetch: true */ '../views/LibraryMusic.vue'),
+    meta: { sourceType: 'library' as MusicType, requireLogin: true }
   },
   {
     path: '/stream',
     name: 'stream',
-    component: () => import(/* webpackPrefetch: true */ '../views/StreamPage.vue')
+    component: () => import(/* webpackPrefetch: true */ '../views/StreamPage.vue'),
+    meta: { sourceType: 'stream' as MusicType, requireLogin: true }
   },
   {
     path: '/liked-songs/:pluginId+',
@@ -31,7 +36,8 @@ const routes = [
   {
     path: '/localMusic',
     name: 'localMusic',
-    component: () => import(/* webpackPrefetch: true */ '../views/LocalMusic.vue')
+    component: () => import(/* webpackPrefetch: true */ '../views/LocalMusic.vue'),
+    meta: { sourceType: 'local' as MusicType, requireLogin: true }
   },
   {
     path: '/Playlist/:pluginId/:sourceContext',
@@ -41,7 +47,8 @@ const routes = [
   {
     path: '/localPlaylist/:id',
     name: 'localPlaylist',
-    component: () => import('../views/PlaylistPage.vue')
+    component: () => import('../views/PlaylistPage.vue'),
+    meta: { sourceType: 'local' as MusicType }
   },
   {
     path: '/settings',
@@ -106,15 +113,51 @@ const router = createRouter({
 
 router.beforeEach((to, from, next) => {
   document.documentElement.scrollTo({ top: 0 })
-  if (to.meta.requireLogin) {
-    if (isAccountLoggedIn()) {
-      next()
-    } else {
-      next('/onlineMusic/login/kugou')
+
+  const pluginMusicStore = usePluginMusic()
+  const { enableLibrary, enableStream, enableLocal, services } = pluginMusicStore
+
+  const sourceType = to.meta.sourceType as MusicType | undefined
+
+  if (sourceType) {
+    const enableMap: Record<MusicType, boolean> = {
+      library: enableLibrary,
+      stream: enableStream,
+      local: enableLocal
     }
-  } else {
-    next()
+    if (!enableMap[sourceType]) {
+      const fallbacks: [MusicType, string][] = [
+        ['library', '/'],
+        ['stream', '/stream'],
+        ['local', '/localMusic']
+      ]
+      for (const [type, path] of fallbacks) {
+        if (enableMap[type]) return next(path)
+      }
+      return next('/settings')
+    }
   }
+
+  if (to.meta.requireLogin && sourceType) {
+    const hasLoggedIn = services.some((s) => s.type === sourceType && s.status === 'login')
+    if (!hasLoggedIn) {
+      if (to.name === 'login') return next()
+
+      const plugins = services.filter((s) => s.type === sourceType)
+      const pluginId = plugins[0]?.code ?? 'netease'
+      const loginTypeMap: Record<MusicType, LoginType> = {
+        library: 'QrCode',
+        stream: 'Username',
+        local: 'LocalDir'
+      }
+      return next({
+        name: 'login',
+        params: { service: pluginId, type: loginTypeMap[sourceType] }
+      })
+    }
+  }
+
+  next()
 })
 
 export default router
