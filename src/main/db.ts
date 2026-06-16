@@ -21,7 +21,11 @@ export enum Tables {
   AppleMusicArtist = 'AppleMusicArtist',
   Unblock = 'Unblock',
   LocalAlbumCover = 'LocalAlbumCover',
-  PluginData = 'PluginData'
+  PluginData = 'PluginData',
+  TrackArtist = 'TrackArtist',
+  TrackSource = 'TrackSource',
+  AlbumSource = 'AlbumSource',
+  ArtistSource = 'ArtistSource'
 }
 
 type TableNames = `${Tables}`
@@ -98,16 +102,16 @@ class DB {
   findByIdPlatform<T = any>(
     table: TableNames,
     id: string | number,
-    platform: string
+    pluginId: string
   ): T | undefined {
     this.assertTable(table)
 
     return this.sqlite
-      .prepare(`SELECT * FROM ${table} WHERE id = ? AND platform = ? LIMIT 1`)
-      .get(id, platform) as T
+      .prepare(`SELECT * FROM ${table} WHERE id = ? AND pluginId = ? LIMIT 1`)
+      .get(id, pluginId) as T
   }
 
-  findManyByIds<T = any>(table: TableNames, ids: (string | number)[], platform: string): T[] {
+  findManyByIds<T = any>(table: TableNames, ids: (string | number)[], pluginId: string): T[] {
     this.assertTable(table)
 
     if (!ids.length) return []
@@ -115,8 +119,8 @@ class DB {
     const placeholders = ids.map(() => '?').join(',')
 
     return this.sqlite
-      .prepare(`SELECT * FROM ${table} WHERE platform = ? AND id IN (${placeholders})`)
-      .all(platform, ...ids) as T[]
+      .prepare(`SELECT * FROM ${table} WHERE pluginId = ? AND id IN (${placeholders})`)
+      .all(pluginId, ...ids) as T[]
   }
 
   findAll<T = any>(table: TableNames, where?: Record<string, any>): T[] {
@@ -172,7 +176,7 @@ class DB {
   updateByIdPlatform(
     table: TableNames,
     id: string | number,
-    platform: string,
+    pluginId: string,
     data: Record<string, any>
   ) {
     this.assertTable(table)
@@ -183,9 +187,9 @@ class DB {
     const setClause = keys.map((k) => `${k} = ?`).join(', ')
     const values = keys.map((k) => data[k])
 
-    const sql = `UPDATE ${table} SET ${setClause} WHERE id = ? AND platform = ?`
+    const sql = `UPDATE ${table} SET ${setClause} WHERE id = ? AND pluginId = ?`
 
-    return this.sqlite.prepare(sql).run(...values, id, platform)
+    return this.sqlite.prepare(sql).run(...values, id, pluginId)
   }
 
   replace<T = any>(table: TableNames, data: T) {
@@ -281,15 +285,15 @@ class DB {
 
   /* ---------------- 删除 ---------------- */
 
-  deleteManyByIds(table: TableNames, ids: (string | number)[], platform: string) {
+  deleteManyByIds(table: TableNames, ids: (string | number)[], pluginId: string) {
     this.assertTable(table)
     if (!ids.length) return
 
     const placeholders = ids.map(() => '?').join(',')
 
     return this.sqlite
-      .prepare(`DELETE FROM ${table} WHERE platform = ? AND id IN (${placeholders})`)
-      .run(platform, ...ids)
+      .prepare(`DELETE FROM ${table} WHERE pluginId = ? AND id IN (${placeholders})`)
+      .run(pluginId, ...ids)
   }
 
   /* ---------------- AppData ---------------- */

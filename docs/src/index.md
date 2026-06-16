@@ -4,13 +4,13 @@
 
 ## 规范文档索引
 
-| 文档 | 路径 | 内容 |
-|------|------|------|
-| 数据库设计 | `docs/src/database/index.md` | 表结构、SQL 定义、业务规则、待定事项 |
-| 插件系统 | `docs/src/plugin-system/index.md` | 插件架构、Zod 验证、sourceContext 规范 |
-| Store 模式 | `docs/src/stores/index.md` | Pinia Composition API 风格、持久化策略 |
-| 代码风格 | `docs/src/code-conventions/index.md` | Prettier/ESLint/TypeScript 配置 |
-| UI 设计 | `docs/src/ui-design/index.md` | 布局、组件、主题、样式规范 |
+| 文档       | 路径                                 | 内容                                   |
+| ---------- | ------------------------------------ | -------------------------------------- |
+| 数据库设计 | `docs/src/database/index.md`         | 表结构、SQL 定义、业务规则、待定事项   |
+| 插件系统   | `docs/src/plugin-system/index.md`    | 插件架构、Zod 验证、sourceContext 规范 |
+| Store 模式 | `docs/src/stores/index.md`           | Pinia Composition API 风格、持久化策略 |
+| 代码风格   | `docs/src/code-conventions/index.md` | Prettier/ESLint/TypeScript 配置        |
+| UI 设计    | `docs/src/ui-design/index.md`        | 布局、组件、主题、样式规范             |
 
 ## 快速参考
 

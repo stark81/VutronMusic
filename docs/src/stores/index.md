@@ -4,19 +4,19 @@
 
 ## Store 总览
 
-| Store ID | 文件 | 职责 | 持久化 |
-|----------|------|------|--------|
-| `state` | `state.ts` | UI 状态（模态框、通知、滚动条等） | 否 |
-| `settings` | `settings.ts` | 应用设置（主题、语言、快捷键等） | 是 |
-| `player` | `player.ts` | 播放器核心（播放列表、进度、音量等） | 是 |
-| `audioEngine` | `audioEngine.ts` | Web Audio API 图（EQ、混响、增益等） | 否 |
-| `lyric` | `lyric.ts` | 歌词索引和定时更新 | 否 |
-| `data` | `data.ts` | 网易云用户数据（收藏、历史等） | 是 |
-| `pluginMusic` | `pluginMusic.ts` | 插件系统数据（多源聚合） | 是 |
-| `localMusic` | `localMusic.ts` | 本地音乐管理 | 是 |
-| `streamMusic` | `streamingMusic.ts` | 流媒体服务（navidrome/jellyfin/emby） | 是 |
-| `playerTheme` | `playerTheme.ts` | 播放器主题布局 | 是 |
-| `osdLyric` | `osdLyric.ts` | 桌面歌词窗口状态 | 是 |
+| Store ID      | 文件                | 职责                                  | 持久化 |
+| ------------- | ------------------- | ------------------------------------- | ------ |
+| `state`       | `state.ts`          | UI 状态（模态框、通知、滚动条等）     | 否     |
+| `settings`    | `settings.ts`       | 应用设置（主题、语言、快捷键等）      | 是     |
+| `player`      | `player.ts`         | 播放器核心（播放列表、进度、音量等）  | 是     |
+| `audioEngine` | `audioEngine.ts`    | Web Audio API 图（EQ、混响、增益等）  | 否     |
+| `lyric`       | `lyric.ts`          | 歌词索引和定时更新                    | 否     |
+| `data`        | `data.ts`           | 网易云用户数据（收藏、历史等）        | 是     |
+| `pluginMusic` | `pluginMusic.ts`    | 插件系统数据（多源聚合）              | 是     |
+| `localMusic`  | `localMusic.ts`     | 本地音乐管理                          | 是     |
+| `streamMusic` | `streamingMusic.ts` | 流媒体服务（navidrome/jellyfin/emby） | 是     |
+| `playerTheme` | `playerTheme.ts`    | 播放器主题布局                        | 是     |
+| `osdLyric`    | `osdLyric.ts`       | 桌面歌词窗口状态                      | 是     |
 
 ## Composition API 风格
 

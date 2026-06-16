@@ -9,7 +9,7 @@
 ## 迁移文件列表
 
 | 文件 | 版本 | 说明 |
-|------|------|------|
+| --- | --- | --- |
 | `init.sql` | 初始 | 旧版 schema，使用 `json TEXT` 列，包含 AccountData 等旧表 |
 | `1.5.0.sql` | 1.5.0 | Track 表增加 `type` 列，移除 `isLocal`/`deleted` |
 | `2.4.0.sql` | 2.4.0 | 更新未匹配本地歌曲的 Track picUrl |

@@ -16,6 +16,7 @@
 ```
 
 **关键规则**：
+
 - 不使用分号
 - 使用单引号
 - 不使用尾逗号
@@ -85,6 +86,6 @@ function addItem(item: string) {
 }
 
 // ❌ 错误
-const name = "VutronMusic"  // 应使用单引号
-const items = ref<string[]>([]);  // 不应有分号
+const name = 'VutronMusic' // 应使用单引号
+const items = ref<string[]>([]) // 不应有分号
 ```

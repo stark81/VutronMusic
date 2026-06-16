@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS "Track" (
     "alias" TEXT NOT NULL DEFAULT '',
     "picUrl" TEXT NOT NULL DEFAULT '',
     "playCount" INTEGER NOT NULL DEFAULT 0,
+    "musicBrainzTrackId" TEXT,
     "createTime" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updateTime" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -81,13 +82,13 @@ CREATE TABLE IF NOT EXISTS "Audio" (
     FOREIGN KEY(trackId) REFERENCES Track(id)
 );
 
--- CREATE TABLE IF NOT EXISTS "Lyrics" (
---     "trackId" TEXT NOT NULL,
---     "pluginId" TEXT NOT NULL,
---     "content" TEXT NOT NULL,
---     "updateTime" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
---     PRIMARY KEY(trackId, pluginId)
--- );
+CREATE TABLE IF NOT EXISTS "Lyrics" (
+    "trackId" TEXT NOT NULL,
+    "pluginId" TEXT NOT NULL,
+    "content" TEXT NOT NULL,
+    "updateTime" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(trackId, pluginId)
+);
 
 CREATE TABLE IF NOT EXISTS "TrackSource" (
     "trackId" TEXT NOT NULL,

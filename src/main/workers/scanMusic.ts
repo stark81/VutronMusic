@@ -63,6 +63,9 @@ const parseMusicFile = async (data: { filePath: string }) => {
   const albumArtist = splitArtist(common?.albumartist || common?.artist || null)
   const album = common?.album ?? '未知专辑'
 
+  // 提取 MusicBrainz Track ID（强信号去重依据）
+  const musicBrainzTrackId = common?.musicbrainz?.trackid || null
+
   const track = {
     name: common?.title ?? getFileName(data.filePath) ?? '未知歌曲',
     duration: (format?.duration ?? 0) * 1000,
@@ -77,7 +80,8 @@ const parseMusicFile = async (data: { filePath: string }) => {
     album,
     artists,
     albumArtist,
-    size: stat.size
+    size: stat.size,
+    musicBrainzTrackId
   }
 
   return track

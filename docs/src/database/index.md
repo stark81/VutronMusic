@@ -57,7 +57,7 @@ Track / Album / Artist 三张表是 canonical（规范化）实体表，只存�
 ### 3.1 分类总览
 
 | 分类 | 表名 | 说明 |
-|------|------|------|
+| --- | --- | --- |
 | 元数据表 | Track, Album, Artist | 用户拥有的歌曲库（canonical 实体） |
 | 关系表 | TrackArtist, ArtistAlbum | 元数据之间的多对多关系 |
 | 本地数据表 | Audio | 本地音频文件信息，一个 Track 可对应多个 Audio（不同格式/音质） |
@@ -228,7 +228,7 @@ CREATE TABLE IF NOT EXISTS "PluginData" (
 新扫描到的本地文件，与已有 Track 比对，按信号强度分层判断：
 
 | 信号强度 | 判断条件 | 处理方式 |
-|---------|---------|---------|
+| --- | --- | --- |
 | 强 | 文件标签内嵌 MusicBrainz Track ID，与已有 Track 一致 | 自动归并为同一 Track 的新 Audio |
 | 中 | 归一化后标题+专辑+艺术家完全相同，且时长误差 ≤ 1~2 秒 | 自动归并为同一 Track 的新 Audio |
 | 弱 | 仅部分匹配（如标题相同但专辑不同，或时长差异较大） | 不自动归并，作为独立 Track |
@@ -257,3 +257,106 @@ CREATE TABLE IF NOT EXISTS "PluginData" (
 - **Playlist / PlaylistEntry 设计**：本轮讨论暂未涉及
 - **插件卸载时的清理逻辑**：删除某 pluginId 在 TrackSource / AlbumSource / ArtistSource / Lyrics / PluginData 中的所有记录，以及孤儿 Track 的垃圾回收，尚未实现
 - **迁移机制**：开发阶段 `migrate()` 已临时注释，旧迁移 SQL 文件计划清理，重构完成后需要重新设计版本化迁移流程
+
+---
+
+## 7. 本地音乐资产管理
+
+本地音乐使用的表结构与在线插件（网易云、酷狗等）**完全一致**，没有特殊的「本地音乐表」——本地音乐的数据同样分布在 Track、Album、Artist、Audio、TrackSource 等标准表中。
+
+### 7.1 数据模型
+
+```
+Track（歌曲元数据）
+  ├── id: md5("local_track:" + filePath)  — 确定性 ID
+  ├── name, duration, albumId
+  ├── albumId → Album(id)
+  └── TrackArtist(trackId, artistId) → Artist(id)
+
+Album（专辑）
+  ├── id: md5("local_album:" + name)      — 同名专辑归并
+  └── ArtistAlbum(artistId, albumId) → Artist(id)
+
+Artist（艺术家）
+  └── id: md5("local_artist:" + name)     — 同名字符归并
+
+Audio（音频文件）— 本地音乐的核心数据
+  ├── id: 同 Track.id（1:1 关系，一个文件=一个 Track）
+  ├── trackId → Track(id)
+  ├── filePath, md5, bitrate, gain, peak
+  └── 一个 Track 可对应多个 Audio（不同格式/音质的同一首歌）
+
+TrackSource（数据来源标识）
+  ├── pluginId = 'local'
+  ├── sourceContext: { filePath: "..." }
+  └── matched = 1（本地文件不需要人工确认）
+```
+
+关键区别：本地音乐的 **Audio 表是必有的**（每个本地文件对应一条 Audio 记录），而在线插件的数据通常没有 Audio 记录（播放链接是临时的）。
+
+### 7.2 扫描入库流程
+
+由 `msgScanLocalMusic` IPC handler 驱动（`src/main/IPCs.ts`）：
+
+```
+用户选择文件夹 → IPC → msgScanLocalMusic
+    │
+    ├── ① 读取现有 Artist/Album/Audio（用于去重）
+    ├── ② fast-glob 搜索音频文件（mp3/aiff/flac/alac/m4a/aac/wav/opus）
+    ├── ③ 筛选新文件（或 update=true 时全量）
+    ├── ④ Piscina 线程池 → scanMusic worker 解析元数据
+    │     返回：{ name, duration, artists[], album, albumArtist[],
+    │            filePath, md5, br, gain, peak, createTime }
+    ├── ⑤ 组装数据：
+    │   ├── Artist → 按去重规则创建/忽略
+    │   ├── Album  → 按去重规则创建/忽略
+    │   ├── Track  → md5(filePath) 做 ID
+    │   ├── Audio  → 文件路径+MD5+码率+增益
+    │   ├── TrackArtist / ArtistAlbum → 关系表
+    │   └── TrackSource(pluginId='local') → 标识数据来源
+    │
+    └── ⑥ 事务写入 → 通知渲染进程扫描完成
+```
+
+**scanMusic worker**（`src/main/workers/scanMusic.ts`）负责解析单个文件：
+
+- 使用 `music-metadata` 库读取文件标签
+- 计算文件 MD5 哈希
+- 读取 replaygain 信息
+- 按 `,` `/` `&` `、` 分割多艺术家
+- 返回结构化数据供主进程组装
+
+### 7.3 数据读取
+
+渲染进程通过 `getLocalMusic` IPC 获取本地音乐数据：
+
+```typescript
+// 返回的完整数据集
+{
+  tracks: Track[],
+  albums: Album[],
+  artists: Artist[],
+  audios: Audio[],
+  trackArtists: { trackId, artistId }[],
+  artistAlbums: { artistId, albumId }[],
+  playlists: any[]
+}
+```
+
+渲染进程的 `localMusic.ts` Pinia store 接收这些数据后进行组合展示。
+
+### 7.4 更新与删除
+
+| 操作 | 策略 |
+| --- | --- |
+| **重新扫描（update=true）** | 全量扫描，`INSERT OR IGNORE` 写入，已存在的数据不受影响 |
+| **文件变更**（同一路径内容不同） | 重新扫描时 md5 变化，但因主键是 filePath 的 hash，需手动更新 Audio 记录 |
+| **文件删除** | `clearDeletedMusic` 遍历本地文件，删除不存在的文件对应的 Audio 和 Track |
+| **清除全部数据** | `deleteLocalMusicDB` 清理所有本地相关记录 |
+
+### 7.5 本地音乐的特殊约定
+
+- **ID 策略（临时）**：Track/Album/Artist 使用 `md5(前缀+名称)` 作为确定性 ID。这是重构期间的过渡方案，最终 canonical id 生成策略待定
+- **TrackSource 必定存在**：每首本地歌曲都会有一条 `pluginId='local'` 的 TrackSource 记录。这是本地数据能否被识别为「本地音乐」的关键标志
+- **Audio 表**是本地音乐的入口：渲染进程根据 Audio 表的 filePath 构建播放列表，而不是通过 Track 表
+- **picUrl**：本地歌曲的封面通过 `vutron://local-asset?type=pic&id={trackId}` 格式的内置协议获取

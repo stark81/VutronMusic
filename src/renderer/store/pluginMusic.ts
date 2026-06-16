@@ -539,7 +539,7 @@ export const usePluginMusic = defineStore(
       return service?.name || ''
     }
 
-    const scanLocalMusic = async (update = false) => {
+    const scanLocalMusic = async () => {
       window.mainApi?.send('clearDeletedMusic')
       if (!scanDir.value.length) return
       const existResults = (await window.mainApi?.invoke(
@@ -553,9 +553,8 @@ export const usePluginMusic = defineStore(
       if (!validDirs.length) return
       scanning.value = true
       window.mainApi?.send('msgScanLocalMusic', {
-        filePath: validDirs, // 需要扫描的目录
-        update, // 本次扫描是更新元数据，还是新增歌曲
-        cb: enableLocal.value ?? true // 扫描到新增歌曲后是否通过webContents发送回来
+        filePath: validDirs,
+        cb: enableLocal.value ?? true
       })
     }
 
@@ -571,7 +570,7 @@ export const usePluginMusic = defineStore(
     )
 
     watch(scanDir, () => {
-      scanLocalMusic(false)
+      scanLocalMusic()
     })
 
     return {
