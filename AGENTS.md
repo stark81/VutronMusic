@@ -61,7 +61,6 @@ Electron 启动 → main/index.ts → 创建窗口 → 加载 renderer/index.htm
 
 以下模块可能仍使用重构前的写法，**不要参照复制**：
 
-- local 插件当前为 `local.js_bak`，尚未完成迁移
 - `src/main/streaming/` 下的 navidrome/emby/jellyfin 是旧版流媒体处理逻辑，新功能应通过插件系统实现
 - `src/main/plugin/` 目录当前为空
 
@@ -303,8 +302,9 @@ yarn dev → 启动 Vite HMR + Electron
   - `navidrome.js` — Navidrome 流媒体
   - `emby.js` — Emby 流媒体
   - `jellyfin.js` — Jellyfin 流媒体
+  - `local.js` — 本地音乐
+  - `local.js_bak` — 本地音乐（旧版备份，不加载）
   - `demo.js` — 示例插件（不会被加载）
-  - `local.js_bak` — 本地音乐（迁移中）
 
 ---
 

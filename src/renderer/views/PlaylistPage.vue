@@ -115,6 +115,9 @@
       <div v-show="playlistType === 'liked-stream'" class="title gradient-sky-blue"
         >我收藏的流媒体</div
       >
+      <div v-show="playlistType === 'liked-local'" class="title gradient-radar"
+        >我喜欢的本地音乐</div
+      >
       <div class="buttons">
         <ButtonTwoTone class="play-button" icon-class="play" color="grey" @click="play">
           {{ $t('common.play') }}

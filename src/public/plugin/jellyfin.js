@@ -457,8 +457,8 @@ exports.doLogin = async (params) => {
       }
     }
   } catch (error) {
-    console.log('[emby login failed]', error)
-    return { code: 404, message: 'emby login failed' }
+    console.log('[jellyfin login failed]', error)
+    return { code: 404, message: 'jellyfin login failed' }
   }
 }
 
@@ -482,6 +482,87 @@ exports.systemPing = async () => {
     user.userId = ''
     apis.db.set('PluginData', user)
     return { code: 404, status: 'offline' }
+  }
+}
+
+exports.search = async (_params) => {
+  const { tab, keywords, reset } = _params
+  const StartIndex = reset ? 0 : _params.StartIndex || 0
+  if (!keywords) return { code: 200, data: [], count: 0, sourceContext: {} }
+
+  const limit = 50
+
+  switch (tab) {
+    case 'tracks': {
+      const result = await getTracks({
+        SearchTerm: keywords,
+        Limit: limit,
+        StartIndex
+      })
+      const data = (result.Items || []).map((item) => formatTrack(item, 64))
+      return {
+        code: 200,
+        data,
+        count: result.TotalRecordCount || data.length,
+        sourceContext: { StartIndex: StartIndex + data.length }
+      }
+    }
+    case 'albums': {
+      const result = await get('Users/' + user.userId + '/Items', {
+        SearchTerm: keywords,
+        IncludeItemTypes: 'MusicAlbum',
+        Fields: 'ChildCount, DateCreated, ProductionYear',
+        Recursive: true,
+        Limit: limit,
+        StartIndex
+      })
+      const data = (result.Items || []).map(formatAlbum)
+      return {
+        code: 200,
+        data,
+        count: result.TotalRecordCount || data.length,
+        sourceContext: { StartIndex: StartIndex + data.length }
+      }
+    }
+    case 'artists': {
+      const result = await get('Artists', {
+        SearchTerm: keywords,
+        Limit: limit,
+        StartIndex
+      })
+      const data = (result.Items || []).map((item) => ({
+        id: item.Id,
+        name: item.Name,
+        picUrl: item.ImageTags?.Primary ? getPic(item.Id, 512) : 'vutron://get-singer-pic',
+        pluginId: '',
+        sourceContext: { id: item.Id }
+      }))
+      return {
+        code: 200,
+        data,
+        count: result.TotalRecordCount || data.length,
+        sourceContext: { StartIndex: StartIndex + data.length }
+      }
+    }
+    case 'playlists': {
+      const result = await get('Items', {
+        SearchTerm: keywords,
+        IncludeItemTypes: 'Playlist',
+        Fields: 'DateCreated, Overview, ChildCount',
+        Recursive: true,
+        Limit: limit,
+        StartIndex
+      })
+      const data = (result.Items || []).map(formatPlaylist)
+      return {
+        code: 200,
+        data,
+        count: result.TotalRecordCount || data.length,
+        sourceContext: { StartIndex: StartIndex + data.length }
+      }
+    }
+    default:
+      return { code: 200, data: [], count: 0, sourceContext: {} }
   }
 }
 
@@ -549,12 +630,12 @@ exports.getStream = (params) => {
 
     headers: {
       Authorization:
-        `MediaBrowser Client="VutronMusic" ` +
-        `Token="${user.token}", ` +
+        `MediaBrowser ` +
         `Client="VutronMusic", ` +
         `Device="Desktop", ` +
         `DeviceId="VutronMusic", ` +
-        `Version="1.0.0"`
+        `Version="1.0.0", ` +
+        `Token="${user.token}"`
     }
   }
 }

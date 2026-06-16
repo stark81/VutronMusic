@@ -426,7 +426,7 @@ exports.doLogin = async (params) => {
       }
     }
   } catch (error) {
-    console.log('[emby login failed]', error)
+    console.log('[navidrome login failed]', error)
     return { code: 404, message: 'navidrome login failed' }
   }
 }
@@ -462,6 +462,139 @@ exports.getAllTracks = async (_params) => {
     data: tracks,
     count,
     sourceContext: { _start: _start + tracks.length }
+  }
+}
+
+exports.search = async (_params) => {
+  const { tab, keywords, reset } = _params
+  const _start = reset ? 0 : _params._start || 0
+  if (!keywords) return { code: 200, data: [], count: 0, sourceContext: {} }
+
+  const pageSize = 50
+
+  switch (tab) {
+    case 'tracks': {
+      const result = await subsonicRequest('search3', {
+        query: keywords,
+        songCount: pageSize,
+        songOffset: _start
+      })
+      const songs = result.searchResult3?.song || []
+      const data = songs.map((item) => {
+        const trackId = item.id
+        return {
+          id: trackId,
+          name: item.title,
+          duration: (item.duration || 0) * 1000,
+          alias: [],
+          playable: true,
+          reason: '',
+          createTime: Date.now(),
+          no: item.track || 1,
+          mvid: 0,
+          playCount: 0,
+          album: {
+            id: item.albumId || '',
+            name: item.album || '',
+            picUrl: buildSubsonicUrl('getCoverArt', { id: item.albumId || trackId, size: 64 }),
+            pluginId: '',
+            sourceContext: { id: item.albumId || '' }
+          },
+          picUrl: buildSubsonicUrl('getCoverArt', { id: item.albumId || trackId, size: 64 }),
+          artists: [
+            {
+              id: item.artistId || '',
+              name: item.artist || '未知艺人',
+              picUrl: '',
+              pluginId: '',
+              sourceContext: { id: item.artistId || '' }
+            }
+          ],
+          albumArtists: [
+            {
+              id: item.artistId || '',
+              name: item.artist || '未知艺人',
+              picUrl: '',
+              pluginId: '',
+              sourceContext: { id: item.artistId || '' }
+            }
+          ],
+          pluginId: '',
+          type: meta.type,
+          sourceContext: { id: trackId }
+        }
+      })
+      return {
+        code: 200,
+        data,
+        count: songs.length < pageSize ? _start + songs.length : -1,
+        sourceContext: { _start: _start + data.length }
+      }
+    }
+    case 'albums': {
+      const result = await subsonicRequest('search3', {
+        query: keywords,
+        albumCount: pageSize,
+        albumOffset: _start
+      })
+      const albums = result.searchResult3?.album || []
+      const data = albums.map((item) => ({
+        id: item.id,
+        name: item.name,
+        picUrl: buildSubsonicUrl('getCoverArt', { id: item.id, size: 256 }),
+        artists: [
+          {
+            id: item.artistId || '',
+            name: item.artist || '',
+            picUrl: '',
+            pluginId: '',
+            sourceContext: { id: item.artistId || '' }
+          }
+        ],
+        createTime: item.created ? new Date(item.created).getTime() : Date.now(),
+        copywriter: item.year ? `专辑 · ${item.year}` : '',
+        type: '专辑',
+        pluginId: '',
+        sourceContext: { id: item.id }
+      }))
+      return {
+        code: 200,
+        data,
+        count: albums.length < pageSize ? _start + albums.length : -1,
+        sourceContext: { _start: _start + data.length }
+      }
+    }
+    case 'artists': {
+      const result = await subsonicRequest('search3', {
+        query: keywords,
+        artistCount: pageSize,
+        artistOffset: _start
+      })
+      const artists = result.searchResult3?.artist || []
+      const data = artists.map((item) => ({
+        id: item.id,
+        name: item.name,
+        picUrl: buildSubsonicUrl('getCoverArt', { id: item.id, size: 256 }),
+        pluginId: '',
+        sourceContext: { id: item.id }
+      }))
+      return {
+        code: 200,
+        data,
+        count: artists.length < pageSize ? _start + artists.length : -1,
+        sourceContext: { _start: _start + data.length }
+      }
+    }
+    case 'playlists': {
+      const result = await nativeRequest('playlist')
+      const filtered = keywords
+        ? result.filter((p) => p.name?.toLowerCase().includes(keywords.toLowerCase()))
+        : result
+      const data = filtered.map(formatPlaylist)
+      return { code: 200, data, count: data.length, sourceContext: {} }
+    }
+    default:
+      return { code: 200, data: [], count: 0, sourceContext: {} }
   }
 }
 
@@ -600,7 +733,7 @@ exports.albumDetail = async (params) => {
 
 exports.artistAlbums = async (params) => {
   const result = await getAlbumlist({ artist_id: params.id })
-  return { code: 404, data: result.albums, sourceContext: {} }
+  return { code: 200, data: result.albums, sourceContext: {} }
 }
 
 exports.subscribeAlbum = async (params) => {
@@ -633,7 +766,7 @@ exports.artistDetail = async (params) => {
     sourceContext: { id: _artist.id }
   }
 
-  return { code: 404, artist, songs, sourceContext: params }
+  return { code: 200, artist, songs, sourceContext: params }
 }
 
 exports.artistMVs = async (params) => {

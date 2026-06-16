@@ -1,6 +1,6 @@
 <template>
   <div class="local-music">
-    <!-- <div class="section-one">
+    <div class="section-one">
       <div class="left" style="width: 100%">
         <InfoBG />
         <div class="content">
@@ -8,7 +8,7 @@
           <div class="content-info">
             <div>
               <div class="subtitle">全部歌曲</div>
-              <div class="text">{{ defaultTracks.length }}首</div>
+              <div class="text">{{ rawTracks.length }}首</div>
             </div>
             <div>
               <div class="subtitle">歌曲总时长</div>
@@ -16,7 +16,7 @@
             </div>
             <div>
               <div class="subtitle">离线歌单</div>
-              <div class="text">{{ playlists.length }}个</div>
+              <div class="text">{{ playlists['local']?.data?.length || 0 }}个</div>
             </div>
             <div>
               <div class="subtitle">歌曲占用</div>
@@ -25,7 +25,10 @@
           </div>
         </div>
       </div>
-      <div class="right-top" @click="playThisTrack">
+      <div class="right-top" @click="goToLikedSongsList">
+        <div class="title"
+          >我喜欢的音乐 - {{ filterLikedTracks.length }}首</div
+        >
         <div>
           <div
             v-for="(line, index) in pickedLyricLines"
@@ -37,7 +40,7 @@
           >
         </div>
       </div>
-      <div class="right-bottom">{{ randomTrack?.artists[0].name }} - {{ randomTrack?.name }}</div>
+      <div class="right-bottom">{{ randomTrack?.artists?.[0]?.name }} - {{ randomTrack?.name }}</div>
     </div>
     <div class="section-two">
       <div
@@ -67,19 +70,16 @@
           <div v-if="isBatchOp" class="tab" @click="addTracksToQueue">{{
             $t('contextMenu.addToQueue')
           }}</div>
-          <div v-else class="tab" :class="{ active: idx === 2 }" @click="updateTab(2)">
-            {{ $t('localMusic.albums') }}
+          <div v-else class="tab dropdown" :class="{ active: idx === 2 }" @click="updateTab(2)">
+            <span class="text">{{ `${albumTab === 'default' ? '全部' : '收藏'} - ${$t('localMusic.albums')}` }}</span>
+            <span class="icon" @click.stop="(e) => openLocalTracksTabMenu('album', e)"><svg-icon icon-class="dropdown" /></span>
           </div>
           <div v-if="isBatchOp" class="tab" @click="finishBatchOp">{{
             $t('contextMenu.finish')
           }}</div>
           <div v-else class="tab dropdown" :class="{ active: idx === 3 }" @click="updateTab(3)">
-            <span class="text">{{
-              $t(artistBy === 0 ? 'localMusic.artists' : 'localMusic.albumArtist')
-            }}</span>
-            <span class="icon" @click.stop="(e) => openLocalTracksTabMenu('artist', e)"
-              ><svg-icon icon-class="dropdown"
-            /></span>
+            <span class="text">{{ `${artistTab === 'default' ? '全部' : '收藏'} - ${$t(tool.artistBy === 'artists' ? 'localMusic.artists' : 'localMusic.albumArtist')}` }}</span>
+            <span class="icon" @click.stop="(e) => openLocalTracksTabMenu('artist', e)"><svg-icon icon-class="dropdown" /></span>
           </div>
           <div v-if="!isBatchOp" class="tab" :class="{ active: idx === 4 }" @click="updateTab(4)">{{
             $t('localMusic.dirName')
@@ -88,7 +88,7 @@
         <div v-if="idx !== 1" class="search-box">
           <SearchBox
             ref="localSearchBoxRef"
-            :placeholder="`搜索${placeHolderMap(idx === 3 ? (tabs[idx][artistBy] as string) : (tabs[idx] as string))}`"
+            :placeholder="`搜索${placeHolderMap(idx === 3 ? tool.artistBy : (tabs[idx] as string))}`"
           />
         </div>
         <button v-show="idx === 1" class="tab-button" @click="openAddPlaylistModal"
@@ -98,11 +98,10 @@
       <div class="section-two-content" :style="tabStyle">
         <div v-show="idx === 0">
           <TrackList
-            :id="0"
             ref="trackListRef"
-            :items="[] as Track[]"
-            :type="'Playlist'"
-            :plugin="'' as PluginId"
+            :items="sortedLocalTracks as Track[]"
+            :type="'Track'"
+            :plugin="'local' as PluginId"
             :source-context="{}"
             :colunm-number="1"
             :is-end="true"
@@ -117,7 +116,7 @@
 
         <div v-show="idx === 1">
           <CoverRow
-            v-if="playlists.length"
+            v-if="true"
             :items="[]"
             type="Playlist"
             :is-end="true"
@@ -126,11 +125,27 @@
         </div>
 
         <div v-show="idx === 2">
-          <AlbumList :tracks="[]" :plugin="plugin" />
+          <AlbumList v-if="albumTab === 'default'" :tracks="sortedLocalTracks" :plugin="plugin" />
+          <CoverRow
+            v-else
+            :items="filterAlbums"
+            type="Album"
+            sub-text="artist"
+            :colunm-number="5"
+            :is-end="true"
+          />
         </div>
 
         <div v-show="idx === 3">
-          <ArtistList :tracks="[]" :type="tabs[3][artistBy]" />
+          <ArtistList v-if="artistTab === 'default'" :tracks="sortedLocalTracks" :type="tool.artistBy" />
+          <CoverRow
+            v-else
+            :items="filterArtists"
+            type="Artist"
+            sub-text="artist"
+            :colunm-number="5"
+            :is-end="true"
+          />
         </div>
 
         <div v-show="idx === 4">
@@ -146,12 +161,12 @@
         v-for="sortOption in sortOptions"
         :key="sortOption.value"
         class="item"
-        :class="{ active: sortOption.value === sortBy }"
-        @click="sortBy = sortOption.value"
+        :class="{ active: tool.sortBy === sortOption.value }"
+        @click="tools.local.sortBy = sortOption.value"
         >{{ sortOption.name }}</div
       >
       <hr v-show="!isBatchOp" />
-      <div v-show="!isBatchOp" class="item" @click="scanLocalMusic(false)">{{
+      <div v-show="!isBatchOp" class="item" @click="scanLocalMusic">{{
         $t('contextMenu.reScan')
       }}</div>
       <div v-show="!isBatchOp" class="item" @click="isBatchOp = true">{{
@@ -159,31 +174,37 @@
       }}</div>
     </ContextMenu>
 
+    <ContextMenu ref="albumTabMenu">
+      <div class="item" :class="{ active: albumTab === 'default' }" @click="albumTab = 'default'">全部专辑</div>
+      <div class="item" :class="{ active: albumTab === 'liked' }" @click="albumTab = 'liked'">收藏专辑</div>
+    </ContextMenu>
+
     <ContextMenu ref="artistTabMenu">
-      <div class="item" @click="artistBy = 0">{{ $t('localMusic.artists') }}</div>
-      <div class="item" @click="artistBy = 1">{{ $t('localMusic.albumArtist') }}</div>
-    </ContextMenu> -->
+      <div class="item" :class="{ active: tool.artistBy === 'artists' }" @click="tools.local.artistBy = 'artists'">{{ $t('localMusic.artists') }}</div>
+      <div class="item" :class="{ active: tool.artistBy === 'albumArtists' }" @click="tools.local.artistBy = 'albumArtists'">{{ $t('localMusic.albumArtist') }}</div>
+      <br />
+      <div class="item" :class="{ active: artistTab === 'default' }" @click="artistTab = 'default'">全部</div>
+      <div class="item" :class="{ active: artistTab === 'liked' }" @click="artistTab = 'liked'">关注</div>
+    </ContextMenu>
   </div>
 </template>
 
 <script setup lang="ts">
-import { storeToRefs } from 'pinia'
-import { useNormalStateStore } from '../store/state'
-// import { useLocalMusicStore, sortList } from '../store/localMusic'
-import { usePluginMusic } from '../store/pluginMusic'
-import { usePlayerStore } from '../store/player'
 import {
-  computed,
-  ref,
-  shallowRef,
-  provide,
-  inject,
   onMounted,
-  onUnmounted,
+  onBeforeUnmount,
+  computed,
   watch,
+  inject,
+  ref,
+  provide,
+  shallowRef,
   nextTick,
   toRefs
 } from 'vue'
+import { storeToRefs } from 'pinia'
+import { usePluginMusic } from '../store/pluginMusic'
+import { useNormalStateStore } from '../store/state'
 import TrackList from '../components/VirtualTrackList.vue'
 import InfoBG from '../components/InfoBG.vue'
 import AlbumList from '../components/AlbumList.vue'
@@ -194,35 +215,44 @@ import SvgIcon from '../components/SvgIcon.vue'
 import SearchBox from '../components/SearchBox.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import AccurateMatchModal from '../components/ModalAccurateMatch.vue'
-import { randomNum, pickedLyric } from '../utils'
+import { pickedLyric, randomNum } from '../utils'
 import { useI18n } from 'vue-i18n'
-import { lyricLine } from '@/types/music.d'
+import { useRouter } from 'vue-router'
 import { PluginId } from '@/types/schemas'
-import { Track } from '@/types/plugin'
-
-// load
-// const localMusicStore = useLocalMusicStore()
-// const { localTracks, playlists, sortBy, artistBy } = storeToRefs(localMusicStore)
-// const { scanLocalMusic, getLocalLyric } = localMusicStore
+import type { Track, sortType } from '@/types/plugin'
+import { lyricLine } from '@/types/music.d'
 
 const { newPlaylistModal, modalOpen } = storeToRefs(useNormalStateStore())
-const { addTrackToPlayNext } = usePlayerStore()
 
-const { scanDir } = toRefs(usePluginMusic())
+const pluginStore = usePluginMusic()
+const { tracks, playlists, tools, services, likedTracks, albums, artists } =
+  storeToRefs(pluginStore)
+const { scanLocalMusic, pluginMethodCall, fetchLikedPlaylists, fetchLikedArtists, fetchLikedSongsWithDetails } = pluginStore
+const router = useRouter()
 
-// ref
+const localService = computed(() => services.value.find((s) => s.type === 'local'))
+const plugin = computed((): PluginId => localService.value?.code || ('local' as PluginId))
+const tool = computed(() => tools.value.local)
+
+const { scanDir } = toRefs(pluginStore)
+
+const hasCustomTitleBar = inject('hasCustomTitleBar', ref(true))
+const isMac = computed(() => window.env?.isMac)
+
+// refs
 const idx = ref(0)
+const isBatchOp = ref(false)
 const localSearchBoxRef = ref<InstanceType<typeof SearchBox>>()
-const playlistTabMenu = ref<InstanceType<typeof ContextMenu>>()
-const artistTabMenu = ref<InstanceType<typeof ContextMenu>>()
 const trackListRef = shallowRef<InstanceType<typeof TrackList>>()
 const tabsRowRef = ref()
-const randomID = ref<number>(1)
+const playlistTabMenu = ref<InstanceType<typeof ContextMenu>>()
+const albumTabMenu = ref<InstanceType<typeof ContextMenu>>()
+const artistTabMenu = ref<InstanceType<typeof ContextMenu>>()
 const randomLyric = ref<{ content: string }[]>([])
 const randomTrack = ref<Track>()
-const isBatchOp = ref(false)
 
-const plugin = ref('local' as PluginId)
+const albumTab = ref<'default' | 'liked'>('default')
+const artistTab = ref<'default' | 'liked'>('default')
 
 const tabs = [
   'localTracks',
@@ -232,51 +262,144 @@ const tabs = [
   'dirName'
 ] as const
 
-const hasCustomTitleBar = inject('hasCustomTitleBar', ref(true))
-
-const isMac = computed(() => window.env?.isMac)
-
+const { t } = useI18n()
+const sortOptions: { name: string; value: sortType }[] = [
+  { name: t('contextMenu.name'), value: 'name' },
+  { name: t('contextMenu.createTime'), value: 'createTime' },
+  { name: t('contextMenu.playCount'), value: 'playCount' }
+]
 const tabStyle = computed(() => {
   const marginTop = hasCustomTitleBar.value ? 20 : 0
   return { marginTop: `${marginTop}px` }
 })
 
-// const formatedTime = computed(() => {
-//   const dt =
-//     defaultTracks.value
-//       .map((track) => track.dt)
-//       .filter((dt) => dt && !isNaN(Number(dt)))
-//       .reduce((acc, cur) => acc + cur, 0) / 1000
-//   const hourse = Math.floor(dt / 3600)
-//   const minutes = Math.floor((dt % 3600) / 60)
-//   const seconds = Math.floor(dt % 60)
-//   return `${hourse}:${minutes < 10 ? '0' + minutes : minutes}:${seconds < 10 ? '0' + seconds : seconds}`
-// })
+// ---- data ----
 
-// const formatedMemory = computed(() => {
-//   const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
-//   let memory = defaultTracks.value
-//     .map((track) => track.size!)
-//     .filter((size) => size && !isNaN(Number(size)))
-//     .reduce((acc, cur) => acc + cur, 0) as number
-//   let i = 0
-//   while (memory >= 1024 && i < units.length - 1) {
-//     memory /= 1024
-//     i++
-//   }
-//   return `${memory.toFixed(2)} ${units[i]}`
-// })
+const rawTracks = computed(() => tracks.value[plugin.value]?.data || [])
+
+const defaultTracks = computed(() => {
+  return rawTracks.value
+    .filter((track) =>
+      scanDir.value.some((baseDir) =>
+        normalizePath(track.filePath).startsWith(normalizePath(baseDir) + '/')
+      )
+    )
+    .map((track, index) => ({
+      ...track,
+      index,
+      dirName: getFirstDirName(scanDir.value, track.filePath)
+    }))
+})
+
+const keyword = computed(() => localSearchBoxRef.value?.keywords || '')
+
+const filterTracks = computed(() => {
+  return defaultTracks.value.filter(
+    (track) =>
+      (track.name && track.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
+      track.alias?.find((al) => al.toLowerCase().includes(keyword.value?.toLowerCase())) ||
+      (track.album?.name &&
+        track.album.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
+      track.artists.find(
+        (ar) => ar.name && ar.name.toLowerCase().includes(keyword.value?.toLowerCase())
+      ) ||
+      track.albumArtists.find(
+        (ar) => ar.name && ar.name.toLowerCase().includes(keyword.value?.toLowerCase())
+      ) ||
+      track.dirName?.toLowerCase().includes(keyword.value?.toLowerCase())
+  )
+})
+
+const sortedLocalTracks = computed(() => {
+  return filterTracks.value.slice().sort((a, b) => {
+    const first = a[tool.value.sortBy]
+    const second = b[tool.value.sortBy]
+
+    if (tool.value.orderBy === 'ASC') {
+      if (typeof first === 'number' && typeof second === 'number') {
+        return first - second
+      }
+      return String(first).localeCompare(String(second), 'zh-CN', { numeric: true })
+    } else {
+      if (typeof first === 'number' && typeof second === 'number') {
+        return second - first
+      }
+      return String(second).localeCompare(String(first), 'zh-CN', { numeric: true })
+    }
+  })
+})
+
+const filterLikedTracks = computed(() => likedTracks.value[plugin.value]?.data || [])
+
+const filterAlbums = computed(() => {
+  return albums.value[plugin.value]?.data || []
+})
+
+const filterArtists = computed(() => {
+  return artists.value[plugin.value]?.data || []
+})
+
+// ---- hero stats ----
+
+const formatedTime = computed(() => {
+  const dt =
+    defaultTracks.value
+      .map((track) => track.duration)
+      .filter((dt) => dt && !isNaN(Number(dt)))
+      .reduce((acc, cur) => acc + cur, 0) / 1000
+  const hours = Math.floor(dt / 3600)
+  const minutes = Math.floor((dt % 3600) / 60)
+  const seconds = Math.floor(dt % 60)
+  return `${hours}:${minutes < 10 ? '0' + minutes : minutes}:${seconds < 10 ? '0' + seconds : seconds}`
+})
+
+const formatedMemory = computed(() => {
+  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
+  let memory = defaultTracks.value
+    .map((track) => track.size!)
+    .filter((size) => size && !isNaN(Number(size)))
+    .reduce((acc, cur) => acc + cur, 0) as number
+  let i = 0
+  while (memory >= 1024 && i < units.length - 1) {
+    memory /= 1024
+    i++
+  }
+  return `${memory.toFixed(2)} ${units[i]}`
+})
 
 const pickedLyricLines = computed(() => {
   const randomLines = pickedLyric(randomLyric.value)
   return randomLines
 })
 
-watch(modalOpen, (value) => {
-  if (!value) {
-    isBatchOp.value = false
+const normalizePath = (p: string) => p.replace(/\\/g, '/').replace(/\/+/g, '/').replace(/\/$/, '')
+
+const getFirstDirName = (baseDirs: string[], filePath: string) => {
+  const path = normalizePath(filePath)
+  for (const baseDir of baseDirs) {
+    const base = normalizePath(baseDir)
+    if (path === base) continue
+    if (path.startsWith(base + '/')) {
+      const relative = path.slice(base.length + 1)
+      return relative.split('/')[0]
+    }
   }
-})
+  return ''
+}
+
+const placeHolderMap = (tab: string) => {
+  const pMap: Record<string, string> = {
+    localTracks: t('localMusic.songs'),
+    localPlaylist: t('localMusic.playlist.text'),
+    album: t('localMusic.albums'),
+    artists: t('localMusic.artists'),
+    albumArtists: t('localMusic.albumArtist'),
+    dirName: t('localMusic.dirName')
+  }
+  return pMap[tab] || ''
+}
+
+// ---- actions ----
 
 const updateTab = (index: number) => {
   idx.value = index
@@ -301,124 +424,60 @@ const addTracksToQueue = () => {
   trackListRef.value?.addToQueue([])
 }
 
-const keyword = computed(() => localSearchBoxRef.value?.keywords || '')
-
-// const sortedLocalTracks = computed(() => {
-//   return filterLocalTracks.value.slice().sort((a, b) => {
-//     if (sortBy.value === 'default') {
-//       return a.index - b.index
-//     } else if (sortBy.value === 'ascend') {
-//       const timeA = new Date(a.createTime).getTime()
-//       const timeB = new Date(b.createTime).getTime()
-//       return timeA - timeB
-//     } else if (sortBy.value === 'descend') {
-//       const timeA = new Date(a.createTime).getTime()
-//       const timeB = new Date(b.createTime).getTime()
-//       return timeB - timeA
-//     } else return a.name.localeCompare(b.name, 'zh-CN', { numeric: true })
-//   })
-// })
-
-// const defaultTracks = computed(() => {
-//   const tracks = localTracks.value
-//     .filter((track) =>
-//       scanDir.value.some((baseDir) =>
-//         normalizePath(track.filePath).startsWith(normalizePath(baseDir) + '/')
-//       )
-//     )
-//     .map((track, index) => ({
-//       ...track,
-//       index,
-//       dirName: getFirstDirName(scanDir.value, track.filePath)
-//     }))
-//   return tracks
-// })
-
-// const filterLocalTracks = computed(() => {
-//   return defaultTracks.value.filter(
-//     (track) =>
-//       (track.name && track.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
-//       track.alias.find((al) => al.toLowerCase().includes(keyword.value?.toLowerCase())) ||
-//       (track.album?.name &&
-//         track.album.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
-//       track.artists.find(
-//         (ar) => ar.name && ar.name.toLowerCase().includes(keyword.value?.toLowerCase())
-//       ) ||
-//       track.albumArtist.find(
-//         (ar) => ar.name && ar.name.toLowerCase().includes(keyword.value?.toLowerCase())
-//       ) ||
-//       track.dirName.toLowerCase().includes(keyword.value?.toLowerCase())
-//   )
-// })
-
-const normalizePath = (p: string) => p.replace(/\\/g, '/').replace(/\/+/g, '/').replace(/\/$/, '')
-
-const getFirstDirName = (baseDirs: string[], filePath: string) => {
-  const path = normalizePath(filePath)
-
-  for (const baseDir of baseDirs) {
-    const base = normalizePath(baseDir)
-
-    if (path === base) continue
-
-    if (path.startsWith(base + '/')) {
-      const relative = path.slice(base.length + 1)
-      return relative.split('/')[0]
-    }
-  }
-
-  return ''
+const goToLikedSongsList = () => {
+  router.push({ path: `/liked-songs/${plugin.value}` })
 }
 
-// const scrollToItem = inject('scrollToItem') as (idx: number) => void
-
-const playThisTrack = () => {
-  // addTrackToPlayNext(randomID.value, true, true)
-}
-
-const openLocalTracksTabMenu = (ref: 'playlist' | 'artist', e: MouseEvent): void => {
+const openLocalTracksTabMenu = (ref: 'playlist' | 'album' | 'artist', e: MouseEvent): void => {
   const map = {
     playlist: playlistTabMenu.value,
+    album: albumTabMenu.value,
     artist: artistTabMenu.value
   }
   map[ref]?.openMenu(e)
 }
 
-// const openAddPlaylistModal = () => {
-//   newPlaylistModal.value = {
-//     plugin: 'local' as PluginId,
-//     afterCreateAddTrackID: [],
-//     show: true
-//   }
-// }
+const openAddPlaylistModal = () => {
+  newPlaylistModal.value = {
+    plugin: 'local' as PluginId,
+    afterCreateAddTrackID: [],
+    show: true
+  }
+}
+
+const playThisTrack = () => {
+  goToLikedSongsList()
+}
+
+const getRandomTrack = async () => {
+  if (!filterLikedTracks.value.length) return
+  let i = 0
+  let data: lyricLine[]
+  while (i < filterLikedTracks.value.length) {
+    const track = filterLikedTracks.value[randomNum(0, filterLikedTracks.value.length - 1)]
+    data = await pluginMethodCall(plugin.value, 'getLyric', track.sourceContext).then(
+      (result: any) => {
+        if (result.code === 200) return result.data
+        return []
+      }
+    )
+    const isInstrumental = data.some((l) => l.lyric.text.includes('纯音乐，请欣赏'))
+    if (data.length && !isInstrumental) {
+      randomLyric.value = data.map((l) => ({ content: l.lyric.text }))
+      randomTrack.value = track
+      break
+    }
+    i++
+  }
+}
 
 // provide
 provide('isBatchOp', isBatchOp)
 
-const { t } = useI18n()
-
-// const sortOptions = [
-//   { name: t('contextMenu.defaultSort'), value: 'default' as (typeof sortList)[number] },
-//   { name: t('contextMenu.sortByName'), value: 'byname' as (typeof sortList)[number] },
-//   { name: t('contextMenu.ascendSort'), value: 'ascend' as (typeof sortList)[number] },
-//   { name: t('contextMenu.descendSort'), value: 'descend' as (typeof sortList)[number] }
-// ]
-
-const placeHolderMap = (tab: string) => {
-  const pMap = {
-    localTracks: t('localMusic.songs'),
-    album: t('localMusic.albums'),
-    albumArtist: t('localMusic.albumArtist'),
-    artist: t('localMusic.artists'),
-    dirName: t('localMusic.dirName')
-  }
-  return pMap[tab]
-}
+// ---- lifecycle ----
 
 const navBarRef = inject('navBarRef', ref())
-// 这里需要进行调整
-// 1. 将滚动条组件变更为控制root元素滚动，而非main元素滚动
-// 2. root元素滚动应该和虚拟列表滚动互斥，即root元素滚动时虚拟列表不滚动，反之亦然
+
 const observeTab = new IntersectionObserver(
   (entries) => {
     entries.forEach((entry) => {
@@ -455,25 +514,6 @@ const handleResize = () => {
   if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
 }
 
-// const getRandomTrack = async () => {
-//   const ids = defaultTracks.value.map((t) => t.id)
-//   let i = 0
-//   let data: lyricLine[]
-//   let randomId: number
-//   while (i < ids.length - 1) {
-//     randomId = ids[randomNum(0, ids.length - 1)]
-//     data = await getLocalLyric(randomId)
-//     const isInstrumental = data.map((l) => l.lyric.text).filter((l) => l.includes('纯音乐，请欣赏'))
-//     if (data.length && !isInstrumental.length) {
-//       randomLyric.value = data.map((l) => ({ content: l.lyric.text }))
-//       randomID.value = randomId
-//       break
-//     }
-//     i++
-//   }
-//   // randomTrack.value = defaultTracks.value.find((t) => t.id === randomId)!
-// }
-
 const updatePadding = inject('updatePadding') as (padding: number) => void
 
 watch(idx, () => {
@@ -482,25 +522,32 @@ watch(idx, () => {
   })
 })
 
-window.mainApi?.on('scanLocalMusicDone', (_: any) => {
-  // getRandomTrack()
+watch(modalOpen, (value) => {
+  if (!value) {
+    isBatchOp.value = false
+  }
 })
+
+watch(
+  filterLikedTracks,
+  () => {
+    getRandomTrack()
+  },
+  { immediate: true }
+)
 
 onMounted(() => {
   window.addEventListener('resize', handleResize)
-  // setTimeout(() => {
-  //   updatePadding(0)
-  //   if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
-  // }, 100)
-  // getRandomTrack()
-  // const tmpSort = sortBy.value
-  // sortBy.value = sortList.filter((s) => s !== tmpSort)[0]
-  // nextTick(() => {
-  //   sortBy.value = tmpSort
-  // })
+  setTimeout(() => {
+    updatePadding(0)
+    if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
+  }, 100)
+  fetchLikedPlaylists(plugin.value)
+  fetchLikedSongsWithDetails(plugin.value)
+  fetchLikedArtists(plugin.value)
 })
 
-onUnmounted(() => {
+onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
   updatePadding(96)
   navBarRef.value.searchBoxRef.$el.style.display = ''

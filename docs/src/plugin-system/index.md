@@ -101,8 +101,8 @@ Worker 线程 (main/workers/pluginRunner.ts)
 | Worker→主 | `STORE_REQUEST` | 读取 electron-store | `key, requestId` |
 | Worker→主 | `STORE_SET` | 写入 electron-store | `key, value` |
 | 主→Worker | `STORE_RESPONSE` | 读取结果 | `requestId, data` |
-| Worker→主 | `DB_REQUEST` | 读取数据库 | `key('PluginData'/'Track'), requestId` |
-| Worker→主 | `DB_SET` | 写入数据库 | `key('PluginData'/'Track'), value` |
+| Worker→主 | `DB_REQUEST` | 读取数据库 | `key('PluginData'/'Track'/'Artist'/'Album'), requestId` |
+| Worker→主 | `DB_SET` | 写入数据库 | `key('PluginData'/'Track'/'Artist'/'Album'), value` |
 | 主→Worker | `DB_RESPONSE` | 数据库读取结果 | `requestId, data` |
 | Worker→主 | `LYRIC_PARSE` | 歌词解析 | `msg, requestId` |
 | 主→Worker | `LYRIC_RESPONSE` | 解析结果 | `requestId, data` |
@@ -133,7 +133,9 @@ Worker 线程 (main/workers/pluginRunner.ts)
 支持的 `key` 值：
 
 - `'PluginData'`：插件持久化数据（账号登录态、token、cookie）
-- `'Track'`：本地音乐列表
+- `'Track'`：本地音乐列表（完整组装，含 artist/album/audio 关联数据）
+- `'Artist'`：歌手数据（`Artist` 表全量查询）
+- `'Album'`：专辑数据（`Album` 表全量查询）
 
 ### 3.5 LYRIC_PARSE 说明
 
@@ -419,7 +421,79 @@ exports.meta = {
 - `stream`：自建流媒体（Navidrome、Emby、Jellyfin 等）
 - `local`：本地音乐
 
-### 5.4 导出方法
+### 5.4 PluginId 与数据注入
+
+#### PluginId 由框架统一分配
+
+`PluginId` 是每个插件的唯一标识符，**由框架在加载时根据文件名自动分配**，插件自身不应声明或修改。即使插件开发者写错了名称，渲染进程会在收到结果后统一覆盖为正确的值——所以插件只需保证字段存在即可，无需关心值的正确性。
+
+```
+文件名：navidrome.js  →  PluginId: "navidrome"
+文件名：netease.js    →  PluginId: "netease"
+文件名：jellyfin.js   →  PluginId: "jellyfin"
+```
+
+插件开发者的职责：保证返回的数据里每个实体（Track、Album、Artist、Playlist、Mv 等）**都带有 `pluginId: ''`（空字符串字段）**即可，框架层会自动替换。
+
+涉及的字段（确保格式化函数中显式写出）：
+
+| 返回实体 | 需要设置 pluginId 的位置                                                      |
+| -------- | ----------------------------------------------------------------------------- |
+| Track    | `pluginId`、`album.pluginId`、`artists[].pluginId`、`albumArtists[].pluginId` |
+| Album    | `pluginId`、`artists[].pluginId`                                              |
+| Artist   | `pluginId`                                                                    |
+| Playlist | `pluginId`、`creator.pluginId`                                                |
+| Mv       | `pluginId`、`artists[].pluginId`                                              |
+
+```javascript
+function formatTrack(item) {
+  return {
+    id: item.Id,
+    name: item.Name,
+    pluginId: '', // ← 显式写出即可，框架会替换
+    album: {
+      name: item.Album,
+      pluginId: '', // ← 同上
+      sourceContext: { id: item.AlbumId }
+    },
+    artists: [
+      {
+        name: item.Artist,
+        pluginId: '', // ← 同上
+        sourceContext: { id: item.ArtistId }
+      }
+    ],
+    albumArtists: [
+      {
+        name: item.AlbumArtist,
+        pluginId: '', // ← 同上
+        sourceContext: { id: item.AlbumArtistId }
+      }
+    ]
+  }
+}
+```
+
+```javascript
+// ❌ 错误：遗漏 pluginId 字段
+function formatTrack(item) {
+  return {
+    id: item.Id,
+    name: item.Name
+    // 缺少 pluginId — 下一个点击操作将不知道发往哪个插件
+  }
+}
+```
+
+#### 框架开发者：新增方法时别忘了注入 pluginId
+
+插件返回的数据中 `pluginId` 只是占位的空字符串，最终由渲染进程实际调用方注入。因此，**新增 PluginAPI 方法后，渲染进程的处理代码中必须对返回数据做 pluginId 注入**，否则后续用户操作（点击播放、收藏等）会因 `pluginId` 为空而无法路由。
+
+已知案例：`getBanner` 方法实现后，渲染进程中忘记对 banner 数据注入 `pluginId`，导致 banner 点击无反应。
+
+具体注入方式见 [第 6 节 步骤 ④](#6-新增方法的完整注册流程)。
+
+### 5.5 导出方法
 
 插件通过 `exports.methodName = async (params) => {...}` 暴露可调用的方法。
 
@@ -446,7 +520,57 @@ exports.search = async (params) => {
 }
 ```
 
-### 5.5 sourceContext 规范
+### 5.6 reset 分页重置约定
+
+部分列表类方法（如 `search`、`getAllTracks`、`topSong`、`rankList` 等）支持分页参数 `reset`，用于控制分页偏移量重置。
+
+当用户在同一页面内切换 tab、触发新路由跳转、或重新发起查询时，渲染进程会向插件传入 `reset: true`：
+
+```javascript
+// 渲染进程调用示例（search 方法）
+const res = await pluginMethodCall(pluginId, 'search', {
+  tab: 'tracks',
+  keywords: '周杰伦',
+  reset: true, // ← 新鲜搜索，偏移量应归零
+  ...sourceContext // 仍会携带上次的偏移量，但插件不应使用
+})
+```
+
+插件收到 `reset: true` 时，**必须将当前分页偏移量重置为 0**，忽略参数中携带的历史偏移量值。
+
+```javascript
+exports.search = async (_params) => {
+  const { tab, keywords, reset } = _params
+
+  // reset 为 true 时强制从 0 开始
+  const offset = reset ? 0 : _params.offset || 0
+
+  // ... 正常分页逻辑
+  return {
+    code: 200,
+    data: results,
+    count: totalCount,
+    sourceContext: { offset: offset + results.length }
+  }
+}
+```
+
+适用场景：
+
+- **搜索页 tab 切换**：从「歌曲」切到「专辑」→ `reset: true`
+- **探索页 tab 切换**：从「新歌」切到「新专辑」→ `reset: true`
+- **歌单分类切换**：从「华语」切到「流行」→ `reset: true`
+
+注意：
+
+- `reset` 只影响当前请求，下一次正常翻页时不再需要传 `reset`
+- 部分一次性返回全部数据的方法（如 `userPlaylist`）可以忽略此参数
+
+**为什么需要 `reset` 而非统一偏移量字段名？**
+
+不同插件的分页字段名各不相同（`_start`、`StartIndex`、`page`、`offset`），且 `sourceContext` 是插件私有不透明的，框架层不解析其内部字段。因此框架无法统一处理分页重置——只能通过 `reset: true` 告知插件"这是新的查询"，由插件自行决定如何重置。
+
+### 5.6 sourceContext 规范
 
 `sourceContext` 是插件私有、不透明的 JSON 对象：
 
@@ -506,27 +630,41 @@ exports.myNewMethod = async (params) => {
 }
 ```
 
-### 步骤 ④：渲染进程调用（`src/renderer/store/pluginMusic.ts`）
+### 步骤 ④：渲染进程调用 + pluginId 注入（`src/renderer/store/pluginMusic.ts`）
 
 通过统一的 `pluginMethodCall()` 调用：
 
 ```typescript
-// 已有通用调用方法，无需新增代码
 const result = await pluginMethodCall(pluginId, 'myNewMethod', { param1: 'value' })
 if (result.code === 404) {
   // 该插件不支持此方法
 }
 ```
 
+**关键**：插件返回数据中的 `pluginId` 字段只是空字符串占位符，渲染进程必须在收到结果后注入实际的 PluginId。对每个包含 `pluginId` 字段的实体（Track、Album、Artist、Playlist、Mv）及其嵌套子对象，都需要做注入：
+
+```typescript
+// 示例：对返回的 Track 列表注入 pluginId
+result.data = result.data.map((item) => ({
+  ...item,
+  album: item.album ? { ...item.album, pluginId: plugin } : item.album,
+  artists: item.artists?.map((a) => ({ ...a, pluginId: plugin })),
+  albumArtists: item.albumArtists?.map((a) => ({ ...a, pluginId: plugin })),
+  pluginId: plugin
+}))
+```
+
+⚠️ **极易遗漏**：历史上 `getBanner` 方法实现后就因为渲染进程忘了注入 `pluginId`，导致 banner 点击后无反应——后续事件无法路由回正确的插件。凡是新增返回实体的方法，务必检查渲染进程中是否对所有嵌套 `pluginId` 字段完成了注入。
+
 ---
 
 ## 7. 插件分类
 
-| 类型         | type 值   | 说明                               | 示例                           |
-| ------------ | --------- | ---------------------------------- | ------------------------------ |
-| 线上音乐服务 | `library` | 提供在线音乐搜索、播放、评论等功能 | netease, kugou                 |
-| 自建流媒体   | `stream`  | 对接私有流媒体服务器               | navidrome, emby, jellyfin      |
-| 本地音乐     | `local`   | 本地文件管理（迁移中）             | local（当前为 `local.js_bak`） |
+| 类型         | type 值   | 说明                               | 示例                      |
+| ------------ | --------- | ---------------------------------- | ------------------------- |
+| 线上音乐服务 | `library` | 提供在线音乐搜索、播放、评论等功能 | netease, kugou            |
+| 自建流媒体   | `stream`  | 对接私有流媒体服务器               | navidrome, emby, jellyfin |
+| 本地音乐     | `local`   | 本地文件管理                       | local                     |
 
 ---
 
@@ -538,7 +676,7 @@ if (result.code === 404) {
 
 | 方法 | 用途 | params | result 主要字段 |
 | --- | --- | --- | --- |
-| `search` | 搜索歌曲/专辑/歌手 | `{ keyword, type, offset }` | `{ code, data: Track[], count, sourceContext }` |
+| `search` | 搜索歌曲/专辑/歌手/歌单 | `{ tab, keywords, reset, ...sourceContext }` | `{ code, data: (Track\|Album\|Artist\|Playlist)[], count, sourceContext }` |
 | `getSongUrl` | 获取播放地址 | `{ id }` | `{ code, data: string }` |
 | `getLyric` | 获取歌词 | `{ id }` | `{ code, data: LyricLine[] }` |
 | `albumDetail` | 专辑详情 | `{ id }` | `{ code, data: AlbumDetail }` |
@@ -559,8 +697,8 @@ if (result.code === 404) {
 | `kugou` | `kugou.js` | 「酷狗」 | `library` | 歌词/封面补充 |
 | `navidrome` | `navidrome.js` | 「Navidrome」 | `stream` | 自建流媒体 |
 | `emby` | `emby.js` | 「Emby」 | `stream` | 自建流媒体（初步） |
-| `jellyfin` | `jellyfin.js` | 「Jellyfin」 | `stream` | 自建流媒体（待完善） |
-| `local` | `local.js_bak` | （迁移中） | `local` | 本地音乐（未完成迁移） |
+| `jellyfin` | `jellyfin.js` | 「Jellyfin」 | `stream` | 自建流媒体 |
+| `local` | `local.js` | 「本地音乐」 | `local` | 本地音乐管理 |
 | `demo` | `demo.js` | — | — | 示例插件（不加载） |
 
 ---

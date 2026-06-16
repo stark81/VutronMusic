@@ -609,6 +609,7 @@ export const usePluginMusic = defineStore(
       getPlaylistDetail,
       isAccountLoggedIn,
       uploadPlugin,
+      scanLocalMusic,
       getPlugins,
       fetchLikedMVs,
       fetchCloudDisk,

@@ -468,6 +468,89 @@ exports.systemPing = async () => {
   }
 }
 
+exports.search = async (_params) => {
+  const { tab, keywords, reset } = _params
+  const StartIndex = reset ? 0 : _params.StartIndex || 0
+  if (!keywords) return { code: 200, data: [], count: 0, sourceContext: {} }
+
+  const limit = 50
+
+  switch (tab) {
+    case 'tracks': {
+      const result = await getTracks({
+        SearchTerm: keywords,
+        Limit: limit,
+        StartIndex
+      })
+      const data = (result.Items || []).map((item) => formatTrack(item, 64))
+      return {
+        code: 200,
+        data,
+        count: result.TotalRecordCount || data.length,
+        sourceContext: { StartIndex: StartIndex + data.length }
+      }
+    }
+    case 'albums': {
+      const result = await get('Users/' + user.userId + '/Items', {
+        SearchTerm: keywords,
+        IncludeItemTypes: 'MusicAlbum',
+        Fields: 'ChildCount, DateCreated, ProductionYear',
+        Recursive: true,
+        Limit: limit,
+        StartIndex
+      })
+      const data = (result.Items || []).map(formatAlbum)
+      return {
+        code: 200,
+        data,
+        count: result.TotalRecordCount || data.length,
+        sourceContext: { StartIndex: StartIndex + data.length }
+      }
+    }
+    case 'artists': {
+      const result = await get('Artists', {
+        SearchTerm: keywords,
+        Limit: limit,
+        StartIndex
+      })
+      const data = (result.Items || []).map((item) => ({
+        id: item.Id,
+        name: item.Name,
+        picUrl: item.ImageTags?.Primary
+          ? getPic(item.Id, item.ImageTags?.Primary, 512)
+          : 'vutron://get-singer-pic',
+        pluginId: '',
+        sourceContext: { id: item.Id }
+      }))
+      return {
+        code: 200,
+        data,
+        count: result.TotalRecordCount || data.length,
+        sourceContext: { StartIndex: StartIndex + data.length }
+      }
+    }
+    case 'playlists': {
+      const result = await get('Items', {
+        SearchTerm: keywords,
+        IncludeItemTypes: 'Playlist',
+        Fields: 'DateCreated, Overview, ChildCount',
+        Recursive: true,
+        Limit: limit,
+        StartIndex
+      })
+      const data = (result.Items || []).map(formatPlaylist)
+      return {
+        code: 200,
+        data,
+        count: result.TotalRecordCount || data.length,
+        sourceContext: { StartIndex: StartIndex + data.length }
+      }
+    }
+    default:
+      return { code: 200, data: [], count: 0, sourceContext: {} }
+  }
+}
+
 exports.userPlaylist = async () => {
   const [playlists, albums, liked] = await Promise.all([
     getPlaylist(),

@@ -24,6 +24,7 @@ import IPCs from './IPCs'
 import fastifyStatic from '@fastify/static'
 import path from 'path'
 import cache from './cache'
+import { db, Tables } from './db'
 import sharp from 'sharp'
 import {
   getPic,
@@ -109,6 +110,12 @@ class BackGround {
   lastKnownMousePosition = { x: 0, y: 0 }
 
   async init() {
+    process.on('unhandledRejection', (reason) => {
+      console.error('[unhandledRejection]', reason)
+    })
+    process.on('uncaughtException', (err) => {
+      console.error('[uncaughtException]', err)
+    })
     if (process.platform === 'win32') app.setAppUserModelId(app.getName())
     if (!app.requestSingleInstanceLock()) {
       app.quit()
@@ -539,49 +546,65 @@ class BackGround {
 
           case 'stream':
             const mime = require('mime-types')
-            const filePath = decodeURIComponent(searchParams.get('path')!)
-            if (!fs.existsSync(filePath)) {
-              return new Response('Not Found', { status: 404 })
-            }
-            const fileStat = fs.statSync(filePath)
-            const range = request.headers.get('range')
-            let start = 0
-            let end = fileStat.size - 1
-            if (range) {
-              const match = range.match(/bytes=(\d*)-(\d*)/)
-              if (match) {
-                start = match[1] ? parseInt(match[1], 10) : start
-                end = match[2] ? parseInt(match[2], 10) : end
+            try {
+              let filePath = searchParams.get('path') || ''
+              if (!filePath) {
+                const trackId = searchParams.get('id') || ''
+                if (trackId) {
+                  const row = db.sqlite
+                    .prepare(`SELECT filePath FROM ${Tables.Audio} WHERE trackId = ?`)
+                    .get(trackId) as { filePath: string } | undefined
+                  if (row) filePath = row.filePath
+                }
+              } else {
+                filePath = decodeURIComponent(filePath)
               }
-            }
-            const chunkSize = end - start + 1
-            const stream = fs.createReadStream(filePath, { start, end })
+              if (!fs.existsSync(filePath)) {
+                return new Response('Not Found', { status: 404 })
+              }
+              const fileStat = fs.statSync(filePath)
+              const range = request.headers.get('range')
+              let start = 0
+              let end = fileStat.size - 1
+              if (range) {
+                const match = range.match(/bytes=(\d*)-(\d*)/)
+                if (match) {
+                  start = match[1] ? parseInt(match[1], 10) : start
+                  end = match[2] ? parseInt(match[2], 10) : end
+                }
+              }
+              const chunkSize = end - start + 1
+              const stream = fs.createReadStream(filePath, { start, end })
+              stream.on('error', () => stream.destroy())
 
-            request.signal?.addEventListener('abort', () => {
-              stream.destroy()
-            })
+              request.signal?.addEventListener('abort', () => {
+                stream.destroy()
+              })
 
-            const mimeType = mime.lookup(filePath) || 'application/octet-stream'
-            const headers = {
-              'content-type': mimeType,
-              'accept-ranges': 'bytes'
-            }
+              const mimeType = mime.lookup(filePath) || 'application/octet-stream'
+              const headers = {
+                'content-type': mimeType,
+                'accept-ranges': 'bytes'
+              }
 
-            if (range) {
+              if (range) {
+                // @ts-ignore
+                headers['content-length'] = String(chunkSize)
+                // @ts-ignore
+                headers['content-range'] = `bytes ${start}-${end}/${fileStat.size}`
+              } else {
+                // @ts-ignore
+                headers['content-length'] = String(fileStat.size)
+              }
               // @ts-ignore
-              headers['content-length'] = String(chunkSize)
-              // @ts-ignore
-              headers['content-range'] = `bytes ${start}-${end}/${fileStat.size}`
-            } else {
-              // @ts-ignore
-              headers['content-length'] = String(fileStat.size)
+              return new Response(stream, {
+                status: range ? 206 : 200,
+                headers
+              })
+            } catch (streamErr) {
+              console.error('[vutron stream error]', streamErr)
+              return new Response('Stream Error', { status: 500 })
             }
-
-            // @ts-ignore
-            return new Response(stream, {
-              status: range ? 206 : 200,
-              headers
-            })
           case 'track':
             ids = searchParams.get('id')!
             res = cache.get(CacheAPIs.Track, { ids })

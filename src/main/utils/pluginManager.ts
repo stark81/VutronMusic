@@ -5,7 +5,13 @@ import electronStore from '../store'
 import cache from '../cache'
 import { CacheAPIs } from './CacheApis'
 import { fetch, Agent } from 'undici'
-import { yrcLyricParse, lrcLyricParse, parseLyricString } from '.'
+import {
+  yrcLyricParse,
+  lrcLyricParse,
+  parseLyricString,
+  getLyricFromEmbedded,
+  getLyricFromPath
+} from '.'
 import { LyricLine } from '@/types/plugin'
 
 const dispatcher = new Agent({
@@ -38,7 +44,11 @@ export class PluginInstance {
     const workerFile = path.join(__dirname, 'workers/pluginRunner.js')
     this.worker = new Worker(workerFile)
 
-    this.worker.on('message', (msg: any) => this.onMessage(msg))
+    this.worker.on('message', (msg: any) => {
+      this.onMessage(msg).catch((err) => {
+        console.error(`[Plugin Worker ${this.meta?.name || this.id}]`, err)
+      })
+    })
     this.worker.on('error', (err) => console.error(`[Plugin Worker ${this.meta.name}] error`, err))
     this.worker.on('exit', (code) =>
       console.log(`[Plugin Worker ${this.meta.name}] exited with code ${code}`)
@@ -102,12 +112,21 @@ export class PluginInstance {
       }
 
       case 'DB_REQUEST': {
-        const { key, requestId } = msg as { key: 'PluginData' | 'Track'; requestId: string }
-        const map = {
+        const { key, requestId } = msg as { key: string; requestId: string }
+        const cacheMap: Record<string, string> = {
           PluginData: CacheAPIs.PluginData,
-          Track: CacheAPIs.LocalMusic
+          Track: CacheAPIs.LocalMusic,
+          Artist: CacheAPIs.Artist,
+          Album: CacheAPIs.Album
         }
-        const result = cache.get(map[key], { pluginId: this.id })
+        let result: any = null
+        if (cacheMap[key]) {
+          try {
+            result = cache.get(cacheMap[key], { pluginId: this.id })
+          } catch (err) {
+            console.error('[Plugin DB_REQUEST error] key=' + key + ':', err)
+          }
+        }
         this.worker.postMessage({
           type: 'DB_RESPONSE',
           requestId,
@@ -117,12 +136,20 @@ export class PluginInstance {
       }
 
       case 'DB_SET': {
-        const { key, value } = msg as { key: 'PluginData' | 'Track'; value: any }
-        const map = {
+        const { key, value } = msg as { key: string; value: any }
+        const cacheMap: Record<string, string> = {
           PluginData: CacheAPIs.PluginData,
-          Track: CacheAPIs.LocalMusic
+          Track: CacheAPIs.LocalMusic,
+          Artist: CacheAPIs.Artist,
+          Album: CacheAPIs.Album
         }
-        cache.set(map[key], { pluginId: this.id, type: this.meta.type, data: value })
+        if (cacheMap[key]) {
+          try {
+            cache.set(cacheMap[key], { pluginId: this.id, type: this.meta.type, data: value })
+          } catch (err) {
+            console.error('[Plugin DB_SET error] key=' + key + ':', err)
+          }
+        }
         break
       }
 
@@ -139,6 +166,38 @@ export class PluginInstance {
           type: 'LYRIC_RESPONSE',
           requestId: msg.requestId,
           data
+        })
+        break
+      }
+
+      case 'LYRIC_EMBEDDED': {
+        const embeddedFile = msg.filePath as string
+        let embeddedLyric: LyricLine[] = []
+        try {
+          embeddedLyric = await getLyricFromEmbedded(embeddedFile)
+        } catch (e) {
+          console.error('[LYRIC_EMBEDDED error]', e)
+        }
+        this.worker.postMessage({
+          type: 'LYRIC_RESPONSE',
+          requestId: msg.requestId,
+          data: embeddedLyric
+        })
+        break
+      }
+
+      case 'LYRIC_PATH': {
+        const pathFile = msg.filePath as string
+        let pathLyric: LyricLine[] = []
+        try {
+          pathLyric = await getLyricFromPath(pathFile)
+        } catch (e) {
+          console.error('[LYRIC_PATH error]', e)
+        }
+        this.worker.postMessage({
+          type: 'LYRIC_RESPONSE',
+          requestId: msg.requestId,
+          data: pathLyric
         })
         break
       }

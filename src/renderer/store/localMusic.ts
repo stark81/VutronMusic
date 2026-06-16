@@ -6,6 +6,9 @@ import { Track, Playlist, lyricLine } from '@/types/music'
 
 export const sortList = ['default', 'byname', 'ascend', 'descend'] as const
 
+const localPicUrl = (id: number | string, size: number = 512) =>
+  `http://127.0.0.1:41830/local-asset?trackId=${id}&size=${size}`
+
 export const useLocalMusicStore = defineStore(
   'localMusic',
   () => {
@@ -25,7 +28,7 @@ export const useLocalMusicStore = defineStore(
       playlists.value.forEach((p) => {
         if (p.trackIds.includes(localTrack.id)) {
           p.trackIds.splice(p.trackIds.indexOf(localTrack.id), 1, track.id)
-          p.coverImgUrl = `vutron://local-asset?type=pic&id=${p.trackIds[p.trackIds.length - 1]}&size=512`
+          p.coverImgUrl = localPicUrl(p.trackIds[p.trackIds.length - 1])
           p.updateTime = Date.now()
         }
       })
@@ -66,7 +69,7 @@ export const useLocalMusicStore = defineStore(
         if (newIDs.length === 0) return resolve(false)
         const idx = tracks.length - 1
         const imgID = tracks[idx]
-        playlist.coverImgUrl = `vutron://local-asset?type=pic&id=${imgID}&size=512`
+        playlist.coverImgUrl = localPicUrl(imgID)
         playlist.trackIds = [...playlist.trackIds, ...newIDs]
         playlist.trackCount = playlist.trackIds.length
         window.mainApi?.invoke('upsertLocalPlaylist', toRaw(playlist))
@@ -106,7 +109,7 @@ export const useLocalMusicStore = defineStore(
         const idx = playlist.trackIds.length - 1
         playlist.coverImgUrl =
           idx >= 0
-            ? `vutron://local-asset?type=pic&id=${playlist.trackIds[idx]}&size=512`
+            ? localPicUrl(playlist.trackIds[idx])
             : 'https://p1.music.126.net/jWE3OEZUlwdz0ARvyQ9wWw==/109951165474121408.jpg?param=512y512'
         playlist.trackCount = playlist.trackIds.length
         window.mainApi?.invoke('upsertLocalPlaylist', toRaw(playlist))
@@ -148,7 +151,7 @@ export const useLocalMusicStore = defineStore(
 
     const getLocalPic = async (id: number, size: number) => {
       const pic = new URL(`../assets/images/default.jpg`, import.meta.url).href
-      const result = await fetch(`vutron://local-asset?type=pic&id=${id}&size=${size}`)
+      const result = await fetch(localPicUrl(id, size))
         .then((res) => res.blob())
         .then((res) => URL.createObjectURL(res))
         .catch(() => null)

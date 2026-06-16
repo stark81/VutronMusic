@@ -1281,7 +1281,7 @@ const handleLogin = (plugin: service) => {
     const loginType: LoginType = plugin.type === 'library' ? 'QrCode' : 'Username'
     router.push(`/login/${plugin.code}/${loginType}`)
   } else {
-    if (confirm(`确定登出${plugin.name}吗？`)) {
+    if (plugin.type !== 'local' && confirm(`确定登出${plugin.name}吗？`)) {
       pluginMethodCall(plugin.code, 'doLogout').then(({ code }) => {
         if (code === 200) {
           delete users.value[plugin.code]

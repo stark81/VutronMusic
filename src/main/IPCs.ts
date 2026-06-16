@@ -29,6 +29,7 @@ import { PluginInstance } from './utils/pluginManager'
 
 let isLock = store.get('osdWin.isLock') as boolean
 let blockerId: number | null = null
+let isScanningLocalMusic = false
 let coverWorker: Worker
 let cacheWorker: Worker | null = null
 
@@ -456,357 +457,374 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
    * @param data.filePath 待扫描的歌曲目录列表
    * @param data.cb 扫描完成后是否通知渲染进程
    */
-  ipcMain.on(
-    'msgScanLocalMusic',
-    async (event, data: { filePath: string[]; cb: boolean }) => {
-      try {
-        const { default: Piscina } = (await import('piscina')) as typeof import('piscina')
-        const fg = await import('fast-glob')
-        const os = await import('os')
-        const existingArtists = db.findAll<{ id: string; name: string }>(Tables.Artist)
-        const existingAlbums = db.findAll<{
-          id: string
-          name: string
-        }>(Tables.Album)
-        const existingTracks = db.findAll<{
-          id: string
-          name: string
-          albumId: string
-          duration: number
-          musicBrainzTrackId?: string
-        }>(Tables.Track)
-        const existingAudios = db.findAll<{ id: string; trackId: string; filePath: string }>(
-          Tables.Audio
+  ipcMain.on('msgScanLocalMusic', async (event, data: { filePath: string[]; cb: boolean }) => {
+    let piscina: any = null
+    if (isScanningLocalMusic) {
+      if (data.cb) win.webContents.send('scanLocalMusicDone')
+      return
+    }
+    isScanningLocalMusic = true
+    try {
+      const { default: Piscina } = (await import('piscina')) as typeof import('piscina')
+      const fg = await import('fast-glob')
+      const os = await import('os')
+      const existingArtists = db.findAll<{ id: string; name: string }>(Tables.Artist)
+      const existingAlbums = db.findAll<{
+        id: string
+        name: string
+      }>(Tables.Album)
+      const existingTracks = db.findAll<{
+        id: string
+        name: string
+        albumId: string
+        duration: number
+        musicBrainzTrackId?: string
+      }>(Tables.Track)
+      const existingAudios = db.findAll<{ id: string; trackId: string; filePath: string }>(
+        Tables.Audio
+      )
+      const existingTrackArtists = db.findAll<{
+        trackId: string
+        artistId: string
+      }>(Tables.TrackArtist)
+      const existingArtistAlbums = db.findAll<{
+        artistId: string
+        albumId: string
+      }>(Tables.ArtistAlbum)
+      const existingTrackSources = db.findAll<{
+        trackId: string
+        pluginId: string
+      }>(Tables.TrackSource)
+
+      // 归一化函数：trim空格、统一全角/半角字符、忽略大小写
+      const normalize = (str: string) => {
+        return str
+          .trim()
+          .toLowerCase()
+          .replace(/[\uff01-\uff5e]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xfee0))
+      }
+
+      const artistMap = new Map(existingArtists.map((a) => [normalize(a.name), a.id]))
+      const existingAudioPathSet = new Set(existingAudios.map((a) => a.filePath))
+
+      // 构建Track去重键（不含duration，允许时长误差）
+      const buildTrackDedupKey = (
+        title: string,
+        album: string,
+        artists: string[],
+        albumArtists: string[]
+      ): string => {
+        const normalizedTitle = normalize(title)
+        const normalizedAlbum = normalize(album)
+        const normalizedArtists = artists.map(normalize).sort().join(',')
+        const normalizedAlbumArtists = albumArtists.map(normalize).sort().join(',')
+        return `${normalizedTitle}|${normalizedAlbum}|${normalizedArtists}|${normalizedAlbumArtists}`
+      }
+
+      // Album去重键：albumName + albumArtists（排序）
+      const buildAlbumDedupKey = (albumName: string, albumArtists: string[]): string => {
+        const normalizedAlbumName = normalize(albumName)
+        const normalizedAlbumArtists = albumArtists.map(normalize).sort().join(',')
+        return `${normalizedAlbumName}|${normalizedAlbumArtists}`
+      }
+
+      // 创建去重索引
+      const musicBrainzTrackMap = new Map<string, string>() // musicBrainzTrackId -> trackId
+      const trackDedupMap = new Map<string, Array<{ trackId: string; duration: number }>>() // normalizedKey -> [{trackId, duration}]
+
+      // 构建Track的关联信息用于去重
+      const trackAlbumMap = new Map<string, string>() // trackId -> albumId
+      const albumArtistMap = new Map<string, string[]>() // albumId -> artistIds (专辑艺术家，可能多个)
+      const trackArtistMap = new Map<string, string[]>() // trackId -> artistIds (歌曲艺术家)
+
+      for (const track of existingTracks) {
+        // 强信号：MusicBrainz Track ID
+        if (track.musicBrainzTrackId) {
+          musicBrainzTrackMap.set(track.musicBrainzTrackId, track.id)
+        }
+        trackAlbumMap.set(track.id, track.albumId)
+      }
+
+      // 构建专辑-艺术家关系（一个专辑可能有多个艺术家）
+      for (const aa of existingArtistAlbums) {
+        const artists = albumArtistMap.get(aa.albumId) || []
+        if (!artists.includes(aa.artistId)) {
+          artists.push(aa.artistId)
+          albumArtistMap.set(aa.albumId, artists)
+        }
+      }
+
+      // 构建歌曲-艺术家关系
+      for (const ta of existingTrackArtists) {
+        const artists = trackArtistMap.get(ta.trackId) || []
+        if (!artists.includes(ta.artistId)) {
+          artists.push(ta.artistId)
+          trackArtistMap.set(ta.trackId, artists)
+        }
+      }
+
+      // 获取艺术家名称用于归一化（O(1)查找）
+      const artistNameMap = new Map(existingArtists.map((a) => [a.id, a.name]))
+      const getArtistName = (artistId: string) => {
+        return artistNameMap.get(artistId) || ''
+      }
+
+      const albumById = new Map(existingAlbums.map((a) => [a.id, a]))
+
+      // 构建trackDedupMap：normalizedKey -> [{trackId, duration}]
+      for (const track of existingTracks) {
+        const albumId = trackAlbumMap.get(track.id) || ''
+        const album = albumById.get(albumId)
+        const albumArtistIds = albumArtistMap.get(albumId) || []
+        const albumArtistNames = albumArtistIds.map(getArtistName).filter(Boolean)
+        const trackArtistIds = trackArtistMap.get(track.id) || []
+        const trackArtistNames = trackArtistIds.map(getArtistName).filter(Boolean)
+
+        const normalizedKey = buildTrackDedupKey(
+          track.name,
+          album?.name || '',
+          trackArtistNames,
+          albumArtistNames
         )
-        const existingTrackArtists = db.findAll<{
-          trackId: string
-          artistId: string
-        }>(Tables.TrackArtist)
-        const existingArtistAlbums = db.findAll<{
-          artistId: string
-          albumId: string
-        }>(Tables.ArtistAlbum)
-
-        const artistMap = new Map(existingArtists.map((a) => [normalize(a.name), a.id]))
-        const existingAudioPathSet = new Set(existingAudios.map((a) => a.filePath))
-
-        // 归一化函数：trim空格、统一全角/半角字符、忽略大小写
-        const normalize = (str: string) => {
-          return str
-            .trim()
-            .toLowerCase()
-            .replace(/[\uff01-\uff5e]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xfee0))
+        if (normalizedKey) {
+          const entries = trackDedupMap.get(normalizedKey) || []
+          entries.push({ trackId: track.id, duration: track.duration })
+          trackDedupMap.set(normalizedKey, entries)
         }
+      }
 
-        // 构建Track去重键（不含duration，允许时长误差）
-        const buildTrackDedupKey = (
-          title: string,
-          album: string,
-          artists: string[],
-          albumArtists: string[]
-        ): string => {
-          const normalizedTitle = normalize(title)
-          const normalizedAlbum = normalize(album)
-          const normalizedArtists = artists.map(normalize).sort().join(',')
-          const normalizedAlbumArtists = albumArtists.map(normalize).sort().join(',')
-          return `${normalizedTitle}|${normalizedAlbum}|${normalizedArtists}|${normalizedAlbumArtists}`
-        }
+      const makeId = (prefix: string, value: string) =>
+        crypto.createHash('md5').update(`${prefix}:${value}`).digest('hex')
+      const patterns = ['**/*.{mp3,aiff,flac,alac,m4a,aac,wav,opus}']
+      const results = await Promise.all(
+        data.filePath.map((dir) => fg.glob(patterns, { cwd: dir, absolute: true, onlyFiles: true }))
+      )
+      const allFiles = [...new Set(results.flat())]
+      // 只扫描新文件（不存在于 Audio 表中的）
+      const filesToProcess = allFiles.filter((f) => !existingAudioPathSet.has(f))
+      if (filesToProcess.length === 0) {
+        if (data.cb) win.webContents.send('scanLocalMusicDone')
+        return
+      }
+      const workerPath = path.join(__dirname, 'workers/scanMusic.js')
+      piscina = new Piscina({
+        filename: workerPath,
+        minThreads: 2,
+        maxThreads: Math.min(os.cpus().length / 2, 6)
+      })
+      const batchSize = 100
+      const dataToInsert = {
+        Artist: [] as any[],
+        Album: [] as any[],
+        Track: [] as any[],
+        Audio: [] as any[],
+        TrackArtist: [] as any[],
+        ArtistAlbum: [] as any[],
+        TrackSource: [] as any[]
+      }
 
-        // Album去重键：albumName + albumArtists（排序）
-        const buildAlbumDedupKey = (albumName: string, albumArtists: string[]): string => {
-          const normalizedAlbumName = normalize(albumName)
-          const normalizedAlbumArtists = albumArtists.map(normalize).sort().join(',')
-          return `${normalizedAlbumName}|${normalizedAlbumArtists}`
-        }
+      // 去重Set，防止重复插入（初始化已有关系）
+      const trackArtistSet = new Set<string>(
+        existingTrackArtists.map((ta) => `${ta.trackId}:${ta.artistId}`)
+      ) // trackId:artistId
+      const artistAlbumSet = new Set<string>(
+        existingArtistAlbums.map((aa) => `${aa.artistId}:${aa.albumId}`)
+      ) // artistId:albumId
 
-        // 创建去重索引
-        const musicBrainzTrackMap = new Map<string, string>() // musicBrainzTrackId -> trackId
-        const trackDedupMap = new Map<string, Array<{ trackId: string; duration: number }>>() // normalizedKey -> [{trackId, duration}]
+      const trackSourceSet = new Set<string>(
+        existingTrackSources.map((ts) => `${ts.trackId}:${ts.pluginId}`)
+      )
 
-        // 构建Track的关联信息用于去重
-        const trackAlbumMap = new Map<string, string>() // trackId -> albumId
-        const albumArtistMap = new Map<string, string[]>() // albumId -> artistIds (专辑艺术家，可能多个)
-        const trackArtistMap = new Map<string, string[]>() // trackId -> artistIds (歌曲艺术家)
+      // albumMap: albumDedupKey -> albumId
+      const albumMap = new Map<string, string>()
+      for (const album of existingAlbums) {
+        const albumArtistIds = albumArtistMap.get(album.id) || []
+        const albumArtistNames = albumArtistIds.map(getArtistName).filter(Boolean)
+        const key = buildAlbumDedupKey(album.name, albumArtistNames)
+        albumMap.set(key, album.id)
+      }
 
-        for (const track of existingTracks) {
-          // 强信号：MusicBrainz Track ID
-          if (track.musicBrainzTrackId) {
-            musicBrainzTrackMap.set(track.musicBrainzTrackId, track.id)
-          }
-          trackAlbumMap.set(track.id, track.albumId)
-        }
-
-        // 构建专辑-艺术家关系（一个专辑可能有多个艺术家）
-        for (const aa of existingArtistAlbums) {
-          const artists = albumArtistMap.get(aa.albumId) || []
-          if (!artists.includes(aa.artistId)) {
-            artists.push(aa.artistId)
-            albumArtistMap.set(aa.albumId, artists)
-          }
-        }
-
-        // 构建歌曲-艺术家关系
-        for (const ta of existingTrackArtists) {
-          const artists = trackArtistMap.get(ta.trackId) || []
-          if (!artists.includes(ta.artistId)) {
-            artists.push(ta.artistId)
-            trackArtistMap.set(ta.trackId, artists)
-          }
-        }
-
-        // 获取艺术家名称用于归一化（O(1)查找）
-        const artistNameMap = new Map(existingArtists.map((a) => [a.id, a.name]))
-        const getArtistName = (artistId: string) => {
-          return artistNameMap.get(artistId) || ''
-        }
-
-        const albumById = new Map(existingAlbums.map((a) => [a.id, a]))
-
-        // 构建trackDedupMap：normalizedKey -> [{trackId, duration}]
-        for (const track of existingTracks) {
-          const albumId = trackAlbumMap.get(track.id) || ''
-          const album = albumById.get(albumId)
-          const albumArtistIds = albumArtistMap.get(albumId) || []
-          const albumArtistNames = albumArtistIds.map(getArtistName).filter(Boolean)
-          const trackArtistIds = trackArtistMap.get(track.id) || []
-          const trackArtistNames = trackArtistIds.map(getArtistName).filter(Boolean)
-
-          const normalizedKey = buildTrackDedupKey(
-            track.name,
-            album?.name || '',
-            trackArtistNames,
-            albumArtistNames
-          )
-          if (normalizedKey) {
-            const entries = trackDedupMap.get(normalizedKey) || []
-            entries.push({ trackId: track.id, duration: track.duration })
-            trackDedupMap.set(normalizedKey, entries)
-          }
-        }
-
-        const makeId = (prefix: string, value: string) =>
-          crypto.createHash('md5').update(`${prefix}:${value}`).digest('hex')
-        const patterns = ['**/*.{mp3,aiff,flac,alac,m4a,aac,wav,opus}']
-        const results = await Promise.all(
-          data.filePath.map((dir) =>
-            fg.glob(patterns, { cwd: dir, absolute: true, onlyFiles: true })
-          )
+      for (let i = 0; i < filesToProcess.length; i += batchSize) {
+        const batch = filesToProcess.slice(i, i + batchSize)
+        const batchResults = await Promise.allSettled(
+          batch.map((file) => piscina.run({ filePath: file }))
         )
-        const allFiles = [...new Set(results.flat())]
-        // 只扫描新文件（不存在于 Audio 表中的）
-        const filesToProcess = allFiles.filter((f) => !existingAudioPathSet.has(f))
-        if (filesToProcess.length === 0) {
-          if (data.cb) win.webContents.send('scanLocalMusicDone')
-          return
-        }
-        const workerPath = path.join(__dirname, 'workers/scanMusic.js')
-        const piscina = new Piscina({
-          filename: workerPath,
-          minThreads: 2,
-          maxThreads: Math.min(os.cpus().length / 2, 6)
-        })
-        const batchSize = 100
-        const dataToInsert = {
-          Artist: [] as any[],
-          Album: [] as any[],
-          Track: [] as any[],
-          Audio: [] as any[],
-          TrackArtist: [] as any[],
-          ArtistAlbum: [] as any[],
-          TrackSource: [] as any[]
-        }
+        for (const item of batchResults
+          .filter((r) => r.status === 'fulfilled')
+          .map((r) => r.value)) {
+          if (!item) continue
+          const now = Date.now()
+          let trackId: string
+          let isNewTrack = true
 
-        // 去重Set，防止重复插入（初始化已有关系）
-        const trackArtistSet = new Set<string>(
-          existingTrackArtists.map((ta) => `${ta.trackId}:${ta.artistId}`)
-        ) // trackId:artistId
-        const artistAlbumSet = new Set<string>(
-          existingArtistAlbums.map((aa) => `${aa.artistId}:${aa.albumId}`)
-        ) // artistId:albumId
+          // albumArtist为空时用artists作为fallback
+          const effectiveAlbumArtists =
+            item.albumArtist?.length > 0 ? item.albumArtist : item.artists || []
 
-        // albumMap: albumDedupKey -> albumId
-        const albumMap = new Map<string, string>()
-        for (const album of existingAlbums) {
-          const albumArtistIds = albumArtistMap.get(album.id) || []
-          const albumArtistNames = albumArtistIds.map(getArtistName).filter(Boolean)
-          const key = buildAlbumDedupKey(album.name, albumArtistNames)
-          albumMap.set(key, album.id)
-        }
+          // 文件已被 existingAudioPathSet 过滤，走到这里的一定没有重复的 Audio
+          // 强信号匹配：MusicBrainz Track ID
+          if (item.musicBrainzTrackId && musicBrainzTrackMap.has(item.musicBrainzTrackId)) {
+            trackId = musicBrainzTrackMap.get(item.musicBrainzTrackId)!
+            isNewTrack = false
+          } else {
+            // 中信号匹配：使用trackDedupMap进行O(1)查找，允许2秒时长误差
+            const normalizedKey = buildTrackDedupKey(
+              item.name,
+              item.album || '未知专辑',
+              item.artists || [],
+              effectiveAlbumArtists
+            )
 
-        for (let i = 0; i < filesToProcess.length; i += batchSize) {
-          const batch = filesToProcess.slice(i, i + batchSize)
-          const batchResults = await Promise.allSettled(
-            batch.map((file) => piscina.run({ filePath: file }).catch((e) => { log.error('扫描文件失败: ' + file, e); return null }))
-          )
-          for (const item of batchResults.filter((r) => r.status === 'fulfilled').map((r) => r.value)) {
-            const now = Date.now()
-            let trackId: string
-            let isNewTrack = true
+            const candidates = trackDedupMap.get(normalizedKey) || []
+            const matchedCandidate = candidates.find(
+              (c) => Math.abs(c.duration - item.duration) <= 2000
+            )
 
-            // albumArtist为空时用artists作为fallback
-            const effectiveAlbumArtists =
-              item.albumArtist?.length > 0 ? item.albumArtist : item.artists || []
-
-            // 文件已被 existingAudioPathSet 过滤，走到这里的一定没有重复的 Audio
-            // 强信号匹配：MusicBrainz Track ID
-            if (item.musicBrainzTrackId && musicBrainzTrackMap.has(item.musicBrainzTrackId)) {
-              trackId = musicBrainzTrackMap.get(item.musicBrainzTrackId)!
+            if (matchedCandidate) {
+              trackId = matchedCandidate.trackId
               isNewTrack = false
             } else {
-              // 中信号匹配：使用trackDedupMap进行O(1)查找，允许2秒时长误差
-              const normalizedKey = buildTrackDedupKey(
-                item.name,
-                item.album || '未知专辑',
-                item.artists || [],
-                effectiveAlbumArtists
-              )
-
-              const candidates = trackDedupMap.get(normalizedKey) || []
-              const matchedCandidate = candidates.find(
-                (c) => Math.abs(c.duration - item.duration) <= 2000
-              )
-
-              if (matchedCandidate) {
-                trackId = matchedCandidate.trackId
-                isNewTrack = false
-              } else {
-                // 没有匹配到，创建新Track（使用UUID，而非filePath）
-                trackId = crypto.randomUUID()
-              }
+              // 没有匹配到，创建新Track（使用UUID，而非filePath）
+              trackId = crypto.randomUUID().replace(/-/g, '')
             }
+          }
 
-            // 创建艺术家
-            const allArtistNames = [...new Set([...(item.artists || []), ...effectiveAlbumArtists])]
-            const artistIds = allArtistNames.map((name: string) => {
-              const normName = normalize(name)
-              if (!artistMap.has(normName)) {
-                const id = makeId('local_artist', normName)
-                artistMap.set(normName, id)
-                // 同步更新 artistNameMap
-                artistNameMap.set(id, name)
-                dataToInsert.Artist.push({
-                  id,
-                  name,
-                  picUrl: '',
-                  description: '',
-                  followed: 0,
-                  createTime: now,
-                  updateTime: now
-                })
-              }
-              return { name, id: artistMap.get(normName)! }
-            })
-            const artistIdMap = new Map(artistIds.map((a: any) => [a.name, a.id]))
-
-            // Album去重：albumName + albumArtists（排序）
-            const albumName = item.album || '未知专辑'
-            const albumDedupKey = buildAlbumDedupKey(albumName, effectiveAlbumArtists)
-            let albumId: string
-
-            if (albumMap.has(albumDedupKey)) {
-              albumId = albumMap.get(albumDedupKey)!
-            } else {
-              albumId = makeId(
-                'local_album',
-                `${albumName}:${[...effectiveAlbumArtists].sort().join(',')}`
-              )
-              albumMap.set(albumDedupKey, albumId)
-              dataToInsert.Album.push({
-                id: albumId,
-                name: albumName,
+          // 创建艺术家
+          const allArtistNames = [...new Set([...(item.artists || []), ...effectiveAlbumArtists])]
+          const artistIds = allArtistNames.map((name: string) => {
+            const normName = normalize(name)
+            if (!artistMap.has(normName)) {
+              const id = makeId('local_artist', normName)
+              artistMap.set(normName, id)
+              // 同步更新 artistNameMap
+              artistNameMap.set(id, name)
+              dataToInsert.Artist.push({
+                id,
+                name,
                 picUrl: '',
-                type: '',
-                company: '',
                 description: '',
-                subscribed: 0,
-                isExplicit: 0,
-                publishTime: 0,
+                followed: 0,
                 createTime: now,
                 updateTime: now
               })
             }
+            return { name, id: artistMap.get(normName)! }
+          })
+          const artistIdMap = new Map(artistIds.map((a: any) => [a.name, a.id]))
 
-            // 如果是新Track，创建Track记录
-            if (isNewTrack) {
-              dataToInsert.Track.push({
-                id: trackId,
-                name: item.name,
-                duration: item.duration,
-                albumId,
-                no: 0,
-                alias: '',
-                picUrl: '',
-                playCount: 0,
-                musicBrainzTrackId: item.musicBrainzTrackId || null,
-                createTime: item.createTime || now,
-                updateTime: now
-              })
+          // Album去重：albumName + albumArtists（排序）
+          const albumName = item.album || '未知专辑'
+          const albumDedupKey = buildAlbumDedupKey(albumName, effectiveAlbumArtists)
+          let albumId: string
 
-              // 注册强信号：批次内后续文件可匹配
-              if (item.musicBrainzTrackId) {
-                musicBrainzTrackMap.set(item.musicBrainzTrackId, trackId)
+          if (albumMap.has(albumDedupKey)) {
+            albumId = albumMap.get(albumDedupKey)!
+          } else {
+            albumId = makeId(
+              'local_album',
+              `${albumName}:${[...effectiveAlbumArtists].sort().join(',')}`
+            )
+            albumMap.set(albumDedupKey, albumId)
+            dataToInsert.Album.push({
+              id: albumId,
+              name: albumName,
+              picUrl: '',
+              type: '',
+              company: '',
+              description: '',
+              subscribed: 0,
+              isExplicit: 0,
+              publishTime: 0,
+              createTime: now,
+              updateTime: now
+            })
+          }
+
+          // 如果是新Track，创建Track记录
+          if (isNewTrack) {
+            dataToInsert.Track.push({
+              id: trackId,
+              name: item.name,
+              duration: item.duration,
+              albumId,
+              no: 0,
+              alias: '',
+              picUrl: '',
+              playCount: 0,
+              musicBrainzTrackId: item.musicBrainzTrackId || null,
+              createTime: item.createTime || now,
+              updateTime: now
+            })
+
+            // 注册强信号：批次内后续文件可匹配
+            if (item.musicBrainzTrackId) {
+              musicBrainzTrackMap.set(item.musicBrainzTrackId, trackId)
+            }
+
+            // 创建TrackArtist关系（使用Set去重）
+            for (const name of item.artists || []) {
+              const artistId = artistIdMap.get(name)
+              if (artistId) {
+                const key = `${trackId}:${artistId}`
+                if (!trackArtistSet.has(key)) {
+                  trackArtistSet.add(key)
+                  dataToInsert.TrackArtist.push({ trackId, artistId })
+                }
               }
+            }
 
-              // 创建TrackArtist关系（使用Set去重）
-              for (const name of item.artists || []) {
-                const artistId = artistIdMap.get(name)
-                if (artistId) {
-                  const key = `${trackId}:${artistId}`
-                  if (!trackArtistSet.has(key)) {
-                    trackArtistSet.add(key)
-                    dataToInsert.TrackArtist.push({ trackId, artistId })
+            // 创建ArtistAlbum关系（albumArtist为空时用artists，使用Set去重）
+            const albumArtistsToUse =
+              effectiveAlbumArtists.length > 0 ? effectiveAlbumArtists : item.artists || []
+            for (const name of albumArtistsToUse) {
+              const artistId = artistIdMap.get(name)
+              if (artistId) {
+                const key = `${artistId}:${albumId}`
+                if (!artistAlbumSet.has(key)) {
+                  artistAlbumSet.add(key)
+                  dataToInsert.ArtistAlbum.push({ artistId, albumId })
+                  // 同步更新 albumArtistMap
+                  const artists = albumArtistMap.get(albumId) || []
+                  if (!artists.includes(artistId)) {
+                    artists.push(artistId)
+                    albumArtistMap.set(albumId, artists)
                   }
                 }
               }
-
-              // 创建ArtistAlbum关系（albumArtist为空时用artists，使用Set去重）
-              const albumArtistsToUse =
-                effectiveAlbumArtists.length > 0 ? effectiveAlbumArtists : item.artists || []
-              for (const name of albumArtistsToUse) {
-                const artistId = artistIdMap.get(name)
-                if (artistId) {
-                  const key = `${artistId}:${albumId}`
-                  if (!artistAlbumSet.has(key)) {
-                    artistAlbumSet.add(key)
-                    dataToInsert.ArtistAlbum.push({ artistId, albumId })
-                    // 同步更新 albumArtistMap
-                    const artists = albumArtistMap.get(albumId) || []
-                    if (!artists.includes(artistId)) {
-                      artists.push(artistId)
-                      albumArtistMap.set(albumId, artists)
-                    }
-                  }
-                }
-              }
-
-              // 将新Track加入trackDedupMap
-              const normalizedKey = buildTrackDedupKey(
-                item.name,
-                albumName,
-                item.artists || [],
-                effectiveAlbumArtists
-              )
-              const entries = trackDedupMap.get(normalizedKey) || []
-              entries.push({ trackId, duration: item.duration })
-              trackDedupMap.set(normalizedKey, entries)
             }
 
-            // 检查Audio是否已存在，避免重复插入
-            if (!existingAudioPathSet.has(item.filePath)) {
-              const audioId = makeId('audio', item.filePath)
-              dataToInsert.Audio.push({
-                id: audioId,
-                trackId,
-                filePath: item.filePath,
-                md5: item.md5 || '',
-                bitrate: item.br || 0,
-                gain: item.gain || 0,
-                peak: item.peak || 1
-              })
-              existingAudioPathSet.add(item.filePath) // 防止同批次重复
-            }
+            // 将新Track加入trackDedupMap
+            const normalizedKey = buildTrackDedupKey(
+              item.name,
+              albumName,
+              item.artists || [],
+              effectiveAlbumArtists
+            )
+            const entries = trackDedupMap.get(normalizedKey) || []
+            entries.push({ trackId, duration: item.duration })
+            trackDedupMap.set(normalizedKey, entries)
+          }
 
-            // TrackSource：标记该 Track 有本地来源
+          // 检查Audio是否已存在，避免重复插入
+          if (!existingAudioPathSet.has(item.filePath)) {
+            const audioId = makeId('audio', item.filePath)
+            dataToInsert.Audio.push({
+              id: audioId,
+              trackId,
+              filePath: item.filePath,
+              md5: item.md5 || '',
+              bitrate: item.br || 0,
+              gain: item.gain || 0,
+              peak: item.peak || 1,
+              size: item.size || 0
+            })
+            existingAudioPathSet.add(item.filePath) // 防止同批次重复
+          }
+
+          // TrackSource：标记该 Track 有本地来源（仅当尚未存在时）
+          const trackSourceKey = `${trackId}:local`
+          if (!trackSourceSet.has(trackSourceKey)) {
+            trackSourceSet.add(trackSourceKey)
             dataToInsert.TrackSource.push({
               trackId,
               pluginId: 'local',
@@ -817,18 +835,37 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
             })
           }
         }
-        db.sqlite.transaction(() => {
-          for (const [table, rows] of Object.entries(dataToInsert)) {
-            if (rows.length) db.insertMany(Tables[table as keyof typeof Tables], rows)
-          }
-        })()
-        await piscina.destroy()
-        if (data.cb) win.webContents.send('scanLocalMusicDone')
-      } catch (error: any) {
-        log.error('扫描本地歌曲失败:', error?.stack || error)
       }
+      // 单事务批量写入，避免嵌套事务
+      db.sqlite.transaction(() => {
+        for (const [table, rows] of Object.entries(dataToInsert)) {
+          if (!rows.length) continue
+          const keys = Object.keys(rows[0])
+          const columns = keys.join(',')
+          const placeholders = keys.map(() => '?').join(',')
+          const stmt = db.sqlite.prepare(
+            `INSERT OR IGNORE INTO ${Tables[table as keyof typeof Tables]} (${columns}) VALUES (${placeholders})`
+          )
+          for (const row of rows) {
+            stmt.run(...Object.values(row as any))
+          }
+        }
+      })()
+      if (data.cb) win.webContents.send('scanLocalMusicDone')
+    } catch (error: any) {
+      log.error('扫描本地歌曲失败:', error?.stack || error)
+      try {
+        // 通知渲染进程
+        win.webContents.send('msgHandleScanLocalMusicError', {
+          err: String(error?.stack || error),
+          filePath: ''
+        })
+      } catch (_) {}
+    } finally {
+      isScanningLocalMusic = false
+      if (piscina) await piscina.destroy().catch(() => {})
     }
-  )
+  })
 
   ipcMain.on('msgShowInFolder', async (event, path: string) => {
     const { shell } = await import('electron')

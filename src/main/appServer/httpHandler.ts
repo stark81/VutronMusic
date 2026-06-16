@@ -1,15 +1,12 @@
 import { BrowserWindow } from 'electron'
-import { FastifyInstance, FastifyPluginAsync } from 'fastify' // FastifyRequest
-// import { fileTypeFromBuffer } from 'file-type'
+import { FastifyInstance, FastifyPluginAsync } from 'fastify'
+import { fileTypeFromBuffer } from 'file-type'
 import Constants from '../utils/Constants'
 import path from 'path'
 import fs from 'fs'
-// import cache from '../cache'
-// import { CacheAPIs } from '../utils/CacheApis'
-// import { getTrackDetail, getPic, getPicFromApi } from '../utils'
-// import navidrome from '../streaming/navidrome'
-// import jellyfin from '../streaming/jellyfin'
-// import emby from '../streaming/emby'
+import sharp from 'sharp'
+import { db, Tables } from '../db'
+import { getPic } from '../utils'
 
 const defaultImagePath = Constants.IS_DEV_ENV
   ? path.join(process.cwd(), `./src/public/images/default.jpg`)
@@ -20,34 +17,83 @@ const singerImagePath = Constants.IS_DEV_ENV
   : path.join(__dirname, `../images/singer.png`)
 
 const httpHandler: FastifyPluginAsync = async (fastify: FastifyInstance) => {
-  // fastify.get(
-  //   '/local-asset',
-  //   async (req: FastifyRequest<{ Querystring: Record<string, string> }>) => {
-  //     const { id, size } = req.query
-  //     const res = cache.get(CacheAPIs.Track, { ids: id })
-  //     let track: any
-  //     if (res) {
-  //       track = res.songs[0]
-  //     } else {
-  //       const res = await getTrackDetail(id)
-  //       track = res.songs[0]
-  //     }
-  //     if (!track.matched) {
-  //       ;(track.album || track.al).picUrl = 'vutron://get-default-pic'
-  //     } else {
-  //       const url = new URL((track.album || track.al).picUrl)
-  //       url.searchParams.set('param', `${size}y${size}`)
-  //       ;(track.album || track.al).picUrl = url.toString()
-  //     }
+  /**
+   * 本地歌曲封面接口
+   *
+   * 根据 trackId 查找歌曲的封面图片，优先级：
+   * 1. 歌曲所在目录下的同名图片文件（song.mp3 → song.jpg/png/jpeg/webp）
+   * 2. 音频文件内嵌封面
+   * 3. 默认封面
+   *
+   * URL: /local-asset?trackId=xxx&size=256
+   */
+  fastify.get('/local-asset', async (req, reply) => {
+    try {
+      const { trackId, size } = req.query as Record<string, string>
+      if (!trackId) {
+        const pic = await fs.promises.readFile(defaultImagePath)
+        return reply.type('image/jpeg').send(pic)
+      }
 
-  //     const result = await getPic(track)
+      // 从 Audio 表查询本地文件路径
+      // 支持 trackId 直接查找，也支持 albumId 间接查找
+      let audio = db.sqlite
+        .prepare(`SELECT filePath FROM ${Tables.Audio} WHERE trackId = ?`)
+        .get(trackId) as { filePath: string } | undefined
 
-  //     const pic = result.pic
-  //     const format = result.format
+      // 如果是 albumId，先找到该专辑下的第一个 track
+      if (!audio) {
+        const track = db.sqlite
+          .prepare(`SELECT id FROM ${Tables.Track} WHERE albumId = ? LIMIT 1`)
+          .get(trackId) as { id: string } | undefined
+        if (track) {
+          audio = db.sqlite
+            .prepare(`SELECT filePath FROM ${Tables.Audio} WHERE trackId = ?`)
+            .get(track.id) as { filePath: string } | undefined
+        }
+      }
 
-  //     return new Response(new Uint8Array(pic), { headers: { 'Content-Type': format } })
-  //   }
-  // )
+      if (!audio) {
+        const pic = await fs.promises.readFile(defaultImagePath)
+        return reply.type('image/jpeg').send(pic)
+      }
+
+      // 构建 getPic 需要的 track 对象
+      const track = {
+        filePath: audio.filePath,
+        matched: false,
+        album: {},
+        al: {}
+      }
+
+      const result = await getPic(track)
+
+      if (!result.pic) {
+        const pic = await fs.promises.readFile(defaultImagePath)
+        return reply.type('image/jpeg').send(pic)
+      }
+
+      let pic = result.pic
+      let format = result.format
+
+      // 根据 size 参数缩放
+      if (size && Number(size) > 0) {
+        pic = await sharp(pic).resize(Number(size), Number(size), { fit: 'cover' }).toBuffer()
+      }
+
+      if (!format) {
+        const type = await fileTypeFromBuffer(pic)
+        format = type?.mime || 'image/jpeg'
+      }
+
+      reply.header('Cache-Control', 'public, max-age=86400')
+      return reply.type(format).send(pic)
+    } catch (error) {
+      console.error('[local-asset] error:', error)
+      const pic = await fs.promises.readFile(defaultImagePath)
+      return reply.type('image/jpeg').send(pic)
+    }
+  })
 
   fastify.get('/local-asset/default-cover', async (req, reply) => {
     const pic = await fs.promises.readFile(defaultImagePath)
@@ -85,40 +131,6 @@ const httpHandler: FastifyPluginAsync = async (fastify: FastifyInstance) => {
       })
     }
   })
-
-  // fastify.get(
-  //   '/stream-asset',
-  //   async (req: FastifyRequest<{ Querystring: Record<string, string> }>, res) => {
-  //     const { service, id, primary, size } = req.query as {
-  //       service: 'navidrom' | 'jellyfin' | 'emby'
-  //       id: string
-  //       primary: string
-  //       size: string
-  //     }
-
-  //     let url: string
-
-  //     if (service === 'emby') {
-  //       url =
-  //         primary === 'undefined'
-  //           ? `https://p1.music.126.net/jWE3OEZUlwdz0ARvyQ9wWw==/109951165474121408.jpg?param=${size}y${size}`
-  //           : emby.getPic(Number(id), primary, Number(size))
-  //     } else if (service === 'jellyfin') {
-  //       url =
-  //         primary === 'undefined'
-  //           ? `https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg?param=${size}y${size}`
-  //           : jellyfin.getPic(id, Number(size))
-  //     } else {
-  //       url = navidrome.getPic(id, Number(size))
-  //     }
-
-  //     const result = await getPicFromApi(url)
-  //     const pic = result.pic!
-  //     const format = result.format
-
-  //     return new Response(new Uint8Array(pic), { headers: { 'Content-Type': format } })
-  //   }
-  // )
 }
 
 export default httpHandler

@@ -10,18 +10,26 @@ class Cache {
   async set(api: string, data: any, query: any = {}) {
     switch (api) {
       case CacheAPIs.LocalMusic: {
-        // const { newTracks } = data
-        // const tracks = newTracks.map((t: any) => ({
-        //   id: t.id,
-        //   type: t.type,
-        //   json: JSON.stringify(t),
-        //   updatedAt: Date.now()
-        // }))
-        // db.upsertMany(Tables.Track, tracks)
+        try {
+          const { data: sData } = data as { data: Record<string, any> }
+          const { id, ...fields } = sData
+          if (id && Object.keys(fields).length) {
+            const keys = Object.keys(fields)
+            const setClause = keys.map((k) => `${k} = ?`).join(', ')
+            const values = keys.map((k) => {
+              const v = fields[k]
+              return typeof v === 'boolean' ? (v ? 1 : 0) : v
+            })
+            db.sqlite
+              .prepare(`UPDATE ${Tables.Track} SET ${setClause}, updateTime = ? WHERE id = ?`)
+              .run(...values, Date.now(), id)
+          }
+        } catch (error) {
+          console.error('[cache set LocalMusic error]:', error)
+        }
         break
       }
       case CacheAPIs.searchMatch: {
-        console.log('=2=2=2=', query)
         // if (!data.result.songs.length) return
         // const trackRaw = db.find(Tables.Track, query.localID)!
         // const track = JSON.parse(trackRaw.json)
@@ -136,7 +144,7 @@ class Cache {
               json,
               updatedAt: Date.now()
             }
-            db.upsert(Tables.PluginData, account, [account.id])
+            db.upsert(Tables.PluginData, account, ['id'])
           }
         } catch (error) {
           console.error('[db.set failed]: ', error)
@@ -162,24 +170,133 @@ class Cache {
         // }
         break
       }
+
+      case CacheAPIs.Artist: {
+        try {
+          const { data: sData } = data as { data: Record<string, any> }
+          const { id, ...fields } = sData
+          if (id && Object.keys(fields).length) {
+            const keys = Object.keys(fields)
+            const setClause = keys.map((k) => `${k} = ?`).join(', ')
+            const values = keys.map((k) => {
+              const v = fields[k]
+              return typeof v === 'boolean' ? (v ? 1 : 0) : v
+            })
+            db.sqlite
+              .prepare(`UPDATE ${Tables.Artist} SET ${setClause}, updateTime = ? WHERE id = ?`)
+              .run(...values, Date.now(), id)
+          }
+        } catch (error) {
+          console.error('[cache set Artist error]:', error)
+        }
+        break
+      }
+
+      case CacheAPIs.Album: {
+        try {
+          const { data: sData } = data as { data: Record<string, any> }
+          const { id, ...fields } = sData
+          if (id && Object.keys(fields).length) {
+            const keys = Object.keys(fields)
+            const setClause = keys.map((k) => `${k} = ?`).join(', ')
+            const values = keys.map((k) => {
+              const v = fields[k]
+              return typeof v === 'boolean' ? (v ? 1 : 0) : v
+            })
+            db.sqlite
+              .prepare(`UPDATE ${Tables.Album} SET ${setClause}, updateTime = ? WHERE id = ?`)
+              .run(...values, Date.now(), id)
+          }
+        } catch (error) {
+          console.error('[cache set Album error]:', error)
+        }
+        break
+      }
     }
   }
 
   get(api: string, params: any = {}): any {
     switch (api) {
       case CacheAPIs.LocalMusic: {
-        // const sql = params.sql ?? `type = 'local'`
-        // const { platform } = params
-        const data = db.findAll(Tables.Track, { ...params })
-        console.log('[cache get LocalMusic]:', params, data.length, data[0])
-        // 此项用于获取所有本地歌曲
-        // 注：是全部本地歌曲，不可获取部分，仅在扫描本地歌曲与程序启动时使用
-        // const sql = params.sql ?? `type = 'local'`
-        // const data = db.findAll(Tables.Track, sql)
-        // const tracks = data.map((t: any) => JSON.parse(t.json))
+        // 查询所有本地歌曲，关联 Album / Artist / TrackArtist 表组装完整数据
+        const trackRows = db.sqlite.prepare(`SELECT * FROM ${Tables.Track}`).all() as Record<
+          string,
+          any
+        >[]
+
+        const albumMap = new Map(
+          (
+            db.sqlite.prepare(`SELECT id, name FROM ${Tables.Album}`).all() as Record<string, any>[]
+          ).map((a) => [a.id, a.name])
+        )
+
+        const artistNameMap = new Map(
+          (
+            db.sqlite.prepare(`SELECT id, name FROM ${Tables.Artist}`).all() as Record<
+              string,
+              any
+            >[]
+          ).map((a) => [a.id, a.name])
+        )
+
+        // 构建 trackId → artists 映射
+        const trackArtistMap = new Map<string, { id: string; name: string }[]>()
+        for (const ta of db.sqlite.prepare(`SELECT * FROM ${Tables.TrackArtist}`).all() as Record<
+          string,
+          any
+        >[]) {
+          if (!trackArtistMap.has(ta.trackId)) trackArtistMap.set(ta.trackId, [])
+          trackArtistMap.get(ta.trackId)!.push({
+            id: ta.artistId,
+            name: artistNameMap.get(ta.artistId) || ''
+          })
+        }
+
+        // 构建 albumId → albumArtists 映射
+        const albumArtistMap = new Map<string, { id: string; name: string }[]>()
+        for (const aa of db.sqlite.prepare(`SELECT * FROM ${Tables.ArtistAlbum}`).all() as Record<
+          string,
+          any
+        >[]) {
+          if (!albumArtistMap.has(aa.albumId)) albumArtistMap.set(aa.albumId, [])
+          albumArtistMap.get(aa.albumId)!.push({
+            id: aa.artistId,
+            name: artistNameMap.get(aa.artistId) || ''
+          })
+        }
+
+        // 构建 trackId → filePath / size 映射
+        const audioPathMap = new Map(
+          (
+            db.sqlite
+              .prepare(`SELECT trackId, filePath, size FROM ${Tables.Audio}`)
+              .all() as Record<string, any>[]
+          ).map((a) => [a.trackId, { filePath: a.filePath, size: a.size }])
+        )
+
+        const songs = trackRows.map((track) => {
+          const audioInfo = audioPathMap.get(track.id) || { filePath: '', size: 0 }
+          return {
+            id: track.id,
+            name: track.name,
+            duration: track.duration,
+            albumId: track.albumId,
+            albumName: albumMap.get(track.albumId) || '',
+            artists: trackArtistMap.get(track.id) || [],
+            albumArtists: albumArtistMap.get(track.albumId) || [],
+            filePath: audioInfo.filePath,
+            size: audioInfo.size,
+            playCount: track.playCount,
+            liked: track.liked || 0,
+            createTime: track.createTime,
+            no: track.no,
+            alias: track.alias || ''
+          }
+        })
+
         return {
           code: 200,
-          songs: [],
+          songs,
           privileges: {}
         }
       }
@@ -205,10 +322,10 @@ class Cache {
         }
       }
       case CacheAPIs.Album: {
-        break
+        return db.sqlite.prepare(`SELECT * FROM ${Tables.Album}`).all()
       }
       case CacheAPIs.Artist: {
-        break
+        return db.sqlite.prepare(`SELECT * FROM ${Tables.Artist}`).all()
       }
       case CacheAPIs.LocalPlaylist: {
         // const data = db.findAll(Tables.Playlist, `isLocal = 1`)

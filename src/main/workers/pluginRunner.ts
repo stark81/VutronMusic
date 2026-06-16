@@ -222,6 +222,50 @@ const api = {
         .createHash('md5')
         .update(password + salt)
         .digest('hex')
+    },
+    getEmbeddedLyric(filePath: string) {
+      return new Promise((resolve, reject) => {
+        const requestId = Math.random().toString(36).slice(2)
+        const requestTimeout = setTimeout(() => {
+          if (pendingRequests.has(requestId)) {
+            pendingRequests.get(requestId)?.reject(new Error('Request timeout'))
+            pendingRequests.delete(requestId)
+          }
+        }, 12000)
+        pendingRequests.set(requestId, {
+          resolve: (data) => {
+            clearTimeout(requestTimeout)
+            resolve(data)
+          },
+          reject: (err) => {
+            clearTimeout(requestTimeout)
+            reject(err)
+          }
+        })
+        parentPort?.postMessage({ type: 'LYRIC_EMBEDDED', filePath, requestId })
+      })
+    },
+    getPathLyric(filePath: string) {
+      return new Promise((resolve, reject) => {
+        const requestId = Math.random().toString(36).slice(2)
+        const requestTimeout = setTimeout(() => {
+          if (pendingRequests.has(requestId)) {
+            pendingRequests.get(requestId)?.reject(new Error('Request timeout'))
+            pendingRequests.delete(requestId)
+          }
+        }, 12000)
+        pendingRequests.set(requestId, {
+          resolve: (data) => {
+            clearTimeout(requestTimeout)
+            resolve(data)
+          },
+          reject: (err) => {
+            clearTimeout(requestTimeout)
+            reject(err)
+          }
+        })
+        parentPort?.postMessage({ type: 'LYRIC_PATH', filePath, requestId })
+      })
     }
   }
 }

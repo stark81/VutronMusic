@@ -64,6 +64,13 @@ class DB {
     const init = readSqlFile('plugin.sql')
     this.sqlite.exec(init)
     this.sqlite.pragma('journal_mode=WAL')
+
+    // schema-level online migrations for existing databases
+    try {
+      this.sqlite.exec(`ALTER TABLE ${Tables.Track} ADD COLUMN liked INTEGER NOT NULL DEFAULT 0`)
+    } catch (e) {
+      // column already exists, safe to ignore
+    }
   }
 
   migrate() {

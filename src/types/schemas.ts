@@ -48,6 +48,10 @@ export const TrackSchema = z.object({
   reason: z.string(),
   type: MusicTypeSchema,
 
+  // 本地音乐专用
+  filePath: z.string().default(''),
+  size: z.number().default(0),
+
   /**
    * 插件上下文。
    *

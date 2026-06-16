@@ -157,12 +157,13 @@ import SliderVue from 'vue-3-slider-component'
 import VueSlider from './VueSlider.vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
-import { useDataStore } from '../store/data'
+// import { useDataStore } from '../store/data'
 import { useOsdLyricStore } from '../store/osdLyric'
 import { useNormalStateStore } from '../store/state'
 // import { hasListSource, getListSourcePath } from '../utils/playlist'
-import { useStreamMusicStore } from '../store/streamingMusic'
+// import { useStreamMusicStore } from '../store/streamingMusic'
 import { useSettingsStore } from '../store/settings'
+import { usePluginMusic } from '../store/pluginMusic'
 import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
 import { computed, ref, watch } from 'vue'
@@ -193,7 +194,7 @@ const {
   lyricOffset
 } = storeToRefs(playerStore)
 
-const playerBarRef = ref()
+// const playerBarRef = ref()
 const hoverX = ref('0')
 const hoverText = ref('')
 
@@ -206,11 +207,7 @@ const { general } = storeToRefs(settingsStore)
 const stateStore = useNormalStateStore()
 const { showLyrics, enableScrolling } = storeToRefs(stateStore)
 
-const dataStore = useDataStore()
-const { likeATrack } = dataStore
-
-const streamMusicStore = useStreamMusicStore()
-const { likeAStreamTrack } = streamMusicStore
+const pluginMusicStore = usePluginMusic()
 
 const formatTime = (time: number) => {
   const minutes = Math.floor(time / 60)
@@ -255,12 +252,8 @@ const marks = computed(() => {
 })
 
 const likeTrack = () => {
-  // if (currentTrack.value?.type === 'stream') {
-  //   const op = currentTrack.value.starred ? 'unstar' : 'star'
-  //   likeAStreamTrack(op, currentTrack.value)
-  // } else if (currentTrack.value?.matched) {
-  //   likeATrack(currentTrack.value.id)
-  // }
+  if (!currentTrack.value) return
+  pluginMusicStore.likeATrack(currentTrack.value)
 }
 
 const goToArtist = (artist: Artist) => {

@@ -127,7 +127,7 @@ export const parseLyricString = (lyrics: string): lyricLine[] => {
 //   return []
 // }
 
-const getLyricFromEmbedded = async (filePath: string) => {
+export const getLyricFromEmbedded = async (filePath: string) => {
   let result: lyricLine[] = []
 
   const metadata = await parseFile(decodeURI(filePath))
@@ -140,7 +140,7 @@ const getLyricFromEmbedded = async (filePath: string) => {
   return result
 }
 
-const getLyricFromPath = async (filePath: string) => {
+export const getLyricFromPath = async (filePath: string) => {
   let result: lyricLine[] = []
   const buffer = await fs.promises.readFile(filePath)
   const detected = jschardet.detect(buffer)

@@ -251,7 +251,7 @@ const image = computed(() => {
   } else if (track.type === 'stream') {
     return track.picUrl
   } else {
-    url = `vutron://local-asset?type=pic&id=${track.id}&size=64`
+    url = `http://127.0.0.1:41830/local-asset?trackId=${track.id}&size=64`
     return url
   }
 })

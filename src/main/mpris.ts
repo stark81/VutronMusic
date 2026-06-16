@@ -78,7 +78,10 @@ class Mpris implements MprisImpl {
 
   setMetadata(metadata: any) {
     this._player.metadata = {
-      'mpris:trackid': this._player.objectPath('track/' + metadata.trackId),
+      // UUID 含短横线，替换掉以符合 D-Bus object path 规范
+      'mpris:trackid': this._player.objectPath(
+        'track/' + String(metadata.trackId).replace(/-/g, '')
+      ),
       'mpris:artUrl': metadata.artwork[0].src,
       'mpris:length': metadata.length * 1000 * 1000,
       'xesam:title': metadata.title,
