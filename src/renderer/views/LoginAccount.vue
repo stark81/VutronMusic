@@ -110,7 +110,7 @@
       </template>
 
       <div
-        v-if="loginType !== 'QrCode' || currentMode === 'Cookie'"
+        v-if="step === 0 || loginType !== 'QrCode' || currentMode === 'Cookie'"
         class="confirm"
         :class="{ 'confirm-single': loginType === 'LocalDir' }"
       >
@@ -470,7 +470,7 @@ onMounted(async () => {
     user.value = result.userName
     password.value = result.pwd
     url.value = result.baseUrl
-    saved.value = true
+    saved.value = !!result.baseUrl
     if (result.baseUrl) step.value++
   })
 })

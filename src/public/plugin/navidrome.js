@@ -91,7 +91,7 @@ apis.db.get('PluginData').then((result) => {
 })
 
 apis.store.get('').then((store) => {
-  if (store && store.baseUrl) baseUrl = store.baseUrl
+  baseUrl = store.baseUrl || ''
 })
 
 // ===================================================

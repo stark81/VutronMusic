@@ -205,20 +205,28 @@ const updateVip = () => {
 apis.store.get('').then((store) => {
   baseUrl = store.baseUrl || ''
 
-  if (!baseUrl || !user.userId) return
-
-  get('artist/lists', { type: 0, hotsize: 30 }).then((result) => {
-    artistLists.status = result.status
-    artistLists.data = result.data
-  })
-
-  get('user/follow').then((result) => {
-    collectedArtists.ids = result.data?.lists.map((item) => String(item.singerid || item.userid))
-  })
+  if (!baseUrl) return
 
   get('register/dev').then((res) => {
     dfid = res.data?.dfid
   })
+
+  if (!user.userId) return
+
+  get('artist/lists', { type: 0, hotsize: 30 })
+    .then((result) => {
+      artistLists.status = result.status
+      artistLists.data = result.data
+    })
+    .catch()
+
+  get('user/follow')
+    .then((result) => {
+      collectedArtists.ids = (Array.isArray(result?.data?.lists) ? result.data.lists : []).map(
+        (item) => String(item.singerid || item.userid)
+      )
+    })
+    .catch()
 
   updateVip().then(() => {
     get('user/playlist', { pagesize: 100 })
@@ -262,8 +270,11 @@ const get = async (url, params) => {
     throw new Error('BaseUrl not configured')
   }
   let cookie = ``
-  if (user.token) cookie += `token=${user.token};userid=${user.userId}`
-  if (dfid) cookie += `;dfid=${dfid}`
+  if (user.token) cookie += `token=${user.token}; userid=${user.userId}`
+  if (dfid) {
+    if (cookie) cookie += '; '
+    cookie += `dfid=${dfid}`
+  }
 
   const headers = { Cookie: cookie, 'User-Agent': 'Android16' }
   const response = await apis.http.get(`${baseUrl}/${url}`, params, headers)
@@ -913,17 +924,15 @@ exports.loginQrCodeCheck = async (params) => {
     if (result.data.status === 4) {
       user.userId = result.data.userid
       user.token = result.data.token
-
-      const [res1, res2] = await Promise.all([get('user/detail'), get('user/vip/detail')])
-      user.isVip = res2.data.is_vip || res2.data.busi_vip.some((v) => v.is_vip === 1)
+      user.isVip = false
       apis.db.set('PluginData', { ...user })
 
       res.user = {
         userId: result.data.userid,
         avatarUrl: result.data.pic,
         nickname: result.data.nickname,
-        isVip: res2.data.is_vip || res2.data.busi_vip.some((v) => v.is_vip === 1),
-        signature: res1.data.descri
+        isVip: false,
+        signature: ''
       }
     }
 
@@ -937,6 +946,11 @@ exports.updateBaseUrl = async (params) => {
   const url = params.url.replace(/\/$/, '')
   baseUrl = url
   apis.store.set('baseUrl', url)
+  await get('register/dev')
+    .then((res) => {
+      dfid = res.data?.dfid
+    })
+    .catch()
   return { code: 200 }
 }
 
@@ -2133,7 +2147,7 @@ exports.deletePlaylist = async (params) => {
  * 编辑歌单信息 - 酷狗 API 无此接口，返回 404
  * @param {Object} _params
  */
-exports.editPlaylist = async (_params) => {
+exports.editPlaylist = async () => {
   return { code: 404 }
 }
 

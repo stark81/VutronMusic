@@ -190,7 +190,8 @@ const loadData = async () => {
   pluginMethodCall(pluginId.value, 'topArtists', { reset: true, isFull: false }).then((res) => {
     const artists = res.data.map((item) => ({ ...item, pluginId: pluginId.value }))
     const idx: number[] = []
-    while (idx.length < 6) {
+    const targetCount = Math.min(6, artists.length)
+    while (idx.length < targetCount) {
       const tmp = ~~(Math.random() * artists.length)
       if (!idx.includes(tmp)) idx.push(tmp)
     }

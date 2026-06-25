@@ -77,7 +77,7 @@ apis.db.get('PluginData').then((result) => {
 })
 
 apis.store.get('').then((store) => {
-  baseUrl = store.baseUrl
+  baseUrl = store.baseUrl || ''
 })
 
 const getPic = (id, primary, size) => {
