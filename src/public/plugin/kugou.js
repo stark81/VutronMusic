@@ -203,9 +203,9 @@ const updateVip = () => {
 }
 
 apis.store.get('').then((store) => {
-  baseUrl = store.baseUrl
+  baseUrl = store.baseUrl || ''
 
-  if (!user.userId) return
+  if (!baseUrl || !user.userId) return
 
   get('artist/lists', { type: 0, hotsize: 30 }).then((result) => {
     artistLists.status = result.status
@@ -258,6 +258,9 @@ const _formatDate = (date = new Date()) => {
  * @param {string=} dfid
  */
 const get = async (url, params) => {
+  if (!baseUrl) {
+    throw new Error('BaseUrl not configured')
+  }
   let cookie = ``
   if (user.token) cookie += `token=${user.token};userid=${user.userId}`
   if (dfid) cookie += `;dfid=${dfid}`
@@ -869,53 +872,65 @@ exports.meta = meta
  * @returns {boolean}
  */
 exports.systemPing = async () => {
-  const result = await get('user/detail')
-  if (result.status === 0) {
+  try {
+    const result = await get('user/detail')
+    if (result.status === 0) {
+      return { code: 404, status: 'logout' }
+    }
+    return { code: 200, status: 'login' }
+  } catch {
     return { code: 404, status: 'logout' }
   }
-  return { code: 200, status: 'login' }
 }
 
 exports.loginQrKey = async () => {
-  const result = await get('login/qr/key', { timestamp: Date.now() })
-  if (result.status === 1) {
-    const data = {
-      url: `https://h5.kugou.com/apps/loginQRCode/html/index.html?qrcode=${result.data.qrcode}`,
-      qrcode: result.data.qrcode
+  try {
+    const result = await get('login/qr/key', { timestamp: Date.now() })
+    if (result.status === 1) {
+      const data = {
+        url: `https://h5.kugou.com/apps/loginQRCode/html/index.html?qrcode=${result.data.qrcode}`,
+        qrcode: result.data.qrcode
+      }
+      return { code: 200, data }
     }
-    return { code: 200, data }
+    return { code: 200, data: { url: '', qrcode: '' } }
+  } catch {
+    return { code: 404, data: { url: '', qrcode: '' } }
   }
-  return { code: 200, data: { url: '', qrcode: '' } }
 }
 
 exports.loginQrCodeCheck = async (params) => {
-  const result = await get('login/qr/check', { ...params, timestamp: Date.now() })
-  const map = {
-    0: { code: 800, message: '二维码过期' },
-    1: { code: 801, message: '等待扫码' },
-    2: { code: 802, message: '待确认' },
-    4: { code: 803, message: '授权登录成功' }
-  }
-  const res = map[result.data.status]
-
-  if (result.data.status === 4) {
-    user.userId = result.data.userid
-    user.token = result.data.token
-
-    const [res1, res2] = await Promise.all([get('user/detail'), get('user/vip/detail')])
-    user.isVip = res2.data.is_vip || res2.data.busi_vip.some((v) => v.is_vip === 1)
-    apis.db.set('PluginData', { ...user })
-
-    res.user = {
-      userId: result.data.userid,
-      avatarUrl: result.data.pic,
-      nickname: result.data.nickname,
-      isVip: res2.data.is_vip || res2.data.busi_vip.some((v) => v.is_vip === 1),
-      signature: res1.data.descri
+  try {
+    const result = await get('login/qr/check', { ...params, timestamp: Date.now() })
+    const map = {
+      0: { code: 800, message: '二维码过期' },
+      1: { code: 801, message: '等待扫码' },
+      2: { code: 802, message: '待确认' },
+      4: { code: 803, message: '授权登录成功' }
     }
-  }
+    const res = map[result.data.status]
 
-  return res
+    if (result.data.status === 4) {
+      user.userId = result.data.userid
+      user.token = result.data.token
+
+      const [res1, res2] = await Promise.all([get('user/detail'), get('user/vip/detail')])
+      user.isVip = res2.data.is_vip || res2.data.busi_vip.some((v) => v.is_vip === 1)
+      apis.db.set('PluginData', { ...user })
+
+      res.user = {
+        userId: result.data.userid,
+        avatarUrl: result.data.pic,
+        nickname: result.data.nickname,
+        isVip: res2.data.is_vip || res2.data.busi_vip.some((v) => v.is_vip === 1),
+        signature: res1.data.descri
+      }
+    }
+
+    return res
+  } catch {
+    return { code: 800, message: '' }
+  }
 }
 
 exports.updateBaseUrl = async (params) => {
@@ -949,98 +964,114 @@ exports.doLogout = () => {
  * @returns {{ code: number, data: Banner[] }}
  */
 exports.getBanner = async (params) => {
-  const result = await get('pc/diantai', { ...params })
-  const banners = result.data.data
-    .filter((item) => !item.isAd)
-    .map((item) => {
-      const map = {
-        0: ['activity', '活动', {}],
-        1: ['activity', '专辑购买', {}],
-        3: ['playlist', '歌单推荐', { ids: item.type_id }],
-        7: ['album', '新碟首发', { id: item.classid }]
-      }
-      return {
-        id: item.id,
-        picUrl: item.code,
-        url: item.url,
-        sourceId: String(item.classid),
-        type: map[item.jump_type] ? map[item.jump_type][0] : 'activity',
-        typeTitle: map[item.jump_type] ? map[item.jump_type][1] : '活动',
-        pluginId: '',
-        sourceContext: map[item.jump_type][2]
-      }
-    })
-  return { code: result.status === 1 ? 200 : 404, data: banners }
+  try {
+    const result = await get('pc/diantai', { ...params })
+    const banners = result.data.data
+      .filter((item) => !item.isAd)
+      .map((item) => {
+        const map = {
+          0: ['activity', '活动', {}],
+          1: ['activity', '专辑购买', {}],
+          3: ['playlist', '歌单推荐', { ids: item.type_id }],
+          7: ['album', '新碟首发', { id: item.classid }]
+        }
+        return {
+          id: item.id,
+          picUrl: item.code,
+          url: item.url,
+          sourceId: String(item.classid),
+          type: map[item.jump_type] ? map[item.jump_type][0] : 'activity',
+          typeTitle: map[item.jump_type] ? map[item.jump_type][1] : '活动',
+          pluginId: '',
+          sourceContext: map[item.jump_type][2]
+        }
+      })
+    return { code: result.status === 1 ? 200 : 404, data: banners }
+  } catch {
+    return { code: 404, data: [] }
+  }
 }
 
 /**
  * @returns {{ code: number, data: Playlist[] }}
  */
 exports.getRecommendPlaylist = async () => {
-  const result = await get('top/playlist', { category_id: 0 })
-  const data = result.data.special_list.map((item) => formatPlaylist(item, 'show')).slice(0, 10)
-  return { code: result.status === 1 ? 200 : 404, data }
+  try {
+    const result = await get('top/playlist', { category_id: 0 })
+    const data = result.data.special_list.map((item) => formatPlaylist(item, 'show')).slice(0, 10)
+    return { code: result.status === 1 ? 200 : 404, data }
+  } catch {
+    return { code: 404, data: [] }
+  }
 }
 
 /**
  * @returns {{ code: number, data: Track[] }}
  */
 exports.getRecommendTracks = async () => {
-  const result = await get('everyday/recommend')
-  const data = result.data.song_list
-    .filter((item) => !item.shield && item.hash)
-    .map((item) => formatTrack(item, 64))
-  return { code: result.status === 1 ? 200 : 404, data, sourceContext: { offset: data.length } }
+  try {
+    const result = await get('everyday/recommend')
+    const data = result.data.song_list
+      .filter((item) => !item.shield && item.hash)
+      .map((item) => formatTrack(item, 64))
+    return { code: result.status === 1 ? 200 : 404, data, sourceContext: { offset: data.length } }
+  } catch {
+    return { code: 404, data: [], sourceContext: {} }
+  }
 }
 
 const topArtists = async (_params) => {
-  if (_params.loaded && !_params.reset) {
-    return {
-      code: 200,
-      data: [],
-      sourceContext: { ..._params }
+  try {
+    if (_params.loaded && !_params.reset) {
+      return {
+        code: 200,
+        data: [],
+        sourceContext: { ..._params }
+      }
     }
-  }
-  const params = {}
-  _params?.query?.forEach((item) => {
-    const code = item.code
-    const tag = item.tag
-    params[code] = { code: tag.code, name: tag.name }
-  })
-
-  if (!_params.isFull) {
-    params.initial = { name: '热门', code: -1, active: true }
-  }
-
-  let result = {}
-  if (
-    artistLists.data?.info?.length &&
-    params?.type?.code === 0 &&
-    params?.sextypes?.code === 0 &&
-    params?.musician?.code === 0
-  ) {
-    result = artistLists
-  } else {
-    result = await get('artist/lists', {
-      sextypes: params?.sextypes?.code || 0,
-      type: params?.type?.code || 0,
-      musician: params?.musician?.code || 0
+    const params = {}
+    _params?.query?.forEach((item) => {
+      const code = item.code
+      const tag = item.tag
+      params[code] = { code: tag.code, name: tag.name }
     })
-  }
 
-  const data = result.data?.info
-    .find((item) => item.title === params.initial.name)
-    .singer.map((item) => ({
-      id: item.singerid,
-      name: item.singername,
-      pluginId: '',
-      picUrl: item.imgurl.replace('{size}', '256'),
-      sourceContext: { id: item.singerid }
-    }))
-  return {
-    code: result.status === 1 ? 200 : 404,
-    data,
-    sourceContext: { query: _params.query, offset: 30, loaded: true }
+    if (!_params.isFull) {
+      params.initial = { name: '热门', code: -1, active: true }
+    }
+
+    let result = {}
+    if (
+      artistLists.data?.info?.length &&
+      params?.type?.code === 0 &&
+      params?.sextypes?.code === 0 &&
+      params?.musician?.code === 0
+    ) {
+      result = artistLists
+    } else {
+      result = await get('artist/lists', {
+        sextypes: params?.sextypes?.code || 0,
+        type: params?.type?.code || 0,
+        musician: params?.musician?.code || 0
+      })
+    }
+
+    const data = result.data?.info
+      .find((item) => item.title === params.initial.name)
+      .singer.map((item) => ({
+        id: item.singerid,
+        name: item.singername,
+        pluginId: '',
+        picUrl: item.imgurl.replace('{size}', '256'),
+        sourceContext: { id: item.singerid }
+      }))
+    return {
+      code: result.status === 1 ? 200 : 404,
+      data,
+      sourceContext: { query: _params.query, offset: 30, loaded: true }
+    }
+  } catch {
+    return { code: 404, data: [], sourceContext: {} }
   }
 }
 
@@ -1055,23 +1086,27 @@ exports.artistsList = topArtists
  * @returns {{ code: number, hasMore: boolean, albums: Album[] }}
  */
 exports.topAlbums = async () => {
-  const result = await get('top/album')
-  const data = result.data
-  const albums = ['chn', 'eur', 'jpn', 'kor']
-    .flatMap((key) => data?.[key] ?? [])
-    .slice(0, 10)
-    .map((item) => ({
-      id: item.albumid,
-      name: item.albumname,
-      picUrl: item.imgurl.replace('{size}', '256'),
-      pluginId: '',
-      sourceContext: { id: item.albumid }
-    }))
-  return {
-    code: result.status === 1 ? 200 : 404,
-    hasMore: false,
-    albums,
-    sourceContext: { offset: albums.length }
+  try {
+    const result = await get('top/album')
+    const data = result.data
+    const albums = ['chn', 'eur', 'jpn', 'kor']
+      .flatMap((key) => data?.[key] ?? [])
+      .slice(0, 10)
+      .map((item) => ({
+        id: item.albumid,
+        name: item.albumname,
+        picUrl: item.imgurl.replace('{size}', '256'),
+        pluginId: '',
+        sourceContext: { id: item.albumid }
+      }))
+    return {
+      code: result.status === 1 ? 200 : 404,
+      hasMore: false,
+      albums,
+      sourceContext: { offset: albums.length }
+    }
+  } catch {
+    return { code: 404, hasMore: false, albums: [], sourceContext: {} }
   }
 }
 
@@ -1079,153 +1114,161 @@ exports.topAlbums = async () => {
  * @returns {{ code: number, data: Playlist[] }}
  */
 exports.rankTop = async () => {
-  const data = [
-    {
-      id: 6666,
-      name: '飙升榜',
-      picUrl: 'https://imge.kugou.com/mcommon/256/20241219/20241219193628550054.png',
-      playCount: 0,
-      pluginId: '',
-      isMine: false,
-      trackCount: -1,
-      isPrivate: false,
-      creator: {
-        userId: 0,
-        avatarUrl: '',
-        nickname: '',
-        isVip: false,
-        signature: '',
-        sourceContext: {}
+  try {
+    const data = [
+      {
+        id: 6666,
+        name: '飙升榜',
+        picUrl: 'https://imge.kugou.com/mcommon/256/20241219/20241219193628550054.png',
+        playCount: 0,
+        pluginId: '',
+        isMine: false,
+        trackCount: -1,
+        isPrivate: false,
+        creator: {
+          userId: 0,
+          avatarUrl: '',
+          nickname: '',
+          isVip: false,
+          signature: '',
+          sourceContext: {}
+        },
+        copywriter: '每天',
+        sourceContext: { id: 6666, type: 'rank' }
       },
-      copywriter: '每天',
-      sourceContext: { id: 6666, type: 'rank' }
-    },
-    {
-      id: 31308,
-      name: '内地榜',
-      picUrl: 'https://imge.kugou.com/mcommon/256/20241211/20241211192146592398.png',
-      playCount: 0,
-      pluginId: '',
-      isMine: false,
-      trackCount: -1,
-      isPrivate: false,
-      creator: {
-        userId: 0,
-        avatarUrl: '',
-        nickname: '',
-        isVip: false,
-        signature: '',
-        sourceContext: {}
+      {
+        id: 31308,
+        name: '内地榜',
+        picUrl: 'https://imge.kugou.com/mcommon/256/20241211/20241211192146592398.png',
+        playCount: 0,
+        pluginId: '',
+        isMine: false,
+        trackCount: -1,
+        isPrivate: false,
+        creator: {
+          userId: 0,
+          avatarUrl: '',
+          nickname: '',
+          isVip: false,
+          signature: '',
+          sourceContext: {}
+        },
+        copywriter: '工作日',
+        sourceContext: { id: 31308, type: 'rank' }
       },
-      copywriter: '工作日',
-      sourceContext: { id: 31308, type: 'rank' }
-    },
-    {
-      id: 4681,
-      name: '美国BillBoard榜',
-      picUrl: 'https://imge.kugou.com/mcommon/256/20241129/20241129191451959672.jpg',
-      playCount: 0,
-      pluginId: '',
-      isMine: false,
-      isPrivate: false,
-      trackCount: -1,
-      creator: {
-        userId: 0,
-        avatarUrl: '',
-        nickname: '',
-        isVip: false,
-        signature: '',
-        sourceContext: {}
+      {
+        id: 4681,
+        name: '美国BillBoard榜',
+        picUrl: 'https://imge.kugou.com/mcommon/256/20241129/20241129191451959672.jpg',
+        playCount: 0,
+        pluginId: '',
+        isMine: false,
+        isPrivate: false,
+        trackCount: -1,
+        creator: {
+          userId: 0,
+          avatarUrl: '',
+          nickname: '',
+          isVip: false,
+          signature: '',
+          sourceContext: {}
+        },
+        copywriter: '周三',
+        sourceContext: { id: 4681, type: 'rank' }
       },
-      copywriter: '周三',
-      sourceContext: { id: 4681, type: 'rank' }
-    },
-    {
-      id: 25028,
-      name: 'Beatport电子舞曲榜',
-      picUrl: 'https://imge.kugou.com/mcommon/256/20241129/20241129191254713903.jpg',
-      playCount: 0,
-      pluginId: '',
-      isMine: false,
-      trackCount: -1,
-      isPrivate: false,
-      creator: {
-        userId: 0,
-        avatarUrl: '',
-        nickname: '',
-        isVip: false,
-        signature: '',
-        sourceContext: {}
+      {
+        id: 25028,
+        name: 'Beatport电子舞曲榜',
+        picUrl: 'https://imge.kugou.com/mcommon/256/20241129/20241129191254713903.jpg',
+        playCount: 0,
+        pluginId: '',
+        isMine: false,
+        trackCount: -1,
+        isPrivate: false,
+        creator: {
+          userId: 0,
+          avatarUrl: '',
+          nickname: '',
+          isVip: false,
+          signature: '',
+          sourceContext: {}
+        },
+        copywriter: '周三',
+        sourceContext: { id: 25028, type: 'rank' }
       },
-      copywriter: '周三',
-      sourceContext: { id: 25028, type: 'rank' }
-    },
-    {
-      id: 4673,
-      name: '日本公信榜',
-      picUrl: 'https://imge.kugou.com/mcommon/256/20241129/20241129190753306040.jpg',
-      playCount: 0,
-      pluginId: '',
-      isMine: false,
-      trackCount: -1,
-      isPrivate: false,
-      creator: {
-        userId: 0,
-        avatarUrl: '',
-        nickname: '',
-        isVip: false,
-        signature: '',
-        sourceContext: {}
-      },
-      copywriter: '周五',
-      sourceContext: { id: 4673, type: 'rank' }
-    }
-  ]
-  return { code: 200, data }
+      {
+        id: 4673,
+        name: '日本公信榜',
+        picUrl: 'https://imge.kugou.com/mcommon/256/20241129/20241129190753306040.jpg',
+        playCount: 0,
+        pluginId: '',
+        isMine: false,
+        trackCount: -1,
+        isPrivate: false,
+        creator: {
+          userId: 0,
+          avatarUrl: '',
+          nickname: '',
+          isVip: false,
+          signature: '',
+          sourceContext: {}
+        },
+        copywriter: '周五',
+        sourceContext: { id: 4673, type: 'rank' }
+      }
+    ]
+    return { code: 200, data }
+  } catch {
+    return { code: 404, data: [] }
+  }
 }
 
 /**
  * @returns {{ code: number, data: Playlist[]}}
  */
 exports.rankList = async (params) => {
-  if (params.loaded) {
-    return { code: 200, data: [], sourceContext: { loaded: true } }
+  try {
+    if (params.loaded) {
+      return { code: 200, data: [], sourceContext: { loaded: true } }
+    }
+
+    const res = await get('rank/list', { timestamp: Date.now() })
+    const result = res.data.info.map((item) => ({
+      id: item.rankid,
+      name: item.rankname,
+      picUrl: item.imgurl.replace('{size}', '256'),
+      isMine: false,
+      trackCount: item.m_count || 0,
+      isPrivate: false,
+      creator: {
+        userId: 0,
+        avatarUrl: '',
+        nickname: '',
+        isVip: false,
+        signature: '',
+        sourceContext: {}
+      },
+      playCount: item.play_times,
+      copywriter: item.update_frequency,
+      pluginId: '',
+      tracks: item.songinfo.map((it) => ({
+        name: it.name,
+        artist: it.author,
+        souceContext: { id: it.audio_id }
+      })),
+      sourceContext: { id: item.rankid, type: 'rank' }
+    }))
+
+    const ids = [6666, 74534, 59896, 80025]
+    const map = new Map(result.map((item) => [item.id, item]))
+    const front = ids.map((id) => map.get(id)).filter(Boolean)
+    const rest = result.filter((item) => !ids.includes(item.id))
+    const data = [...front, ...rest]
+
+    return { code: res.status === 1 ? 200 : 404, data, sourceContext: { loaded: res.status === 1 } }
+  } catch {
+    return { code: 404, data: [], sourceContext: {} }
   }
-
-  const res = await get('rank/list', { timestamp: Date.now() })
-  const result = res.data.info.map((item) => ({
-    id: item.rankid,
-    name: item.rankname,
-    picUrl: item.imgurl.replace('{size}', '256'),
-    isMine: false,
-    trackCount: item.m_count || 0,
-    isPrivate: false,
-    creator: {
-      userId: 0,
-      avatarUrl: '',
-      nickname: '',
-      isVip: false,
-      signature: '',
-      sourceContext: {}
-    },
-    playCount: item.play_times,
-    copywriter: item.update_frequency,
-    pluginId: '',
-    tracks: item.songinfo.map((it) => ({
-      name: it.name,
-      artist: it.author,
-      souceContext: { id: it.audio_id }
-    })),
-    sourceContext: { id: item.rankid, type: 'rank' }
-  }))
-
-  const ids = [6666, 74534, 59896, 80025]
-  const map = new Map(result.map((item) => [item.id, item]))
-  const front = ids.map((id) => map.get(id)).filter(Boolean)
-  const rest = result.filter((item) => !ids.includes(item.id))
-  const data = [...front, ...rest]
-
-  return { code: res.status === 1 ? 200 : 404, data, sourceContext: { loaded: res.status === 1 } }
 }
 
 const buildRankDetail = (item) => ({
@@ -1334,128 +1377,148 @@ const getRankTracks = async (params) => {
  * @returns {{ code: number, data: PlaylistDetail }}
  */
 exports.getPlaylistDetail = async (params) => {
-  if (params.type === 'rank') {
-    return await rankToPlaylistDetail(params)
+  try {
+    if (params.type === 'rank') {
+      return await rankToPlaylistDetail(params)
+    }
+
+    const ids = params.gid || params.id || params.ids
+    if (!ids) return { code: 200, data: null }
+    const res = await get('playlist/detail', { ids })
+    const playlist = res.data[0]
+    const data = formatPlaylistDetail(playlist)
+    if (params.listid) data.sourceContext.listid = params.listid
+
+    return { code: res.status === 1 ? 200 : 404, data }
+  } catch {
+    return { code: 404, data: null }
   }
-
-  const ids = params.gid || params.id || params.ids
-  if (!ids) return { code: 200, data: null }
-  const res = await get('playlist/detail', { ids })
-  const playlist = res.data[0]
-  const data = formatPlaylistDetail(playlist)
-  if (params.listid) data.sourceContext.listid = params.listid
-
-  return { code: res.status === 1 ? 200 : 404, data }
 }
 
 /**
  * @param {{ sourceContext: { id: string, page: number }}} params 这里的参数由getPlaylistDetail里的sourceContext决定
  */
 exports.getPlaylistTracks = async (params) => {
-  if (params.type === 'rank') {
-    const result = await getRankTracks(params)
-    return {
-      ...result,
-      code: 200
+  try {
+    if (params.type === 'rank') {
+      const result = await getRankTracks(params)
+      return {
+        ...result,
+        code: 200
+      }
     }
+
+    const { id, page } = params
+    const result = await get('playlist/track/all', { id, page, pagesize, t: Date.now() })
+    const data = result.data.songs
+      .filter((item) => !item.shield && item.hash)
+      .map((item) => formatTrack(item, 64))
+
+    const sourceContext = { ...params, id, page: page + 1 }
+    return { code: result.status === 1 ? 200 : 404, data: data ?? [], sourceContext }
+  } catch {
+    return { code: 404, data: [], sourceContext: {} }
   }
-
-  const { id, page } = params
-  const result = await get('playlist/track/all', { id, page, pagesize, t: Date.now() })
-  const data = result.data.songs
-    .filter((item) => !item.shield && item.hash)
-    .map((item) => formatTrack(item, 64))
-
-  const sourceContext = { ...params, id, page: page + 1 }
-  return { code: result.status === 1 ? 200 : 404, data: data ?? [], sourceContext }
 }
 
 exports.catlist = async () => {
-  const result = await get('playlist/tags')
-  const data = {
-    static: [
-      { id: 0, name: '全部', sourceContext: { id: 0, name: '全部', loaded: true } },
-      {
-        id: 1084,
-        name: '精选',
-        sourceContext: { id: 1084, name: '精选', loaded: false }
-      },
-      {
-        id: 12,
-        name: '经典',
-        sourceContext: { id: 12, name: '经典', loaded: false }
-      },
-      {
-        id: 1085,
-        name: '官方歌单',
-        sourceContext: { id: 1085, name: '官方歌单', loaded: false }
-      }
-    ],
-    tagList: result.data?.map((item) => ({
-      id: Number(item.tag_id),
-      name: item.tag_name,
-      sub: item.son.map((it) => ({
-        id: Number(it.tag_id),
-        name: it.tag_name,
-        parentId: Number(it.parent_id),
-        sourceContext: { id: Number(it.tag_id), name: it.tag_name, loaded: false }
+  try {
+    const result = await get('playlist/tags')
+    const data = {
+      static: [
+        { id: 0, name: '全部', sourceContext: { id: 0, name: '全部', loaded: true } },
+        {
+          id: 1084,
+          name: '精选',
+          sourceContext: { id: 1084, name: '精选', loaded: false }
+        },
+        {
+          id: 12,
+          name: '经典',
+          sourceContext: { id: 12, name: '经典', loaded: false }
+        },
+        {
+          id: 1085,
+          name: '官方歌单',
+          sourceContext: { id: 1085, name: '官方歌单', loaded: false }
+        }
+      ],
+      tagList: result.data?.map((item) => ({
+        id: Number(item.tag_id),
+        name: item.tag_name,
+        sub: item.son.map((it) => ({
+          id: Number(it.tag_id),
+          name: it.tag_name,
+          parentId: Number(it.parent_id),
+          sourceContext: { id: Number(it.tag_id), name: it.tag_name, loaded: false }
+        }))
       }))
-    }))
-  }
+    }
 
-  return { code: result.status === 1 ? 200 : 404, data }
+    return { code: result.status === 1 ? 200 : 404, data }
+  } catch {
+    return { code: 404, data: null }
+  }
 }
 
 exports.getCategoryPlaylist = async (params) => {
-  const { id, loaded, reset } = params
-  if (!reset && loaded)
-    return {
-      code: 200,
-      data: [],
-      sourceContext: { ...params }
+  try {
+    const { id, loaded, reset } = params
+    if (!reset && loaded)
+      return {
+        code: 200,
+        data: [],
+        sourceContext: { ...params }
+      }
+
+    let result = null
+    for (let i = 0; i < 3; i++) {
+      result = await get('top/playlist', { category_id: id, t: Date.now() })
+      if (result.data.special_list) break
     }
 
-  let result = null
-  for (let i = 0; i < 3; i++) {
-    result = await get('top/playlist', { category_id: id, t: Date.now() })
-    if (result.data.special_list) break
-  }
-
-  const data = result.data.special_list?.map((item) => formatPlaylist(item, 'show')) || []
-  return {
-    code: result.status === 1 ? 200 : 404,
-    data,
-    sourceContext: { ...params, loaded: true }
+    const data = result.data.special_list?.map((item) => formatPlaylist(item, 'show')) || []
+    return {
+      code: result.status === 1 ? 200 : 404,
+      data,
+      sourceContext: { ...params, loaded: true }
+    }
+  } catch {
+    return { code: 404, data: [], sourceContext: { id: 0, offset: 0 } }
   }
 }
 
 exports.userPlaylist = async (params) => {
-  if (!user.userId) {
-    throw new Error('UNAUTHORIZED')
+  try {
+    if (!user.userId) {
+      throw new Error('UNAUTHORIZED')
+    }
+    await updateVip()
+
+    const page = params.page ?? 1
+    const result = await get('user/playlist', { page, pagesize, t: Date.now() })
+    if (result.status === 1 && result.data.info) {
+      collectedPlaylists.ids = result.data.info.map((item) => ({
+        id: item.list_create_gid || item.list_create_listid,
+        listid: item.listid
+      }))
+
+      const playlists = result.data.info
+        .filter((item) => item.source === 1)
+        .map((item) => formatPlaylist(item, 'intro'))
+      const sourceContext = { page: page + 1 }
+      const liked = playlists.splice(1, 1)[0]
+
+      const albums = result.data.info
+        .filter((item) => item.source === 2)
+        .map((item) => formatAlbum(item))
+
+      return { code: 200, liked, playlists, albums, sourceContext }
+    }
+    return { code: 200, liked: null, playlists: [], albums: [], sourceContext: { page: page + 1 } }
+  } catch {
+    return { code: 404, liked: null, playlists: [], albums: [], sourceContext: {} }
   }
-  await updateVip()
-
-  const page = params.page ?? 1
-  const result = await get('user/playlist', { page, pagesize, t: Date.now() })
-  if (result.status === 1 && result.data.info) {
-    collectedPlaylists.ids = result.data.info.map((item) => ({
-      id: item.list_create_gid || item.list_create_listid,
-      listid: item.listid
-    }))
-
-    const playlists = result.data.info
-      .filter((item) => item.source === 1)
-      .map((item) => formatPlaylist(item, 'intro'))
-    const sourceContext = { page: page + 1 }
-    const liked = playlists.splice(1, 1)[0]
-
-    const albums = result.data.info
-      .filter((item) => item.source === 2)
-      .map((item) => formatAlbum(item))
-
-    return { code: 200, liked, playlists, albums, sourceContext }
-  }
-  return { code: 200, liked: null, playlists: [], albums: [], sourceContext: { page: page + 1 } }
 }
 
 /**
@@ -1463,145 +1526,173 @@ exports.userPlaylist = async (params) => {
  */
 
 exports.userLikedArtists = async () => {
-  if (!user.userId) return { code: 200, data: [], sourceContext: {} }
+  try {
+    if (!user.userId) return { code: 200, data: [], sourceContext: {} }
 
-  const result = await get('user/follow', { t: Date.now() })
+    const result = await get('user/follow', { t: Date.now() })
 
-  if (result.status === 1) {
-    collectedArtists.ids = result.data.lists.map((item) => String(item.singerid || item.userid))
+    if (result.status === 1) {
+      collectedArtists.ids = result.data.lists.map((item) => String(item.singerid || item.userid))
 
-    const data = result.data.lists
-      .filter((item) => !!item.singerid)
-      .map((item) => ({
-        id: item.singerid || item.userid,
-        name: item.nickname,
-        picUrl: item.pic.replace(/\/\d+\//, `/256/`),
-        pluginId: '',
-        // sourceContext: { id: item.userid, singerid: item.singerid }
-        sourceContext: { id: item.singerid }
-      }))
+      const data = result.data.lists
+        .filter((item) => !!item.singerid)
+        .map((item) => ({
+          id: item.singerid || item.userid,
+          name: item.nickname,
+          picUrl: item.pic.replace(/\/\d+\//, `/256/`),
+          pluginId: '',
+          // sourceContext: { id: item.userid, singerid: item.singerid }
+          sourceContext: { id: item.singerid }
+        }))
 
-    return { code: 200, data, sourceContext: {} }
+      return { code: 200, data, sourceContext: {} }
+    }
+    return { code: 200, data: [], sourceContext: {} }
+  } catch {
+    return { code: 404, data: [], sourceContext: {} }
   }
-  return { code: 200, data: [], sourceContext: {} }
 }
 
 exports.userLikedMVs = async (params) => {
-  if (!user.userId) return { code: 200, data: [], sourceContext: {} }
+  try {
+    if (!user.userId) return { code: 200, data: [], sourceContext: {} }
 
-  const page = params.page || 1
-  const result = await get('user/video/collect', { page, pagesize })
+    const page = params.page || 1
+    const result = await get('user/video/collect', { page, pagesize })
 
-  if (result.status === 1 && result.data.ctotal > 0) {
-    collectedMVs.ids = result.data.info.map((item) => String(item.video_id || item.MvID))
+    if (result.status === 1 && result.data.ctotal > 0) {
+      collectedMVs.ids = result.data.info.map((item) => String(item.video_id || item.MvID))
 
-    const data = result.data.info.map(formatMv)
-    return { code: 200, data, sourceContext: { page: page + 1 } }
+      const data = result.data.info.map(formatMv)
+      return { code: 200, data, sourceContext: { page: page + 1 } }
+    }
+
+    return { code: 200, data: [], sourceContext: {} }
+  } catch {
+    return { code: 404, data: [], sourceContext: {} }
   }
-
-  return { code: 200, data: [], sourceContext: {} }
 }
 
 /**
  * @param {Record<string, any>} params
  */
 exports.cloudDisk = async (params) => {
-  if (!user.userId) return { code: 200, data: [], sourceContext: {} }
+  try {
+    if (!user.userId) return { code: 200, data: [], sourceContext: {} }
 
-  const page = params.page || 1
-  const result = await get('user/cloud', { page, pagesize })
-  if (result.status === 1 && result.data.list) {
-    const data = result.data.list
-      .filter((item) => !item.shield && item.hash)
-      .map((item) => formatTrack(item, 64))
-    return { code: 200, data, sourceContext: { page: page + 1 } }
+    const page = params.page || 1
+    const result = await get('user/cloud', { page, pagesize })
+    if (result.status === 1 && result.data.list) {
+      const data = result.data.list
+        .filter((item) => !item.shield && item.hash)
+        .map((item) => formatTrack(item, 64))
+      return { code: 200, data, sourceContext: { page: page + 1 } }
+    }
+    return { code: 200, data: [], sourceContext: {} }
+  } catch {
+    return { code: 404, data: [], sourceContext: {} }
   }
-  return { code: 200, data: [], sourceContext: {} }
 }
 
 exports.albumDetail = async (params) => {
-  const id = params.id
-  const result = await get('album/detail', { id })
-  const res = await get('album/songs', { id })
+  try {
+    const id = params.id
+    const result = await get('album/detail', { id })
+    const res = await get('album/songs', { id })
 
-  if (result.status === 1 && res.data) {
-    const album = formatAlbumDetail(result.data[0])
-    album.songs = res.data.songs.map(buildAlbumTrack)
-    album.artists = album.songs?.[0]?.artists || [
-      { id: 0, name: '', picUrl: '', pluginId: '', sourceContext: {} }
-    ]
-    album.size = res.total
-    return { code: 200, data: album }
+    if (result.status === 1 && res.data) {
+      const album = formatAlbumDetail(result.data[0])
+      album.songs = res.data.songs.map(buildAlbumTrack)
+      album.artists = album.songs?.[0]?.artists || [
+        { id: 0, name: '', picUrl: '', pluginId: '', sourceContext: {} }
+      ]
+      album.size = res.total
+      return { code: 200, data: album }
+    }
+    return { code: 200, data: null }
+  } catch {
+    return { code: 404, data: null }
   }
-  return { code: 200, data: null }
 }
 
 /**
  * @returns {Album}
  */
 exports.artistAlbums = async (params) => {
-  const { id, page } = params
-  const result = await get('artist/albums', { id, pagesize, page: page ?? 1 })
-  if (result.status === 1) {
-    const data = result.data.map((item) => ({
-      id: item.album_id,
-      name: item.album_name,
-      picUrl: (item.sizable_cover || 'https://c1.kgimg.com/stdmusic/aaa/ddd/ddd.jpg').replace(
-        '{size}',
-        '256'
-      ),
-      createTime: parseDate(item.publish_date) || 0,
-      copywriter: `${item.type} · ${new Date(item.publish_date).getFullYear()}`,
-      type: albumTypeMap[item.type] || '其他',
-      pluginId: '',
-      sourceContext: { id: item.album_id }
-    }))
-    return { code: 200, data, sourceContext: { id, page: (page || 1) + 1 } }
+  try {
+    const { id, page } = params
+    const result = await get('artist/albums', { id, pagesize, page: page ?? 1 })
+    if (result.status === 1) {
+      const data = result.data.map((item) => ({
+        id: item.album_id,
+        name: item.album_name,
+        picUrl: (item.sizable_cover || 'https://c1.kgimg.com/stdmusic/aaa/ddd/ddd.jpg').replace(
+          '{size}',
+          '256'
+        ),
+        createTime: parseDate(item.publish_date) || 0,
+        copywriter: `${item.type} · ${new Date(item.publish_date).getFullYear()}`,
+        type: albumTypeMap[item.type] || '其他',
+        pluginId: '',
+        sourceContext: { id: item.album_id }
+      }))
+      return { code: 200, data, sourceContext: { id, page: (page || 1) + 1 } }
+    }
+    return { code: 200, data: [], sourceContext: { id, page: (page || 1) + 1 } }
+  } catch {
+    return { code: 404, data: [], sourceContext: {} }
   }
-  return { code: 200, data: [], sourceContext: { id, page: (page || 1) + 1 } }
 }
 
 exports.artistDetail = async (params) => {
-  const { id, page } = params
-  // const result = await get('artist/detail', { id })
-  const [result, res] = await Promise.all([
-    get('artist/detail', { id }),
-    get('artist/audios', { id, page, sort: 'hot' })
-  ])
-  if (result.status === 1) {
-    const artist = {
-      id: result.data.author_id,
-      name: result.data.author_name,
-      picUrl: result.data.sizable_avatar.replace('{size}', '512'),
-      musicSize: result.data.song_count,
-      albumSize: result.data.album_count,
-      mvSize: result.data.mv_count,
-      description: result.data.intro,
-      followed: collectedArtists.ids.includes(String(id)),
-      pluginId: '',
-      sourceContext: { id: result.data.author_id }
-    }
-    let songs = []
+  try {
+    const { id, page } = params
+    // const result = await get('artist/detail', { id })
+    const [result, res] = await Promise.all([
+      get('artist/detail', { id }),
+      get('artist/audios', { id, page, sort: 'hot' })
+    ])
+    if (result.status === 1) {
+      const artist = {
+        id: result.data.author_id,
+        name: result.data.author_name,
+        picUrl: result.data.sizable_avatar.replace('{size}', '512'),
+        musicSize: result.data.song_count,
+        albumSize: result.data.album_count,
+        mvSize: result.data.mv_count,
+        description: result.data.intro,
+        followed: collectedArtists.ids.includes(String(id)),
+        pluginId: '',
+        sourceContext: { id: result.data.author_id }
+      }
+      let songs = []
 
-    if (res.status === 1) {
-      songs = res.data.map((item) => formatTrack(item, 64, id))
+      if (res.status === 1) {
+        songs = res.data.map((item) => formatTrack(item, 64, id))
+      }
+      return { code: 200, artist, songs, sourceContext: { id, page: (page || 1) + 1 } }
     }
-    return { code: 200, artist, songs, sourceContext: { id, page: (page || 1) + 1 } }
+    return { code: 200, artist: null, songs: [], sourceContext: { id, page: (page || 1) + 1 } }
+  } catch {
+    return { code: 404, artist: null, songs: [], sourceContext: {} }
   }
-  return { code: 200, artist: null, songs: [], sourceContext: { id, page: (page || 1) + 1 } }
 }
 
 exports.artistMVs = async (params) => {
-  const { id, page = 1, limit: pagesize = 30, offset = 0 } = params
-  const _page = Math.floor(offset / pagesize) + 1
+  try {
+    const { id, page = 1, limit: pagesize = 30, offset = 0 } = params
+    const _page = Math.floor(offset / pagesize) + 1
 
-  const result = await get('artist/videos', { id, pagesize, page: Math.max(page, _page) })
-  if (result.status === 1) {
-    const data = result.data.map(formatMv)
-    return { code: 200, data, sourceContext: { id, page: Math.max(page, _page) + 1 } }
+    const result = await get('artist/videos', { id, pagesize, page: Math.max(page, _page) })
+    if (result.status === 1) {
+      const data = result.data.map(formatMv)
+      return { code: 200, data, sourceContext: { id, page: Math.max(page, _page) + 1 } }
+    }
+
+    return { code: 200, data: [], sourceContext: { id, page: Math.max(page, _page) + 1 } }
+  } catch {
+    return { code: 404, data: [], sourceContext: {} }
   }
-
-  return { code: 200, data: [], sourceContext: { id, page: Math.max(page, _page) + 1 } }
 }
 
 const shuffle = (arr) => {
@@ -1613,25 +1704,29 @@ const shuffle = (arr) => {
 }
 
 exports.simiArtists = async () => {
-  let result = {}
-  if (artistLists.data?.info.length) {
-    result = artistLists
-  } else {
-    result = await get('artist/lists', { type: 0, hotsize: 30 })
-  }
-  const data = result.data.info
-    .find((item) => item.title === '热门')
-    .singer.map((item) => ({
-      id: item.singerid,
-      name: item.singername,
-      pluginId: '',
-      picUrl: item.imgurl.replace('{size}', '256'),
-      sourceContext: { id: item.singerid }
-    }))
-  return {
-    code: result.status === 1 ? 200 : 404,
-    data: shuffle(data),
-    sourceContext: { offset: 30 }
+  try {
+    let result = {}
+    if (artistLists.data?.info.length) {
+      result = artistLists
+    } else {
+      result = await get('artist/lists', { type: 0, hotsize: 30 })
+    }
+    const data = result.data.info
+      .find((item) => item.title === '热门')
+      .singer.map((item) => ({
+        id: item.singerid,
+        name: item.singername,
+        pluginId: '',
+        picUrl: item.imgurl.replace('{size}', '256'),
+        sourceContext: { id: item.singerid }
+      }))
+    return {
+      code: result.status === 1 ? 200 : 404,
+      data: shuffle(data),
+      sourceContext: { offset: 30 }
+    }
+  } catch {
+    return { code: 404, data: [], sourceContext: {} }
   }
 }
 
@@ -1642,28 +1737,32 @@ exports.simiArtists = async () => {
  * @param { Record<string, anu>[] } params.tracks
  */
 const addOrRemoveTracksToPlaylist = async (params) => {
-  const { op, playlist, tracks } = params
-  if (op === 'add') {
-    const data = tracks
-      .map(
-        (track) =>
-          `${track.sourceContext?.name || track.name}|${track.sourceContext?.hash || track.hash}`
-      )
-      .join(',')
-    const result = await get('playlist/tracks/add', {
-      listid: playlist.listid,
-      data,
-      t: Date.now()
-    })
-    return { code: result.status === 1 ? 200 : 404 }
-  } else if (op === 'del') {
-    const fileids = tracks.map((track) => track.sourceContext?.fileid || track.fileid).join(',')
-    const result = await get('playlist/tracks/del', {
-      listid: playlist.listid,
-      fileids,
-      t: Date.now()
-    })
-    return { code: result.status === 1 ? 200 : 404 }
+  try {
+    const { op, playlist, tracks } = params
+    if (op === 'add') {
+      const data = tracks
+        .map(
+          (track) =>
+            `${track.sourceContext?.name || track.name}|${track.sourceContext?.hash || track.hash}`
+        )
+        .join(',')
+      const result = await get('playlist/tracks/add', {
+        listid: playlist.listid,
+        data,
+        t: Date.now()
+      })
+      return { code: result.status === 1 ? 200 : 404 }
+    } else if (op === 'del') {
+      const fileids = tracks.map((track) => track.sourceContext?.fileid || track.fileid).join(',')
+      const result = await get('playlist/tracks/del', {
+        listid: playlist.listid,
+        fileids,
+        t: Date.now()
+      })
+      return { code: result.status === 1 ? 200 : 404 }
+    }
+  } catch {
+    return { code: 404 }
   }
 }
 
@@ -1672,88 +1771,92 @@ exports.addOrRemoveTracksToPlaylist = addOrRemoveTracksToPlaylist
 exports.likeATrack = addOrRemoveTracksToPlaylist
 
 exports.search = async (params) => {
-  const { tab, keywords, page: _page = 1, reset = true, count: _count = 0 } = params
-  const count = reset ? 0 : _count
-  if (count && count <= _page * 30) {
-    return { code: 200, data: [], count, sourceContext: { page: _page, count } }
-  }
+  try {
+    const { tab, keywords, page: _page = 1, reset = true, count: _count = 0 } = params
+    const count = reset ? 0 : _count
+    if (count && count <= _page * 30) {
+      return { code: 200, data: [], count, sourceContext: { page: _page, count } }
+    }
 
-  const map = {
-    tracks: 'song',
-    albums: 'album',
-    artists: 'author',
-    playlists: 'special',
-    mvs: 'mv',
-    lyrics: 'lyric'
-  }
-  const type = map[tab]
-  const page = reset ? 1 : _page
-  const result = await get('search', { keywords, page, type })
+    const map = {
+      tracks: 'song',
+      albums: 'album',
+      artists: 'author',
+      playlists: 'special',
+      mvs: 'mv',
+      lyrics: 'lyric'
+    }
+    const type = map[tab]
+    const page = reset ? 1 : _page
+    const result = await get('search', { keywords, page, type })
 
-  if (tab === 'tracks') {
-    const data = result.data.lists.map((item) => formatTrack(item, 64))
-    return {
-      code: 200,
-      data,
-      count: result.data?.total || count,
-      sourceContext: { page: page + 1, count: result.data?.total || count }
-    }
-  } else if (tab === 'albums') {
-    const data = result.data.lists.map(formatAlbum)
-    return {
-      code: 200,
-      data,
-      count: result.data?.total || count,
-      sourceContext: {
-        page: page + 1,
-        count: result.data?.total || count
+    if (tab === 'tracks') {
+      const data = result.data.lists.map((item) => formatTrack(item, 64))
+      return {
+        code: 200,
+        data,
+        count: result.data?.total || count,
+        sourceContext: { page: page + 1, count: result.data?.total || count }
+      }
+    } else if (tab === 'albums') {
+      const data = result.data.lists.map(formatAlbum)
+      return {
+        code: 200,
+        data,
+        count: result.data?.total || count,
+        sourceContext: {
+          page: page + 1,
+          count: result.data?.total || count
+        }
+      }
+    } else if (tab === 'artists') {
+      const data = result.data.lists.map((item) => ({
+        id: item.author_id || item.AuthorId || '',
+        name: item.author_name || item.AuthorName || '',
+        picUrl: (item.sizable_avatar || item.Avatar || 'vutron://get-singer-pic').replace(
+          '{size}',
+          '256'
+        ),
+        pluginId: '',
+        sourceContext: { id: item.author_id || item.AuthorId || '' }
+      }))
+      return {
+        code: 200,
+        data,
+        count: result.data?.total || count,
+        sourceContext: {
+          page: page + 1,
+          count: result.data?.total || count
+        }
+      }
+    } else if (tab === 'playlists') {
+      const data = result.data.lists.map((item) => formatPlaylist(item, 'show'))
+      return {
+        code: 200,
+        data,
+        count: result.data?.total || count,
+        sourceContext: {
+          page: page + 1,
+          count: result.data?.total || count
+        }
+      }
+    } else if (tab === 'mvs') {
+      const data = result.data.lists.map(formatMv)
+      return {
+        code: 200,
+        data,
+        count: result.data?.total || count,
+        sourceContext: {
+          page: page + 1,
+          count: result.data?.total || count
+        }
       }
     }
-  } else if (tab === 'artists') {
-    const data = result.data.lists.map((item) => ({
-      id: item.author_id || item.AuthorId || '',
-      name: item.author_name || item.AuthorName || '',
-      picUrl: (item.sizable_avatar || item.Avatar || 'vutron://get-singer-pic').replace(
-        '{size}',
-        '256'
-      ),
-      pluginId: '',
-      sourceContext: { id: item.author_id || item.AuthorId || '' }
-    }))
-    return {
-      code: 200,
-      data,
-      count: result.data?.total || count,
-      sourceContext: {
-        page: page + 1,
-        count: result.data?.total || count
-      }
-    }
-  } else if (tab === 'playlists') {
-    const data = result.data.lists.map((item) => formatPlaylist(item, 'show'))
-    return {
-      code: 200,
-      data,
-      count: result.data?.total || count,
-      sourceContext: {
-        page: page + 1,
-        count: result.data?.total || count
-      }
-    }
-  } else if (tab === 'mvs') {
-    const data = result.data.lists.map(formatMv)
-    return {
-      code: 200,
-      data,
-      count: result.data?.total || count,
-      sourceContext: {
-        page: page + 1,
-        count: result.data?.total || count
-      }
-    }
-  }
 
-  return { code: 200, data: [], count, sourceContext: {} }
+    return { code: 200, data: [], count, sourceContext: {} }
+  } catch {
+    return { code: 404, data: [], count: 0, sourceContext: {} }
+  }
 }
 
 /**
@@ -1763,34 +1866,38 @@ exports.search = async (params) => {
  * 选最佳匹配返回。>=80 分自动接受，>=50 分标记待确认。
  */
 exports.matchTrack = async (params) => {
-  const kw = `${params.name} ${params.artists[0] || ''}`
-  const result = await get('search', { keywords: kw, page: 1, type: 'song' })
-  if (!result.data || !result.data.lists || !result.data.lists.length) return { code: 404 }
+  try {
+    const kw = `${params.name} ${params.artists[0] || ''}`
+    const result = await get('search', { keywords: kw, page: 1, type: 'song' })
+    if (!result.data || !result.data.lists || !result.data.lists.length) return { code: 404 }
 
-  // 先 formatTrack 再 scoreMatch，确保结果里有封面
-  const scored = result.data.lists
-    .map((candidate) => ({
-      raw: candidate,
-      track: formatTrack(candidate, 512),
-      _score: scoreMatch(params, candidate)
-    }))
-    .sort((a, b) => b._score - a._score)
+    // 先 formatTrack 再 scoreMatch，确保结果里有封面
+    const scored = result.data.lists
+      .map((candidate) => ({
+        raw: candidate,
+        track: formatTrack(candidate, 512),
+        _score: scoreMatch(params, candidate)
+      }))
+      .sort((a, b) => b._score - a._score)
 
-  const best = scored[0]
-  if (!best || best._score < 50) return { code: 404 }
+    const best = scored[0]
+    if (!best || best._score < 50) return { code: 404 }
 
-  return {
-    code: 200,
-    data: {
-      id: best.track.id,
-      name: best.track.name,
-      duration: best.track.duration,
-      artists: best.track.artists,
-      album: best.track.album,
-      picUrl: best.track.picUrl || best.track.album.picUrl,
-      sourceContext: best.track.sourceContext,
-      confidence: best._score
+    return {
+      code: 200,
+      data: {
+        id: best.track.id,
+        name: best.track.name,
+        duration: best.track.duration,
+        artists: best.track.artists,
+        album: best.track.album,
+        picUrl: best.track.picUrl || best.track.album.picUrl,
+        sourceContext: best.track.sourceContext,
+        confidence: best._score
+      }
     }
+  } catch {
+    return { code: 404 }
   }
 }
 
@@ -1875,26 +1982,30 @@ const parseKrcLyricString = (lyrics) => {
  * @returns {LyricLine[]}
  */
 exports.getLyric = async (params) => {
-  let result = null
-  for (let i = 0; i < 3; i++) {
-    try {
-      const r = await get('search/lyric', { hash: params.hash })
-      if (r.candidates?.length) {
-        result = r
-        break
-      }
-    } catch {}
-  }
+  try {
+    let result = null
+    for (let i = 0; i < 3; i++) {
+      try {
+        const r = await get('search/lyric', { hash: params.hash })
+        if (r.candidates?.length) {
+          result = r
+          break
+        }
+      } catch {}
+    }
 
-  if (!result || !result.candidates?.length) return []
+    if (!result || !result.candidates?.length) return []
 
-  const { id, accesskey } = result.candidates[0]
-  const res = await get('lyric', { id, accesskey, fmt: 'krc', decode: true })
-  let data = parseKrcLyricString(res.decodeContent)
-  if (!data.length) {
-    data = await apis.utils.parseLyric(res.decodeContent)
+    const { id, accesskey } = result.candidates[0]
+    const res = await get('lyric', { id, accesskey, fmt: 'krc', decode: true })
+    let data = parseKrcLyricString(res.decodeContent)
+    if (!data.length) {
+      data = await apis.utils.parseLyric(res.decodeContent)
+    }
+    return { code: 200, data }
+  } catch {
+    return []
   }
-  return { code: 200, data }
 }
 
 /**
@@ -1909,52 +2020,57 @@ exports.resizePicUrl = (params) => {
  * @param {{ tracks: Record<string, any> }} params
  */
 exports.getTrackDetail = async (params) => {
-  const sources = params.tracks
-  const size = sources.length === 1 ? '512' : '256'
-  const hash = sources.map((item) => item.hash).join(',')
-  const result = await get('privilege/lite', { hash })
+  try {
+    const sources = params.tracks
+    const size = sources.length === 1 ? '512' : '256'
+    const hash = sources.map((item) => item.hash).join(',')
+    const result = await get('privilege/lite', { hash })
 
-  if (result.status === 1) {
-    const data = result.data.map((item, idx) => {
-      const { album, artists: _ar, picUrl: image } = sources[idx]
+    if (result.status === 1) {
+      const data = result.data.map((item, idx) => {
+        const { album, artists: _ar, picUrl: image } = sources[idx]
 
-      const res = isTrackPlayable(item)
-      const picUrl = item.info?.image?.replace('{size}', size) || image.replace(/\/\d+\//, `/512/`)
+        const res = isTrackPlayable(item)
+        const picUrl =
+          item.info?.image?.replace('{size}', size) || image.replace(/\/\d+\//, `/512/`)
 
-      const artists = _ar.map((it) => ({
-        ...it,
-        picUrl: '',
-        pluginId: '',
-        sourceContext: { id: it.id }
-      }))
-      return {
-        id: item.id,
-        name: item.name?.split('-')[1]?.trim() ?? item.name ?? '',
-        duration: item.info.duration,
-        alias: [],
-        createTime: 0,
-        no: 0,
-        playable: res.playable,
-        reason: res.reason,
-        mvid: 0,
-        playCount: 0,
-        album: {
-          ...album,
+        const artists = _ar.map((it) => ({
+          ...it,
+          picUrl: '',
+          pluginId: '',
+          sourceContext: { id: it.id }
+        }))
+        return {
+          id: item.id,
+          name: item.name?.split('-')[1]?.trim() ?? item.name ?? '',
+          duration: item.info.duration,
+          alias: [],
+          createTime: 0,
+          no: 0,
+          playable: res.playable,
+          reason: res.reason,
+          mvid: 0,
+          playCount: 0,
+          album: {
+            ...album,
+            picUrl,
+            pluginId: '',
+            sourceContext: { id: album.id }
+          },
+          artists,
+          albumArtists: artists,
           picUrl,
           pluginId: '',
-          sourceContext: { id: album.id }
-        },
-        artists,
-        albumArtists: artists,
-        picUrl,
-        pluginId: '',
-        type: meta.type,
-        sourceContext: sources[idx]
-      }
-    })
-    return { code: 200, data }
+          type: meta.type,
+          sourceContext: sources[idx]
+        }
+      })
+      return { code: 200, data }
+    }
+    return { code: 200, data: [] }
+  } catch {
+    return { code: 404, data: [] }
   }
-  return { code: 200, data: [] }
 }
 
 /**
@@ -1963,42 +2079,54 @@ exports.getTrackDetail = async (params) => {
  * @returns {{ stauts: string, pid: number | string }}
  */
 exports.createPlaylist = async (params) => {
-  const { name, isPrivate } = params
-  const res = await get('playlist/add', {
-    name,
-    list_create_userid: user.userId,
-    is_pri: isPrivate ? 1 : 0,
-    type: 0
-  })
-  if (res.status === 1) {
-    const playlist = formatPlaylist(res.data.info)
-    return { code: 200, data: playlist }
+  try {
+    const { name, isPrivate } = params
+    const res = await get('playlist/add', {
+      name,
+      list_create_userid: user.userId,
+      is_pri: isPrivate ? 1 : 0,
+      type: 0
+    })
+    if (res.status === 1) {
+      const playlist = formatPlaylist(res.data.info)
+      return { code: 200, data: playlist }
+    }
+    return { code: 404 }
+  } catch {
+    return { code: 404 }
   }
-  return { code: 404 }
 }
 
 exports.subscribePlaylist = async (params) => {
-  const { op, id, gid, name, listid /** tracks , createListid */ } = params
+  try {
+    const { op, id, gid, name, listid /** tracks , createListid */ } = params
 
-  if (op === 'add') {
-    const res = await get('playlist/add', {
-      name,
-      list_create_gid: gid || id,
-      list_create_userid: user.userId,
-      type: 1,
-      source: 1 // 这里的source应该是歌单或者album，2是album
-    })
-    return { code: res.status === 1 ? 200 : 404 }
-  } else {
-    const res = await get('playlist/del', { listid })
-    return { code: res.status === 1 ? 200 : 404 }
+    if (op === 'add') {
+      const res = await get('playlist/add', {
+        name,
+        list_create_gid: gid || id,
+        list_create_userid: user.userId,
+        type: 1,
+        source: 1 // 这里的source应该是歌单或者album，2是album
+      })
+      return { code: res.status === 1 ? 200 : 404 }
+    } else {
+      const res = await get('playlist/del', { listid })
+      return { code: res.status === 1 ? 200 : 404 }
+    }
+  } catch {
+    return { code: 404 }
   }
 }
 
 exports.deletePlaylist = async (params) => {
-  const { listid } = params
-  const res = await get('playlist/del', { listid })
-  return { code: res.status === 1 ? 200 : 404 }
+  try {
+    const { listid } = params
+    const res = await get('playlist/del', { listid })
+    return { code: res.status === 1 ? 200 : 404 }
+  } catch {
+    return { code: 404 }
+  }
 }
 
 /**
@@ -2010,51 +2138,63 @@ exports.editPlaylist = async (_params) => {
 }
 
 exports.followArtist = async (params) => {
-  const { op, id } = params
-  if (op === 'follow') {
-    const result = await get('artist/follow', { id, t: Date.now() })
-    return { code: result.status === 1 ? 200 : 404 }
-  } else if (op === 'unfollow') {
-    const result = await get('artist/unfollow', { id, t: Date.now() })
-    return { code: result.status === 1 ? 200 : 404 }
+  try {
+    const { op, id } = params
+    if (op === 'follow') {
+      const result = await get('artist/follow', { id, t: Date.now() })
+      return { code: result.status === 1 ? 200 : 404 }
+    } else if (op === 'unfollow') {
+      const result = await get('artist/unfollow', { id, t: Date.now() })
+      return { code: result.status === 1 ? 200 : 404 }
+    }
+    return { code: 404 }
+  } catch {
+    return { code: 404 }
   }
-  return { code: 404 }
 }
 
 exports.subscribeAlbum = async (params) => {
-  const { op, id, name, authorId, listid } = params
-  if (op === 'add') {
-    const result = await get('playlist/add', {
-      name,
-      list_create_listid: id,
-      type: 1,
-      source: 2,
-      list_create_userid: authorId
-    })
-    return { code: result.status === 1 ? 200 : 404 }
-  } else {
-    const result = await get('playlist/del', { listid })
-    return { code: result.status === 1 ? 200 : 404 }
+  try {
+    const { op, id, name, authorId, listid } = params
+    if (op === 'add') {
+      const result = await get('playlist/add', {
+        name,
+        list_create_listid: id,
+        type: 1,
+        source: 2,
+        list_create_userid: authorId
+      })
+      return { code: result.status === 1 ? 200 : 404 }
+    } else {
+      const result = await get('playlist/del', { listid })
+      return { code: result.status === 1 ? 200 : 404 }
+    }
+  } catch {
+    return { code: 404 }
   }
 }
 
 exports.songUrl = async (params) => {
-  if (params.hash) {
-    const result = await get('song/url', {
-      hash: params.hash,
-      quality: 'high',
-      ppage_id: 356753938
-    })
+  try {
+    if (params.hash) {
+      const result = await get('song/url', {
+        hash: params.hash,
+        quality: 'high',
+        ppage_id: 356753938
+      })
 
-    if (result.status === 1) {
-      const url = [...result.url, ...result.backupUrl]
+      if (result.status === 1) {
+        const url = [...result.url, ...result.backupUrl]
 
-      const replayGain = result.volume || 0
-      const peak = 10 ** ((result.volume_peak || 1) / 20)
-      return { code: 200, data: { url, replayGain, peak } }
+        const replayGain = result.volume || 0
+        const peak = 10 ** ((result.volume_peak || 1) / 20)
+        return { code: 200, data: { url, replayGain, peak } }
+      }
     }
+    return { code: 200, data: { url: [], replayGain: 0, peak: 1 } }
+  } catch {
+    return { code: 404, data: { url: [], replayGain: -14, peak: 1 } }
   }
-  return { code: 200, data: { url: [], replayGain: 0, peak: 1 } }
 }
 
 exports.getTrackCatlist = () => ({
@@ -2063,20 +2203,24 @@ exports.getTrackCatlist = () => ({
 })
 
 exports.topSong = async (params) => {
-  if (params.hasMore === false && !params.reset) {
-    return { code: 200, data: [], sourceContext: { ...params, hasMore: false } }
-  }
-
-  const result = await get('top/song', { pagesize: 100, page: params.reset ? 1 : params.page })
-  if (result.status === 1 && Array.isArray(result.data)) {
-    const data = result.data.map((item) => formatTrack(item, 64))
-    return {
-      code: 200,
-      data,
-      sourceContext: { ...params, page: (params.reset ? 1 : params.page) + 1 }
+  try {
+    if (params.hasMore === false && !params.reset) {
+      return { code: 200, data: [], sourceContext: { ...params, hasMore: false } }
     }
+
+    const result = await get('top/song', { pagesize: 100, page: params.reset ? 1 : params.page })
+    if (result.status === 1 && Array.isArray(result.data)) {
+      const data = result.data.map((item) => formatTrack(item, 64))
+      return {
+        code: 200,
+        data,
+        sourceContext: { ...params, page: (params.reset ? 1 : params.page) + 1 }
+      }
+    }
+    return { code: 200, data: [], sourceContext: { ...params, hasMore: false } }
+  } catch {
+    return { code: 404, data: [], sourceContext: {} }
   }
-  return { code: 200, data: [], sourceContext: { ...params, hasMore: false } }
 }
 
 exports.getAlbumCatlist = () => ({
@@ -2091,25 +2235,31 @@ exports.getAlbumCatlist = () => ({
 })
 
 exports.newAlbums = async (params) => {
-  const { code } = params
+  try {
+    const { code } = params
 
-  const result = await get('top/album')
-  const data = result.data
+    const result = await get('top/album')
+    const data = result.data
 
-  if (code === 'all') {
-    const albums = ['chn', 'eur', 'jpn', 'kor'].flatMap((key) => data?.[key] ?? []).map(formatAlbum)
-    return {
-      code: result.status === 1 ? 200 : 404,
-      data: albums,
-      sourceContext: { offset: albums.length }
+    if (code === 'all') {
+      const albums = ['chn', 'eur', 'jpn', 'kor']
+        .flatMap((key) => data?.[key] ?? [])
+        .map(formatAlbum)
+      return {
+        code: result.status === 1 ? 200 : 404,
+        data: albums,
+        sourceContext: { offset: albums.length }
+      }
+    } else {
+      const albums = data?.[code]?.map(formatAlbum) || []
+      return {
+        code: result.status === 1 ? 200 : 404,
+        data: albums,
+        sourceContext: { offset: albums.length }
+      }
     }
-  } else {
-    const albums = data?.[code]?.map(formatAlbum) || []
-    return {
-      code: result.status === 1 ? 200 : 404,
-      data: albums,
-      sourceContext: { offset: albums.length }
-    }
+  } catch {
+    return { code: 404, data: [], sourceContext: {} }
   }
 }
 
@@ -2234,15 +2384,19 @@ const parseMvQualities = async (h264) => {
 }
 
 exports.mvDetail = async (params) => {
-  const result = await get('video/detail', { id: params.id })
-  if (result.status === 1 && result.data) {
-    const item = result.data[0]
-    item.sources = await parseMvQualities(item)
-    const data = formatMvDetail(item)
-    return { code: 200, data }
-  }
+  try {
+    const result = await get('video/detail', { id: params.id })
+    if (result.status === 1 && result.data) {
+      const item = result.data[0]
+      item.sources = await parseMvQualities(item)
+      const data = formatMvDetail(item)
+      return { code: 200, data }
+    }
 
-  return { code: 200, data: null }
+    return { code: 200, data: null }
+  } catch {
+    return { code: 404, data: null }
+  }
 }
 
 exports.subAMV = async () => ({ code: 404 })
@@ -2334,39 +2488,51 @@ exports.likeAComment = async () => ({ code: 404 })
 exports.submitAComment = () => ({ code: 404, data: null })
 
 exports.getFloorComments = async (params) => {
-  const { sourceContext, commentInfo } = params
-  const { page: _page = 1, hasMore = true, reset = true } = sourceContext
-  const { special_child_id: specialId, id: tid } = commentInfo
-  const page = reset ? 1 : _page
-  const mixsongid = sourceContext.mxid ?? sourceContext.album_audio_id
+  try {
+    const { sourceContext, commentInfo } = params
+    const { page: _page = 1, hasMore = true, reset = true } = sourceContext
+    const { special_child_id: specialId, id: tid } = commentInfo
+    const page = reset ? 1 : _page
+    const mixsongid = sourceContext.mxid ?? sourceContext.album_audio_id
 
-  if (!hasMore || !mixsongid) {
-    return { code: 200, data: [], count: 0, sourceContext: { page, hasMore } }
-  }
+    if (!hasMore || !mixsongid) {
+      return { code: 200, data: [], count: 0, sourceContext: { page, hasMore } }
+    }
 
-  const result = await get('comment/floor', { special_id: specialId, mixsongid, tid, page })
-  if (!result.list || !result.list.length) {
-    return { code: 200, data: [], count: 0, sourceContext: { page, hasMore: false } }
+    const result = await get('comment/floor', { special_id: specialId, mixsongid, tid, page })
+    if (!result.list || !result.list.length) {
+      return { code: 200, data: [], count: 0, sourceContext: { page, hasMore: false } }
+    }
+    const data = result.list.map(formatFloorComment)
+    const count = result.comments_num
+    return { code: 200, data, count, sourceContext: { page: page + 1 } }
+  } catch {
+    return { code: 404, data: [], count: 0, sourceContext: {} }
   }
-  const data = result.list.map(formatFloorComment)
-  const count = result.comments_num
-  return { code: 200, data, count, sourceContext: { page: page + 1 } }
 }
 
 exports.userRecord = async (params) => {
-  const { bp = '0' } = params
-  const result = await get('user/history', { bp })
-  const allData = result.data?.songs?.map((item) => formatTrack(item.info, 64))
-  return { code: 200, weekData: [], allData, sourceContext: { bp: result.data?.bp } }
+  try {
+    const { bp = '0' } = params
+    const result = await get('user/history', { bp })
+    const allData = result.data?.songs?.map((item) => formatTrack(item.info, 64))
+    return { code: 200, weekData: [], allData, sourceContext: { bp: result.data?.bp } }
+  } catch {
+    return { code: 404, weekData: [], allData: [], sourceContext: {} }
+  }
 }
 
 exports.personalFM = async () => {
-  const result = await get('personal/fm', { timestamp: Date.now() })
-  if (result.status === 1 && result.data?.song_list?.length) {
-    const data = result.data.song_list.map((item) => formatTrack(item, 64))
-    return { code: 200, data, sourceContext: {} }
+  try {
+    const result = await get('personal/fm', { timestamp: Date.now() })
+    if (result.status === 1 && result.data?.song_list?.length) {
+      const data = result.data.song_list.map((item) => formatTrack(item, 64))
+      return { code: 200, data, sourceContext: {} }
+    }
+    return { code: 200, data: [], sourceContext: {} }
+  } catch {
+    return { code: 404, data: [], sourceContext: {} }
   }
-  return { code: 200, data: [], sourceContext: {} }
 }
 
 exports.fmTrash = async (params) => {

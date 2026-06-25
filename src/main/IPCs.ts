@@ -1580,7 +1580,11 @@ async function initPluginIpcMain() {
         params: Record<string, any>
       }
     ) => {
-      return pluginManager.call(data.pluginId, data.methodName, data.params)
+      try {
+        return pluginManager.call(data.pluginId, data.methodName, data.params)
+      } catch (error) {
+        return Promise.reject(error)
+      }
     }
   )
 }

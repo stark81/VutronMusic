@@ -590,46 +590,54 @@ exports.systemPing = async () => true
  * @returns {{ code: number, data: { url: string, qrcode: string } }}
  */
 exports.loginQrKey = async () => {
-  const result = await get('login/qr/key', { timestamp: Date.now() })
-  const result2 = await get(
-    `login/qr/create?key=${result.data.unikey}&platform=web&qrimg=true&timestamp=${Date.now()}&ua=pc`
-  )
+  try {
+    const result = await get('login/qr/key', { timestamp: Date.now() })
+    const result2 = await get(
+      `login/qr/create?key=${result.data.unikey}&platform=web&qrimg=true&timestamp=${Date.now()}&ua=pc`
+    )
 
-  const data = {
-    url: result2.data.qrurl,
-    qrcode: result.data.unikey
+    const data = {
+      url: result2.data.qrurl,
+      qrcode: result.data.unikey
+    }
+    return { code: result?.code ?? 200, data }
+  } catch {
+    return { code: 404, data: { url: '', qrcode: '' } }
   }
-  return { code: result?.code ?? 200, data }
 }
 
 /**
  * @returns {{ code: number, message: string, user: User }}
  */
 exports.loginQrCodeCheck = async (params) => {
-  const result = await get('login/qr/check', { ...params, timestamp: Date.now(), ua: 'pc' })
-  if (result.code === 803) {
-    result.cookie = result.cookie.replaceAll(' HTTPOnly', '')
+  try {
+    const result = await get('login/qr/check', { ...params, timestamp: Date.now(), ua: 'pc' })
+    if (result.code === 803) {
+      result.cookie = result.cookie.replaceAll(' HTTPOnly', '')
 
-    const cookie = setCookies(result.cookie)
-    user.cookie = cookie
+      const cookie = setCookies(result.cookie)
+      user.cookie = cookie
 
-    const res = await post(`login/status?timestamp=${Date.now()}&ua=pc`)
-    const profile = res.data.profile
+      const res = await post(`login/status?timestamp=${Date.now()}&ua=pc`)
+      const profile = res.data.profile
 
-    const data = { userId: profile.userId, isVip: profile.vipType === 11, cookie }
-    user.userId = profile.userId
-    user.vipType = [11, 110].includes(profile.vipType)
-    apis.db.set('PluginData', data)
+      const data = { userId: profile.userId, isVip: profile.vipType === 11, cookie }
+      user.userId = profile.userId
+      user.vipType = [11, 110].includes(profile.vipType)
+      apis.db.set('PluginData', data)
 
-    result.user = {
-      userId: profile.userId,
-      avatarUrl: profile.avatarUrl,
-      nickname: profile.nickname,
-      isVip: [11, 110].includes(profile.vipType),
-      signature: profile.signature
+      result.user = {
+        userId: profile.userId,
+        avatarUrl: profile.avatarUrl,
+        nickname: profile.nickname,
+        isVip: [11, 110].includes(profile.vipType),
+        signature: profile.signature
+      }
     }
+    return result
+  } catch {
+    return { code: 800, message: '' }
   }
-  return result
 }
 
 exports.updateBaseUrl = async (params) => {
@@ -706,42 +714,46 @@ exports.doLogout = () => {
  * @returns {{ code: number, data: Banner[] }}
  */
 exports.getBanner = async () => {
-  const result = await get('banner', { type: 0 })
-  if (result && result.code === 200) {
-    const banners = result.banners
-      .filter((item) => item.typeTitle !== '广告')
-      .map((item) => {
-        const url = new URL(item.url)
-        const sourceId =
-          item.typeTitle === '数字专辑'
-            ? Number(url.searchParams.get('id') ?? url.pathname.split('/').pop())
-            : item.targetId
+  try {
+    const result = await get('banner', { type: 0 })
+    if (result && result.code === 200) {
+      const banners = result.banners
+        .filter((item) => item.typeTitle !== '广告')
+        .map((item) => {
+          const url = new URL(item.url)
+          const sourceId =
+            item.typeTitle === '数字专辑'
+              ? Number(url.searchParams.get('id') ?? url.pathname.split('/').pop())
+              : item.targetId
 
-        let type = 'activity'
-        if (['新歌首发', '热歌推荐'].includes(item.typeTitle)) {
-          type = 'track'
-        } else if (['新碟首发', '热碟推荐', '数字专辑'].includes(item.typeTitle)) {
-          type = 'album'
-        } else if (item.typeTitle === '歌单推荐') {
-          type = 'playlist'
-        } else if (item.typeTitle === 'MV首发') {
-          type = 'mv'
-        }
+          let type = 'activity'
+          if (['新歌首发', '热歌推荐'].includes(item.typeTitle)) {
+            type = 'track'
+          } else if (['新碟首发', '热碟推荐', '数字专辑'].includes(item.typeTitle)) {
+            type = 'album'
+          } else if (item.typeTitle === '歌单推荐') {
+            type = 'playlist'
+          } else if (item.typeTitle === 'MV首发') {
+            type = 'mv'
+          }
 
-        return {
-          id: item.targetId || sourceId || 0,
-          picUrl: item.imageUrl,
-          url: item.url,
-          sourceId,
-          type,
-          pluginId: '',
-          typeTitle: item.typeTitle,
-          sourceContext: { id: item.targetId || sourceId || 0 }
-        }
-      })
-    return { code: result.code, data: banners }
+          return {
+            id: item.targetId || sourceId || 0,
+            picUrl: item.imageUrl,
+            url: item.url,
+            sourceId,
+            type,
+            pluginId: '',
+            typeTitle: item.typeTitle,
+            sourceContext: { id: item.targetId || sourceId || 0 }
+          }
+        })
+      return { code: result.code, data: banners }
+    }
+    return { code: result?.code ?? 200, data: [] }
+  } catch {
+    return { code: 404, data: [] }
   }
-  return { code: result?.code ?? 200, data: [] }
 }
 
 const dailyRecommendPlaylist = async (removePrivateRecommand) => {
@@ -785,20 +797,30 @@ const getRecommendPlaylist = async (limit, removePrivateRecommand) => {
 /**
  * @returns {{ code: number, data: Playlist[] }}
  */
-exports.getRecommendPlaylist = () => getRecommendPlaylist(10, false)
+exports.getRecommendPlaylist = async () => {
+  try {
+    return await getRecommendPlaylist(10, false)
+  } catch {
+    return { code: 404, data: [] }
+  }
+}
 
 /**
  * @returns {{ code: number, data: Track[], sourceContext: Record<string, any> }}
  */
 exports.getRecommendTracks = async () => {
-  const result = await get('recommend/songs')
-  if (result && result.code === 200) {
-    const data = mapTrackPlayableStatus(result.data.dailySongs, result.data.privileges)
-    const tracks = data.map((item) => formatTrack(item, 64))
-    const sourceContext = { offset: tracks.length }
-    return { code: result.code, data: tracks, sourceContext }
-  } else {
-    return { code: result?.code ?? 200, data: [], sourceContext: {} }
+  try {
+    const result = await get('recommend/songs')
+    if (result && result.code === 200) {
+      const data = mapTrackPlayableStatus(result.data.dailySongs, result.data.privileges)
+      const tracks = data.map((item) => formatTrack(item, 64))
+      const sourceContext = { offset: tracks.length }
+      return { code: result.code, data: tracks, sourceContext }
+    } else {
+      return { code: result?.code ?? 200, data: [], sourceContext: {} }
+    }
+  } catch {
+    return { code: 404, data: [], sourceContext: {} }
   }
 }
 
@@ -806,42 +828,50 @@ exports.getRecommendTracks = async () => {
  * @returns {{ code: number, data: Artist[], sourceContext: Record<string, any> }}
  */
 exports.topArtists = async (params) => {
-  const { offset, reset } = params
+  try {
+    const { offset, reset } = params
 
-  let result = null
-  if (reset && artistLists.code === 200 && artistLists.artists?.length) {
-    result = artistLists
-  } else {
-    result = await get('top/artists', { limit: 30, offset: offset ?? 0 })
-  }
+    let result = null
+    if (reset && artistLists.code === 200 && artistLists.artists?.length) {
+      result = artistLists
+    } else {
+      result = await get('top/artists', { limit: 30, offset: offset ?? 0 })
+    }
 
-  if (result && result.code === 200) {
-    const data = result?.artists.map((item) => ({
-      id: item.id,
-      name: item.name,
-      pluginId: '',
-      picUrl: item.picUrl + '?param=256y256',
-      sourceContext: { id: item.id }
-    }))
-    return { code: result.code, data, sourceContext: { offset: (params?.offset ?? 0) + 30 } }
+    if (result && result.code === 200) {
+      const data = result?.artists.map((item) => ({
+        id: item.id,
+        name: item.name,
+        pluginId: '',
+        picUrl: item.picUrl + '?param=256y256',
+        sourceContext: { id: item.id }
+      }))
+      return { code: result.code, data, sourceContext: { offset: (params?.offset ?? 0) + 30 } }
+    }
+    return { code: result?.code ?? 200, data: [], sourceContext: { offset: params?.offset ?? 0 } }
+  } catch {
+    return { code: 404, data: [], sourceContext: {} }
   }
-  return { code: result?.code ?? 200, data: [], sourceContext: { offset: params?.offset ?? 0 } }
 }
 
 /**
  * @returns {{ code: number, hasMore: boolean, albums: Album[], sourceContext: Record<string, any> }}
  */
 exports.topAlbums = async () => {
-  const result = await get('album/new', { area: 'ALL', limit: 10 })
-  if (result && result.code === 200) {
-    return {
-      code: result?.code,
-      hasMore: result.total > 10,
-      albums: result.albums.map((item) => formatAlbum(item, true)),
-      sourceContext: {}
+  try {
+    const result = await get('album/new', { area: 'ALL', limit: 10 })
+    if (result && result.code === 200) {
+      return {
+        code: result?.code,
+        hasMore: result.total > 10,
+        albums: result.albums.map((item) => formatAlbum(item, true)),
+        sourceContext: {}
+      }
     }
+    return { code: result?.code ?? 200, hasMore: false, albums: [], sourceContext: {} }
+  } catch {
+    return { code: 404, hasMore: false, albums: [], sourceContext: {} }
   }
-  return { code: result?.code ?? 200, hasMore: false, albums: [], sourceContext: {} }
 }
 
 /**
@@ -962,139 +992,155 @@ exports.rankTop = async () => {
  * @returns {{ code: number, data: Playlist[] }}
  */
 exports.rankList = async (params) => {
-  if (params.loaded) {
-    return { code: 200, data: [], sourceContext: params }
-  }
+  try {
+    if (params.loaded) {
+      return { code: 200, data: [], sourceContext: params }
+    }
 
-  const res = await get('toplist/detail')
-  if (res && res.code === 200) {
-    const data = res.list.map((item) => ({
-      id: item.id,
-      name: item.name,
-      picUrl: item.coverImgUrl,
-      isMine: false,
-      trackCount: item.trackCount,
-      isPrivate: item.privacy === 10,
-      creator: {
-        userId: 0,
-        avatarUrl: '',
-        nickname: '',
-        isVip: false,
-        signature: '',
-        sourceContext: { userId: 0 }
-      },
-      playCount: item.playCount,
-      copywriter: item.updateFrequency,
-      pluginId: '',
-      tracks: item.tracks.map((it) => ({ name: it.first, artist: it.second })),
-      sourceContext: { id: item.id }
-    }))
-    return { code: 200, data, sourceContext: { loaded: true } }
+    const res = await get('toplist/detail')
+    if (res && res.code === 200) {
+      const data = res.list.map((item) => ({
+        id: item.id,
+        name: item.name,
+        picUrl: item.coverImgUrl,
+        isMine: false,
+        trackCount: item.trackCount,
+        isPrivate: item.privacy === 10,
+        creator: {
+          userId: 0,
+          avatarUrl: '',
+          nickname: '',
+          isVip: false,
+          signature: '',
+          sourceContext: { userId: 0 }
+        },
+        playCount: item.playCount,
+        copywriter: item.updateFrequency,
+        pluginId: '',
+        tracks: item.tracks.map((it) => ({ name: it.first, artist: it.second })),
+        sourceContext: { id: item.id }
+      }))
+      return { code: 200, data, sourceContext: { loaded: true } }
+    }
+    return { code: res?.code ?? 200, data: [], sourceContext: params }
+  } catch {
+    return { code: 404, data: [], sourceContext: {} }
   }
-  return { code: res?.code ?? 200, data: [], sourceContext: params }
 }
 
 /**
  * @returns {{ code: number, data: PlaylistDetail }}
  */
 exports.getPlaylistDetail = async (params) => {
-  const res = await get('playlist/detail', { id: params.id })
-  if (res && res.code === 200) {
-    const playlist = res.playlist
-    playlist.tracks = mapTrackPlayableStatus(playlist.tracks, res.privileges ?? [])
+  try {
+    const res = await get('playlist/detail', { id: params.id })
+    if (res && res.code === 200) {
+      const playlist = res.playlist
+      playlist.tracks = mapTrackPlayableStatus(playlist.tracks, res.privileges ?? [])
 
-    const trackIds = playlist.trackIds.map((item) => item.id)
-    const tracks = playlist.tracks.map((item) => formatTrack(item))
+      const trackIds = playlist.trackIds.map((item) => item.id)
+      const tracks = playlist.tracks.map((item) => formatTrack(item))
 
-    const data = {
-      id: playlist.id,
-      name: playlist.name,
-      subscribed: !!playlist.subscribed,
-      picUrl: playlist.coverImgUrl + '?param=512y512',
-      trackCount: playlist.trackCount,
-      updateTime: playlist.updateTime,
-      description: playlist.description || '',
-      isPrivate: playlist.privacy === 10,
-      pluginId: '',
-      copywriter: '',
-      updateFrequency: playlist.updateFrequency,
-      specialPlaylistInfo: specialPlaylist[playlist.id] ?? null,
-      trackIds,
-      tracks,
-      tags: playlist.tags,
-      creator: {
-        userId: playlist.creator.userId,
-        avatarUrl: playlist.creator.avatarUrl,
-        nickname: playlist.creator.nickname,
-        isVip: [11, 110].includes(playlist.creator.vipType),
-        signature: playlist.creator.signature,
-        sourceContext: { userId: playlist.creator.userId }
-      },
-      sourceContext: { id: playlist.id, trackIds, loadedIDs: tracks.map((item) => item.id) }
+      const data = {
+        id: playlist.id,
+        name: playlist.name,
+        subscribed: !!playlist.subscribed,
+        picUrl: playlist.coverImgUrl + '?param=512y512',
+        trackCount: playlist.trackCount,
+        updateTime: playlist.updateTime,
+        description: playlist.description || '',
+        isPrivate: playlist.privacy === 10,
+        pluginId: '',
+        copywriter: '',
+        updateFrequency: playlist.updateFrequency,
+        specialPlaylistInfo: specialPlaylist[playlist.id] ?? null,
+        trackIds,
+        tracks,
+        tags: playlist.tags,
+        creator: {
+          userId: playlist.creator.userId,
+          avatarUrl: playlist.creator.avatarUrl,
+          nickname: playlist.creator.nickname,
+          isVip: [11, 110].includes(playlist.creator.vipType),
+          signature: playlist.creator.signature,
+          sourceContext: { userId: playlist.creator.userId }
+        },
+        sourceContext: { id: playlist.id, trackIds, loadedIDs: tracks.map((item) => item.id) }
+      }
+
+      return { code: res.code, data }
     }
-
-    return { code: res.code, data }
+    return { code: res?.code ?? 200, data: null }
+  } catch {
+    return { code: 404, data: null }
   }
-  return { code: res?.code ?? 200, data: null }
 }
 
 exports.getPlaylistTracks = async (params) => {
-  const { trackIds, loadedIDs } = params
-  const ids = trackIds.filter((id) => !loadedIDs.includes(id)).join(',')
-  const result = await get('song/detail', { ids })
-  result.songs = mapTrackPlayableStatus(result.songs, result.privileges)
-  const data = result.songs.map((item) => formatTrack(item))
-  return {
-    code: result?.code ?? 200,
-    data,
-    sourceContext: { trackIds, loadedIDs: [...loadedIDs, ...data.map((item) => item.id)] }
+  try {
+    const { trackIds, loadedIDs } = params
+    const ids = trackIds.filter((id) => !loadedIDs.includes(id)).join(',')
+    const result = await get('song/detail', { ids })
+    result.songs = mapTrackPlayableStatus(result.songs, result.privileges)
+    const data = result.songs.map((item) => formatTrack(item))
+    return {
+      code: result?.code ?? 200,
+      data,
+      sourceContext: { trackIds, loadedIDs: [...loadedIDs, ...data.map((item) => item.id)] }
+    }
+  } catch {
+    return { code: 404, data: [], sourceContext: {} }
   }
 }
 
 exports.catlist = async () => {
-  const result = await get('playlist/catlist')
+  try {
+    const result = await get('playlist/catlist')
 
-  const cats = Object.entries(result.categories).map(([key, value]) => ({
-    id: Number(key),
-    name: value
-  }))
+    const cats = Object.entries(result.categories).map(([key, value]) => ({
+      id: Number(key),
+      name: value
+    }))
 
-  const data = {
-    static: [
-      {
-        id: 0,
-        name: '全部',
-        sourceContext: { name: '全部', hasMore: true, offset: 0 }
-      },
-      {
-        id: 0,
-        name: '推荐歌单',
-        sourceContext: { name: '推荐歌单', hasMore: true, offset: 0 }
-      },
-      {
-        id: 0,
-        name: '精品歌单',
-        sourceContext: { name: '精品歌单', hasMore: true, offset: 0 }
-      },
-      {
-        id: 0,
-        name: '官方',
-        sourceContext: { name: '官方', hasMore: true, offset: 0 }
-      }
-    ],
-    tagList: cats.map((item) => {
-      const sub = result.sub
-        .filter((s) => s.category === item.id)
-        .map((s) => ({
+    const data = {
+      static: [
+        {
           id: 0,
-          name: s.name,
-          parentId: s.category,
-          sourceContext: { name: s.name, hasMore: true, offset: 0 }
-        }))
-      return { ...item, sub }
-    })
+          name: '全部',
+          sourceContext: { name: '全部', hasMore: true, offset: 0 }
+        },
+        {
+          id: 0,
+          name: '推荐歌单',
+          sourceContext: { name: '推荐歌单', hasMore: true, offset: 0 }
+        },
+        {
+          id: 0,
+          name: '精品歌单',
+          sourceContext: { name: '精品歌单', hasMore: true, offset: 0 }
+        },
+        {
+          id: 0,
+          name: '官方',
+          sourceContext: { name: '官方', hasMore: true, offset: 0 }
+        }
+      ],
+      tagList: cats.map((item) => {
+        const sub = result.sub
+          .filter((s) => s.category === item.id)
+          .map((s) => ({
+            id: 0,
+            name: s.name,
+            parentId: s.category,
+            sourceContext: { name: s.name, hasMore: true, offset: 0 }
+          }))
+        return { ...item, sub }
+      })
+    }
+    return { code: result?.code ?? 200, data }
+  } catch {
+    return { code: 404, data: null }
   }
-  return { code: result?.code ?? 200, data }
 }
 
 const highQualityPlaylist = async (params) => {

@@ -30,7 +30,11 @@ export interface PluginMeta {
 
 export class PluginInstance {
   private worker: Worker
-  private callResolvers = new Map<number, (val: any) => void>()
+  private callResolvers = new Map<
+    number,
+    { resolve: (val: any) => void; reject: (err: any) => void }
+  >()
+
   private callIdCounter = 0
   public meta: PluginMeta = {}
   private id: string
@@ -105,10 +109,10 @@ export class PluginInstance {
         break
 
       case 'CALL_RESULT': {
-        const resolve = this.callResolvers.get(msg.callId)
-        if (!resolve) return
-        msg.error ? resolve(Promise.reject(msg.error)) : resolve(msg.result)
+        const resolver = this.callResolvers.get(msg.callId)
+        if (!resolver) return
         this.callResolvers.delete(msg.callId)
+        msg.error ? resolver.reject(msg.error) : resolver.resolve(msg.result)
         break
       }
 
@@ -406,9 +410,9 @@ export class PluginInstance {
     if (!this.loaded) {
       throw new Error(this.loadError || `[Plugin ${this.id} not loaded]`)
     }
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const callId = ++this.callIdCounter
-      this.callResolvers.set(callId, resolve)
+      this.callResolvers.set(callId, { resolve, reject })
       this.worker.postMessage({ type: 'CALL_METHOD', method, args, callId })
     })
   }

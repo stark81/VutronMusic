@@ -252,18 +252,22 @@ async function getUserLikedTracks() {
 }
 
 async function getPlaylistDetail(params) {
-  if (params.id === '-1') {
-    const playlist = formatPlaylistDetail({})
-    const { tracks, count } = await getUserLikedTracks()
-    playlist.tracks = tracks
-    playlist.trackCount = count
-    return { code: 200, data: playlist }
-  } else {
-    const result = await nativeRequest('playlist', { id: params.id })
-    const playlist = result.find((item) => item.id === params.id)
-    if (!playlist) return { code: 404, data: null }
-    const data = formatPlaylistDetail(playlist)
-    return { code: 200, data }
+  try {
+    if (params.id === '-1') {
+      const playlist = formatPlaylistDetail({})
+      const { tracks, count } = await getUserLikedTracks()
+      playlist.tracks = tracks
+      playlist.trackCount = count
+      return { code: 200, data: playlist }
+    } else {
+      const result = await nativeRequest('playlist', { id: params.id })
+      const playlist = result.find((item) => item.id === params.id)
+      if (!playlist) return { code: 404, data: null }
+      const data = formatPlaylistDetail(playlist)
+      return { code: 200, data }
+    }
+  } catch {
+    return { code: 404, data: null }
   }
 }
 
@@ -453,190 +457,210 @@ exports.doLogout = () => {
 }
 
 exports.getAllTracks = async (_params) => {
-  const { _start: rawStart = 0, sort, order, hasMore = true, reset } = _params
-  const _start = reset ? 0 : rawStart
+  try {
+    const { _start: rawStart = 0, sort, order, hasMore = true, reset } = _params
+    const _start = reset ? 0 : rawStart
 
-  if (!hasMore) return { code: 200, data: [], count: 0, sourceContext: _params }
+    if (!hasMore) return { code: 200, data: [], count: 0, sourceContext: _params }
 
-  const map = {
-    name: 'title',
-    createTime: 'createdAt',
-    playCount: 'play_count'
-  }
-  const _end = _start + 1000
-  const params = { _start, _end, _sort: map[sort], _order: order }
-  const { tracks, count } = await getTracks(params)
+    const map = {
+      name: 'title',
+      createTime: 'createdAt',
+      playCount: 'play_count'
+    }
+    const _end = _start + 1000
+    const params = { _start, _end, _sort: map[sort], _order: order }
+    const { tracks, count } = await getTracks(params)
 
-  return {
-    code: 200,
-    data: tracks,
-    count,
-    sourceContext: { _start: _start + tracks.length }
+    return {
+      code: 200,
+      data: tracks,
+      count,
+      sourceContext: { _start: _start + tracks.length }
+    }
+  } catch {
+    return { code: 404, data: [], count: 0, sourceContext: {} }
   }
 }
 
 exports.search = async (_params) => {
-  const { tab, keywords, reset } = _params
-  const _start = reset ? 0 : _params._start || 0
-  if (!keywords) return { code: 200, data: [], count: 0, sourceContext: {} }
+  try {
+    const { tab, keywords, reset } = _params
+    const _start = reset ? 0 : _params._start || 0
+    if (!keywords) return { code: 200, data: [], count: 0, sourceContext: {} }
 
-  const pageSize = 50
+    const pageSize = 50
 
-  switch (tab) {
-    case 'tracks': {
-      const result = await subsonicRequest('search3', {
-        query: keywords,
-        songCount: pageSize,
-        songOffset: _start
-      })
-      const songs = result.searchResult3?.song || []
-      const data = songs.map((item) => {
-        const trackId = item.id
-        return {
-          id: trackId,
-          name: item.title,
-          duration: (item.duration || 0) * 1000,
-          alias: [],
-          playable: true,
-          reason: '',
-          createTime: Date.now(),
-          no: item.track || 1,
-          mvid: 0,
-          playCount: 0,
-          album: {
-            id: item.albumId || '',
-            name: item.album || '',
+    switch (tab) {
+      case 'tracks': {
+        const result = await subsonicRequest('search3', {
+          query: keywords,
+          songCount: pageSize,
+          songOffset: _start
+        })
+        const songs = result.searchResult3?.song || []
+        const data = songs.map((item) => {
+          const trackId = item.id
+          return {
+            id: trackId,
+            name: item.title,
+            duration: (item.duration || 0) * 1000,
+            alias: [],
+            playable: true,
+            reason: '',
+            createTime: Date.now(),
+            no: item.track || 1,
+            mvid: 0,
+            playCount: 0,
+            album: {
+              id: item.albumId || '',
+              name: item.album || '',
+              picUrl: buildSubsonicUrl('getCoverArt', { id: item.albumId || trackId, size: 64 }),
+              pluginId: '',
+              sourceContext: { id: item.albumId || '' }
+            },
             picUrl: buildSubsonicUrl('getCoverArt', { id: item.albumId || trackId, size: 64 }),
+            artists: [
+              {
+                id: item.artistId || '',
+                name: item.artist || '未知艺人',
+                picUrl: '',
+                pluginId: '',
+                sourceContext: { id: item.artistId || '' }
+              }
+            ],
+            albumArtists: [
+              {
+                id: item.artistId || '',
+                name: item.artist || '未知艺人',
+                picUrl: '',
+                pluginId: '',
+                sourceContext: { id: item.artistId || '' }
+              }
+            ],
             pluginId: '',
-            sourceContext: { id: item.albumId || '' }
-          },
-          picUrl: buildSubsonicUrl('getCoverArt', { id: item.albumId || trackId, size: 64 }),
+            type: meta.type,
+            sourceContext: { id: trackId }
+          }
+        })
+        return {
+          code: 200,
+          data,
+          count: songs.length < pageSize ? _start + songs.length : -1,
+          sourceContext: { _start: _start + data.length }
+        }
+      }
+      case 'albums': {
+        const result = await subsonicRequest('search3', {
+          query: keywords,
+          albumCount: pageSize,
+          albumOffset: _start
+        })
+        const albums = result.searchResult3?.album || []
+        const data = albums.map((item) => ({
+          id: item.id,
+          name: item.name,
+          picUrl: buildSubsonicUrl('getCoverArt', { id: item.id, size: 256 }),
           artists: [
             {
               id: item.artistId || '',
-              name: item.artist || '未知艺人',
+              name: item.artist || '',
               picUrl: '',
               pluginId: '',
               sourceContext: { id: item.artistId || '' }
             }
           ],
-          albumArtists: [
-            {
-              id: item.artistId || '',
-              name: item.artist || '未知艺人',
-              picUrl: '',
-              pluginId: '',
-              sourceContext: { id: item.artistId || '' }
-            }
-          ],
+          createTime: item.created ? new Date(item.created).getTime() : Date.now(),
+          copywriter: item.year ? `专辑 · ${item.year}` : '',
+          type: '专辑',
           pluginId: '',
-          type: meta.type,
-          sourceContext: { id: trackId }
+          sourceContext: { id: item.id }
+        }))
+        return {
+          code: 200,
+          data,
+          count: albums.length < pageSize ? _start + albums.length : -1,
+          sourceContext: { _start: _start + data.length }
         }
-      })
-      return {
-        code: 200,
-        data,
-        count: songs.length < pageSize ? _start + songs.length : -1,
-        sourceContext: { _start: _start + data.length }
       }
-    }
-    case 'albums': {
-      const result = await subsonicRequest('search3', {
-        query: keywords,
-        albumCount: pageSize,
-        albumOffset: _start
-      })
-      const albums = result.searchResult3?.album || []
-      const data = albums.map((item) => ({
-        id: item.id,
-        name: item.name,
-        picUrl: buildSubsonicUrl('getCoverArt', { id: item.id, size: 256 }),
-        artists: [
-          {
-            id: item.artistId || '',
-            name: item.artist || '',
-            picUrl: '',
-            pluginId: '',
-            sourceContext: { id: item.artistId || '' }
-          }
-        ],
-        createTime: item.created ? new Date(item.created).getTime() : Date.now(),
-        copywriter: item.year ? `专辑 · ${item.year}` : '',
-        type: '专辑',
-        pluginId: '',
-        sourceContext: { id: item.id }
-      }))
-      return {
-        code: 200,
-        data,
-        count: albums.length < pageSize ? _start + albums.length : -1,
-        sourceContext: { _start: _start + data.length }
+      case 'artists': {
+        const result = await subsonicRequest('search3', {
+          query: keywords,
+          artistCount: pageSize,
+          artistOffset: _start
+        })
+        const artists = result.searchResult3?.artist || []
+        const data = artists.map((item) => ({
+          id: item.id,
+          name: item.name,
+          picUrl: buildSubsonicUrl('getCoverArt', { id: item.id, size: 256 }),
+          pluginId: '',
+          sourceContext: { id: item.id }
+        }))
+        return {
+          code: 200,
+          data,
+          count: artists.length < pageSize ? _start + artists.length : -1,
+          sourceContext: { _start: _start + data.length }
+        }
       }
-    }
-    case 'artists': {
-      const result = await subsonicRequest('search3', {
-        query: keywords,
-        artistCount: pageSize,
-        artistOffset: _start
-      })
-      const artists = result.searchResult3?.artist || []
-      const data = artists.map((item) => ({
-        id: item.id,
-        name: item.name,
-        picUrl: buildSubsonicUrl('getCoverArt', { id: item.id, size: 256 }),
-        pluginId: '',
-        sourceContext: { id: item.id }
-      }))
-      return {
-        code: 200,
-        data,
-        count: artists.length < pageSize ? _start + artists.length : -1,
-        sourceContext: { _start: _start + data.length }
+      case 'playlists': {
+        const result = await nativeRequest('playlist')
+        const filtered = keywords
+          ? result.filter((p) => p.name?.toLowerCase().includes(keywords.toLowerCase()))
+          : result
+        const data = filtered.map(formatPlaylist)
+        return { code: 200, data, count: data.length, sourceContext: {} }
       }
+      default:
+        return { code: 200, data: [], count: 0, sourceContext: {} }
     }
-    case 'playlists': {
-      const result = await nativeRequest('playlist')
-      const filtered = keywords
-        ? result.filter((p) => p.name?.toLowerCase().includes(keywords.toLowerCase()))
-        : result
-      const data = filtered.map(formatPlaylist)
-      return { code: 200, data, count: data.length, sourceContext: {} }
-    }
-    default:
-      return { code: 200, data: [], count: 0, sourceContext: {} }
+  } catch {
+    return { code: 404, data: [], count: 0, sourceContext: {} }
   }
 }
 
 exports.userPlaylist = async () => {
-  const [playlistResp, albumsResp, liked] = await Promise.all([
-    nativeRequest('playlist'),
-    getAlbumlist({ starred: true }),
-    formatPlaylist({})
-  ])
+  try {
+    const [playlistResp, albumsResp, liked] = await Promise.all([
+      nativeRequest('playlist'),
+      getAlbumlist({ starred: true }),
+      formatPlaylist({})
+    ])
 
-  const playlists = playlistResp.map((p) => formatPlaylist(p))
-  return { code: 200, liked, playlists, albums: albumsResp.albums, sourceContext: { offset: 0 } }
+    const playlists = playlistResp.map((p) => formatPlaylist(p))
+    return { code: 200, liked, playlists, albums: albumsResp.albums, sourceContext: { offset: 0 } }
+  } catch {
+    return { code: 404, liked: null, playlists: [], albums: [], sourceContext: {} }
+  }
 }
 
 exports.getLyric = async (params) => {
-  const result = await subsonicRequest('getLyricsBySongId.view', { id: params.id })
-  const lyricRaw = result.lyricsList?.structuredLyrics?.[0]?.line || []
-  if (!lyricRaw.length) return { code: 200, data: [] }
+  try {
+    const result = await subsonicRequest('getLyricsBySongId.view', { id: params.id })
+    const lyricRaw = result.lyricsList?.structuredLyrics?.[0]?.line || []
+    if (!lyricRaw.length) return { code: 200, data: [] }
 
-  const lrc = lyricRaw
-    .map(({ start, value }) => {
-      const timeStr = formatTime(start)
-      return `${timeStr}${value}`
-    })
-    .join('\n')
-  const data = await apis.utils.parseLyric(lrc)
-  return { code: 200, data }
+    const lrc = lyricRaw
+      .map(({ start, value }) => {
+        const timeStr = formatTime(start)
+        return `${timeStr}${value}`
+      })
+      .join('\n')
+    const data = await apis.utils.parseLyric(lrc)
+    return { code: 200, data }
+  } catch {
+    return { code: 404, data: [] }
+  }
 }
 
 exports.userLikedArtists = async () => {
-  const result = await getArtists({ starred: true })
-  return { code: 200, data: result.artists, sourceContext: {} }
+  try {
+    const result = await getArtists({ starred: true })
+    return { code: 200, data: result.artists, sourceContext: {} }
+  } catch {
+    return { code: 404, data: [], sourceContext: {} }
+  }
 }
 
 exports.userLikedMVs = () => {
@@ -650,16 +674,24 @@ exports.cloudDisk = () => {
 exports.getPlaylistDetail = getPlaylistDetail
 
 exports.getPlaylistTracks = async (params) => {
-  const result = await nativeRequest(`playlist/${params.id}/tracks`, { _start: 0, _end: 0 })
-  const data = result.map(formatTrack)
-  return { code: 200, data, sourceContext: params }
+  try {
+    const result = await nativeRequest(`playlist/${params.id}/tracks`, { _start: 0, _end: 0 })
+    const data = result.map(formatTrack)
+    return { code: 200, data, sourceContext: params }
+  } catch {
+    return { code: 404, data: [], sourceContext: {} }
+  }
 }
 
 exports.getTrackDetail = async (params) => {
-  const result = await Promise.all(params.tracks.map((item) => nativeRequest(`song/${item.id}`)))
+  try {
+    const result = await Promise.all(params.tracks.map((item) => nativeRequest(`song/${item.id}`)))
 
-  const data = result.map(formatTrack)
-  return { code: 200, data }
+    const data = result.map(formatTrack)
+    return { code: 200, data }
+  } catch {
+    return { code: 404, data: [] }
+  }
 }
 
 exports.songUrl = async (params) => {
@@ -750,18 +782,26 @@ exports.editPlaylist = async (params) => {
 }
 
 exports.albumDetail = async (params) => {
-  const [result, { tracks }] = await Promise.all([
-    nativeRequest(`album/${params.id}`),
-    getTracks({ _start: 0, _end: 0, album_id: params.id })
-  ])
-  result.songs = tracks
-  const data = formatAlbumDetail(result)
-  return { code: 200, data, sourceContext: params }
+  try {
+    const [result, { tracks }] = await Promise.all([
+      nativeRequest(`album/${params.id}`),
+      getTracks({ _start: 0, _end: 0, album_id: params.id })
+    ])
+    result.songs = tracks
+    const data = formatAlbumDetail(result)
+    return { code: 200, data, sourceContext: params }
+  } catch {
+    return { code: 404, data: null }
+  }
 }
 
 exports.artistAlbums = async (params) => {
-  const result = await getAlbumlist({ artist_id: params.id })
-  return { code: 200, data: result.albums, sourceContext: {} }
+  try {
+    const result = await getAlbumlist({ artist_id: params.id })
+    return { code: 200, data: result.albums, sourceContext: {} }
+  } catch {
+    return { code: 404, data: [], sourceContext: {} }
+  }
 }
 
 exports.subscribeAlbum = async (params) => {
@@ -776,25 +816,29 @@ exports.subscribeAlbum = async (params) => {
 }
 
 exports.artistDetail = async (params) => {
-  const [_artist, { tracks: songs }] = await Promise.all([
-    nativeRequest(`artist/${params.id}`),
-    getTracks({ _start: 0, _end: 0, artist_id: params.id })
-  ])
+  try {
+    const [_artist, { tracks: songs }] = await Promise.all([
+      nativeRequest(`artist/${params.id}`),
+      getTracks({ _start: 0, _end: 0, artist_id: params.id })
+    ])
 
-  const artist = {
-    id: _artist.id,
-    name: _artist.name,
-    picUrl: buildSubsonicUrl('getCoverArt', { id: _artist.id, size: 256 }),
-    musicSize: _artist.songCount || 0,
-    albumSize: _artist.albumCount || 0,
-    mvSize: 0,
-    description: '',
-    followed: _artist.starred || false,
-    pluginId: '',
-    sourceContext: { id: _artist.id }
+    const artist = {
+      id: _artist.id,
+      name: _artist.name,
+      picUrl: buildSubsonicUrl('getCoverArt', { id: _artist.id, size: 256 }),
+      musicSize: _artist.songCount || 0,
+      albumSize: _artist.albumCount || 0,
+      mvSize: 0,
+      description: '',
+      followed: _artist.starred || false,
+      pluginId: '',
+      sourceContext: { id: _artist.id }
+    }
+
+    return { code: 200, artist, songs, sourceContext: params }
+  } catch {
+    return { code: 404, artist: null, songs: [], sourceContext: {} }
   }
-
-  return { code: 200, artist, songs, sourceContext: params }
 }
 
 exports.artistMVs = async (params) => {

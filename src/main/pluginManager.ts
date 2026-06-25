@@ -12,7 +12,10 @@ class PluginManager {
   }
 
   call(pluginId: string, methodName: string, params: Record<string, any>) {
-    const plugin = this.plugins.get(pluginId)!
+    const plugin = this.plugins.get(pluginId)
+    if (!plugin) {
+      return Promise.reject(new Error(`Plugin ${pluginId} not found`))
+    }
     return plugin.call(methodName, params)
   }
 }

@@ -139,19 +139,23 @@ const formatPlaylistDetail = (playlist) => ({
 })
 
 const getPlaylistDetail = async (params) => {
-  if (params.id === '-1') {
-    const playlist = formatPlaylistDetail({})
-    const { tracks, counts } = await getUserLikedTracks()
-    playlist.tracks = tracks
-    playlist.trackCount = counts
-    return { code: 200, data: playlist }
-  } else {
-    const result = await get(`Users/${user.userId}/Items/${params.id}`, {
-      fields: 'ShareLevel',
-      ExcludeFields: 'VideoChapters,VideoMediaSources,MediaStreams'
-    })
-    const playlist = formatPlaylistDetail(result)
-    return { code: 200, data: playlist }
+  try {
+    if (params.id === '-1') {
+      const playlist = formatPlaylistDetail({})
+      const { tracks, counts } = await getUserLikedTracks()
+      playlist.tracks = tracks
+      playlist.trackCount = counts
+      return { code: 200, data: playlist }
+    } else {
+      const result = await get(`Users/${user.userId}/Items/${params.id}`, {
+        fields: 'ShareLevel',
+        ExcludeFields: 'VideoChapters,VideoMediaSources,MediaStreams'
+      })
+      const playlist = formatPlaylistDetail(result)
+      return { code: 200, data: playlist }
+    }
+  } catch {
+    return { code: 404, data: null }
   }
 }
 
@@ -438,20 +442,20 @@ exports.getAccount = () => {
 }
 
 exports.doLogin = async (params) => {
-  const headers = { 'X-Emby-Authorization': authHeader, 'Content-Type': 'application/json' }
-  const response = await post(
-    'Users/AuthenticateByName',
-    {
-      Username: params.userName,
-      Pw: params.pwd
-    },
-    headers
-  )
-
-  if (typeof response === 'string') {
-    return { code: 404, message: response }
-  }
   try {
+    const headers = { 'X-Emby-Authorization': authHeader, 'Content-Type': 'application/json' }
+    const response = await post(
+      'Users/AuthenticateByName',
+      {
+        Username: params.userName,
+        Pw: params.pwd
+      },
+      headers
+    )
+
+    if (typeof response === 'string') {
+      return { code: 404, message: response }
+    }
     const { User, AccessToken } = response
     user.token = AccessToken
     user.userId = User.Id
@@ -468,9 +472,8 @@ exports.doLogin = async (params) => {
         signature: ''
       }
     }
-  } catch (error) {
-    console.log('[jellyfin login failed]', error)
-    return { code: 404, message: 'jellyfin login failed' }
+  } catch {
+    return { code: 404, message: '' }
   }
 }
 
@@ -498,94 +501,102 @@ exports.systemPing = async () => {
 }
 
 exports.search = async (_params) => {
-  const { tab, keywords, reset } = _params
-  const StartIndex = reset ? 0 : _params.StartIndex || 0
-  if (!keywords) return { code: 200, data: [], count: 0, sourceContext: {} }
+  try {
+    const { tab, keywords, reset } = _params
+    const StartIndex = reset ? 0 : _params.StartIndex || 0
+    if (!keywords) return { code: 200, data: [], count: 0, sourceContext: {} }
 
-  const limit = 50
+    const limit = 50
 
-  switch (tab) {
-    case 'tracks': {
-      const result = await getTracks({
-        SearchTerm: keywords,
-        Limit: limit,
-        StartIndex
-      })
-      const data = (result.Items || []).map((item) => formatTrack(item, 64))
-      return {
-        code: 200,
-        data,
-        count: result.TotalRecordCount || data.length,
-        sourceContext: { StartIndex: StartIndex + data.length }
+    switch (tab) {
+      case 'tracks': {
+        const result = await getTracks({
+          SearchTerm: keywords,
+          Limit: limit,
+          StartIndex
+        })
+        const data = (result.Items || []).map((item) => formatTrack(item, 64))
+        return {
+          code: 200,
+          data,
+          count: result.TotalRecordCount || data.length,
+          sourceContext: { StartIndex: StartIndex + data.length }
+        }
       }
-    }
-    case 'albums': {
-      const result = await get('Users/' + user.userId + '/Items', {
-        SearchTerm: keywords,
-        IncludeItemTypes: 'MusicAlbum',
-        Fields: 'ChildCount, DateCreated, ProductionYear',
-        Recursive: true,
-        Limit: limit,
-        StartIndex
-      })
-      const data = (result.Items || []).map(formatAlbum)
-      return {
-        code: 200,
-        data,
-        count: result.TotalRecordCount || data.length,
-        sourceContext: { StartIndex: StartIndex + data.length }
+      case 'albums': {
+        const result = await get('Users/' + user.userId + '/Items', {
+          SearchTerm: keywords,
+          IncludeItemTypes: 'MusicAlbum',
+          Fields: 'ChildCount, DateCreated, ProductionYear',
+          Recursive: true,
+          Limit: limit,
+          StartIndex
+        })
+        const data = (result.Items || []).map(formatAlbum)
+        return {
+          code: 200,
+          data,
+          count: result.TotalRecordCount || data.length,
+          sourceContext: { StartIndex: StartIndex + data.length }
+        }
       }
-    }
-    case 'artists': {
-      const result = await get('Artists', {
-        SearchTerm: keywords,
-        Limit: limit,
-        StartIndex
-      })
-      const data = (result.Items || []).map((item) => ({
-        id: item.Id,
-        name: item.Name,
-        picUrl: item.ImageTags?.Primary ? getPic(item.Id, 512) : 'vutron://get-singer-pic',
-        pluginId: '',
-        sourceContext: { id: item.Id }
-      }))
-      return {
-        code: 200,
-        data,
-        count: result.TotalRecordCount || data.length,
-        sourceContext: { StartIndex: StartIndex + data.length }
+      case 'artists': {
+        const result = await get('Artists', {
+          SearchTerm: keywords,
+          Limit: limit,
+          StartIndex
+        })
+        const data = (result.Items || []).map((item) => ({
+          id: item.Id,
+          name: item.Name,
+          picUrl: item.ImageTags?.Primary ? getPic(item.Id, 512) : 'vutron://get-singer-pic',
+          pluginId: '',
+          sourceContext: { id: item.Id }
+        }))
+        return {
+          code: 200,
+          data,
+          count: result.TotalRecordCount || data.length,
+          sourceContext: { StartIndex: StartIndex + data.length }
+        }
       }
-    }
-    case 'playlists': {
-      const result = await get('Items', {
-        SearchTerm: keywords,
-        IncludeItemTypes: 'Playlist',
-        Fields: 'DateCreated, Overview, ChildCount',
-        Recursive: true,
-        Limit: limit,
-        StartIndex
-      })
-      const data = (result.Items || []).map(formatPlaylist)
-      return {
-        code: 200,
-        data,
-        count: result.TotalRecordCount || data.length,
-        sourceContext: { StartIndex: StartIndex + data.length }
+      case 'playlists': {
+        const result = await get('Items', {
+          SearchTerm: keywords,
+          IncludeItemTypes: 'Playlist',
+          Fields: 'DateCreated, Overview, ChildCount',
+          Recursive: true,
+          Limit: limit,
+          StartIndex
+        })
+        const data = (result.Items || []).map(formatPlaylist)
+        return {
+          code: 200,
+          data,
+          count: result.TotalRecordCount || data.length,
+          sourceContext: { StartIndex: StartIndex + data.length }
+        }
       }
+      default:
+        return { code: 200, data: [], count: 0, sourceContext: {} }
     }
-    default:
-      return { code: 200, data: [], count: 0, sourceContext: {} }
+  } catch {
+    return { code: 404, data: [], count: 0, sourceContext: {} }
   }
 }
 
 exports.userPlaylist = async () => {
-  const [playlists, albums, liked] = await Promise.all([
-    getPlaylist(),
-    getAlbumlist({ isFavorite: true }),
-    getLikedTracks()
-  ])
+  try {
+    const [playlists, albums, liked] = await Promise.all([
+      getPlaylist(),
+      getAlbumlist({ isFavorite: true }),
+      getLikedTracks()
+    ])
 
-  return { code: 200, liked, playlists, albums, sourceContext: { offset: 0 } }
+    return { code: 200, liked, playlists, albums, sourceContext: { offset: 0 } }
+  } catch {
+    return { code: 404, liked: null, playlists: [], albums: [], sourceContext: {} }
+  }
 }
 
 /**
@@ -594,8 +605,12 @@ exports.userPlaylist = async () => {
 exports.getPlaylistDetail = getPlaylistDetail
 
 exports.userLikedArtists = async () => {
-  const data = await getArtists({ isFavorite: true })
-  return { code: 200, data, sourceContext: {} }
+  try {
+    const data = await getArtists({ isFavorite: true })
+    return { code: 200, data, sourceContext: {} }
+  } catch {
+    return { code: 404, data: [], sourceContext: {} }
+  }
 }
 
 exports.userLikedMVs = () => {
@@ -607,17 +622,21 @@ exports.cloudDisk = () => {
 }
 
 exports.getTrackDetail = async (params) => {
-  const ids = params.tracks.map((item) => item.id).join(',')
-  const size = params.tracks.length === 1 ? 512 : 256
-  const result = await get(`Users/${user.userId}/Items`, {
-    Ids: ids,
-    Fields: 'DateCreated, Size, Bitrate, IsFavorite, MediaSources'
-  })
-  const data = result.Items.map((item, idx) => {
-    item.PlaylistItemId = params.tracks[idx].PlaylistItemId || ''
-    return formatTrack(item, size)
-  })
-  return { code: 200, data }
+  try {
+    const ids = params.tracks.map((item) => item.id).join(',')
+    const size = params.tracks.length === 1 ? 512 : 256
+    const result = await get(`Users/${user.userId}/Items`, {
+      Ids: ids,
+      Fields: 'DateCreated, Size, Bitrate, IsFavorite, MediaSources'
+    })
+    const data = result.Items.map((item, idx) => {
+      item.PlaylistItemId = params.tracks[idx].PlaylistItemId || ''
+      return formatTrack(item, size)
+    })
+    return { code: 200, data }
+  } catch {
+    return { code: 404, data: [] }
+  }
 }
 
 exports.resizePicUrl = (params) => {
@@ -653,32 +672,40 @@ exports.getStream = (params) => {
 }
 
 exports.getLyric = async (params) => {
-  const { id } = params
-  const result = await get(`Audio/${id}/Lyrics`)
-  if (!result?.Lyrics?.length) return { code: 200, data: [] }
-  const res = handleLyric(result)
-  const data = await apis.utils.parseLyric(res)
-  return { code: 200, data }
+  try {
+    const { id } = params
+    const result = await get(`Audio/${id}/Lyrics`)
+    if (!result?.Lyrics?.length) return { code: 200, data: [] }
+    const res = handleLyric(result)
+    const data = await apis.utils.parseLyric(res)
+    return { code: 200, data }
+  } catch {
+    return { code: 404, data: [] }
+  }
 }
 
 exports.addOrRemoveTracksToPlaylist = async (params) => {
-  const { op, playlist, tracks } = params
-  const ids = tracks
-    .map((it) =>
-      op === 'add'
-        ? it.sourceContext?.id || it.id
-        : it.sourceContext?.PlaylistItemId || it.PlaylistItemId
-    )
-    .join(',')
-  if (op === 'add') {
-    await post(
-      `Playlists/${playlist.id}/Items?Ids=${encodeURIComponent(ids)}&UserId=${user.userId}`,
-      {}
-    )
-  } else {
-    await Delete(`Playlists/${playlist.id}/Items?EntryIds=${encodeURIComponent(ids)}`, {})
+  try {
+    const { op, playlist, tracks } = params
+    const ids = tracks
+      .map((it) =>
+        op === 'add'
+          ? it.sourceContext?.id || it.id
+          : it.sourceContext?.PlaylistItemId || it.PlaylistItemId
+      )
+      .join(',')
+    if (op === 'add') {
+      await post(
+        `Playlists/${playlist.id}/Items?Ids=${encodeURIComponent(ids)}&UserId=${user.userId}`,
+        {}
+      )
+    } else {
+      await Delete(`Playlists/${playlist.id}/Items?EntryIds=${encodeURIComponent(ids)}`, {})
+    }
+    return { code: 200 }
+  } catch {
+    return { code: 404 }
   }
-  return { code: 200 }
 }
 
 exports.likeATrack = async (params) => {
@@ -695,18 +722,16 @@ exports.likeATrack = async (params) => {
 }
 
 exports.createPlaylist = async (params) => {
-  const { name } = params
-  const result = await post('Playlists', { Name: name, Ids: '', MediaType: 'Audio' })
-
   try {
+    const { name } = params
+    const result = await post('Playlists', { Name: name, Ids: '', MediaType: 'Audio' })
     const res = await get(`Users/${user.userId}/Items/${result.Id}`, {
       fields: 'ShareLevel',
       ExcludeFields: 'VideoChapters,VideoMediaSources,MediaStreams'
     })
     const playlist = formatPlaylist(res)
     return { code: 200, data: playlist }
-  } catch (error) {
-    console.log('[createPlaylist error]: ', error)
+  } catch {
     return { code: 404 }
   }
 }
@@ -747,45 +772,57 @@ exports.editPlaylist = async (params) => {
 }
 
 exports.getPlaylistTracks = async (params) => {
-  if (params.hasMore === false) return { code: 200, data: [], sourceContext: params }
-  const result = await getTracks({ ParentId: params.id })
-  const data = result.Items.map((item) => formatTrack(item, 64))
-  return { code: 200, data, sourceContext: { id: params.id, hasMore: false } }
+  try {
+    if (params.hasMore === false) return { code: 200, data: [], sourceContext: params }
+    const result = await getTracks({ ParentId: params.id })
+    const data = result.Items.map((item) => formatTrack(item, 64))
+    return { code: 200, data, sourceContext: { id: params.id, hasMore: false } }
+  } catch {
+    return { code: 404, data: [], sourceContext: {} }
+  }
 }
 
 exports.getAllTracks = async (_params) => {
-  const { page: rawPage = 0, sort, order, reset } = _params
-  const page = reset ? 0 : rawPage
-  const map = {
-    name: 'SortName',
-    createTime: 'DateCreated',
-    playCount: 'PlayCount'
-  }
+  try {
+    const { page: rawPage = 0, sort, order, reset } = _params
+    const page = reset ? 0 : rawPage
+    const map = {
+      name: 'SortName',
+      createTime: 'DateCreated',
+      playCount: 'PlayCount'
+    }
 
-  const SortBy = sort === 'id' ? '' : map[sort]
-  const SortOrder = order === 'ASC' ? 'Ascending' : 'Descending'
-  const params = { SortBy, SortOrder, Limit: 1000, StartIndex: 1000 * page }
+    const SortBy = sort === 'id' ? '' : map[sort]
+    const SortOrder = order === 'ASC' ? 'Ascending' : 'Descending'
+    const params = { SortBy, SortOrder, Limit: 1000, StartIndex: 1000 * page }
 
-  const result = await getTracks(params)
-  const data = result.Items.map((item) => formatTrack(item, 64))
+    const result = await getTracks(params)
+    const data = result.Items.map((item) => formatTrack(item, 64))
 
-  return {
-    code: 200,
-    data,
-    count: result.TotalRecordCount || data.length,
-    sourceContext: { page: page + 1 }
+    return {
+      code: 200,
+      data,
+      count: result.TotalRecordCount || data.length,
+      sourceContext: { page: page + 1 }
+    }
+  } catch {
+    return { code: 404, data: [], count: 0, sourceContext: {} }
   }
 }
 
 exports.albumDetail = async (params) => {
-  const { id } = params
-  const result = await get(`Users/${user.userId}/Items/${id}`)
-  const res = await getTracks({ ParentId: id })
-  const tracks = res.Items.map((item) => formatTrack(item, 64))
-  result.tracks = tracks
+  try {
+    const { id } = params
+    const result = await get(`Users/${user.userId}/Items/${id}`)
+    const res = await getTracks({ ParentId: id })
+    const tracks = res.Items.map((item) => formatTrack(item, 64))
+    result.tracks = tracks
 
-  const data = formatAlbumDetail(result)
-  return { code: 200, data, sourceContext: { id } }
+    const data = formatAlbumDetail(result)
+    return { code: 200, data, sourceContext: { id } }
+  } catch {
+    return { code: 404, data: null }
+  }
 }
 
 exports.artistAlbums = async (params) => {

@@ -132,6 +132,9 @@ export const usePluginMusic = defineStore(
           methodName,
           params: JSON.parse(JSON.stringify(params))
         })
+        if (!rawResult || typeof rawResult !== 'object') {
+          return defaultMap[methodName] as PluginAPI[typeof methodName]['result']
+        }
         rawResult.pluginId = pluginId
 
         const schema = PluginResultSchema[methodName]
