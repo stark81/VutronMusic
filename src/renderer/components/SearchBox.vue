@@ -92,7 +92,7 @@ const toggleInput = () => {
   }
 }
 
-defineExpose({ keywords, plugin })
+defineExpose({ keywords, plugin, showInput })
 
 const handleOutside = (e: MouseEvent) => {
   if (!containerRef.value?.contains(e.target as Node) && !keywords.value) {

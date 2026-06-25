@@ -52,6 +52,8 @@ import { usePlayerThemeStore } from '../store/playerTheme'
 // import ButtonIcon from './ButtonIcon.vue'
 // import SvgIcon from './SvgIcon.vue'
 import LyricLine from './LyricLine.vue'
+import { prewarmMeasureCache } from '../utils/lyricMeasure'
+import type { lyricLine, word } from '@/types/music.d'
 
 const props = defineProps({
   hover: { type: Boolean, default: false },
@@ -139,6 +141,23 @@ let scrollingTimer: any = null
 //   )
 // }
 
+function collectUniqueWords(lyrics: lyricLine[], translationMode: string): string[] {
+  const wordSet = new Set<string>()
+  for (const line of lyrics) {
+    if (line.lyric?.info) {
+      for (const w of line.lyric.info) wordSet.add(w.word)
+    }
+    if (translationMode !== 'none') {
+      const transKey = translationMode as keyof lyricLine
+      const trans = line[transKey] as { text: string; info?: word[] } | undefined
+      if (trans?.info) {
+        for (const w of trans.info) wordSet.add(w.word)
+      }
+    }
+  }
+  return Array.from(wordSet)
+}
+
 const scheduleAnimation = async (type: 'all' | 'translation' = 'all') => {
   if (!lyricRefs.value?.length) return
 
@@ -214,12 +233,20 @@ watch(playbackRate, (value) => {
 })
 
 watch(lyrics, async () => {
+  const allWords = collectUniqueWords(lyrics.value, nTranslationMode.value)
+  if (allWords.length > 0 && nFontSize.value) {
+    prewarmMeasureCache(allWords, fontFamily.value || 'system-ui', nFontSize.value)
+  }
   clearAnimations()
   await nextTick()
   scheduleAnimation()
 })
 
 watch(nTranslationMode, async () => {
+  const allWords = collectUniqueWords(lyrics.value, nTranslationMode.value)
+  if (allWords.length > 0 && nFontSize.value) {
+    prewarmMeasureCache(allWords, fontFamily.value || 'system-ui', nFontSize.value)
+  }
   clearAnimations(false)
   await nextTick()
   scheduleAnimation('translation')
@@ -281,6 +308,11 @@ watch(
 )
 
 onMounted(async () => {
+  const allWords = collectUniqueWords(lyrics.value, nTranslationMode.value)
+  if (allWords.length > 0 && nFontSize.value) {
+    prewarmMeasureCache(allWords, fontFamily.value || 'system-ui', nFontSize.value)
+  }
+
   const idx = Math.max(0, highlight.value)
   const el = document.getElementById(`lyric${idx}`)
   el?.scrollIntoView({ behavior: 'smooth', block: 'center' })

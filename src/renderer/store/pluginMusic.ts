@@ -1,6 +1,6 @@
 import z from 'zod'
 import { defineStore } from 'pinia'
-import { computed, reactive, ref, toRaw, watch } from 'vue'
+import { computed, reactive, ref, toRaw, watch, readonly } from 'vue'
 import { PluginResultSchema } from '@/types/schemas'
 import { useNormalStateStore } from './state'
 import {
@@ -75,11 +75,24 @@ export const usePluginMusic = defineStore(
       Record<PluginId, { data: Track[]; sourceContext: Record<string, any> }>
     >({})
     const playHistory = reactive<Record<PluginId, { week: Track[]; all: Track[] }>>({})
+    const _pagePerPlugin = reactive<Record<PluginId, number>>({})
 
     const tools = reactive<Record<service['type'], Tool>>({
-      library: { groundBy: 'all', sortBy: 'name', orderBy: 'ASC', artistBy: 'artists' },
-      stream: { groundBy: 'all', sortBy: 'name', orderBy: 'ASC', artistBy: 'artists' },
-      local: { groundBy: 'all', sortBy: 'name', orderBy: 'ASC', artistBy: 'artists' }
+      library: {
+        groundBy: 'all',
+        sortBy: 'name',
+        orderBy: 'ASC',
+        artistBy: 'artists',
+        pageSize: 500
+      },
+      stream: {
+        groundBy: 'all',
+        sortBy: 'name',
+        orderBy: 'ASC',
+        artistBy: 'artists',
+        pageSize: 1000
+      },
+      local: { groundBy: 'all', sortBy: 'name', orderBy: 'ASC', artistBy: 'artists', pageSize: 0 }
     })
 
     const additionalTags = reactive<Record<PluginId, PlaylistCatlist['static']>>({})
@@ -176,26 +189,29 @@ export const usePluginMusic = defineStore(
     }
 
     const getPlugins = async () => {
-      await window.mainApi
-        ?.invoke('get-plugins')
-        .then(
-          (
-            result: Record<
-              PluginId,
-              { name: string; type: MusicType; capabilities?: service['capabilities'] }
-            >
-          ) => {
-            for (const [code, meta] of Object.entries(result)) {
-              const pluginId = code as PluginId
-              if (!pluginIdSet.value.has(pluginId)) {
-                const info = _buildService(pluginId, meta)
-                services.value.push(info)
-                _initPluginData(pluginId)
-              }
-              _initTempInfo(pluginId)
+      await window.mainApi?.invoke('get-plugins').then(
+        (
+          result: Record<
+            PluginId,
+            {
+              name: string
+              icon: string
+              type: MusicType
+              capabilities?: service['capabilities']
             }
+          >
+        ) => {
+          for (const [code, meta] of Object.entries(result)) {
+            const pluginId = code as PluginId
+            if (!pluginIdSet.value.has(pluginId)) {
+              const info = _buildService(pluginId, meta)
+              services.value.push(info)
+              _initPluginData(pluginId)
+            }
+            _initTempInfo(pluginId)
           }
-        )
+        }
+      )
 
       const typeOrder = {
         library: 0,
@@ -377,6 +393,7 @@ export const usePluginMusic = defineStore(
           order: tool.orderBy,
           ...(reset && { reset: true })
         })
+        const prevLength = pluginTracks.data.length
         pluginTracks.data.push(
           ...result.data.map((_item) => ({
             ..._item,
@@ -386,6 +403,10 @@ export const usePluginMusic = defineStore(
             pluginId: item
           }))
         )
+        // 首次加载后记录 page（实际返回数量）
+        if (prevLength === 0 && result.data.length > 0) {
+          _pagePerPlugin[item] = 0
+        }
         pluginTracks.count = result.data.length ? result.count : pluginTracks.data.length
         pluginTracks.sourceContext = {
           ...result.sourceContext,
@@ -408,6 +429,39 @@ export const usePluginMusic = defineStore(
       if (plugin.loadFull && pluginTracks.count > pluginTracks.data.length) {
         backgroundSync()
       }
+    }
+
+    const loadTrackPage = async (pluginId: PluginId, page: number) => {
+      const plugin = services.value.find((it) => it.code === pluginId)
+      if (!plugin || plugin.type === 'library') return
+      if (!tracks[pluginId]) tracks[pluginId] = { data: [], count: 0, sourceContext: {} }
+
+      const pluginTracks = tracks[pluginId]
+      const tool = tools[plugin.type]
+
+      // 计算偏移量：同时传 _start（navidrome 风格）和 page（emby/jellyfin 风格）
+      // 每个插件只取自己需要的字段。
+      const pageSize = tool.pageSize || 1000
+      const _start = page * pageSize
+      const params: Record<string, any> = {
+        _start,
+        page,
+        sort: tool.sortBy,
+        order: tool.orderBy
+      }
+
+      const result = await pluginMethodCall(pluginId, 'getAllTracks', params)
+
+      pluginTracks.data = result.data.map((_item) => ({
+        ..._item,
+        album: { ..._item.album, pluginId },
+        artists: _item.artists.map((it) => ({ ...it, pluginId })),
+        albumArtists: _item.albumArtists.map((it) => ({ ...it, pluginId })),
+        pluginId
+      }))
+      pluginTracks.count = result.data.length ? result.count : pluginTracks.data.length
+      pluginTracks.sourceContext = result.sourceContext || {}
+      _pagePerPlugin[pluginId] = page
     }
 
     const fetchLikedMVs = async (item: PluginId, loadedMore: boolean = false) => {
@@ -776,6 +830,7 @@ export const usePluginMusic = defineStore(
       mvs,
       additionalTags,
       users,
+      _pagePerPlugin: readonly(_pagePerPlugin),
 
       enableLibrary,
       enableStream,
@@ -803,6 +858,7 @@ export const usePluginMusic = defineStore(
       fetchCloudDisk,
       fetchPlayHistory,
       fetchAllTracks,
+      loadTrackPage,
       fetchLikedArtists,
       fetchLikedPlaylists,
       fetchPlaylistTracks,

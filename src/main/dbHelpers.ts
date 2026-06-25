@@ -581,6 +581,8 @@ export function pluginDbSet(
     case 'PlaylistEntry':
       if (value._delete) {
         removePlaylistEntry(value.id)
+      } else if (value._reorder) {
+        reorderPlaylistEntries(value.playlistId, value.orderedEntryIds)
       } else if (value.playlistId && value.pluginId) {
         addPlaylistEntry(
           value.playlistId,
@@ -776,6 +778,24 @@ export function addPlaylistEntry(playlistId: string, pluginId: string, sourceCon
 /** 移除歌单中的歌曲条目 */
 export function removePlaylistEntry(id: number) {
   db.sqlite.prepare(`DELETE FROM ${Tables.PlaylistEntry} WHERE id = ?`).run(id)
+}
+
+/** 批量更新歌单条目顺序（事务内原子操作）
+ *  orderedEntryIds 按显示顺序（第1首 → 最后1首）传入。
+ *  由于 PlaylistEntry 以 ORDER BY position DESC 读取，
+ *  第1首需获最高 position，最后1首 position=0。
+ */
+export function reorderPlaylistEntries(playlistId: string, orderedEntryIds: number[]) {
+  if (!orderedEntryIds.length) return
+  const maxPos = orderedEntryIds.length - 1
+  db.sqlite.transaction(() => {
+    const stmt = db.sqlite.prepare(
+      `UPDATE ${Tables.PlaylistEntry} SET position = ? WHERE id = ? AND playlistId = ?`
+    )
+    for (let i = 0; i < orderedEntryIds.length; i++) {
+      stmt.run(maxPos - i, orderedEntryIds[i], playlistId)
+    }
+  })()
 }
 
 /** 批量查询歌单条目数（返回 { playlistId → count } 映射） */

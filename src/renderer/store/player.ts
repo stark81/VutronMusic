@@ -132,7 +132,13 @@ export const usePlayerStore = defineStore(
 
     const list = computed({
       get: () => (isShuffle.value ? shuffleList.value : playList.value),
-      set: (value) => (playList.value = value)
+      set: (value) => {
+        if (isShuffle.value) {
+          shuffleList.value = value
+        } else {
+          playList.value = value
+        }
+      }
     })
 
     /**
@@ -281,6 +287,9 @@ export const usePlayerStore = defineStore(
 
     watch(isShuffle, (value) => {
       window.mainApi?.send('updatePlayerState', { shuffle: value })
+      if (value && playList.value.length > 0) {
+        shuffleTheList(currentTrackIndex.value)
+      }
     })
 
     // 监听播放列表/播放队列变化，自动清除缓存并触发预加载

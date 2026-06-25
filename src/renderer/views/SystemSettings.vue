@@ -475,13 +475,15 @@
                 >
                   <img :src="getPluginIcon(plugin)" />
                   <div class="plugin-info">
-                    <span class="status-dot" :style="{ background: getStatusColor(plugin) }"></span>
+                    <span
+                      class="status-dot"
+                      :style="{ background: getStatusColor(plugin) }"
+                      :title="getStatusTip(plugin)"
+                      @click.stop="handleLogin(plugin)"
+                    ></span>
                     <span class="plugin-name-text">{{ plugin.name }}</span>
                     <span v-if="plugin.active" class="active-badge">★ 当前使用</span>
                   </div>
-                  <span class="plugin-status-text" @click.stop="handleLogin(plugin)">{{
-                    $t(`settings.stream.${plugin.status}`)
-                  }}</span>
                 </div>
               </div>
               <template v-if="enableLibrary">
@@ -579,18 +581,24 @@
                   gridTemplateColumns: `repeat(${Math.min(streamPlugins.length, 3)}, 1fr)`
                 }"
               >
-                <div
-                  v-for="ser of streamPlugins"
-                  :key="ser.code"
-                  class="plugin-list-item"
-                  @click="handleLogin(ser)"
-                >
+                <div v-for="ser of streamPlugins" :key="ser.code" class="plugin-list-item">
                   <img :src="getPluginIcon(ser)" />
                   <div class="plugin-info">
-                    <span class="status-dot" :style="{ background: getStatusColor(ser) }"></span>
+                    <span
+                      class="status-dot"
+                      :style="{ background: getStatusColor(ser) }"
+                      :title="getStatusTip(ser)"
+                      @click.stop="handleLogin(ser)"
+                    ></span>
                     <span class="plugin-name-text">{{ ser.name }}</span>
+                    <span
+                      class="loadfull-chip"
+                      :class="{ active: ser.loadFull }"
+                      title="关闭时仅加载第一页，可在歌曲列表通过分页浏览全部"
+                      @click.stop="toggleLoadFull(ser)"
+                      >全量</span
+                    >
                   </div>
-                  <span class="plugin-status-text">{{ $t(`settings.stream.${ser.status}`) }}</span>
                 </div>
               </div>
               <div class="item">
@@ -607,6 +615,22 @@
                 </div>
                 <div class="right">
                   <button @click="clearStreamMatchInfo">确定</button>
+                </div>
+              </div>
+              <div class="item">
+                <div class="left">
+                  <div class="title">每页加载数量</div>
+                  <div class="description">非全量加载时的分页大小</div>
+                </div>
+                <div class="right">
+                  <input
+                    v-model.number="pageSize"
+                    type="number"
+                    class="text-input margin-right-0"
+                    min="100"
+                    max="5000"
+                    step="100"
+                  />
                 </div>
               </div>
             </div>
@@ -639,20 +663,17 @@
                 class="plugin-list"
                 :style="{ gridTemplateColumns: `repeat(${Math.min(localPlugins.length, 3)}, 1fr)` }"
               >
-                <div
-                  v-for="plugin in localPlugins"
-                  :key="plugin.code"
-                  class="plugin-list-item"
-                  @click="handleLogin(plugin)"
-                >
+                <div v-for="plugin in localPlugins" :key="plugin.code" class="plugin-list-item">
                   <img :src="getPluginIcon(plugin)" />
                   <div class="plugin-info">
-                    <span class="status-dot" :style="{ background: getStatusColor(plugin) }"></span>
+                    <span
+                      class="status-dot"
+                      :style="{ background: getStatusColor(plugin) }"
+                      :title="getStatusTip(plugin)"
+                      @click.stop="handleLogin(plugin)"
+                    ></span>
                     <span class="plugin-name-text">{{ plugin.name }}</span>
                   </div>
-                  <span class="plugin-status-text">{{
-                    $t(`settings.stream.${plugin.status}`)
-                  }}</span>
                 </div>
               </div>
               <div class="item">
@@ -1304,7 +1325,7 @@ const {
   enableStream,
   enableLibrary
 } = storeToRefs(pluginMusicStore)
-const { uploadPlugin, pluginMethodCall, handleStatusChange } = pluginMusicStore
+const { uploadPlugin, pluginMethodCall, handleStatusChange, fetchAllTracks } = pluginMusicStore
 
 const osdLyric = useOsdLyricStore()
 const {
@@ -1361,6 +1382,29 @@ const showTrackInfo = computed({
 const libraryPlugins = computed(() => pluginServices.value.filter((s) => s.type === 'library'))
 const streamPlugins = computed(() => pluginServices.value.filter((s) => s.type === 'stream'))
 const localPlugins = computed(() => pluginServices.value.filter((s) => s.type === 'local'))
+
+const pageSize = computed({
+  get: () => general.value.pageSize,
+  set: (val: number) => {
+    const clamped = Math.max(100, Math.min(5000, val))
+    general.value.pageSize = clamped
+    pluginMusicStore.tools.stream.pageSize = clamped
+  }
+})
+
+const getStatusTip = (plugin: service) => {
+  const tips = {
+    login: '已登录，点击登出',
+    logout: '未登录，点击登录',
+    offline: '服务器离线，点击登出'
+  }
+  return tips[plugin.status]
+}
+
+const toggleLoadFull = (ser: service) => {
+  ser.loadFull = !ser.loadFull
+  fetchAllTracks(ser.code, true)
+}
 
 const streamMatchCount = ref(0)
 
@@ -2398,11 +2442,27 @@ onBeforeUnmount(() => {
     }
   }
 
-  .plugin-status-text {
-    font-size: 0.8rem;
-    opacity: 0.7;
+  .loadfull-chip {
+    font-size: 11px;
+    padding: 1px 8px;
+    border-radius: 10px;
+    border: 1px solid var(--color-text);
+    opacity: 0.45;
+    cursor: pointer;
+    transition: all 0.2s;
     white-space: nowrap;
-    margin-left: auto;
+    user-select: none;
+
+    &:hover {
+      opacity: 0.7;
+    }
+
+    &.active {
+      opacity: 1;
+      background: var(--color-primary);
+      border-color: var(--color-primary);
+      color: white;
+    }
   }
 }
 

@@ -21,6 +21,21 @@ export function measureWords(
   })
 }
 
+export function prewarmMeasureCache(
+  words: string[],
+  font: string,
+  fontSize: number,
+  fontWeight: number = 600
+): void {
+  ctx.font = `${fontWeight} ${fontSize}px ${font}`
+  for (const word of words) {
+    const key = `${font}|${fontSize}|${fontWeight}|${word}`
+    if (!cache.has(key)) {
+      cache.set(key, ctx.measureText(word).width)
+    }
+  }
+}
+
 export function clearMeasureCache() {
   cache.clear()
 }

@@ -25,6 +25,7 @@ export interface PluginMeta {
   name?: string
   type?: 'online' | 'stream' | 'local' | 'library'
   capabilities?: PluginCapabilities
+  icon?: string
   [key: string]: any
 }
 

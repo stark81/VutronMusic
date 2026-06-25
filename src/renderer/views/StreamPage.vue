@@ -76,9 +76,7 @@
             $t('contextMenu.addToQueue')
           }}</div>
           <div v-else class="tab dropdown" :class="{ active: idx === 2 }" @click="idx = 2">
-            <span class="text">{{
-              `${albumTab === 'default' ? '全部' : '收藏'} - ${$t('streamMusic.album')}`
-            }}</span>
+            <span class="text">{{ `${$t('streamMusic.album')}` }}</span>
             <span class="icon" @click.stop="(e) => openTabMenu('album', e)"
               ><svg-icon icon-class="dropdown"
             /></span>
@@ -87,8 +85,9 @@
             $t('contextMenu.finish')
           }}</div>
           <div v-else class="tab dropdown" :class="{ active: idx === 3 }" @click="idx = 3">
+            <!-- ${artistTab === 'default' ? '全部' : '收藏'} -  -->
             <span class="text">{{
-              `${artistTab === 'default' ? '全部' : '收藏'} - ${$t(tool.artistBy === 'artists' ? 'streamMusic.artist' : 'localMusic.albumArtist')}`
+              `${$t(tool.artistBy === 'artists' ? 'streamMusic.artist' : 'localMusic.albumArtist')}`
             }}</span>
             <span class="icon" @click.stop="(e) => openTabMenu('artist', e)"
               ><svg-icon icon-class="dropdown"
@@ -100,6 +99,21 @@
             ref="streamSearchBoxRef"
             :placeholder="`搜索${placeHolderMap(idx === 3 ? tool.artistBy : String(tabs[idx]))}`"
           />
+          <div
+            class="pagi-wrap"
+            :class="{
+              visible:
+                tool.groundBy !== 'all' &&
+                !isCurrentPluginLoadFull &&
+                !streamSearchBoxRef?.showInput
+            }"
+          >
+            <Pagination
+              :current-page="currentPage"
+              :total-pages="totalPages"
+              @page-change="onPageChange"
+            />
+          </div>
         </div>
         <button v-show="idx === 1" class="tab-button" @click="openAddPlaylistModal"
           ><svg-icon icon-class="plus" />{{ $t('library.playlist.newPlaylist') }}</button
@@ -108,7 +122,9 @@
       <div v-if="!loginService.length" class="errorInfo">{{ 'streamMessage' }}</div>
       <div v-if="show" class="section-two-content" :style="tabStyle">
         <div v-show="idx === 0">
+          <!-- 聚合视图或 loadFull 插件：现有 TrackList，无分页 -->
           <TrackList
+            v-if="tool.groundBy === 'all' || isCurrentPluginLoadFull"
             ref="streamListRef"
             :items="filterTracks"
             :type="'Track'"
@@ -118,6 +134,19 @@
             :colunm-number="1"
             :is-end="true"
           />
+          <!-- 非 loadFull 插件：TrackList，无分页 -->
+          <template v-else>
+            <TrackList
+              ref="streamListRef"
+              :items="filterTracks"
+              :type="'Track'"
+              :plugin="tool.groundBy"
+              :source-context="{ pluginType: 'stream' }"
+              :show-service="false"
+              :colunm-number="1"
+              :is-end="true"
+            />
+          </template>
         </div>
         <div v-show="idx === 1">
           <CoverRow
@@ -248,6 +277,7 @@ import { randomNum, pickedLyric } from '../utils'
 import { lyricLine } from '@/types/music.d'
 import type { Track, sortType, orderType } from '@/types/plugin'
 // import _ from 'lodash'
+import Pagination from '../components/Pagination.vue'
 import { PluginId } from '@/types/schemas'
 
 const stateStore = useNormalStateStore()
@@ -264,7 +294,8 @@ const {
   pluginMethodCall,
   fetchLikedArtists,
   fetchAllTracks,
-  handleStatusChange
+  handleStatusChange,
+  loadTrackPage
 } = pluginStore
 
 const streamService = computed(() => services.value.filter((item) => item.type === 'stream'))
@@ -320,19 +351,56 @@ const filterLikedTracks = computed(() => {
 })
 
 const defaultTracks = computed(() => {
-  const _tracks =
-    tool.value.groundBy === 'all'
-      ? Object.entries(tracks.value)
-          .filter(([plugin]) => sers.value.includes(plugin as PluginId))
-          .map(([, item]) => item.data)
-          .flat()
-      : tracks.value[tool.value.groundBy]?.data || []
-  return _tracks
+  if (tool.value.groundBy === 'all') {
+    // 只聚合 loadFull=true 的已登录流媒体服务
+    return Object.entries(tracks.value)
+      .filter(([plugin]) => {
+        const svc = services.value.find((s) => s.code === plugin)
+        return svc && svc.loadFull && sers.value.includes(plugin as PluginId)
+      })
+      .map(([, item]) => item.data)
+      .flat()
+  }
+  return tracks.value[tool.value.groundBy]?.data || []
 })
+
+const currentService = computed(() => {
+  if (tool.value.groundBy === 'all') return null
+  return services.value.find((s) => s.code === tool.value.groundBy) || null
+})
+
+const isCurrentPluginLoadFull = computed(() => {
+  return currentService.value ? currentService.value.loadFull : true
+})
+
+const currentPage = computed(() => {
+  if (!currentService.value) return 0
+  return pluginStore._pagePerPlugin[currentService.value.code] || 0
+})
+
+const totalPages = computed(() => {
+  if (!currentService.value) return 1
+  const pluginTracks = tracks.value[currentService.value.code]
+  if (!pluginTracks) return 1
+  const pageSize = tool.value.pageSize || 1000
+  return Math.max(1, Math.ceil(pluginTracks.count / pageSize))
+})
+
+const onPageChange = async (page: number) => {
+  if (!currentService.value) return
+  await loadTrackPage(currentService.value.code, page)
+}
 
 const tracksCount = computed(() => {
   const groundByCount = Object.entries(tracks.value)
-    .filter(([plugin]) => sers.value.includes(plugin as PluginId))
+    .filter(([plugin]) => {
+      if (!sers.value.includes(plugin as PluginId)) return false
+      if (tool.value.groundBy === 'all') {
+        const svc = services.value.find((s) => s.code === plugin)
+        return svc?.loadFull
+      }
+      return true
+    })
     .map(([, item]) => item.count)
     .reduce((acc, cur) => acc + cur, 0)
   return tool.value.groundBy === 'all'
@@ -389,11 +457,10 @@ const filterTracks = computed(() => {
         track.album.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
       track.artists.find(
         (ar) => ar.name && ar.name.toLowerCase().includes(keyword.value?.toLowerCase())
+      ) ||
+      track.albumArtists.find(
+        (ar) => ar.name && ar.name.toLowerCase().includes(keyword.value?.toLowerCase())
       )
-    // ||
-    // track.albumArtist.find(
-    //   (ar) => ar.name && ar.name.toLowerCase().includes(keyword.value?.toLowerCase())
-    // )
   )
 })
 
@@ -476,9 +543,19 @@ const finishBatchOp = () => {
 
 const refreshTracks = () => {
   if (tool.value.groundBy === 'all') {
-    loginService.value.forEach((se) => fetchAllTracks(se.code, true))
+    loginService.value
+      .filter((se) => {
+        const svc = services.value.find((s) => s.code === se.code)
+        return svc?.loadFull
+      })
+      .forEach((se) => fetchAllTracks(se.code, true))
   } else {
-    fetchAllTracks(tool.value.groundBy, true)
+    const svc = services.value.find((s) => s.code === tool.value.groundBy)
+    if (svc?.loadFull) {
+      fetchAllTracks(tool.value.groundBy, true)
+    } else {
+      loadTrackPage(tool.value.groundBy, 0)
+    }
   }
 }
 
@@ -822,6 +899,28 @@ onBeforeUnmount(() => {
           }
         }
       }
+    }
+  }
+
+  .search-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .pagi-wrap {
+    overflow: hidden;
+    max-width: 0;
+    opacity: 0;
+    transition:
+      max-width 0.3s ease,
+      opacity 0.3s ease;
+    white-space: nowrap;
+    margin-left: 6px;
+
+    &.visible {
+      max-width: 300px;
+      opacity: 1;
     }
   }
 }

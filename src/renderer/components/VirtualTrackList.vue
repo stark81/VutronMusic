@@ -1,40 +1,59 @@
 <template>
-  <VirtualScroll
-    :list="items"
-    :item-size="itemHeight"
-    :column-number="colunmNumber"
-    :show-position="showPosition"
-    :height="height"
-    :is-end="isEnd"
-    :padding-bottom="paddingBottom"
-    :load-more="loadMore"
-    :above-value="5"
-    :below-value="5"
-    :gap="gap"
-    :enable-virtual-scroll="enableVirtualScroll"
+  <div
+    ref="dndWrapperRef"
+    class="dnd-wrapper"
+    @dragover.prevent="reorderable ? onDragOver($event) : undefined"
+    @drop="reorderable ? onDrop($event) : undefined"
+    @dragleave="reorderable ? onDragLeave() : undefined"
   >
-    <template #position="{ scrollToCurrent }">
-      <div v-show="showScrollTo" @click="scrollToCurrent(currentIndex)"
-        ><svg-icon icon-class="target"></svg-icon
-      ></div>
-    </template>
-    <template #default="{ item, index }">
-      <div class="track-item">
-        <TrackListItem
-          :track-prop="item"
-          :track-no="item.no || index + 1"
-          :type-prop="type"
-          :is-lyric="isLyric"
-          :show-service="showService"
-          :album-object="albumObject"
-          :show-play-count="showPlayCount"
-          :highlight-playing-track="highlightPlayingTrack"
-          @dblclick="playThisList(item.id)"
-          @click.right="openMenu($event, item, index)"
-        />
-      </div>
-    </template>
-  </VirtualScroll>
+    <VirtualScroll
+      ref="virtualScrollRef"
+      :list="displayItems"
+      :item-size="itemHeight"
+      :column-number="colunmNumber"
+      :show-position="showPosition"
+      :height="height"
+      :is-end="isEnd"
+      :padding-bottom="paddingBottom"
+      :load-more="loadMore"
+      :above-value="5"
+      :below-value="5"
+      :gap="gap"
+      :enable-virtual-scroll="enableVirtualScroll"
+      :frozen="dragState.isDragging"
+    >
+      <template #position="{ scrollToCurrent }">
+        <div v-show="showScrollTo" @click="scrollToCurrent(currentIndex)"
+          ><svg-icon icon-class="target"></svg-icon
+        ></div>
+      </template>
+      <template #default="{ item, index }">
+        <div class="track-item" :data-index="index">
+          <TrackListItem
+            :track-prop="item"
+            :track-no="item.no || index + 1"
+            :type-prop="type"
+            :is-lyric="isLyric"
+            :show-service="showService"
+            :album-object="albumObject"
+            :show-play-count="showPlayCount"
+            :highlight-playing-track="highlightPlayingTrack"
+            :reorderable="reorderable"
+            :drag-index="index"
+            @dragstart="onDragStart(index)"
+            @dragend="onDragEnd()"
+            @dblclick="playThisList(item.id)"
+            @click.right="openMenu($event, item, index)"
+          />
+        </div>
+      </template>
+    </VirtualScroll>
+    <div
+      v-if="reorderable && dropIndicatorVisible"
+      class="drop-indicator"
+      :style="{ top: dropIndicatorTop + 'px' }"
+    ></div>
+  </div>
   <div v-show="showComment" class="comment" @click="closeComment">
     <div></div>
     <div class="comment-container-parent" @click.stop>
@@ -111,7 +130,8 @@ import {
   onActivated,
   onBeforeUnmount,
   onDeactivated,
-  onMounted
+  onMounted,
+  watch
 } from 'vue'
 import { usePlayerStore } from '../store/player'
 import { useNormalStateStore } from '../store/state'
@@ -154,6 +174,7 @@ const props = withDefaults(
     showPlayCount?: boolean
     paddingBottom?: number
     enableVirtualScroll?: boolean
+    reorderable?: boolean
   }>(),
   {
     allItems: () => [],
@@ -175,7 +196,8 @@ const props = withDefaults(
     showPlayCount: false,
     highlightPlayingTrack: true,
     paddingBottom: 96,
-    enableVirtualScroll: true
+    enableVirtualScroll: true,
+    reorderable: false
   }
 )
 
@@ -482,10 +504,203 @@ const addToQueue = (ids: [PluginId, Record<string, any>][]) => {
 const updatePadding = inject('updatePadding') as (padding: number) => void
 const removeTrack = inject('removeTrack', (idx: number) => {})
 
+// 排序持久化改为关闭排序模式时批量写入，每步拖拽不再 emit
+
+// ── 拖拽排序 ──
+const virtualScrollRef = ref<any>()
+const dndWrapperRef = ref<HTMLElement>()
+
+/** reorderable 时维护本地 items 副本，拖拽不依赖于只读 prop */
+const localReorderItems = ref<Track[]>([])
+
+/** 显示用的列表：reorderable 时用本地副本，否则用 prop */
+const displayItems = computed(() => (props.reorderable ? localReorderItems.value : items.value))
+
+/** 同步本地副本 */
+watch(
+  () => props.items,
+  (newItems) => {
+    if (props.reorderable) localReorderItems.value = [...newItems]
+  },
+  { deep: true }
+)
+
+watch(
+  () => props.reorderable,
+  (val) => {
+    if (val) localReorderItems.value = [...items.value]
+  },
+  { immediate: true }
+)
+
+const dragState = ref<{
+  sourceIndex: number
+  targetIndex: number | null
+  indicatorTop: number | null
+  isDragging: boolean
+  ghostY: number
+}>({
+  sourceIndex: -1,
+  targetIndex: null,
+  indicatorTop: null,
+  isDragging: false,
+  ghostY: 0
+})
+
+let autoScrollTimer: number | null = null
+const SCROLL_EDGE = 50
+const SCROLL_SPEED = 6
+
+const dropIndicatorVisible = computed(
+  () => dragState.value.isDragging && dragState.value.indicatorTop !== null
+)
+const dropIndicatorTop = computed(() => dragState.value.indicatorTop ?? 0)
+
+function startAutoScroll(direction: -1 | 1) {
+  if (autoScrollTimer !== null) return
+  autoScrollTimer = window.setInterval(() => {
+    const container = virtualScrollRef.value?.listRef
+    if (!container) return
+    container.scrollTop += direction * SCROLL_SPEED
+  }, 16)
+}
+
+function stopAutoScroll() {
+  if (autoScrollTimer !== null) {
+    clearInterval(autoScrollTimer)
+    autoScrollTimer = null
+  }
+}
+
+/** 根据鼠标 Y 坐标计算落点索引（数据层索引） */
+function getDropIndex(clientY: number): { index: number; top: number } | null {
+  const vs = virtualScrollRef.value
+  const container = vs?.listRef
+  if (!container) return null
+
+  const rect = container.getBoundingClientRect()
+  const offsetInContainer = clientY - rect.top + container.scrollTop
+  const rowIdx = vs.getStartIndex(offsetInContainer)
+
+  if (rowIdx == null || rowIdx >= vs.position.length) {
+    return { index: displayItems.value.length, top: container.scrollHeight }
+  }
+
+  const row = vs.position[rowIdx * colunmNumber.value]
+  if (!row) return null
+
+  const rowMid = row.top + row.height / 2
+  const insertAfter = offsetInContainer > rowMid
+
+  let dropIndex = insertAfter ? Math.min(rowIdx + 1, displayItems.value.length) : rowIdx
+  const indicatorTop = insertAfter ? row.bottom : row.top
+
+  // 拖拽源移除后目标索引偏移
+  if (dragState.value.sourceIndex >= 0 && dragState.value.sourceIndex < dropIndex) {
+    dropIndex--
+  }
+
+  return { index: dropIndex, top: indicatorTop }
+}
+
+function onDragStart(index: number) {
+  dragState.value = {
+    sourceIndex: index,
+    targetIndex: null,
+    indicatorTop: null,
+    isDragging: true,
+    ghostY: 0
+  }
+}
+
+function onDragEnd() {
+  stopAutoScroll()
+  dragState.value = {
+    sourceIndex: -1,
+    targetIndex: null,
+    indicatorTop: null,
+    isDragging: false,
+    ghostY: 0
+  }
+}
+
+function onDragOver(e: DragEvent) {
+  if (!dragState.value.isDragging) return
+  dragState.value.ghostY = e.clientY
+
+  const result = getDropIndex(e.clientY)
+  if (!result) return
+
+  dragState.value.targetIndex = result.index
+
+  const container = virtualScrollRef.value?.listRef
+  const wrapper = dndWrapperRef.value
+  if (container && wrapper) {
+    const containerRect = container.getBoundingClientRect()
+    const wrapperRect = wrapper.getBoundingClientRect()
+    dragState.value.indicatorTop =
+      result.top - container.scrollTop + (containerRect.top - wrapperRect.top)
+  }
+
+  // 边界自动滚动
+  if (!container) return
+  const rect = container.getBoundingClientRect()
+  const relativeY = e.clientY - rect.top
+  if (relativeY < SCROLL_EDGE) {
+    startAutoScroll(-1)
+  } else if (relativeY > rect.height - SCROLL_EDGE) {
+    startAutoScroll(1)
+  } else {
+    stopAutoScroll()
+  }
+}
+
+function onDragLeave() {
+  stopAutoScroll()
+}
+
+function onDrop(e: DragEvent) {
+  e.preventDefault()
+  stopAutoScroll()
+
+  if (!dragState.value.isDragging) return
+  const target = dragState.value.targetIndex
+  const source = dragState.value.sourceIndex
+  if (target == null || source < 0 || source === target) {
+    onDragEnd()
+    return
+  }
+
+  const sourceIdx = dragState.value.sourceIndex as number
+  const targetIdx = dragState.value.targetIndex as number
+
+  // 操作本地数组（本地副本 = 数据层，直接 splice）
+  const newList = [...localReorderItems.value]
+  const [moved] = newList.splice(sourceIdx, 1)
+  newList.splice(targetIdx, 0, moved)
+  localReorderItems.value = newList
+
+  onDragEnd()
+}
+
+/**
+ * 将拖拽后的本地排序一次性持久化到数据库
+ * 由父组件在关闭排序模式时调用
+ */
+async function saveReorder() {
+  if (props.plugin === 'all' || !localReorderItems.value.length) return
+  const orderedIds = localReorderItems.value.map((t: Track) => String(t.sourceContext?.id ?? ''))
+  await pluginStore.pluginMethodCall(props.plugin as PluginId, 'reorderPlaylistTracks', {
+    id: props.sourceContext.id,
+    orderedIds
+  })
+  return localReorderItems.value
+}
+
 provide('playThisList', playThisList)
 provide('selectedList', selectedList)
 provide('rightClickedTrack', rightClickedTrack)
-defineExpose({ selectAll, doFinish, addTrackToPlaylist, addToQueue })
+defineExpose({ selectAll, doFinish, addTrackToPlaylist, addToQueue, saveReorder })
 
 onActivated(() => {
   if (props.isEnd) updatePadding(0)
@@ -503,9 +718,24 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped lang="scss">
+.dnd-wrapper {
+  position: relative;
+}
+
 .track-item {
   width: 100%;
   // padding-bottom: 4px;
+}
+
+.drop-indicator {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--color-primary);
+  z-index: 10;
+  pointer-events: none;
+  border-radius: 2px;
 }
 
 .comment {

@@ -689,6 +689,44 @@ exports.addOrRemoveTracksToPlaylist = async (_params) => {
   return { code: 200 }
 }
 
+exports.reorderPlaylistTracks = async (params) => {
+  const { id, orderedIds } = params
+  if (!id || !orderedIds || !orderedIds.length) return { code: 404 }
+
+  const entries = await apis.db.get('PlaylistEntry', { playlistId: id })
+  if (!entries || !entries.length) return { code: 200 }
+
+  // 建立 trackId → entryId 映射
+  const entryMap = new Map()
+  for (const entry of entries) {
+    let ctx
+    try {
+      ctx =
+        typeof entry.sourceContext === 'string'
+          ? JSON.parse(entry.sourceContext)
+          : entry.sourceContext
+    } catch {
+      continue
+    }
+    if (ctx && ctx.id != null) entryMap.set(String(ctx.id), entry.id)
+  }
+
+  // 按新顺序排列 entryId，只保留能找到映射的
+  const orderedEntryIds = orderedIds
+    .map((trackId) => entryMap.get(String(trackId)))
+    .filter((id) => id != null)
+
+  if (orderedEntryIds.length < 2) return { code: 200 }
+
+  await apis.db.set('PlaylistEntry', {
+    _reorder: true,
+    playlistId: id,
+    orderedEntryIds
+  })
+
+  return { code: 200 }
+}
+
 exports.createPlaylist = async (_params) => {
   const { name, description = '' } = _params
   const id = generateId()
@@ -771,7 +809,7 @@ exports.userPlaylist = async () => {
       const trackResult = await apis.db.get('Track', { ids: trackIds })
       for (const song of trackResult?.songs || []) {
         const pid = firstEntryPidMap[song.id]
-        if (pid && song.picUrl) coverMap[pid] = song.picUrl
+        if (pid) coverMap[pid] = song.picUrl || picUrl(song.id, 256)
       }
     }
   }
@@ -812,7 +850,7 @@ exports.getPlaylistDetail = async (_params) => {
     id: pl.id,
     name: pl.name,
     description: pl.description,
-    picUrl: pl.picUrl || (tracks.length > 0 ? tracks[0].picUrl : ''),
+    picUrl: tracks.length > 0 ? picUrl(tracks[0].id, 512) : '',
     trackCount: tracks.length,
     tracks,
     createTime: pl.createTime

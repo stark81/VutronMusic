@@ -49,7 +49,9 @@ export const useSettingsStore = defineStore(
       clickToLyric: false, // 点击播放栏打开歌词页
       forceFactor: false,
       /** 音量均衡（ReplayGain），自动平衡不同歌曲间的响度差异 */
-      volumeNormalization: true
+      volumeNormalization: true,
+      /** 全局每页加载数量，匹配插件内部页大小 */
+      pageSize: 1000
     })
 
     const tray = reactive({

@@ -127,6 +127,7 @@ export const defaultMap: {
   getTrackDetail: { code: 404, data: [] },
   likeATrack: { code: 404 },
   addOrRemoveTracksToPlaylist: { code: 404 },
+  reorderPlaylistTracks: { code: 404 },
   createPlaylist: { code: 404 },
   editPlaylist: { code: 404 },
   deletePlaylist: { code: 404 },
@@ -163,6 +164,7 @@ export type Tool = {
   sortBy: sortType
   orderBy: orderType
   artistBy: ArtistType
+  pageSize: number
 }
 
 export type LoginType = 'Username' | 'Phone' | 'Email' | 'QrCode' | 'Cookie' | 'LocalDir'

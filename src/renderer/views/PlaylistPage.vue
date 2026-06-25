@@ -136,6 +136,7 @@
 
     <div>
       <TrackList
+        ref="trackListRef"
         :items="filterTracks"
         type="Playlist"
         :plugin="pluginId"
@@ -146,6 +147,7 @@
         :load-more="loadMore"
         :extra-context-menu-item="isUserOwnPlaylist ? ['removeTrackFromPlaylist'] : []"
         :is-end="true"
+        :reorderable="reorderMode && !keyword"
       />
     </div>
 
@@ -160,6 +162,9 @@
     >
 
     <ContextMenu ref="playlistMenu">
+      <div v-if="isLocalPlaylist" class="item" @click="toggleReorderMode">
+        {{ reorderMode ? '关闭排序' : '开启排序' }}
+      </div>
       <div
         v-if="playlistType !== 'online' || playlist?.creator?.userId === user.userId"
         class="item"
@@ -307,6 +312,10 @@ const isLikedSongsPage = computed(
   () => route.name === 'likedSongs' || route.name === 'streamLikedSongs'
 )
 
+const isLocalPlaylist = computed(() => pluginType.value === 'local' && !isLikedSongsPage.value)
+
+const reorderMode = ref(false)
+
 const isUserOwnPlaylist = computed(() => {
   return playlist.value.creator.userId === user.value.userId
 })
@@ -335,6 +344,22 @@ const loadData = async (plugin: PluginId, params: Record<string, any>) => {
     playlist.value = result.data
     tracks.value = result.data?.tracks ?? []
   })
+}
+
+const trackListRef = ref<InstanceType<typeof TrackList>>()
+
+async function toggleReorderMode() {
+  if (reorderMode.value) {
+    const reordered = await trackListRef.value?.saveReorder()
+    if (reordered && reordered.length > 0) {
+      tracks.value = reordered
+      const ser = services.value.find((ser) => ser.type === 'local')!
+      playlist.value.picUrl = (
+        await pluginMethodCall(ser.code, 'resizePicUrl', { url: reordered[0].picUrl, size: 512 })
+      ).data
+    }
+  }
+  reorderMode.value = !reorderMode.value
 }
 
 const loadMore = () => {

@@ -1242,6 +1242,7 @@ async function initPluginIpcMain() {
       result[id] = {
         name: instance.meta.name,
         type: instance.meta.type,
+        icon: instance.meta.icon,
         capabilities: instance.meta.capabilities
       }
     })

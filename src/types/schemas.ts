@@ -472,6 +472,7 @@ export const PluginResultSchema = {
   }),
   likeATrack: z.object({ code: z.number() }),
   addOrRemoveTracksToPlaylist: z.object({ code: z.number() }),
+  reorderPlaylistTracks: z.object({ code: z.number() }),
   createPlaylist: z.object({ code: z.number(), data: PlaylistSchema.optional() }),
   editPlaylist: z.object({ code: z.number() }),
   deletePlaylist: z.object({ code: z.number() }),

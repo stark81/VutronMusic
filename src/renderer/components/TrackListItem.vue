@@ -1,6 +1,15 @@
 <template>
   <div class="trackitem" :class="trackClass" @mouseover="hover = true" @mouseleave="hover = false">
     <div class="track">
+      <div
+        v-if="reorderable"
+        class="drag-handle"
+        draggable="true"
+        @dragstart="onDragStart"
+        @dragend="onDragEnd"
+      >
+        <svg-icon icon-class="grip" />
+      </div>
       <input v-if="isBatchOp" v-model="isSelected" type="checkbox" />
       <img
         v-if="!isAlbum && !isLyric"
@@ -117,13 +126,17 @@ const props = withDefaults(
     showPlayCount?: boolean
     albumObject?: { artist: { name: string } }
     highlightPlayingTrack?: boolean
+    reorderable?: boolean
+    dragIndex?: number
   }>(),
   {
     isLyric: false,
     showService: false,
     showPlayCount: false,
     albumObject: () => ({ artist: { name: '' } }),
-    highlightPlayingTrack: true
+    highlightPlayingTrack: true,
+    reorderable: false,
+    dragIndex: 0
   }
 )
 
@@ -284,6 +297,15 @@ const goToMv = () => {
   router.push(`/mv/${track.value.pluginId}/${JSON.stringify(sourceContext)}`)
 }
 
+const onDragStart = (e: DragEvent) => {
+  e.dataTransfer!.effectAllowed = 'move'
+  e.dataTransfer!.setData('text/plain', String(props.dragIndex))
+}
+
+const onDragEnd = () => {
+  /* 清理由父组件处理 */
+}
+
 const likeThisSong = () => {
   likeATrack(track.value)
 }
@@ -295,6 +317,38 @@ const playThisList = inject('playThisList') as (id: number | string) => void
 </script>
 
 <style scoped lang="scss">
+.drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  padding: 4px 8px;
+  margin-right: 4px;
+  opacity: 0.4;
+  color: var(--color-text);
+  border-radius: 4px;
+  user-select: none;
+  -webkit-user-select: none;
+
+  &:hover {
+    opacity: 0.8;
+    background: var(--color-secondary-bg);
+  }
+
+  &:active {
+    cursor: grabbing;
+  }
+
+  .svg-icon {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.trackitem.dragging {
+  opacity: 0.5;
+}
+
 button {
   display: flex;
   justify-content: center;

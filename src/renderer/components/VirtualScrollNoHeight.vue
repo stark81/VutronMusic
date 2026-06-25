@@ -62,6 +62,7 @@ const props = withDefaults(
     gap?: number
     height?: number
     enableVirtualScroll?: boolean
+    frozen?: boolean
     loadMore?: () => void
   }>(),
   {
@@ -75,6 +76,7 @@ const props = withDefaults(
     gap: 4,
     height: 0,
     enableVirtualScroll: true,
+    frozen: false,
     loadMore: () => {}
   }
 )
@@ -403,7 +405,7 @@ const onScroll = () => {
 
 const scrollEvent = rafThrottle(() => {
   onScrollToBottom()
-  onScroll()
+  if (!props.frozen) onScroll()
 })
 
 const observer = new IntersectionObserver(
@@ -535,6 +537,8 @@ onBeforeUnmount(() => {
   eventBus.off('update-scroll-bar', updateEvent)
   eventBus.off('update-done', startEvent)
 })
+
+defineExpose({ listRef, position, getStartIndex, binarySearch })
 </script>
 
 <style scoped>
