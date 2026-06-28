@@ -354,10 +354,11 @@ const handleVisebilitiyChange = () => {
 
 onMounted(async () => {
   const player = JSON.parse(localStorage.getItem('player') || '{}')
+  const _lyrics = JSON.parse(localStorage.getItem('lyric') || '{}')
   playing.value = player?.playing || false
-  if (!player.lyrics) return
-  lyrics.value = player.lyrics
-  currentIndex.value = player.currentIndex || -1
+  if (!_lyrics.lyrics) return
+  lyrics.value = _lyrics.lyrics
+  currentIndex.value = _lyrics.currentIndex || -1
   if (!lyrics.value.length) {
     lyrics.value[0] = {
       start: 0,
@@ -367,7 +368,7 @@ onMounted(async () => {
       }
     }
   }
-  lyricOffset.value = player.currentTrack.offset || 0
+  lyricOffset.value = _lyrics.offset || 0
 
   scheduleAnimation()
 

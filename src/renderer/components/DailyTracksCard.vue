@@ -18,14 +18,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onDeactivated, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import SvgIcon from './SvgIcon.vue'
 import { useRouter } from 'vue-router'
 import { useNormalStateStore } from '../store/state'
 import { usePlayerStore } from '../store/player'
 import { usePluginMusic } from '../store/pluginMusic'
 import { storeToRefs } from 'pinia'
-import { useI18n } from 'vue-i18n'
 import _ from 'lodash'
 import { PluginId } from '@/types/plugin'
 import { PlaylistSourceInfo } from '@/types/music'
@@ -44,9 +43,7 @@ const defaultCovers = [
 ]
 
 const stateStore = useNormalStateStore()
-const { dailyTracks, showLyrics } = storeToRefs(stateStore)
-const { showToast } = stateStore
-const { t } = useI18n()
+const { dailyTracks } = storeToRefs(stateStore)
 
 const pluginMusic = usePluginMusic()
 const { resizeImage, pluginMethodCall } = pluginMusic
@@ -85,10 +82,6 @@ const playDailyTracks = () => {
   replacePlaylist(source, trackIDs, idx)
 }
 
-watch(showLyrics, (value) => {
-  // paused.value = value
-})
-
 watch(firstTrack, (value) => {
   if (!value) {
     image.value = coverUrl.value
@@ -96,12 +89,6 @@ watch(firstTrack, (value) => {
   }
   resizeImage(value.pluginId, value.picUrl, 512).then((result) => (image.value = result))
 })
-
-const handleVisibleChange = () => {
-  // paused.value = document.visibilityState === 'hidden'
-}
-
-document.addEventListener('visibilitychange', handleVisibleChange)
 
 onMounted(async () => {
   pluginMethodCall(props.plugin, 'getRecommendTracks').then((result) => {
@@ -113,10 +100,6 @@ onMounted(async () => {
       pluginId: props.plugin
     }))
   })
-})
-
-onDeactivated(() => {
-  // paused.value = true
 })
 </script>
 

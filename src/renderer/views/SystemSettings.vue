@@ -471,16 +471,13 @@
                   :key="plugin.code"
                   class="plugin-list-item"
                   :class="{ active: plugin.active }"
+                  :style="{ border: `2px solid ${getStatusColor(plugin)}` }"
+                  :title="getStatusTip(plugin)"
                   @click="updateActivePlugin(plugin.code)"
+                  @contextmenu.prevent="handleLogin(plugin)"
                 >
                   <img :src="getPluginIcon(plugin)" />
                   <div class="plugin-info">
-                    <span
-                      class="status-dot"
-                      :style="{ background: getStatusColor(plugin) }"
-                      :title="getStatusTip(plugin)"
-                      @click.stop="handleLogin(plugin)"
-                    ></span>
                     <span class="plugin-name-text">{{ plugin.name }}</span>
                     <span v-if="plugin.active" class="active-badge">★ 当前使用</span>
                   </div>
@@ -581,15 +578,16 @@
                   gridTemplateColumns: `repeat(${Math.min(streamPlugins.length, 3)}, 1fr)`
                 }"
               >
-                <div v-for="ser of streamPlugins" :key="ser.code" class="plugin-list-item">
+                <div
+                  v-for="ser of streamPlugins"
+                  :key="ser.code"
+                  class="plugin-list-item"
+                  :style="{ border: `2px solid ${getStatusColor(ser)}` }"
+                  :title="getStatusTip(ser)"
+                  @contextmenu.prevent="handleLogin(ser)"
+                >
                   <img :src="getPluginIcon(ser)" />
                   <div class="plugin-info">
-                    <span
-                      class="status-dot"
-                      :style="{ background: getStatusColor(ser) }"
-                      :title="getStatusTip(ser)"
-                      @click.stop="handleLogin(ser)"
-                    ></span>
                     <span class="plugin-name-text">{{ ser.name }}</span>
                     <span
                       class="loadfull-chip"
@@ -598,7 +596,23 @@
                       @click.stop="toggleLoadFull(ser)"
                       >全量</span
                     >
+                    <span
+                      v-if="!ser.builtIn"
+                      class="delete-chip"
+                      title="删除此实例"
+                      @click.stop="handleDeleteInstance(ser)"
+                      >×</span
+                    >
                   </div>
+                </div>
+              </div>
+              <div class="item">
+                <div class="left">
+                  <div class="title">添加数据源实例</div>
+                  <div class="description">为已有插件创建新的独立实例（如公益服）</div>
+                </div>
+                <div class="right">
+                  <button @click="showAddInstanceModal = true">添加</button>
                 </div>
               </div>
               <div class="item">
@@ -663,15 +677,16 @@
                 class="plugin-list"
                 :style="{ gridTemplateColumns: `repeat(${Math.min(localPlugins.length, 3)}, 1fr)` }"
               >
-                <div v-for="plugin in localPlugins" :key="plugin.code" class="plugin-list-item">
+                <div
+                  v-for="plugin in localPlugins"
+                  :key="plugin.code"
+                  class="plugin-list-item"
+                  :style="{ border: `2px solid ${getStatusColor(plugin)}` }"
+                  :title="getStatusTip(plugin)"
+                  @contextmenu.prevent="handleLogin(plugin)"
+                >
                   <img :src="getPluginIcon(plugin)" />
                   <div class="plugin-info">
-                    <span
-                      class="status-dot"
-                      :style="{ background: getStatusColor(plugin) }"
-                      :title="getStatusTip(plugin)"
-                      @click.stop="handleLogin(plugin)"
-                    ></span>
                     <span class="plugin-name-text">{{ plugin.name }}</span>
                   </div>
                 </div>
@@ -1114,6 +1129,23 @@
                 </div>
               </div>
             </div>
+            <div class="item">
+              <div class="left">
+                <div class="title">HTTP 请求日志</div>
+                <div class="description">在控制台输出插件 HTTP 请求的响应信息</div>
+              </div>
+              <div class="right">
+                <div class="toggle">
+                  <input
+                    id="show-http-log"
+                    v-model="misc.showHttpLog"
+                    type="checkbox"
+                    name="show-http-log"
+                  />
+                  <label for="show-http-log"></label>
+                </div>
+              </div>
+            </div>
           </template>
           <div class="item">
             <div class="left">
@@ -1243,6 +1275,32 @@
         </div>
       </div>
     </div>
+
+    <BaseModal
+      :show="showAddInstanceModal"
+      title="添加数据源实例"
+      width="400px"
+      :close-fn="() => (showAddInstanceModal = false)"
+    >
+      <div style="display: flex; flex-direction: column; gap: 16px">
+        <CustomSelect
+          v-model="selectedBasePlugin"
+          :options="builtInStreamPlugins.map((s) => ({ label: s.name, value: s.code }))"
+          placeholder="选择基础插件"
+        />
+        <input
+          v-model="newInstanceName"
+          type="text"
+          class="text-input"
+          placeholder="输入实例名称"
+          style="width: 100%; box-sizing: border-box; margin-right: 0"
+          @keyup.enter="handleAddInstance"
+        />
+      </div>
+      <template #footer>
+        <button class="primary block" @click="handleAddInstance">确认</button>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
@@ -1268,6 +1326,7 @@ import { usePluginMusic } from '../store/pluginMusic'
 import { storeToRefs } from 'pinia'
 import SvgIcon from '../components/SvgIcon.vue'
 import CustomSelect from '../components/CustomSelect.vue'
+import BaseModal from '../components/BaseModal.vue'
 import LatestVersion from '../components/LatestVersion.vue'
 import Utils from '../utils'
 import { VueDraggable } from 'vue-draggable-plus'
@@ -1325,7 +1384,14 @@ const {
   enableStream,
   enableLibrary
 } = storeToRefs(pluginMusicStore)
-const { uploadPlugin, pluginMethodCall, handleStatusChange, fetchAllTracks } = pluginMusicStore
+const {
+  uploadPlugin,
+  pluginMethodCall,
+  handleStatusChange,
+  fetchAllTracks,
+  createPluginInstance,
+  deletePluginInstance
+} = pluginMusicStore
 
 const osdLyric = useOsdLyricStore()
 const {
@@ -1381,7 +1447,40 @@ const showTrackInfo = computed({
 
 const libraryPlugins = computed(() => pluginServices.value.filter((s) => s.type === 'library'))
 const streamPlugins = computed(() => pluginServices.value.filter((s) => s.type === 'stream'))
+const builtInStreamPlugins = computed(() => streamPlugins.value.filter((s) => s.builtIn === true))
 const localPlugins = computed(() => pluginServices.value.filter((s) => s.type === 'local'))
+
+const newInstanceName = ref('')
+const selectedBasePlugin = ref('')
+const showAddInstanceModal = ref(false)
+
+const handleAddInstance = async () => {
+  const baseId = selectedBasePlugin.value
+  const name = newInstanceName.value.trim()
+  if (!baseId || !name) {
+    showToast('请选择基础插件并输入实例名称')
+    return
+  }
+  const newId = await createPluginInstance(baseId as PluginId, name)
+  if (newId) {
+    showToast(`实例 "${name}" 创建成功`)
+    newInstanceName.value = ''
+    selectedBasePlugin.value = ''
+    showAddInstanceModal.value = false
+  } else {
+    showToast('创建失败，名称可能已存在')
+  }
+}
+
+const handleDeleteInstance = async (ser: service) => {
+  if (!confirm(`确定删除实例 "${ser.name}" 吗？此操作不可恢复。`)) return
+  const success = await deletePluginInstance(ser.code)
+  if (success) {
+    showToast(`实例 "${ser.name}" 已删除`)
+  } else {
+    showToast('删除失败')
+  }
+}
 
 const pageSize = computed({
   get: () => general.value.pageSize,
@@ -1394,9 +1493,9 @@ const pageSize = computed({
 
 const getStatusTip = (plugin: service) => {
   const tips = {
-    login: '已登录，点击登出',
-    logout: '未登录，点击登录',
-    offline: '服务器离线，点击登出'
+    login: '已登录，右击登出',
+    logout: '未登录，右击登录',
+    offline: '服务器离线，右击登出'
   }
   return tips[plugin.status]
 }
@@ -2009,6 +2108,9 @@ onBeforeUnmount(() => {
     }
   }
   .right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     .svg-icon {
       height: 18px;
       width: 18px;
@@ -2384,14 +2486,6 @@ onBeforeUnmount(() => {
   gap: 12px;
   margin-bottom: 8px;
 }
-/* 状态圆点 */
-.status-dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
 
 /* 流媒体服务列表 */
 .plugin-list-item {
@@ -2400,6 +2494,7 @@ onBeforeUnmount(() => {
   gap: 10px;
   padding: 10px 14px;
   border-radius: 8px;
+  border: 2px solid transparent;
   background: var(--color-secondary-bg);
   cursor: pointer;
   transition: opacity 0.2s;
@@ -2461,6 +2556,25 @@ onBeforeUnmount(() => {
       opacity: 1;
       background: var(--color-primary);
       border-color: var(--color-primary);
+      color: white;
+    }
+  }
+
+  .delete-chip {
+    font-size: 13px;
+    padding: 0 5px;
+    border-radius: 10px;
+    border: 1px solid #e74c3c;
+    opacity: 0.45;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    user-select: none;
+    color: #e74c3c;
+
+    &:hover {
+      opacity: 1;
+      background: #e74c3c;
       color: white;
     }
   }
@@ -2556,6 +2670,19 @@ button.loading::before {
   border-top-color: var(--color-text);
   border-radius: 50%;
   animation: spin 1s linear infinite;
+}
+
+button.primary {
+  color: white;
+  background: var(--color-primary);
+  font-weight: 500;
+}
+button.block {
+  width: 100%;
+  margin-left: 0;
+  &:active {
+    transform: scale(0.98);
+  }
 }
 select {
   font-weight: 600;

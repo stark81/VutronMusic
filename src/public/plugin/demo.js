@@ -283,6 +283,7 @@ const apis = api
  */
 exports.meta = {
   name: '测试',
+  icon: '',
   type: 'library', // 'library' | 'stream' | 'local'
   capabilities: {
     matchTrack: false,
@@ -463,6 +464,10 @@ exports.likelist = async () => {
  */
 exports.scrobble = async (params) => {
   return { code: 404 }
+}
+
+exports.reportPlayback = async () => {
+  return { code: 200 }
 }
 
 /**

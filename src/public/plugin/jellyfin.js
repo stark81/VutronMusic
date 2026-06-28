@@ -161,13 +161,13 @@ const getPlaylistDetail = async (params) => {
 
 const formatTrack = (item, size = 512, showPlayCount = true) => {
   return {
-    id: item.Id,
-    name: item.Name,
+    id: item.Id ?? '',
+    name: item.Name ?? '',
     duration: item.RunTimeTicks / 10000,
     alias: [],
     playable: true,
     reason: '',
-    createTime: new Date(item.DateCreated).getTime(),
+    createTime: new Date(item.DateCreated || 0).getTime(),
     no: item.IndexNumber || 1,
     mvid: 0,
     playCount: showPlayCount ? (item.UserData?.PlayCount ?? -1) : -1,
@@ -181,15 +181,15 @@ const formatTrack = (item, size = 512, showPlayCount = true) => {
       sourceContext: { id: item.AlbumId ?? '' }
     },
     artists: item.ArtistItems.map((it) => ({
-      id: it.Id,
-      name: it.Name,
+      id: it.Id ?? '',
+      name: it.Name ?? '',
       picUrl: it.ImageTags?.Primary ? getPic(it.Id, 64) : 'vutron://get-singer-pic',
       pluginId: '',
       sourceContext: { id: it.Id }
     })),
     albumArtists: item.AlbumArtists?.map((it) => ({
-      id: it.Id,
-      name: it.Name,
+      id: it.Id ?? '',
+      name: it.Name ?? '',
       picUrl: it.ImageTags?.Primary ? getPic(it.Id, 64) : 'vutron://get-singer-pic',
       pluginId: '',
       sourceContext: { id: it.Id }
@@ -209,8 +209,8 @@ const formatTrack = (item, size = 512, showPlayCount = true) => {
 
 const formatAlbumDetail = (item) => {
   return {
-    id: item.Id,
-    name: item.Name,
+    id: item.Id ?? '',
+    name: item.Name ?? '',
     picUrl: item.ImageTags?.Primary
       ? getPic(item.Id, 512)
       : `http://localhost:41830/local-asset/default-cover?v=${item.Id}`,
@@ -224,7 +224,7 @@ const formatAlbumDetail = (item) => {
     songs: item.tracks,
     artists:
       item.ArtistItems?.map((it) => ({
-        id: it.Id,
+        id: it.Id ?? '',
         name: it.Name || '',
         picUrl: it.img1v1Url || '',
         pluginId: '',
@@ -237,16 +237,16 @@ const formatAlbumDetail = (item) => {
 }
 
 const formatAlbum = (item) => ({
-  id: item.Id,
-  name: item.Name,
+  id: item.Id ?? '',
+  name: item.Name ?? '',
   icon: 'jellyfin',
   picUrl: item.ImageTags?.Primary
     ? getPic(item.Id, 512)
     : `http://localhost:41830/local-asset/default-cover?v=${item.Id}`,
   artists:
     item.ArtistItems?.map((it) => ({
-      id: it.Id,
-      name: it.Name,
+      id: it.Id ?? '',
+      name: it.Name ?? '',
       picUrl: '',
       pluginId: '',
       sourceContext: { id: it.Id }
@@ -291,8 +291,8 @@ const getArtists = async (_params) => {
   }
   const result = await get('Artists', { ...params, ..._params })
   return result.Items.map((item) => ({
-    id: item.Id,
-    name: item.Name,
+    id: item.Id ?? '',
+    name: item.Name ?? '',
     picUrl: item.ImageTags?.Primary
       ? getPic(item.Id, 512)
       : `http://localhost:41830/local-asset/default-cover?v=${item.Id}`,
@@ -784,7 +784,7 @@ exports.getPlaylistTracks = async (params) => {
 
 exports.getAllTracks = async (_params) => {
   try {
-    const { page: rawPage = 0, sort, order, reset } = _params
+    const { page: rawPage = 0, sort, order, reset, pageSize = 1000 } = _params
     const page = reset ? 0 : rawPage
     const map = {
       name: 'SortName',
@@ -794,7 +794,7 @@ exports.getAllTracks = async (_params) => {
 
     const SortBy = sort === 'id' ? '' : map[sort]
     const SortOrder = order === 'ASC' ? 'Ascending' : 'Descending'
-    const params = { SortBy, SortOrder, Limit: 1000, StartIndex: 1000 * page }
+    const params = { SortBy, SortOrder, Limit: pageSize, StartIndex: pageSize * page }
 
     const result = await getTracks(params)
     const data = result.Items.map((item) => formatTrack(item, 64))
@@ -861,8 +861,8 @@ exports.artistMVs = async (params) => {
 exports.simiArtists = async (params) => {
   const result = await get(`Artists/${params.id}/Similar`, { Fields: 'Overview' })
   const data = result.Items.map((item) => ({
-    id: item.Id,
-    name: item.Name,
+    id: item.Id ?? '',
+    name: item.Name ?? '',
     pluginId: '',
     picUrl: item.ImageTags?.Primary ? getPic(item.Id, 512) : 'vutron://get-singer-pic',
     sourceContext: { id: item.Id }
@@ -903,6 +903,29 @@ exports.scrobble = async (params) => {
       .replace(/[-:TZ.]/g, '')
       .slice(0, 14)
     await post(`Users/${user.userId}/PlayedItems/${params.id}`, { datePlayed: time })
+    return { code: 200 }
+  } catch {
+    return { code: 404 }
+  }
+}
+
+exports.reportPlayback = async (params) => {
+  try {
+    if (params.type === 'end') {
+      await post('Sessions/Playing/Stopped', {
+        ItemId: params.id,
+        PositionTicks: (params.position || 0) * 10_000_000
+      }).catch(() => {})
+      return { code: 200 }
+    }
+
+    const endpoint = params.type === 'start' ? 'Playing' : 'Playing/Progress'
+    await post(`Sessions/${endpoint}`, {
+      ItemId: params.id,
+      CanSeek: true,
+      IsPaused: false,
+      PositionTicks: (params.position || 0) * 10_000_000
+    })
     return { code: 200 }
   } catch {
     return { code: 404 }

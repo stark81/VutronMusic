@@ -26,7 +26,8 @@ export enum Tables {
   AlbumSource = 'AlbumSource',
   ArtistSource = 'ArtistSource',
   Plugins = 'Plugins',
-  PlaylistEntry = 'PlaylistEntry'
+  PlaylistEntry = 'PlaylistEntry',
+  LyricOffsets = 'LyricOffsets'
 }
 
 type TableNames = `${Tables}`
@@ -68,6 +69,13 @@ class DB {
   }
 
   migrate() {
+    for (const col of ['cueOffset', 'cueDuration']) {
+      try {
+        this.sqlite.exec(`ALTER TABLE Audio ADD COLUMN "${col}" INTEGER NOT NULL DEFAULT 0`)
+      } catch {
+        // 列已存在则忽略
+      }
+    }
     const key = 'appVersion'
     const appVersion = this.findAppData(key)
     if (appVersion?.value !== Constants.APP_VERSION) {

@@ -1,10 +1,6 @@
 <template>
   <div ref="containerRef" class="container">
-    <CustomSelect
-      v-if="showInput && services.length > 1"
-      v-model="plugin"
-      :options="services.map((item) => ({ label: item.name, value: item.code }))"
-    />
+    <CustomSelect v-if="showInput && options.length > 1" v-model="plugin" :options="options" />
     <div class="search-container">
       <div
         ref="searchIconRef"
@@ -27,10 +23,11 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import SvgIcon from './SvgIcon.vue'
 import { service } from '@/types/plugin'
 import CustomSelect from './CustomSelect.vue'
+import { STREAM_SENTINEL } from '@/types/schemas'
 
 const props = defineProps({
   showInputInitially: {
@@ -62,8 +59,21 @@ const keywords = ref('')
 const showInputWidth = ref(showInput.value ? props.inputWidth : 0)
 const showPadding = ref(showInput.value ? '4px' : '0px')
 const inputRef = ref<HTMLInputElement | null>(null)
-const plugin = ref(props.services[0]?.code ?? '')
 const containerRef = ref()
+
+// 将 stream 类型合并为"流媒体"选项，library/local 保持独立
+const hasStream = computed(() => props.services.some((s) => s.type === 'stream'))
+const options = computed(() => {
+  const opts = props.services
+    .filter((s) => s.type !== 'stream')
+    .map((s) => ({ label: s.name, value: s.code }))
+  if (hasStream.value) {
+    opts.push({ label: '流媒体', value: STREAM_SENTINEL })
+  }
+  return opts
+})
+
+const plugin = ref(props.services[0]?.code ?? '')
 
 const doKeydownEnter = () => {
   $emit('keydownEnter', keywords.value, plugin.value)
@@ -120,6 +130,7 @@ onUnmounted(() => {
     height: 32px;
     min-width: 120px;
     background-color: unset;
+    -webkit-app-region: no-drag;
 
     .custom-text {
       font-size: 14px;

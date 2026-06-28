@@ -25,10 +25,12 @@ export function loadScanDedupData() {
     duration: number
     musicBrainzTrackId?: string
   }>(Tables.Track, { deleted: 0 })
-  const existingAudios = db.findAll<{ id: string; trackId: string; filePath: string }>(
-    Tables.Audio,
-    { deleted: 0 }
-  )
+  const existingAudios = db.findAll<{
+    id: string
+    trackId: string
+    filePath: string
+    cueOffset?: number
+  }>(Tables.Audio, { deleted: 0 })
   const existingTrackArtists = db.findAll<{ trackId: string; artistId: string }>(Tables.TrackArtist)
   const existingArtistAlbums = db.findAll<{ artistId: string; albumId: string }>(Tables.ArtistAlbum)
   const existingTrackSources = db.findAll<{ trackId: string; pluginId: string }>(Tables.TrackSource)
@@ -484,18 +486,33 @@ export function pluginDbGet(
         albumArtistMap.set(aa.albumId, list)
       }
       const audioSql = filterIds?.length
-        ? `SELECT trackId, filePath, size, md5 FROM ${Tables.Audio} WHERE trackId IN (${filterIds.map(() => '?').join(',')}) AND deleted = 0`
-        : `SELECT trackId, filePath, size, md5 FROM ${Tables.Audio} WHERE deleted = 0`
+        ? `SELECT trackId, filePath, size, md5, cueOffset, cueDuration FROM ${Tables.Audio} WHERE trackId IN (${filterIds.map(() => '?').join(',')}) AND deleted = 0`
+        : `SELECT trackId, filePath, size, md5, cueOffset, cueDuration FROM ${Tables.Audio} WHERE deleted = 0`
       const audioPathMap = new Map(
         (
           (filterIds?.length
             ? db.sqlite.prepare(audioSql).all(...filterIds)
             : db.sqlite.prepare(audioSql).all()) as Record<string, any>[]
-        ).map((a) => [a.trackId, { filePath: a.filePath, size: a.size, md5: a.md5 }])
+        ).map((a) => [
+          a.trackId,
+          {
+            filePath: a.filePath,
+            size: a.size,
+            md5: a.md5,
+            cueOffset: a.cueOffset || 0,
+            cueDuration: a.cueDuration || 0
+          }
+        ])
       )
 
       const songs = trackRows.map((track) => {
-        const audioInfo = audioPathMap.get(track.id) || { filePath: '', size: 0, md5: '' }
+        const audioInfo = audioPathMap.get(track.id) || {
+          filePath: '',
+          size: 0,
+          md5: '',
+          cueOffset: 0,
+          cueDuration: 0
+        }
         return {
           id: track.id,
           name: track.name,
@@ -507,6 +524,8 @@ export function pluginDbGet(
           filePath: audioInfo.filePath,
           size: audioInfo.size,
           md5: audioInfo.md5,
+          cueOffset: audioInfo.cueOffset,
+          cueDuration: audioInfo.cueDuration,
           picUrl: track.picUrl,
           playCount: track.playCount,
           liked: track.liked || 0,
@@ -985,6 +1004,29 @@ export function hasCachedAudio(trackId: string): boolean {
     .get(trackId)
 }
 
+// ============ LyricOffsets 歌词偏移 ============
+
+/** 获取指定歌曲的歌词偏移量（秒） */
+export function getLyricOffsetFromDB(pluginId: string, trackId: string): number {
+  try {
+    const row = db.sqlite
+      .prepare(`SELECT "offset" FROM ${Tables.LyricOffsets} WHERE pluginId = ? AND trackId = ?`)
+      .get(pluginId, String(trackId)) as { offset: number } | undefined
+    return row?.offset ?? 0
+  } catch {
+    return 0
+  }
+}
+
+/** 保存指定歌曲的歌词偏移量到数据库 */
+export function saveLyricOffsetToDB(pluginId: string, trackId: string, offset: number) {
+  db.sqlite
+    .prepare(
+      `INSERT OR REPLACE INTO ${Tables.LyricOffsets} (pluginId, trackId, "offset", updateTime) VALUES (?, ?, ?, datetime('now'))`
+    )
+    .run(pluginId, String(trackId), offset)
+}
+
 /** 查询缓存统计（不检查 deleted 标志，用于 getCacheTracksInfo） */
 export function getAudioCacheStatsAll(audioCachePath: string): {
   length: number
@@ -1020,6 +1062,7 @@ export interface PluginRow {
   id: string
   name: string
   type: string
+  icon: string
   path: string
   builtIn: number
   enabled: number
@@ -1039,6 +1082,56 @@ export function upsertPlugin(id: string, pluginPath: string) {
       `INSERT OR IGNORE INTO ${Tables.Plugins} (id, name, type, path, builtIn, enabled) VALUES (?, ?, ?, ?, 0, 1)`
     )
     .run(id, '', '', pluginPath)
+}
+
+/** 根据 id 查询单个插件记录 */
+export function getPluginById(id: string): PluginRow | undefined {
+  return db.sqlite.prepare(`SELECT * FROM ${Tables.Plugins} WHERE id = ?`).get(id) as
+    | PluginRow
+    | undefined
+}
+
+/** 为已有插件创建新实例（同文件不同 id） */
+export function createPluginInstance(
+  basePluginId: string,
+  newInstanceName: string,
+  resolvedPath: string
+): { success: boolean; id?: string; error?: string } {
+  const base = getPluginById(basePluginId)
+  if (!base) return { success: false, error: '基础插件不存在' }
+
+  // 生成新 id：baseId_name（去除特殊字符，只保留字母数字下划线）
+  const safeName = newInstanceName.replace(/[^a-zA-Z0-9_\u4e00-\u9fff]/g, '_')
+  const newId = `${basePluginId}_${safeName}`
+
+  // 检查 id 是否已存在
+  if (getPluginById(newId)) {
+    return { success: false, error: '实例名称已存在' }
+  }
+
+  try {
+    db.sqlite
+      .prepare(
+        `INSERT INTO ${Tables.Plugins} (id, name, type, path, builtIn, enabled) VALUES (?, ?, ?, ?, 0, 1)`
+      )
+      .run(newId, newInstanceName, base.type, resolvedPath)
+  } catch (err: any) {
+    if (err.message?.includes('UNIQUE') || err.message?.includes('PRIMARY')) {
+      return { success: false, error: '实例ID已存在' }
+    }
+    throw err
+  }
+
+  return { success: true, id: newId }
+}
+
+/** 删除非内置插件实例 */
+export function deletePluginInstance(pluginId: string): boolean {
+  const plugin = getPluginById(pluginId)
+  if (!plugin || plugin.builtIn === 1) return false
+
+  db.sqlite.prepare(`DELETE FROM ${Tables.Plugins} WHERE id = ? AND builtIn = 0`).run(pluginId)
+  return true
 }
 
 // ============ 流媒体匹配 ============
@@ -1146,5 +1239,17 @@ export function clearStreamMatches(): void {
     db.sqlite.exec(
       `DELETE FROM ${Tables.ArtistAlbum} WHERE artistId NOT IN (SELECT id FROM ${Tables.Artist}) OR albumId NOT IN (SELECT id FROM ${Tables.Album})`
     )
+  })()
+}
+
+/** CUE 分轨：恢复因去重匹配而无法重新插入的 Track/Audio 的 deleted=0 */
+export function restoreCueTracks(trackIds: string[]) {
+  if (!trackIds.length) return
+  const ph = trackIds.map(() => '?').join(',')
+  db.sqlite.transaction(() => {
+    db.sqlite.prepare(`UPDATE ${Tables.Track} SET deleted = 0 WHERE id IN (${ph})`).run(...trackIds)
+    db.sqlite
+      .prepare(`UPDATE ${Tables.Audio} SET deleted = 0 WHERE trackId IN (${ph})`)
+      .run(...trackIds)
   })()
 }

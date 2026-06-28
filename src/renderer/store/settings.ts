@@ -91,7 +91,8 @@ export const useSettingsStore = defineStore(
       enableDiscordRichPresence: false,
       lastfm: { enable: false, name: '' },
       proxy: { type: 0, address: '', port: '' },
-      realIp: { enable: false, ip: '' }
+      realIp: { enable: false, ip: '' },
+      showHttpLog: false
     })
 
     watch(
@@ -235,6 +236,13 @@ export const useSettingsStore = defineStore(
       () => misc.enableAmuseServer,
       (val) => {
         window.mainApi?.send('setStoreSettings', { enableAmuseServer: val })
+      }
+    )
+
+    watch(
+      () => misc.showHttpLog,
+      (val) => {
+        window.mainApi?.send('setStoreSettings', { showHttpLog: val })
       }
     )
 

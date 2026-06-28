@@ -28,10 +28,16 @@ import {
   getAudioCacheStatsAll,
   findCachedAudio,
   hasCachedAudio,
+  getLyricOffsetFromDB,
+  saveLyricOffsetToDB,
   deleteCacheAudio,
   deleteCacheTrackSources,
+  restoreCueTracks,
   getAllPlugins,
   upsertPlugin,
+  getPluginById,
+  createPluginInstance,
+  deletePluginInstance,
   getStreamMatchCount,
   clearStreamMatches
 } from './dbHelpers'
@@ -42,7 +48,7 @@ import log from './log'
 import { Worker } from 'worker_threads'
 import type { Track as NewTrack, PluginId } from '@/types/plugin'
 // @ts-ignore
-import _ from 'lodash'
+// import _ from 'lodash'
 import { requestUserAuth, scrobbleTrack, updateNowPlaying } from './utils/lastfm'
 import { pluginManager } from './pluginManager'
 import { PluginInstance } from './utils/pluginManager'
@@ -350,14 +356,6 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     store.set('settings.lastfmSession', { name: '', key: '', subscriber: 0 })
   })
 
-  ipcMain.on('track-scrobble', (event, params: Record<string, any>) => {
-    scrobbleTrack(params)
-  })
-
-  ipcMain.on('update-now-playing', (event, params: Record<string, any>) => {
-    updateNowPlaying(params)
-  })
-
   ipcMain.handle('msgRequestGetVersion', () => {
     return Constants.APP_VERSION
   })
@@ -508,7 +506,9 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
       }
 
       const artistMap = new Map(existingArtists.map((a) => [normalize(a.name), a.id]))
-      const existingAudioPathSet = new Set(existingAudios.map((a) => a.filePath))
+      const existingAudioPathSet = new Set(
+        existingAudios.map((a) => a.filePath + '@' + (a.cueOffset || 0))
+      )
 
       // 构建Track去重键（不含duration，允许时长误差）
       const buildTrackDedupKey = (
@@ -603,16 +603,35 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
         data.filePath.map((dir) => fg.glob(patterns, { cwd: dir, absolute: true, onlyFiles: true }))
       )
       const allFiles = [...new Set(results.flat())]
-      // 命中文件为空：扫描目录下无音频文件。
-      // 此时 markAllLocalMusicDeleted 已把所有记录标 deleted=1，
-      // 直接 return 会清空列表 —— 这是用户清空扫描目录后的预期行为，
-      // 无需回滚，保持 deleted=1（用户下次重新设置目录再恢复）。
+      // 命中文件为空：扫描目录下无音频文件或暂时不可达（启动时机、权限等）。
+      // 回滚 markAllLocalMusicDeleted，保留已有数据。
       if (allFiles.length === 0) {
-        if (data.cb) win.webContents.send('scanLocalMusicDone')
+        // 空文件列表：可能是目录暂时不可达（启动时机、权限等），
+        // 回滚 markAllLocalMusicDeleted，保留已有数据。
+        restoreAllLocalMusic()
+        win.webContents.send('scanLocalMusicDone')
         return
       }
+      // 扫描 .cue 搭配
+      const cueCompanions = new Set<string>()
+      for (const file of allFiles) {
+        const dir = path.dirname(file)
+        const base = path.basename(file, path.extname(file))
+        if (fs.existsSync(path.join(dir, base + '.cue'))) {
+          cueCompanions.add(file)
+        }
+      }
+
+      // 有 CUE 的 FLAC 强制重扫（移除所有复合键，使重扫时重新创建 CUE 分轨条目）
+      for (const file of cueCompanions) {
+        const keysToDelete = [...existingAudioPathSet].filter((k) => k.startsWith(file + '@'))
+        for (const k of keysToDelete) {
+          existingAudioPathSet.delete(k)
+        }
+      }
+
       // 只扫描新文件（不存在于 Audio 表中的）
-      const filesToProcess = allFiles.filter((f) => !existingAudioPathSet.has(f))
+      const filesToProcess = allFiles.filter((f) => !existingAudioPathSet.has(f + '@0'))
       const workerPath = path.join(__dirname, 'workers/scanMusic.js')
       piscina = new Piscina({
         filename: workerPath,
@@ -651,171 +670,179 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
         albumMap.set(key, album.id)
       }
 
+      // 收集因去重匹配而需恢复的 CUE 分轨（软删除后被 INSERT OR IGNORE 阻挡无法重新插入）
+      const restoredTrackIds = new Set<string>()
       for (let i = 0; i < filesToProcess.length; i += batchSize) {
         const batch = filesToProcess.slice(i, i + batchSize)
         const batchResults = await Promise.allSettled(
           batch.map((file) => piscina.run({ filePath: file }))
         )
         const _beforeTrack = dataToInsert.Track.length
-        for (const item of batchResults
+        for (const items of batchResults
           .filter((r) => r.status === 'fulfilled')
           .map((r) => r.value)) {
-          if (!item) continue
-          const now = Date.now()
-          let trackId: string
-          let isNewTrack = true
+          if (!items || !items.length) continue
+          for (const item of items) {
+            const now = Date.now()
+            let trackId: string
+            let isNewTrack = true
 
-          // albumArtist为空时用artists作为fallback
-          const effectiveAlbumArtists =
-            item.albumArtist?.length > 0 ? item.albumArtist : item.artists || []
+            // albumArtist为空时用artists作为fallback
+            const effectiveAlbumArtists =
+              item.albumArtist?.length > 0 ? item.albumArtist : item.artists || []
 
-          // 文件已被 existingAudioPathSet 过滤，走到这里的一定没有重复的 Audio
-          // 强信号匹配：MusicBrainz Track ID
-          if (item.musicBrainzTrackId && musicBrainzTrackMap.has(item.musicBrainzTrackId)) {
-            trackId = musicBrainzTrackMap.get(item.musicBrainzTrackId)!
-            isNewTrack = false
-          } else {
-            // 中信号匹配：使用trackDedupMap进行O(1)查找，允许2秒时长误差
-            const normalizedKey = buildTrackDedupKey(
-              item.name,
-              item.album || '未知专辑',
-              item.artists || [],
-              effectiveAlbumArtists
-            )
-
-            const candidates = trackDedupMap.get(normalizedKey) || []
-            const matchedCandidate = candidates.find(
-              (c) => Math.abs(c.duration - item.duration) <= 2000
-            )
-
-            if (matchedCandidate) {
-              trackId = matchedCandidate.trackId
+            // 文件已被 existingAudioPathSet 过滤，走到这里的一定没有重复的 Audio
+            // 强信号匹配：MusicBrainz Track ID
+            if (item.musicBrainzTrackId && musicBrainzTrackMap.has(item.musicBrainzTrackId)) {
+              trackId = musicBrainzTrackMap.get(item.musicBrainzTrackId)!
               isNewTrack = false
+              if (cueCompanions.has(item.filePath)) restoredTrackIds.add(trackId)
             } else {
-              // 没有匹配到，创建新Track（使用UUID，而非filePath）
-              trackId = crypto.randomUUID().replace(/-/g, '')
-            }
-          }
+              // 中信号匹配：使用trackDedupMap进行O(1)查找，允许2秒时长误差
+              const normalizedKey = buildTrackDedupKey(
+                item.name,
+                item.album || '未知专辑',
+                item.artists || [],
+                effectiveAlbumArtists
+              )
 
-          // 创建艺术家
-          const allArtistNames = [...new Set([...(item.artists || []), ...effectiveAlbumArtists])]
-          const artistIds = allArtistNames.map((name: string) => {
-            const normName = normalize(name)
-            if (!artistMap.has(normName)) {
-              const id = makeId('local_artist', normName)
-              artistMap.set(normName, id)
-              // 同步更新 artistNameMap
-              artistNameMap.set(id, name)
-              dataToInsert.Artist.push({
-                id,
-                name,
+              const candidates = trackDedupMap.get(normalizedKey) || []
+              const matchedCandidate = candidates.find(
+                (c) => Math.abs(c.duration - item.duration) <= 2000
+              )
+
+              if (matchedCandidate) {
+                trackId = matchedCandidate.trackId
+                isNewTrack = false
+                // CUE 分轨去重匹配：后续需要恢复 deleted=0
+                if (cueCompanions.has(item.filePath)) restoredTrackIds.add(trackId)
+              } else {
+                // 没有匹配到，创建新Track（使用UUID，而非filePath）
+                trackId = crypto.randomUUID().replace(/-/g, '')
+              }
+            }
+
+            // 创建艺术家
+            const allArtistNames = [...new Set([...(item.artists || []), ...effectiveAlbumArtists])]
+            const artistIds = allArtistNames.map((name: string) => {
+              const normName = normalize(name)
+              if (!artistMap.has(normName)) {
+                const id = makeId('local_artist', normName)
+                artistMap.set(normName, id)
+                // 同步更新 artistNameMap
+                artistNameMap.set(id, name)
+                dataToInsert.Artist.push({
+                  id,
+                  name,
+                  picUrl: '',
+                  description: '',
+                  followed: 0,
+                  createTime: now,
+                  updateTime: now
+                })
+              }
+              return { name, id: artistMap.get(normName)! }
+            })
+            const artistIdMap = new Map(artistIds.map((a: any) => [a.name, a.id]))
+
+            // Album去重：albumName + albumArtists（排序）
+            const albumName = item.album || '未知专辑'
+            const albumDedupKey = buildAlbumDedupKey(albumName, effectiveAlbumArtists)
+            let albumId: string
+
+            if (albumMap.has(albumDedupKey)) {
+              albumId = albumMap.get(albumDedupKey)!
+            } else {
+              albumId = makeId(
+                'local_album',
+                `${albumName}:${[...effectiveAlbumArtists].sort().join(',')}`
+              )
+              albumMap.set(albumDedupKey, albumId)
+              dataToInsert.Album.push({
+                id: albumId,
+                name: albumName,
                 picUrl: '',
+                type: '',
+                company: '',
                 description: '',
-                followed: 0,
+                subscribed: 0,
+                isExplicit: 0,
+                publishTime: 0,
                 createTime: now,
                 updateTime: now
               })
             }
-            return { name, id: artistMap.get(normName)! }
-          })
-          const artistIdMap = new Map(artistIds.map((a: any) => [a.name, a.id]))
 
-          // Album去重：albumName + albumArtists（排序）
-          const albumName = item.album || '未知专辑'
-          const albumDedupKey = buildAlbumDedupKey(albumName, effectiveAlbumArtists)
-          let albumId: string
+            // 如果是新Track，创建Track记录
+            if (isNewTrack) {
+              dataToInsert.Track.push({
+                id: trackId,
+                name: item.name,
+                duration: item.duration,
+                albumId,
+                no: 0,
+                alias: '',
+                picUrl: '',
+                playCount: 0,
+                musicBrainzTrackId: item.musicBrainzTrackId || null,
+                createTime: item.createTime || now,
+                updateTime: now
+              })
 
-          if (albumMap.has(albumDedupKey)) {
-            albumId = albumMap.get(albumDedupKey)!
-          } else {
-            albumId = makeId(
-              'local_album',
-              `${albumName}:${[...effectiveAlbumArtists].sort().join(',')}`
-            )
-            albumMap.set(albumDedupKey, albumId)
-            dataToInsert.Album.push({
-              id: albumId,
-              name: albumName,
-              picUrl: '',
-              type: '',
-              company: '',
-              description: '',
-              subscribed: 0,
-              isExplicit: 0,
-              publishTime: 0,
-              createTime: now,
-              updateTime: now
-            })
-          }
-
-          // 如果是新Track，创建Track记录
-          if (isNewTrack) {
-            dataToInsert.Track.push({
-              id: trackId,
-              name: item.name,
-              duration: item.duration,
-              albumId,
-              no: 0,
-              alias: '',
-              picUrl: '',
-              playCount: 0,
-              musicBrainzTrackId: item.musicBrainzTrackId || null,
-              createTime: item.createTime || now,
-              updateTime: now
-            })
-
-            // 注册强信号：批次内后续文件可匹配
-            if (item.musicBrainzTrackId) {
-              musicBrainzTrackMap.set(item.musicBrainzTrackId, trackId)
-            }
-
-            // 创建TrackArtist关系（使用Set去重）
-            for (const name of item.artists || []) {
-              const artistId = artistIdMap.get(name)
-              if (artistId) {
-                const key = `${trackId}:${artistId}`
-                if (!trackArtistSet.has(key)) {
-                  trackArtistSet.add(key)
-                  dataToInsert.TrackArtist.push({ trackId, artistId })
-                }
+              // 注册强信号：批次内后续文件可匹配
+              if (item.musicBrainzTrackId) {
+                musicBrainzTrackMap.set(item.musicBrainzTrackId, trackId)
               }
-            }
 
-            // 创建ArtistAlbum关系（albumArtist为空时用artists，使用Set去重）
-            const albumArtistsToUse =
-              effectiveAlbumArtists.length > 0 ? effectiveAlbumArtists : item.artists || []
-            for (const name of albumArtistsToUse) {
-              const artistId = artistIdMap.get(name)
-              if (artistId) {
-                const key = `${artistId}:${albumId}`
-                if (!artistAlbumSet.has(key)) {
-                  artistAlbumSet.add(key)
-                  dataToInsert.ArtistAlbum.push({ artistId, albumId })
-                  // 同步更新 albumArtistMap
-                  const artists = albumArtistMap.get(albumId) || []
-                  if (!artists.includes(artistId)) {
-                    artists.push(artistId)
-                    albumArtistMap.set(albumId, artists)
+              // 创建TrackArtist关系（使用Set去重）
+              for (const name of item.artists || []) {
+                const artistId = artistIdMap.get(name)
+                if (artistId) {
+                  const key = `${trackId}:${artistId}`
+                  if (!trackArtistSet.has(key)) {
+                    trackArtistSet.add(key)
+                    dataToInsert.TrackArtist.push({ trackId, artistId })
                   }
                 }
               }
+
+              // 创建ArtistAlbum关系（albumArtist为空时用artists，使用Set去重）
+              const albumArtistsToUse =
+                effectiveAlbumArtists.length > 0 ? effectiveAlbumArtists : item.artists || []
+              for (const name of albumArtistsToUse) {
+                const artistId = artistIdMap.get(name)
+                if (artistId) {
+                  const key = `${artistId}:${albumId}`
+                  if (!artistAlbumSet.has(key)) {
+                    artistAlbumSet.add(key)
+                    dataToInsert.ArtistAlbum.push({ artistId, albumId })
+                    // 同步更新 albumArtistMap
+                    const artists = albumArtistMap.get(albumId) || []
+                    if (!artists.includes(artistId)) {
+                      artists.push(artistId)
+                      albumArtistMap.set(albumId, artists)
+                    }
+                  }
+                }
+              }
+
+              // 将新Track加入trackDedupMap
+              const normalizedKey = buildTrackDedupKey(
+                item.name,
+                albumName,
+                item.artists || [],
+                effectiveAlbumArtists
+              )
+              const entries = trackDedupMap.get(normalizedKey) || []
+              entries.push({ trackId, duration: item.duration })
+              trackDedupMap.set(normalizedKey, entries)
             }
 
-            // 将新Track加入trackDedupMap
-            const normalizedKey = buildTrackDedupKey(
-              item.name,
-              albumName,
-              item.artists || [],
-              effectiveAlbumArtists
-            )
-            const entries = trackDedupMap.get(normalizedKey) || []
-            entries.push({ trackId, duration: item.duration })
-            trackDedupMap.set(normalizedKey, entries)
-          }
-
-          // 检查Audio是否已存在，避免重复插入
-          if (!existingAudioPathSet.has(item.filePath)) {
-            const audioId = makeId('audio', item.filePath)
+            const audioKey = item.filePath + '@' + (item.cueOffset || 0)
+            const audioId =
+              item.cueOffset > 0
+                ? makeId('audio', item.filePath + '@' + item.cueOffset)
+                : makeId('audio', item.filePath)
             dataToInsert.Audio.push({
               id: audioId,
               trackId,
@@ -824,27 +851,31 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
               bitrate: item.br || 0,
               gain: item.gain || 0,
               peak: item.peak || 1,
-              size: item.size || 0
+              size: item.size || 0,
+              cueOffset: item.cueOffset || 0,
+              cueDuration: item.cueDuration || 0
             })
-            existingAudioPathSet.add(item.filePath) // 防止同批次重复
-          }
+            existingAudioPathSet.add(audioKey) // 防止同批次重复
 
-          // TrackSource：标记该 Track 有本地来源（仅当尚未存在时）
-          const trackSourceKey = `${trackId}:local`
-          if (!trackSourceSet.has(trackSourceKey)) {
-            trackSourceSet.add(trackSourceKey)
-            dataToInsert.TrackSource.push({
-              trackId,
-              pluginId: 'local',
-              sourceContext: JSON.stringify({
-                id: trackId,
-                filePath: item.filePath,
-                md5: item.md5 || ''
-              }),
-              matched: 1,
-              createTime: now,
-              updateTime: now
-            })
+            // TrackSource：标记该 Track 有本地来源（仅当尚未存在时）
+            const trackSourceKey = `${trackId}:local`
+            if (!trackSourceSet.has(trackSourceKey)) {
+              trackSourceSet.add(trackSourceKey)
+              dataToInsert.TrackSource.push({
+                trackId,
+                pluginId: 'local',
+                sourceContext: JSON.stringify({
+                  id: trackId,
+                  filePath: item.filePath,
+                  md5: item.md5 || '',
+                  cueOffset: item.cueOffset || 0,
+                  cueDuration: item.cueDuration || 0
+                }),
+                matched: 1,
+                createTime: now,
+                updateTime: now
+              })
+            }
           }
         }
         // 通知进度（每批次）
@@ -855,10 +886,14 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
       // 单事务批量写入
       const hasNewData = Object.values(dataToInsert).some((arr) => arr.length > 0)
       writeBatchData(dataToInsert)
+      // CUE 分轨：恢复去重匹配到的 Track/Audio（软删除后被 INSERT OR IGNORE 阻挡无法重新插入）
+      restoreCueTracks([...restoredTrackIds])
       // 恢复本轮命中的文件：writeBatchData 之后调用，
       // 以便反查到新插入 Audio 关联的 trackId，一并恢复。
+      // CUE 文件也走 restoreLocalMusicDeleted（通过 filePath 恢复 Audio → 反查 trackId 恢复 Track），
+      // 确保即使去重匹配失败，CUE 关联的 Track 也不会停留在 deleted=1。
       restoreLocalMusicDeleted(allFiles)
-      if (data.cb) win.webContents.send('scanLocalMusicDone', { hasNewData })
+      win.webContents.send('scanLocalMusicDone', { hasNewData })
     } catch (error: any) {
       log.error('扫描本地歌曲失败:', error?.stack || error)
       // 回滚 markAllLocalMusicDeleted：扫描失败时恢复数据到扫描前状态，
@@ -912,9 +947,56 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     return getAudioCacheStatsAll(audioCachePath)
   })
 
-  /**
-   * 获取歌曲播放地址。优先使用本地缓存，无缓存时通过插件获取线上地址并触发异步缓存。
-   */
+  ipcMain.handle('create-plugin-instance', (_, params: { basePluginId: string; name: string }) => {
+    const pluginDir = Constants.IS_DEV_ENV
+      ? path.join(process.cwd(), './src/public/plugin')
+      : path.join(__dirname, '../plugin')
+
+    // 解析基础插件的实际文件路径
+    const baseRow = getPluginById(params.basePluginId)!
+    const resolvedPath = baseRow?.path || path.join(pluginDir, `${params.basePluginId}.js`)
+
+    const dbResult = createPluginInstance(params.basePluginId, params.name, resolvedPath)
+    if (!dbResult.success) {
+      return dbResult
+    }
+
+    if (!fs.existsSync(resolvedPath)) {
+      console.error(`[create-plugin-instance] Plugin file not found: ${resolvedPath}`)
+      return { success: false, error: '插件文件不存在' }
+    }
+
+    try {
+      const plugin = new PluginInstance(resolvedPath, dbResult.id!, false)
+      pluginManager.register(dbResult.id!, plugin)
+      const dbRow = getPluginById(dbResult.id!)
+      const baseInstance = pluginManager.get(params.basePluginId)
+      return {
+        success: true,
+        id: dbResult.id,
+        plugin: {
+          name: dbRow?.name || plugin.meta.name,
+          type: baseRow.type,
+          icon: baseInstance?.meta?.icon || plugin.meta.icon,
+          capabilities: baseInstance?.meta?.capabilities,
+          builtIn: false
+        }
+      }
+    } catch (err) {
+      console.error(`[create-plugin-instance] Failed to create instance:`, err)
+      return { success: false, error: '插件加载失败' }
+    }
+  })
+
+  ipcMain.handle('delete-plugin-instance', (_, pluginId: string) => {
+    const success = deletePluginInstance(pluginId)
+    if (success) {
+      pluginManager.plugins.delete(pluginId)
+      store.delete(`plugins.${pluginId}` as any)
+    }
+    return { success }
+  })
+
   ipcMain.handle(
     'get-song-url',
     async (
@@ -946,7 +1028,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
       try {
         const result = await pluginManager.call(pluginId, 'songUrl', sourceContext)
         if (result?.code === 200 && result.data?.url?.length) {
-          const { url, replayGain, peak } = result.data
+          const { url, replayGain, peak, cueOffset, cueDuration } = result.data
 
           // 3. 异步触发缓存（仅 library 插件）
           const autoCacheSettings = store.get('settings.autoCacheTrack') as any
@@ -965,13 +1047,13 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
             }
           }
 
-          return { url, replayGain, peak }
+          return { url, replayGain, peak, cueOffset: cueOffset || 0, cueDuration: cueDuration || 0 }
         }
       } catch (err) {
         log.error('[get-song-url] 获取失败:', err)
       }
 
-      return { url: '', replayGain: 0, peak: 1 }
+      return { url: '', replayGain: 0, peak: 1, cueOffset: 0, cueDuration: 0 }
     }
   )
 
@@ -994,7 +1076,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
       }
       // 删除对应的 TrackSource（仅清理 library 插件，保留 local/stream 映射）
       const libraryPluginIds = [...pluginManager.plugins.entries()]
-        .filter(([_, p]) => p.meta.type === 'library')
+        .filter(([, p]) => p.meta.type === 'library')
         .map(([id]) => id)
       deleteCacheTrackSources(trackId, libraryPluginIds)
       return true
@@ -1169,30 +1251,10 @@ async function initPluginIpcMain() {
     if (!fs.existsSync(filePath)) continue
 
     try {
-      const plugin = new PluginInstance(filePath, row.id)
+      const plugin = new PluginInstance(filePath, row.id, row.builtIn === 1)
       pluginManager.register(row.id, plugin)
     } catch {}
   }
-
-  // 兼容升级：uploadDir 中有文件但 DB 无记录，自动补录
-  try {
-    const uploadFiles = await fs.promises
-      .readdir(uploadDir)
-      .then((files) => files.filter((f) => f.endsWith('.js')))
-      .catch(() => [] as string[])
-
-    for (const file of uploadFiles) {
-      const id = path.basename(file, '.js')
-      if (pluginManager.plugins.has(id)) continue // 已从 DB 加载
-
-      const filePath = path.join(uploadDir, file)
-      const plugin = new PluginInstance(filePath, id)
-      pluginManager.register(id, plugin)
-
-      // 补录到 DB
-      upsertPlugin(id, filePath)
-    }
-  } catch {}
 
   ipcMain.handle('upload-plugin', () => {
     try {
@@ -1239,11 +1301,13 @@ async function initPluginIpcMain() {
   ipcMain.handle('get-plugins', () => {
     const result: Record<string, any> = {}
     pluginManager.plugins.forEach((instance, id) => {
+      const dbRow = getPluginById(id)
       result[id] = {
-        name: instance.meta.name,
+        name: dbRow?.name || instance.meta.name,
         type: instance.meta.type,
         icon: instance.meta.icon,
-        capabilities: instance.meta.capabilities
+        capabilities: instance.meta.capabilities,
+        builtIn: dbRow ? dbRow.builtIn === 1 : instance.builtIn
       }
     })
     return result
@@ -1497,6 +1561,36 @@ async function initPluginIpcMain() {
     }
   )
 
+  ipcMain.handle(
+    'get-lyric-offset',
+    async (
+      _event,
+      params: {
+        pluginId: string
+        trackId: string
+      }
+    ) => {
+      const { pluginId, trackId } = params
+      return getLyricOffsetFromDB(pluginId, trackId)
+    }
+  )
+
+  ipcMain.handle(
+    'set-lyric-offset',
+    async (
+      _event,
+      params: {
+        pluginId: string
+        trackId: string
+        offset: number
+      }
+    ) => {
+      const { pluginId, trackId, offset } = params
+      saveLyricOffsetToDB(pluginId, trackId, offset)
+      return true
+    }
+  )
+
   ipcMain.handle('get-source-priority', async () => {
     // 迁移兼容：旧路径 settings.trackInfoOrder -> settings.sourcePriority.trackInfoOrder
     let trackInfoOrder = store.get('settings.sourcePriority.trackInfoOrder') as string[] | undefined
@@ -1517,35 +1611,94 @@ async function initPluginIpcMain() {
   })
 
   ipcMain.on(
-    'scrobble-music',
+    'report-playback',
     (
       _,
-      plugin: PluginId,
-      params: { rawCtx: Record<string, any>; time: number; sourceCtx: Record<string, any> }
+      params: {
+        type: 'start' | 'progress' | 'end'
+        pluginId: PluginId
+        rawCtx: Record<string, any>
+        track: { name: string; artist: string; album: string; duration: number; no: number }
+        playing: number
+        position: number
+        duration: number
+        sourceCtx: Record<string, any>
+      }
     ) => {
-      const { rawCtx, time, sourceCtx } = params
+      const { type, pluginId, rawCtx, track, position, playing, duration, sourceCtx } = params
+      const condMet = position >= duration / 2 || position >= 30
 
+      // 1. Last.fm
+      if (type === 'start') {
+        updateNowPlaying({
+          artist: track.artist,
+          track: track.name,
+          album: track.album,
+          duration: track.duration
+        })
+      } else if (type === 'end' && condMet) {
+        scrobbleTrack({
+          artist: track.artist,
+          track: track.name,
+          timestamp: ~~(Date.now() / 1000) - position,
+          album: track.album,
+          trackNumber: track.no || 1,
+          duration: track.duration
+        })
+      }
+
+      // 2. Plugin reportPlayback 广播
       try {
         const pluginEnable = store.get('pluginEnable') as PluginEnableState
-        const trackId = findTrackIdBySourceContext(plugin, rawCtx)
+        const trackId = findTrackIdBySourceContext(pluginId, rawCtx)
         if (pluginEnable.library && trackId) {
           const rows = findTrackSourcesByTrackId(trackId)
           for (const row of rows) {
-            pluginManager.call(row.pluginId, 'scrobble', {
+            pluginManager.call(row.pluginId, 'reportPlayback', {
+              type,
               ...JSON.parse(row.sourceContext),
-              time,
-              sourceCtx
+              playing,
+              duration,
+              position
             })
           }
         } else {
-          pluginManager.call(sourceCtx.plugin, 'scrobble', {
+          pluginManager.call(sourceCtx.plugin || pluginId, 'reportPlayback', {
+            type,
             ...rawCtx,
-            time,
-            sourceCtx
+            playing,
+            duration,
+            position
           })
         }
       } catch (error) {
-        console.log('[scrobble error]: ', error)
+        console.log('[reportPlayback error]: ', error)
+      }
+
+      // 3. Plugin scrobble 广播（仅 end + 条件满足）
+      if (type === 'end' && condMet) {
+        try {
+          const pluginEnable = store.get('pluginEnable') as PluginEnableState
+          const trackId = findTrackIdBySourceContext(pluginId, rawCtx)
+          if (pluginEnable.library && trackId) {
+            const rows = findTrackSourcesByTrackId(trackId)
+            for (const row of rows) {
+              pluginManager.call(row.pluginId, 'scrobble', {
+                ...JSON.parse(row.sourceContext),
+                time: duration * 1000,
+                sourceCtx
+              })
+            }
+          } else {
+            pluginManager.call(sourceCtx.plugin || pluginId, 'scrobble', {
+              ...rawCtx,
+              time: duration * 1000,
+              sourceCtx
+            })
+          }
+        } catch (error) {
+          console.log('[scrobble error]: ', error)
+        }
       }
     }
   )

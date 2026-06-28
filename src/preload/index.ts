@@ -39,9 +39,7 @@ const mainAvailChannels: string[] = [
   'lastfm-auth',
   'get-lastfm-session',
   'disconnect-lastfm',
-  'update-now-playing',
-  'track-scrobble',
-  'scrobble-music',
+  'report-playback',
   'getStreamMatchCount',
   'trackMatch',
   'plugin-comment',
@@ -55,7 +53,11 @@ const mainAvailChannels: string[] = [
   'upload-plugin',
   'get-source-priority',
   'set-source-priority',
-  'setPluginEnable'
+  'setPluginEnable',
+  'get-lyric-offset',
+  'set-lyric-offset',
+  'create-plugin-instance',
+  'delete-plugin-instance'
 ]
 const rendererAvailChannels: string[] = [
   'msgHandleScanLocalMusicError',

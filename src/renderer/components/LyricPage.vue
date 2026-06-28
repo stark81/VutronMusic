@@ -1,17 +1,17 @@
 <template>
   <transition name="slide-fade">
     <div v-if="!noLyric" class="lyric-wrapper" :class="{ 'use-mask': useMask }">
-      <!-- <div v-show="hover" class="offset">
-        <button-icon title="提前0.5s" @click="setOffset(-0.5)">
+      <div v-show="hover" class="offset">
+        <button-icon title="提前0.5s" @click="setOffset(lyricOffset - 0.5)">
           <svg-icon icon-class="back5s" />
         </button-icon>
-        <button-icon class="recovery" :title="offset" @click="setOffset(0)">
+        <button-icon class="recovery" :title="offsetText" @click="setOffset(0)">
           <svg-icon icon-class="recovery" />
         </button-icon>
-        <button-icon title="后退0.5s" @click="setOffset(+0.5)">
+        <button-icon title="延迟0.5s" @click="setOffset(lyricOffset + 0.5)">
           <svg-icon icon-class="forward5s" />
         </button-icon>
-      </div> -->
+      </div>
       <div
         class="main-lyric-container"
         :class="{ 'is-zoom': isZoom, 'line-mode': lineMode }"
@@ -47,10 +47,11 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
+import { useLyricStore } from '../store/lyric'
 import { useNormalStateStore } from '../store/state'
 import { usePlayerThemeStore } from '../store/playerTheme'
-// import ButtonIcon from './ButtonIcon.vue'
-// import SvgIcon from './SvgIcon.vue'
+import ButtonIcon from './ButtonIcon.vue'
+import SvgIcon from './SvgIcon.vue'
 import LyricLine from './LyricLine.vue'
 import { prewarmMeasureCache } from '../utils/lyricMeasure'
 import type { lyricLine, word } from '@/types/music.d'
@@ -66,6 +67,7 @@ const props = defineProps({
 })
 
 const playerStore = usePlayerStore()
+const lyricStore = useLyricStore()
 const {
   noLyric,
   // currentTrack,
@@ -118,28 +120,16 @@ const lyricRefs = ref<InstanceType<typeof LyricLine>[]>([])
 const isWheeling = ref(false)
 let scrollingTimer: any = null
 
-// const setOffset = (offset: number) => {
-//   if (!currentTrack.value!.offset) {
-//     currentTrack.value!.offset = 0
-//   }
-//   if (currentTrack.value!.type === 'local') {
-//     window.mainApi
-//       ?.invoke('updateLocalTrackInfo', currentTrack.value!.id, {
-//         offset: currentTrack.value!.offset + offset
-//       })
-//       .then((isSussess: boolean) => {
-//         if (!isSussess) showToast('歌词延迟信息未保存至数据库，下次启动程序后需要重置歌词延迟')
-//       })
-//   }
-//   if (offset === 0) {
-//     currentTrack.value!.offset = 0
-//   } else {
-//     currentTrack.value!.offset += offset
-//   }
-//   showToast(
-//     `当前歌曲的歌词延迟为: ${currentTrack.value!.offset > 0 ? '延迟' : '提前'}${Math.abs(currentTrack.value!.offset)}s`
-//   )
-// }
+const offsetText = computed(() => {
+  if (lyricOffset.value === 0) return '未调整'
+  if (lyricOffset.value > 0) return `延后${lyricOffset.value}s`
+  return `提前${Math.abs(lyricOffset.value)}s`
+})
+
+const setOffset = (offset: number) => {
+  lyricStore.setOffset(offset)
+  showToast(`歌词偏移: ${offset > 0 ? '延后' : '提前'}${Math.abs(offset)}s`)
+}
 
 function collectUniqueWords(lyrics: lyricLine[], translationMode: string): string[] {
   const wordSet = new Set<string>()

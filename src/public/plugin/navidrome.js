@@ -186,20 +186,20 @@ function formatPlaylistDetail(item) {
 
 function formatTrack(item, idx) {
   return {
-    id: item.mediaFileId || item.id,
-    name: item.title,
-    duration: item.duration * 1000,
+    id: item.mediaFileId || item.id || '',
+    name: item.title ?? '',
+    duration: (item.duration || 0) * 1000,
     alias: [],
     playable: true,
     reason: '',
-    createTime: new Date(item.updatedAt || item.createdAt).getTime(),
+    createTime: new Date(item.updatedAt || item.createdAt || 0).getTime(),
     no: item.trackNumber || 1,
     mvid: 0,
     size: item.size || 0,
     playCount: item.playCount || 0,
     album: {
-      id: item.albumId,
-      name: item.album,
+      id: item.albumId ?? '',
+      name: item.album ?? '',
       picUrl: buildSubsonicUrl('getCoverArt', { id: item.albumId, size: 64 }),
       pluginId: '',
       sourceContext: { id: item.albumId || '' }
@@ -232,7 +232,7 @@ function formatTrack(item, idx) {
     pluginId: '',
     type: meta.type,
     sourceContext: {
-      id: item.mediaFileId || item.id,
+      id: item.mediaFileId || item.id || '',
       idx: idx + 1
     }
   }
@@ -316,8 +316,8 @@ async function nativeRequest(endpoint, options = {}) {
 
 function formatAlbum(item) {
   return {
-    id: item.id,
-    name: item.name,
+    id: item.id ?? '',
+    name: item.name ?? '',
     picUrl: buildSubsonicUrl('getCoverArt', { id: item.id, size: 256 }),
     artists: [
       {
@@ -328,8 +328,8 @@ function formatAlbum(item) {
         sourceContext: { id: item.albumArtistId || '' }
       }
     ],
-    createTime: new Date(item.updatedAt || item.createdAt).getTime(),
-    copywriter: `专辑 · ${item.releaseDate}`,
+    createTime: new Date(item.updatedAt || item.createdAt || 0).getTime(),
+    copywriter: `专辑 · ${item.releaseDate || ''}`,
     type: '专辑',
     pluginId: '',
     sourceContext: { id: item.id }
@@ -338,21 +338,21 @@ function formatAlbum(item) {
 
 function formatAlbumDetail(item) {
   return {
-    id: item.id,
-    name: item.name,
+    id: item.id ?? '',
+    name: item.name ?? '',
     picUrl: buildSubsonicUrl('getCoverArt', { id: item.id, size: 512 }),
     type: 'Album',
     isExplicit: false,
     subscribed: item.starred || false,
-    publishTime: new Date(item.createdAt).getTime(),
+    publishTime: new Date(item.createdAt || 0).getTime(),
     size: item.songCount || 0,
     company: '',
     description: '',
     songs: item.songs || [],
     artists: [
       {
-        id: item.albumArtistId,
-        name: item.albumArtist,
+        id: item.albumArtistId ?? '',
+        name: item.albumArtist ?? '',
         picUrl: buildSubsonicUrl('getCoverArt', { id: item.albumArtistId, size: 512 }),
         pluginId: '',
         sourceContext: { id: item.albumArtistId }
@@ -374,8 +374,8 @@ async function getAlbumlist(params) {
 async function getArtists(params) {
   const result = await nativeRequest('artist', { params, raw: true })
   const artists = result.data.map((item) => ({
-    id: item.id,
-    name: item.name,
+    id: item.id ?? '',
+    name: item.name ?? '',
     picUrl: buildSubsonicUrl('getCoverArt', { id: item.id, size: 256 }),
     pluginId: '',
     sourceContext: { id: item.id }
@@ -458,7 +458,7 @@ exports.doLogout = () => {
 
 exports.getAllTracks = async (_params) => {
   try {
-    const { _start: rawStart = 0, sort, order, hasMore = true, reset } = _params
+    const { _start: rawStart = 0, sort, order, hasMore = true, reset, pageSize = 1000 } = _params
     const _start = reset ? 0 : rawStart
 
     if (!hasMore) return { code: 200, data: [], count: 0, sourceContext: _params }
@@ -468,7 +468,7 @@ exports.getAllTracks = async (_params) => {
       createTime: 'createdAt',
       playCount: 'play_count'
     }
-    const _end = _start + 1000
+    const _end = _start + pageSize
     const params = { _start, _end, _sort: map[sort], _order: order }
     const { tracks, count } = await getTracks(params)
 
@@ -503,7 +503,7 @@ exports.search = async (_params) => {
           const trackId = item.id
           return {
             id: trackId,
-            name: item.title,
+            name: item.title ?? '',
             duration: (item.duration || 0) * 1000,
             alias: [],
             playable: true,
@@ -863,6 +863,21 @@ exports.followArtist = async (params) => {
 exports.scrobble = async (params) => {
   try {
     await subsonicRequest('scrobble', { id: params.id })
+    return { code: 200 }
+  } catch {
+    return { code: 404 }
+  }
+}
+
+exports.reportPlayback = async (params) => {
+  try {
+    if (params.type === 'end') return { code: 200 }
+
+    await subsonicRequest('scrobble', {
+      id: params.id,
+      submission: false,
+      time: Date.now() - (params.position || 0) * 1000
+    })
     return { code: 200 }
   } catch {
     return { code: 404 }

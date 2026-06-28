@@ -138,6 +138,7 @@ const store = new Store<TypeElectronStore>({
       lastfmSession: { name: '', key: '', subscriber: 0 },
       proxy: { type: 0, address: '', port: '' },
       forceFactor: false,
+      showHttpLog: false,
       sourcePriority: {
         lyric: ['self'] as string[],
         comment: ['self'] as string[],

@@ -68,9 +68,13 @@ const visiblePages = computed(() => {
   const current = props.currentPage
   const pages: number[] = []
 
-  // 显示当前页附近的页码
-  const start = Math.max(0, current - 2)
-  const end = Math.min(total - 1, current + 2)
+  // 固定显示 3 个页码（总页数 < 3 时按实际），给前进/后退按钮留空间
+  let start = Math.max(0, current - 1)
+  let end = Math.min(total - 1, current + 1)
+  if (end - start + 1 < 3 && total >= 3) {
+    if (start === 0) end = start + 2
+    else start = end - 2
+  }
 
   for (let i = start; i <= end; i++) {
     pages.push(i)

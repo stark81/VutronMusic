@@ -16,7 +16,7 @@
       </div>
       <div class="indicator" :class="{ animated: isIndicatorReady }" :style="indicatorStyle"></div>
     </div>
-    <div class="title">{{ pluginId }}</div>
+    <div class="title">{{ pluginDisplayName }}</div>
     <div class="section-2">
       <template v-if="!step && loginType !== 'LocalDir' && currentMode !== 'Cookie'">
         <div class="input-box">
@@ -177,6 +177,12 @@ let qrCodeCheckInterval: ReturnType<typeof setInterval>
 
 const pluginId = ref<PluginId>()
 const loginType = ref<LoginType>('Username')
+
+const pluginDisplayName = computed(() => {
+  if (!pluginId.value) return ''
+  const service = services.value.find((s) => s.code === pluginId.value)
+  return service?.name || pluginId.value
+})
 const step = ref(0)
 const currentMode = ref<LoginType>('QrCode')
 

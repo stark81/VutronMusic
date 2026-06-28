@@ -61,6 +61,7 @@ const apis = api
 
 const user = { userId: 0, userName: '', pwd: '', isVip: true, token: '' }
 let baseUrl = ''
+let playSessionId = ''
 
 const authHeader = [
   'Emby Client="VutronMusic"',
@@ -177,13 +178,13 @@ const formatTrack = (item, size = 512, showPlayCount = true) => {
   const lrcItem = item.MediaSources?.[0]?.MediaStreams?.find((it) => it.Codec === 'lrc')
 
   return {
-    id: item.Id,
-    name: item.Name,
+    id: item.Id ?? '',
+    name: item.Name ?? '',
     duration: item.RunTimeTicks / 10000,
     alias: [],
     playable: true,
     reason: '',
-    createTime: new Date(item.DateCreated).getTime(),
+    createTime: new Date(item.DateCreated || 0).getTime(),
     no: item.IndexNumber || 1,
     mvid: 0,
     playCount: showPlayCount ? (item.UserData?.PlayCount ?? -1) : -1,
@@ -195,15 +196,15 @@ const formatTrack = (item, size = 512, showPlayCount = true) => {
       sourceContext: { id: item.AlbumId ?? '' }
     },
     artists: item.ArtistItems.map((it) => ({
-      id: it.Id,
-      name: it.Name,
+      id: it.Id ?? '',
+      name: it.Name ?? '',
       picUrl: 'http://p1.music.126.net/6y-UleORITEDbvrOLV0Q8A==/5639395138885805.jpg?param=64y64',
       pluginId: '',
       sourceContext: { id: it.Id }
     })),
     albumArtists: item.AlbumArtists?.map((it) => ({
-      id: it.Id,
-      name: it.Name,
+      id: it.Id ?? '',
+      name: it.Name ?? '',
       picUrl: 'http://p1.music.126.net/6y-UleORITEDbvrOLV0Q8A==/5639395138885805.jpg?param=64y64',
       pluginId: '',
       sourceContext: { id: it.Id }
@@ -225,8 +226,8 @@ const formatTrack = (item, size = 512, showPlayCount = true) => {
 
 const formatAlbumDetail = (item) => {
   return {
-    id: item.Id,
-    name: item.Name,
+    id: item.Id ?? '',
+    name: item.Name ?? '',
     picUrl: item.PrimaryImageTag
       ? getPic(item.PrimaryImageItemId || item.Id, item.PrimaryImageTag, 512)
       : `http://localhost:41830/local-asset/default-cover?v=${item.Id}`,
@@ -240,7 +241,7 @@ const formatAlbumDetail = (item) => {
     songs: item.tracks,
     artists:
       item.ArtistItems?.map((it) => ({
-        id: it.Id,
+        id: it.Id ?? '',
         name: it.Name || '',
         picUrl: it.img1v1Url || '',
         pluginId: '',
@@ -253,16 +254,16 @@ const formatAlbumDetail = (item) => {
 }
 
 const formatAlbum = (item) => ({
-  id: item.Id,
-  name: item.Name,
+  id: item.Id ?? '',
+  name: item.Name ?? '',
   icon: 'emby',
   picUrl: item.PrimaryImageTag
     ? getPic(item.PrimaryImageItemId || item.Id, item.PrimaryImageTag, 512)
     : `http://localhost:41830/local-asset/default-cover?v=${item.Id}`,
   artists:
     item.ArtistItems?.map((it) => ({
-      id: it.Id,
-      name: it.Name,
+      id: it.Id ?? '',
+      name: it.Name ?? '',
       picUrl: '',
       pluginId: '',
       sourceContext: { id: it.Id }
@@ -307,8 +308,8 @@ const getArtists = async (_params) => {
   }
   const result = await get('Artists', { ...params, ..._params })
   return result.Items.map((item) => ({
-    id: item.Id,
-    name: item.Name,
+    id: item.Id ?? '',
+    name: item.Name ?? '',
     picUrl: item.ImageTags?.Primary
       ? getPic(item.Id, item.ImageTags?.Primary, 512)
       : 'vutron://get-singer-pic',
@@ -766,7 +767,7 @@ exports.getPlaylistTracks = async (params) => {
 
 exports.getAllTracks = async (_params) => {
   try {
-    const { page: rawPage = 0, sort, order, reset } = _params
+    const { page: rawPage = 0, sort, order, reset, pageSize = 1000 } = _params
     const page = reset ? 0 : rawPage
     const map = {
       name: 'SortName',
@@ -776,7 +777,7 @@ exports.getAllTracks = async (_params) => {
 
     const SortBy = sort === 'id' ? '' : map[sort]
     const SortOrder = order === 'ASC' ? 'Ascending' : 'Descending'
-    const params = { SortBy, SortOrder, Limit: 1000, StartIndex: 1000 * page }
+    const params = { SortBy, SortOrder, Limit: pageSize, StartIndex: pageSize * page }
 
     const result = await getTracks(params)
     const data = result.Items.map((item) => formatTrack(item, 64))
@@ -902,6 +903,44 @@ exports.scrobble = async (params) => {
     await post(`Users/${user.userId}/PlayedItems/${params.id}`, { datePlayed: time })
     return { code: 200 }
   } catch {
+    return { code: 404 }
+  }
+}
+
+exports.reportPlayback = async (params) => {
+  try {
+    if (params.type === 'end') {
+      await post(`Sessions/Playing/Stopped`, {
+        ItemId: params.id,
+        MediaSourceId: params.sourceId,
+        PlaySessionId: playSessionId,
+        PositionTicks: Math.floor((params.position || 0) * 10_000_000)
+      }).catch(() => {})
+      return { code: 200 }
+    }
+    const isStart = params.type === 'start'
+    if (isStart || !playSessionId) {
+      playSessionId = `vutron-${params.id}-${Date.now()}`
+    }
+
+    const endpoint = isStart ? 'Playing' : 'Playing/Progress'
+    await post(`Sessions/${endpoint}`, {
+      ItemId: params.id,
+      MediaSourceId: params.sourceId,
+      PlaySessionId: playSessionId,
+      PlayMethod: 'DirectStream',
+      CanSeek: true,
+      IsPaused: !params.playing,
+      IsMuted: false,
+      PlaybackRate: 1,
+      RepeatMode: 'RepeatNone',
+      AudioStreamIndex: 1,
+      SubtitleStreamIndex: -1,
+      PositionTicks: Math.floor((params.position || 0) * 10_000_000)
+    })
+    return { code: 200 }
+  } catch (error) {
+    console.error('[emby reportPlayback]: ', error)
     return { code: 404 }
   }
 }

@@ -438,10 +438,6 @@ const filterArtists = computed(() => {
   return plists
 })
 
-// const streamMessage = computed(() => {
-//   return loginedServices.value.length === 0 ? message.value : '当前服务离线，请稍后再试'
-// })
-
 const pickedLyricLines = computed(() => {
   const randomLines = pickedLyric(lyric.value)
   return randomLines
@@ -481,21 +477,6 @@ const sortedLocalTracks = computed(() => {
       return String(second).localeCompare(String(first), 'zh-CN', { numeric: true })
     }
   })
-})
-
-watch(keyword, (value) => {
-  const count =
-    tool.value.groundBy === 'all'
-      ? Object.entries(tracks.value)
-          .filter(([plugin]) => sers.value.includes(plugin as PluginId))
-          .map(([, item]) => item.count)
-          .flat()
-          .reduce((acc, cur) => acc + cur, 0)
-      : tracks.value[tool.value.groundBy].count
-  if (count === defaultTracks.value.length) return
-
-  // 当两者数量不一致时，说明尚未歌曲并没有完全加载，需要对流媒体歌曲进行搜索
-  console.log('=2=2=22', value, count, defaultTracks.value.length)
 })
 
 const formatedTime = computed(() => {
@@ -919,7 +900,7 @@ onBeforeUnmount(() => {
     margin-left: 6px;
 
     &.visible {
-      max-width: 300px;
+      max-width: 376px;
       opacity: 1;
     }
   }

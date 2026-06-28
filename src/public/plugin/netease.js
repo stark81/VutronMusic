@@ -183,9 +183,16 @@ const apis = api
  */
 
 const user = { userId: 0, isVip: false, cookie: '' }
-let baseUrl = 'http://127.0.0.1:41830/netease'
+let baseUrl = 'http://localhost:41830/netease'
 const limit = 50
 const artistLists = { code: 0, artists: {} }
+
+let neteasePlaySessionId = ''
+
+const genSessionId = () => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+  return Array.from({ length: 12 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+}
 
 apis.db.get('PluginData').then((result) => {
   user.userId = result.userId
@@ -328,8 +335,8 @@ const formatTrack = (item, size = 64) => {
   }))
 
   return {
-    id: item.id,
-    name: item.name,
+    id: item.id ?? '',
+    name: item.name ?? '',
     duration: item.dt ?? item.duration ?? 0,
     alias: item.alia ?? item.alias ?? [],
     playable: item.playable ?? false,
@@ -342,12 +349,12 @@ const formatTrack = (item, size = 64) => {
       id: item.al?.id ?? item.album?.id ?? '',
       name: item.al?.name ?? item.album?.name ?? '',
       pluginId: '',
-      picUrl: item.al?.picUrl + '?param=256y256' ?? item.album?.picUrl + '?param=256y256' ?? '',
+      picUrl: (item.al?.picUrl ?? item.album?.picUrl ?? '') + '?param=256y256',
       sourceContext: { id: item.al?.id ?? item.album?.id ?? '' }
     },
     artists,
     albumArtists: artists,
-    picUrl: (item.al || item.album)?.picUrl + `?param=${size}y${size}`,
+    picUrl: ((item.al || item.album)?.picUrl ?? '') + `?param=${size}y${size}`,
     pluginId: '',
     type: meta.type,
     sourceContext: { id: item.id }
@@ -359,17 +366,17 @@ const formatTrack = (item, size = 64) => {
  */
 const formatAlbum = (item, showArtists = false) => {
   const result = {
-    id: item.id,
-    name: item.name,
-    picUrl: item.picUrl + '?param=256y256',
+    id: item.id ?? '',
+    name: item.name ?? '',
+    picUrl: (item.picUrl ?? '') + '?param=256y256',
     pluginId: '',
     sourceContext: { id: item.id }
   }
   if (showArtists && item.artists) {
     result.artists = item.artists.map((it) => ({
-      id: it.id,
-      name: it.name,
-      picUrl: it.picUrl || it.img1v1Url,
+      id: it.id ?? '',
+      name: it.name ?? '',
+      picUrl: it.picUrl || it.img1v1Url || '',
       pluginId: '',
       sourceContext: { id: it.id }
     }))
@@ -378,8 +385,8 @@ const formatAlbum = (item, showArtists = false) => {
 }
 
 const formatMv = (item) => ({
-  id: item.id || item.vid,
-  name: item.name || item.title,
+  id: item.id || item.vid || '',
+  name: item.name || item.title || '',
   icon: 'common',
   picUrl: item.imgurl16v9 || item.coverUrl || item.cover || '',
   publishTime: new Date(item.publishTime || 0).getTime(),
@@ -387,16 +394,16 @@ const formatMv = (item) => ({
   artists: (
     item.creator || [
       {
-        id: item.artist?.id,
-        name: item.artist?.name,
-        picUrl: item.artist?.img1v1Url + '?param=256y256',
+        id: item.artist?.id ?? '',
+        name: item.artist?.name ?? '',
+        picUrl: (item.artist?.img1v1Url ?? '') + '?param=256y256',
         pluginId: '',
         sourceContext: { id: item.artist?.id }
       }
     ]
   ).map((it) => ({
-    id: it.userId || it.id,
-    name: it.name || it.userName,
+    id: it.userId || it.id || '',
+    name: it.name || it.userName || '',
     picUrl: it.picUrl || '',
     pluginId: '',
     sourceContext: { id: it.id || it.userId }
@@ -499,10 +506,10 @@ const specialPlaylist = {
  * @returns {Playlist}
  */
 const formatPlaylist = (item) => ({
-  id: item.id,
-  name: item.name,
+  id: item.id ?? '',
+  name: item.name ?? '',
   icon: 'common',
-  picUrl: (item.picUrl || item.coverImgUrl) + '?param=256y256',
+  picUrl: (item.picUrl || item.coverImgUrl || '') + '?param=256y256',
   isMine: item.creator?.userId === user.userId,
   trackCount: item.trackIds?.length || item.trackCount || 0,
   playCount: item.playCount || item.playcount || 0,
@@ -542,9 +549,9 @@ const formatComment = (item) => {
         }
       : null,
     user: {
-      id: _user.userId,
-      nickname: _user.nickname,
-      avatarUrl: _user.avatarUrl + '?param=64y64'
+      id: _user.userId ?? '',
+      nickname: _user.nickname ?? '',
+      avatarUrl: (_user.avatarUrl || '') + '?param=64y64'
     },
     sourceContext: { id: item.commentId || '' }
   }
@@ -552,7 +559,7 @@ const formatComment = (item) => {
 
 const meta = {
   name: '网易云',
-  icon: 'common',
+  icon: 'netease',
   type: 'library', // library, stream
   capabilities: {
     matchTrack: 'official',
@@ -593,7 +600,7 @@ exports.loginQrKey = async () => {
   try {
     const result = await get('login/qr/key', { timestamp: Date.now() })
     const result2 = await get(
-      `login/qr/create?key=${result.data.unikey}&platform=web&qrimg=true&timestamp=${Date.now()}&ua=pc`
+      `login/qr/create?key=${result.data.unikey}&qrimg=true&timestamp=${Date.now()}` // platform=web
     )
 
     const data = {
@@ -611,14 +618,14 @@ exports.loginQrKey = async () => {
  */
 exports.loginQrCodeCheck = async (params) => {
   try {
-    const result = await get('login/qr/check', { ...params, timestamp: Date.now(), ua: 'pc' })
+    const result = await get('login/qr/check', { ...params, timestamp: Date.now() }) // ua: 'pc'
     if (result.code === 803) {
       result.cookie = result.cookie.replaceAll(' HTTPOnly', '')
 
       const cookie = setCookies(result.cookie)
       user.cookie = cookie
 
-      const res = await post(`login/status?timestamp=${Date.now()}&ua=pc`)
+      const res = await post(`login/status?timestamp=${Date.now()}`) // &ua=pc
       const profile = res.data.profile
 
       const data = { userId: profile.userId, isVip: profile.vipType === 11, cookie }
@@ -843,7 +850,7 @@ exports.topArtists = async (params) => {
         id: item.id,
         name: item.name,
         pluginId: '',
-        picUrl: item.picUrl + '?param=256y256',
+        picUrl: (item.picUrl ?? '') + '?param=256y256',
         sourceContext: { id: item.id }
       }))
       return { code: result.code, data, sourceContext: { offset: (params?.offset ?? 0) + 30 } }
@@ -1052,7 +1059,7 @@ exports.getPlaylistDetail = async (params) => {
         isPrivate: playlist.privacy === 10,
         pluginId: '',
         copywriter: '',
-        updateFrequency: playlist.updateFrequency,
+        updateFrequency: playlist.updateFrequency ?? null,
         specialPlaylistInfo: specialPlaylist[playlist.id] ?? null,
         trackIds,
         tracks,
@@ -1149,7 +1156,7 @@ const highQualityPlaylist = async (params) => {
   return {
     code: result.code ?? 200,
     data: result.playlists?.map(formatPlaylist) || [],
-    sourceContext: { name, before: result.playlists.at(-1).updateTime }
+    sourceContext: { name, before: result.playlists?.at(-1)?.updateTime ?? 0 }
   }
 }
 
@@ -1291,9 +1298,9 @@ const formatAlbumDetail = (result) => {
   const songs = result.songs.map((item) => formatTrack(item, 64))
   const item = result.album
   return {
-    id: item.id,
-    name: item.name,
-    picUrl: item.picUrl + '?param=512y512',
+    id: item.id ?? '',
+    name: item.name ?? '',
+    picUrl: (item.picUrl ?? '') + '?param=512y512',
     type: item.type,
     isExplicit: item.mark === 1048576,
     subscribed: false,
@@ -1343,7 +1350,7 @@ exports.artistAlbums = async (params) => {
       return {
         id: item.id,
         name: item.name,
-        picUrl: item.picUrl + '?param=256y256',
+        picUrl: (item.picUrl ?? '') + '?param=256y256',
         createTime: new Date(item.publishTime).getTime(),
         copywriter: `${item.type} · ${new Date(item.publishTime).getFullYear()}`,
         type,
@@ -1408,7 +1415,7 @@ exports.search = async (params) => {
     } else if (tab === 'artists') {
       const data = result.result.artists.map((item) => ({
         id: item.id,
-        name: item.name,
+        name: item.name || '',
         picUrl: (item.picUrl || item.img1v1Url) + '?param=256y256',
         pluginId: '',
         sourceContext: { id: item.id }
@@ -1455,7 +1462,7 @@ exports.matchTrack = async (params) => {
     md5: params.md5 || '0'
   })
   if (result.code !== 200 || !result.result?.songs?.length) return { code: 404 }
-  const song = formatTrack(result.result?.songs?.[0], 64)
+  const song = formatTrack(result.result?.songs?.[0], 512)
   return {
     code: 200,
     data: {
@@ -1646,7 +1653,7 @@ exports.simiArtists = async (params) => {
       id: item.id,
       name: item.name,
       pluginId: '',
-      picUrl: item.picUrl + '?param=256y256',
+      picUrl: (item.picUrl ?? '') + '?param=256y256',
       sourceContext: { id: item.id }
     }))
     return { code: 200, data, sourceContext: {} }
@@ -1797,7 +1804,7 @@ exports.artistsList = async (_params) => {
       id: item.id,
       name: item.name,
       pluginId: '',
-      picUrl: item.picUrl + '?param=256y256',
+      picUrl: (item.picUrl ?? '') + '?param=256y256',
       sourceContext: { id: item.id }
     }))
     return { code: 200, data, sourceContext: { query: _params.query, offset: offset + 100 } }
@@ -1814,6 +1821,29 @@ exports.scrobble = async (params) => {
     const result = await get('scrobble/v1', { id, time, sourceid })
     return { code: result.code || 200 }
   } catch {
+    return { code: 404 }
+  }
+}
+
+exports.reportPlayback = async (params) => {
+  try {
+    const { type, id, position } = params
+
+    if (type === 'start' || !neteasePlaySessionId) {
+      neteasePlaySessionId = genSessionId()
+    }
+
+    await get('relay/play/state/submit', {
+      id,
+      sessionId: neteasePlaySessionId,
+      progress: Math.floor(position || 0),
+      playMode: 'list_loop',
+      type: 'song'
+    })
+
+    return { code: 200 }
+  } catch (error) {
+    console.error('[netease reportPlayback]:', error)
     return { code: 404 }
   }
 }

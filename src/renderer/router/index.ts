@@ -1,4 +1,4 @@
-import { HomePage } from '../views'
+import { HomePage, DailyTracks, ExplorePage, AlbumPage, ArtistPage, SearchPage } from '../views'
 import { createRouter, createWebHashHistory, createWebHistory } from 'vue-router'
 import { usePluginMusic } from '../store/pluginMusic'
 import type { LoginType, MusicType } from '@/types/plugin'
@@ -13,7 +13,7 @@ const routes = [
   {
     path: '/explore',
     name: 'explore',
-    component: () => import('../views/ExplorePage.vue'),
+    component: ExplorePage,
     meta: { sourceType: 'library' as MusicType }
   },
   {
@@ -58,7 +58,7 @@ const routes = [
   {
     path: '/daily/songs/:pluginId',
     name: 'dailySongs',
-    component: () => import('../views/DailyTracks.vue')
+    component: DailyTracks
   },
   {
     path: '/login/:service/:type',
@@ -68,12 +68,12 @@ const routes = [
   {
     path: '/album/:pluginId/:sourceContext',
     name: 'album',
-    component: () => import('../views/AlbumPage.vue')
+    component: AlbumPage
   },
   {
     path: '/artist/:pluginId/:sourceContext',
     name: 'ArtistPage',
-    component: () => import('../views/ArtistPage.vue')
+    component: ArtistPage
   },
   {
     path: '/artistmv/:pluginId/:sourceContext',
@@ -83,7 +83,7 @@ const routes = [
   {
     path: '/search',
     name: 'search',
-    component: () => import('../views/SearchPage.vue')
+    component: SearchPage
   },
   {
     path: '/user/:id',

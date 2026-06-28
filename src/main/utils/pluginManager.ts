@@ -41,9 +41,11 @@ export class PluginInstance {
   private id: string
   private loaded = false
   private loadError: string | null = null
+  public builtIn: boolean
 
-  constructor(pluginPath: string, pluginName: string) {
+  constructor(pluginPath: string, pluginName: string, builtIn = false) {
     this.id = pluginName
+    this.builtIn = builtIn
     this.initStore()
 
     const code = fs.readFileSync(pluginPath, 'utf-8')
@@ -322,7 +324,9 @@ export class PluginInstance {
         dispatcher
       })
 
-      console.log('[HTTP RESPONSE]', response.status, fullUrl, `${Date.now() - start}ms`)
+      if (electronStore.get('settings.showHttpLog')) {
+        console.log('[HTTP RESPONSE]', response.status, fullUrl, `${Date.now() - start}ms`)
+      }
     } catch (err: any) {
       clearTimeout(timeout)
       const isTimeout = err?.name === 'AbortError'

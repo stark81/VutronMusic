@@ -25,7 +25,13 @@ import {
 
 const _buildService = (
   code: PluginId,
-  meta: { name: string; type: MusicType; icon?: string; capabilities?: service['capabilities'] }
+  meta: {
+    name: string
+    type: MusicType
+    icon?: string
+    capabilities?: service['capabilities']
+    builtIn?: boolean
+  }
 ): service => {
   return {
     code,
@@ -35,7 +41,8 @@ const _buildService = (
     active: false,
     status: 'logout',
     loadFull: meta.type !== 'library',
-    capabilities: meta.capabilities
+    capabilities: meta.capabilities,
+    builtIn: meta.builtIn
   }
 }
 
@@ -198,12 +205,24 @@ export const usePluginMusic = defineStore(
               icon: string
               type: MusicType
               capabilities?: service['capabilities']
+              builtIn?: boolean
             }
           >
         ) => {
           for (const [code, meta] of Object.entries(result)) {
             const pluginId = code as PluginId
-            if (!pluginIdSet.value.has(pluginId)) {
+            const existing = services.value.find((s) => s.code === pluginId)
+
+            if (existing) {
+              // 已存在：同步字段，保留用户状态
+              existing.name = meta.name
+              existing.icon = meta.icon
+              existing.type = meta.type
+              existing.capabilities = meta.capabilities
+              existing.builtIn = meta.builtIn
+              // active, status, loadFull 保持不变（用户运行时状态）
+            } else {
+              // 新插件：创建完整对象
               const info = _buildService(pluginId, meta)
               services.value.push(info)
               _initPluginData(pluginId)
@@ -391,6 +410,7 @@ export const usePluginMusic = defineStore(
           ...pluginTracks.sourceContext,
           sort: tool.sortBy,
           order: tool.orderBy,
+          pageSize: tool.pageSize || 1000,
           ...(reset && { reset: true })
         })
         const prevLength = pluginTracks.data.length
@@ -447,7 +467,8 @@ export const usePluginMusic = defineStore(
         _start,
         page,
         sort: tool.sortBy,
-        order: tool.orderBy
+        order: tool.orderBy,
+        pageSize
       }
 
       const result = await pluginMethodCall(pluginId, 'getAllTracks', params)
@@ -614,6 +635,45 @@ export const usePluginMusic = defineStore(
       if (status === 'logout') {
         delete users[pluginId]
       }
+    }
+
+    const createPluginInstance = async (
+      basePluginId: PluginId,
+      name: string
+    ): Promise<PluginId | null> => {
+      const result = await window.mainApi?.invoke('create-plugin-instance', {
+        basePluginId,
+        name
+      })
+      if (result?.success && result.id && result.plugin) {
+        const pluginId = result.id as PluginId
+        if (!pluginIdSet.value.has(pluginId)) {
+          const info = _buildService(pluginId, result.plugin)
+          services.value.push(info)
+          _initPluginData(pluginId)
+          _initTempInfo(pluginId)
+        }
+        return pluginId
+      }
+      return null
+    }
+
+    const deletePluginInstance = async (pluginId: PluginId): Promise<boolean> => {
+      const result = await window.mainApi?.invoke('delete-plugin-instance', pluginId)
+      if (result?.success) {
+        const idx = services.value.findIndex((s) => s.code === pluginId)
+        if (idx !== -1) services.value.splice(idx, 1)
+        delete tracks[pluginId]
+        delete albums[pluginId]
+        delete artists[pluginId]
+        delete playlists[pluginId]
+        delete likedTracks[pluginId]
+        delete cloudDisks[pluginId]
+        delete mvs[pluginId]
+        delete users[pluginId]
+        return true
+      }
+      return false
     }
 
     const _getPlaylistCategory = (plugin: PluginId) =>
@@ -851,6 +911,8 @@ export const usePluginMusic = defineStore(
       getPlaylistDetail,
       isAccountLoggedIn,
       handleStatusChange,
+      createPluginInstance,
+      deletePluginInstance,
       uploadPlugin,
       scanLocalMusic,
       getPlugins,

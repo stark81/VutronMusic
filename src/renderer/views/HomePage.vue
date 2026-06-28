@@ -166,6 +166,7 @@ const handleBannerClick = (bannerItem: Banner) => {
 
 const loadData = async () => {
   if (!pluginId.value) return
+  show.value = true
   setTimeout(() => {
     if (!show.value) tricklingProgress.start()
   }, 1000)
@@ -184,7 +185,6 @@ const loadData = async () => {
   pluginMethodCall(pluginId.value, 'getRecommendPlaylist').then((res) => {
     recommendPlaylist.value = res.data.map((item) => ({ ...item, pluginId: pluginId.value }))
     tricklingProgress.done()
-    show.value = true
   })
 
   pluginMethodCall(pluginId.value, 'topArtists', { reset: true, isFull: false }).then((res) => {

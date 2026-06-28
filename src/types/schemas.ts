@@ -9,6 +9,9 @@ export const MusicTypeSchema = z.enum(['local', 'library', 'stream'])
 export type PluginId = string & { __brand: 'PluginId' }
 const asPluginId = (str: string): PluginId => str as PluginId
 
+/** 搜索框中选择"流媒体"时的虚拟插件 ID */
+export const STREAM_SENTINEL = asPluginId('__stream__')
+
 export type CommentContentType = 'track' | 'album' | 'playlist' | 'mv'
 
 export interface PluginCapabilities {
@@ -400,7 +403,9 @@ export const PluginResultSchema = {
     data: z.object({
       url: z.array(z.string()),
       replayGain: z.number(),
-      peak: z.number()
+      peak: z.number(),
+      cueOffset: z.number().optional(),
+      cueDuration: z.number().optional()
     })
   }),
   catlist: z.object({ code: z.number(), data: PlaylistCatlistSchema.or(z.null()) }),
@@ -532,6 +537,9 @@ export const PluginResultSchema = {
     data: z.array(CommentSchema),
     count: z.number(),
     sourceContext: z.record(z.string(), z.any())
+  }),
+  reportPlayback: z.object({
+    code: z.number()
   }),
   matchTrack: z.object({
     code: z.number(),

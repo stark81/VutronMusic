@@ -2,13 +2,11 @@
   <div v-show="show" class="search-page">
     <div class="info">
       <span class="title">{{ keywords }}</span>
-      <span class="sub-title"
-        >找到 {{ searchResult[searchTab][plugin]?.count }} {{ tagMap[searchTab] }}</span
-      >
+      <span class="sub-title">找到 {{ displayCount }} {{ tagMap[searchTab] }}</span>
     </div>
     <div v-if="searchTab === 'tracks'" class="container">
       <TrackList
-        :items="tracks[plugin]?.data || []"
+        :items="displayData"
         :colunm-number="1"
         :plugin="plugin"
         :source-context="{}"
@@ -20,7 +18,7 @@
     </div>
     <div v-else-if="searchTab === 'mvs'" class="container">
       <MvRow
-        :mvs="searchResult['mvs'][plugin]?.data || []"
+        :mvs="displayData"
         :is-end="true"
         :column-number="5"
         :load-more="() => loadData(false)"
@@ -28,7 +26,7 @@
     </div>
     <div v-else class="container">
       <CoverRow
-        :items="searchResult[searchTab][plugin]?.data || []"
+        :items="displayData"
         :type="typeMap[searchTab]"
         :item-height="260"
         :colunm-number="5"
@@ -41,7 +39,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, watch, inject, nextTick, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, reactive, watch, inject, nextTick, onBeforeUnmount } from 'vue'
 import { useNormalStateStore } from '../store/state'
 import { usePluginMusic } from '../store/pluginMusic'
 import { useRoute, onBeforeRouteUpdate } from 'vue-router'
@@ -49,7 +47,7 @@ import { storeToRefs } from 'pinia'
 import TrackList from '../components/VirtualTrackList.vue'
 import CoverRow from '../components/VirtualCoverRow.vue'
 import MvRow from '../components/MvRow.vue'
-import { PluginId } from '@/types/schemas'
+import { PluginId, STREAM_SENTINEL } from '@/types/schemas'
 import { Album, Artist, Mv, Playlist, Track } from '@/types/plugin'
 
 const show = ref(false)
@@ -108,106 +106,152 @@ const typeMap = {
   mvs: 'Mv'
 } as const
 
+// stream 搜索时：从所有已登录 stream 插件的 per-plugin 槽位实时展平
+const displayData = computed<any[]>(() => {
+  const currentService = services.value.find((s) => s.code === plugin.value)
+  const isStream = plugin.value === STREAM_SENTINEL || currentService?.type === 'stream'
+  if (!isStream) {
+    if (searchTab.value === 'tracks') return tracks[plugin.value]?.data || []
+    if (searchTab.value === 'albums') return albums[plugin.value]?.data || []
+    if (searchTab.value === 'artists') return artists[plugin.value]?.data || []
+    if (searchTab.value === 'playlists') return playlists[plugin.value]?.data || []
+    if (searchTab.value === 'mvs') return mvs[plugin.value]?.data || []
+    return []
+  }
+  const streamTargets = services.value
+    .filter((s) => s.type === 'stream' && s.status === 'login')
+    .map((s) => s.code)
+  if (searchTab.value === 'tracks') return streamTargets.flatMap((p) => tracks[p]?.data || [])
+  if (searchTab.value === 'albums') return streamTargets.flatMap((p) => albums[p]?.data || [])
+  if (searchTab.value === 'artists') return streamTargets.flatMap((p) => artists[p]?.data || [])
+  if (searchTab.value === 'playlists') return streamTargets.flatMap((p) => playlists[p]?.data || [])
+  if (searchTab.value === 'mvs') return streamTargets.flatMap((p) => mvs[p]?.data || [])
+  return []
+})
+
+const displayCount = computed(() => {
+  const currentService = services.value.find((s) => s.code === plugin.value)
+  const isStream = plugin.value === STREAM_SENTINEL || currentService?.type === 'stream'
+  if (!isStream) {
+    return searchResult[searchTab.value][plugin.value]?.count || 0
+  }
+  const streamTargets = services.value
+    .filter((s) => s.type === 'stream' && s.status === 'login')
+    .map((s) => s.code)
+  return streamTargets.reduce((sum, p) => sum + (searchResult[searchTab.value][p]?.count || 0), 0)
+})
+
 const loadData = async (reset = true) => {
-  const result = searchResult[searchTab.value][plugin.value]
-  const sourceContext = result.sourceContext || {}
+  const currentPlugin = plugin.value
+  const currentTab = searchTab.value
 
-  const res = await pluginMethodCall(plugin.value, 'search', {
-    tab: searchTab.value,
-    keywords: keywords.value,
-    reset,
-    ...sourceContext
-  })
-
-  switch (searchTab.value) {
-    case 'tracks': {
-      if (reset) tracks[plugin.value].data = []
-      tracks[plugin.value].count = res.count
-      tracks[plugin.value].sourceContext = res.sourceContext
-
-      const data = res.data as Track[]
-      tracks[plugin.value].data.push(
-        ...data.map((item) => ({
-          ...item,
-          pluginId: plugin.value,
-          album: { ...item.album, pluginId: plugin.value },
-          artists: item.artists.map((it) => ({ ...it, pluginId: plugin.value })),
-          albumArtists: item.albumArtists.map((it) => ({ ...it, pluginId: plugin.value }))
-        }))
-      )
-      show.value = true
-      break
-    }
-    case 'albums': {
-      if (reset) albums[plugin.value].data = []
-      albums[plugin.value].count = res.count
-      albums[plugin.value].sourceContext = res.sourceContext
-
-      const data = res.data as Album[]
-      albums[plugin.value].data.push(
-        ...data.map((item) => ({
-          ...item,
-          artists: item.artists?.map((it) => ({
-            ...it,
-            pluginId: plugin.value
-          })),
-          pluginId: plugin.value
-        }))
-      )
-      show.value = true
-      break
-    }
-    case 'artists': {
-      if (reset) artists[plugin.value].data = []
-      artists[plugin.value].count = res.count
-      artists[plugin.value].sourceContext = res.sourceContext
-      const data = res.data as Artist[]
-      artists[plugin.value].data.push(
-        ...data.map((item) => ({
-          ...item,
-          pluginId: plugin.value
-        }))
-      )
-      show.value = true
-      break
-    }
-    case 'playlists': {
-      if (reset) playlists[plugin.value].data = []
-      playlists[plugin.value].count = res.count
-      playlists[plugin.value].sourceContext = res.sourceContext
-      const data = res.data as Playlist[]
-      playlists[plugin.value].data.push(
-        ...data.map((item) => ({
-          ...item,
-          pluginId: plugin.value,
-          creator: { ...item.creator, pluginId: plugin.value }
-        }))
-      )
-      show.value = true
-      break
-    }
-    case 'mvs': {
-      if (reset) mvs[plugin.value].data = []
-      mvs[plugin.value].count = res.count
-      mvs[plugin.value].sourceContext = res.sourceContext
-      const data = res.data as Mv[]
-      mvs[plugin.value].data.push(
-        ...data.map((item) => ({
-          ...item,
-          pluginId: plugin.value,
-          artists: item.artists?.map((it) => ({
-            ...it,
-            pluginId: plugin.value
-          }))
-        }))
-      )
-      show.value = true
-      break
-    }
-    default: {
-      break
+  // 判断当前插件类型，stream 则向所有已登录的 stream 插件搜索
+  const currentService = services.value.find((s) => s.code === currentPlugin)
+  const isStream = currentPlugin === STREAM_SENTINEL || currentService?.type === 'stream'
+  let targets: PluginId[] = [currentPlugin]
+  if (isStream) {
+    const loggedInStreams = services.value
+      .filter((s) => s.type === 'stream' && s.status === 'login')
+      .map((s) => s.code)
+    if (loggedInStreams.length > 0) {
+      targets = loggedInStreams
     }
   }
+
+  // 重置所有目标槽位
+  if (reset) {
+    targets.forEach((p) => {
+      const slot = searchResult[currentTab][p]
+      if (slot) slot.data = []
+    })
+  }
+
+  // 并行搜索所有目标
+  const results = await Promise.all(
+    targets.map(async (p) => {
+      const slot = searchResult[currentTab][p]
+      const sourceContext = slot?.sourceContext || {}
+      const res = await pluginMethodCall(p, 'search', {
+        tab: currentTab,
+        keywords: keywords.value,
+        reset,
+        ...sourceContext
+      })
+      return { plugin: p, res }
+    })
+  )
+
+  // 处理每个结果，存入 per-plugin 槽位
+  for (const { plugin: p, res } of results) {
+    switch (currentTab) {
+      case 'tracks': {
+        tracks[p].count = res.count
+        tracks[p].sourceContext = res.sourceContext
+        const data = (res.data as Track[]).map((item) => ({
+          ...item,
+          pluginId: p,
+          album: { ...item.album, pluginId: p },
+          artists: item.artists.map((it) => ({ ...it, pluginId: p })),
+          albumArtists: item.albumArtists.map((it) => ({ ...it, pluginId: p }))
+        }))
+        tracks[p].data.push(...data)
+        break
+      }
+      case 'albums': {
+        albums[p].count = res.count
+        albums[p].sourceContext = res.sourceContext
+        const data = (res.data as Album[]).map((item) => ({
+          ...item,
+          artists: item.artists?.map((it) => ({
+            ...it,
+            pluginId: p
+          })),
+          pluginId: p
+        }))
+        albums[p].data.push(...data)
+        break
+      }
+      case 'artists': {
+        artists[p].count = res.count
+        artists[p].sourceContext = res.sourceContext
+        const data = (res.data as Artist[]).map((item) => ({
+          ...item,
+          pluginId: p
+        }))
+        artists[p].data.push(...data)
+        break
+      }
+      case 'playlists': {
+        playlists[p].count = res.count
+        playlists[p].sourceContext = res.sourceContext
+        const data = (res.data as Playlist[]).map((item) => ({
+          ...item,
+          pluginId: p,
+          creator: { ...item.creator, pluginId: p }
+        }))
+        playlists[p].data.push(...data)
+        break
+      }
+      case 'mvs': {
+        mvs[p].count = res.count
+        mvs[p].sourceContext = res.sourceContext
+        const data = (res.data as Mv[]).map((item) => ({
+          ...item,
+          pluginId: p,
+          artists: item.artists?.map((it) => ({
+            ...it,
+            pluginId: p
+          }))
+        }))
+        mvs[p].data.push(...data)
+        break
+      }
+      default:
+        break
+    }
+  }
+
+  show.value = true
 }
 
 const updatePadding = inject('updatePadding') as (value: number) => void

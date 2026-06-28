@@ -154,6 +154,16 @@ export const useAudioEngineStore = defineStore('audioEngine', () => {
 
   /** 缓存最近一次曲目的 ReplayGain 值，供开关实时切换时重用 */
   let _lastReplayGain: { gain: number; peak: number } | null = null
+  /** CUE 分轨偏移（ms），0 表示无分轨 */
+  let _cueOffset = 0
+  /** CUE 分轨时长（ms），0 表示无分轨 */
+  let _cueDuration = 0
+  /** 取 CUE 相对时间（秒），无分轨时返回当前时间 */
+  const _cueRelative = (t: number) => (_cueOffset > 0 ? t - _cueOffset / 1000 : t)
+  /** CUE 分轨起始位置的绝对时间（秒） */
+  const _cueOffsetSec = () => _cueOffset / 1000
+  /** 防止同一首 CUE 分轨结束时重复触发 playNext */
+  let _cueEndHandled = false
 
   // 开关变化时立即生效
   watch(volumeNormalizationEnabled, (enabled) => {
@@ -301,9 +311,15 @@ export const useAudioEngineStore = defineStore('audioEngine', () => {
 
     audio.addEventListener('timeupdate', () => {
       if (Math.abs(audio.currentTime - lastUpdateTime) >= 1) {
-        progress.value = audio.currentTime
+        progress.value = _cueRelative(audio.currentTime)
         lastUpdateTime = audio.currentTime
         options?.onTimeUpdate?.()
+      }
+      if (_cueDuration > 0 && audio.currentTime >= (_cueOffset + _cueDuration) / 1000) {
+        if (!_cueEndHandled) {
+          _cueEndHandled = true
+          eventBus.emit('playNext')
+        }
       }
     })
     options?.onEnded && audio.addEventListener('ended', options.onEnded)
@@ -515,9 +531,9 @@ export const useAudioEngineStore = defineStore('audioEngine', () => {
 
     window.mainApi?.send('updatePlayerState', {
       playing: false,
-      progress: nodes.audio.currentTime
+      progress: _cueRelative(nodes.audio.currentTime)
     })
-    progress.value = nodes.audio.currentTime
+    progress.value = _cueRelative(nodes.audio.currentTime)
 
     _clearSuspendTimer()
     suspendTimer = setTimeout(async () => {
@@ -533,7 +549,14 @@ export const useAudioEngineStore = defineStore('audioEngine', () => {
   /**
    * 播放歌曲，应用音量均衡
    */
-  function playAudioSource(sources: string[], gain: number, peak: number, autoPlay = true) {
+  function playAudioSource(
+    sources: string[],
+    gain: number,
+    peak: number,
+    autoPlay = true,
+    cueOffset = 0,
+    cueDuration = 0
+  ) {
     if (!nodes.audio) return
 
     if (!sources.length && !retryCount.value) {
@@ -541,14 +564,30 @@ export const useAudioEngineStore = defineStore('audioEngine', () => {
       retryCount.value += 1
       return
     } else if (!sources.length) {
+      _cueOffset = 0
+      _cueDuration = 0
       eventBus.emit('playNext')
       return
     }
 
+    _cueOffset = cueOffset
+    _cueDuration = cueDuration
+    _cueEndHandled = false
     _lastReplayGain = { gain, peak }
     _applyReplayGain(gain, peak, volumeNormalizationEnabled.value)
     let sourceIndex = 0
     nodes.audio.src = sources[sourceIndex]
+
+    if (cueOffset > 0) {
+      nodes.audio.addEventListener(
+        'loadedmetadata',
+        () => {
+          nodes.audio!.currentTime = cueOffset / 1000
+        },
+        { once: true }
+      )
+    }
+
     nodes.audio.load()
 
     nodes.audio.onerror = async () => {
@@ -565,6 +604,8 @@ export const useAudioEngineStore = defineStore('audioEngine', () => {
         retryCount.value += 1
       } else {
         await _delay(500)
+        _cueOffset = 0
+        _cueDuration = 0
         eventBus.emit('playNext')
       }
     }
@@ -577,21 +618,33 @@ export const useAudioEngineStore = defineStore('audioEngine', () => {
     await resumeContext()
 
     nodes.fade!.gain.setValueAtTime(0, nodes.ctx!.currentTime)
-    progress.value = nodes.audio.currentTime
+    progress.value = _cueRelative(nodes.audio.currentTime)
     await nodes.audio.play()
     await smoothGain(1, fadeDuration.value)
     retryCount.value = 0
 
     window.mainApi?.send('updatePlayerState', {
       playing: true,
-      progress: nodes.audio.currentTime
+      progress: _cueRelative(nodes.audio.currentTime)
     })
   }
 
   function setPosition(time: number) {
     if (!nodes.audio) return
+    _cueEndHandled = false
+    if (_cueDuration > 0) {
+      // time 是分轨相对秒数，转成文件绝对秒数
+      const absTime = _cueOffsetSec() + time
+      const end = (_cueOffset + _cueDuration) / 1000
+      if (absTime >= end) {
+        eventBus.emit('playNext')
+        return
+      }
+      nodes.audio.currentTime = absTime
+    } else {
+      nodes.audio.currentTime = time
+    }
     progress.value = time
-    nodes.audio.currentTime = time
     lastUpdateTime = time
   }
 
@@ -622,7 +675,7 @@ export const useAudioEngineStore = defineStore('audioEngine', () => {
   }
 
   function getCurrentTime(): number {
-    return nodes.audio?.currentTime ?? 0
+    return _cueRelative(nodes.audio?.currentTime ?? 0)
   }
 
   function _clearSuspendTimer() {

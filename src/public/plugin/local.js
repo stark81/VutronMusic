@@ -50,7 +50,7 @@ const apis = api
 
 const meta = {
   name: '本地音乐',
-  icon: 'common',
+  icon: '',
   type: 'local',
   capabilities: {
     matchTrack: false,
@@ -121,7 +121,13 @@ const formatTrack = (item) => ({
   })),
   pluginId: '',
   type: meta.type,
-  sourceContext: { id: item.id || '', filePath: item.filePath || '', md5: item.md5 || '' }
+  sourceContext: {
+    id: item.id || '',
+    filePath: item.filePath || '',
+    md5: item.md5 || '',
+    cueOffset: item.cueOffset || 0,
+    cueDuration: item.cueDuration || 0
+  }
 })
 
 /**
@@ -334,7 +340,16 @@ exports.getTrackDetail = async (params) => {
  * 获取歌曲播放地址
  */
 exports.songUrl = async (params) => {
-  return { code: 200, data: { url: [streamUrl(params.id)], replayGain: 0, peak: 1 } }
+  return {
+    code: 200,
+    data: {
+      url: [streamUrl(params.id)],
+      replayGain: 0,
+      peak: 1,
+      cueOffset: params.cueOffset || 0,
+      cueDuration: params.cueDuration || 0
+    }
+  }
 }
 
 /**
@@ -880,6 +895,10 @@ exports.scrobble = async (_params) => {
   } catch {
     // 静默失败，不影响播放
   }
+  return { code: 200 }
+}
+
+exports.reportPlayback = async () => {
   return { code: 200 }
 }
 

@@ -63,6 +63,7 @@ export type service = {
   type: 'local' | 'library' | 'stream'
   status: 'logout' | 'login' | 'offline'
   capabilities?: PluginCapabilities
+  builtIn?: boolean
 }
 
 export interface Lyrics {
@@ -150,6 +151,7 @@ export const defaultMap: {
   likeAComment: { code: 404 },
   submitAComment: { code: 404, data: null },
   getFloorComments: { code: 404, data: [], count: 0, sourceContext: {} },
+  reportPlayback: { code: 404 },
   matchTrack: { code: 404 }
 }
 

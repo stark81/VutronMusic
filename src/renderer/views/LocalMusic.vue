@@ -25,8 +25,8 @@
           </div>
         </div>
       </div>
-      <div class="right-top" @click="goToLikedSongsList">
-        <div class="title">我喜欢的音乐 - {{ filterLikedTracks.length }}首</div>
+      <div class="right-top" @click="hasLikedLocalTracks ? goToLikedSongsList() : playThisTrack()">
+        <div v-if="hasLikedLocalTracks" class="title">我喜欢的音乐 - {{ filterLikedTracks.length }}首</div>
         <div>
           <div
             v-for="(line, index) in pickedLyricLines"
@@ -239,6 +239,7 @@ import {
 } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePluginMusic } from '../store/pluginMusic'
+import { usePlayerStore } from '../store/player'
 import { useNormalStateStore } from '../store/state'
 import TrackList from '../components/VirtualTrackList.vue'
 import InfoBG from '../components/InfoBG.vue'
@@ -260,6 +261,7 @@ import { lyricLine } from '@/types/music.d'
 const { newPlaylistModal, modalOpen } = storeToRefs(useNormalStateStore())
 
 const pluginStore = usePluginMusic()
+const playerStore = usePlayerStore()
 const { tracks, playlists, tools, services, likedTracks, albums, artists } =
   storeToRefs(pluginStore)
 const {
@@ -396,6 +398,8 @@ const sortedLocalTracks = computed(() => {
 
 const filterLikedTracks = computed(() => likedTracks.value[plugin.value]?.data || [])
 
+const hasLikedLocalTracks = computed(() => filterLikedTracks.value.length > 0)
+
 const filterAlbums = computed(() => {
   return albums.value[plugin.value]?.data || []
 })
@@ -497,6 +501,15 @@ const goToLikedSongsList = () => {
   router.push({ path: `/liked-songs/${plugin.value}` })
 }
 
+const playThisTrack = () => {
+  if (!randomTrack.value) return
+  playerStore.addTrackToPlayNext(
+    [[plugin.value, randomTrack.value.sourceContext]],
+    true, // playNow
+    true // addToHead
+  )
+}
+
 const openLocalTracksTabMenu = (ref: 'playlist' | 'album' | 'artist', e: MouseEvent): void => {
   const map = {
     playlist: playlistTabMenu.value,
@@ -515,11 +528,12 @@ const openAddPlaylistModal = () => {
 }
 
 const getRandomTrack = async () => {
-  if (!filterLikedTracks.value.length) return
+  const sourceTracks = filterLikedTracks.value.length > 0 ? filterLikedTracks.value : rawTracks.value
+  if (!sourceTracks.length) return
   let i = 0
   let data: lyricLine[]
-  while (i < filterLikedTracks.value.length) {
-    const track = filterLikedTracks.value[randomNum(0, filterLikedTracks.value.length - 1)]
+  while (i < sourceTracks.length) {
+    const track = sourceTracks[randomNum(0, sourceTracks.length - 1)]
     data = await pluginMethodCall(plugin.value, 'getLyric', track.sourceContext).then(
       (result: any) => {
         if (result.code === 200) return result.data
@@ -594,7 +608,7 @@ watch(modalOpen, (value) => {
 })
 
 watch(
-  filterLikedTracks,
+  [filterLikedTracks, rawTracks],
   () => {
     getRandomTrack()
   },

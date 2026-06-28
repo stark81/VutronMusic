@@ -180,75 +180,98 @@ const collectedArtists = { ids: [] }
 const artistLists = { status: 0, data: {} }
 const collectedMVs = { ids: [] }
 
-apis.db.get('PluginData').then((result) => {
-  user.userId = result.userId
-  user.isVip = result.isVip
-  user.token = result.token
-})
+apis.db
+  .get('PluginData')
+  .then((result) => {
+    user.userId = result.userId
+    user.isVip = result.isVip
+    user.token = result.token
+  })
+  .catch((e) => console.debug('[kugou] 读取 store 配置失败:', e?.message))
 
 const youthVips = [
   () => get('youth/day/vip', { receive_day: _formatDate() }),
-  () => setTimeout(() => get('youth/day/vip/upgrade'), 10 * 1000)
+  () =>
+    setTimeout(() => {
+      get('youth/day/vip/upgrade').catch((e) =>
+        console.debug('[kugou] youthVip 升级失败:', e?.message)
+      )
+    }, 10 * 1000)
 ]
 
 const updateVip = () => {
-  return get('user/vip/detail').then((result) => {
-    user.userId = result.data?.userid
-    result.data?.busi_vip.forEach(async (item, idx) => {
-      if (!item.is_vip) {
-        await youthVips[idx]()
-      }
+  return get('user/vip/detail')
+    .then((result) => {
+      user.userId = result.data?.userid
+      result.data?.busi_vip.forEach(async (item, idx) => {
+        if (!item.is_vip) {
+          try {
+            await youthVips[idx]()
+          } catch (e) {
+            console.error('[youthVips error]', e) // 或静默处理
+          }
+        }
+      })
     })
-  })
+    .catch((e) => console.debug('[kugou] 获取 VIP 详情失败:', e?.message))
 }
 
-apis.store.get('').then((store) => {
-  baseUrl = store.baseUrl || ''
+apis.store
+  .get('')
+  .then(async (store) => {
+    baseUrl = store.baseUrl || ''
 
-  if (!baseUrl) return
+    if (!baseUrl) return
 
-  get('register/dev').then((res) => {
-    dfid = res.data?.dfid
-  })
-
-  if (!user.userId) return
-
-  get('artist/lists', { type: 0, hotsize: 30 })
-    .then((result) => {
-      artistLists.status = result.status
-      artistLists.data = result.data
-    })
-    .catch()
-
-  get('user/follow')
-    .then((result) => {
-      collectedArtists.ids = (Array.isArray(result?.data?.lists) ? result.data.lists : []).map(
-        (item) => String(item.singerid || item.userid)
-      )
-    })
-    .catch()
-
-  updateVip().then(() => {
-    get('user/playlist', { pagesize: 100 })
+    await get('register/dev')
       .then((res) => {
-        collectedPlaylists.ids = res.data?.info.map((item) => ({
-          id: item.list_create_gid || item.list_create_listid,
-          listid: item.listid
-        }))
+        dfid = res.data?.dfid
       })
-      .catch()
-  })
+      .catch((e) => console.debug('[kugou] register/dev 失败:', e?.message))
 
-  try {
-    if (!user.token) return
-    get('login/token', { userid: user.userId, token: user.token }).then((res) => {
-      user.token = res.data?.token || user.token
-      apis.db.set('PluginData', user)
-    })
-  } catch (error) {
-    console.log('[kugou.js update token error]: ', error)
-  }
-})
+    if (!user.userId) return
+
+    get('artist/lists', { type: 0, hotsize: 30 })
+      .then((result) => {
+        artistLists.status = result.status
+        artistLists.data = result.data
+      })
+      .catch((e) => console.debug('[kugou] 获取关注歌手列表失败:', e?.message))
+
+    get('user/follow')
+      .then((result) => {
+        collectedArtists.ids = (Array.isArray(result?.data?.lists) ? result.data.lists : []).map(
+          (item) => String(item.singerid || item.userid)
+        )
+      })
+      .catch((e) => console.debug('[kugou] 获取关注用户失败:', e?.message))
+
+    updateVip()
+      .then(() => {
+        get('user/playlist', { pagesize: 100 })
+          .then((res) => {
+            collectedPlaylists.ids = res.data?.info.map((item) => ({
+              id: item.list_create_gid || item.list_create_listid,
+              listid: item.listid
+            }))
+          })
+          .catch((e) => console.debug('[kugou] 获取用户歌单失败:', e?.message))
+      })
+      .catch((e) => console.debug('[kugou] updateVip 链路失败:', e?.message))
+
+    try {
+      if (!user.token) return
+      get('login/token', { userid: user.userId, token: user.token })
+        .then((res) => {
+          user.token = res.data?.token || user.token
+          apis.db.set('PluginData', user)
+        })
+        .catch((e) => console.debug('[kugou] 刷新 login token 失败:', e?.message))
+    } catch (error) {
+      console.log('[kugou.js update token error]: ', error)
+    }
+  })
+  .catch((e) => console.debug('[kugou] 读取 store 配置失败:', e?.message))
 
 const _formatDate = (date = new Date()) => {
   return (
@@ -265,6 +288,13 @@ const _formatDate = (date = new Date()) => {
  * @param {Object=} params
  * @param {string=} dfid
  */
+const resetLoginState = () => {
+  user.token = ''
+  user.userId = 0
+  user.isVip = false
+  apis.db.set('PluginData', user)
+}
+
 const get = async (url, params) => {
   if (!baseUrl) {
     throw new Error('BaseUrl not configured')
@@ -277,13 +307,23 @@ const get = async (url, params) => {
   }
 
   const headers = { Cookie: cookie, 'User-Agent': 'Android16' }
-  const response = await apis.http.get(`${baseUrl}/${url}`, params, headers)
 
-  if (response.status === 0 && response.error_code === 20018) {
-    throw new Error('UNAUTHORIZED')
+  try {
+    const response = await apis.http.get(`${baseUrl}/${url}`, params, headers)
+
+    if (response.status === 0 && response.error_code === 20018) {
+      resetLoginState()
+      throw new Error('UNAUTHORIZED')
+    }
+
+    return response
+  } catch (err) {
+    if (err.message === 'UNAUTHORIZED') throw err
+    if (err.message?.includes('请先登录')) {
+      resetLoginState()
+    }
+    throw err
   }
-
-  return response
 }
 
 /**
@@ -399,7 +439,7 @@ const formatTrack = (item, size = 64, artistId = null) => {
       [
         {
           id: artistId || 0,
-          name: item.author_name,
+          name: item.author_name || item.singername,
           picUrl: '',
           pluginId: '',
           souceContext: { id: artistId || 0 }
@@ -407,7 +447,7 @@ const formatTrack = (item, size = 64, artistId = null) => {
       ]
     ).map((ar) => ({
       id: ar.id ?? ar.author_id ?? '',
-      name: ar.name ?? ar.author_name,
+      name: ar.name ?? ar.author_name ?? '',
       picUrl:
         (ar.avatar ?? ar.sizable_avatar ?? '')
           .replace('{size}', `512`)
@@ -438,7 +478,11 @@ const formatTrack = (item, size = 64, artistId = null) => {
         item.name?.split('-')[1]?.trim() ??
         item.name ??
         '',
-      duration: item.timelen ?? item.timelength ?? (item.time_length ?? item.Duration ?? 0) * 1000,
+      duration:
+        item.timelen ??
+        item.timelength ??
+        item.duration ??
+        (item.time_length ?? item.Duration ?? 0) * 1000,
       alias: [],
       createTime:
         parseDate(
@@ -447,7 +491,7 @@ const formatTrack = (item, size = 64, artistId = null) => {
       no: 0,
       playable: result.playable,
       mvid: item.mvid || item.video_id || 0,
-      playCount: 0,
+      playCount: item.listen_count || 0,
       reason: result.reason,
       album,
       artists,
@@ -485,7 +529,7 @@ const formatTrack = (item, size = 64, artistId = null) => {
  */
 const formatPlaylist = (item, writer) => ({
   id: item.global_collection_id ?? item.rankid ?? item.specialid ?? item.list_create_gid ?? '',
-  name: item.specialname ?? item.rankname ?? item.name,
+  name: item.specialname ?? item.rankname ?? item.name ?? '',
   icon: 'common',
   picUrl: (
     item.imgurl ||
@@ -517,14 +561,15 @@ const formatPlaylist = (item, writer) => ({
 const formatPlaylistDetail = (playlist) => {
   const idx = collectedPlaylists.ids.findIndex((item) => item.id === playlist.list_create_gid)
   return {
-    id: playlist.global_collection_id,
-    name: playlist.name,
+    id: playlist.global_collection_id ?? '',
+    name: playlist.name ?? '',
     subscribed: idx !== -1,
     picUrl:
-      playlist.pic.replace('{size}', '512') || 'https://c1.kgimg.com/stdmusic/aaa/ddd/ddd.jpg',
-    trackCount: playlist.count,
-    updateTime: new Date(playlist.update_time * 1000).getTime(),
-    description: playlist.intro,
+      (playlist.pic || '').replace('{size}', '512') ||
+      'https://c1.kgimg.com/stdmusic/aaa/ddd/ddd.jpg',
+    trackCount: playlist.count || 0,
+    updateTime: new Date((playlist.update_time || 0) * 1000).getTime(),
+    description: playlist.intro || '',
     isPrivate: !!playlist.is_pri,
     pluginId: '',
     copywriter: '',
@@ -532,11 +577,11 @@ const formatPlaylistDetail = (playlist) => {
     specialPlaylistInfo: null,
     trackIds: [],
     tracks: [],
-    tags: (playlist.musiclib_tags || []).map((it) => it.tag_name),
+    tags: (playlist.musiclib_tags || []).map((it) => it.tag_name ?? ''),
     creator: {
-      userId: playlist.list_create_userid,
+      userId: playlist.list_create_userid || '',
       avatarUrl: playlist.create_user_pic || '',
-      nickname: playlist.list_create_username,
+      nickname: playlist.list_create_username || '',
       isVip: false,
       signature: '',
       sourceContext: { userId: playlist.list_create_userid }
@@ -570,14 +615,14 @@ const formatAlbum = (item) => ({
   ).replace('{size}', '256'),
   artists: (item.authors || item.singers)?.map((it) => ({
     id: it.author_id || it.id || '',
-    name: it.author_name || it.name,
+    name: it.author_name || it.name || '',
     picUrl: '',
     pluginId: '',
     sourceContext: { id: it.author_id || it.id || '' }
   })) || [
     {
-      id: item.singerid,
-      name: item.singername,
+      id: item.singerid || '',
+      name: item.singername || '',
       picUrl: '',
       pluginId: '',
       sourceContext: { id: item.singerid }
@@ -601,13 +646,13 @@ const formatAlbumDetail = (item) => {
 
   return {
     id: item.album_id,
-    name: item.album_name,
-    picUrl: item.sizable_cover.replace('{size}', '512'),
+    name: item.album_name || '',
+    picUrl: (item.sizable_cover || '').replace('{size}', '512'),
     artists: [],
     type: item.type,
     isExplicit: false,
     subscribed: idx !== -1,
-    publishTime: parseDate(item.publish_date),
+    publishTime: parseDate(item.publish_date) || 0,
     size: 0,
     company: item.publish_company || '',
     description: item.intro,
@@ -639,8 +684,8 @@ function canPlayWithConceptVIP(song) {
  */
 const buildAlbumTrack = (item) => {
   const artists = (item.authors || []).map((it) => ({
-    id: it.author_id,
-    name: it.author_name,
+    id: it.author_id ?? '',
+    name: it.author_name ?? '',
     picUrl: '',
     pluginId: '',
     sourceContext: { id: it.author_id }
@@ -681,7 +726,7 @@ const buildAlbumTrack = (item) => {
         '',
       album: { id: item.base?.album_id || '', name: item.album_info?.album_name || '' },
       artists: (item.authors || []).map((it) => ({
-        id: it.author_id,
+        id: it.author_id ?? '',
         name: it.author_name
       })),
       picUrl: (item.album_info?.cover || 'https://c1.kgimg.com/stdmusic/aaa/ddd/ddd.jpg').replace(
@@ -712,7 +757,7 @@ const formatMv = (item) => ({
     item.Singers || [
       {
         id: item.user_id || 0,
-        name: item.provider || item.author_name,
+        name: item.provider || item.author_name || '',
         picUrl: '',
         pluginId: '',
         sourceContext: { id: item.user_id || 0 }
@@ -750,7 +795,7 @@ const formatMvDetail = (item) => ({
   sources: item.sources,
   artists: item.authors.map((ar) => ({
     id: ar.author_id || '',
-    name: ar.author_name || '',
+    name: ar.author_name ?? '',
     picUrl: ar.sizeable_avatar?.replace('{size}', '512').replace('http://', 'https://') || '',
     pluginId: '',
     sourceContext: { id: ar.author_id || '' }
@@ -773,9 +818,9 @@ const formatComment = (item) => {
     parentCommentId: 0,
     beReplied: item.beReplied ?? null,
     user: {
-      id: item.user_id,
-      nickname: item.user_name,
-      avatarUrl: item.user_pic
+      id: item.user_id || '',
+      nickname: item.user_name || '',
+      avatarUrl: item.user_pic || ''
     },
     sourceContext: {
       id: item.id || '',
@@ -852,7 +897,7 @@ function scoreMatch(origin, candidate) {
 
 const meta = {
   name: '酷狗',
-  icon: 'common',
+  icon: '',
   type: 'library', // library, stream
   capabilities: {
     matchTrack: 'search',
@@ -950,7 +995,7 @@ exports.updateBaseUrl = async (params) => {
     .then((res) => {
       dfid = res.data?.dfid
     })
-    .catch()
+    .catch((e) => console.debug('[kugou] register/dev 失败:', e?.message))
   return { code: 200 }
 }
 
@@ -1073,8 +1118,8 @@ const topArtists = async (_params) => {
     const data = result.data?.info
       .find((item) => item.title === params.initial.name)
       .singer.map((item) => ({
-        id: item.singerid,
-        name: item.singername,
+        id: item.singerid || '',
+        name: item.singername || '',
         pluginId: '',
         picUrl: item.imgurl.replace('{size}', '256'),
         sourceContext: { id: item.singerid }
@@ -1266,8 +1311,8 @@ exports.rankList = async (params) => {
       copywriter: item.update_frequency,
       pluginId: '',
       tracks: item.songinfo.map((it) => ({
-        name: it.name,
-        artist: it.author,
+        name: it.name || '',
+        artist: it.author || '',
         souceContext: { id: it.audio_id }
       })),
       sourceContext: { id: item.rankid, type: 'rank' }
@@ -1326,8 +1371,8 @@ const rankToPlaylistDetail = async (params) => {
 }
 
 const buildRankTrackInfo = (item) => ({
-  id: item.audio_id,
-  name: item.songname,
+  id: item.audio_id ?? '',
+  name: item.songname ?? '',
   icon: 'common',
   duration: item.deprecated?.duration || 0,
   alias: [],
@@ -1338,7 +1383,7 @@ const buildRankTrackInfo = (item) => ({
   playCount: 0,
   reason: '',
   album: {
-    id: item.album_id,
+    id: item.album_id ?? '',
     name: item.album_info?.album_name || '',
     picUrl:
       item.album_info?.sizable_cover?.replace('{size}', '512') ||
@@ -1347,15 +1392,15 @@ const buildRankTrackInfo = (item) => ({
     sourceContext: { id: item.album_id }
   },
   artists: item.authors.map((ar) => ({
-    id: ar.author_id,
-    name: ar.author_name,
+    id: ar.author_id ?? '',
+    name: ar.author_name ?? '',
     picUrl: ar.sizable_avatar?.replace('{size}', '512') || '',
     pluginId: '',
     sourceContext: { id: ar.author_id }
   })),
   albumArtists: item.authors.map((ar) => ({
-    id: ar.author_id,
-    name: ar.author_name,
+    id: ar.author_id ?? '',
+    name: ar.author_name ?? '',
     picUrl: ar.sizable_avatar?.replace('{size}', '512') || '',
     pluginId: '',
     sourceContext: { id: ar.author_id }
@@ -1728,8 +1773,8 @@ exports.simiArtists = async () => {
     const data = result.data.info
       .find((item) => item.title === '热门')
       .singer.map((item) => ({
-        id: item.singerid,
-        name: item.singername,
+        id: item.singerid || '',
+        name: item.singername || '',
         pluginId: '',
         picUrl: item.imgurl.replace('{size}', '256'),
         sourceContext: { id: item.singerid }
@@ -2055,9 +2100,9 @@ exports.getTrackDetail = async (params) => {
           sourceContext: { id: it.id }
         }))
         return {
-          id: item.id,
+          id: item.id ?? '',
           name: item.name?.split('-')[1]?.trim() ?? item.name ?? '',
-          duration: item.info.duration,
+          duration: item.info.duration || 0,
           alias: [],
           createTime: 0,
           no: 0,
@@ -2361,6 +2406,11 @@ exports.scrobble = async (params) => {
   }
 }
 
+exports.reportPlayback = async () => {
+  // 酷狗没有实时状态 API，无需操作
+  return { code: 200 }
+}
+
 const parseMvQualities = async (h264) => {
   const configs = [{ key: 'fhd' }, { key: 'hd' }, { key: 'qhd' }, { key: 'sd' }, { key: 'ld' }]
 
@@ -2525,12 +2575,15 @@ exports.getFloorComments = async (params) => {
   }
 }
 
-exports.userRecord = async (params) => {
+exports.userRecord = async () => {
   try {
-    const { bp = '0' } = params
-    const result = await get('user/history', { bp })
-    const allData = result.data?.songs?.map((item) => formatTrack(item.info, 64))
-    return { code: 200, weekData: [], allData, sourceContext: { bp: result.data?.bp } }
+    const [week, all] = await Promise.all([
+      get('user/listen', { type: 0 }),
+      get('user/listen', { type: 1 })
+    ])
+    const weekData = week.data?.lists?.map((item) => formatTrack(item, 64))
+    const allData = all.data?.lists?.map((item) => formatTrack(item, 64))
+    return { code: 200, weekData, allData, sourceContext: {} }
   } catch {
     return { code: 404, weekData: [], allData: [], sourceContext: {} }
   }

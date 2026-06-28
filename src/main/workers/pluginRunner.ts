@@ -1,6 +1,14 @@
 import { parentPort } from 'node:worker_threads'
 import crypto from 'crypto'
 
+process.on('unhandledRejection', (reason) => {
+  console.error('[Worker] Unhandled rejection:', reason)
+})
+
+process.on('uncaughtException', (err) => {
+  console.error('[Worker] Uncaught exception:', err.message)
+})
+
 type PluginExports = Record<string, (...args: any[]) => any>
 
 type PendingRequest = {
@@ -293,73 +301,77 @@ const api = {
 }
 
 parentPort?.on('message', async (msg: IncomingMessage) => {
-  switch (msg.type) {
-    case 'LOAD_PLUGIN':
-      try {
-        const exports: PluginExports = Object.create(null)
-        // eslint-disable-next-line no-new-func
-        const fn = new Function('api', 'exports', `"use strict";\n${msg.code}`)
-        fn(api, exports)
-        pluginExports = exports
-        parentPort?.postMessage({ type: 'LOAD_DONE', meta: exports.meta || {} })
-      } catch (e: any) {
-        parentPort?.postMessage({ type: 'ERROR', message: e?.message ?? String(e) })
+  try {
+    switch (msg.type) {
+      case 'LOAD_PLUGIN':
+        try {
+          const exports: PluginExports = Object.create(null)
+          // eslint-disable-next-line no-new-func
+          const fn = new Function('api', 'exports', `"use strict";\n${msg.code}`)
+          fn(api, exports)
+          pluginExports = exports
+          parentPort?.postMessage({ type: 'LOAD_DONE', meta: exports.meta || {} })
+        } catch (e: any) {
+          parentPort?.postMessage({ type: 'ERROR', message: e?.message ?? String(e) })
+        }
+        break
+
+      case 'HTTP_RESPONSE': {
+        const req = pendingRequests.get(msg.requestId)
+        if (!req) return
+
+        if (msg.error) {
+          req.reject(new Error(msg.error))
+        } else if (msg.raw) {
+          req.resolve({ data: msg.data, status: msg.status, headers: msg.headers })
+        } else {
+          req.resolve(msg.data)
+        }
+
+        pendingRequests.delete(msg.requestId)
+        break
       }
-      break
 
-    case 'HTTP_RESPONSE': {
-      const req = pendingRequests.get(msg.requestId)
-      if (!req) return
-
-      if (msg.error) {
-        req.reject(new Error(msg.error))
-      } else if (msg.raw) {
-        req.resolve({ data: msg.data, status: msg.status, headers: msg.headers })
-      } else {
+      case 'STORE_RESPONSE': {
+        const req = pendingRequests.get(msg.requestId)
+        if (!req) return
         req.resolve(msg.data)
+        pendingRequests.delete(msg.requestId)
+        break
       }
 
-      pendingRequests.delete(msg.requestId)
-      break
-    }
-
-    case 'STORE_RESPONSE': {
-      const req = pendingRequests.get(msg.requestId)
-      if (!req) return
-      req.resolve(msg.data)
-      pendingRequests.delete(msg.requestId)
-      break
-    }
-
-    case 'DB_RESPONSE': {
-      const req = pendingRequests.get(msg.requestId)
-      if (!req) return
-      req.resolve(msg.data)
-      pendingRequests.delete(msg.requestId)
-      break
-    }
-
-    case 'LYRIC_RESPONSE': {
-      const req = pendingRequests.get(msg.requestId)
-      if (!req) return
-      req.resolve(msg.data)
-      pendingRequests.delete(msg.requestId)
-      break
-    }
-
-    case 'CALL_METHOD':
-      try {
-        const fn = pluginExports[msg.method]
-        if (typeof fn !== 'function') throw new Error(`Method not found: ${msg.method}`)
-        const result = await fn(...msg.args)
-        parentPort?.postMessage({ type: 'CALL_RESULT', callId: msg.callId, result })
-      } catch (e: any) {
-        parentPort?.postMessage({
-          type: 'CALL_RESULT',
-          callId: msg.callId,
-          error: e?.message ?? String(e)
-        })
+      case 'DB_RESPONSE': {
+        const req = pendingRequests.get(msg.requestId)
+        if (!req) return
+        req.resolve(msg.data)
+        pendingRequests.delete(msg.requestId)
+        break
       }
-      break
+
+      case 'LYRIC_RESPONSE': {
+        const req = pendingRequests.get(msg.requestId)
+        if (!req) return
+        req.resolve(msg.data)
+        pendingRequests.delete(msg.requestId)
+        break
+      }
+
+      case 'CALL_METHOD':
+        try {
+          const fn = pluginExports[msg.method]
+          if (typeof fn !== 'function') throw new Error(`Method not found: ${msg.method}`)
+          const result = await fn(...msg.args)
+          parentPort?.postMessage({ type: 'CALL_RESULT', callId: msg.callId, result })
+        } catch (e: any) {
+          parentPort?.postMessage({
+            type: 'CALL_RESULT',
+            callId: msg.callId,
+            error: e?.message ?? String(e)
+          })
+        }
+        break
+    }
+  } catch (e: any) {
+    console.error('[Worker] Unhandled error processing message:', e?.message ?? String(e))
   }
 })

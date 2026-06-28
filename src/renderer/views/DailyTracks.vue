@@ -23,7 +23,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, nextTick } from 'vue'
 import { useNormalStateStore } from '../store/state'
 import { storeToRefs } from 'pinia'
 import TrackList from '../components/VirtualTrackList.vue'

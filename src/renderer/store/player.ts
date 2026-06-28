@@ -56,6 +56,8 @@ export const usePlayerStore = defineStore(
     const enabled = ref(false)
     const progress = ref(0)
     const playbackRate = ref(1)
+    const lastProgressReport = ref(0)
+    let _pendingEndReport = false
     const title = ref('VutronMusic')
 
     // 歌曲信息
@@ -91,8 +93,11 @@ export const usePlayerStore = defineStore(
     const shuffleList = ref<[PluginId, Record<string, any>][]>([])
     const playNextList = ref<[PluginId, Record<string, any>][]>([])
 
-    const _volume = ref(0.5)
-    const _volumeBeforeMuted = ref(0)
+    const volume = ref(0.5)
+    const volumeBeforeMuted = ref(0)
+    watch(volume, (v) => {
+      engineStore.applyVolume(v)
+    })
     const playlistSource = ref<PlaylistSourceInfo>({
       type: 'Playlist',
       plugin: '' as PluginId,
@@ -161,20 +166,8 @@ export const usePlayerStore = defineStore(
             position: value
           })
         }
-      }
-    })
-
-    const volume = computed({
-      get: () => _volume.value,
-      set: (v) => {
-        _volume.value = v
-        engineStore.applyVolume(v)
-      }
-    })
-    const volumeBeforeMuted = computed({
-      get: () => _volumeBeforeMuted.value,
-      set: (v) => {
-        _volumeBeforeMuted.value = v
+        reportPlayback('progress')
+        lastProgressReport.value = Date.now()
       }
     })
 
@@ -289,6 +282,7 @@ export const usePlayerStore = defineStore(
       window.mainApi?.send('updatePlayerState', { shuffle: value })
       if (value && playList.value.length > 0) {
         shuffleTheList(currentTrackIndex.value)
+        currentTrackIndex.value = 0
       }
     })
 
@@ -388,23 +382,45 @@ export const usePlayerStore = defineStore(
       shuffleList.value.unshift(id)
     }
 
+    function reportPlayback(type: 'start' | 'progress' | 'end') {
+      const track = currentTrack.value
+      if (!track) return
+
+      const duration = ~~(track.duration / 1000)
+      const position = ~~engineStore.getCurrentTime()
+
+      window.mainApi?.send(
+        'report-playback',
+        JSON.parse(
+          JSON.stringify({
+            type,
+            pluginId: track.pluginId,
+            rawCtx: track.sourceContext,
+            track: {
+              name: track.name,
+              artist: track.artists[0]?.name || '未知歌手',
+              album: track.album?.name || '未知专辑',
+              duration,
+              no: track.no || 1
+            },
+            playing: playing.value,
+            position,
+            duration,
+            sourceCtx: { ...playlistSource.value, plugin: track.pluginId }
+          })
+        )
+      )
+    }
+
     async function replaceCurrentTrack(
       plugin: PluginId,
       sourceContext: Record<string, any>,
       autoPlay = true
     ) {
-      if (autoPlay && currentTrack.value?.name) {
-        scrobbleFM(currentTrack.value as Track, seek.value)
-        if (seek.value >= currentTrack.value.duration / 1000 / 2 || seek.value >= 240) {
-          JSON.parse(
-            JSON.stringify({
-              rawCtx: currentTrack.value!.sourceContext,
-              time: seek.value * 1000,
-              sourceCtx: playlistSource.value
-            })
-          )
-        }
+      if (autoPlay && currentTrack.value?.name && !_pendingEndReport) {
+        reportPlayback('end')
       }
+      _pendingEndReport = false
 
       if (
         nextTrack.value?.pluginId === plugin &&
@@ -425,22 +441,31 @@ export const usePlayerStore = defineStore(
         }
       }
 
-      const songUrlResult: { url: string[]; replayGain: number; peak: number } =
-        (await window.mainApi?.invoke('get-song-url', {
-          pluginId: plugin,
-          sourceContext: JSON.parse(JSON.stringify(sourceContext)),
-          track: JSON.parse(JSON.stringify(currentTrack.value))
-        })) ?? { url: [], replayGain: 0, peak: 1 }
+      const songUrlResult: {
+        url: string[]
+        replayGain: number
+        peak: number
+        cueOffset?: number
+        cueDuration?: number
+      } = (await window.mainApi?.invoke('get-song-url', {
+        pluginId: plugin,
+        sourceContext: JSON.parse(JSON.stringify(sourceContext)),
+        track: JSON.parse(JSON.stringify(currentTrack.value))
+      })) ?? { url: [], replayGain: 0, peak: 1 }
 
       engineStore.playAudioSource(
         songUrlResult.url,
         songUrlResult.replayGain,
         songUrlResult.peak,
-        autoPlay
+        autoPlay,
+        songUrlResult.cueOffset || 0,
+        songUrlResult.cueDuration || 0
       )
       playing.value = autoPlay
 
-      updateNowPlaying(currentTrack.value)
+      if (autoPlay) {
+        reportPlayback('start')
+      }
 
       triggerTrackMatch(currentTrack.value)
       scheduleNextTrackPrefetch()
@@ -614,27 +639,12 @@ export const usePlayerStore = defineStore(
     }
 
     function _nextTrackCallback() {
-      seek.value = 0
-      scrobbleFM(currentTrack.value as Track, 0, true)
-      window.mainApi?.send(
-        'scrobble-music',
-        currentTrack.value!.pluginId,
-        JSON.parse(
-          JSON.stringify({
-            rawCtx: currentTrack.value!.sourceContext,
-            time: currentTrack.value!.duration,
-            sourceCtx: {
-              ...playlistSource.value,
-              plugin: currentTrack.value?.pluginId || playlistSource.value.plugin
-            }
-          })
-        )
-      )
-      // pluginMethodCall(currentTrack.value!.pluginId, 'scrobble', {
-      //   ...currentTrack.value!.sourceContext,
-      //   time: currentTrack.value!.duration,
-      //   sourceCtx: { ...playlistSource.value }
-      // })
+      reportPlayback('end')
+      _pendingEndReport = true
+      // 直接重置位置，不走 seek setter（避免在 end 之后又发一条 position:0 的 progress）
+      engineStore.setPosition(0)
+      progress.value = 0
+      lyricStore.updateIndex()
       if (!isPersonalFM.value && repeatMode.value === 'one') {
         const { pluginId, sourceContext } = currentTrack.value!
         replaceCurrentTrack(pluginId, sourceContext)
@@ -646,6 +656,11 @@ export const usePlayerStore = defineStore(
     function _handleTimeUpdate() {
       if (window.env?.isLinux) {
         window.mainApi?.send('updatePlayerState', { progress: engineStore.getCurrentTime() })
+      }
+      const now = Date.now()
+      if (now - lastProgressReport.value >= 15000) {
+        reportPlayback('progress')
+        lastProgressReport.value = now
       }
     }
 
@@ -659,37 +674,6 @@ export const usePlayerStore = defineStore(
     function pauseDiscordPresence(track: Track | undefined) {
       if (!enableDRP.value || !track) return
       window.mainApi?.send('pauseDiscordPresence', cloneDeep(track))
-    }
-
-    const enableFM = computed(() => settingsStore.misc.lastfm.enable)
-
-    function scrobbleFM(track: Track, time: number, completed = false) {
-      if (!enableFM.value) return
-      const trackDuration = ~~(track.duration / 1000)
-      time = completed ? trackDuration : ~~time
-      if (time >= trackDuration / 2 || time >= 240) {
-        const timestamp = ~~(Date.now() / 1000) - time
-        const info = {
-          artist: track.artists[0]?.name || '未知歌手',
-          track: track.name,
-          timestamp,
-          album: track.album?.name || '未知专辑',
-          tracnNumber: track.no || 1,
-          duration: trackDuration
-        }
-        window.mainApi?.send('track-scrobble', info)
-      }
-    }
-
-    function updateNowPlaying(track: Track | undefined) {
-      if (!enableFM.value || !track) return
-      const info = {
-        artist: track.artists[0]?.name || '未知歌手',
-        track: track.name,
-        album: track.album?.name || '未知专辑',
-        duration: ~~(track.duration / 1000)
-      }
-      window.mainApi?.send('update-now-playing', info)
     }
 
     function switchRepeatMode() {
@@ -735,10 +719,12 @@ export const usePlayerStore = defineStore(
       progress.value = 0
       isPersonalFM.value = false
       lyrics.value = []
+      _pendingEndReport = false
+      lastProgressReport.value = 0
 
       if (resetAll) {
-        _volume.value = 0.5
-        _volumeBeforeMuted.value = 0
+        volume.value = 0.5
+        volumeBeforeMuted.value = 0
         isShuffle.value = false
         repeatMode.value = 'off'
       }
@@ -806,7 +792,11 @@ export const usePlayerStore = defineStore(
       if (!value) return
 
       chorus.value = 0
-      seek.value = playing.value ? 0 : progress.value
+      // 直接设引擎位置，不走 seek setter（避免触发 reportPlayback('progress') 在 start 之前发出）
+      const nextPos = playing.value ? 0 : progress.value
+      engineStore.setPosition(nextPos)
+      progress.value = nextPos
+      lyricStore.updateIndex()
       const plugin = value.pluginId
 
       if (value.type !== 'library') {
@@ -842,6 +832,21 @@ export const usePlayerStore = defineStore(
           lyrics.value = data.length === 1 && includeAM ? [] : data
         })()
       ])
+
+      // 从数据库加载该歌曲的歌词偏移量
+      try {
+        const dbOffset = await window.mainApi?.invoke('get-lyric-offset', {
+          pluginId: value.pluginId,
+          trackId: String(value.id)
+        })
+        if (typeof dbOffset === 'number') {
+          lyricStore.offset = dbOffset
+        } else {
+          lyricStore.offset = 0
+        }
+      } catch {
+        lyricStore.offset = 0
+      }
 
       // if (settingsStore.general.showChorus) {
       //   pluginMethodCall(plugin, 'songChorus', { ...value.sourceContext })
@@ -1027,7 +1032,7 @@ export const usePlayerStore = defineStore(
           return playing.value
         },
         get volume() {
-          return _volume.value
+          return volume.value
         },
         get currentTrack() {
           return toRaw(currentTrack.value || {})
@@ -1141,7 +1146,7 @@ export const usePlayerStore = defineStore(
       engineStore
         .setup({ onTimeUpdate: _handleTimeUpdate, onEnded: _nextTrackCallback })
         .then(() => {
-          engineStore.applyVolume(_volume.value)
+          engineStore.applyVolume(volume.value)
         })
       lyricStore.setTimeGetter(engineStore.getCurrentTime)
       lyricStore.setPlayingGetter(() => playing.value)
@@ -1162,6 +1167,7 @@ export const usePlayerStore = defineStore(
         const { pluginId, sourceContext } = currentTrack.value
         replaceCurrentTrack(pluginId, sourceContext, false).catch(() => {
           playing.value = false
+          reportPlayback('start')
         })
       }
     })

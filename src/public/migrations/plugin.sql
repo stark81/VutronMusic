@@ -83,6 +83,8 @@ CREATE TABLE IF NOT EXISTS "Audio" (
     "peak" REAL NOT NULL DEFAULT 1,
     "size" INTEGER NOT NULL DEFAULT 0,
     "deleted" INTEGER NOT NULL DEFAULT 0,
+    "cueOffset" INTEGER NOT NULL DEFAULT 0,
+    "cueDuration" INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY(trackId) REFERENCES Track(id)
 );
 
@@ -158,5 +160,13 @@ CREATE TABLE IF NOT EXISTS "PlaylistEntry" (
 
 CREATE INDEX IF NOT EXISTS "idx_playlist_entry_playlist_id" ON "PlaylistEntry" ("playlistId");
 CREATE UNIQUE INDEX IF NOT EXISTS "idx_playlist_entry_unique" ON "PlaylistEntry" ("playlistId", "pluginId", "sourceContext");
+
+CREATE TABLE IF NOT EXISTS "LyricOffsets" (
+    "pluginId" TEXT NOT NULL,
+    "trackId" TEXT NOT NULL,
+    "offset" REAL NOT NULL DEFAULT 0,
+    "updateTime" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (pluginId, trackId)
+);
 
 COMMIT;

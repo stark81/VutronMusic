@@ -71,7 +71,7 @@ const enableMap = { library: enableLibrary, stream: enableStream, local: enableL
 
 const sers = computed(() =>
   services.value
-    .filter((item) => enableMap[item.type].value && item.status === 'login')
+    .filter((item) => enableMap[item.type]?.value && item.status === 'login')
     .map((item) => item.code)
 )
 

@@ -124,7 +124,7 @@ class BackGround {
 
     protocol.registerSchemesAsPrivileged([
       {
-        scheme: 'atom',
+        scheme: 'vutron',
         privileges: { secure: true, standard: true, supportFetchAPI: true, stream: true }
       }
     ])
