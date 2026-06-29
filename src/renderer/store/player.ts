@@ -24,6 +24,8 @@ import { useI18n } from 'vue-i18n'
 import _ from 'lodash'
 import { extractExpirationFromUrl } from '../utils'
 import { Track, serviceName, lyricLine } from '@/types/music'
+import { trackCache } from '../utils/trackCache'
+import { networkMonitor } from '../utils/networkMonitor'
 
 interface biquadType {
   31: number
@@ -710,24 +712,47 @@ export const usePlayerStore = defineStore(
         })
       }
       await getLyric(track)
+      if (currentTrack.value?.id !== track.id) return
       seek.value = playing.value ? 0 : progress.value
       currentIndex.value = getLyricIndex(lyrics.value, 0, 1)
     }
 
     const getLyric = async (track: Track) => {
+      const cached = await trackCache.getCachedLyric(track.id)
+
       let data: lyricLine[] = []
       switch (track.type!) {
         case 'stream':
-          data = await getStreamLyric(track)
+          if (!networkMonitor.isOfflineMode.value) data = await getStreamLyric(track)
           break
         case 'online':
-          data = await getApiLyric(track.id)
+          if (!networkMonitor.isOfflineMode.value) data = await getApiLyric(track.id)
           break
         case 'local':
           data = await _getLocalLyric(track)
           break
         default:
           break
+      }
+
+      if (data.length === 0 && cached && cached.length > 0) {
+        data = cached
+      }
+
+      // Merge translations from cache if the newly fetched data (e.g. from local .lrc files) lacks them
+      if (cached && data.length > 0 && data !== cached) {
+        const dataHasTranslation = data.some((l) => l.tlyric?.text || l.rlyric?.text)
+        if (!dataHasTranslation) {
+          for (const line of data) {
+            const cachedLine = cached.find(
+              (c) => Math.abs(c.start - line.start) < 0.01 && c.lyric.text === line.lyric.text
+            )
+            if (cachedLine) {
+              if (!line.tlyric && cachedLine.tlyric) line.tlyric = cachedLine.tlyric
+              if (!line.rlyric && cachedLine.rlyric) line.rlyric = cachedLine.rlyric
+            }
+          }
+        }
       }
 
       data = data.filter((l) => !/^作(词|曲)\s*(:|：)\s*无$/.exec(l.lyric.text))
@@ -746,6 +771,11 @@ export const usePlayerStore = defineStore(
           return !regExpArr || l.lyric.text.replace(regExpArr[0], '') !== author
         })
       }
+
+      if (data.length > 0) {
+        trackCache.cacheLyric(track.id, data)
+      }
+      if (currentTrack.value?.id !== track.id) return
       lyrics.value = data.length === 1 && includeAM ? [] : data
     }
 
@@ -816,6 +846,14 @@ export const usePlayerStore = defineStore(
         if (!track) {
           nextTrackCallback()
           return false
+        }
+        if (networkMonitor.isOfflineMode.value) {
+          const needsNetwork =
+            track.type === 'stream' || (track.type === 'online' && !track.cache)
+          if (needsNetwork) {
+            showToast(t('toast.offlineTrackUnavailable'))
+            return false
+          }
         }
         currentTrack.value = track
         searchMatchForLocal(track!)
@@ -1293,24 +1331,50 @@ export const usePlayerStore = defineStore(
     }
 
     const getPic = async (track: Track, size: number = 128) => {
-      if (track.type === 'local') {
-        return await getLocalPic(track.id, size)
-      } else if (track.type === 'stream') {
-        return getStreamPic(track, size)!
-      } else {
-        let url = (track.album || track.al).picUrl
-        url = url.replace('http://', 'https://')
-        return url + `?param=${size}y${size}`
+      const cached = await trackCache.getCachedPic(track.id)
+      if (cached) return cached
+
+      if (track.cache && track.url) {
+        const extracted = await trackCache.extractAndCacheCover(track.id, track.url)
+        if (extracted) return extracted
       }
+
+      let url: string | undefined
+      if (track.type === 'local') {
+        url = await getLocalPic(track.id, size)
+      } else if (track.type === 'stream') {
+        url = getStreamPic(track, size)
+      } else {
+        const album = (track as any).album || (track as any).al
+        if (album?.picUrl) {
+          url = album.picUrl.replace('http://', 'https://') + `?param=${size}y${size}`
+        }
+      }
+
+      if (url) {
+        trackCache.cachePicFromUrl(track.id, url)
+      } else if (track.cache && track.url && window.env?.isElectron) {
+        url = `atom://get-pic-path/${encodeURIComponent(track.url)}`
+      }
+
+      return url
     }
 
     const updateMediaSessionMetaData = async (track: Track) => {
       if ('mediaSession' in navigator === false) return
 
+      const newPic = await getPic(track, 512)
+      if (currentTrack.value?.id !== track.id) return
+
       if (pic.value?.startsWith('blob:')) {
         URL.revokeObjectURL(pic.value)
       }
-      pic.value = await getPic(track, 512)
+      if (newPic) pic.value = newPic
+
+      const art512 = newPic ?? ''
+      if (currentTrack.value?.id !== track.id) return
+      const art1024 = (await getPic(track, 1024)) ?? ''
+      if (currentTrack.value?.id !== track.id) return
 
       const arts = track.artists ?? track.ar
       const artists = arts.map((a) => a.name)
@@ -1320,12 +1384,12 @@ export const usePlayerStore = defineStore(
         album: track.album?.name ?? track.al?.name,
         artwork: [
           {
-            src: await getPic(track, 512),
+            src: art512,
             type: 'image/jpg',
             sizes: '512x512'
           },
           {
-            src: await getPic(track, 1024),
+            src: art1024,
             type: 'image/jpg',
             sizes: '1024x1024'
           }
@@ -1339,9 +1403,11 @@ export const usePlayerStore = defineStore(
         lyricOffset: lyricOffset.value
       }
       if (window.env?.isWindows) {
+        const art2048 = (await getPic(track, 2048)) ?? ''
+        if (currentTrack.value?.id !== track.id) return
         metadata.artwork = [
           {
-            src: await getPic(track, 2048),
+            src: art2048,
             type: 'image/jpg',
             sizes: '2048x2048'
           }

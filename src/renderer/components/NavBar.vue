@@ -68,6 +68,9 @@
         >
       </div>
       <div class="right-part">
+        <div v-if="state.isOfflineMode" class="network-icon" :title="$t('nav.offlineStatus')" @click="retryConnection">
+          <svg-icon icon-class="wifi-off" />
+        </div>
         <SearchBox ref="searchBoxRef" :clear-keywords="true" @keydown-enter="doSearch($event)" />
         <img class="avatar" :src="avatarUrl" loading="lazy" @click="showUserProfileMenu" />
       </div>
@@ -108,8 +111,10 @@ import { useSettingsStore } from '../store/settings'
 import { storeToRefs } from 'pinia'
 import { doLogout } from '../utils/auth'
 import { openExternal } from '../utils'
+import { networkMonitor } from '../utils/networkMonitor'
 
-const { searchTab, exploreTab } = storeToRefs(useNormalStateStore())
+const state = useNormalStateStore()
+const { searchTab, exploreTab } = storeToRefs(state)
 const { general } = storeToRefs(useSettingsStore())
 const { useCustomTitlebar } = toRefs(general.value)
 
@@ -188,6 +193,10 @@ const doSearch = (keyword: string, tab: string | null = null) => {
 onMounted(() => {
   useCustomBar.value = useCustomTitlebar.value && isLinux.value
 })
+
+const retryConnection = () => {
+  networkMonitor.retryConnection()
+}
 </script>
 
 <style lang="scss" scoped>
@@ -265,6 +274,21 @@ nav.has-custom-titlebar {
     -webkit-user-drag: none;
     &:hover {
       filter: brightness(80%);
+    }
+  }
+  .network-icon {
+    display: flex;
+    align-items: center;
+    margin-left: 12px;
+    cursor: pointer;
+    -webkit-app-region: no-drag;
+    .svg-icon {
+      height: 22px;
+      width: 22px;
+      color: var(--color-warning, #f5a623);
+    }
+    &:hover {
+      opacity: 0.8;
     }
   }
 }

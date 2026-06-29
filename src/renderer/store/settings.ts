@@ -94,6 +94,7 @@ export const useSettingsStore = defineStore(
     const misc = reactive({
       enableAmuseServer: true,
       enableDiscordRichPresence: false,
+      deepDark: false,
       lastfm: { enable: false, name: '' },
       proxy: { type: 0, address: '', port: '' },
       realIp: { enable: false, ip: '' }

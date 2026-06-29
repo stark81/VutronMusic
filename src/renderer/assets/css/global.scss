@@ -32,6 +32,12 @@
   --color-border: rgba(255, 255, 255, 0.2);
 }
 
+[data-deep-dark='true'][data-theme='dark'] {
+  --color-body-bg: #000000;
+  --color-secondary-bg: #111111;
+  --color-navbar-bg: rgba(0, 0, 0, 0.86);
+}
+
 #app,
 input {
   font-family:

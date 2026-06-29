@@ -9,6 +9,7 @@
     "settings": "设置",
     "github": "GitHub仓库",
     "log": "打开 log 文件夹",
+    "offlineStatus": "无网络连接",
     "error": "未知错误",
     "track": "单曲",
     "artist": "歌手",
@@ -511,6 +512,7 @@
     "misc": {
       "enableAmuseServer": "启用 6K Amuse Youtube Music 信息源兼容服务器",
       "enableDiscordRichPresence": "启用 Discord Rich Presence",
+      "deepDark": "更深的黑色",
       "FmStatusConnected": "已连接到 Lst.fm ({username})",
       "connectToFM": "连接 Last.fm ",
       "disconnectToFM": "断开连接",
@@ -573,7 +575,9 @@
     "removedFromPlaylist": "已从歌单中删除",
     "deleteSuccess": "删除成功",
     "deleteFailed": "删除失败",
-    "copySuccess": "复制成功"
+    "copySuccess": "复制成功",
+    "offlineCacheMiss": "无网络连接，缓存数据不可用",
+    "offlineTrackUnavailable": "无网络连接，该歌曲未缓存"
   },
   "next": {
     "nowPlaying": "正在播放",

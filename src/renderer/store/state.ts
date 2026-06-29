@@ -1,9 +1,10 @@
 import { defineStore } from 'pinia'
-import { nextTick, reactive, ref, watch } from 'vue'
+import { nextTick, reactive, ref, watch, computed } from 'vue'
 import { type UpdateCheckResult } from 'electron-updater'
 import { type IFontInfo } from 'font-list'
 import type { TrackSourceType } from '@/types/music'
 import type { LayoutMode } from '@/types/theme'
+import { networkMonitor } from '../utils/networkMonitor'
 
 type ScrollState = {
   scrollTop: number
@@ -72,6 +73,8 @@ export const useNormalStateStore = defineStore('state', () => {
 
   const amuseServerRunning = ref(false)
   const amuseServerErrorMsg = ref<string | null>(null)
+
+  const isOfflineMode = computed(() => networkMonitor.isOfflineMode.value)
 
   const registerInstance = (tabId: string) => {
     if (!scrollbar.instances[tabId]) {
@@ -178,6 +181,7 @@ export const useNormalStateStore = defineStore('state', () => {
     isDownloading,
     amuseServerRunning,
     amuseServerErrorMsg,
+    isOfflineMode,
     showToast,
     getFontList,
     registerInstance,

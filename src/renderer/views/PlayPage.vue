@@ -97,8 +97,9 @@ import { useNormalStateStore } from '../store/state'
 import { usePlayerStore } from '../store/player'
 import { usePlayerThemeStore } from '../store/playerTheme'
 import { storeToRefs } from 'pinia'
-import { ref, provide, computed, watch } from 'vue'
+import { ref, provide, computed, watch, onMounted, onUnmounted } from 'vue'
 import { TrackSourceType } from '@/types/music.d'
+import Utils from '../utils'
 
 const playPageContextMenu = ref<InstanceType<typeof ContextMenu>>()
 
@@ -127,12 +128,20 @@ const tabIdx = ref(0)
 const titleIdx = ref(0)
 const hover = ref(false)
 
+const systemTheme = ref(
+  window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+)
+
+let mqListener: ((e: MediaQueryListEvent) => void) | null = null
+let mq: MediaQueryList | null = null
+let savedBodyTheme: string | null = null
+
 const theme = computed(() => {
-  let appearance = activeBG.value.color
+  let appearance: string | undefined = activeBG.value.color
   if (appearance === 'auto' || appearance === undefined) {
-    appearance = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    appearance = systemTheme.value
   }
-  return appearance
+  return appearance as 'dark' | 'light'
 })
 
 const tabs = computed(() => {
@@ -187,6 +196,37 @@ watch(
     titleIdx.value = 0
   }
 )
+
+const syncBodyTheme = () => {
+  Utils.changeAppearance(theme.value)
+}
+
+watch(theme, () => {
+  syncBodyTheme()
+})
+
+onMounted(() => {
+  mq = window.matchMedia('(prefers-color-scheme: dark)')
+  mqListener = (e) => {
+    systemTheme.value = e.matches ? 'dark' : 'light'
+  }
+  mq.addEventListener('change', mqListener)
+
+  savedBodyTheme = document.body.getAttribute('data-theme')
+  syncBodyTheme()
+})
+
+onUnmounted(() => {
+  if (mq && mqListener) {
+    mq.removeEventListener('change', mqListener)
+    mqListener = null
+    mq = null
+  }
+  if (savedBodyTheme !== null) {
+    Utils.changeAppearance(savedBodyTheme)
+    savedBodyTheme = null
+  }
+})
 </script>
 <style scoped lang="scss">
 .player-container {
@@ -196,7 +236,7 @@ watch(
   width: 100%;
   height: 100%;
   z-index: 20;
-  background-color: var(--bg-color);
+  background-color: transparent;
 }
 
 .buttons-icons {

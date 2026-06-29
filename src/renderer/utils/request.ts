@@ -1,5 +1,7 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
 import { doLogout } from './auth'
+import { networkMonitor } from './networkMonitor'
+import { pageCache } from './pageCache'
 
 const baseUrl = '/netease'
 const map = { 1: 'http', 2: 'https' }
@@ -7,7 +9,7 @@ const map = { 1: 'http', 2: 'https' }
 const service: AxiosInstance = axios.create({
   baseURL: baseUrl,
   withCredentials: true,
-  timeout: 15000
+  timeout: 3000
 })
 
 service.interceptors.request.use((config: any) => {
@@ -28,8 +30,7 @@ service.interceptors.request.use((config: any) => {
 
 service.interceptors.response.use(
   (response: AxiosResponse) => {
-    const res = response
-    return res
+    return response
   },
   (error: AxiosError) => {
     const { response } = error
@@ -43,8 +44,29 @@ service.interceptors.response.use(
 )
 
 const request = async (config: AxiosRequestConfig) => {
-  const { data } = await service.request(config).catch(() => ({ data: null }))
-  return data as any
+  const url = config.url || ''
+
+  if (networkMonitor.isOfflineMode.value) {
+    const cached =
+      (await pageCache.getCachedApiResponse(url, config.params)) ||
+      (await pageCache.getAnyCachedForUrl(url))
+    return cached || {}
+  }
+
+  try {
+    const { data } = await service.request(config)
+    if (data && Object.keys(data).length > 0) {
+      networkMonitor.recordSuccess()
+      pageCache.cacheApiResponse(url, config.params, data)
+    }
+    return data as any
+  } catch {
+    networkMonitor.recordFailure()
+    const cached =
+      (await pageCache.getCachedApiResponse(url, config.params)) ||
+      (await pageCache.getAnyCachedForUrl(url))
+    return cached || {}
+  }
 }
 
 export default request

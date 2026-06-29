@@ -9,7 +9,7 @@ import fs from 'fs'
 import path from 'path'
 import { db, Tables } from './db'
 import { CacheAPIs } from './utils/CacheApis'
-import { deleteExcessCache, createWorker, getTrackDetail } from './utils'
+import { deleteExcessCache, createWorker, getTrackDetail, getPicFromEmbedded } from './utils'
 import cache from './cache'
 import { registerGlobalShortcuts } from './globalShortcut'
 import { createMenu } from './menu'
@@ -787,6 +787,19 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
         fs.unlinkSync(name)
       }
     } catch (error) {}
+  })
+
+  ipcMain.handle('get-cover-from-file', async (_event, filePath: string) => {
+    try {
+      const result = await getPicFromEmbedded(filePath)
+      if (result?.pic && result?.format) {
+        const base64 = result.pic.toString('base64')
+        return `data:image/${result.format};base64,${base64}`
+      }
+      return null
+    } catch {
+      return null
+    }
   })
 
   ipcMain.handle('get-cache-path', () => {

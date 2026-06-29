@@ -586,7 +586,7 @@ onBeforeUnmount(() => {
     justify-content: space-between;
     width: 100%;
     box-sizing: border-box;
-    z-index: 10;
+    z-index: 5;
 
     .tabs {
       display: flex;

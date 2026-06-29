@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-container">
+  <div class="bg-container" :class="bgClass" :style="containerStyle">
     <div v-if="typeValue === 'gradient'" class="bg-color"></div>
     <video
       v-else-if="typeValue === 'custom-video'"
@@ -109,13 +109,17 @@ const imgWidth = computed(() => {
 const bgBlur = computed(() => `${activeBG.value.blur}px`)
 const bgOpacity = computed(() => `${activeBG.value.opacity / 100}`)
 
-const containerBGColor = computed(() => {
-  if (activeBG.value.type === 'custom-video') {
-    if (activeBG.value.useExtractedColor) {
-      return `linear-gradient(to top left, ${primary.value}, ${secondary.value})`
-    }
+const bgClass = computed(() => {
+  if (activeBG.value.type === 'none') return 'bg-none'
+  if (activeBG.value.type === 'gradient') return 'bg-gradient'
+  return ''
+})
+
+const containerStyle = computed(() => {
+  if (activeBG.value.type === 'custom-video' && activeBG.value.useExtractedColor && primary.value) {
+    return { background: `linear-gradient(to top left, ${primary.value}, ${secondary.value})` }
   }
-  return `var(--color-body-bg)`
+  return {}
 })
 
 const shouldPlayVideo = computed(() => {
@@ -326,7 +330,8 @@ onUnmounted(() => {
   height: 100%;
   overflow: hidden;
   z-index: -1;
-  background: v-bind(containerBGColor);
+  contain: paint;
+  background: var(--color-body-bg);
 }
 
 .bg-color {
@@ -349,6 +354,8 @@ onUnmounted(() => {
   --brightness-lyrics-background: 130%;
 
   position: relative;
+  backface-visibility: hidden;
+  transform: translateZ(0);
   filter: blur(50px) contrast(var(--contrast-lyrics-background))
     brightness(var(--brightness-lyrics-background));
 
@@ -440,5 +447,19 @@ onUnmounted(() => {
   to {
     transform: rotate(360deg) translateZ(0);
   }
+}
+</style>
+
+<style lang="scss">
+[data-theme='dark'] .bg-container.bg-none {
+  background: #222222;
+}
+
+[data-theme='light'] .bg-container.bg-none {
+  background: #ffffff;
+}
+
+[data-deep-dark='true'][data-theme='dark'] .bg-container.bg-none {
+  background: #000000;
 }
 </style>

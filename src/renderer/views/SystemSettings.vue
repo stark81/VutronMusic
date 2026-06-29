@@ -948,6 +948,22 @@
           </template>
           <div class="item">
             <div class="left">
+              <div class="title">{{ $t('settings.misc.deepDark') }}</div>
+            </div>
+            <div class="right">
+              <div class="toggle">
+                <input
+                  id="deepDark"
+                  v-model="misc.deepDark"
+                  type="checkbox"
+                  name="deepDark"
+                />
+                <label for="deepDark"></label>
+              </div>
+            </div>
+          </div>
+          <div class="item">
+            <div class="left">
               <div class="title">
                 {{
                   misc.lastfm.enable
