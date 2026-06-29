@@ -62,6 +62,7 @@ export const useSettingsStore = defineStore(
     const tray = reactive({
       showLyric: true,
       showControl: true,
+      hideIcon: false,
       lyricWidth: 192,
       scrollRate: 34,
       enableExtension: true,
@@ -94,6 +95,7 @@ export const useSettingsStore = defineStore(
     const misc = reactive({
       enableAmuseServer: true,
       enableDiscordRichPresence: false,
+      roundedDockIcon: false,
       deepDark: false,
       lastfm: { enable: false, name: '' },
       proxy: { type: 0, address: '', port: '' },

@@ -9,7 +9,13 @@ import fs from 'fs'
 import path from 'path'
 import { db, Tables } from './db'
 import { CacheAPIs } from './utils/CacheApis'
-import { deleteExcessCache, createWorker, getTrackDetail, getPicFromEmbedded } from './utils'
+import {
+  deleteExcessCache,
+  createWorker,
+  getTrackDetail,
+  getAudioSource,
+  getPicFromEmbedded
+} from './utils'
 import cache from './cache'
 import { registerGlobalShortcuts } from './globalShortcut'
 import { createMenu } from './menu'
@@ -31,6 +37,42 @@ const closeCacheWorker = async () => {
   await cacheWorker.terminate()
   cacheWorker = null
 }
+
+const getAudioCachePath = () =>
+  (store.get('settings.autoCacheTrack.path') as string) ||
+  path.join(app.getPath('userData'), 'audioCache')
+
+const sendCacheTracksInfo = (win: BrowserWindow) => {
+  const tracks = cache.get(CacheAPIs.LocalMusic, { sql: "type = 'online'" })
+  const size = tracks.songs
+    .map((track: any) => track.size)
+    .reduce((acc: string, cur: string) => Number(acc) + Number(cur), 0)
+
+  win.webContents.send('receiveCacheInfo', { length: tracks.songs.length, size })
+}
+
+const runCacheTrackWorker = (
+  track: Record<string, any>,
+  url: string,
+  audioCachePath: string
+): Promise<Record<string, any>> =>
+  new Promise((resolve, reject) => {
+    const worker = createWorker('cacheTrack')
+    worker.on('message', async (msg) => {
+      if (msg.type === 'task-done') {
+        await worker.terminate()
+        resolve(msg.data)
+      } else if (msg.type === 'task-failed') {
+        await worker.terminate()
+        reject(new Error(msg.error || 'cache task failed'))
+      }
+    })
+    worker.on('error', async (error) => {
+      await worker.terminate()
+      reject(error)
+    })
+    worker.postMessage({ type: 'task', track, url, audioCachePath })
+  })
 
 /*
  * IPC Communications
@@ -178,12 +220,7 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
               const track = msg.data
               await cache.set(CacheAPIs.LocalMusic, { newTracks: [track] })
               await deleteExcessCache()
-              const tracks = cache.get(CacheAPIs.LocalMusic, { sql: "type = 'online'" })
-              const size = tracks.songs
-                .map((track: any) => track.size)
-                .reduce((acc: string, cur: string) => Number(acc) + Number(cur), 0)
-
-              win.webContents.send('receiveCacheInfo', { length: tracks.songs.length, size })
+              sendCacheTracksInfo(win)
             } else if (msg.type === 'finished') {
               closeCacheWorker()
             }
@@ -656,13 +693,51 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
       return
     }
     const track = res.songs[0]
-    const audioCachePath =
-      (store.get('settings.autoCacheTrack.path') as string) ||
-      path.join(app.getPath('userData'), 'audioCache')
+    const audioCachePath = getAudioCachePath()
     if (!fs.existsSync(audioCachePath)) {
       fs.mkdirSync(audioCachePath)
     }
     cacheWorker?.postMessage({ type: 'task', track, url: da.url, audioCachePath })
+  })
+
+  ipcMain.handle('rebuildTrackCache', async (_event, trackId: number) => {
+    try {
+      const res = await getTrackDetail(trackId.toString())
+      if (!res || !res.songs?.length) {
+        return { success: false, message: '获取歌曲信息失败' }
+      }
+
+      const track = res.songs[0]
+      const audioSource = await getAudioSource(track)
+      if (!audioSource?.url) {
+        return { success: false, message: '获取歌曲链接失败' }
+      }
+
+      const audioCachePath = getAudioCachePath()
+      if (!fs.existsSync(audioCachePath)) {
+        fs.mkdirSync(audioCachePath, { recursive: true })
+      }
+
+      const oldTrackRaw = db.find(Tables.Track, trackId)
+      const oldTrack = oldTrackRaw ? JSON.parse(oldTrackRaw.json) : null
+      const newTrack = await runCacheTrackWorker(track, audioSource.url, audioCachePath)
+
+      await cache.set(CacheAPIs.LocalMusic, { newTracks: [newTrack] })
+      if (oldTrack?.type === 'online' && oldTrack.url && oldTrack.url !== newTrack.url) {
+        await fs.promises.rm(oldTrack.url, { force: true })
+      }
+      db.delete(Tables.Lyrics, trackId)
+      await deleteExcessCache()
+      sendCacheTracksInfo(win)
+
+      return { success: true }
+    } catch (error) {
+      log.error('重建歌曲缓存失败:', error)
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : '重建歌曲缓存失败'
+      }
+    }
   })
 
   ipcMain.handle('accurateMatch', (event, track, id) => {

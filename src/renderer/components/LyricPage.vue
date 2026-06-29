@@ -113,6 +113,10 @@ const transformOrigin = computed(() => `center ${props.textAlign}`)
 const lyricRefs = ref<InstanceType<typeof LyricLine>[]>([])
 const isWheeling = ref(false)
 let scrollingTimer: any = null
+let animationScheduleId = 0
+
+const ANIMATION_PRELOAD_BEFORE = 2
+const ANIMATION_PRELOAD_AFTER = 4
 
 const setOffset = (offset: number) => {
   if (!currentTrack.value!.offset) {
@@ -138,30 +142,22 @@ const setOffset = (offset: number) => {
 }
 
 const scheduleAnimation = async (type: 'all' | 'translation' = 'all') => {
+  if (lineMode.value) return
   if (!lyricRefs.value?.length) return
 
-  const BATCH_SIZE = 3
-  const BATCH_DELAY_MS = 50
+  const scheduleId = ++animationScheduleId
+  const start = Math.max(0, highlight.value - ANIMATION_PRELOAD_BEFORE)
+  const end = Math.min(lyrics.value.length - 1, highlight.value + ANIMATION_PRELOAD_AFTER)
 
-  for (let index = 0; index < lyrics.value.length; index++) {
+  for (let index = start; index <= end; index++) {
+    if (scheduleId !== animationScheduleId) return
     const instance = lyricRefs.value[index]
     if (!instance) continue
-    const idx =
-      index +
-      (index < Math.min(currentIndex.value, lyrics.value.length - 1) ? lyrics.value.length : 0)
-    const diff = idx - currentIndex.value
-    const delayMs = Math.floor(diff / BATCH_SIZE) * BATCH_DELAY_MS
-
-    if (delayMs > 0) {
-      setTimeout(() => {
-        instance?.createAnimations(type)
-      }, delayMs)
-    } else {
-      await instance.createAnimations(type)
-    }
+    await instance.createAnimations(type)
 
     if (index === highlight.value) {
       await nextTick()
+      if (scheduleId !== animationScheduleId) return
       const currentTime = (seek.value + lyricOffset.value) * 1000
       instance.updateCurrentTime(currentTime)
       let op: 'play' | 'pause' | 'finish' | 'reset' = playing.value ? 'play' : 'pause'
@@ -172,6 +168,7 @@ const scheduleAnimation = async (type: 'all' | 'translation' = 'all') => {
 }
 
 const clearAnimations = (clearAll = true) => {
+  animationScheduleId++
   lyricRefs.value.forEach((instance) => {
     instance.clearAnimation(clearAll)
   })
@@ -232,6 +229,7 @@ watch(
     await nextTick()
     if (!lyricRefs.value.length) return
     if ((oldValue && value[2] !== oldValue[2]) || !oldValue) {
+      scheduleAnimation()
       if (!isWheeling.value) {
         const idx = Math.max(0, value[2])
         const el = document.getElementById(`lyric${idx}`)

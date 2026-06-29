@@ -37,6 +37,10 @@ class TrayLyric {
     this._tray = null
   }
 
+  get showIcon() {
+    return !tray.value.hideIcon || (!tray.value.showLyric && !tray.value.showControl)
+  }
+
   getIcons() {
     this._lyric = new Lyric({ width: tray.value.lyricWidth })
     if (currentTrack.value)
@@ -51,7 +55,7 @@ class TrayLyric {
   }
 
   getCombineIcon() {
-    let width = this._icon!.canvas.width
+    let width = this.showIcon ? this._icon!.canvas.width : 0
     const height = this._icon!.canvas.height
     let devicePixelRatio = 1
     width += tray.value.showLyric ? this._lyric!.canvas.width : 0
@@ -64,7 +68,7 @@ class TrayLyric {
   async drawTray() {
     if (tray.value.showLyric) this._lyric!.draw()
     if (tray.value.showControl) await this._control!.draw()
-    await this._icon!.draw()
+    if (this.showIcon) await this._icon!.draw()
   }
 
   buildTray() {
@@ -83,7 +87,7 @@ class TrayLyric {
       x += this._control!.canvas.width
     }
 
-    this._tray?.ctx.drawImage(this._icon?.canvas!, x, 0)
+    if (this.showIcon) this._tray?.ctx.drawImage(this._icon?.canvas!, x, 0)
 
     window.mainApi?.send('updateTray', {
       img: this._tray?.canvas.toDataURL(),
@@ -164,6 +168,14 @@ class TrayLyric {
     )
     watch(
       () => tray.value.showControl,
+      async () => {
+        this.getCombineIcon()
+        await this.drawTray()
+        this.buildTray()
+      }
+    )
+    watch(
+      () => tray.value.hideIcon,
       async () => {
         this.getCombineIcon()
         await this.drawTray()

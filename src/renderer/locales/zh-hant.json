@@ -162,6 +162,7 @@
     "showLyric": "顯示歌詞",
     "setConvolver": "音效設定",
     "setLyricBG": "歌詞背景設定",
+    "rebuildTrackCache": "重建該歌曲快取",
     "playBackSpeed": "倍速播放",
     "pitch": "音調調整",
     "lyricOffset": "歌詞時間調整",
@@ -358,6 +359,7 @@
     "tray": {
       "showLyric": "顯示狀態列歌詞",
       "showControl": "顯示控制按鈕",
+      "hideIcon": "隱藏 VutronMusic 圖示",
       "lyricScrollFrameRate": {
         "text": "歌詞捲動幀率",
         "desc": "該數值並非越大越好，太高會導致歌詞捲動速度過快而無法流暢顯示"
@@ -505,6 +507,7 @@
     "misc": {
       "enableAmuseServer": "啟用 6K Amuse Youtube Music 信息源兼容伺服器",
       "enableDiscordRichPresence": "啟用 Discord Rich Presence",
+      "roundedDockIcon": "圓角 Dock 圖示",
       "deepDark": "更深的黑色",
       "FmStatusConnected": "已連線至 Last.fm（{username}）",
       "connectToFM": "連線至 Last.fm",

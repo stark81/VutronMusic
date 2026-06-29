@@ -73,6 +73,7 @@
       <hr />
       <div class="item" @click="backgroundModal.show = true">背景设置</div>
       <div class="item" @click="setFontModal = true">歌词设置</div>
+      <div class="item" @click="rebuildTrackCache">{{ $t('contextMenu.rebuildTrackCache') }}</div>
       <div class="item" @click="setSaveThemeModal = true">保存播放器主题</div>
     </ContextMenu>
   </div>
@@ -118,6 +119,7 @@ const {
 
 const playerStore = usePlayerStore()
 const { currentTrack } = storeToRefs(playerStore)
+const { rebuildCurrentTrackCache } = playerStore
 
 const playerThemeStore = usePlayerThemeStore()
 const { activeTheme, activeBG } = storeToRefs(playerThemeStore)
@@ -167,6 +169,10 @@ const addTrackToPlaylist = () => {
         ? (currentTrack.value.source as TrackSourceType)
         : (currentTrack.value.type as TrackSourceType)
   }
+}
+
+const rebuildTrackCache = () => {
+  rebuildCurrentTrackCache()
 }
 
 provide('playPageContextMenu', playPageContextMenu)

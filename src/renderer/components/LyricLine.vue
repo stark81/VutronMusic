@@ -225,6 +225,8 @@ const createAnimations = async (type: 'all' | 'translation' = 'all') => {
   }
 
   for (const l of lst) {
+    if (animations[l] || scrollAnimations[l]) continue
+
     const item = map[l]
     if (!item.dom) continue
     let spanWidths: number[] = []

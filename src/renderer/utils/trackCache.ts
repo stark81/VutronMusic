@@ -18,6 +18,10 @@ async function getCachedLyric(trackId: number): Promise<lyricLine[] | null> {
   return entry ? entry.data : null
 }
 
+async function deleteCachedLyric(trackId: number) {
+  await db.localData.delete(LYRIC_PREFIX + trackId)
+}
+
 async function cachePic(trackId: number, dataUrl: string) {
   if (!dataUrl) return
   await db.localData.put({
@@ -74,6 +78,7 @@ async function extractAndCacheCover(trackId: number, filePath: string): Promise<
 export const trackCache = {
   cacheLyric,
   getCachedLyric,
+  deleteCachedLyric,
   cachePic,
   getCachedPic,
   fetchUrlAsDataUrl,

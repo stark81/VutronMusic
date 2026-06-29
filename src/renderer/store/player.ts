@@ -467,13 +467,14 @@ export const usePlayerStore = defineStore(
         const driftTime =
           nextLine.start - ((audioNodes.audio?.currentTime || 0) + lyricOffset.value)
         if (playing.value) {
+          const delay = Math.max(50, (driftTime * 1000) / playbackRate.value)
           timer = setTimeout(
             () => {
               clearTimeout(timer)
               if (!playing.value) return
               _refreshLineIdx()
             },
-            (driftTime * 1000) / playbackRate.value
+            delay
           )
         }
       }
@@ -777,6 +778,34 @@ export const usePlayerStore = defineStore(
       }
       if (currentTrack.value?.id !== track.id) return
       lyrics.value = data.length === 1 && includeAM ? [] : data
+    }
+
+    const rebuildCurrentTrackCache = async () => {
+      const track = currentTrack.value
+      if (!track) {
+        showToast('当前没有播放歌曲')
+        return false
+      }
+      if (networkMonitor.isOfflineMode.value) {
+        showToast('离线模式下无法重建歌曲缓存')
+        return false
+      }
+      if (track.type !== 'online') {
+        showToast('仅支持重建在线歌曲缓存')
+        return false
+      }
+
+      await trackCache.deleteCachedLyric(track.id)
+      await getLyric(track)
+
+      const result = await window.mainApi?.invoke('rebuildTrackCache', track.id)
+      if (result?.success) {
+        showToast('重建歌曲缓存成功')
+        return true
+      }
+
+      showToast(result?.message || '重建歌曲缓存失败')
+      return false
     }
 
     const _getLocalLyric = async (track: Track) => {
@@ -1332,7 +1361,7 @@ export const usePlayerStore = defineStore(
 
     const getPic = async (track: Track, size: number = 128) => {
       const cached = await trackCache.getCachedPic(track.id)
-      if (cached) return cached
+      if (cached && networkMonitor.isOfflineMode.value) return cached
 
       if (track.cache && track.url) {
         const extracted = await trackCache.extractAndCacheCover(track.id, track.url)
@@ -1358,6 +1387,97 @@ export const usePlayerStore = defineStore(
       }
 
       return url
+    }
+
+    const imageSourceToDataUrl = async (source: string, rounded = false) => {
+      if (!source) return null
+      if (source.startsWith('data:image/') && !rounded) return source
+
+      try {
+        const res = await fetch(source)
+        if (!res.ok) return null
+
+        const blob = await res.blob()
+        const bitmap = await createImageBitmap(blob)
+        const size = 512
+        const canvas = document.createElement('canvas')
+        canvas.width = size
+        canvas.height = size
+
+        const context = canvas.getContext('2d')
+        if (!context) return null
+
+        const sourceSize = Math.min(bitmap.width, bitmap.height)
+        const sx = Math.floor((bitmap.width - sourceSize) / 2)
+        const sy = Math.floor((bitmap.height - sourceSize) / 2)
+        const iconPadding = rounded ? Math.round(size * 0.09) : 0
+        const iconSize = size - iconPadding * 2
+        if (rounded) {
+          const radius = Math.round(iconSize * 0.2)
+          context.beginPath()
+          context.moveTo(iconPadding + radius, iconPadding)
+          context.lineTo(iconPadding + iconSize - radius, iconPadding)
+          context.quadraticCurveTo(
+            iconPadding + iconSize,
+            iconPadding,
+            iconPadding + iconSize,
+            iconPadding + radius
+          )
+          context.lineTo(iconPadding + iconSize, iconPadding + iconSize - radius)
+          context.quadraticCurveTo(
+            iconPadding + iconSize,
+            iconPadding + iconSize,
+            iconPadding + iconSize - radius,
+            iconPadding + iconSize
+          )
+          context.lineTo(iconPadding + radius, iconPadding + iconSize)
+          context.quadraticCurveTo(
+            iconPadding,
+            iconPadding + iconSize,
+            iconPadding,
+            iconPadding + iconSize - radius
+          )
+          context.lineTo(iconPadding, iconPadding + radius)
+          context.quadraticCurveTo(iconPadding, iconPadding, iconPadding + radius, iconPadding)
+          context.closePath()
+          context.clip()
+        }
+        context.drawImage(
+          bitmap,
+          sx,
+          sy,
+          sourceSize,
+          sourceSize,
+          iconPadding,
+          iconPadding,
+          iconSize,
+          iconSize
+        )
+        bitmap.close()
+
+        return canvas.toDataURL('image/png')
+      } catch {
+        return null
+      }
+    }
+
+    let dockIconUpdateId = 0
+    const updateDockIcon = async (track: Track | null, imageSource = '', allowConvert = true) => {
+      if (!window.env?.isMac || !window.env?.isElectron || !track) return
+
+      const updateId = ++dockIconUpdateId
+      let dataUrl = allowConvert
+        ? await imageSourceToDataUrl(imageSource, settingsStore.misc.roundedDockIcon)
+        : null
+      if (!dataUrl && (!allowConvert || networkMonitor.isOfflineMode.value)) {
+        dataUrl = await trackCache.getCachedPic(track.id)
+        if (dataUrl && settingsStore.misc.roundedDockIcon) {
+          dataUrl = await imageSourceToDataUrl(dataUrl, true)
+        }
+      }
+
+      if (!dataUrl || updateId !== dockIconUpdateId || currentTrack.value?.id !== track.id) return
+      window.mainApi?.send('updateDockIcon', dataUrl)
     }
 
     const updateMediaSessionMetaData = async (track: Track) => {
@@ -1430,6 +1550,21 @@ export const usePlayerStore = defineStore(
         window.mainApi?.send('metadata', metadata)
       }
     }
+
+    watch(pic, (value) => {
+      updateDockIcon(currentTrack.value, value)
+    })
+
+    watch(currentTrack, (track) => {
+      updateDockIcon(track, '', false)
+    })
+
+    watch(
+      () => settingsStore.misc.roundedDockIcon,
+      () => {
+        updateDockIcon(currentTrack.value, pic.value)
+      }
+    )
 
     const resetPlayer = (resetBiq = true) => {
       list.value = []
@@ -1877,6 +2012,7 @@ export const usePlayerStore = defineStore(
       switchRepeatMode,
       addTrackToPlayNext,
       playPersonalFM,
+      rebuildCurrentTrackCache,
       playNextFMTrack,
       moveToFMTrash
     }

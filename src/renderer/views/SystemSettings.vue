@@ -376,6 +376,19 @@
               </div>
               <div class="item">
                 <div class="left">
+                  <div class="title">
+                    {{ $t('settings.tray.hideIcon') }}
+                  </div>
+                </div>
+                <div class="right">
+                  <div class="toggle">
+                    <input id="hide-icon" v-model="hideIcon" type="checkbox" name="hide-icon" />
+                    <label for="hide-icon"></label>
+                  </div>
+                </div>
+              </div>
+              <div class="item">
+                <div class="left">
                   <div class="title"> {{ $t('settings.tray.lyricFrameWidth') }} </div>
                 </div>
                 <div class="right">
@@ -945,6 +958,22 @@
                 </div>
               </div>
             </div>
+            <div v-if="isMac" class="item">
+              <div class="left">
+                <div class="title">{{ $t('settings.misc.roundedDockIcon') }}</div>
+              </div>
+              <div class="right">
+                <div class="toggle">
+                  <input
+                    id="roundedDockIcon"
+                    v-model="misc.roundedDockIcon"
+                    type="checkbox"
+                    name="roundedDockIcon"
+                  />
+                  <label for="roundedDockIcon"></label>
+                </div>
+              </div>
+            </div>
           </template>
           <div class="item">
             <div class="left">
@@ -1147,7 +1176,7 @@ const {
 } = toRefs(general.value)
 const { appearance, colors } = toRefs(theme.value)
 const customizeColor = computed(() => colors.value[4])
-const { showLyric, showControl, lyricWidth, enableExtension } = toRefs(tray.value)
+const { showLyric, showControl, hideIcon, lyricWidth, enableExtension } = toRefs(tray.value)
 const { proxy, realIp } = toRefs(misc.value)
 
 const streamMusicStore = useStreamMusicStore()

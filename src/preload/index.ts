@@ -18,6 +18,7 @@ const mainAvailChannels: string[] = [
   'updateTouchBarLyric',
   'showWindow',
   'updatePlayerState',
+  'updateDockIcon',
   'setStoreSettings',
   'deleteLocalMusicDB',
   'upsertLocalPlaylist',
@@ -66,7 +67,8 @@ const mainAvailChannels: string[] = [
   'track-scrobble',
   'get-screenshot',
   'delete-screenshot',
-  'get-cache-path'
+  'get-cache-path',
+  'rebuildTrackCache'
 ]
 const rendererAvailChannels: string[] = [
   'msgHandleScanLocalMusic',
