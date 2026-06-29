@@ -145,6 +145,10 @@ async function processQueue() {
     cachePort?.postMessage({ type: 'task-done', data: result })
   } catch (err) {
     console.error('[Worker cacheTrack] task failed:', err)
+    cachePort?.postMessage({
+      type: 'task-failed',
+      error: err instanceof Error ? err.message : String(err)
+    })
   } finally {
     _running = false
     processQueue()

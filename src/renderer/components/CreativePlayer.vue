@@ -906,10 +906,9 @@ $mid: math.ceil(math.div($count, 2));
   }
 
   .full-lyric-container {
-    backdrop-filter: blur(30px) saturate(130%);
     height: 100%;
     width: 100%;
-    background-color: rgba(0, 0, 0, 0.2);
+    background-color: rgba(0, 0, 0, 0.32);
     position: absolute;
     z-index: 10;
   }
@@ -953,17 +952,11 @@ $mid: math.ceil(math.div($count, 2));
   :deep(.lyric-item) {
     font-size: v-bind(fontSize);
     user-select: none;
-    will-change: transform;
   }
 
   :deep(.ani-char) {
     display: inline-block;
     white-space: pre;
-    will-change: transform;
-  }
-
-  :deep(.lyric-item *) {
-    will-change: transform;
   }
 
   .play-bar {

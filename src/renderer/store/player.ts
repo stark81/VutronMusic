@@ -24,6 +24,8 @@ import { useI18n } from 'vue-i18n'
 import _ from 'lodash'
 import { extractExpirationFromUrl } from '../utils'
 import { Track, serviceName, lyricLine } from '@/types/music'
+import { trackCache } from '../utils/trackCache'
+import { networkMonitor } from '../utils/networkMonitor'
 
 interface biquadType {
   31: number
@@ -465,13 +467,14 @@ export const usePlayerStore = defineStore(
         const driftTime =
           nextLine.start - ((audioNodes.audio?.currentTime || 0) + lyricOffset.value)
         if (playing.value) {
+          const delay = Math.max(50, (driftTime * 1000) / playbackRate.value)
           timer = setTimeout(
             () => {
               clearTimeout(timer)
               if (!playing.value) return
               _refreshLineIdx()
             },
-            (driftTime * 1000) / playbackRate.value
+            delay
           )
         }
       }
@@ -710,24 +713,47 @@ export const usePlayerStore = defineStore(
         })
       }
       await getLyric(track)
+      if (currentTrack.value?.id !== track.id) return
       seek.value = playing.value ? 0 : progress.value
       currentIndex.value = getLyricIndex(lyrics.value, 0, 1)
     }
 
     const getLyric = async (track: Track) => {
+      const cached = await trackCache.getCachedLyric(track.id)
+
       let data: lyricLine[] = []
       switch (track.type!) {
         case 'stream':
-          data = await getStreamLyric(track)
+          if (!networkMonitor.isOfflineMode.value) data = await getStreamLyric(track)
           break
         case 'online':
-          data = await getApiLyric(track.id)
+          if (!networkMonitor.isOfflineMode.value) data = await getApiLyric(track.id)
           break
         case 'local':
           data = await _getLocalLyric(track)
           break
         default:
           break
+      }
+
+      if (data.length === 0 && cached && cached.length > 0) {
+        data = cached
+      }
+
+      // Merge translations from cache if the newly fetched data (e.g. from local .lrc files) lacks them
+      if (cached && data.length > 0 && data !== cached) {
+        const dataHasTranslation = data.some((l) => l.tlyric?.text || l.rlyric?.text)
+        if (!dataHasTranslation) {
+          for (const line of data) {
+            const cachedLine = cached.find(
+              (c) => Math.abs(c.start - line.start) < 0.01 && c.lyric.text === line.lyric.text
+            )
+            if (cachedLine) {
+              if (!line.tlyric && cachedLine.tlyric) line.tlyric = cachedLine.tlyric
+              if (!line.rlyric && cachedLine.rlyric) line.rlyric = cachedLine.rlyric
+            }
+          }
+        }
       }
 
       data = data.filter((l) => !/^作(词|曲)\s*(:|：)\s*无$/.exec(l.lyric.text))
@@ -746,7 +772,40 @@ export const usePlayerStore = defineStore(
           return !regExpArr || l.lyric.text.replace(regExpArr[0], '') !== author
         })
       }
+
+      if (data.length > 0) {
+        trackCache.cacheLyric(track.id, data)
+      }
+      if (currentTrack.value?.id !== track.id) return
       lyrics.value = data.length === 1 && includeAM ? [] : data
+    }
+
+    const rebuildCurrentTrackCache = async () => {
+      const track = currentTrack.value
+      if (!track) {
+        showToast('当前没有播放歌曲')
+        return false
+      }
+      if (networkMonitor.isOfflineMode.value) {
+        showToast('离线模式下无法重建歌曲缓存')
+        return false
+      }
+      if (track.type !== 'online') {
+        showToast('仅支持重建在线歌曲缓存')
+        return false
+      }
+
+      await trackCache.deleteCachedLyric(track.id)
+      await getLyric(track)
+
+      const result = await window.mainApi?.invoke('rebuildTrackCache', track.id)
+      if (result?.success) {
+        showToast('重建歌曲缓存成功')
+        return true
+      }
+
+      showToast(result?.message || '重建歌曲缓存失败')
+      return false
     }
 
     const _getLocalLyric = async (track: Track) => {
@@ -816,6 +875,14 @@ export const usePlayerStore = defineStore(
         if (!track) {
           nextTrackCallback()
           return false
+        }
+        if (networkMonitor.isOfflineMode.value) {
+          const needsNetwork =
+            track.type === 'stream' || (track.type === 'online' && !track.cache)
+          if (needsNetwork) {
+            showToast(t('toast.offlineTrackUnavailable'))
+            return false
+          }
         }
         currentTrack.value = track
         searchMatchForLocal(track!)
@@ -1293,24 +1360,141 @@ export const usePlayerStore = defineStore(
     }
 
     const getPic = async (track: Track, size: number = 128) => {
-      if (track.type === 'local') {
-        return await getLocalPic(track.id, size)
-      } else if (track.type === 'stream') {
-        return getStreamPic(track, size)!
-      } else {
-        let url = (track.album || track.al).picUrl
-        url = url.replace('http://', 'https://')
-        return url + `?param=${size}y${size}`
+      const cached = await trackCache.getCachedPic(track.id)
+      if (cached && networkMonitor.isOfflineMode.value) return cached
+
+      if (track.cache && track.url) {
+        const extracted = await trackCache.extractAndCacheCover(track.id, track.url)
+        if (extracted) return extracted
       }
+
+      let url: string | undefined
+      if (track.type === 'local') {
+        url = await getLocalPic(track.id, size)
+      } else if (track.type === 'stream') {
+        url = getStreamPic(track, size)
+      } else {
+        const album = (track as any).album || (track as any).al
+        if (album?.picUrl) {
+          url = album.picUrl.replace('http://', 'https://') + `?param=${size}y${size}`
+        }
+      }
+
+      if (url) {
+        trackCache.cachePicFromUrl(track.id, url)
+      } else if (track.cache && track.url && window.env?.isElectron) {
+        url = `atom://get-pic-path/${encodeURIComponent(track.url)}`
+      }
+
+      return url
+    }
+
+    const imageSourceToDataUrl = async (source: string, rounded = false) => {
+      if (!source) return null
+      if (source.startsWith('data:image/') && !rounded) return source
+
+      try {
+        const res = await fetch(source)
+        if (!res.ok) return null
+
+        const blob = await res.blob()
+        const bitmap = await createImageBitmap(blob)
+        const size = 512
+        const canvas = document.createElement('canvas')
+        canvas.width = size
+        canvas.height = size
+
+        const context = canvas.getContext('2d')
+        if (!context) return null
+
+        const sourceSize = Math.min(bitmap.width, bitmap.height)
+        const sx = Math.floor((bitmap.width - sourceSize) / 2)
+        const sy = Math.floor((bitmap.height - sourceSize) / 2)
+        const iconPadding = rounded ? Math.round(size * 0.09) : 0
+        const iconSize = size - iconPadding * 2
+        if (rounded) {
+          const radius = Math.round(iconSize * 0.2)
+          context.beginPath()
+          context.moveTo(iconPadding + radius, iconPadding)
+          context.lineTo(iconPadding + iconSize - radius, iconPadding)
+          context.quadraticCurveTo(
+            iconPadding + iconSize,
+            iconPadding,
+            iconPadding + iconSize,
+            iconPadding + radius
+          )
+          context.lineTo(iconPadding + iconSize, iconPadding + iconSize - radius)
+          context.quadraticCurveTo(
+            iconPadding + iconSize,
+            iconPadding + iconSize,
+            iconPadding + iconSize - radius,
+            iconPadding + iconSize
+          )
+          context.lineTo(iconPadding + radius, iconPadding + iconSize)
+          context.quadraticCurveTo(
+            iconPadding,
+            iconPadding + iconSize,
+            iconPadding,
+            iconPadding + iconSize - radius
+          )
+          context.lineTo(iconPadding, iconPadding + radius)
+          context.quadraticCurveTo(iconPadding, iconPadding, iconPadding + radius, iconPadding)
+          context.closePath()
+          context.clip()
+        }
+        context.drawImage(
+          bitmap,
+          sx,
+          sy,
+          sourceSize,
+          sourceSize,
+          iconPadding,
+          iconPadding,
+          iconSize,
+          iconSize
+        )
+        bitmap.close()
+
+        return canvas.toDataURL('image/png')
+      } catch {
+        return null
+      }
+    }
+
+    let dockIconUpdateId = 0
+    const updateDockIcon = async (track: Track | null, imageSource = '', allowConvert = true) => {
+      if (!window.env?.isMac || !window.env?.isElectron || !track) return
+
+      const updateId = ++dockIconUpdateId
+      let dataUrl = allowConvert
+        ? await imageSourceToDataUrl(imageSource, settingsStore.misc.roundedDockIcon)
+        : null
+      if (!dataUrl && (!allowConvert || networkMonitor.isOfflineMode.value)) {
+        dataUrl = await trackCache.getCachedPic(track.id)
+        if (dataUrl && settingsStore.misc.roundedDockIcon) {
+          dataUrl = await imageSourceToDataUrl(dataUrl, true)
+        }
+      }
+
+      if (!dataUrl || updateId !== dockIconUpdateId || currentTrack.value?.id !== track.id) return
+      window.mainApi?.send('updateDockIcon', dataUrl)
     }
 
     const updateMediaSessionMetaData = async (track: Track) => {
       if ('mediaSession' in navigator === false) return
 
+      const newPic = await getPic(track, 512)
+      if (currentTrack.value?.id !== track.id) return
+
       if (pic.value?.startsWith('blob:')) {
         URL.revokeObjectURL(pic.value)
       }
-      pic.value = await getPic(track, 512)
+      if (newPic) pic.value = newPic
+
+      const art512 = newPic ?? ''
+      if (currentTrack.value?.id !== track.id) return
+      const art1024 = (await getPic(track, 1024)) ?? ''
+      if (currentTrack.value?.id !== track.id) return
 
       const arts = track.artists ?? track.ar
       const artists = arts.map((a) => a.name)
@@ -1320,12 +1504,12 @@ export const usePlayerStore = defineStore(
         album: track.album?.name ?? track.al?.name,
         artwork: [
           {
-            src: await getPic(track, 512),
+            src: art512,
             type: 'image/jpg',
             sizes: '512x512'
           },
           {
-            src: await getPic(track, 1024),
+            src: art1024,
             type: 'image/jpg',
             sizes: '1024x1024'
           }
@@ -1339,9 +1523,11 @@ export const usePlayerStore = defineStore(
         lyricOffset: lyricOffset.value
       }
       if (window.env?.isWindows) {
+        const art2048 = (await getPic(track, 2048)) ?? ''
+        if (currentTrack.value?.id !== track.id) return
         metadata.artwork = [
           {
-            src: await getPic(track, 2048),
+            src: art2048,
             type: 'image/jpg',
             sizes: '2048x2048'
           }
@@ -1364,6 +1550,21 @@ export const usePlayerStore = defineStore(
         window.mainApi?.send('metadata', metadata)
       }
     }
+
+    watch(pic, (value) => {
+      updateDockIcon(currentTrack.value, value)
+    })
+
+    watch(currentTrack, (track) => {
+      updateDockIcon(track, '', false)
+    })
+
+    watch(
+      () => settingsStore.misc.roundedDockIcon,
+      () => {
+        updateDockIcon(currentTrack.value, pic.value)
+      }
+    )
 
     const resetPlayer = (resetBiq = true) => {
       list.value = []
@@ -1811,6 +2012,7 @@ export const usePlayerStore = defineStore(
       switchRepeatMode,
       addTrackToPlayNext,
       playPersonalFM,
+      rebuildCurrentTrackCache,
       playNextFMTrack,
       moveToFMTrash
     }

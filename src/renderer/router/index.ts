@@ -1,6 +1,9 @@
 import { HomePage } from '../views'
 import { createRouter, createWebHashHistory, createWebHistory } from 'vue-router'
 import { isAccountLoggedIn } from '../utils/auth'
+import { pageCache } from '../utils/pageCache'
+import { networkMonitor } from '../utils/networkMonitor'
+import i18n from '../plugins/i18n'
 
 const routes = [
   {
@@ -159,17 +162,45 @@ const router = createRouter({
   routes
 })
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   document.documentElement.scrollTo({ top: 0 })
+
+  pageCache.recordVisit(to.path)
+
   if (to.meta.requireLogin) {
     if (isAccountLoggedIn()) {
       next()
     } else {
       next('/login/account')
     }
-  } else {
-    next()
+    return
   }
+
+  if (networkMonitor.isOfflineMode.value) {
+    await networkMonitor.retryConnection()
+    if (!networkMonitor.isOfflineMode.value) {
+      next()
+      return
+    }
+
+    const visited = await pageCache.isRouteVisited(to.path)
+    if (visited) {
+      next()
+    } else {
+      const { t } = i18n.global
+      const stateStore = (await import('../store/state')).useNormalStateStore()
+      stateStore.showToast(t('toast.offlineCacheMiss'))
+      next(false)
+      if (from.name) {
+        router.back()
+      } else {
+        router.replace('/')
+      }
+    }
+    return
+  }
+
+  next()
 })
 
 export default router

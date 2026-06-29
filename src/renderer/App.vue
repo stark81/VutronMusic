@@ -44,6 +44,7 @@ import { useRoute } from 'vue-router'
 import { type ProgressInfo } from 'electron-updater'
 import router from './router'
 import eventBus from './utils/eventBus'
+import { networkMonitor } from './utils/networkMonitor'
 import { Track } from '@/types/music'
 
 const localMusicStore = useLocalMusicStore()
@@ -117,7 +118,7 @@ const handleEventBus = () => {
 const padding = ref(96)
 const userSelectNone = ref(false)
 const settingsStore = useSettingsStore()
-const { theme, localMusic, general } = storeToRefs(settingsStore)
+const { theme, localMusic, general, misc } = storeToRefs(settingsStore)
 const appearance = ref(theme.value.appearance)
 const { scanning } = toRefs(localMusic.value)
 Utils.changeAppearance(appearance.value)
@@ -127,6 +128,14 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () 
     Utils.changeAppearance(appearance.value)
   }
 })
+
+watch(
+  () => misc.value.deepDark,
+  (val) => {
+    document.body.setAttribute('data-deep-dark', String(val))
+  },
+  { immediate: true }
+)
 
 const route = useRoute()
 
@@ -271,6 +280,7 @@ onMounted(async () => {
     '--color-primary',
     theme.value.colors.find((c) => c.selected)?.color || 'rgba(51, 94, 234, 1)'
   )
+  networkMonitor.init()
   fetchData()
   if (general.value.autoUpdate) {
     checkUpdate()

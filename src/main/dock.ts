@@ -1,4 +1,4 @@
-import { app, Menu, BrowserWindow, ipcMain } from 'electron'
+import { app, Menu, BrowserWindow, ipcMain, nativeImage } from 'electron'
 import store from './store'
 
 let isPlaying = false
@@ -124,6 +124,12 @@ export const createDockMenu = (win: BrowserWindow) => {
         updateDockMenu(lang)
       }
     }
+  })
+
+  ipcMain.on('updateDockIcon', (_, dataUrl?: string) => {
+    if (!app.dock || !dataUrl) return
+    const image = nativeImage.createFromDataURL(dataUrl)
+    if (!image.isEmpty()) app.dock.setIcon(image)
   })
 
   ipcMain.on('updateOsdState', (event, data) => {

@@ -9,6 +9,7 @@
     "settings": "Settings",
     "github": "GitHub Repository",
     "log": "Open Log Folder",
+    "offlineStatus": "No network connection",
     "error": "Unknown Error",
     "track": "Track",
     "artist": "Artist",
@@ -161,6 +162,7 @@
     "showLyric": "Show Lyrics",
     "setConvolver": "Sound Effects",
     "setLyricBG": "Lyric Background Settings",
+    "rebuildTrackCache": "Rebuild This Track Cache",
     "playBackSpeed": "Playback Speed",
     "pitch": "Pitch",
     "lyricOffset": "Lyric Offset Adjustment",
@@ -357,6 +359,7 @@
     "tray": {
       "showLyric": "Show Tray Lyrics",
       "showControl": "Show Control Buttons",
+      "hideIcon": "Hide VutronMusic Icon",
       "lyricScrollFrameRate": {
         "text": "Lyric Scroll FPS",
         "desc": "Higher values may cause flickering; adjust carefully."
@@ -504,6 +507,8 @@
     "misc": {
       "enableAmuseServer": "Enable 6K Amuse Youtube Music Source Compatibility Server",
       "enableDiscordRichPresence": "Enable Discord Rich Presence",
+      "roundedDockIcon": "Rounded Dock Icon",
+      "deepDark": "Deeper Black",
       "FmStatusConnected": "Connected to Last.fm ({username})",
       "connectToFM": "Connect to Last.fm",
       "disconnectToFM": "Disconnect",
@@ -566,7 +571,9 @@
     "removedFromPlaylist": "Removed from playlist",
     "deleteSuccess": "Deleted successfully",
     "deleteFailed": "Deletion failed",
-    "copySuccess": "Copied successfully"
+    "copySuccess": "Copied successfully",
+    "offlineCacheMiss": "No network connection, cached data unavailable",
+    "offlineTrackUnavailable": "No network connection, this track is not cached"
   },
   "next": {
     "nowPlaying": "Now Playing",

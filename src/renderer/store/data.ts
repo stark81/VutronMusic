@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, reactive } from 'vue'
+import { ref, reactive, watch } from 'vue'
 import { userPlaylist } from '../api/auth'
 import {
   userLikedSongsIDs,
@@ -14,6 +14,8 @@ import { useNormalStateStore } from './state'
 import { isAccountLoggedIn } from '../utils/auth'
 import { useI18n } from 'vue-i18n'
 import { getPlaylistDetail } from '../api/playlist'
+import { localDataCache } from '../utils/localDataCache'
+import { networkMonitor } from '../utils/networkMonitor'
 
 interface User {
   userId: number | null
@@ -64,8 +66,35 @@ export const useDataStore = defineStore(
 
     const { showToast } = useNormalStateStore()
 
+    // Load cached data eagerly on store creation
+    const initFromCache = async () => {
+      const [songs, playlists, songsWithDetails, albums, artists, mvs, cloud, history] =
+        await Promise.all([
+          localDataCache.loadData<number[]>(localDataCache.Keys.librarySongs),
+          localDataCache.loadData<any[]>(localDataCache.Keys.libraryPlaylists),
+          localDataCache.loadData<any[]>(localDataCache.Keys.librarySongsWithDetails),
+          localDataCache.loadData<any[]>(localDataCache.Keys.libraryAlbums),
+          localDataCache.loadData<any[]>(localDataCache.Keys.libraryArtists),
+          localDataCache.loadData<any[]>(localDataCache.Keys.libraryMVs),
+          localDataCache.loadData<any[]>(localDataCache.Keys.libraryCloudDisk),
+          localDataCache.loadData<{ weekData: any[]; allData: any[] }>(
+            localDataCache.Keys.libraryPlayHistory
+          )
+        ])
+      if (songs) liked.songs = songs
+      if (playlists) liked.playlists = playlists
+      if (songsWithDetails) liked.songsWithDetails = songsWithDetails
+      if (albums) liked.albums = albums
+      if (artists) liked.artists = artists
+      if (mvs) liked.mvs = mvs
+      if (cloud) liked.cloudDisk = cloud
+      if (history) liked.playHistory = history
+    }
+    initFromCache()
+
     const fetchLikedPlaylist = async () => {
       if (!user.value.userId) return
+      if (networkMonitor.isOfflineMode.value && liked.playlists.length > 0) return
       await userPlaylist({
         uid: user.value.userId,
         limit: 2000,
@@ -74,52 +103,63 @@ export const useDataStore = defineStore(
         if (res.playlist) {
           liked.playlists = res.playlist
           likedSongPlaylistID.value = res.playlist[0].id
+          localDataCache.saveData(localDataCache.Keys.libraryPlaylists, res.playlist)
         }
       })
     }
 
     const fetchLikedSongs = async () => {
       if (!user.value.userId) return
+      if (networkMonitor.isOfflineMode.value) return
       await userLikedSongsIDs(user.value.userId).then((res) => {
         if (res.ids) {
           liked.songs = res.ids
+          localDataCache.saveData(localDataCache.Keys.librarySongs, res.ids)
         }
       })
     }
 
     const fetchLikedAlbums = () => {
       if (!isAccountLoggedIn()) return
+      if (networkMonitor.isOfflineMode.value && liked.albums.length > 0) return
       return likedAlbums({ limit: 2000 }).then((result) => {
         if (result.data) {
           liked.albums = result.data
+          localDataCache.saveData(localDataCache.Keys.libraryAlbums, result.data)
         }
       })
     }
 
     const fetchLikedArtists = () => {
       if (!isAccountLoggedIn()) return
+      if (networkMonitor.isOfflineMode.value && liked.artists.length > 0) return
       return likedArtists({ limit: 2000 }).then((result) => {
         if (result.data) {
           liked.artists = result.data
+          localDataCache.saveData(localDataCache.Keys.libraryArtists, result.data)
         }
       })
     }
 
     const fetchLikedMVs = () => {
       if (!isAccountLoggedIn()) return
+      if (networkMonitor.isOfflineMode.value && liked.mvs.length > 0) return
       return likedMVs({ limit: 1000 }).then((result) => {
         if (result.data) {
           liked.mvs = result.data
+          localDataCache.saveData(localDataCache.Keys.libraryMVs, result.data)
         }
       })
     }
 
     const fetchCloudDisk = () => {
       if (!isAccountLoggedIn()) return
+      if (networkMonitor.isOfflineMode.value && liked.cloudDisk.length > 0) return
       return cloudDisk({ limit: 1000 })
         .then((result) => {
           if (result.data) {
             liked.cloudDisk = result.data
+            localDataCache.saveData(localDataCache.Keys.libraryCloudDisk, result.data)
           }
         })
         .catch((err) => {
@@ -129,6 +169,7 @@ export const useDataStore = defineStore(
 
     const fetchPlayHistory = () => {
       if (!isAccountLoggedIn()) return
+      if (networkMonitor.isOfflineMode.value && liked.playHistory.weekData.length > 0) return
       return Promise.all([
         userPlayHistory({ uid: user.value.userId as number, type: 0 }),
         userPlayHistory({ uid: user.value.userId as number, type: 1 })
@@ -145,6 +186,7 @@ export const useDataStore = defineStore(
             data[dataType[i] as 'weekData' | 'allData'] = songData
           }
           liked.playHistory = data
+          localDataCache.saveData(localDataCache.Keys.libraryPlayHistory, data)
         }
       })
     }
@@ -179,6 +221,9 @@ export const useDataStore = defineStore(
     }
 
     const fetchLikedSongsWithDetails = () => {
+      if (networkMonitor.isOfflineMode.value && liked.songsWithDetails.length > 0) {
+        return Promise.resolve()
+      }
       return getPlaylistDetail(likedSongPlaylistID.value, true).then((result) => {
         if (!result) return
         if (result.playlist?.trackIds?.length === 0) {
@@ -193,6 +238,7 @@ export const useDataStore = defineStore(
             .join(',')
         ).then((result) => {
           liked.songsWithDetails = result.songs
+          localDataCache.saveData(localDataCache.Keys.librarySongsWithDetails, result.songs)
         })
       })
     }

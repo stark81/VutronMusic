@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-container">
+  <div class="bg-container" :class="bgClass" :style="containerStyle">
     <div v-if="typeValue === 'gradient'" class="bg-color"></div>
     <video
       v-else-if="typeValue === 'custom-video'"
@@ -57,7 +57,9 @@ const primary = ref('')
 const secondary = ref('')
 const tempSrc = ref('')
 const tempType = ref<'custom-image' | 'custom-video'>('custom-image')
+const blurredCoverSrc = ref('')
 let apiRefreshTimer: ReturnType<typeof setInterval> | null = null
+let blurCoverUpdateId = 0
 
 const srcValue = computed(() => {
   if (activeBG.value.type === 'gradient') {
@@ -85,15 +87,24 @@ const srcValue = computed(() => {
   return ''
 })
 
+const backgroundSrcValue = computed(() => {
+  if (activeBG.value.type === 'blur-image' && blurredCoverSrc.value) {
+    return `url(${blurredCoverSrc.value})`
+  }
+  return srcValue.value
+})
+
 const typeValue = computed(() => {
   return activeBG.value.type === 'random-folder' ? tempType.value : activeBG.value.type
 })
 
 const cls = computed(() => {
-  if (['blur-image', 'letter-image'].includes(activeBG.value.type)) {
-    return 'bg-img cover-image'
+  if (activeBG.value.type === 'blur-image') {
+    return 'bg-img cover-image static-cover-image'
+  } else if (activeBG.value.type === 'letter-image') {
+    return 'bg-img cover-image filtered-cover-image'
   } else if (activeBG.value.type === 'dynamic-image') {
-    return `bg-img cover-image dynamic${playing.value ? '' : ' paused'}`
+    return `bg-img cover-image filtered-cover-image dynamic${playing.value ? '' : ' paused'}`
   } else if (['custom-image', 'api'].includes(activeBG.value.type)) {
     return 'bg-img customize-image'
   } else if (activeBG.value.type === 'random-folder' && tempType.value === 'custom-image') {
@@ -109,13 +120,17 @@ const imgWidth = computed(() => {
 const bgBlur = computed(() => `${activeBG.value.blur}px`)
 const bgOpacity = computed(() => `${activeBG.value.opacity / 100}`)
 
-const containerBGColor = computed(() => {
-  if (activeBG.value.type === 'custom-video') {
-    if (activeBG.value.useExtractedColor) {
-      return `linear-gradient(to top left, ${primary.value}, ${secondary.value})`
-    }
+const bgClass = computed(() => {
+  if (activeBG.value.type === 'none') return 'bg-none'
+  if (activeBG.value.type === 'gradient') return 'bg-gradient'
+  return ''
+})
+
+const containerStyle = computed(() => {
+  if (activeBG.value.type === 'custom-video' && activeBG.value.useExtractedColor && primary.value) {
+    return { background: `linear-gradient(to top left, ${primary.value}, ${secondary.value})` }
   }
-  return `var(--color-body-bg)`
+  return {}
 })
 
 const shouldPlayVideo = computed(() => {
@@ -162,14 +177,75 @@ const getImage = async (pic: string) => {
   }
 }
 
+const buildBlurredCover = async (source: string) => {
+  const updateId = ++blurCoverUpdateId
+  if (!source || activeBG.value.type !== 'blur-image') {
+    blurredCoverSrc.value = ''
+    return
+  }
+
+  try {
+    const response = await fetch(source)
+    if (!response.ok) return
+
+    const blob = await response.blob()
+    const bitmap = await createImageBitmap(blob)
+    if (updateId !== blurCoverUpdateId) {
+      bitmap.close()
+      return
+    }
+
+    const size = 320
+    const canvas = document.createElement('canvas')
+    canvas.width = size
+    canvas.height = size
+
+    const context = canvas.getContext('2d')
+    if (!context) {
+      bitmap.close()
+      return
+    }
+
+    const sourceSize = Math.min(bitmap.width, bitmap.height)
+    const sx = Math.floor((bitmap.width - sourceSize) / 2)
+    const sy = Math.floor((bitmap.height - sourceSize) / 2)
+
+    context.filter = 'blur(24px)'
+    context.drawImage(bitmap, sx, sy, sourceSize, sourceSize, -32, -32, size + 64, size + 64)
+    context.filter = 'none'
+    context.fillStyle = 'rgba(0, 0, 0, 0.18)'
+    context.fillRect(0, 0, size, size)
+    bitmap.close()
+
+    if (updateId === blurCoverUpdateId) {
+      blurredCoverSrc.value = canvas.toDataURL('image/jpeg', 0.82)
+    }
+  } catch {
+    if (updateId === blurCoverUpdateId) blurredCoverSrc.value = ''
+  }
+}
+
 watch(pic, (value) => {
   getImage(value)
+  buildBlurredCover(value)
 })
 
 watch(
   () => activeBG.value.useExtractedColor,
   () => {
     getImage(pic.value)
+  }
+)
+
+watch(
+  () => activeBG.value.type,
+  (value) => {
+    if (value === 'blur-image') {
+      buildBlurredCover(pic.value)
+    } else {
+      blurCoverUpdateId++
+      blurredCoverSrc.value = ''
+    }
   }
 )
 
@@ -290,6 +366,7 @@ onMounted(async () => {
   lottieContainer.value?.stop()
   lottieContainer.value?.destroy()
   getImage(pic.value)
+  buildBlurredCover(pic.value)
   if (activeBG.value.type === 'random-folder') {
     await loadRandomFolderSource()
   } else if (activeBG.value.type === 'api') {
@@ -313,6 +390,8 @@ onUnmounted(() => {
   videoRef.value?.load()
   tempSrc.value = ''
   tempType.value = 'custom-image'
+  blurredCoverSrc.value = ''
+  blurCoverUpdateId++
   stopApiRefreshTimer()
 })
 </script>
@@ -326,7 +405,8 @@ onUnmounted(() => {
   height: 100%;
   overflow: hidden;
   z-index: -1;
-  background: v-bind(containerBGColor);
+  contain: paint;
+  background: var(--color-body-bg);
 }
 
 .bg-color {
@@ -341,7 +421,7 @@ onUnmounted(() => {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  background-image: v-bind(srcValue);
+  background-image: v-bind(backgroundSrcValue);
 }
 
 .bg-img.cover-image {
@@ -349,6 +429,16 @@ onUnmounted(() => {
   --brightness-lyrics-background: 130%;
 
   position: relative;
+}
+
+.bg-img.static-cover-image {
+  transform: none;
+  filter: contrast(var(--contrast-lyrics-background)) brightness(var(--brightness-lyrics-background));
+}
+
+.bg-img.filtered-cover-image {
+  backface-visibility: hidden;
+  transform: translateZ(0);
   filter: blur(50px) contrast(var(--contrast-lyrics-background))
     brightness(var(--brightness-lyrics-background));
 
@@ -359,7 +449,7 @@ onUnmounted(() => {
     position: absolute;
     width: v-bind(imgWidth);
     height: v-bind(imgWidth);
-    background-image: v-bind(srcValue);
+    background-image: v-bind(backgroundSrcValue);
     background-size: cover;
     opacity: 0.6;
     will-change: transform;
@@ -440,5 +530,19 @@ onUnmounted(() => {
   to {
     transform: rotate(360deg) translateZ(0);
   }
+}
+</style>
+
+<style lang="scss">
+[data-theme='dark'] .bg-container.bg-none {
+  background: #222222;
+}
+
+[data-theme='light'] .bg-container.bg-none {
+  background: #ffffff;
+}
+
+[data-deep-dark='true'][data-theme='dark'] .bg-container.bg-none {
+  background: #000000;
 }
 </style>

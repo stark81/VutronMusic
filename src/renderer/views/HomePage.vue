@@ -59,6 +59,8 @@ import { useSettingsStore } from '../store/settings'
 import { useNormalStateStore } from '../store/state'
 import { usePlayerStore } from '../store/player'
 import { storeToRefs } from 'pinia'
+import { localDataCache } from '../utils/localDataCache'
+import { networkMonitor } from '../utils/networkMonitor'
 import Utils from '../utils'
 
 const toplistOfArtistsAreaTable = {
@@ -154,13 +156,51 @@ const imgFilter = (img: string) => {
   return img.replace('http://', 'https://')
 }
 
+const loadCachedData = async () => {
+  const [cachedBanner, cachedPlaylist, cachedArtists, cachedAlbums, cachedToplists] =
+    await Promise.all([
+      localDataCache.loadData<any[]>(localDataCache.Keys.homeBanner),
+      localDataCache.loadData<any[]>(localDataCache.Keys.homeRecommendPlaylist),
+      localDataCache.loadData<{ items: any[]; indexs: any[] }>(
+        localDataCache.Keys.homeRecommendArtists
+      ),
+      localDataCache.loadData<any[]>(localDataCache.Keys.homeNewAlbums),
+      localDataCache.loadData<any[]>(localDataCache.Keys.homeToplists)
+    ])
+
+  if (cachedBanner) {
+    banner.value = cachedBanner
+    setTimeout(bannerChange)
+    handleBanner()
+  }
+  if (cachedPlaylist) {
+    recommendPlaylist.value.items = cachedPlaylist
+    show.value = true
+  }
+  if (cachedArtists) {
+    recommendArtists.value = cachedArtists
+  }
+  if (cachedAlbums) {
+    newReleasesAlbum.value.items = cachedAlbums
+  }
+  if (cachedToplists) {
+    topList.value.items = cachedToplists
+  }
+}
+
 const loadData = () => {
+  loadCachedData()
+
+  if (networkMonitor.isOfflineMode.value) return
+
   setTimeout(() => {
     if (!show.value) tricklingProgress.start()
   }, 1000)
   if (general.value.showBanner) {
     getBanner({ type: 0 }).then((res) => {
-      banner.value = res.banners.filter((item: any) => item.typeTitle !== '广告')
+      const items = res.banners.filter((item: any) => item.typeTitle !== '广告')
+      banner.value = items
+      localDataCache.saveData(localDataCache.Keys.homeBanner, items)
       setTimeout(bannerChange)
       handleBanner()
     })
@@ -168,6 +208,7 @@ const loadData = () => {
 
   getRecommendPlayList(10, false).then((items) => {
     recommendPlaylist.value.items = items
+    localDataCache.saveData(localDataCache.Keys.homeRecommendPlaylist, items)
     tricklingProgress.done()
     show.value = true
   })
@@ -178,8 +219,9 @@ const loadData = () => {
       const tmp = ~~(Math.random() * 100)
       if (!indexs.includes(tmp)) indexs.push(tmp)
     }
-    recommendArtists.value.indexs = indexs
-    recommendArtists.value.items = data.list.artists.filter((l, index) => indexs.includes(index))
+    const items = data.list.artists.filter((l, index) => indexs.includes(index))
+    recommendArtists.value = { items, indexs }
+    localDataCache.saveData(localDataCache.Keys.homeRecommendArtists, { items, indexs })
   })
 
   newAlbums({
@@ -187,10 +229,13 @@ const loadData = () => {
     limit: 10
   }).then((data) => {
     newReleasesAlbum.value.items = data.albums
+    localDataCache.saveData(localDataCache.Keys.homeNewAlbums, data.albums)
   })
 
   toplists().then((data: any) => {
-    topList.value.items = data.list.filter((l: any) => topList.value.ids.includes(l.id))
+    const items = data.list.filter((l: any) => topList.value.ids.includes(l.id))
+    topList.value.items = items
+    localDataCache.saveData(localDataCache.Keys.homeToplists, items)
   })
 }
 
