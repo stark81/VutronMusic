@@ -10,6 +10,7 @@
     <ShowToast />
     <AddTrackToPlaylistModal />
     <newPlaylistModal />
+    <AccurateMatchModal />
     <editPlaylist />
     <selectPathModal />
     <PlayPage v-if="enabled" />
@@ -27,6 +28,7 @@ import AddTrackToPlaylistModal from './components/ModalAddTrackToPlaylist.vue'
 import newPlaylistModal from './components/ModalNewPlaylist.vue'
 import editPlaylist from './components/ModalEditPlaylist.vue'
 import selectPathModal from './components/ModalFilePaths.vue'
+import AccurateMatchModal from './components/ModalAccurateMatch.vue'
 import PlayPage from './views/PlayPage.vue'
 import { useDataStore } from './store/data'
 import { useOsdLyricStore } from './store/osdLyric'

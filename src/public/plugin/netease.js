@@ -635,10 +635,10 @@ exports.loginQrCodeCheck = async (params) => {
 
       result.user = {
         userId: profile.userId,
-        avatarUrl: profile.avatarUrl,
-        nickname: profile.nickname,
+        avatarUrl: profile.avatarUrl || '',
+        nickname: profile.nickname || '',
         isVip: [11, 110].includes(profile.vipType),
-        signature: profile.signature
+        signature: profile.signature || ''
       }
     }
     return result

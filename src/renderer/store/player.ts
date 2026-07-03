@@ -283,6 +283,9 @@ export const usePlayerStore = defineStore(
       if (value && playList.value.length > 0) {
         shuffleTheList(currentTrackIndex.value)
         currentTrackIndex.value = 0
+        nextTrack.value = undefined
+        if (prefetchTimer) clearTimeout(prefetchTimer)
+        scheduleNextTrackPrefetch()
       }
     })
 
@@ -376,10 +379,9 @@ export const usePlayerStore = defineStore(
     }
 
     function shuffleTheList(firstID = 0) {
-      const id = playList.value[firstID]
-      const list = playList.value.filter((item) => item !== id)
+      const list = playList.value.filter((_, index) => index !== firstID)
       shuffleList.value = shuffleFn(list)
-      shuffleList.value.unshift(id)
+      shuffleList.value.unshift(playList.value[firstID])
     }
 
     function reportPlayback(type: 'start' | 'progress' | 'end') {
@@ -494,7 +496,23 @@ export const usePlayerStore = defineStore(
           return [list.value[0], 0, false]
         }
       }
-      return [list.value[next], next, false]
+      const nextTrackInfo = list.value[next]
+      if (
+        nextTrackInfo &&
+        currentTrack.value &&
+        nextTrackInfo[0] === currentTrack.value.pluginId &&
+        JSON.stringify(nextTrackInfo[1]) === JSON.stringify(currentTrack.value.sourceContext)
+      ) {
+        const skipNext = next + 1
+        if (skipNext < list.value.length) {
+          return [list.value[skipNext], skipNext, false]
+        }
+        if (repeatMode.value === 'on') {
+          return [list.value[0], 0, false]
+        }
+        return [undefined, next, false]
+      }
+      return [nextTrackInfo, next, false]
     }
 
     function _peekNextTrack(): [PluginId, Record<string, any>] | undefined {
@@ -505,7 +523,23 @@ export const usePlayerStore = defineStore(
       if (repeatMode.value === 'on' && list.value.length === next) {
         return list.value[0]
       }
-      return list.value[next]
+      const nextTrackInfo = list.value[next]
+      if (
+        nextTrackInfo &&
+        currentTrack.value &&
+        nextTrackInfo[0] === currentTrack.value.pluginId &&
+        JSON.stringify(nextTrackInfo[1]) === JSON.stringify(currentTrack.value.sourceContext)
+      ) {
+        const skipNext = next + 1
+        if (skipNext < list.value.length) {
+          return list.value[skipNext]
+        }
+        if (repeatMode.value === 'on') {
+          return list.value[0]
+        }
+        return undefined
+      }
+      return nextTrackInfo
     }
 
     function playPrev() {
@@ -788,11 +822,45 @@ export const usePlayerStore = defineStore(
       }
     }
 
+    const fetchLyric = async () => {
+      const res = (await window.mainApi?.invoke('plugin-lyric', {
+        pluginId: currentTrack.value?.pluginId,
+        sourceContext: {
+          rawCtx: JSON.parse(JSON.stringify(currentTrack.value?.sourceContext || {}))
+        }
+      })) as { code: number; data: LyricLine[] }
+
+      if (!res || res.code !== 200 || !res.data?.length) {
+        lyrics.value = []
+        return
+      }
+
+      let data = res.data.filter((l) => !/^作(词|曲)\s*(:|：)\s*无$/.exec(l.lyric.text))
+      const includeAM =
+        data.length <= 10 && data.some((l) => ['纯音乐，请欣赏', '暂无歌词'].includes(l.lyric.text))
+      const reg = /^作(词|曲)\s*(:|：)\s*/
+      const artists = currentTrack.value!.artists
+      const author = artists[0]?.name
+      data = data.filter((l) => {
+        const regExpArr = l.lyric.text.match(reg)
+        return !regExpArr || l.lyric.text.replace(regExpArr[0], '') !== author
+      })
+      lyrics.value = data.length === 1 && includeAM ? [] : data
+    }
+
     watch(currentTrack, async (value) => {
       if (!value) return
 
+      if (osdLyricStore.show) {
+        window.mainApi?.sendMessage({
+          type: 'update-osd-status',
+          data: {
+            title: `${value.artists?.[0]?.name || ''} - ${value.name || ''}`
+          }
+        })
+      }
+
       chorus.value = 0
-      // 直接设引擎位置，不走 seek setter（避免触发 reportPlayback('progress') 在 start 之前发出）
       const nextPos = playing.value ? 0 : progress.value
       engineStore.setPosition(nextPos)
       progress.value = nextPos
@@ -809,28 +877,7 @@ export const usePlayerStore = defineStore(
             pic.value = result.data
           }
         ),
-        (async () => {
-          const res = (await window.mainApi?.invoke('plugin-lyric', {
-            pluginId: value.pluginId,
-            sourceContext: { rawCtx: JSON.parse(JSON.stringify(value.sourceContext || {})) }
-          })) as { code: number; data: LyricLine[] }
-          if (!res || res.code !== 200 || !res.data?.length) {
-            lyrics.value = []
-            return
-          }
-          let data = res.data.filter((l) => !/^作(词|曲)\s*(:|：)\s*无$/.exec(l.lyric.text))
-          const includeAM =
-            data.length <= 10 &&
-            data.some((l) => ['纯音乐，请欣赏', '暂无歌词'].includes(l.lyric.text))
-          const reg = /^作(词|曲)\s*(:|：)\s*/
-          const artists = currentTrack.value!.artists
-          const author = artists[0]?.name
-          data = data.filter((l) => {
-            const regExpArr = l.lyric.text.match(reg)
-            return !regExpArr || l.lyric.text.replace(regExpArr[0], '') !== author
-          })
-          lyrics.value = data.length === 1 && includeAM ? [] : data
-        })()
+        fetchLyric()
       ])
 
       // 从数据库加载该歌曲的歌词偏移量

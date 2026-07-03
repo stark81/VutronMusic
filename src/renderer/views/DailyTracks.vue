@@ -14,7 +14,7 @@
     <TrackList
       :items="filterTracks"
       :plugin="pluginId"
-      :source-context="{}"
+      :source-context="{ id: '/daily/songs' }"
       :colunm-number="1"
       type="DailySongs"
       :is-end="true"

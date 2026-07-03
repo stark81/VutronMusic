@@ -257,6 +257,15 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
 }
 
 function initOSDWindowIpcMain(win: BrowserWindow, lrc: { [key: string]: Function }): void {
+  let osdResizeState: {
+    direction: string
+    startMouseX: number
+    startMouseY: number
+    startBounds: { x: number; y: number; width: number; height: number }
+    startTime: number
+    interval: ReturnType<typeof setInterval>
+  } | null = null
+
   ipcMain.on('updateOsdState', (event, data) => {
     const [key, value] = Object.entries(data)[0] as [string, any]
     store.set(`osdWin.${key}`, value)
@@ -283,6 +292,100 @@ function initOSDWindowIpcMain(win: BrowserWindow, lrc: { [key: string]: Function
   ipcMain.on('osd-resize', (event, height) => {
     lrc.updateOsdHeight(height)
   })
+  ipcMain.on(
+    'osd-start-resize',
+    (event, data: { direction: string; mouseX: number; mouseY: number }) => {
+      if (osdResizeState) {
+        clearInterval(osdResizeState.interval)
+        osdResizeState = null
+      }
+      const bounds = lrc.getOsdBounds()
+      if (!bounds) return
+
+      const screen = require('electron').screen
+      const display = screen.getDisplayMatching(bounds)
+      const osdMode = (store.get('osdWin.type') as string) || 'small'
+      const minBounds = {
+        width: osdMode === 'small' ? 700 : 400,
+        height: osdMode === 'small' ? 140 : 400
+      }
+
+      osdResizeState = {
+        direction: data.direction,
+        startMouseX: data.mouseX,
+        startMouseY: data.mouseY,
+        startBounds: { ...bounds },
+        startTime: Date.now(),
+        interval: setInterval(() => {
+          if (!osdResizeState) return
+
+          // 硬性兜底：正常手动 resize 不太可能持续超过 60 秒。
+          // 如果渲染进程异常（崩溃/被杀/pointerup 因故没发出）导致 osd-stop-resize
+          // 一直没收到，这里强制停止，避免 interval 无限空转吃 CPU。
+          // 正常情况下（渲染端已用 setPointerCapture 保证会发 stop 信号）不会触发这里。
+          if (Date.now() - osdResizeState.startTime > 60000) {
+            clearInterval(osdResizeState.interval)
+            osdResizeState = null
+            return
+          }
+
+          const cursorPos = screen.getCursorScreenPoint()
+          const dx = cursorPos.x - osdResizeState.startMouseX
+          const dy = cursorPos.y - osdResizeState.startMouseY
+          const dir = osdResizeState.direction
+          const sb = osdResizeState.startBounds
+
+          let newX = sb.x
+          let newY = sb.y
+          let newW = sb.width
+          let newH = sb.height
+
+          if (dir.includes('right')) {
+            newW = Math.max(minBounds.width, sb.width + dx)
+          }
+          if (dir.includes('left')) {
+            const delta = Math.min(dx, sb.width - minBounds.width)
+            newX = sb.x + delta
+            newW = sb.width - delta
+          }
+          if (dir.includes('bottom')) {
+            newH = Math.max(minBounds.height, sb.height + dy)
+          }
+          if (dir.includes('top')) {
+            const delta = Math.min(dy, sb.height - minBounds.height)
+            newY = sb.y + delta
+            newH = sb.height - delta
+          }
+
+          const displayBounds = display.bounds
+          newX = Math.max(
+            displayBounds.x,
+            Math.min(newX, displayBounds.x + displayBounds.width - newW)
+          )
+          newY = Math.max(
+            displayBounds.y,
+            Math.min(newY, displayBounds.y + displayBounds.height - newH)
+          )
+
+          lrc.setOsdBounds({ x: newX, y: newY, width: newW, height: newH })
+        }, 16)
+      }
+    }
+  )
+  ipcMain.on('osd-stop-resize', () => {
+    if (osdResizeState) {
+      clearInterval(osdResizeState.interval)
+      const bounds = lrc.getOsdBounds()
+      if (bounds) {
+        const osdMode = (store.get('osdWin.type') as string) || 'small'
+        store.set(osdMode === 'small' ? 'osdWin.width' : 'osdWin.width2', bounds.width)
+        store.set(osdMode === 'small' ? 'osdWin.height' : 'osdWin.height2', bounds.height)
+        store.set(osdMode === 'small' ? 'osdWin.x' : 'osdWin.x2', bounds.x)
+        store.set(osdMode === 'small' ? 'osdWin.y' : 'osdWin.y2', bounds.y)
+      }
+      osdResizeState = null
+    }
+  })
   ipcMain.on('updatePlayerState', (event: IpcMainEvent, data: any) => {
     for (const [key, value] of Object.entries(data) as [string, any]) {
       if (key === 'playing') {
@@ -290,16 +393,16 @@ function initOSDWindowIpcMain(win: BrowserWindow, lrc: { [key: string]: Function
       }
     }
   })
+  // 悬浮到解锁按钮上：只是临时允许交互，不应该把这个临时状态写进持久化的
+  // osdWin.isLock（之前的写法在 store 落盘的时间窗口内有把“锁定”误存成“未锁定”的风险）。
+  // 直接把临时值透传给 toggleMouseIgnore 的 overrideLock 参数即可。
   ipcMain.on('set-ignore-mouse', (event, ignore) => {
-    store.set('osdWin.isLock', ignore)
-    lrc.toggleMouseIgnore()
+    lrc.toggleMouseIgnore(ignore)
   })
   ipcMain.on('mouseleave', () => {
-    store.set('osdWin.isLock', isLock)
-    lrc.toggleMouseIgnore()
-  })
-  ipcMain.on('windowMouseleave', () => {
-    lrc.windowMouseleave()
+    // 恢复为真实的锁定状态（isLock 是模块级变量，随 updateOsdState/isLock 同步，
+    // 这里不再需要也不应该再写 store）
+    lrc.toggleMouseIgnore(isLock)
   })
 }
 

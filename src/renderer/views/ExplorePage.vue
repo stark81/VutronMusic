@@ -119,7 +119,7 @@
       <TrackList
         :items="data.newTrack"
         :plugin="pluginId"
-        :source-context="{}"
+        :source-context="{ id: 'newTrack' }"
         :colunm-number="1"
         :type="'Playlist'"
         :is-end="true"

@@ -276,6 +276,7 @@ onBeforeUnmount(() => {
       width: 100%;
       border-radius: 8px;
       object-fit: cover;
+      aspect-ratio: 27 / 10;
       display: block;
     }
 

@@ -93,9 +93,7 @@ class BackGround {
   amuseFastifyApp: FastifyInstance | null = null
   createAmuseFastifyAppPromise: Promise<void> = Promise.resolve()
   willQuitApp: boolean = !Constants.IS_MAC
-  checkInterval: any = null
-  isInWindow: boolean = false
-  lastKnownMousePosition = { x: 0, y: 0 }
+  lockMouseCheckInterval: ReturnType<typeof setInterval> | null = null
 
   async init() {
     process.on('unhandledRejection', (reason) => {
@@ -300,10 +298,36 @@ class BackGround {
     await this.lyricWin.loadURL(Constants.APP_OSD_URL)
   }
 
-  toggleMouseIgnore() {
-    const isLock = (store.get('osdWin.isLock') as boolean) || false
-    this.lyricWin?.setIgnoreMouseEvents(isLock, { forward: !Constants.IS_LINUX })
-    this.lyricWin?.setVisibleOnAllWorkspaces(isLock)
+  toggleMouseIgnore(overrideLock?: boolean) {
+    const realLock = (store.get('osdWin.isLock') as boolean) || false
+    const applyLock = overrideLock !== undefined ? overrideLock : realLock
+
+    this.lyricWin?.setIgnoreMouseEvents(applyLock, { forward: !Constants.IS_LINUX })
+    this.lyricWin?.setVisibleOnAllWorkspaces(applyLock)
+
+    this.startLockMouseWatcher()
+  }
+
+  startLockMouseWatcher() {
+    this.stopLockMouseWatcher()
+    this.lockMouseCheckInterval = setInterval(() => {
+      if (!this.lyricWin) return
+      const bounds = this.lyricWin.getBounds()
+      const p = screen.getCursorScreenPoint()
+      const inside =
+        p.x >= bounds.x &&
+        p.x <= bounds.x + bounds.width &&
+        p.y >= bounds.y &&
+        p.y <= bounds.y + bounds.height
+      this.lyricWin.webContents.send('osd-lock-mouse-state', { inside, x: p.x, y: p.y })
+    }, 50)
+  }
+
+  stopLockMouseWatcher() {
+    if (this.lockMouseCheckInterval) {
+      clearInterval(this.lockMouseCheckInterval)
+      this.lockMouseCheckInterval = null
+    }
   }
 
   toggleOSDWindow() {
@@ -326,6 +350,21 @@ class BackGround {
     })
   }
 
+  getOsdBounds() {
+    return this.lyricWin?.getBounds() || null
+  }
+
+  setOsdBounds(bounds: { x?: number; y?: number; width?: number; height?: number }) {
+    if (!this.lyricWin) return
+    const current = this.lyricWin.getBounds()
+    this.lyricWin.setBounds({
+      x: bounds.x !== undefined ? bounds.x : current.x,
+      y: bounds.y !== undefined ? bounds.y : current.y,
+      width: bounds.width !== undefined ? bounds.width : current.width,
+      height: bounds.height !== undefined ? bounds.height : current.height
+    })
+  }
+
   updateOSDPlayingState(playing: boolean) {
     this.lyricWin?.webContents.send('update-osd-playing-status', playing)
   }
@@ -333,38 +372,6 @@ class BackGround {
   switchOSDWindow(showMode: string) {
     this.hideOSDWindow()
     this.showOSDWindow(showMode)
-  }
-
-  checkOsdMouseLeave(inter = 16) {
-    if (!this.isInWindow) {
-      this.lyricWin?.webContents.send('mouseInWindow', true)
-      this.isInWindow = true
-    }
-    if (this.checkInterval) clearInterval(this.checkInterval)
-    this.checkInterval = setInterval(() => {
-      if (!this.lyricWin) {
-        clearInterval(this.checkInterval)
-        return
-      }
-      const mousePos = screen.getCursorScreenPoint()
-      if (
-        mousePos.x !== this.lastKnownMousePosition.x ||
-        mousePos.y !== this.lastKnownMousePosition.y
-      ) {
-        this.lastKnownMousePosition = { x: mousePos.x, y: mousePos.y }
-        const bounds = this.lyricWin?.getBounds() || { x: 0, y: 0, width: 0, height: 0 }
-        const isInWindow =
-          mousePos.x >= bounds.x - 10 &&
-          mousePos.x <= bounds.x + bounds.width + 10 &&
-          mousePos.y >= bounds.y - 10 &&
-          mousePos.y <= bounds.y + bounds.height + 10
-        if (!isInWindow) {
-          this.lyricWin?.webContents.send('mouseInWindow', false)
-          clearInterval(this.checkInterval)
-        }
-        this.isInWindow = isInWindow
-      }
-    }, inter)
   }
 
   updateLyricInfo(data: any) {
@@ -383,12 +390,8 @@ class BackGround {
         this.lyricWin!.setAlwaysOnTop(true)
       }, 100)
     })
-    this.lyricWin!.on('will-resize', () => {
-      this.checkOsdMouseLeave(1000)
-    })
-    this.lyricWin!.on('resize', () => {
-      this.checkOsdMouseLeave(1000)
 
+    this.lyricWin!.on('resize', () => {
       const data = this.lyricWin!.getBounds()
       store.set(this.osdMode === 'small' ? 'osdWin.width' : 'osdWin.width2', data.width)
       store.set(this.osdMode === 'small' ? 'osdWin.height' : 'osdWin.height2', data.height)
@@ -410,6 +413,7 @@ class BackGround {
 
   hideOSDWindow() {
     if (this.lyricWin) {
+      this.stopLockMouseWatcher()
       this.lyricWin.close()
       this.lyricWin = null
     }
@@ -694,12 +698,14 @@ class BackGround {
 
       const lrc = {
         toggleOSDWindow: () => this.toggleOSDWindow(),
-        toggleMouseIgnore: () => this.toggleMouseIgnore(),
+        toggleMouseIgnore: (overrideLock?: boolean) => this.toggleMouseIgnore(overrideLock),
         updateLyricInfo: (data: any) => this.updateLyricInfo(data),
         switchOSDWindow: (showMode: string) => this.switchOSDWindow(showMode),
         updateOSDPlayingState: (state: boolean) => this.updateOSDPlayingState(state),
         updateOsdHeight: (height: number) => this.updateOsdHeight(height),
-        windowMouseleave: () => this.checkOsdMouseLeave()
+        getOsdBounds: () => this.getOsdBounds(),
+        setOsdBounds: (bounds: { x?: number; y?: number; width?: number; height?: number }) =>
+          this.setOsdBounds(bounds)
       }
       IPCs.initialize(this.win!, this.tray, this.mpris!, lrc)
 

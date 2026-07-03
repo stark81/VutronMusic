@@ -3,7 +3,7 @@
     <h1>{{ $t('next.nowPlaying') }}</h1>
     <TrackList
       :plugin="'' as PluginId"
-      :source-context="{}"
+      :source-context="{ pluginType: 'player', id: currentTrack?.id || '' }"
       :items="currentTrack ? [currentTrack] : []"
       :type="'Track'"
       :colunm-number="1"
@@ -20,7 +20,7 @@
     <TrackList
       v-if="insertTracks.length > 0"
       :plugin="'all'"
-      :source-context="{}"
+      :source-context="{ pluginType: 'player', id: 'playNextList' }"
       :items="insertTracks"
       :type="'Track'"
       :colunm-number="1"
@@ -36,7 +36,7 @@
       v-if="filteredTracks.length > 0"
       :items="filteredTracks"
       :plugin="'all'"
-      :source-context="{}"
+      :source-context="{ pluginType: 'player', id: 'nextTracks' }"
       :type="playlistSource.type"
       :show-service="true"
       :show-position="true"

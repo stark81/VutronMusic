@@ -140,7 +140,7 @@
         :items="filterTracks"
         type="Playlist"
         :plugin="pluginId"
-        :source-context="{ ...playlist.sourceContext, pluginType }"
+        :source-context="{ ...playlist.sourceContext }"
         :colunm-number="1"
         :show-service="playlistType.includes('liked')"
         :show-position="true"
@@ -334,6 +334,8 @@ const loadLikedData = (plugins: PluginId[]) => {
   tracks.value = plugins.map((item) => likedTracks[item]?.data || []).flat()
   tricklingProgress.done()
   show.value = true
+  const type = services.value.find((item) => item.code === plugins[0])!.type
+  playlist.value.sourceContext = { id: type, trackIds: [], loadedIDs: [] }
 }
 
 const loadData = async (plugin: PluginId, params: Record<string, any>) => {

@@ -112,7 +112,7 @@
             :items="sortedLocalTracks"
             :type="'Track'"
             :plugin="plugin"
-            :source-context="{}"
+            :source-context="{ pluginType: 'local', id: 'local' }"
             :colunm-number="1"
             :is-end="true"
             :extra-context-menu-item="['showInFolder', 'removeLocalTrack', 'addToLocalList']"
@@ -163,8 +163,6 @@
         </div>
       </div>
     </div>
-
-    <AccurateMatchModal />
 
     <ContextMenu ref="playlistTabMenu">
       <div
@@ -252,7 +250,6 @@ import CoverRow from '../components/VirtualCoverRow.vue'
 import SvgIcon from '../components/SvgIcon.vue'
 import SearchBox from '../components/SearchBox.vue'
 import ContextMenu from '../components/ContextMenu.vue'
-import AccurateMatchModal from '../components/ModalAccurateMatch.vue'
 import { pickedLyric, randomNum } from '../utils'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'

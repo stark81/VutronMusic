@@ -122,26 +122,24 @@
       <div v-if="!loginService.length" class="errorInfo">{{ 'streamMessage' }}</div>
       <div v-if="show" class="section-two-content" :style="tabStyle">
         <div v-show="idx === 0">
-          <!-- 聚合视图或 loadFull 插件：现有 TrackList，无分页 -->
           <TrackList
             v-if="tool.groundBy === 'all' || isCurrentPluginLoadFull"
             ref="streamListRef"
             :items="filterTracks"
             :type="'Track'"
             :plugin="tool.groundBy"
-            :source-context="{ pluginType: 'stream' }"
+            :source-context="{ pluginType: 'stream', id: 'stream' }"
             :show-service="tool.groundBy === 'all'"
             :colunm-number="1"
             :is-end="true"
           />
-          <!-- 非 loadFull 插件：TrackList，无分页 -->
           <template v-else>
             <TrackList
               ref="streamListRef"
               :items="filterTracks"
               :type="'Track'"
               :plugin="tool.groundBy"
-              :source-context="{ pluginType: 'stream' }"
+              :source-context="{ pluginType: 'stream', id: 'stream' }"
               :show-service="false"
               :colunm-number="1"
               :is-end="true"
@@ -181,8 +179,6 @@
         </div>
       </div>
     </div>
-
-    <AccurateMatchModal />
 
     <ContextMenu ref="streamTabMenu">
       <div class="item" :class="{ active: tool.groundBy === 'all' }" @click="tool.groundBy = 'all'"
@@ -267,7 +263,6 @@ import InfoBG from '../components/InfoBG.vue'
 import SvgIcon from '../components/SvgIcon.vue'
 import SearchBox from '../components/SearchBox.vue'
 import TrackList from '../components/VirtualTrackList.vue'
-import AccurateMatchModal from '../components/ModalAccurateMatch.vue'
 import CoverRow from '../components/VirtualCoverRow.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import AlbumList from '../components/AlbumList.vue'

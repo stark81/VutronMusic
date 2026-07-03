@@ -9,7 +9,7 @@
         :items="displayData"
         :colunm-number="1"
         :plugin="plugin"
-        :source-context="{}"
+        :source-context="{ id: 'search' }"
         :show-service="true"
         :load-more="() => loadData(false)"
         :type="'Playlist'"

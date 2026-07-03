@@ -1,6 +1,5 @@
 <template>
   <div
-    ref="lyricContainer"
     class="container"
     :class="{
       lineMode,
@@ -17,7 +16,7 @@
       class="lyric"
       :class="{
         active: index === highlightIdx,
-        played: isPlayedLine(index),
+        played: isLinePlayed(lyric),
         center: lyricToShow.length === 1
       }"
     >
@@ -59,7 +58,6 @@ const {
 } = storeToRefs(osdLyricStore)
 
 const lyricRefs = ref<InstanceType<typeof LyricLine>[]>([])
-const lyricContainer = ref<HTMLElement>()
 const playing = ref(false)
 const lyrics = ref<lyricLine[]>([])
 const currentIndex = ref(-1)
@@ -82,57 +80,6 @@ const lyricMap: Record<TranslationMode, TranslationMode> = {
   none: 'none'
 }
 
-const currentGroupIndex = computed(() => {
-  if (!isMini.value) return -1
-  const idx = groupLyric.value.findIndex((g) => g.includes(highlight.value))
-  return Math.max(0, idx)
-})
-
-const lyricToShow = computed(() => {
-  if (!isMini.value) return lyrics.value
-
-  const idx = currentGroupIndex.value
-  const currentGroup = groupLyric.value[idx] ?? []
-
-  if (
-    mode.value === 'twoLines' &&
-    currentGroup.length === 2 &&
-    currentGroup[1] === highlight.value
-  ) {
-    const nextGroup = groupLyric.value[idx + 1]
-    if (nextGroup?.[0] !== undefined) {
-      return [lyrics.value[nextGroup[0]], lyrics.value[currentGroup[1]]]
-    }
-    return currentGroup.map((index) => lyrics.value[index])
-  }
-
-  const result = currentGroup.map((index) => lyrics.value[index])
-
-  // 只处理最后一组是单行的情况：显示上一行
-  if (isLastSingleLineGroup.value && result.length === 1 && idx > 0) {
-    const prevGroup = groupLyric.value[idx - 1]
-    if (prevGroup?.length) {
-      return [result[0], lyrics.value[prevGroup[prevGroup.length - 1]]]
-    }
-  }
-
-  return result
-})
-
-const isLastSingleLineGroup = computed(() => {
-  if (!isMini.value || mode.value !== 'twoLines') return false
-  const idx = currentGroupIndex.value
-  const group = groupLyric.value[idx]
-  return group?.length === 1 && idx === groupLyric.value.length - 1
-})
-
-const isPlayedLine = (index: number) => {
-  if (index < highlightIdx.value && !(isShowingNextGroup.value && index === 0)) {
-    return true
-  }
-  return isLastSingleLineGroup.value && index === 1
-}
-
 const modeKey = computed(() => lyricMap[translationMode.value])
 
 const groupLyric = computed(() => {
@@ -149,13 +96,9 @@ const groupLyric = computed(() => {
       result.push([idx])
       idx++
     } else {
-      const nextTrans =
-        lyrics.value[idx + 1] &&
-        (lyrics.value[idx + 1][modeKey.value] as {
-          text: string
-          info?: word[]
-        } | null)
-      if (idx + 1 < lyrics.value.length && !nextTrans) {
+      const nextLine = lyrics.value[idx + 1]
+      const nextTrans = nextLine ? (nextLine[modeKey.value] as any) : null
+      if (nextLine && !nextTrans) {
         result.push([idx, idx + 1])
         idx += 2
       } else {
@@ -164,7 +107,56 @@ const groupLyric = computed(() => {
       }
     }
   }
+
+  if (mode.value === 'twoLines' && result.length > 1) {
+    const snapshot = result.map((g) => [...g])
+    for (let i = 1; i < result.length; i++) {
+      const group = snapshot[i]
+      const prevGroup = snapshot[i - 1]
+      if (group.length === 1 && prevGroup.length === 2) {
+        const ownLine = lyrics.value[group[0]]
+        if (ownLine && !ownLine[modeKey.value]) {
+          result[i] = [group[0], prevGroup[1]]
+        }
+      }
+    }
+  }
+
   return result
+})
+
+const currentGroupIndex = computed(() => {
+  if (!isMini.value) return -1
+  const idx = groupLyric.value.findIndex((g) => g.includes(highlight.value))
+  return Math.max(0, idx)
+})
+
+const lyricToShow = computed(() => {
+  if (!isMini.value) return lyrics.value
+  const groups = groupLyric.value
+  const currentGroup = groups[currentGroupIndex.value]
+  if (!currentGroup) return []
+  if (mode.value === 'oneLine') return currentGroup.map((i) => lyrics.value[i])
+
+  const isLastLineOfGroup = highlight.value === currentGroup[1]
+  const nextGroup = groups[currentGroupIndex.value + 1]
+  if (isLastLineOfGroup && nextGroup?.length === 2) {
+    return [lyrics.value[nextGroup[0]], lyrics.value[currentGroup[1]]]
+  }
+  return currentGroup.map((i) => lyrics.value[i])
+})
+
+const highlightIdx = computed(() => {
+  if (!isMini.value) return highlight.value
+  const groups = groupLyric.value
+  const currentGroup = groups[currentGroupIndex.value]
+  if (!currentGroup) return 0
+  const indexInGroup = currentGroup.indexOf(highlight.value)
+  if (mode.value === 'oneLine') return indexInGroup
+
+  const nextGroup = groups[currentGroupIndex.value + 1]
+  if (indexInGroup === 1 && nextGroup?.length === 2) return 1
+  return indexInGroup
 })
 
 const lineMode = computed(() => {
@@ -173,28 +165,11 @@ const lineMode = computed(() => {
 
 const highlight = computed(() => Math.min(currentIndex.value, lyrics.value.length - 1))
 
-const highlightIdx = computed(() => {
-  if (!isMini.value) return highlight.value
-
-  const currentIdx = highlight.value
-  for (let i = 0; i < lyricToShow.value.length; i++) {
-    if (lyricToShow.value[i] === lyrics.value[currentIdx]) {
-      return i
-    }
-  }
-
-  const currentGroup = groupLyric.value[currentGroupIndex.value]
-  if (!currentGroup) return -1
-  return currentGroup.findIndex((id) => id === currentIdx)
-})
-
-const isShowingNextGroup = computed(() => {
-  if (!isMini.value || mode.value !== 'twoLines' || lyricToShow.value.length < 2) return false
-
-  const idx = currentGroupIndex.value
-  const nextGroup = groupLyric.value[idx + 1]
-  return nextGroup && lyricToShow.value[0] === lyrics.value[nextGroup[0]]
-})
+const currentTimeMs = computed(() => (seek.value + lyricOffset.value) * 1000)
+const isLinePlayed = (line: lyricLine) => {
+  if (line === lyrics.value[highlight.value]) return false
+  return currentTimeMs.value > line.end * 1000
+}
 
 const clearAnimations = (clearAll = true) => {
   lyricRefs.value.forEach((instance) => {
@@ -405,7 +380,6 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  // destroyController(true)
   document.removeEventListener('visibilitychange', handleVisebilitiyChange)
 })
 </script>
@@ -413,7 +387,7 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
 .container {
   user-select: none;
-  height: calc(100vh - 54px);
+  height: calc(100vh - 64px);
   scrollbar-width: none;
   display: flex;
   flex-direction: column;
@@ -421,7 +395,6 @@ onBeforeUnmount(() => {
 
   :deep(.lyric) {
     border-radius: 12px;
-    margin: 2px 0;
     user-select: none;
     padding: 2px 0;
     font-weight: 600;

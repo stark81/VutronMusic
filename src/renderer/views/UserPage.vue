@@ -102,7 +102,7 @@
           :items="playHistoryList"
           :colunm-number="1"
           :plugin="'all'"
-          :source-context="{}"
+          :source-context="{ id: 'userPlayHistory' }"
           :is-end="true"
           :item-height="60"
           :padding-bottom="96"
