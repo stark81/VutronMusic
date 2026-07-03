@@ -91,12 +91,7 @@ export const useLyricStore = defineStore(
         }
       }
 
-      const end = list.at(-1)!.end
-      if (_getTime() + offset.value > end / rate) {
-        return list.length
-      } else {
-        return list.length - 1
-      }
+      return list.length - 1
     }
 
     function refreshLineIdx() {

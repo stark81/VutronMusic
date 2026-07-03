@@ -26,7 +26,9 @@
         </div>
       </div>
       <div class="right-top" @click="hasLikedLocalTracks ? goToLikedSongsList() : playThisTrack()">
-        <div v-if="hasLikedLocalTracks" class="title">我喜欢的音乐 - {{ filterLikedTracks.length }}首</div>
+        <div v-if="hasLikedLocalTracks" class="title"
+          >我喜欢的音乐 - {{ filterLikedTracks.length }}首</div
+        >
         <div>
           <div
             v-for="(line, index) in pickedLyricLines"
@@ -528,7 +530,8 @@ const openAddPlaylistModal = () => {
 }
 
 const getRandomTrack = async () => {
-  const sourceTracks = filterLikedTracks.value.length > 0 ? filterLikedTracks.value : rawTracks.value
+  const sourceTracks =
+    filterLikedTracks.value.length > 0 ? filterLikedTracks.value : rawTracks.value
   if (!sourceTracks.length) return
   let i = 0
   let data: lyricLine[]
