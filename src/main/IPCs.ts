@@ -1685,14 +1685,14 @@ async function initPluginIpcMain() {
             for (const row of rows) {
               pluginManager.call(row.pluginId, 'scrobble', {
                 ...JSON.parse(row.sourceContext),
-                time: duration * 1000,
+                time: position * 1000,
                 sourceCtx
               })
             }
           } else {
             pluginManager.call(sourceCtx.plugin || pluginId, 'scrobble', {
               ...rawCtx,
-              time: duration * 1000,
+              time: position * 1000,
               sourceCtx
             })
           }
