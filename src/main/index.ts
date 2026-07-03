@@ -306,37 +306,6 @@ class BackGround {
     this.lyricWin?.setVisibleOnAllWorkspaces(isLock)
   }
 
-  dragOsdWindow(data: { dx: number; dy: number; startHeight: number; startWidth: number }) {
-    const bds = this.lyricWin!.getBounds()
-
-    const displays = screen.getAllDisplays()
-    let x = bds.x + data.dx
-    let y = bds.y + data.dy
-    const height = data.startHeight
-    const width = data.startWidth
-    let isInside = false
-
-    for (let i = 0; i < displays.length; i++) {
-      const { bounds } = displays[i]
-      if (
-        x > bounds.x &&
-        x + width < bounds.x + bounds.width &&
-        y > bounds.y &&
-        y + height < bounds.y + bounds.height
-      ) {
-        isInside = true
-        break
-      }
-    }
-
-    if (!isInside) {
-      x = bds.x
-      y = bds.y
-    }
-
-    this.lyricWin?.setBounds({ x, y, height, width })
-  }
-
   toggleOSDWindow() {
     const osdLyric = (store.get('osdWin.show') as boolean) || false
     const showMode = (store.get('osdWin.type') as string) || 'small'
@@ -730,7 +699,6 @@ class BackGround {
         switchOSDWindow: (showMode: string) => this.switchOSDWindow(showMode),
         updateOSDPlayingState: (state: boolean) => this.updateOSDPlayingState(state),
         updateOsdHeight: (height: number) => this.updateOsdHeight(height),
-        dragOsdWindow: (data: any) => this.dragOsdWindow(data),
         windowMouseleave: () => this.checkOsdMouseLeave()
       }
       IPCs.initialize(this.win!, this.tray, this.mpris!, lrc)

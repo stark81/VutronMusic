@@ -17,7 +17,7 @@
       class="lyric"
       :class="{
         active: index === highlightIdx,
-        played: index < highlightIdx && !(isShowingNextGroup && index === 0),
+        played: isPlayedLine(index),
         center: lyricToShow.length === 1
       }"
     >
@@ -103,12 +103,35 @@ const lyricToShow = computed(() => {
     if (nextGroup?.[0] !== undefined) {
       return [lyrics.value[nextGroup[0]], lyrics.value[currentGroup[1]]]
     }
-    return [lyrics.value[currentGroup[1]]]
+    return currentGroup.map((index) => lyrics.value[index])
   }
 
   const result = currentGroup.map((index) => lyrics.value[index])
+
+  // 只处理最后一组是单行的情况：显示上一行
+  if (isLastSingleLineGroup.value && result.length === 1 && idx > 0) {
+    const prevGroup = groupLyric.value[idx - 1]
+    if (prevGroup?.length) {
+      return [result[0], lyrics.value[prevGroup[prevGroup.length - 1]]]
+    }
+  }
+
   return result
 })
+
+const isLastSingleLineGroup = computed(() => {
+  if (!isMini.value || mode.value !== 'twoLines') return false
+  const idx = currentGroupIndex.value
+  const group = groupLyric.value[idx]
+  return group?.length === 1 && idx === groupLyric.value.length - 1
+})
+
+const isPlayedLine = (index: number) => {
+  if (index < highlightIdx.value && !(isShowingNextGroup.value && index === 0)) {
+    return true
+  }
+  return isLastSingleLineGroup.value && index === 1
+}
 
 const modeKey = computed(() => lyricMap[translationMode.value])
 
@@ -394,6 +417,7 @@ onBeforeUnmount(() => {
   scrollbar-width: none;
   display: flex;
   flex-direction: column;
+  -webkit-app-region: no-drag;
 
   :deep(.lyric) {
     border-radius: 12px;
@@ -462,6 +486,8 @@ onBeforeUnmount(() => {
 
 .container:not(.mini) {
   text-align: center;
+  width: fit-content;
+  margin: 0 auto;
   :deep(.lyric:first-of-type) {
     margin-top: 40vh !important;
   }

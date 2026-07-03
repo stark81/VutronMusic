@@ -298,9 +298,6 @@ function initOSDWindowIpcMain(win: BrowserWindow, lrc: { [key: string]: Function
     store.set('osdWin.isLock', isLock)
     lrc.toggleMouseIgnore()
   })
-  ipcMain.on('window-drag', (event, data: any) => {
-    lrc.dragOsdWindow(data)
-  })
   ipcMain.on('windowMouseleave', () => {
     lrc.windowMouseleave()
   })

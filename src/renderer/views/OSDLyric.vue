@@ -4,6 +4,8 @@
     :class="{ 'is-lock': isLock }"
     :style="{ backgroundColor: bground.bg }"
     @mouseenter="hover = true"
+    @mouseleave="onMouseLeave"
+    @mousemove="onMouseMove"
   >
     <div v-show="!isLock">
       <Header v-show="hover" :class="{ lock: isLock }" :style="headerStyle" />
@@ -31,7 +33,7 @@ import Header from '../components/OsdHeader.vue'
 import LyricContainer from '../components/OsdLyricContainer.vue'
 import SvgIcon from '../components/SvgIcon.vue'
 import { useOsdLyricStore } from '../store/osdLyric'
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 
 const isLinux = window.env?.isLinux
 
@@ -63,6 +65,27 @@ const handleLock = () => {
   isLock.value = !isLock.value
 }
 
+let mouseLeaveTimer: ReturnType<typeof setTimeout> | null = null
+const MOUSE_LEAVE_TIMEOUT = 2000
+const onWindowBlur = () => {
+  hover.value = false
+}
+
+const onMouseLeave = () => {
+  if (mouseLeaveTimer) clearTimeout(mouseLeaveTimer)
+  mouseLeaveTimer = null
+  hover.value = false
+  window.mainApi?.send('windowMouseleave')
+}
+
+const onMouseMove = () => {
+  if (mouseLeaveTimer) clearTimeout(mouseLeaveTimer)
+  mouseLeaveTimer = setTimeout(() => {
+    window.mainApi?.send('windowMouseleave')
+    mouseLeaveTimer = null
+  }, MOUSE_LEAVE_TIMEOUT)
+}
+
 document.addEventListener('mouseleave', () => {
   window.mainApi?.send('windowMouseleave')
 })
@@ -85,6 +108,12 @@ onMounted(() => {
   if (isLinux) {
     isLock.value = false
   }
+  window.addEventListener('blur', onWindowBlur)
+})
+
+onBeforeUnmount(() => {
+  if (mouseLeaveTimer) clearTimeout(mouseLeaveTimer)
+  window.removeEventListener('blur', onWindowBlur)
 })
 </script>
 
@@ -96,6 +125,7 @@ onMounted(() => {
   transition: all 0.3s ease;
   height: 100vh;
   padding: 10px 20px;
+  -webkit-app-region: drag;
 }
 
 .header {

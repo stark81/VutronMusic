@@ -71,6 +71,9 @@ onMounted(() => {
   align-items: center;
   position: relative;
   opacity: 0.7;
+  width: fit-content;
+  margin: 0 auto;
+  -webkit-app-region: no-drag;
 }
 
 .btn {

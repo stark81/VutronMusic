@@ -89,59 +89,12 @@ contextBridge.exposeInMainWorld('env', {
   isWindows: process.platform === 'win32'
 })
 
-const throttle = (func: Function, limit: number) => {
-  let inThrottle: boolean
-
-  return function (...args: any[]) {
-    if (!inThrottle) {
-      // @ts-ignore
-      func.apply(this, args)
-      inThrottle = true
-      setTimeout(() => (inThrottle = false), limit)
-    }
-  }
-}
-
 document.addEventListener('DOMContentLoaded', () => {
-  const titleBar = document.getElementById('titleBar')
-  let isDragging = false
   let timeoutId: any = null
   let lastMoveTime: number = 0
 
   const root = document.querySelector('#main') as HTMLElement
   const lockEl = document.querySelector('#osd-lock') as HTMLElement
-
-  // 监控鼠标按下事件，用来处理窗口移动，以避免设置元素的drag导致无法相应鼠标hover
-  titleBar?.addEventListener('mousedown', (e: MouseEvent) => {
-    // @ts-ignore
-    if (!e.target?.classList.contains('header')) return
-
-    e.preventDefault()
-    isDragging = true
-
-    const startX = e.clientX
-    const startY = e.clientY
-    const startHeight = window.innerHeight
-    const startWidth = window.innerWidth
-
-    const onMouseMove = throttle((e: MouseEvent) => {
-      if (!isDragging) return
-      titleBar.style.cursor = 'move'
-      const dx = e.clientX - startX
-      const dy = e.clientY - startY
-      ipcRenderer.send('window-drag', { dx, dy, startHeight, startWidth })
-    }, 16)
-
-    const onMouseUp = () => {
-      isDragging = false
-      titleBar.style.cursor = 'unset'
-      document.removeEventListener('mousemove', onMouseMove)
-      document.removeEventListener('mouseup', onMouseUp)
-    }
-
-    document.addEventListener('mousemove', onMouseMove)
-    document.addEventListener('mouseup', onMouseUp)
-  })
 
   lockEl?.addEventListener('mouseenter', () => {
     ipcRenderer.send('set-ignore-mouse', false)
