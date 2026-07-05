@@ -53,8 +53,7 @@ import { usePlayerThemeStore } from '../store/playerTheme'
 import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
 import LyricLine from './LyricLine.vue'
-import { prewarmMeasureCache } from '../utils/lyricMeasure'
-import type { lyricLine, word } from '@/types/music.d'
+import { collectUniqueWords, prewarmMeasureCache } from '../utils/lyricMeasure'
 
 const props = defineProps({
   hover: { type: Boolean, default: false },
@@ -129,23 +128,6 @@ const offsetText = computed(() => {
 const setOffset = (offset: number) => {
   lyricStore.setOffset(offset)
   showToast(`歌词偏移: ${offset > 0 ? '延后' : '提前'}${Math.abs(offset)}s`)
-}
-
-function collectUniqueWords(lyrics: lyricLine[], translationMode: string): string[] {
-  const wordSet = new Set<string>()
-  for (const line of lyrics) {
-    if (line.lyric?.info) {
-      for (const w of line.lyric.info) wordSet.add(w.word)
-    }
-    if (translationMode !== 'none') {
-      const transKey = translationMode as keyof lyricLine
-      const trans = line[transKey] as { text: string; info?: word[] } | undefined
-      if (trans?.info) {
-        for (const w of trans.info) wordSet.add(w.word)
-      }
-    }
-  }
-  return Array.from(wordSet)
 }
 
 const scheduleAnimation = async (type: 'all' | 'translation' = 'all') => {

@@ -38,10 +38,12 @@ import { useNormalStateStore } from './store/state'
 import { usePluginMusic } from './store/pluginMusic'
 import { storeToRefs } from 'pinia'
 import Utils from './utils'
+import { prewarmMeasureCache, collectUniqueWords } from './utils/lyricMeasure'
 import { useRoute } from 'vue-router'
 import { type ProgressInfo } from 'electron-updater'
 import router from './router'
 import eventBus from './utils/eventBus'
+import { usePlayerThemeStore } from './store/playerTheme'
 
 const pluginMusicStore = usePluginMusic()
 const { services, enableLibrary, enableStream, enableLocal } = storeToRefs(pluginMusicStore)
@@ -68,6 +70,22 @@ const stateStore = useNormalStateStore()
 const { extensionCheckResult, showLyrics, isDownloading } = storeToRefs(stateStore)
 const { showToast, checkUpdate, registerInstance, unregisterInstance, updateScroll, getFontList } =
   stateStore
+
+// 提前预热歌词文字宽度缓存，避免首次打开歌词页卡顿
+const playerThemeStore = usePlayerThemeStore()
+const { themes } = storeToRefs(playerThemeStore)
+watch(
+  () => playerStore.lyrics,
+  (newLyrics) => {
+    if (!newLyrics?.length) return
+    const words = collectUniqueWords(newLyrics, 'tlyric')
+    if (words.length) {
+      const font = themes.value.Classic[0]?.theme.senses.Classic.lyric.font || 'system-ui'
+      const fontSize = themes.value.Classic[0]?.theme.senses.Classic.lyric.fontSize || 28
+      prewarmMeasureCache(words, font, fontSize)
+    }
+  }
+)
 
 const enableMap = { library: enableLibrary, stream: enableStream, local: enableLocal }
 

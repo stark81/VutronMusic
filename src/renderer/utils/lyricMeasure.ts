@@ -1,7 +1,26 @@
+import type { lyricLine, word } from '@/types/music.d'
+
 const canvas = document.createElement('canvas')
 const ctx = canvas.getContext('2d')!
 
 const cache = new Map<string, number>()
+
+export function collectUniqueWords(lyrics: lyricLine[], translationMode: string): string[] {
+  const wordSet = new Set<string>()
+  for (const line of lyrics) {
+    if (line.lyric?.info) {
+      for (const w of line.lyric.info) wordSet.add(w.word)
+    }
+    if (translationMode !== 'none') {
+      const transKey = translationMode as keyof lyricLine
+      const trans = line[transKey] as { text: string; info?: word[] } | undefined
+      if (trans?.info) {
+        for (const w of trans.info) wordSet.add(w.word)
+      }
+    }
+  }
+  return Array.from(wordSet)
+}
 
 export function measureWords(
   words: string[],
