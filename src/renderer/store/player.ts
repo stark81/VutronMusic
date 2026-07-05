@@ -195,7 +195,12 @@ export const usePlayerStore = defineStore(
     const lyrics = computed({
       get: () => lyricStore.lyrics,
       set: (value) => {
-        lyricStore.lyrics = value.filter((item) => !!item.lyric.text)
+        lyricStore.lyrics = value
+          .filter((item) => !!item.lyric.text)
+          .map((item) => ({
+            ...item,
+            lyric: { ...item.lyric, text: item.lyric.text.replace(/\s{2,}/g, ' ') },
+          }))
       }
     })
     const currentIndex = computed(() => lyricStore.currentIndex)
