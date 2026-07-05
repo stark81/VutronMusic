@@ -43,7 +43,7 @@
   </div>
 </template>
 <script lang="ts" setup>
-import { computed, watch, ref, nextTick } from 'vue'
+import { computed, watch, ref, nextTick, onUnmounted } from 'vue'
 import SvgIcon from './SvgIcon.vue'
 import { useNormalStateStore } from '../store/state'
 import { storeToRefs } from 'pinia'
@@ -251,6 +251,10 @@ const handleVisibilityChange = () => {
   }
 }
 
+const isTargetInside = (target: Node) => {
+  return rootRef.value?.contains(target) || dropdownRef.value?.contains(target)
+}
+
 watch(dropdownVisible, (visible) => {
   if (visible) {
     enableScrolling.value = false
@@ -269,6 +273,12 @@ watch(dropdownVisible, (visible) => {
     window.removeEventListener('visibilitychange', handleVisibilityChange)
     dropdownStyle.value = {}
   }
+})
+
+defineExpose({ isTargetInside })
+
+onUnmounted(() => {
+  enableScrolling.value = true
 })
 </script>
 

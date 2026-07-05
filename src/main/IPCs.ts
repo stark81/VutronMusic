@@ -17,10 +17,12 @@ import {
   restoreAllLocalMusic,
   findTrackIdBySourceContext,
   findTrackSourcesByTrackId,
+  findLocalTrackAudio,
   insertTrackSourceOnce,
   upsertTrackSource,
   checkTrackSourceExists,
   updateTrackPicUrl,
+  updateAlbumPicUrlByTrackId,
   refreshPlaylistCoverAfterMatch,
   deleteAllLocalMusicData,
   saveCacheResult,
@@ -1116,11 +1118,21 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
 
       const cached = findCachedAudio(String(track.id), audioCachePath)
 
-      if (cached?.filePath) {
+      if (cached?.filePath && fs.existsSync(cached.filePath)) {
         return {
           url: [`vutron://local-asset?type=stream&path=${cached.filePath}`],
           replayGain: cached.gain,
           peak: cached.peak
+        }
+      }
+
+      if (cached?.filePath && !fs.existsSync(cached.filePath)) {
+        deleteCacheAudio(String(cached.id))
+        const libPluginIds = [...pluginManager.plugins.entries()]
+          .filter(([, p]) => p.meta.type === 'library')
+          .map(([id]) => id)
+        if (libPluginIds.length) {
+          deleteCacheTrackSources(String(track.id), libPluginIds)
         }
       }
 
@@ -1157,33 +1169,43 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     }
   )
 
-  ipcMain.handle('accurateMatch', (event, { trackId, pluginId, sourceContext, picUrl }) => {
-    insertTrackSourceOnce(trackId, pluginId, JSON.stringify(sourceContext))
-    if (picUrl) updateTrackPicUrl(trackId, picUrl)
-    refreshPlaylistCoverAfterMatch(trackId, picUrl)
-    return { code: 200 }
-  })
+  ipcMain.handle(
+    'accurateMatch',
+    (event, { trackId, pluginId, sourceContext, picUrl, currentPlayingPath }) => {
+      // 检查匹配到的 sourceContext 是否已关联到其他 trackId
+      const existingTrackId = findTrackIdBySourceContext(pluginId, sourceContext)
+      const effectiveTrackId =
+        existingTrackId && existingTrackId !== trackId ? existingTrackId : trackId
 
-  ipcMain.handle('deleteACacheTrack', (event, trackId: string) => {
-    const audioCachePath =
-      (store.get('settings.autoCacheTrack.path') as string) ||
-      path.join(app.getPath('userData'), 'audioCache')
-    try {
-      const audio = findCachedAudio(trackId, audioCachePath)
-      if (audio?.filePath) {
-        fs.promises.unlink(audio.filePath).catch(() => {})
-        deleteCacheAudio(String(audio.id))
+      insertTrackSourceOnce(effectiveTrackId, pluginId, JSON.stringify(sourceContext))
+      if (picUrl) {
+        updateTrackPicUrl(effectiveTrackId, picUrl)
+        updateAlbumPicUrlByTrackId(effectiveTrackId, picUrl)
       }
-      // 删除对应的 TrackSource（仅清理 library 插件，保留 local/stream 映射）
-      const libraryPluginIds = [...pluginManager.plugins.entries()]
-        .filter(([, p]) => p.meta.type === 'library')
-        .map(([id]) => id)
-      deleteCacheTrackSources(trackId, libraryPluginIds)
-      return true
-    } catch {
-      return false
+      refreshPlaylistCoverAfterMatch(effectiveTrackId, picUrl)
+
+      // 写入封面：仅对本地歌曲触发
+      if (picUrl) {
+        const audioInfo = findLocalTrackAudio(trackId)
+        if (audioInfo) {
+          const embedOption = (store.get('settings.embedCoverArt') as number) || 0
+          const embedStyle = (store.get('settings.embedStyle') as number) || 0
+          if (embedOption !== 0) {
+            coverWorker.postMessage({
+              type: 'normal',
+              filePath: audioInfo.filePath,
+              picUrl,
+              embedOption,
+              embedStyle,
+              currentPlayingPath: currentPlayingPath ?? null
+            })
+          }
+        }
+      }
+
+      return { code: 200, picUrl: picUrl ?? null }
     }
-  })
+  )
 
   ipcMain.handle('check-update', async () => {
     const info = await checkUpdate()
@@ -1426,29 +1448,43 @@ async function initPluginIpcMain() {
         sourcePlugin?: string
         sourceType?: string // 'local' | 'stream' | 'library'
         sourceContext?: Record<string, any>
+        currentPlayingPath?: string | null
       }
     ) => {
-      const { trackId, name, album, artists, duration, sourcePlugin, sourceType, sourceContext } =
-        params
+      const {
+        trackId,
+        name,
+        album,
+        artists,
+        duration,
+        sourcePlugin,
+        sourceType,
+        sourceContext,
+        currentPlayingPath
+      } = params
       const results: { pluginId: string; matched: number; confidence: number }[] = []
+      // 匹配过程中可能发现的 canonical trackId（来自已有的 TrackSource 记录）
+      let effectiveTrackId = trackId
+      // 收集首次匹配成功的封面 URL，用于 write-cover
+      let matchedPicUrl: string | null = null
 
       if (sourceType === 'library') return { code: 200, data: results }
 
-      // 写入来源自身 TrackSource（local 已在扫描时写入，INSERT OR IGNORE 会跳过）
-      if (sourcePlugin && sourceType && sourceType !== 'library') {
-        insertTrackSourceOnce(trackId, sourcePlugin, JSON.stringify(sourceContext ?? {}))
-      }
-
       // trackMatch 仅匹配 library 类插件
       const pluginEnable = store.get('pluginEnable') as PluginEnableState
-      if (!pluginEnable.library) return { code: 200, data: results }
+      if (!pluginEnable.library) {
+        if (sourcePlugin && sourceType && sourceType !== 'library') {
+          insertTrackSourceOnce(effectiveTrackId, sourcePlugin, JSON.stringify(sourceContext ?? {}))
+        }
+        return { code: 200, data: results }
+      }
 
       for (const [pluginId, instance] of pluginManager.plugins) {
         const meta = instance.meta
         if (meta.type !== 'library') continue
         if (!meta.capabilities?.matchTrack) continue
 
-        if (checkTrackSourceExists(trackId, pluginId)) continue
+        if (checkTrackSourceExists(effectiveTrackId, pluginId)) continue
 
         try {
           const result = await instance.call('matchTrack', {
@@ -1472,8 +1508,18 @@ async function initPluginIpcMain() {
           }
 
           try {
+            // 检查匹配到的 library sourceContext 是否已关联到其他 trackId
+            const existingTrackId = findTrackIdBySourceContext(pluginId, result.data.sourceContext)
+
+            if (existingTrackId && existingTrackId !== effectiveTrackId) {
+              // 已有其他 trackId 关联了同一个 library 来源 → 沿用 canonical trackId
+              effectiveTrackId = existingTrackId
+              // canonical trackId 可能已存在该 plugin 的匹配记录
+              if (checkTrackSourceExists(effectiveTrackId, pluginId)) continue
+            }
+
             upsertTrackSource(
-              trackId,
+              effectiveTrackId,
               pluginId,
               JSON.stringify(result.data.sourceContext ?? {}),
               matched
@@ -1481,7 +1527,9 @@ async function initPluginIpcMain() {
 
             // 匹配成功且返回了封面时，更新本地歌曲的 picUrl
             if (result.data.picUrl) {
-              updateTrackPicUrl(trackId, result.data.picUrl)
+              updateTrackPicUrl(effectiveTrackId, result.data.picUrl)
+              updateAlbumPicUrlByTrackId(effectiveTrackId, result.data.picUrl)
+              if (!matchedPicUrl) matchedPicUrl = result.data.picUrl
             }
 
             results.push({ pluginId, matched, confidence })
@@ -1494,7 +1542,31 @@ async function initPluginIpcMain() {
         }
       }
 
-      return { code: 200, data: results }
+      // 匹配完成后，用最终的 effectiveTrackId 写入自身来源
+      if (sourcePlugin && sourceType && sourceType !== 'library') {
+        insertTrackSourceOnce(effectiveTrackId, sourcePlugin, JSON.stringify(sourceContext ?? {}))
+      }
+
+      // 写入封面：仅对本地歌曲、且匹配到了封面时触发
+      if (sourceType === 'local' && matchedPicUrl) {
+        const audioInfo = findLocalTrackAudio(trackId)
+        if (audioInfo) {
+          const embedOption = (store.get('settings.embedCoverArt') as number) || 0
+          const embedStyle = (store.get('settings.embedStyle') as number) || 0
+          if (embedOption !== 0) {
+            coverWorker.postMessage({
+              type: 'normal',
+              filePath: audioInfo.filePath,
+              picUrl: matchedPicUrl,
+              embedOption,
+              embedStyle,
+              currentPlayingPath: currentPlayingPath ?? null
+            })
+          }
+        }
+      }
+
+      return { code: 200, data: results, picUrl: matchedPicUrl }
     }
   )
 
@@ -1541,7 +1613,6 @@ async function initPluginIpcMain() {
         // 自身插件兜底
         candidates.push({ pluginId, ctx: { ...rawCtx } })
 
-        // 按匹配度 + 用户优先级排序
         const priority: string[] = store.get('settings.sourcePriority.comment', ['self'])
         const resolved = priority.map((p) => (p === 'self' ? pluginId : p))
         candidates.sort((a, b) => {
@@ -1630,7 +1701,11 @@ async function initPluginIpcMain() {
       candidates.push({ pluginId, ctx: { ...rawCtx } })
 
       // 按匹配度 + 用户优先级排序
-      const priority: string[] = store.get('settings.sourcePriority.lyric', ['self'])
+      // library 类型插件调用时，self 不参与排序
+      const callingPluginType = pluginManager.get(pluginId)?.meta?.type
+      const rawPriority: string[] = store.get('settings.sourcePriority.lyric', ['self'])
+      const priority =
+        callingPluginType === 'library' ? rawPriority.filter((p) => p !== 'self') : rawPriority
       const resolved = priority.map((p) => (p === 'self' ? pluginId : p))
       candidates.sort((a, b) => {
         const ma = matchedMap.get(a.pluginId) ?? 0

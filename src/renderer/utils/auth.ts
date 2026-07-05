@@ -1,7 +1,6 @@
 import Cookies from 'js-cookie'
 import { logout } from '../api/auth'
 import { useDataStore } from '../store/data'
-import { storeToRefs } from 'pinia'
 
 export function setCookies(string: string) {
   const cookies = string.split(';;')
@@ -56,16 +55,9 @@ export function isLooseLoggedIn() {
 
 export function doLogout() {
   const { resetUserInfo, resetLiked } = useDataStore()
-  const { user } = storeToRefs(useDataStore())
-  window.mainApi?.invoke('logout', user.value.userId).then((res: boolean) => {
-    if (res) {
-      logout()
-      removeCookie('MUSIC_U')
-      removeCookie('__csrf')
-      resetUserInfo()
-      resetLiked()
-    } else {
-      console.log('logout failed')
-    }
-  })
+  logout()
+  removeCookie('MUSIC_U')
+  removeCookie('__csrf')
+  resetUserInfo()
+  resetLiked()
 }

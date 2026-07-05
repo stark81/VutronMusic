@@ -140,7 +140,7 @@
         :items="filterTracks"
         type="Playlist"
         :plugin="pluginId"
-        :source-context="{ ...playlist.sourceContext }"
+        :source-context="{ ...playlist.sourceContext, pluginType }"
         :colunm-number="1"
         :show-service="playlistType.includes('liked')"
         :show-position="true"

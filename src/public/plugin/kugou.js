@@ -1926,6 +1926,7 @@ exports.search = async (params) => {
  */
 exports.matchTrack = async (params) => {
   try {
+    if (!user.token || !user.userId) return { code: 404 }
     const kw = `${params.name} ${params.artists[0] || ''}`
     const result = await get('search', { keywords: kw, page: 1, type: 'song' })
     if (!result.data || !result.data.lists || !result.data.lists.length) return { code: 404 }
@@ -1950,7 +1951,7 @@ exports.matchTrack = async (params) => {
         duration: best.track.duration,
         artists: best.track.artists,
         album: best.track.album,
-        picUrl: best.track.picUrl || best.track.album.picUrl,
+        picUrl: best.track.album.picUrl || best.track.picUrl,
         sourceContext: best.track.sourceContext,
         confidence: best._score
       }

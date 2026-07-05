@@ -203,7 +203,7 @@ export interface YPMTray {
   setContextMenu: () => void
   setPlayState: (isPlaying: boolean) => void
   setLikeState: (isLiked: boolean) => void
-  setRepeatMode: (repeat: string) => void
+  setRepeatMode: (repeat: 'on' | 'one' | 'off') => void
   setShuffleMode: (isShuffle: boolean) => void
   setShowOSD: (show: boolean) => void
   setOSDLock: (lock: boolean) => void
@@ -239,7 +239,7 @@ class TrayImpl implements YPMTray {
       const image = getIconPath().resize({ height: 20, width: 20 })
       this._tray = new Tray(image)
     }
-    this._tray.on('click', (event, bounds, position) => {
+    this._tray?.on('click', (event, bounds, position) => {
       if (Constants.IS_MAC) {
         this._win.webContents.send('handleTrayClick', { event, bounds, position })
       } else {
@@ -250,7 +250,7 @@ class TrayImpl implements YPMTray {
 
   destroyTray() {
     if (this._tray) {
-      this._tray.destroy()
+      this._tray?.destroy()
       this._tray = null
     }
   }
@@ -260,13 +260,13 @@ class TrayImpl implements YPMTray {
     if (!this._tray) this.createTray()
     const image = nativeImage.createFromDataURL(img).resize({ height, width })
     image.setTemplateImage(true)
-    this._tray.setImage(image)
+    this._tray?.setImage(image)
   }
 
   updateTrayColor() {
     if (!this._tray || Constants.IS_MAC) return
     const icon = getIconPath()
-    this._tray.setImage(icon.resize({ height: 20, width: 20 }))
+    this._tray?.setImage(icon.resize({ height: 20, width: 20 }))
   }
 
   show() {
@@ -278,59 +278,59 @@ class TrayImpl implements YPMTray {
     if (setMenu) {
       const template = createMenuTemplate(this._win)
       this._contextMenu = Menu.buildFromTemplate(template)
-      this._tray.setContextMenu(this._contextMenu)
+      this._tray?.setContextMenu(this._contextMenu)
     } else {
       this._contextMenu = null
-      this._tray.setContextMenu(null)
+      this._tray?.setContextMenu(null)
     }
   }
 
   setShowOSD(show: boolean) {
     if (!this._contextMenu) return
-    this._contextMenu.getMenuItemById('openOSD').visible = !show
-    this._contextMenu.getMenuItemById('closeOSD').visible = show
-    this._tray.setContextMenu(this._contextMenu)
+    this._contextMenu.getMenuItemById('openOSD')!.visible = !show
+    this._contextMenu.getMenuItemById('closeOSD')!.visible = show
+    this._tray?.setContextMenu(this._contextMenu)
   }
 
   setOSDLock(lock: boolean) {
     isOSDLock = lock
     if (!this._contextMenu) return
-    this._contextMenu.getMenuItemById('lockOSD').visible = !lock
-    this._contextMenu.getMenuItemById('unlockOSD').visible = lock
-    this._tray.setContextMenu(this._contextMenu)
+    this._contextMenu.getMenuItemById('lockOSD')!.visible = !lock
+    this._contextMenu.getMenuItemById('unlockOSD')!.visible = lock
+    this._tray?.setContextMenu(this._contextMenu)
   }
 
   setPlayState(isPlaying: boolean) {
     playState = isPlaying || false
     if (!this._contextMenu) return
-    this._contextMenu.getMenuItemById('play').visible = !isPlaying
-    this._contextMenu.getMenuItemById('pause').visible = isPlaying
-    this._tray.setContextMenu(this._contextMenu)
+    this._contextMenu.getMenuItemById('play')!.visible = !isPlaying
+    this._contextMenu.getMenuItemById('pause')!.visible = isPlaying
+    this._tray?.setContextMenu(this._contextMenu)
   }
 
   setLikeState(isLiked: boolean) {
     if (!this._contextMenu) return
-    this._contextMenu.getMenuItemById('like').visible = !isLiked
-    this._contextMenu.getMenuItemById('unlike').visible = isLiked
-    this._tray.setContextMenu(this._contextMenu)
+    this._contextMenu.getMenuItemById('like')!.visible = !isLiked
+    this._contextMenu.getMenuItemById('unlike')!.visible = isLiked
+    this._tray?.setContextMenu(this._contextMenu)
   }
 
   setRepeatMode(mode: 'on' | 'one' | 'off') {
     repeatMode = mode
     if (!this._contextMenu) return
-    this._contextMenu.getMenuItemById(repeatMode).checked = true
-    this._tray.setContextMenu(this._contextMenu)
+    this._contextMenu.getMenuItemById(repeatMode)!.checked = true
+    this._tray?.setContextMenu(this._contextMenu)
   }
 
   setShuffleMode(isShuffle: boolean) {
     shuffleMode = isShuffle
     if (!this._contextMenu) return
-    this._contextMenu.getMenuItemById('shuffle').checked = isShuffle
-    this._tray.setContextMenu(this._contextMenu)
+    this._contextMenu.getMenuItemById('shuffle')!.checked = isShuffle
+    this._tray?.setContextMenu(this._contextMenu)
   }
 
   updateTooltip(title: string) {
-    if (!Constants.IS_MAC) this._tray.setToolTip(title)
+    if (!Constants.IS_MAC) this._tray?.setToolTip(title)
   }
 }
 

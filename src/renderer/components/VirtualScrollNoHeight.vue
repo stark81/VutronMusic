@@ -275,7 +275,7 @@ const scrollTocurrent = (index: number, behavior: ScrollBehavior = 'smooth') => 
   } else {
     top = position.value[idx * props.columnNumber]?.top || 0
   }
-  listRef.value.scrollTo({ top, behavior })
+  listRef.value?.scrollTo({ top, behavior })
 
   if (idx < 0 && index < startRow.value) {
     let isScrolling = true

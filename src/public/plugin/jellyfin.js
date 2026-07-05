@@ -160,6 +160,11 @@ const getPlaylistDetail = async (params) => {
 }
 
 const formatTrack = (item, size = 512, showPlayCount = true) => {
+  const sourceContext = {
+    id: item.Id,
+    PlaylistItemId: item.PlaylistItemId || ''
+  }
+
   return {
     id: item.Id ?? '',
     name: item.Name ?? '',
@@ -176,7 +181,7 @@ const formatTrack = (item, size = 512, showPlayCount = true) => {
       name: item.Album ?? '',
       picUrl: item.ImageTags?.Primary
         ? getPic(item.Id, 64)
-        : `http://localhost:41830/local-asset/default-cover?v=${item.AlbumId}`,
+        : `http://localhost:41830/stream-asset?sourceContext=${encodeURIComponent(JSON.stringify(sourceContext))}&size=${size}`,
       pluginId: '',
       sourceContext: { id: item.AlbumId ?? '' }
     },
@@ -197,13 +202,10 @@ const formatTrack = (item, size = 512, showPlayCount = true) => {
     size: item.MediaSources?.[0]?.Size || 0,
     picUrl: item.ImageTags?.Primary
       ? getPic(item.Id, size)
-      : `http://localhost:41830/local-asset/default-cover?v=${item.Id}`,
+      : `http://localhost:41830/stream-asset?sourceContext=${encodeURIComponent(JSON.stringify(sourceContext))}&size=${size}`,
     pluginId: '',
     type: meta.type,
-    sourceContext: {
-      id: item.Id,
-      PlaylistItemId: item.PlaylistItemId || ''
-    }
+    sourceContext
   }
 }
 
@@ -211,9 +213,7 @@ const formatAlbumDetail = (item) => {
   return {
     id: item.Id ?? '',
     name: item.Name ?? '',
-    picUrl: item.ImageTags?.Primary
-      ? getPic(item.Id, 512)
-      : `http://localhost:41830/local-asset/default-cover?v=${item.Id}`,
+    picUrl: item.ImageTags?.Primary ? getPic(item.Id, 512) : ``,
     type: 'Album',
     isExplicit: false,
     subscribed: item.UserData?.IsFavorite || false,
@@ -368,6 +368,8 @@ function handleLyric(json) {
 
 const get = async (url, params) => {
   try {
+    if (!user.token || !user.userId) throw new Error('Server Offline Or User Logout')
+
     const headers = {
       'X-Emby-Token': user.token,
       'X-Emby-Client': 'VutronMusic',
@@ -392,6 +394,7 @@ const get = async (url, params) => {
 }
 
 const post = async (url, data, header = null) => {
+  if (!user.token || !user.userId) throw new Error('Server Offline Or User Logout')
   const headers = {
     'X-Emby-Token': user.token,
     'X-Emby-Client': 'VutronMusic',
@@ -819,6 +822,12 @@ exports.albumDetail = async (params) => {
     result.tracks = tracks
 
     const data = formatAlbumDetail(result)
+    if (!data.picUrl) {
+      const picUrl = tracks[0].picUrl
+      const u = new URL(picUrl)
+      u.searchParams.set('size', `512`)
+      data.picUrl = u.href
+    }
     return { code: 200, data, sourceContext: { id } }
   } catch {
     return { code: 404, data: null }

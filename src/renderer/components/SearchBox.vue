@@ -1,6 +1,11 @@
 <template>
   <div ref="containerRef" class="container">
-    <CustomSelect v-if="showInput && options.length > 1" v-model="plugin" :options="options" />
+    <CustomSelect
+      v-if="showInput && options.length > 1"
+      ref="customSelectRef"
+      v-model="plugin"
+      :options="options"
+    />
     <div class="search-container">
       <div
         ref="searchIconRef"
@@ -25,9 +30,11 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import SvgIcon from './SvgIcon.vue'
-import { service } from '@/types/plugin'
 import CustomSelect from './CustomSelect.vue'
-import { STREAM_SENTINEL } from '@/types/schemas'
+import { useNormalStateStore } from '../store/state'
+import { storeToRefs } from 'pinia'
+
+const { enableScrolling } = storeToRefs(useNormalStateStore())
 
 const props = defineProps({
   showInputInitially: {
@@ -47,7 +54,7 @@ const props = defineProps({
     default: false
   },
   services: {
-    type: Array as () => service[],
+    type: Array as () => { code: string; name: string }[],
     default: () => []
   }
 })
@@ -60,17 +67,10 @@ const showInputWidth = ref(showInput.value ? props.inputWidth : 0)
 const showPadding = ref(showInput.value ? '4px' : '0px')
 const inputRef = ref<HTMLInputElement | null>(null)
 const containerRef = ref()
+const customSelectRef = ref()
 
-// 将 stream 类型合并为"流媒体"选项，library/local 保持独立
-const hasStream = computed(() => props.services.some((s) => s.type === 'stream'))
 const options = computed(() => {
-  const opts = props.services
-    .filter((s) => s.type !== 'stream')
-    .map((s) => ({ label: s.name, value: s.code }))
-  if (hasStream.value) {
-    opts.push({ label: '流媒体', value: STREAM_SENTINEL })
-  }
-  return opts
+  return props.services.map((s) => ({ label: s.name, value: s.code }))
 })
 
 const plugin = ref(props.services[0]?.code ?? '')
@@ -106,6 +106,8 @@ defineExpose({ keywords, plugin, showInput })
 
 const handleOutside = (e: MouseEvent) => {
   if (!containerRef.value?.contains(e.target as Node) && !keywords.value) {
+    if (customSelectRef.value?.isTargetInside(e.target as Node)) return
+    enableScrolling.value = true
     showInput.value = false
     showInputWidth.value = 0
     showPadding.value = '0px'

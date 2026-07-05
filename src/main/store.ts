@@ -20,6 +20,11 @@ export interface TypeElectronStore {
   settings: {
     [key: string]: any
   }
+  pluginEnable: {
+    library: boolean
+    stream: boolean
+    local: boolean
+  }
   accounts: {
     selected: string
     navidrome: {

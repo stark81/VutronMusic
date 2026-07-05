@@ -1,62 +1,37 @@
-# VutronMusic AI 编程规范
+---
+title: VutronMusic 文档
+last-reviewed: 2025-07-07
+---
 
-本文档为 AI 编码助手提供项目编程规范参考。
+# VutronMusic 文档
 
-## 规范文档索引
+**一个播放器，聚合所有来源。**
 
-| 文档 | 路径 | 内容 |
-| --- | --- | --- |
-| 数据库设计 | `docs/src/database/index.md` | 表结构、SQL 定义、业务规则、待定事项 |
-| 数据库迁移 | `docs/src/database/migrations.md` | 迁移机制、幂等初始化、版本追踪 |
-| 插件系统 | `docs/src/plugin-system/index.md` | 插件架构、Zod 验证、sourceContext 规范、60 方法 |
-| Store 模式 | `docs/src/stores/index.md` | Pinia Composition API 风格、持久化策略 |
-| 代码风格 | `docs/src/code-conventions/index.md` | Prettier/ESLint/TypeScript 配置 |
-| UI 设计 | `docs/src/ui-design/index.md` | 布局、组件、主题、样式规范 |
-| 插件开发快速参考 | `docs/src/plugin-development/index.md` | 新增插件步骤、已注册方法清单 |
-| 自动缓存歌曲实现 | `docs/src/cache-restore-plan.md` | 缓存 Worker、Plugins 表、超额清理策略 |
-| 重构状态 | `docs/src/migration-status.md` | 当前进度、待完善项、待定设计决策 |
+VutronMusic 是一款桌面音乐播放器，通过插件化架构将本地音乐、网易云、酷狗、Navidrome、Emby、Jellyfin 等多个来源聚合在一起。同一首歌可以同时拥有本地高品质文件、在线歌词、社区评论——三个来源各司其职，但对用户来说就是一首歌。
 
-## 快速参考
+VutronMusic 的文档分为三个维度：
 
-### 数据库核心概念
+| 维度 | 适合谁 | 内容 |
+|------|--------|------|
+| [产品文档](product/) | PM / 设计师 / 产品爱好者 | 功能设计、用户故事、设计哲学、方法论 |
+| [技术规格](spec/) | 开发者 / AI 编码助手 | 数据库 Schema、插件 API、架构、IPC 通道 |
+| [架构决策](adr/) | 所有读者 | 8 个 ADR：插件架构、TrackSource 设计、Worker 模型、SQLite Schema、插件演进、歌词渲染演进等 |
+| [排错指南](troubleshooting/) | 遇到问题的用户 | 症状→原因→解决方案，覆盖 DNS/Linux/TagLib |
+| [归档](archive/) | 想了解历史的开发者 | 项目记忆：旧设计、迁移记录、架构演变 |
 
-- canonical 实体表（Track/Album/Artist）只存储用户拥有的歌曲
-- sourceContext 是不透明 JSON 字符串，框架层不解析
-- 多源聚合：一首歌可有多个数据来源
-- Plugins 表：DB 驱动加载，内置 6 个插件种子数据
+> 💡 **为 AI / vibe-coding 准备**：会话启动时请先读 `AGENTS.md`（项目根目录），然后按任务类型查阅上表。
 
-### 插件调用链
+## 开发者速查
 
-```
-Renderer → mainApi.invoke('plugin-method-call', pluginId, methodName, ...args)
-         → Main process routes to plugin
-         → Zod schema validation
-         → Renderer receives typed result
-```
+| 命令 | 说明 |
+|------|------|
+| `yarn install` | 安装依赖 |
+| `yarn dev` | 开发模式（Vite HMR + Electron） |
+| `yarn build` | 生产构建 |
+| `yarn lint` | 代码检查 |
+| `cd docs && yarn dev` | 文档站本地预览 |
 
-### 当前插件方法与导出数
+## 项目地址
 
-- **已注册方法**：60 个（`defaultMap`），详见插件系统文档
-- 网易云：59 导出 | 酷狗：58 | 本地：58
-- Emby：33 | Jellyfin：33 | Navidrome：32 | Demo：61（全）
-
-### 代码风格
-
-- Prettier：无分号、单引号、无尾逗号、LF 换行、2 空格缩进
-- 路径别名：`@/*` → `./src/*`
-- Vue 组件：PascalCase 文件名
-- Store 文件：camelCase 文件名
-
-### UI 布局
-
-- SideNav（左侧）+ NavBar（顶部）+ PlayerBar（底部）+ PlayPage（全屏覆盖）
-- 毛玻璃效果：`backdrop-filter: saturate(180%) blur(20px)`
-- CSS 变量驱动主题切换
-
-## 使用说明
-
-1. 修改数据库 schema 前，先阅读 `docs/src/database/index.md`
-2. 开发插件前，先阅读 `docs/src/plugin-system/index.md`
-3. 创建 store 前，先阅读 `docs/src/stores/index.md`
-4. 开发 UI 组件前，先阅读 `docs/src/ui-design/index.md`
-5. 所有代码必须遵循 `docs/src/code-conventions/index.md` 中的规范
+- GitHub: [stark81/VutronMusic](https://github.com/stark81/VutronMusic)
+- 问题反馈: [Issues](https://github.com/stark81/VutronMusic/issues)

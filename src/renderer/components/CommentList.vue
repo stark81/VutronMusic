@@ -118,7 +118,7 @@ const mainRef = ref<HTMLElement>()
 const commentSubmitRef = ref<InstanceType<typeof WriteComment>>()
 const totalCount = ref(0)
 const sortType = ref('')
-const loadedTabPlugin = ref('')
+const loadedTabPlugin = ref(props.commentCtx.mapPlugin)
 const comments = ref<CommentType[]>([])
 const tabs = ref<CommentTab[]>([])
 const commentHeight = ref(mainRef.value?.offsetHeight || 0)
@@ -138,6 +138,9 @@ const capableComment = computed(() => {
 })
 const pluginName = computed(() => {
   return pluginStore.services.find((s) => s.code === commentCtx.mapPlugin)?.name || ''
+})
+const pluginType = computed(() => {
+  return pluginStore.services.find((s) => s.code === commentCtx.mapPlugin)!.type
 })
 
 window.mainApi
@@ -182,6 +185,11 @@ const loadComment = (reset = true) => {
   }
   if (!hasMore.value && !reset) return
 
+  // const mapCtx =
+  //   pluginType.value === 'library'
+  //     ? JSON.parse(JSON.stringify(commentCtx.rawCtx))
+  //     : JSON.parse(JSON.stringify(commentCtx.mapCtx))
+
   window.mainApi
     ?.invoke('plugin-comment', {
       pluginId: props.plugin,
@@ -200,6 +208,7 @@ const loadComment = (reset = true) => {
       comments.value.push(...result.data)
       totalCount.value = result.count
       hasMore.value = result.hasMore !== false
+      show.value = true
       if (result.mapPlugin) commentCtx.mapPlugin = result.mapPlugin
       if (result.mapCtx) commentCtx.mapCtx = result.mapCtx
       if (result.mapPlugin && result.mapPlugin !== loadedTabPlugin.value) {
@@ -223,7 +232,6 @@ const loadComment = (reset = true) => {
             }
           })
       }
-      show.value = true
       nextTick(() => {
         commentHeight.value = mainRef.value?.offsetHeight || commentHeight.value
       })

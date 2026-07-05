@@ -88,13 +88,41 @@ export function markAllLocalMusicDeleted() {
 }
 
 /**
+ * 末级清理：删除所有表中已无主实体引用的孤立记录。
+ * 应在 Track/Album/Artist 删除后调用。
+ */
+function cleanupOrphanRefs() {
+  db.sqlite.exec(
+    `DELETE FROM ${Tables.Album} WHERE id NOT IN (SELECT DISTINCT albumId FROM ${Tables.Track} WHERE albumId IS NOT NULL)`
+  )
+  db.sqlite.exec(
+    `DELETE FROM ${Tables.Artist} WHERE id NOT IN (SELECT DISTINCT artistId FROM ${Tables.TrackArtist})`
+  )
+  db.sqlite.exec(
+    `DELETE FROM ${Tables.ArtistAlbum} WHERE artistId NOT IN (SELECT id FROM ${Tables.Artist}) OR albumId NOT IN (SELECT id FROM ${Tables.Album})`
+  )
+  db.sqlite.exec(
+    `DELETE FROM ${Tables.AlbumSource} WHERE albumId NOT IN (SELECT id FROM ${Tables.Album})`
+  )
+  db.sqlite.exec(
+    `DELETE FROM ${Tables.ArtistSource} WHERE artistId NOT IN (SELECT id FROM ${Tables.Artist})`
+  )
+  db.sqlite.exec(
+    `DELETE FROM ${Tables.Lyrics} WHERE trackId NOT IN (SELECT id FROM ${Tables.Track})`
+  )
+  db.sqlite.exec(
+    `DELETE FROM ${Tables.LyricOffsets} WHERE trackId NOT IN (SELECT id FROM ${Tables.Track})`
+  )
+}
+
+/**
  * 清理缓存的 DB 记录（deleteExcessCache 使用）。
  *
  * 删除逻辑：
  * - 删除指定 Audio 记录
- * - 删除这些 trackId 的所有 TrackSource
- * - 删除已无 TrackSource 的孤立 Track（与其他插件共享的保留）
- * - 清理孤立的 Album/Artist/ArtistAlbum
+ * - 删除这些 trackId 的 library 类型 TrackSource
+ * - 删除已无 local 或 stream 来源的孤立 Track
+ * - 末级清理所有孤立引用
  */
 export function deleteCacheFromDB(audioIds: string[], trackIds: string[]) {
   if (audioIds.length === 0) return
@@ -104,11 +132,14 @@ export function deleteCacheFromDB(audioIds: string[], trackIds: string[]) {
     const ph = audioIds.map(() => '?').join(',')
     db.sqlite.prepare(`DELETE FROM ${Tables.Audio} WHERE id IN (${ph})`).run(...audioIds)
 
-    // 2. 删除这些 trackId 的所有 TrackSource
+    // 2. 删除这些 trackId 的 library 类型 TrackSource
     if (trackIds.length > 0) {
       const tph = trackIds.map(() => '?').join(',')
       db.sqlite
-        .prepare(`DELETE FROM ${Tables.TrackSource} WHERE trackId IN (${tph})`)
+        .prepare(
+          `DELETE FROM ${Tables.TrackSource} WHERE trackId IN (${tph})
+           AND pluginId IN (SELECT id FROM ${Tables.Plugins} WHERE type = 'library')`
+        )
         .run(...trackIds)
     }
 
@@ -140,16 +171,8 @@ export function deleteCacheFromDB(audioIds: string[], trackIds: string[]) {
       }
     }
 
-    // 4. 清理孤立的 Album/Artist/ArtistAlbum
-    db.sqlite.exec(
-      `DELETE FROM ${Tables.Album} WHERE id NOT IN (SELECT DISTINCT albumId FROM ${Tables.Track} WHERE albumId IS NOT NULL)`
-    )
-    db.sqlite.exec(
-      `DELETE FROM ${Tables.Artist} WHERE id NOT IN (SELECT DISTINCT artistId FROM ${Tables.TrackArtist})`
-    )
-    db.sqlite.exec(
-      `DELETE FROM ${Tables.ArtistAlbum} WHERE artistId NOT IN (SELECT id FROM ${Tables.Artist}) OR albumId NOT IN (SELECT id FROM ${Tables.Album})`
-    )
+    // 4. 末级清理所有孤立引用
+    cleanupOrphanRefs()
   })()
 }
 
@@ -157,10 +180,10 @@ export function deleteCacheFromDB(audioIds: string[], trackIds: string[]) {
  * 清空所有本地音乐数据（deleteLocalMusicDB 使用）。
  *
  * 删除逻辑：
- * - 删除所有 pluginId='local' 的 TrackSource
- * - 删除这些 trackId 关联的 Audio
- * - 删除仅由 local 来源的 Track（与其他插件共享的保留）
- * - 清理孤立的 Album/Artist/ArtistAlbum
+ * - 查出所有 local trackId 的 TrackSource（JOIN plugin type），JS 层预判孤立
+ * - 删除所有 pluginId='local' 的 TrackSource、Audio、Playlist、PlaylistEntry
+ * - 删除孤立 track（排除 local 后剩余全为 library）
+ * - 末级清理所有孤立引用
  */
 export function deleteAllLocalMusicData() {
   db.sqlite.transaction(() => {
@@ -173,45 +196,58 @@ export function deleteAllLocalMusicData() {
 
     const ph = localTrackIds.map(() => '?').join(',')
 
-    // 仅由 local 来源的 track（无其他插件来源），需要完全删除
-    const localOnlyIds = (
-      db.sqlite
-        .prepare(
-          `SELECT DISTINCT ts.trackId FROM ${Tables.TrackSource} ts
-           WHERE ts.trackId IN (${ph}) AND ts.pluginId = 'local'
-           AND NOT EXISTS (
-             SELECT 1 FROM ${Tables.TrackSource} ts2
-             WHERE ts2.trackId = ts.trackId AND ts2.pluginId != 'local'
-           )`
-        )
-        .all(...localTrackIds) as { trackId: string }[]
-    ).map((r) => r.trackId)
+    // 1. 查出这些 trackId 的所有 TrackSource（JOIN Plugins 获取 type），用于孤立预判
+    const allSources = db.sqlite
+      .prepare(
+        `SELECT ts.trackId, p.type FROM ${Tables.TrackSource} ts
+         JOIN ${Tables.Plugins} p ON ts.pluginId = p.id
+         WHERE ts.trackId IN (${ph})`
+      )
+      .all(...localTrackIds) as { trackId: string; type: string }[]
 
-    // 删除所有 local 来源的 TrackSource
-    db.sqlite.prepare(`DELETE FROM ${Tables.TrackSource} WHERE pluginId = 'local'`).run()
-
-    // 删除 local 来源的 Audio
-    db.sqlite.prepare(`DELETE FROM ${Tables.Audio} WHERE trackId IN (${ph})`).run(...localTrackIds)
-
-    // 删除仅由 local 来源的 Track 及其关联
-    if (localOnlyIds.length > 0) {
-      const phOnly = localOnlyIds.map(() => '?').join(',')
-      db.sqlite
-        .prepare(`DELETE FROM ${Tables.TrackArtist} WHERE trackId IN (${phOnly})`)
-        .run(...localOnlyIds)
-      db.sqlite.prepare(`DELETE FROM ${Tables.Track} WHERE id IN (${phOnly})`).run(...localOnlyIds)
+    // 2. JS 层按 trackId 分组，排除 local 后判断是否只剩 library
+    const sourceMap = new Map<string, Set<string>>()
+    for (const row of allSources) {
+      const types = sourceMap.get(row.trackId) || new Set()
+      types.add(row.type)
+      sourceMap.set(row.trackId, types)
     }
 
-    // 清理孤立的 Album 和 Artist
-    db.sqlite.exec(
-      `DELETE FROM ${Tables.Album} WHERE id NOT IN (SELECT DISTINCT albumId FROM ${Tables.Track} WHERE albumId IS NOT NULL)`
-    )
-    db.sqlite.exec(
-      `DELETE FROM ${Tables.Artist} WHERE id NOT IN (SELECT DISTINCT artistId FROM ${Tables.TrackArtist})`
-    )
-    db.sqlite.exec(
-      `DELETE FROM ${Tables.ArtistAlbum} WHERE artistId NOT IN (SELECT id FROM ${Tables.Artist}) OR albumId NOT IN (SELECT id FROM ${Tables.Album})`
-    )
+    const orphanTrackIds: string[] = []
+    for (const [trackId, types] of sourceMap) {
+      // 排除 local 后，无剩余来源或只剩 library → 孤立
+      const remaining = new Set([...types].filter((t) => t !== 'local'))
+      if (remaining.size === 0 || [...remaining].every((t) => t === 'library')) {
+        orphanTrackIds.push(trackId)
+      }
+    }
+
+    // 3. 删除 local 来源的 TrackSource
+    db.sqlite.prepare(`DELETE FROM ${Tables.TrackSource} WHERE pluginId = 'local'`).run()
+
+    // 4. 删除 local 来源的 Audio
+    db.sqlite.prepare(`DELETE FROM ${Tables.Audio} WHERE trackId IN (${ph})`).run(...localTrackIds)
+
+    // 5. 删除 local 来源的 Playlist + PlaylistEntry
+    db.sqlite.prepare(`DELETE FROM ${Tables.PlaylistEntry} WHERE pluginId = 'local'`).run()
+    db.sqlite.prepare(`DELETE FROM ${Tables.Playlist} WHERE pluginId = 'local'`).run()
+
+    // 6. 删除孤立 track（剩余 TrackSource + TrackArtist + Track）
+    if (orphanTrackIds.length > 0) {
+      const phOnly = orphanTrackIds.map(() => '?').join(',')
+      db.sqlite
+        .prepare(`DELETE FROM ${Tables.TrackSource} WHERE trackId IN (${phOnly})`)
+        .run(...orphanTrackIds)
+      db.sqlite
+        .prepare(`DELETE FROM ${Tables.TrackArtist} WHERE trackId IN (${phOnly})`)
+        .run(...orphanTrackIds)
+      db.sqlite
+        .prepare(`DELETE FROM ${Tables.Track} WHERE id IN (${phOnly})`)
+        .run(...orphanTrackIds)
+    }
+
+    // 7. 末级清理所有孤立引用
+    cleanupOrphanRefs()
   })()
 }
 
@@ -308,6 +344,21 @@ export function findTrackSourcesByTrackId(trackId: string) {
         'SELECT pluginId, sourceContext, matched FROM TrackSource WHERE trackId = ? ORDER BY matched DESC'
       )
       .all(trackId) as { pluginId: string; sourceContext: string; matched: number }[]
+  } catch {
+    return []
+  }
+}
+
+/** 根据 sourceContext 反查 TrackSource：先通过 sourceContext.id 找到 canonical trackId，再返回该 trackId 的所有来源 */
+export function findTrackSourcesBySourceContext(sourceContext: Record<string, any>) {
+  try {
+    const ctxStr = JSON.stringify(sourceContext)
+    const row = db.sqlite
+      .prepare('SELECT trackId FROM TrackSource WHERE sourceContext = ? LIMIT 1')
+      .get(ctxStr) as { trackId: string } | undefined
+
+    if (!row) return []
+    return findTrackSourcesByTrackId(row.trackId)
   } catch {
     return []
   }
@@ -848,6 +899,18 @@ export function updateTrackPicUrl(trackId: string, picUrl: string) {
     .run(picUrl, trackId)
 }
 
+/** 根据 TrackId 更新其对应 Album 的封面图（无条件覆盖） */
+export function updateAlbumPicUrlByTrackId(trackId: string, picUrl: string) {
+  const track = db.sqlite
+    .prepare('SELECT albumId FROM Track WHERE id = ?')
+    .get(trackId) as { albumId: string } | undefined
+  if (track?.albumId) {
+    db.sqlite
+      .prepare("UPDATE Album SET picUrl = ?, updateTime = datetime('now') WHERE id = ?")
+      .run(picUrl, track.albumId)
+  }
+}
+
 // ============ 缓存相关 ============
 
 /** task-done: 缓存完成后写入 Track/Album/Artist/TrackSource/Audio */
@@ -1156,7 +1219,7 @@ export function getStreamMatchCount(): number {
  * 2. 查出这些 trackId 的所有 TrackSource（含 plugin 类型），在 JS 层按 trackId 分组判断
  * 3. 仅由 library 来源构成的 track → 孤立，删除所有相关数据
  * 4. 有 local 或 stream 来源的 track → 非孤立，仅删除 stream TrackSource
- * 5. 清理孤立的 Album/Artist/ArtistAlbum
+ * 5. 末级清理所有孤立引用
  */
 export function clearStreamMatches(): void {
   db.sqlite.transaction(() => {
@@ -1203,9 +1266,9 @@ export function clearStreamMatches(): void {
 
     const orphanTrackIds: string[] = []
     for (const [trackId, types] of sourceMap) {
-      // 排除 stream 后，如果只剩 library → 孤立
+      // 排除 stream 后，无剩余来源或只剩 library → 孤立
       const remaining = new Set([...types].filter((t) => t !== 'stream'))
-      if (remaining.size > 0 && [...remaining].every((t) => t === 'library')) {
+      if (remaining.size === 0 || [...remaining].every((t) => t === 'library')) {
         orphanTrackIds.push(trackId)
       }
     }
@@ -1229,16 +1292,8 @@ export function clearStreamMatches(): void {
         .run(...orphanTrackIds)
     }
 
-    // 6. 清理孤立 Album/Artist/ArtistAlbum
-    db.sqlite.exec(
-      `DELETE FROM ${Tables.Album} WHERE id NOT IN (SELECT DISTINCT albumId FROM ${Tables.Track} WHERE albumId IS NOT NULL)`
-    )
-    db.sqlite.exec(
-      `DELETE FROM ${Tables.Artist} WHERE id NOT IN (SELECT DISTINCT artistId FROM ${Tables.TrackArtist})`
-    )
-    db.sqlite.exec(
-      `DELETE FROM ${Tables.ArtistAlbum} WHERE artistId NOT IN (SELECT id FROM ${Tables.Artist}) OR albumId NOT IN (SELECT id FROM ${Tables.Album})`
-    )
+    // 6. 末级清理所有孤立引用
+    cleanupOrphanRefs()
   })()
 }
 

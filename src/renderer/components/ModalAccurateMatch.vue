@@ -39,15 +39,15 @@ import { storeToRefs } from 'pinia'
 import BaseModal from './BaseModal.vue'
 import { usePluginMusic } from '../store/pluginMusic'
 import { useNormalStateStore } from '../store/state'
-import { useI18n } from 'vue-i18n'
+import { usePlayerStore } from '../store/player'
 import type { PluginId } from '@/types/plugin'
 
-const { t } = useI18n()
 const pluginStore = usePluginMusic()
 const { pluginMethodCall } = pluginStore
 const stateStore = useNormalStateStore()
 const { showToast } = stateStore
 const { accurateMatchModal } = storeToRefs(stateStore)
+const { tracks } = storeToRefs(pluginStore)
 
 const show = computed({
   get: () => accurateMatchModal.value.show,
@@ -92,12 +92,22 @@ const doMatch = async () => {
     matchedTrack.value = track
 
     const picUrl = track.picUrl || track.album?.picUrl || ''
-    await window.mainApi?.invoke('accurateMatch', {
-      trackId: selectedTrackID.value,
-      pluginId: parsed.pluginId,
-      sourceContext: parsed.sourceContext,
-      picUrl
-    })
+    await window.mainApi
+      ?.invoke('accurateMatch', {
+        trackId: selectedTrackID.value,
+        pluginId: parsed.pluginId,
+        sourceContext: parsed.sourceContext,
+        picUrl,
+        currentPlayingPath: usePlayerStore().currentTrack?.filePath ?? null
+      })
+      .then((res: { code: number; picUrl: string | null }) => {
+        const song = Object.entries(tracks.value)
+          .map(([, item]) => item.data)
+          .flat()
+          .find((t) => t.id === selectedTrackID.value)
+        if (!song) return
+        song.picUrl = res.picUrl || song.picUrl
+      })
     showToast('匹配成功')
     setTimeout(close, 800)
   } catch (e: any) {

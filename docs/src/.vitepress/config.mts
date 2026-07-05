@@ -9,7 +9,7 @@ export default defineConfig({
   description,
   outDir: '../dist',
   head: [
-    ['link', { rel: 'icon', href: '/logo.png' }],
+    ['link', { rel: 'icon', href: '/icon.png' }],
     ['link', { rel: 'shortcut icon', href: '/favicon.ico' }]
   ],
   cleanUrls: true,
@@ -23,16 +23,20 @@ export default defineConfig({
       collapsed: false,
       useTitleFromFileHeading: true,
       useTitleFromFrontmatter: true,
+      useFolderTitleFromIndexFile: true,
+      useFolderLinkFromIndexFile: true,
       sortMenusByFrontmatterOrder: true,
       hyphenToSpace: true,
       capitalizeEachWords: true,
       manualSortFileNameByPriority: [
-        'database',
-        'plugin-system',
-        'ui-design',
-        'stores',
-        'code-conventions'
-      ]
+        'product',
+        'spec',
+        'adr',
+        'troubleshooting',
+        'archive'
+      ],
+      excludeFiles: ['spec/index.md'],
+      collapseDepth: 2
     }),
     socialLinks: [{ icon: 'github', link: repository.url.replace('.git', '') }]
   }

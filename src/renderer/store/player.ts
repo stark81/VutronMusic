@@ -118,7 +118,12 @@ export const usePlayerStore = defineStore(
         case 'Artist':
           return `/artist/${plugin}/${JSON.stringify(sourceContext)}`
         case 'Playlist':
-          if (plugin === 'all' || sourceContext.id === 0 || sourceContext.id === '0') {
+          if (
+            plugin === 'all' ||
+            sourceContext.id === 0 ||
+            sourceContext.id === '0' ||
+            ['local', 'library', 'stream'].includes(sourceContext.id)
+          ) {
             const codes = pluginStore.loggedInServices
               .filter((item) => item.type === sourceContext.pluginType)
               .map((item) => item.code)
@@ -199,7 +204,7 @@ export const usePlayerStore = defineStore(
           .filter((item) => !!item.lyric.text)
           .map((item) => ({
             ...item,
-            lyric: { ...item.lyric, text: item.lyric.text.replace(/\s{2,}/g, ' ') },
+            lyric: { ...item.lyric, text: item.lyric.text.replace(/\s{2,}/g, ' ') }
           }))
       }
     })
@@ -1137,10 +1142,20 @@ export const usePlayerStore = defineStore(
         duration: track.duration,
         sourcePlugin: track.pluginId,
         sourceType: track.type,
-        sourceContext: { ...track.sourceContext }
+        sourceContext: { ...track.sourceContext },
+        currentPlayingPath: currentTrack.value?.filePath ?? null
       }
 
-      return window.mainApi?.invoke('trackMatch', meta) ?? Promise.resolve()
+      return (window.mainApi?.invoke('trackMatch', meta) ?? Promise.resolve()).then((result) => {
+        if (result?.picUrl) {
+          track.picUrl = result.picUrl
+          const song = pluginStore.tracks[track.pluginId].data.find(
+            (t) => String(t.id) === String(track.id)
+          )
+          if (song) song.picUrl = result.picUrl
+        }
+        return result
+      })
     }
 
     let prefetchTimer: ReturnType<typeof setTimeout> | null = null

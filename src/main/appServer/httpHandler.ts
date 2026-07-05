@@ -5,7 +5,7 @@ import Constants from '../utils/Constants'
 import path from 'path'
 import fs from 'fs'
 import sharp from 'sharp'
-import { findLocalTrackAudio } from '../dbHelpers'
+import { findLocalTrackAudio, findTrackSourcesBySourceContext } from '../dbHelpers'
 import { getPic } from '../utils'
 
 const defaultImagePath = Constants.IS_DEV_ENV
@@ -112,6 +112,71 @@ const httpHandler: FastifyPluginAsync = async (fastify: FastifyInstance) => {
         success: false,
         error: 'Failed to retrieve player data'
       })
+    }
+  })
+
+  /**
+   * 流媒体封面回退接口
+   * 通过流媒体歌曲的 sourceContext，查找已匹配的 library 来源封面
+   * URL: /stream-asset?sourceContext=${encodeURIComponent(JSON.stringify(ctx))}&size=256
+   */
+  fastify.get('/stream-asset', async (req, reply) => {
+    try {
+      const { sourceContext: ctxStr, size: sizeStr } = req.query as Record<string, string>
+      if (!ctxStr) {
+        const pic = await fs.promises.readFile(defaultImagePath)
+        return reply.type('image/jpeg').send(pic)
+      }
+
+      let ctx: Record<string, any>
+      try {
+        ctx = JSON.parse(decodeURIComponent(ctxStr))
+      } catch {
+        const pic = await fs.promises.readFile(defaultImagePath)
+        return reply.type('image/jpeg').send(pic)
+      }
+
+      const sources = findTrackSourcesBySourceContext(ctx)
+      const size = Number(sizeStr) || 256
+
+      // 找第一个含 picUrl 的 library 来源
+      let picUrl: string | null = null
+      for (const row of sources) {
+        try {
+          const sc = JSON.parse(row.sourceContext)
+          if (sc.picUrl && typeof sc.picUrl === 'string') {
+            picUrl = sc.picUrl
+            break
+          }
+        } catch {}
+      }
+
+      if (!picUrl) {
+        const pic = await fs.promises.readFile(defaultImagePath)
+        return reply.type('image/jpeg').send(pic)
+      }
+
+      // 下载图片
+      const client = picUrl.startsWith('https') ? require('https') : require('http')
+      const image = await new Promise<Buffer>((resolve, reject) => {
+        client.get(picUrl, (res: any) => {
+          if (res.statusCode !== 200) {
+            res.resume()
+            return reject(new Error(`Request Failed: ${res.statusCode}`))
+          }
+          const chunks: Buffer[] = []
+          res.on('data', (chunk: Buffer) => chunks.push(chunk))
+          res.on('end', () => resolve(Buffer.concat(chunks)))
+        }).on('error', reject)
+      })
+
+      const resized = await sharp(image).resize(size, size, { fit: 'cover' }).toBuffer()
+      reply.header('Cache-Control', 'public, max-age=86400')
+      return reply.type('image/jpeg').send(resized)
+    } catch (error) {
+      console.error('[stream-asset] error:', error)
+      const pic = await fs.promises.readFile(defaultImagePath)
+      return reply.type('image/jpeg').send(pic)
     }
   })
 }

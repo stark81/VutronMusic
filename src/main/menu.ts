@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, ipcMain, shell, MenuItemConstructorOptions } from 'electron'
+import { app, BrowserWindow, Menu, ipcMain, shell } from 'electron'
 import defaultShortcuts from './utils/shortcuts'
 import Constants from './utils/Constants'
 import store from './store'
@@ -90,14 +90,7 @@ export function createMenu(win: BrowserWindow) {
                   { role: 'delete', label: 'Delete' },
                   { type: 'separator' },
                   { role: 'selectAll', label: 'Select All' }
-                ]),
-            {
-              label: 'Search',
-              accelerator: 'CmdOrCtrl+F',
-              click: () => {
-                win.webContents.send('search')
-              }
-            }
+                ])
           ]
         },
         {
@@ -318,14 +311,7 @@ export function createMenu(win: BrowserWindow) {
                   { role: 'delete', label: '删除' },
                   { type: 'separator' },
                   { role: 'selectAll', label: '选择所有' }
-                ]),
-            {
-              label: '搜索',
-              accelerator: 'CmdOrCtrl+F',
-              click: () => {
-                win.webContents.send('search')
-              }
-            }
+                ])
           ]
         },
         {
@@ -547,14 +533,7 @@ export function createMenu(win: BrowserWindow) {
                   { role: 'delete', label: '刪除' },
                   { type: 'separator' },
                   { role: 'selectAll', label: '選取全部' }
-                ]),
-            {
-              label: '搜尋',
-              accelerator: 'CmdOrCtrl+F',
-              click: () => {
-                win.webContents.send('search')
-              }
-            }
+                ])
           ]
         },
         {

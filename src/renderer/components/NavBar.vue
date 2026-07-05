@@ -73,7 +73,7 @@
       <div class="right-part">
         <SearchBox
           ref="searchBoxRef"
-          :services="services.filter((s) => s.type !== 'local')"
+          :services="general.searchOrder"
           :clear-keywords="true"
           @keydown-enter="doSearch"
         />
@@ -187,6 +187,8 @@ const showUserProfileMenu = (e: MouseEvent): void => {
 const doSearch = (keyword: string, plugin: PluginId) => {
   keywords.value = keyword
   if (!keyword) return
+  // 持久化最后选择的搜索插件
+  general.value.searchPlugin = plugin
   router.push({
     name: 'search',
     query: { keywords: keyword, plugin }

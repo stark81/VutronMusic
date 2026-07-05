@@ -51,7 +51,11 @@ export const useSettingsStore = defineStore(
       /** 音量均衡（ReplayGain），自动平衡不同歌曲间的响度差异 */
       volumeNormalization: true,
       /** 全局每页加载数量，匹配插件内部页大小 */
-      pageSize: 1000
+      pageSize: 1000,
+      /** 搜索来源顺序（plugin code 数组） */
+      searchOrder: [] as { code: string; name: string }[],
+      /** 搜索框最后选中的插件 */
+      searchPlugin: ''
     })
 
     const tray = reactive({

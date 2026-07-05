@@ -40,7 +40,7 @@ const _buildService = (
     type: meta.type,
     active: false,
     status: 'logout',
-    loadFull: meta.type !== 'library',
+    loadFull: meta.type === 'local',
     capabilities: meta.capabilities,
     builtIn: meta.builtIn
   }

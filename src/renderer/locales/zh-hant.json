@@ -570,6 +570,12 @@
       "running": "服務正常運行中",
       "error": "服務啟動失敗：{0}",
       "notRunning": "服務未啟動"
+    },
+    "sourcePriority": {
+      "search": {
+        "text": "搜尋來源優先級",
+        "desc": "拖拽調整搜尋框中的插件順序，排在前面的作為預設搜尋源"
+      }
     }
   },
   "toast": {

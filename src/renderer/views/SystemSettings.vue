@@ -888,6 +888,22 @@
               </VueDraggable>
               <div class="item" style="margin-top: 1.5rem">
                 <div class="left">
+                  <div class="title">{{ $t('settings.sourcePriority.search.text') }}</div>
+                  <div class="description">{{ $t('settings.sourcePriority.search.desc') }}</div>
+                </div>
+              </div>
+              <VueDraggable
+                v-model="searchPriority"
+                :item-key="(item) => item.code"
+                class="priority-list"
+              >
+                <div v-for="(item, index) in searchPriority" :key="item.code" class="priority-item">
+                  <span class="priority-index">{{ index + 1 }}</span>
+                  <span>{{ item.name }}</span>
+                </div>
+              </VueDraggable>
+              <div class="item" style="margin-top: 1.5rem">
+                <div class="left">
                   <div class="title">{{ $t('localMusic.trackInfoOrder.text') }}</div>
                   <div class="description">{{ $t('localMusic.trackInfoOrder.desc') }}</div>
                 </div>
@@ -1334,6 +1350,7 @@ import { VueDraggable } from 'vue-draggable-plus'
 import imageUrl from '../utils/settingImg.dataurl?raw'
 import { useRouter } from 'vue-router'
 import { Appearance, ProxyType } from '@/types/music.d'
+import { STREAM_SENTINEL } from '@/types/schemas'
 import type { PluginId, service } from '@/types/plugin'
 import { getPluginIcon } from '../utils/common'
 
@@ -1731,6 +1748,7 @@ const slideTop = ref(0)
 
 const lyricPriority = ref<{ code: string; name: string }[]>([])
 const commentPriority = ref<{ code: string; name: string }[]>([])
+const searchPriority = ref<{ code: string; name: string }[]>([])
 const trackInfoOrder = ref<string[]>(['path', 'online', 'embedded'])
 
 const loadSourcePriority = () => {
@@ -1750,7 +1768,7 @@ const loadSourcePriority = () => {
     lyricPriority.value = lyricItems
 
     const commentOrder: string[] = res?.comment || ['self']
-    const commentItems = [...allLib]
+    const commentItems = [...allLib, { code: 'self', name: '自身插件' }]
     commentItems.sort((a, b) => {
       const pa = commentOrder.indexOf(a.code)
       const pb = commentOrder.indexOf(b.code)
@@ -1763,6 +1781,24 @@ const loadSourcePriority = () => {
 
     const order = res?.trackInfoOrder
     if (order) trackInfoOrder.value = order
+
+    // 搜索来源优先级：library 插件 + 流媒体
+    const searchOrderSaved = general.value.searchOrder || []
+    const searchItems: { code: string; name: string }[] = [
+      ...allLib,
+      { code: STREAM_SENTINEL, name: '流媒体' }
+    ]
+    if (searchOrderSaved.length > 0) {
+      searchItems.sort((a, b) => {
+        const pa = searchOrderSaved.indexOf(a)
+        const pb = searchOrderSaved.indexOf(b)
+        if (pa === -1 && pb === -1) return 0
+        if (pa === -1) return 1
+        if (pb === -1) return -1
+        return pa - pb
+      })
+    }
+    searchPriority.value = searchItems
   })
 }
 
@@ -1772,10 +1808,13 @@ const persistPriority = () => {
     comment: commentPriority.value.map((i) => i.code),
     trackInfoOrder: toRaw(trackInfoOrder.value)
   })
+  // 搜索顺序持久化到 Pinia store（自动同步到 localStorage）
+  general.value.searchOrder = searchPriority.value
 }
 
 watch(lyricPriority, persistPriority, { deep: true })
 watch(commentPriority, persistPriority, { deep: true })
+watch(searchPriority, persistPriority, { deep: true })
 watch(trackInfoOrder, persistPriority, { deep: true })
 
 const getCacheTracksInfo = () => {

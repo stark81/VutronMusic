@@ -120,6 +120,8 @@ function buildSubsonicUrl(endpoint, params = {}) {
  * @param {'GET' | 'POST'} method
  */
 async function subsonicRequest(endpoint, params = {}) {
+  if (!user.nativeToken || !user.clientId) throw new Error('Server Offline Or User Logout')
+
   const url = buildSubsonicUrl(endpoint, params)
   const response = await apis.http.get(url)
   if (response && response['subsonic-response'] && response['subsonic-response'].status === 'ok') {
@@ -286,6 +288,8 @@ function formatTime(time, rate = 1000) {
 
 async function nativeRequest(endpoint, options = {}) {
   try {
+    if (!user.nativeToken || !user.clientId) throw new Error('Server Offline Or User Logout')
+
     const { method = 'GET', params = {}, raw } = options
     const url = `${baseUrl}/api/${endpoint}`
     const headers = {

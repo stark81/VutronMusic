@@ -585,6 +585,12 @@
       "running": "服务正常运行中",
       "error": "服务启动失败：{0}",
       "notRunning": "服务未启动"
+    },
+    "sourcePriority": {
+      "search": {
+        "text": "搜索来源优先级",
+        "desc": "拖拽调整搜索框中的插件顺序，排在前面的作为默认搜索源"
+      }
     }
   },
   "toast": {

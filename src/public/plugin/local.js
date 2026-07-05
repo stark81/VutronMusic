@@ -331,7 +331,7 @@ exports.getTrackDetail = async (params) => {
     const items = result?.songs || []
     const data = items.map(formatTrack)
     return { code: 200, data }
-  } catch (e) {
+  } catch {
     return { code: 200, data: [] }
   }
 }

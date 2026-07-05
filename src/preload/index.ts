@@ -19,7 +19,6 @@ const mainAvailChannels: string[] = [
   'updatePlayerState',
   'setStoreSettings',
   'deleteLocalMusicDB',
-  'logout',
   'accurateMatch',
   'clearCacheTracks',
   'getCacheTracksInfo',
@@ -57,7 +56,8 @@ const mainAvailChannels: string[] = [
   'get-lyric-offset',
   'set-lyric-offset',
   'create-plugin-instance',
-  'delete-plugin-instance'
+  'delete-plugin-instance',
+  'clearStreamMatches'
 ]
 const rendererAvailChannels: string[] = [
   'msgHandleScanLocalMusicError',

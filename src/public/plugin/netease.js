@@ -333,6 +333,7 @@ const formatTrack = (item, size = 64) => {
     pluginId: '',
     sourceContext: { id: it.id }
   }))
+  const picUrl = ((item.al || item.album)?.picUrl ?? '') + `?param=${size}y${size}`
 
   return {
     id: item.id ?? '',
@@ -354,10 +355,10 @@ const formatTrack = (item, size = 64) => {
     },
     artists,
     albumArtists: artists,
-    picUrl: ((item.al || item.album)?.picUrl ?? '') + `?param=${size}y${size}`,
+    picUrl,
     pluginId: '',
     type: meta.type,
-    sourceContext: { id: item.id }
+    sourceContext: { id: item.id, picUrl }
   }
 }
 
