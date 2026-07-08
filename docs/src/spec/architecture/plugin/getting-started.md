@@ -30,9 +30,11 @@ cp demo.js myplugin.js
 
 ```javascript
 exports.meta = {
-  name: '我的插件',           // ← 改这里（显示名称）
-  type: 'library',            // 'local' | 'library' | 'stream'
-  capabilities: { /* ... */ } // 暂不需要改
+  name: '我的插件', // ← 改这里（显示名称）
+  type: 'library', // 'local' | 'library' | 'stream'
+  capabilities: {
+    /* ... */
+  } // 暂不需要改
 }
 ```
 
@@ -57,7 +59,7 @@ exports.search = async function (params) {
   const { keyword } = params
   // 写你的逻辑...
   const result = await api.http.get('https://api.example.com/search', { q: keyword })
-  api.log('search result:', JSON.stringify(result))  // 用 log 确认数据正确
+  api.log('search result:', JSON.stringify(result)) // 用 log 确认数据正确
 
   // 2️⃣ 确认逻辑正确前，继续返回兜底 404，不影响页面其他功能
   return { code: 404 }
@@ -91,49 +93,51 @@ exports.search = async function (params) {
 
 ```javascript
 exports.meta = {
-  name: '显示名称',    // 必填
-  type: 'library',     // 'local' | 'library' | 'stream'
-  capabilities: { /* ... */ }
+  name: '显示名称', // 必填
+  type: 'library', // 'local' | 'library' | 'stream'
+  capabilities: {
+    /* ... */
+  }
 }
 ```
 
 `type` 决定了插件属于哪个分类，影响其在 UI 中的出现位置：
 
-| 类型 | 说明 | 示例 |
-|------|------|------|
-| `library` | 在线音乐库（搜索、歌单、排行榜） | 网易云、酷狗 |
-| `stream` | 流媒体服务器（需用户配置 baseUrl） | Emby、Jellyfin、Navidrome |
-| `local` | 本地音乐管理 | 本地文件扫描 |
+| 类型      | 说明                               | 示例                      |
+| --------- | ---------------------------------- | ------------------------- |
+| `library` | 在线音乐库（搜索、歌单、排行榜）   | 网易云、酷狗              |
+| `stream`  | 流媒体服务器（需用户配置 baseUrl） | Emby、Jellyfin、Navidrome |
+| `local`   | 本地音乐管理                       | 本地文件扫描              |
 
 ### api 对象 — 插件工具箱
 
 ```javascript
-api.http.get('/path', { query: 'value' })   // HTTP GET 请求
-api.http.post('/path', { body: 'data' })    // HTTP POST 请求
-api.store.set('key', 'value')               // 插件私有键值存储（持久化）
-api.store.get('key')                         // 读取
-api.db.set('myKey', JSON.stringify(data))   // 全局数据库 PluginData 表
-api.db.get('myKey')                          // 读取
-api.utils.parseLyric(lrcString)             // 解析 LRC / 逐字歌词
-api.utils.md5('string')                     // MD5 哈希
-api.log('消息', data)                        // 日志输出（DevTools + 日志面板）
+api.http.get('/path', { query: 'value' }) // HTTP GET 请求
+api.http.post('/path', { body: 'data' }) // HTTP POST 请求
+api.store.set('key', 'value') // 插件私有键值存储（持久化）
+api.store.get('key') // 读取
+api.db.set('myKey', JSON.stringify(data)) // 全局数据库 PluginData 表
+api.db.get('myKey') // 读取
+api.utils.parseLyric(lrcString) // 解析 LRC / 逐字歌词
+api.utils.md5('string') // MD5 哈希
+api.log('消息', data) // 日志输出（DevTools + 日志面板）
 ```
 
 ### 方法返回结构
 
 每个方法必须返回 `{ code, ...data }`。`code` 的含义：
 
-| code | 含义 | 框架行为 |
-|------|------|---------|
-| `200` | 成功 | 使用返回数据 |
+| code  | 含义          | 框架行为                     |
+| ----- | ------------- | ---------------------------- |
+| `200` | 成功          | 使用返回数据                 |
 | `404` | 未实现 / 兜底 | 跳过此插件，继续询问其他插件 |
-| `4xx` | 业务错误 | 调用方收到错误，通常跳过 |
-| `5xx` | 服务端错误 | 同上 |
+| `4xx` | 业务错误      | 调用方收到错误，通常跳过     |
+| `5xx` | 服务端错误    | 同上                         |
 
 ## 注意事项
 
 | 注意点 | 说明 |
-|-------|------|
+| --- | --- |
 | 12 秒超时 | 每个方法调用最多 12 秒，超时返回 `{ code: 408 }` |
 | 域名白名单 | HTTP 请求目标域名必须与 `baseUrl`（或 `meta.baseUrl`）同域 |
 | 异步方法 | 所有 API 方法应返回 Promise |

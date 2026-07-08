@@ -12,7 +12,7 @@ VutronMusic 是一款桌面音乐播放器，通过插件化架构将本地音�
 VutronMusic 的文档分为三个维度：
 
 | 维度 | 适合谁 | 内容 |
-|------|--------|------|
+| --- | --- | --- |
 | [产品文档](product/) | PM / 设计师 / 产品爱好者 | 功能设计、用户故事、设计哲学、方法论 |
 | [技术规格](spec/) | 开发者 / AI 编码助手 | 数据库 Schema、插件 API、架构、IPC 通道 |
 | [架构决策](adr/) | 所有读者 | 8 个 ADR：插件架构、TrackSource 设计、Worker 模型、SQLite Schema、插件演进、歌词渲染演进等 |
@@ -23,13 +23,13 @@ VutronMusic 的文档分为三个维度：
 
 ## 开发者速查
 
-| 命令 | 说明 |
-|------|------|
-| `yarn install` | 安装依赖 |
-| `yarn dev` | 开发模式（Vite HMR + Electron） |
-| `yarn build` | 生产构建 |
-| `yarn lint` | 代码检查 |
-| `cd docs && yarn dev` | 文档站本地预览 |
+| 命令                  | 说明                            |
+| --------------------- | ------------------------------- |
+| `yarn install`        | 安装依赖                        |
+| `yarn dev`            | 开发模式（Vite HMR + Electron） |
+| `yarn build`          | 生产构建                        |
+| `yarn lint`           | 代码检查                        |
+| `cd docs && yarn dev` | 文档站本地预览                  |
 
 ## 项目地址
 

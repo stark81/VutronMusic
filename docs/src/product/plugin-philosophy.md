@@ -14,11 +14,11 @@ order: 3
 
 ## 插件类型
 
-| 类型 | 场景 | 示例 |
-|------|------|------|
-| library | 在线平台（搜索/歌单/推荐） | netease, kugou |
-| stream | 自建媒体库 | navidrome, emby, jellyfin |
-| local | 本地文件 | local |
+| 类型    | 场景                       | 示例                      |
+| ------- | -------------------------- | ------------------------- |
+| library | 在线平台（搜索/歌单/推荐） | netease, kugou            |
+| stream  | 自建媒体库                 | navidrome, emby, jellyfin |
+| local   | 本地文件                   | local                     |
 
 ## 接口契约
 

@@ -9,7 +9,7 @@ last-reviewed: 2025-07-07
 ## 插件的三种类型
 
 | 类型 | 用户场景 | 示例 |
-|------|---------|------|
+| --- | --- | --- |
 | **local** | 用户有本地音乐文件 | `local.js`（28KB） |
 | **library** | 用户订阅在线音乐平台 | `netease.js`（61KB）, `kugou.js`（77KB） |
 | **stream** | 用户自建媒体服务器 | `navidrome.js`（26KB）, `emby.js`（27KB）, `jellyfin.js`（26KB） |
@@ -22,11 +22,11 @@ last-reviewed: 2025-07-07
 
 ## 内置插件 vs 第三方插件
 
-| 维度 | 内置插件 | 第三方插件 |
-|------|---------|-----------|
-| 来源 | 项目发布时自带 | 用户自行上传 |
-| 可删除 | ❌ 不可删除，只能禁用 | ✅ 可删除 |
-| 更新 | 随应用更新 | 用户自行管理 |
+| 维度   | 内置插件              | 第三方插件   |
+| ------ | --------------------- | ------------ |
+| 来源   | 项目发布时自带        | 用户自行上传 |
+| 可删除 | ❌ 不可删除，只能禁用 | ✅ 可删除    |
+| 更新   | 随应用更新            | 用户自行管理 |
 
 ## 插件实例化
 
@@ -45,14 +45,14 @@ Plugins 表:
 
 ## 内置插件清单
 
-| 插件 | 文件 | 大小 | 类型 |
-|------|------|------|------|
-| 网易云 | `src/public/plugin/netease.js` | 61KB | library |
-| 酷狗 | `src/public/plugin/kugou.js` | 75KB | library |
-| Emby | `src/public/plugin/emby.js` | 27KB | stream |
-| Jellyfin | `src/public/plugin/jellyfin.js` | 26KB | stream |
-| Navidrome | `src/public/plugin/navidrome.js` | 26KB | stream |
-| 本地音乐 | `src/public/plugin/local.js` | 28KB | local |
-| 演示插件 | `src/public/plugin/demo.js` | 26KB | — |
+| 插件      | 文件                             | 大小 | 类型    |
+| --------- | -------------------------------- | ---- | ------- |
+| 网易云    | `src/public/plugin/netease.js`   | 61KB | library |
+| 酷狗      | `src/public/plugin/kugou.js`     | 75KB | library |
+| Emby      | `src/public/plugin/emby.js`      | 27KB | stream  |
+| Jellyfin  | `src/public/plugin/jellyfin.js`  | 26KB | stream  |
+| Navidrome | `src/public/plugin/navidrome.js` | 26KB | stream  |
+| 本地音乐  | `src/public/plugin/local.js`     | 28KB | local   |
+| 演示插件  | `src/public/plugin/demo.js`      | 26KB | —       |
 
 > 📖 插件的执行机制和沙箱见 [Worker 沙箱](../worker/)

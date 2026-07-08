@@ -327,7 +327,7 @@ const mapTrackPlayableStatus = (tracks = [], privileges = []) => {
  */
 const formatTrack = (item, size = 64) => {
   const artists = (item.ar || item.artists || [])?.map((it) => ({
-    id: it.id,
+    id: it.id ?? '',
     name: it.name || '',
     picUrl: it.img1v1Url ?? '',
     pluginId: '',
@@ -536,7 +536,7 @@ const formatComment = (item) => {
     content: item.content || '',
     time: item.time || 0,
     ipLocation: item.ipLocation?.location || '',
-    owner: item.owner,
+    owner: !!item.owner,
     liked: item.liked || false,
     likedCount: item.likedCount || 0,
     replyCount: item.replyCount || 0,
@@ -545,8 +545,8 @@ const formatComment = (item) => {
       ? {
           id: _beReplied.commentId || '',
           content: _beReplied.content || '',
-          beRepliedCommentId: _beReplied.beRepliedCommentId,
-          nickname: _beReplied.user.nickname
+          beRepliedCommentId: _beReplied.beRepliedCommentId || 0,
+          nickname: _beReplied.user?.nickname || ''
         }
       : null,
     user: {
@@ -1207,13 +1207,13 @@ exports.userPlaylist = async (params) => {
     const liked = playlists.length ? playlists.splice(0, 1)[0] : null
 
     const albums = res.data.map((item) => ({
-      id: item.id,
-      name: item.name,
-      picUrl: item.picUrl,
+      id: item.id ?? '',
+      name: item.name ?? '',
+      picUrl: item.picUrl || '',
       artists: item.artists.map((it) => ({
-        id: it.id,
-        name: it.name,
-        picUrl: it.picUrl,
+        id: it.id ?? '',
+        name: it.name ?? '',
+        picUrl: it.picUrl || '',
         pluginId: '',
         sourceContext: { id: it.id }
       })),
@@ -1237,9 +1237,9 @@ exports.userLikedArtists = async () => {
   const result = await get('artist/sublist', { limit: 2000 })
   if (result && result.code === 200) {
     const data = result.data.map((item) => ({
-      id: item.id,
-      name: item.name,
-      picUrl: item.picUrl,
+      id: item.id ?? '',
+      name: item.name ?? '',
+      picUrl: item.picUrl || '',
       pluginId: '',
       sourceContext: { id: item.id }
     }))
@@ -1302,16 +1302,16 @@ const formatAlbumDetail = (result) => {
     id: item.id ?? '',
     name: item.name ?? '',
     picUrl: (item.picUrl ?? '') + '?param=512y512',
-    type: item.type,
+    type: item.type || '',
     isExplicit: item.mark === 1048576,
     subscribed: false,
-    publishTime: new Date(item.publishTime).getTime(),
-    size: item.size,
-    company: item.company,
-    description: item.description,
+    publishTime: new Date(item.publishTime || 0).getTime(),
+    size: item.size || 0,
+    company: item.company || '',
+    description: item.description || '',
     songs,
     artists: item.artists.map((it) => ({
-      id: it.id,
+      id: it.id ?? '',
       name: it.name || '',
       picUrl: it.img1v1Url || '',
       pluginId: '',
@@ -1616,14 +1616,14 @@ exports.artistDetail = async (params) => {
   if (result.code === 200) {
     const item = result.artist
     const artist = {
-      id: item.id,
-      name: item.name,
-      picUrl: (item.picUrl || item.img1v1Url) + '?param=256y256',
-      musicSize: item.musicSize,
-      albumSize: item.albumSize,
-      mvSize: item.mvSize,
-      description: item.briefDesc,
-      followed: item.followed,
+      id: item.id ?? '',
+      name: item.name ?? '',
+      picUrl: (item.picUrl || item.img1v1Url || '') + '?param=256y256',
+      musicSize: item.musicSize || 0,
+      albumSize: item.albumSize || 0,
+      mvSize: item.mvSize || 0,
+      description: item.briefDesc || '',
+      followed: !!item.followed,
       pluginId: '',
       sourceContext: { id: item.id }
     }

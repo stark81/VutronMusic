@@ -14,10 +14,12 @@ Linux 桌面用户通常技术能力较强，但也期望应用能与桌面环�
 **症状**：键盘上的多媒体键（播放/暂停/下一首）无法控制 VutronMusic。
 
 **原因**：
+
 - D-Bus 服务未正确注册
 - 系统缺少 MPRIS 支持
 
 **解决方案**：
+
 1. 确认系统支持 MPRIS：
    ```bash
    # 运行后测试媒体键
@@ -31,14 +33,14 @@ Linux 桌面用户通常技术能力较强，但也期望应用能与桌面环�
 VutronMusic 在 GNOME 桌面上可以通过以下扩展在顶栏显示歌词和控制信息：
 
 | 扩展 | 说明 |
-|------|------|
+| --- | --- |
 | [media-controls](https://github.com/stark81/media-controls) | 显示媒体控制和歌词 |
 | [dynamic-music-pill](https://extensions.gnome.org/extension/9334/dynamic-music-pill/) | 顶栏动态歌词显示 |
 
 ### KDE Plasma 扩展
 
 | 扩展 | 说明 |
-|------|------|
+| --- | --- |
 | [vutronmusic-lyrics](http://github.com/cmachsocket/org.kde.plasma.vutronmusic-lyrics) | KDE Plasma 上的歌词小部件 |
 
 ### 权限问题
@@ -48,6 +50,7 @@ VutronMusic 在 GNOME 桌面上可以通过以下扩展在顶栏显示歌词和�
 **原因**：某些目录（如 `/home/username/Music`）的权限不足。
 
 **解决方案**：
+
 - 确认 VutronMusic 有读取目标目录的权限
 - 对于 Flatpak/Snap 版本，需要授予文件系统访问权限
 
@@ -56,6 +59,7 @@ VutronMusic 在 GNOME 桌面上可以通过以下扩展在顶栏显示歌词和�
 **症状**：界面在高 DPI 显示器上显示过小或模糊。
 
 **解决方案**：
+
 - 在启动时添加环境变量：`ELECTRON_FORCE_SCALE=1.25 vutron-music`
 - 或使用 `--force-device-scale-factor=1.25` 参数
 

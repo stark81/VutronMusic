@@ -10,16 +10,16 @@ last-reviewed: 2025-07-07
 
 ## 组件总览
 
-| 组件 | 行数 | 职责 |
-|------|------|------|
-| `VirtualTrackList` | 759 | 虚拟滚动歌曲列表（含右键菜单、拖拽、评论面板） |
-| `PlayerBar` | 489 | 底部播放控制栏 |
-| `CreativePlayer` | ~400 | 创意播放器布局 |
-| `CommonPlayer` | ~350 | 通用播放器布局 |
-| `NavBar` | 277 | 顶部导航栏（返回/前进、搜索、用户菜单） |
-| `CoverRow` | 206 | 专辑/艺术家/歌单网格卡片 |
-| `BaseModal` | 193 | 通用模态框容器 |
-| `SideNav` | 169 | 左侧浮动导航栏 |
+| 组件               | 行数 | 职责                                           |
+| ------------------ | ---- | ---------------------------------------------- |
+| `VirtualTrackList` | 759  | 虚拟滚动歌曲列表（含右键菜单、拖拽、评论面板） |
+| `PlayerBar`        | 489  | 底部播放控制栏                                 |
+| `CreativePlayer`   | ~400 | 创意播放器布局                                 |
+| `CommonPlayer`     | ~350 | 通用播放器布局                                 |
+| `NavBar`           | 277  | 顶部导航栏（返回/前进、搜索、用户菜单）        |
+| `CoverRow`         | 206  | 专辑/艺术家/歌单网格卡片                       |
+| `BaseModal`        | 193  | 通用模态框容器                                 |
+| `SideNav`          | 169  | 左侧浮动导航栏                                 |
 
 ---
 
@@ -28,13 +28,7 @@ last-reviewed: 2025-07-07
 所有模态框的底层容器，提供遮罩层、标题栏、滚动内容区和可选底部操作栏。
 
 ```vue
-<BaseModal
-  :show="isVisible"
-  :close-fn="close"
-  title="编辑歌单"
-  width="30vw"
-  :show-footer="true"
->
+<BaseModal :show="isVisible" :close-fn="close" title="编辑歌单" width="30vw" :show-footer="true">
   <template #default>
     <!-- 模态框内容 -->
   </template>
@@ -47,7 +41,7 @@ last-reviewed: 2025-07-07
 ### Props
 
 | 名称 | 类型 | 默认值 | 必填 | 说明 |
-|------|------|--------|------|------|
+| --- | --- | --- | --- | --- |
 | `show` | `Boolean` | `false` | 否 | 控制显示/隐藏 |
 | `closeFn` | `Function` | — | **是** | 关闭回调（不是 emit，是 prop） |
 | `title` | `String` | `''` | 否 | 标题文本 |
@@ -57,10 +51,10 @@ last-reviewed: 2025-07-07
 
 ### Slots
 
-| 名称 | 说明 |
-|------|------|
-| `default` | 模态框主体内容 |
-| `footer` | 底部操作按钮区（仅 `showFooter=true` 时渲染） |
+| 名称      | 说明                                          |
+| --------- | --------------------------------------------- |
+| `default` | 模态框主体内容                                |
+| `footer`  | 底部操作按钮区（仅 `showFooter=true` 时渲染） |
 
 ### 行为
 
@@ -86,7 +80,7 @@ last-reviewed: 2025-07-07
 ### 依赖的 Store
 
 | Store | 使用的成员 |
-|-------|-----------|
+| --- | --- |
 | `usePlayerStore` | `duration`, `currentTrack`, `playing`, `isPersonalFM`, `repeatMode`, `isShuffle`, `seek`, `pic`, `volume`, `isLiked`, `lyrics`, `source` |
 | `useOsdLyricStore` | `show` |
 | `useNormalStateStore` | `showLyrics`, `enableScrolling` |
@@ -116,9 +110,9 @@ last-reviewed: 2025-07-07
 
 根据当前路由自动切换：
 
-| 路由 | 显示的子标签 |
-|------|-------------|
-| `/search` | tracks / albums / artists / playlists / mvs |
+| 路由       | 显示的子标签                                    |
+| ---------- | ----------------------------------------------- |
+| `/search`  | tracks / albums / artists / playlists / mvs     |
 | `/explore` | playlist / chart / newTrack / newAlbum / artist |
 
 ### 子组件
@@ -161,7 +155,7 @@ last-reviewed: 2025-07-07
 ### Props
 
 | 名称 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
+| --- | --- | --- | --- |
 | `items` | `(Album \| Artist \| Playlist)[]` | — | 数据列表 |
 | `type` | `CoverType` | — | `'album'` / `'artist'` / `'playlist'` |
 | `subText` | `String` | `'null'` | 副文本模式：`'artist'` / `'updateFrequency'` / `'copywriter'` / `'releaseYear'` |
@@ -177,11 +171,7 @@ last-reviewed: 2025-07-07
 项目中最复杂的组件（759 行），集成了虚拟滚动、右键菜单、拖拽排序、评论面板和播放队列管理。
 
 ```vue
-<VirtualTrackList
-  :tracks="trackList"
-  :type="'playlist'"
-  :id="playlistId"
-/>
+<VirtualTrackList :tracks="trackList" :type="'playlist'" :id="playlistId" />
 ```
 
 ### 核心能力
@@ -197,7 +187,7 @@ last-reviewed: 2025-07-07
 ## 其他常用组件
 
 | 组件 | 用途 | 关键 Props |
-|------|------|-----------|
+| --- | --- | --- |
 | `SearchBox` | 搜索输入框 + 插件选择器 | `services`, `placeholder`, `inputWidth` |
 | `ContextMenu` | 右键菜单容器 | `show`, `position` |
 | `ButtonIcon` | 图标按钮 | `iconClass` |

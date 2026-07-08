@@ -124,7 +124,7 @@ const _selectedComment = ref<CommentType | null>(selectedComment.value)
 const { t } = useI18n()
 const stateStore = useNormalStateStore()
 // const { showLyrics } = storeToRefs(stateStore)
-const { showToast } = stateStore
+const { showToast, showConfirm } = stateStore
 
 const { pluginMethodCall, isAccountLoggedIn, services } = usePluginMusic()
 
@@ -210,12 +210,12 @@ const replyFloor = (comment: CommentType) => {
   _selectedComment.value = comment
 }
 
-const handleDeleteComment = (comment: CommentType) => {
+const handleDeleteComment = async (comment: CommentType) => {
   if (!isAccountLoggedIn(props.plugin)) {
     showToast(t('toast.needToLogin', { serviceName: pluginName.value }))
     return
   }
-  if (confirm(`确定要删除评论'${comment.content}'吗？`)) {
+  if (await showConfirm(`确定要删除评论'${comment.content}'吗？`)) {
     pluginMethodCall(props.plugin, 'submitAComment', {
       ...sourceContext,
       type: props.type,

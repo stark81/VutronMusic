@@ -79,14 +79,18 @@ process 事件
 ## 关键注意事项
 
 ### 1. Store 在 import 时即初始化
+
 `src/main/store.ts` 的 `electron-store` 单例在模块加载时同步构造。这意味着：
+
 - **所有在 `init()` 之前执行的模块都能读 settings**（window 位置、代理配置、OSD 状态等）
 - 如果 AI 新建模块需要访问配置，直接 `import store from '../store'` 即可，无需等待任何生命周期
 
 ### 2. Fastify 在 app ready 之前启动
+
 HTTP 服务器（网易云 API 代理 + 静态资源服务）在 Phase 1.⑦ 中启动。如果端口冲突，应用会在创建窗口**之前**崩溃（无重试/回退逻辑）。这是有意为之：API 服务必须在窗口渲染前可用。
 
 ### 3. MAIN_PROCESS_INITIALIZED_KEY 守卫
+
 ```typescript
 const global = globalThis as any
 if (!global[MAIN_PROCESS_INITIALIZED_KEY]) {
@@ -95,42 +99,43 @@ if (!global[MAIN_PROCESS_INITIALIZED_KEY]) {
   bgProcess.init()
 }
 ```
+
 - 防止 Vite HMR 热重载时重复初始化（生成重复窗口/Tray/服务器）
 - ⚠️ 没有旧实例的销毁逻辑——旧对象成为内存孤儿
 
 ### 4. 各平台分支
 
-| 功能 | 平台 | 初始化时机 |
-|------|------|-----------|
-| `createDockMenu()` | macOS | Phase 2 末尾 |
-| `createTouchBar()` | macOS | Phase 2 末尾 |
-| `createThumBar()` | Windows | `ready-to-show` 事件 |
-| `createMpris()` | Linux | Phase 2 |
-| `closeOnLinux` | Linux | Phase 0 常量 |
-| `setAppUserModelId` | Windows | Phase 1.② |
+| 功能                | 平台    | 初始化时机           |
+| ------------------- | ------- | -------------------- |
+| `createDockMenu()`  | macOS   | Phase 2 末尾         |
+| `createTouchBar()`  | macOS   | Phase 2 末尾         |
+| `createThumBar()`   | Windows | `ready-to-show` 事件 |
+| `createMpris()`     | Linux   | Phase 2              |
+| `closeOnLinux`      | Linux   | Phase 0 常量         |
+| `setAppUserModelId` | Windows | Phase 1.②            |
 
 ### 5. OSD 窗口是懒加载的
+
 OSD 桌面歌词窗口**不在** Phase 2 中创建。它通过 `initOSDWindow()` / `showOSDWindow()` 方法在用户首次开启桌面歌词时才创建。这意味着：
+
 - 启动时不会创建第二个 BrowserWindow
 - OSD 窗口的 `lrc` 控制器对象在 Phase 2.⑮ 中定义并传给 `IPCs.initialize()`
 - powerMonitor.resume 会重连 OSD 的 MessagePort
 
 ### 6. Amuse 服务是响应式启动/停止的
+
 `handleAmuseServer()` 订阅 `store.onDidAnyChange()`，在 `settings.enableAmuseServer` 变化时启动/停止 Fastify 实例。不是 Phase 2 顺序初始化的一部分——它可以在应用运行中的**任何时间**触发。
 
 ### 7. 错误处理现状
+
 `bgProcess.init()` 的调用是 fire-and-forget（无 `.catch()`）。如果 `createFastifyApp()` 抛出异常，应用会静默失败，仅有 `unhandledRejection` 处理器的日志输出。没有用户可见的启动失败对话框。
 
 ## 给 AI 的指引
 
-**场景：新增一个在启动时初始化的模块**
-→ 在 Phase 2 的 `app.whenReady().then()` 中添加（约 `index.ts:678`），注意要排在 `IPCs.initialize()` 之前还是之后取决于是否依赖 IPC 通道。
+**场景：新增一个在启动时初始化的模块** → 在 Phase 2 的 `app.whenReady().then()` 中添加（约 `index.ts:678`），注意要排在 `IPCs.initialize()` 之前还是之后取决于是否依赖 IPC 通道。
 
-**场景：新增一个 IPC 通道**
-→ 无需修改启动序列。在 `IPCs.ts` 中添加新的 `init*IpcMain` 函数，并在 `IPCs.initialize()` 中调用即可（它会被自动收集到 Phase 2.⑮）。
+**场景：新增一个 IPC 通道** → 无需修改启动序列。在 `IPCs.ts` 中添加新的 `init*IpcMain` 函数，并在 `IPCs.initialize()` 中调用即可（它会被自动收集到 Phase 2.⑮）。
 
-**场景：新增一个平台专属功能**
-→ 使用 `process.platform` 判断，参考 macOS/Windows/Linux 分支模式。注意各分支的初始化时机不同。
+**场景：新增一个平台专属功能** → 使用 `process.platform` 判断，参考 macOS/Windows/Linux 分支模式。注意各分支的初始化时机不同。
 
-**场景：新增一个 store 配置项**
-→ 只需在 `src/main/store.ts` 的 `TypeElectronStore.settings` 接口中添加字段和默认值。无需修改启动序列。
+**场景：新增一个 store 配置项** → 只需在 `src/main/store.ts` 的 `TypeElectronStore.settings` 接口中添加字段和默认值。无需修改启动序列。

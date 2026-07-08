@@ -11,7 +11,7 @@ VutronMusic 存在**两套类型系统**，分别服务于持久化层和 API �
 ## 为什么要两套？
 
 | 系统 | 位置 | 用途 | 特点 |
-|------|------|------|------|
+| --- | --- | --- | --- |
 | **DB 类型** | `src/types/music.d.ts` | 映射数据库行结构 | 平面、包含存储字段 |
 | **Zod 类型** | `src/types/schemas.ts` + `src/types/plugin.ts` | 插件 API 输入/输出校验 | 嵌套、运行时验证 |
 
@@ -20,7 +20,7 @@ VutronMusic 存在**两套类型系统**，分别服务于持久化层和 API �
 ## Track 核心差异对照
 
 | 维度 | `music.d.ts`（DB 类型） | `schemas.ts`（Zod 类型） |
-|------|------------------------|-------------------------|
+| --- | --- | --- |
 | **结构** | 平面，节点类型全平铺 | 深度嵌套：`album`、`artists`、`albumArtists` 为子对象 |
 | **ID** | `string` | `number \| string` |
 | **alias** | `string`（单值） | `string[]`（数组） |
@@ -37,6 +37,7 @@ VutronMusic 存在**两套类型系统**，分别服务于持久化层和 API �
 ## Album / Artist 同理
 
 `Album` 和 `Artist` 也遵循同样的双层结构：
+
 - **music.d.ts**：`Album` 有 `id, name, picUrl, type, company, publishTime, desc` 等平面字段
 - **schemas.ts**：`AlbumSchema` 多了 `pluginId, copywriter, artists, sourceContext` 等运行时字段
 
@@ -69,7 +70,7 @@ pluginDbGet('Track', ...) [dbHelpers.ts:477]
 ## 黄金法则
 
 | 层 | 应使用 |
-|----|--------|
+| --- | --- |
 | **主进程 DB 操作**（dbHelpers.ts/db.ts） | `music.d.ts` 类型或原始 SQL 行 |
 | **主进程 IPC 处理**（IPCs.ts） | 两者皆可，IPC 接收端用 `@/types/plugin` 的 Zod 类型 |
 | **渲染进程 Store/组件** | **必须用 Zod 类型**（`@/types/plugin`） |
@@ -77,9 +78,9 @@ pluginDbGet('Track', ...) [dbHelpers.ts:477]
 
 ## 相关文件
 
-| 文件 | 内容 |
-|------|------|
-| `src/types/music.d.ts` | 平面 DB 层接口（Track/Album/Artist/PlaylistRow...） |
-| `src/types/schemas.ts` | Zod Schema 定义（TrackSchema/AlbumSchema/PluginResultSchema） |
-| `src/types/plugin.ts` | 从 Zod 推断的导出类型 + PluginAPI + defaultMap |
-| `src/main/dbHelpers.ts` | 拍平（saveCacheResult）和重组（pluginDbGet）的转换逻辑 |
+| 文件                    | 内容                                                          |
+| ----------------------- | ------------------------------------------------------------- |
+| `src/types/music.d.ts`  | 平面 DB 层接口（Track/Album/Artist/PlaylistRow...）           |
+| `src/types/schemas.ts`  | Zod Schema 定义（TrackSchema/AlbumSchema/PluginResultSchema） |
+| `src/types/plugin.ts`   | 从 Zod 推断的导出类型 + PluginAPI + defaultMap                |
+| `src/main/dbHelpers.ts` | 拍平（saveCacheResult）和重组（pluginDbGet）的转换逻辑        |

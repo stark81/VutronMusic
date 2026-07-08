@@ -64,12 +64,12 @@ order: 7
 
 ### 问题
 
-| 问题 | 影响 |
-|------|------|
-| **DOM 数量大** | 一首 4 分钟的歌 ≈ 2000 个字 → 2000 个独立 `<span>` + 行容器 |
-| **Animation 对象多** | 每个字一个 Animation 实例，暂停/恢复需遍历全部 |
-| **字间距/定位** | 每个字独立排版，遇到标点/空格时视觉对齐需额外计算 |
-| **滚动开销** | 歌词列表滚动时大量 DOM 参与重排 |
+| 问题                 | 影响                                                        |
+| -------------------- | ----------------------------------------------------------- |
+| **DOM 数量大**       | 一首 4 分钟的歌 ≈ 2000 个字 → 2000 个独立 `<span>` + 行容器 |
+| **Animation 对象多** | 每个字一个 Animation 实例，暂停/恢复需遍历全部              |
+| **字间距/定位**      | 每个字独立排版，遇到标点/空格时视觉对齐需额外计算           |
+| **滚动开销**         | 歌词列表滚动时大量 DOM 参与重排                             |
 
 ---
 
@@ -109,8 +109,8 @@ order: 7
 ```typescript
 const buildWordAnimation = (el: HTMLElement, words: word[], duration: number) => {
   const keyframes = words.map((w, i) => ({
-    offset: w.start / duration,                                        // 时间比例
-    backgroundPosition: `${(i / words.length) * 100}% 0%`              // 位置偏移
+    offset: w.start / duration, // 时间比例
+    backgroundPosition: `${(i / words.length) * 100}% 0%` // 位置偏移
   }))
   const effect = new KeyframeEffect(el, keyframes, { duration, fill: 'forwards' })
   const animation = new Animation(effect, document.timeline)
@@ -122,12 +122,12 @@ const buildWordAnimation = (el: HTMLElement, words: word[], duration: number) =>
 
 ### 差异对比
 
-| 指标 | Phase 2（每字一 DOM） | Phase 3（单 DOM + Web Animation） |
-|------|----------------------|----------------------------------|
-| DOM 数量 | O(字数) ≈ 2000 个 `<span>` | O(行数) ≈ 40-80 个 `<span>` |
-| Animation 对象数 | 每字 1 个 ≈ 2000 个 | 每行 1 个 ≈ 40-80 个 |
-| 动画机制 | Web Animations API | Web Animations API（相同） |
-| 运行时 CPU | 略高（DOM 多 → 重排成本略高） | 略低（DOM 少 → 重排成本低） |
+| 指标             | Phase 2（每字一 DOM）         | Phase 3（单 DOM + Web Animation） |
+| ---------------- | ----------------------------- | --------------------------------- |
+| DOM 数量         | O(字数) ≈ 2000 个 `<span>`    | O(行数) ≈ 40-80 个 `<span>`       |
+| Animation 对象数 | 每字 1 个 ≈ 2000 个           | 每行 1 个 ≈ 40-80 个              |
+| 动画机制         | Web Animations API            | Web Animations API（相同）        |
+| 运行时 CPU       | 略高（DOM 多 → 重排成本略高） | 略低（DOM 少 → 重排成本低）       |
 
 两者差距主要是 **DOM 数量和 Animation 对象数量**的规模差异，而非动画机制本身的不同。在大多数设备上运行时 CPU 差别不至于特别显著。
 

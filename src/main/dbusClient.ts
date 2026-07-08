@@ -59,6 +59,7 @@ class ServiceMonitor {
       })
       .catch((err) => {
         log.error('Failed to get D-Bus interface:', err)
+        this.win.webContents.send('msgExtensionCheckResult', false)
       })
   }
 

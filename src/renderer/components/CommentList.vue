@@ -166,7 +166,7 @@ window.mainApi
 const { t } = useI18n()
 const stateStore = useNormalStateStore()
 // const { showLyrics } = storeToRefs(stateStore)
-const { showToast } = stateStore
+const { showToast, showConfirm } = stateStore
 const updateWindowHeight = () => {
   if (!mainRef.value) return
   commentHeight.value = mainRef.value?.offsetHeight || commentHeight.value
@@ -245,12 +245,12 @@ const switchCommentPage = (item: CommentType) => {
   selectedComment.value = item
   currentPage.value = 'floorComment'
 }
-const handleDeleteComment = (comment: CommentType) => {
+const handleDeleteComment = async (comment: CommentType) => {
   if (!isAccountLoggedIn(commentCtx.mapPlugin)) {
     showToast(t('toast.needToLogin', { serviceName: pluginName.value }))
     return
   }
-  if (confirm(`确定要删除评论'${comment.content}'吗？`)) {
+  if (await showConfirm(`确定要删除评论'${comment.content}'吗？`)) {
     window.mainApi
       ?.invoke('plugin-comment', {
         pluginId: props.plugin,

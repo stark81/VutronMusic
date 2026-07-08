@@ -61,33 +61,33 @@ last-reviewed: 2025-07-07
 
 ## Vue / 样式规范
 
-| 规范 | 约定 |
-|------|------|
-| Vue 组件 | PascalCase 文件名 |
-| CSS 类名 | kebab-case |
-| Prop 命名 | camelCase |
-| 样式作用域 | `<style scoped lang="scss">`，仅 `App.vue` 非 scoped |
-| 主题系统 | CSS 变量（`--color-*`）+ `data-theme="light\|dark"` |
-| 毛玻璃 | `backdrop-filter: saturate(180%) blur(20px)` |
-| 字体栈 | `'Barlow', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif` |
+| 规范       | 约定                                                                         |
+| ---------- | ---------------------------------------------------------------------------- |
+| Vue 组件   | PascalCase 文件名                                                            |
+| CSS 类名   | kebab-case                                                                   |
+| Prop 命名  | camelCase                                                                    |
+| 样式作用域 | `<style scoped lang="scss">`，仅 `App.vue` 非 scoped                         |
+| 主题系统   | CSS 变量（`--color-*`）+ `data-theme="light\|dark"`                          |
+| 毛玻璃     | `backdrop-filter: saturate(180%) blur(20px)`                                 |
+| 字体栈     | `'Barlow', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif` |
 
 ## 文件组织
 
 ### 目录职责
 
-| 目录 | 放什么 | 命名模式 |
-|------|--------|----------|
-| `views/` | 路由页面级组件 | `{Name}Page.vue`（PlayPage, SearchPage, ExplorePage） |
-| `components/` | 可复用 UI 组件 | PascalCase，无固定后缀 |
-| `store/` | Pinia Store | camelCase（player.ts, audioEngine.ts） |
-| `api/` | 前端 API 调用 | camelCase 按领域划分（track.ts, auth.ts, user.ts） |
-| `utils/` | 工具函数 | camelCase |
-| `locales/` | 国际化翻译 | `{lang}.json`（zh-hans.json, en.json） |
+| 目录          | 放什么         | 命名模式                                              |
+| ------------- | -------------- | ----------------------------------------------------- |
+| `views/`      | 路由页面级组件 | `{Name}Page.vue`（PlayPage, SearchPage, ExplorePage） |
+| `components/` | 可复用 UI 组件 | PascalCase，无固定后缀                                |
+| `store/`      | Pinia Store    | camelCase（player.ts, audioEngine.ts）                |
+| `api/`        | 前端 API 调用  | camelCase 按领域划分（track.ts, auth.ts, user.ts）    |
+| `utils/`      | 工具函数       | camelCase                                             |
+| `locales/`    | 国际化翻译     | `{lang}.json`（zh-hans.json, en.json）                |
 
 ### 组件命名约定
 
 | 类别 | 前缀/后缀 | 示例 |
-|------|-----------|------|
+| --- | --- | --- |
 | 页面视图 | `{Name}Page` | `PlayPage.vue`, `SearchPage.vue`, `ExplorePage.vue` |
 | 模态框 | `Modal{Name}` | `ModalConvolver.vue`, `ModalPitch.vue`, `ModalNewPlaylist.vue` |
 | 列表项 | `{Name}Item` | `TrackListItem.vue`, `AlbumListItem.vue`, `ArtistListItem.vue` |
@@ -140,14 +140,15 @@ const { likeATrack } = pluginStore
 
 ## Props / Events 命名
 
-| 概念 | 约定 | 示例 |
-|------|------|------|
-| Props | camelCase（TypeScript 泛型定义） | `trackProp`, `typeProp`, `isLyric`, `showService` |
-| Events | kebab-case（`$emit('event-name')`） | `@play-this`, `@add-to-playlist` |
-| Slots | camelCase | `#default`, `#header` |
+| 概念   | 约定                                | 示例                                              |
+| ------ | ----------------------------------- | ------------------------------------------------- |
+| Props  | camelCase（TypeScript 泛型定义）    | `trackProp`, `typeProp`, `isLyric`, `showService` |
+| Events | kebab-case（`$emit('event-name')`） | `@play-this`, `@add-to-playlist`                  |
+| Slots  | camelCase                           | `#default`, `#header`                             |
 
 ## 与 workflow.md 禁区的交叉引用
 
 代码规范中的约定与 [开发工作流](./workflow) 中的禁区互补：
+
 - **workflow.md** 定义了**不要做什么**（禁区）
 - **本文件** 定义了**怎么做**（约定）

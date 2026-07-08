@@ -8,13 +8,13 @@ last-reviewed: 2025-07-07
 
 ## 构建命令
 
-| 命令 | 产物 | 说明 |
-|------|------|------|
-| `yarn build` | 当前平台 | 生产构建（自动检测平台） |
-| `yarn build:all` | dmg + nsis/portable + deb/rpm/AppImage/snap | 全平台构建 |
-| `yarn build:linux` | deb + rpm + AppImage + snap | Linux 构建 |
-| `yarn build:mac` | dmg | macOS 构建 |
-| `yarn build:dir` | 目录（免打包） | 调试用 |
+| 命令               | 产物                                        | 说明                     |
+| ------------------ | ------------------------------------------- | ------------------------ |
+| `yarn build`       | 当前平台                                    | 生产构建（自动检测平台） |
+| `yarn build:all`   | dmg + nsis/portable + deb/rpm/AppImage/snap | 全平台构建               |
+| `yarn build:linux` | deb + rpm + AppImage + snap                 | Linux 构建               |
+| `yarn build:mac`   | dmg                                         | macOS 构建               |
+| `yarn build:dir`   | 目录（免打包）                              | 调试用                   |
 
 输出目录：`release/${version}/`
 
@@ -22,11 +22,11 @@ last-reviewed: 2025-07-07
 
 配置文件：`buildAssets/builder/config.js`
 
-| 平台 | 产物类型 | 架构 |
-|------|---------|------|
-| macOS | `dmg` | x64 |
-| Windows | `nsis`（安装包）+ `portable`（便携版）+ `zip` | x64 |
-| Linux | `deb` + `rpm` + `AppImage` + `snap` | x64 |
+| 平台    | 产物类型                                      | 架构 |
+| ------- | --------------------------------------------- | ---- |
+| macOS   | `dmg`                                         | x64  |
+| Windows | `nsis`（安装包）+ `portable`（便携版）+ `zip` | x64  |
+| Linux   | `deb` + `rpm` + `AppImage` + `snap`           | x64  |
 
 NSIS 安装包配置：一键安装关闭、允许修改安装目录、创建桌面快捷方式。
 
@@ -52,11 +52,11 @@ NSIS 安装包配置：一键安装关闭、允许修改安装目录、创建桌
 
 ### Workflow 总览
 
-| Workflow | 文件 | 触发条件 | 功能 |
-|----------|------|---------|------|
-| app-test | `app-test.yml` | push/PR to master | 多平台测试 |
-| Release | `build.yml` | push tag `v*` / manual | 多架构构建 + GitHub Release |
-| documents | `documents.yml` | push `docs/` to master | VitePress 文档构建 + 部署 |
+| Workflow  | 文件            | 触发条件               | 功能                        |
+| --------- | --------------- | ---------------------- | --------------------------- |
+| app-test  | `app-test.yml`  | push/PR to master      | 多平台测试                  |
+| Release   | `build.yml`     | push tag `v*` / manual | 多架构构建 + GitHub Release |
+| documents | `documents.yml` | push `docs/` to master | VitePress 文档构建 + 部署   |
 
 ### 测试（app-test.yml）
 
@@ -64,10 +64,10 @@ NSIS 安装包配置：一键安装关闭、允许修改安装目录、创建桌
 
 **测试矩阵**：
 
-| 维度 | 值 |
-|------|-----|
-| Node.js | 18, 20 |
-| 平台 | windows-latest, macos-latest, ubuntu-latest |
+| 维度    | 值                                          |
+| ------- | ------------------------------------------- |
+| Node.js | 18, 20                                      |
+| 平台    | windows-latest, macos-latest, ubuntu-latest |
 
 Linux 环境通过 `xvfb-run` 提供虚拟帧缓冲以运行 Electron 测试。
 
@@ -77,14 +77,14 @@ Linux 环境通过 `xvfb-run` 提供虚拟帧缓冲以运行 Electron 测试。
 
 **构建矩阵**（6 路并行）：
 
-| 平台 | Runner | 架构 |
-|------|--------|------|
-| macOS | macos-15-intel | x64 |
-| macOS | macos-14 | arm64 |
-| Windows | windows-2022 | x64 |
-| Windows | windows-11-arm | arm64 |
-| Linux | ubuntu-22.04 | x64 |
-| Linux | ubuntu-22.04-arm | arm64 |
+| 平台    | Runner           | 架构  |
+| ------- | ---------------- | ----- |
+| macOS   | macos-15-intel   | x64   |
+| macOS   | macos-14         | arm64 |
+| Windows | windows-2022     | x64   |
+| Windows | windows-11-arm   | arm64 |
+| Linux   | ubuntu-22.04     | x64   |
+| Linux   | ubuntu-22.04-arm | arm64 |
 
 **发布流程**：
 
@@ -95,12 +95,12 @@ Linux 环境通过 `xvfb-run` 提供虚拟帧缓冲以运行 Electron 测试。
 
 **产物矩阵**：
 
-| 平台 | 产物 |
-|------|------|
-| macOS | dmg |
-| Windows | nsis（安装包）+ portable（便携版）+ blockmap + latest.yml |
-| Linux x64 | deb + rpm + AppImage + snap + blockmap + latest.yml |
-| Linux arm64 | deb + rpm + AppImage + blockmap + latest.yml |
+| 平台        | 产物                                                      |
+| ----------- | --------------------------------------------------------- |
+| macOS       | dmg                                                       |
+| Windows     | nsis（安装包）+ portable（便携版）+ blockmap + latest.yml |
+| Linux x64   | deb + rpm + AppImage + snap + blockmap + latest.yml       |
+| Linux arm64 | deb + rpm + AppImage + blockmap + latest.yml              |
 
 ### 文档部署（documents.yml）
 

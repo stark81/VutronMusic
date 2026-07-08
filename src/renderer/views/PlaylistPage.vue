@@ -289,7 +289,7 @@ const filterTracks = computed(() => {
 })
 
 const stateStore = useNormalStateStore()
-const { showToast } = stateStore
+const { showToast, showConfirm } = stateStore
 const { editPlaylistModal } = storeToRefs(stateStore)
 
 const playerStore = usePlayerStore()
@@ -426,10 +426,10 @@ const openMenu = (e: MouseEvent) => {
   playlistMenu.value.openMenu(e)
 }
 
-const deleteAPlaylist = () => {
+const deleteAPlaylist = async () => {
   const service = services.value.find((item) => item.code === pluginId.value)
   if (
-    confirm(
+    await showConfirm(
       t('playlist.deletePlaylist', {
         name: service?.name || '',
         code: pluginId.value,

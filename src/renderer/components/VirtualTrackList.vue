@@ -225,7 +225,7 @@ const { playlistSource, currentTrack, list, playNextList } = storeToRefs(playerS
 const { replacePlaylist, addTrackToPlayNext } = playerStore
 
 const stateStore = useNormalStateStore()
-const { showToast } = stateStore
+const { showToast, showConfirm } = stateStore
 const { addTrackToPlaylistModal, accurateMatchModal } = storeToRefs(stateStore)
 
 // const { addOrRemoveTrackFromStreamPlaylist } = useStreamMusicStore()
@@ -366,7 +366,7 @@ const openMenu = (e: MouseEvent, track: { [key: string]: any }, index: number) =
   trackListMenuRef.value?.openMenu(e)
 }
 
-const rmTrackFromPlaylist = () => {
+const rmTrackFromPlaylist = async () => {
   if (props.plugin === 'all') {
     showToast('在聚合视图下无法进行操作，请先选择具体的音源服务')
     return
@@ -386,7 +386,7 @@ const rmTrackFromPlaylist = () => {
   const idx = items.value.findIndex((item) => isEqual(item.sourceContext, source))
 
   if (
-    confirm(
+    await showConfirm(
       t('playlist.rmTrackFromPlaylist', {
         name: pname,
         code: props.plugin,

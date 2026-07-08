@@ -34,19 +34,19 @@ yarn lint        # 代码检查
    - 开发工作流 → `docs/src/spec/architecture/workflow`
    - 开发环境搭建 → `docs/src/spec/architecture/env-setup`
    - Store/状态 → `docs/src/spec/architecture/stores`
-	- 组件 → `docs/src/spec/architecture/components`
-	- 路由 → `docs/src/spec/architecture/router`
-	- 代码规范 → `docs/src/spec/architecture/code-conventions`
-	- 类型系统 → `docs/src/spec/architecture/types`
-	- 主进程启动序列 → `docs/src/spec/architecture/startup`
-	- 国际化 → `docs/src/spec/integrations/i18n`
-	- 架构决策 → `docs/src/adr/`
+   - 组件 → `docs/src/spec/architecture/components`
+   - 路由 → `docs/src/spec/architecture/router`
+   - 代码规范 → `docs/src/spec/architecture/code-conventions`
+   - 类型系统 → `docs/src/spec/architecture/types`
+   - 主进程启动序列 → `docs/src/spec/architecture/startup`
+   - 国际化 → `docs/src/spec/integrations/i18n`
+   - 架构决策 → `docs/src/adr/`
    - **文档新鲜度**：每个文档 frontmatter 中的 `last-reviewed` 字段标注了最近一次审核日期。若日期早于你关心的代码变更时间，请以实际代码为准。
 
 ## 任务类型 → 查阅文档对照表
 
 | 你想做什么 | 先读什么 | 关键文件 |
-|-----------|---------|---------|
+| --- | --- | --- |
 | 理解产品理念和功能设计 | `docs/src/product/` | — |
 | 首次搭建开发环境 | `docs/src/spec/architecture/env-setup` | — |
 | 改数据库查询/Schema | `docs/src/spec/architecture/database/` | `src/main/dbHelpers.ts` |
@@ -108,11 +108,11 @@ src/
 
 ### 3. 本地去重保留括注
 
-| 强度 | 条件 | 处理 |
-|------|------|------|
-| 强 | MusicBrainz Track ID 一致 | 归并为同一 Track 的新 Audio |
-| 中 | 归一化标题+专辑+艺术家相同，时长误差 ≤ 2s | 归并 |
-| 弱 | 仅部分匹配 | 不作为同一 Track |
+| 强度 | 条件                                      | 处理                        |
+| ---- | ----------------------------------------- | --------------------------- |
+| 强   | MusicBrainz Track ID 一致                 | 归并为同一 Track 的新 Audio |
+| 中   | 归一化标题+专辑+艺术家相同，时长误差 ≤ 2s | 归并                        |
+| 弱   | 仅部分匹配                                | 不作为同一 Track            |
 
 归一化：trim 空格、全角/半角统一、忽略大小写。**不要去除 `(Live)` 等括注**。
 
@@ -151,12 +151,14 @@ src/
 ## 文档
 
 产品文档在 `docs/src/`，通过 VitePress 构建：
+
 ```bash
 cd docs && yarn dev    # 本地预览
 cd docs && yarn build  # 生产构建
 ```
 
 按任务类型查阅对应文档：
+
 - 产品文档 → `docs/src/product/`
 - 技术规格 → `docs/src/spec/`
 - 架构决策 → `docs/src/adr/`

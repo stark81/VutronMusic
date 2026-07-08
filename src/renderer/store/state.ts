@@ -59,6 +59,34 @@ export const useNormalStateStore = defineStore('state', () => {
     text: '',
     timer: null as any
   })
+
+  const confirmDialog = reactive({
+    show: false,
+    title: '确认',
+    text: '',
+    resolve: null as ((value: boolean) => void) | null
+  })
+
+  const showConfirm = (text: string, title = '确认'): Promise<boolean> => {
+    return new Promise((resolve) => {
+      confirmDialog.show = true
+      confirmDialog.title = title
+      confirmDialog.text = text
+      confirmDialog.resolve = resolve
+    })
+  }
+
+  const confirmAction = () => {
+    confirmDialog.resolve?.(true)
+    confirmDialog.show = false
+    confirmDialog.resolve = null
+  }
+
+  const cancelAction = () => {
+    confirmDialog.resolve?.(false)
+    confirmDialog.show = false
+    confirmDialog.resolve = null
+  }
   const dailyTracks = ref<Track[]>([])
 
   const scrollbar = reactive({
@@ -171,6 +199,7 @@ export const useNormalStateStore = defineStore('state', () => {
     backgroundModal,
     dailyTracks,
     toast,
+    confirmDialog,
     modalOpen,
     scrollbar,
     updateStatus,
@@ -179,6 +208,9 @@ export const useNormalStateStore = defineStore('state', () => {
     amuseServerRunning,
     amuseServerErrorMsg,
     showToast,
+    showConfirm,
+    confirmAction,
+    cancelAction,
     getFontList,
     registerInstance,
     unregisterInstance,

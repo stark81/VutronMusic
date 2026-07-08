@@ -71,10 +71,12 @@ const authHeader = [
 ].join(', ')
 
 apis.db.get('PluginData').then((result) => {
-  user.userId = result.userId
-  user.userName = result.userName
-  user.pwd = result.pwd
-  user.token = result.token
+  if (result) {
+    user.userId = result.userId
+    user.userName = result.userName
+    user.pwd = result.pwd
+    user.token = result.token
+  }
 })
 
 apis.store.get('').then((store) => {
@@ -117,7 +119,7 @@ const formatPlaylistDetail = (playlist) => ({
   picUrl: playlist.ImageTags?.Primary
     ? getPic(playlist.Id, playlist.ImageTags?.Primary, 512)
     : `http://localhost:41830/local-asset/default-cover?v=${playlist.Id}`,
-  trackCount: playlist.ChildCount,
+  trackCount: playlist.ChildCount || 0,
   updateTime: new Date(playlist.DateCreated || 0).getTime(),
   description: playlist.Overview || '',
   isPrivate: false,
@@ -129,9 +131,9 @@ const formatPlaylistDetail = (playlist) => ({
   tracks: [],
   tags: [],
   creator: {
-    userId: user.userId,
+    userId: user.userId || '',
     avatarUrl: '',
-    nickname: user.userName,
+    nickname: user.userName || '',
     isVip: true,
     signature: '',
     sourceContext: { userId: user.userId }
@@ -186,7 +188,7 @@ const formatTrack = (item, size = 512, showPlayCount = true) => {
   return {
     id: item.Id ?? '',
     name: item.Name ?? '',
-    duration: item.RunTimeTicks / 10000,
+    duration: (item.RunTimeTicks || 0) / 10000,
     alias: [],
     playable: true,
     reason: '',
@@ -203,7 +205,7 @@ const formatTrack = (item, size = 512, showPlayCount = true) => {
       pluginId: '',
       sourceContext: { id: item.AlbumId ?? '' }
     },
-    artists: item.ArtistItems.map((it) => ({
+    artists: (item.ArtistItems || []).map((it) => ({
       id: it.Id ?? '',
       name: it.Name ?? '',
       picUrl: 'http://p1.music.126.net/6y-UleORITEDbvrOLV0Q8A==/5639395138885805.jpg?param=64y64',
@@ -271,8 +273,8 @@ const formatAlbum = (item) => ({
       pluginId: '',
       sourceContext: { id: it.Id }
     })) || [],
-  createTime: new Date(item.DateCreated).getTime(),
-  copywriter: `专辑 · ${new Date(item.DateCreated).getFullYear()}`,
+  createTime: new Date(item.DateCreated || 0).getTime(),
+  copywriter: `专辑 · ${new Date(item.DateCreated || 0).getFullYear()}`,
   type: '专辑',
   pluginId: '',
   sourceContext: { id: item.Id }
@@ -435,8 +437,8 @@ exports.getAccount = () => {
 exports.doLogin = async (params) => {
   try {
     const headers = { 'X-Emby-Authorization': authHeader, 'Content-Type': 'application/json' }
-    const response = await post(
-      'Users/AuthenticateByName',
+    const response = await apis.http.post(
+      `${baseUrl}/Users/AuthenticateByName`,
       {
         Username: params.userName,
         Pw: params.pwd

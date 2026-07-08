@@ -168,8 +168,9 @@ const toExplore = (Category: ExploreTab) => {
   exploreTab.value = Category
 }
 
-const logout = () => {
-  if (!confirm('确定要退出登录吗？')) return
+const logout = async () => {
+  const { showConfirm } = useNormalStateStore()
+  if (!(await showConfirm('确定要退出登录吗？'))) return
   doLogout()
   router.push({ name: 'HomePage' })
 }

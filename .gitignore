@@ -67,6 +67,9 @@ npm-debug.log.*
 vite-plugin-electron.log
 tmp/
 
+# Flatpak builder cache
+.flatpak-builder
+
 # TypeScript incremental compilation cache
 *.tsbuildinfo
 .claudeignore

@@ -7,17 +7,15 @@ order: 15
 
 将播放记录上报到 Last.fm，实现听歌统计和 Scrobble 功能。
 
-**核心文件**: `src/main/utils/lastfm.ts`（193 行）
-**设置入口**: `src/renderer/store/settings.ts`（`misc.lastfm`）
-**UI 入口**: `src/renderer/views/SystemSettings.vue`
+**核心文件**: `src/main/utils/lastfm.ts`（193 行） **设置入口**: `src/renderer/store/settings.ts`（`misc.lastfm`） **UI 入口**: `src/renderer/views/SystemSettings.vue`
 
 ## 功能
 
-| 功能 | 说明 |
-|------|------|
-| `track.scrobble` | 上报播放记录（曲目播放完成或播放超过一半时） |
-| `track.updateNowPlaying` | 上报当前正在播放的曲目 |
-| OAuth 授权 | 浏览器授权流程 |
+| 功能                     | 说明                                         |
+| ------------------------ | -------------------------------------------- |
+| `track.scrobble`         | 上报播放记录（曲目播放完成或播放超过一半时） |
+| `track.updateNowPlaying` | 上报当前正在播放的曲目                       |
+| OAuth 授权               | 浏览器授权流程                               |
 
 ## 授权流程
 
@@ -82,7 +80,10 @@ order: 15
 ```typescript
 // IPCs.ts 中
 pluginManager.call(pluginId, 'scrobble', {
-  pluginId, track, time, completed
+  pluginId,
+  track,
+  time,
+  completed
 })
 ```
 
@@ -94,19 +95,25 @@ Last.fm API 使用 MD5 签名：
 
 ```typescript
 const sign = (param: Record<string, string>) => {
-  const sorted = Object.keys(param).sort()
-    .map(k => k + String(param[k])).join('')
-  return crypto.createHash('md5').update(sorted + SHARED_SECRET).digest('hex')
+  const sorted = Object.keys(param)
+    .sort()
+    .map((k) => k + String(param[k]))
+    .join('')
+  return crypto
+    .createHash('md5')
+    .update(sorted + SHARED_SECRET)
+    .digest('hex')
 }
 ```
 
 ## 设置项
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `misc.lastfm.enable` | `boolean` | 是否已授权 |
-| `misc.lastfm.name` | `string` | Last.fm 用户名 |
+| 字段                 | 类型      | 说明           |
+| -------------------- | --------- | -------------- |
+| `misc.lastfm.enable` | `boolean` | 是否已授权     |
+| `misc.lastfm.name`   | `string`  | Last.fm 用户名 |
 
 **操作**：
+
 - `lastfmConnect()` — 触发授权流程
 - `lastfmDisconnect()` — 清除 session，断开连接

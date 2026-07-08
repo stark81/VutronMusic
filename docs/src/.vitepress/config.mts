@@ -28,13 +28,7 @@ export default defineConfig({
       sortMenusByFrontmatterOrder: true,
       hyphenToSpace: true,
       capitalizeEachWords: true,
-      manualSortFileNameByPriority: [
-        'product',
-        'spec',
-        'adr',
-        'troubleshooting',
-        'archive'
-      ],
+      manualSortFileNameByPriority: ['product', 'spec', 'adr', 'troubleshooting', 'archive'],
       excludeFiles: ['spec/index.md'],
       collapseDepth: 2
     }),

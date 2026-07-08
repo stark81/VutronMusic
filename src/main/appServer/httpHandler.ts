@@ -159,15 +159,17 @@ const httpHandler: FastifyPluginAsync = async (fastify: FastifyInstance) => {
       // 下载图片
       const client = picUrl.startsWith('https') ? require('https') : require('http')
       const image = await new Promise<Buffer>((resolve, reject) => {
-        client.get(picUrl, (res: any) => {
-          if (res.statusCode !== 200) {
-            res.resume()
-            return reject(new Error(`Request Failed: ${res.statusCode}`))
-          }
-          const chunks: Buffer[] = []
-          res.on('data', (chunk: Buffer) => chunks.push(chunk))
-          res.on('end', () => resolve(Buffer.concat(chunks)))
-        }).on('error', reject)
+        client
+          .get(picUrl, (res: any) => {
+            if (res.statusCode !== 200) {
+              res.resume()
+              return reject(new Error(`Request Failed: ${res.statusCode}`))
+            }
+            const chunks: Buffer[] = []
+            res.on('data', (chunk: Buffer) => chunks.push(chunk))
+            res.on('end', () => resolve(Buffer.concat(chunks)))
+          })
+          .on('error', reject)
       })
 
       const resized = await sharp(image).resize(size, size, { fit: 'cover' }).toBuffer()

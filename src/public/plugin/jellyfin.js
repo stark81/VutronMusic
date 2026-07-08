@@ -70,10 +70,12 @@ const authHeader = [
 ].join(', ')
 
 apis.db.get('PluginData').then((result) => {
-  user.userId = result.userId
-  user.userName = result.userName
-  user.pwd = result.pwd
-  user.token = result.token
+  if (result) {
+    user.userId = result.userId
+    user.userName = result.userName
+    user.pwd = result.pwd
+    user.token = result.token
+  }
 })
 
 apis.store.get('').then((store) => {
@@ -116,7 +118,7 @@ const formatPlaylistDetail = (playlist) => ({
   picUrl: playlist.ImageTags?.Primary
     ? getPic(playlist.Id, 512)
     : `http://localhost:41830/local-asset/default-cover?v=${playlist.Id}`,
-  trackCount: playlist.ChildCount,
+  trackCount: playlist.ChildCount || 0,
   updateTime: new Date(playlist.DateCreated || 0).getTime(),
   description: playlist.Overview || '',
   isPrivate: false,
@@ -168,7 +170,7 @@ const formatTrack = (item, size = 512, showPlayCount = true) => {
   return {
     id: item.Id ?? '',
     name: item.Name ?? '',
-    duration: item.RunTimeTicks / 10000,
+    duration: (item.RunTimeTicks || 0) / 10000,
     alias: [],
     playable: true,
     reason: '',
@@ -185,7 +187,7 @@ const formatTrack = (item, size = 512, showPlayCount = true) => {
       pluginId: '',
       sourceContext: { id: item.AlbumId ?? '' }
     },
-    artists: item.ArtistItems.map((it) => ({
+    artists: (item.ArtistItems || []).map((it) => ({
       id: it.Id ?? '',
       name: it.Name ?? '',
       picUrl: it.ImageTags?.Primary ? getPic(it.Id, 64) : 'vutron://get-singer-pic',
@@ -217,7 +219,7 @@ const formatAlbumDetail = (item) => {
     type: 'Album',
     isExplicit: false,
     subscribed: item.UserData?.IsFavorite || false,
-    publishTime: new Date(item.DateCreated).getTime(),
+    publishTime: new Date(item.DateCreated || 0).getTime(),
     size: item.ChildCount || 0,
     company: '',
     description: item.description || '',
@@ -251,8 +253,8 @@ const formatAlbum = (item) => ({
       pluginId: '',
       sourceContext: { id: it.Id }
     })) || [],
-  createTime: new Date(item.DateCreated).getTime(),
-  copywriter: `专辑 · ${new Date(item.DateCreated).getFullYear()}`,
+  createTime: new Date(item.DateCreated || 0).getTime(),
+  copywriter: `专辑 · ${new Date(item.DateCreated || 0).getFullYear()}`,
   type: '专辑',
   pluginId: '',
   sourceContext: { id: item.Id }
@@ -447,8 +449,8 @@ exports.getAccount = () => {
 exports.doLogin = async (params) => {
   try {
     const headers = { 'X-Emby-Authorization': authHeader, 'Content-Type': 'application/json' }
-    const response = await post(
-      'Users/AuthenticateByName',
+    const response = await apis.http.post(
+      `${baseUrl}/Users/AuthenticateByName`,
       {
         Username: params.userName,
         Pw: params.pwd

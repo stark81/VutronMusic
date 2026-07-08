@@ -1390,7 +1390,7 @@ const { proxy, realIp } = toRefs(misc.value)
 const stateStore = useNormalStateStore()
 const { extensionCheckResult, updateStatus, latestVersion, isDownloading, fontList } =
   toRefs(stateStore)
-const { showToast, checkUpdate, getFontList } = stateStore
+const { showToast, showConfirm, checkUpdate, getFontList } = stateStore
 
 const pluginMusicStore = usePluginMusic()
 const {
@@ -1490,7 +1490,7 @@ const handleAddInstance = async () => {
 }
 
 const handleDeleteInstance = async (ser: service) => {
-  if (!confirm(`确定删除实例 "${ser.name}" 吗？此操作不可恢复。`)) return
+  if (!(await showConfirm(`确定删除实例 "${ser.name}" 吗？此操作不可恢复。`))) return
   const success = await deletePluginInstance(ser.code)
   if (success) {
     showToast(`实例 "${ser.name}" 已删除`)
@@ -1529,7 +1529,7 @@ const getStreamMatchCountData = async () => {
 }
 
 const clearStreamMatchInfo = async () => {
-  if (!confirm('确定清理所有流媒体匹配信息吗？')) return
+  if (!(await showConfirm('确定清理所有流媒体匹配信息吗？'))) return
   await window.mainApi?.invoke('clearStreamMatches')
   await getStreamMatchCountData()
   showToast('清理完成')
@@ -1560,13 +1560,13 @@ const handleUpdate = () => {
   }
 }
 
-const handleLogin = (plugin: service) => {
+const handleLogin = async (plugin: service) => {
   if (plugin.status === 'logout') {
     const map = { library: 'QrCode', local: 'LocalDir', stream: 'Username' } as const
     const loginType = map[plugin.type]
     router.push(`/login/${plugin.code}/${loginType}`)
   } else {
-    if (confirm(`确定登出${plugin.name}吗？`)) {
+    if (await showConfirm(`确定登出${plugin.name}吗？`)) {
       pluginMethodCall(plugin.code, 'doLogout').then(({ code }) => {
         if (code === 200) {
           handleStatusChange(plugin.code, 'logout')
@@ -1908,8 +1908,8 @@ const updateProxy = () => {
   showToast(proxyType.value === ProxyType.Disable ? '已关闭代理' : '已更新代理设置')
 }
 
-const deleteLocalMusic = () => {
-  if (!confirm(`确定清空本地音乐数据吗？`)) return
+const deleteLocalMusic = async () => {
+  if (!(await showConfirm('确定清空本地音乐数据吗？'))) return
   const serv = pluginServices.value.find((item) => item.code === currentTrack.value?.pluginId)
   if (serv?.type === 'local') {
     resetPlayer()

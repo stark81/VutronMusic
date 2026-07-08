@@ -411,9 +411,15 @@ function initOSDWindowIpcMain(win: BrowserWindow, lrc: { [key: string]: Function
 function initTaskbarIpcMain(): void {}
 
 async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
-  const client = require('discord-rich-presence')('1450799847962574868')
+  let client: any = null
+  try {
+    client = require('discord-rich-presence')('1450799847962574868')
+  } catch (e) {
+    log.warn('Discord Rich Presence 不可用:', (e as Error).message)
+  }
 
   ipcMain.on('playDiscordPresence', (event: IpcMainEvent, track: NewTrack) => {
+    if (!client) return
     client.updatePresence({
       details:
         track.name + ' - ' + track.artists.map((ar: Record<string, any>) => ar.name).join(','),
@@ -428,6 +434,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
   })
 
   ipcMain.on('pauseDiscordPresence', (event: IpcMainEvent, track: NewTrack) => {
+    if (!client) return
     client.updatePresence({
       details:
         track.name + ' - ' + track.artists.map((ar: Record<string, any>) => ar.name).join(','),
@@ -1803,23 +1810,30 @@ async function initPluginIpcMain() {
       const { type, pluginId, rawCtx, track, position, playing, duration, sourceCtx } = params
       const condMet = position >= duration / 2 || position >= 30
 
-      // 1. Last.fm
-      if (type === 'start') {
-        updateNowPlaying({
-          artist: track.artist,
-          track: track.name,
-          album: track.album,
-          duration: track.duration
-        })
-      } else if (type === 'end' && condMet) {
-        scrobbleTrack({
-          artist: track.artist,
-          track: track.name,
-          timestamp: ~~(Date.now() / 1000) - position,
-          album: track.album,
-          trackNumber: track.no || 1,
-          duration: track.duration
-        })
+      // 1. Last.fm — 未认证时跳过，不尝试提交
+      const lastfmSession = store.get('settings.lastfmSession') as {
+        name: string
+        key: string
+        subscriber: number
+      } | null
+      if (lastfmSession?.key) {
+        if (type === 'start') {
+          updateNowPlaying({
+            artist: track.artist,
+            track: track.name,
+            album: track.album,
+            duration: track.duration
+          })
+        } else if (type === 'end' && condMet) {
+          scrobbleTrack({
+            artist: track.artist,
+            track: track.name,
+            timestamp: ~~(Date.now() / 1000) - position,
+            album: track.album,
+            trackNumber: track.no || 1,
+            duration: track.duration
+          })
+        }
       }
 
       // 2. Plugin reportPlayback 广播

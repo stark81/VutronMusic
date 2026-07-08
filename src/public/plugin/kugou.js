@@ -645,17 +645,17 @@ const formatAlbumDetail = (item) => {
   if (listid) sourceContext.listid = listid
 
   return {
-    id: item.album_id,
+    id: item.album_id ?? '',
     name: item.album_name || '',
     picUrl: (item.sizable_cover || '').replace('{size}', '512'),
     artists: [],
-    type: item.type,
+    type: item.type || '',
     isExplicit: false,
     subscribed: idx !== -1,
     publishTime: parseDate(item.publish_date) || 0,
     size: 0,
     company: item.publish_company || '',
-    description: item.intro,
+    description: item.intro || '',
 
     pluginId: '',
     sourceContext
@@ -727,7 +727,7 @@ const buildAlbumTrack = (item) => {
       album: { id: item.base?.album_id || '', name: item.album_info?.album_name || '' },
       artists: (item.authors || []).map((it) => ({
         id: it.author_id ?? '',
-        name: it.author_name
+        name: it.author_name || ''
       })),
       picUrl: (item.album_info?.cover || 'https://c1.kgimg.com/stdmusic/aaa/ddd/ddd.jpg').replace(
         '{size}',
@@ -792,8 +792,8 @@ const formatMvDetail = (item) => ({
   picUrl:
     item.hdpic?.replace('{size}', '600').replace('http://', 'https://') ||
     'https://c1.kgimg.com/stdmusic/aaa/ddd/ddd.jpg',
-  sources: item.sources,
-  artists: item.authors.map((ar) => ({
+  sources: item.sources || [],
+  artists: (item.authors || []).map((ar) => ({
     id: ar.author_id || '',
     name: ar.author_name ?? '',
     picUrl: ar.sizeable_avatar?.replace('{size}', '512').replace('http://', 'https://') || '',
@@ -1331,15 +1331,15 @@ exports.rankList = async (params) => {
 }
 
 const buildRankDetail = (item) => ({
-  id: item.rankid,
-  name: item.rankname,
+  id: item.rankid ?? '',
+  name: item.rankname ?? '',
   icon: 'common',
-  picUrl: item.imgurl.replace('{size}', '512'),
+  picUrl: (item.imgurl || '').replace('{size}', '512'),
   subscribed: false,
   trackCount: item.extra?.resp?.all_total || 0,
   updateTime:
     parseDate(item.extra?.resp?.scheduled_release_conf?.latest_rank_cid_publish_date) || 0,
-  description: item.intro,
+  description: item.intro || '',
   isPrivate: false,
   trackIds: [],
   tracks: [],
@@ -1596,9 +1596,9 @@ exports.userLikedArtists = async () => {
       const data = result.data.lists
         .filter((item) => !!item.singerid)
         .map((item) => ({
-          id: item.singerid || item.userid,
-          name: item.nickname,
-          picUrl: item.pic.replace(/\/\d+\//, `/256/`),
+          id: item.singerid || item.userid || '',
+          name: item.nickname || '',
+          picUrl: (item.pic || '').replace(/\/\d+\//, `/256/`),
           pluginId: '',
           // sourceContext: { id: item.userid, singerid: item.singerid }
           sourceContext: { id: item.singerid }
@@ -1683,8 +1683,8 @@ exports.artistAlbums = async (params) => {
     const result = await get('artist/albums', { id, pagesize, page: page ?? 1 })
     if (result.status === 1) {
       const data = result.data.map((item) => ({
-        id: item.album_id,
-        name: item.album_name,
+        id: item.album_id ?? '',
+        name: item.album_name ?? '',
         picUrl: (item.sizable_cover || 'https://c1.kgimg.com/stdmusic/aaa/ddd/ddd.jpg').replace(
           '{size}',
           '256'
@@ -1713,13 +1713,13 @@ exports.artistDetail = async (params) => {
     ])
     if (result.status === 1) {
       const artist = {
-        id: result.data.author_id,
-        name: result.data.author_name,
-        picUrl: result.data.sizable_avatar.replace('{size}', '512'),
-        musicSize: result.data.song_count,
-        albumSize: result.data.album_count,
-        mvSize: result.data.mv_count,
-        description: result.data.intro,
+        id: result.data.author_id ?? '',
+        name: result.data.author_name ?? '',
+        picUrl: (result.data.sizable_avatar || '').replace('{size}', '512'),
+        musicSize: result.data.song_count || 0,
+        albumSize: result.data.album_count || 0,
+        mvSize: result.data.mv_count || 0,
+        description: result.data.intro || '',
         followed: collectedArtists.ids.includes(String(id)),
         pluginId: '',
         sourceContext: { id: result.data.author_id }
@@ -1776,7 +1776,7 @@ exports.simiArtists = async () => {
         id: item.singerid || '',
         name: item.singername || '',
         pluginId: '',
-        picUrl: item.imgurl.replace('{size}', '256'),
+        picUrl: (item.imgurl || '').replace('{size}', '256'),
         sourceContext: { id: item.singerid }
       }))
     return {

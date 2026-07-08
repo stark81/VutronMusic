@@ -10,11 +10,11 @@ last-reviewed: 2025-07-07
 
 ## 环境要求
 
-| 依赖 | 版本要求 | 说明 |
-|------|---------|------|
-| Node.js | >= 22.6.0 | `package.json` engines 字段指定 |
-| Yarn | 1.22.22 | `package.json` packageManager 字段指定 |
-| Git | 2.x+ | 版本控制 |
+| 依赖    | 版本要求  | 说明                                   |
+| ------- | --------- | -------------------------------------- |
+| Node.js | >= 22.6.0 | `package.json` engines 字段指定        |
+| Yarn    | 1.22.22   | `package.json` packageManager 字段指定 |
+| Git     | 2.x+      | 版本控制                               |
 
 ## 安装步骤
 
@@ -62,6 +62,7 @@ yarn dev
 ```
 
 此命令会同时启动：
+
 - Vite 开发服务器（HMR 热更新）
 - Electron 主进程
 
@@ -69,12 +70,12 @@ yarn dev
 
 ### 热更新范围
 
-| 修改位置 | 是否自动刷新 | 说明 |
-|---------|-------------|------|
-| `src/renderer/` | ✅ 是 | Vue 组件、Store、样式等通过 Vite HMR 热更新 |
-| `src/main/` | ❌ 否 | 需要手动重启 Electron |
-| `src/preload/` | ❌ 否 | 需要手动重启 Electron |
-| `public/plugin/` | ❌ 否 | 需要手动重启 Electron |
+| 修改位置         | 是否自动刷新 | 说明                                        |
+| ---------------- | ------------ | ------------------------------------------- |
+| `src/renderer/`  | ✅ 是        | Vue 组件、Store、样式等通过 Vite HMR 热更新 |
+| `src/main/`      | ❌ 否        | 需要手动重启 Electron                       |
+| `src/preload/`   | ❌ 否        | 需要手动重启 Electron                       |
+| `public/plugin/` | ❌ 否        | 需要手动重启 Electron                       |
 
 手动重启：关闭 Electron 窗口后重新执行 `yarn dev`。
 
@@ -102,6 +103,7 @@ yarn install
 ### Electron 启动白屏
 
 通常是渲染进程编译错误。检查终端中 Vite 的输出日志，常见原因：
+
 - TypeScript 类型错误
 - 缺少依赖包
 - 环境变量未配置

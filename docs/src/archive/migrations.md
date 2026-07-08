@@ -54,13 +54,17 @@ import { migrate } from './migrations'
 ```typescript
 // src/main/db.ts
 // 初始化时执行的迁移
-db.prepare(`
+db.prepare(
+  `
   ALTER TABLE Audio ADD COLUMN cueOffset INTEGER
-`).run()  // 幂等：如果列已存在，SQLite 会报错，代码中需要 try-catch
+`
+).run() // 幂等：如果列已存在，SQLite 会报错，代码中需要 try-catch
 
-db.prepare(`
+db.prepare(
+  `
   ALTER TABLE Audio ADD COLUMN cueDuration INTEGER
-`).run()
+`
+).run()
 ```
 
 ### 迁移规范（计划）

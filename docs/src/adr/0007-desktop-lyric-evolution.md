@@ -29,7 +29,7 @@ order: 8
 ### 候选方案
 
 | 方案 | 原理 | 问题 |
-|------|------|------|
+| --- | --- | --- |
 | **IPC**（ipcMain / ipcRenderer） | 主进程中转消息 | 消息量大时主进程成为瓶颈；每个通道需提前注册 |
 | **MessageChannelMain** 🏆 | 两个渲染进程之间直连 | 主进程仅做建连中介，建立后数据直通 |
 
@@ -62,15 +62,15 @@ Main Window (preload)                  OSD Window (preload)
 
 主窗口通过 MessagePort 推送以下消息类型（全部为 `{ type, data }` 结构）：
 
-| 消息类型 | 数据 | 触发时机 |
-|---------|------|---------|
-| `update-osd-status` | `{ line: [currentIndex, currentTime] }` | 歌词行切换 |
-| `update-osd-status` | `{ playing: boolean }` | 播放/暂停 |
-| `update-osd-status` | `{ lyrics: LyricLine[] }` | 切歌或歌词更新 |
+| 消息类型            | 数据                                     | 触发时机         |
+| ------------------- | ---------------------------------------- | ---------------- |
+| `update-osd-status` | `{ line: [currentIndex, currentTime] }`  | 歌词行切换       |
+| `update-osd-status` | `{ playing: boolean }`                   | 播放/暂停        |
+| `update-osd-status` | `{ lyrics: LyricLine[] }`                | 切歌或歌词更新   |
 | `update-osd-status` | `{ lyricOffset: [offset, currentTime] }` | 用户调整歌词偏移 |
-| `update-osd-status` | `{ seek: currentTime }` | 拖动进度条 |
-| `update-osd-status` | `{ rate: playbackRate }` | 倍速变化 |
-| `update-osd-status` | `{ title: string }` | 歌曲切换 |
+| `update-osd-status` | `{ seek: currentTime }`                  | 拖动进度条       |
+| `update-osd-status` | `{ rate: playbackRate }`                 | 倍速变化         |
+| `update-osd-status` | `{ title: string }`                      | 歌曲切换         |
 
 OSD 窗口按增量更新显示，不依赖心跳轮询。
 
@@ -80,10 +80,10 @@ OSD 窗口按增量更新显示，不依赖心跳轮询。
 
 桌面歌词从最初就同时支持两种窗口类型：
 
-| 类型 | 模式 | 窗口高度 | 行为 |
-|------|------|---------|------|
-| **Mini 模式** | `singleLine`（单行）/ `twoLines`（双行） | ≈ 140px | 固定高度，歌词水平滚动 |
-| **Normal 模式** | 全屏歌词列表 | ≈ 600px | 可滚动，当前行垂直居中 |
+| 类型            | 模式                                     | 窗口高度 | 行为                   |
+| --------------- | ---------------------------------------- | -------- | ---------------------- |
+| **Mini 模式**   | `singleLine`（单行）/ `twoLines`（双行） | ≈ 140px  | 固定高度，歌词水平滚动 |
+| **Normal 模式** | 全屏歌词列表                             | ≈ 600px  | 可滚动，当前行垂直居中 |
 
 两种模式在最初就已存在，后续的演化几乎全部集中在 **Mini 模式的双行（twoLines）模式**上。
 
@@ -184,9 +184,9 @@ OSD 窗口按增量更新显示，不依赖心跳轮询。
 
 锁定模式让桌面歌词不拦截鼠标事件——用户点击"透过"歌词窗口操作背后的应用。
 
-| 状态 | 行为 |
-|------|------|
-| **锁定** | `setIgnoreMouseEvents(true)` — 所有鼠标事件穿透 |
+| 状态     | 行为                                                   |
+| -------- | ------------------------------------------------------ |
+| **锁定** | `setIgnoreMouseEvents(true)` — 所有鼠标事件穿透        |
 | **解锁** | `setIgnoreMouseEvents(false)` — 正常交互（拖拽、调整） |
 
 **自动隐藏机制**：

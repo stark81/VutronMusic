@@ -46,12 +46,12 @@ Renderer Process                          Main Process
 
 ### 问题
 
-| 问题 | 原因 | 影响 |
-|------|------|------|
-| **高频 IPC 传输** | 30fps × dataURL（base64 ≈ 增大 33% 体积） | 主进程持续繁忙 |
-| **CPU 高负载** | Canvas 渲染 + base64 编码 + IPC 序列化 + nativeImage 解码 | 电池消耗明显 |
-| **帧率不稳定** | 编码时间波动导致丢帧 | 歌词滚动卡顿 |
-| **TouchBar 发热** | TouchBar 独立屏幕持续刷新 | MacBook 用户反馈 |
+| 问题              | 原因                                                      | 影响             |
+| ----------------- | --------------------------------------------------------- | ---------------- |
+| **高频 IPC 传输** | 30fps × dataURL（base64 ≈ 增大 33% 体积）                 | 主进程持续繁忙   |
+| **CPU 高负载**    | Canvas 渲染 + base64 编码 + IPC 序列化 + nativeImage 解码 | 电池消耗明显     |
+| **帧率不稳定**    | 编码时间波动导致丢帧                                      | 歌词滚动卡顿     |
+| **TouchBar 发热** | TouchBar 独立屏幕持续刷新                                 | MacBook 用户反馈 |
 
 ---
 
@@ -81,13 +81,13 @@ Renderer Process                          Main Process
 
 ### 性能对比
 
-| 指标 | Phase 1（30fps 传图） | Phase 2（文本+窗口移动） |
-|------|----------------------|------------------------|
-| IPC 频率 | 30 次/秒 | 0.1-0.3 次/秒（歌词切换时） |
-| dataURL 传输 | 持续 | 仅切歌时 |
-| Canvas 渲染 | 每帧重新绘制 | 切换歌词时一次 |
-| 主进程负载 | 持续解码 | 几乎为零 |
-| 电池影响 | 明显 | 可忽略 |
+| 指标         | Phase 1（30fps 传图） | Phase 2（文本+窗口移动）    |
+| ------------ | --------------------- | --------------------------- |
+| IPC 频率     | 30 次/秒              | 0.1-0.3 次/秒（歌词切换时） |
+| dataURL 传输 | 持续                  | 仅切歌时                    |
+| Canvas 渲染  | 每帧重新绘制          | 切换歌词时一次              |
+| 主进程负载   | 持续解码              | 几乎为零                    |
+| 电池影响     | 明显                  | 可忽略                      |
 
 ---
 
@@ -119,7 +119,7 @@ Tray 的点击处理通过 `handleTrayClick` IPC 传递到渲染进程：
 
 ```typescript
 const handleClick = (position: { x: number }) => {
-  const singleWidth = 22  // 每个按钮宽度
+  const singleWidth = 22 // 每个按钮宽度
   const index = Math.floor(position.x / singleWidth)
   switch (index) {
     case 0: // 上一首 / 踩（FM 模式）

@@ -7,13 +7,12 @@ order: 16
 
 在 Discord 中显示当前播放的歌曲信息。
 
-**核心文件**: `src/main/IPCs.ts`（第 412-435 行）
-**依赖**: `discord-rich-presence` 应用
-**App ID**: `1450799847962574868`
+**核心文件**: `src/main/IPCs.ts`（第 412-435 行） **依赖**: `discord-rich-presence` 应用 **App ID**: `1450799847962574868`
 
 ## 功能
 
 播放歌曲时在 Discord 个人资料中显示：
+
 - 歌曲名称
 - 艺术家
 - 专辑
@@ -63,17 +62,17 @@ function pauseDiscordPresence(track: Track) {
 
 ### 触发时机
 
-| 事件 | 操作 |
-|------|------|
-| 开始播放 | `playDiscordPresence(currentTrack, currentTime)` |
-| 暂停 | `pauseDiscordPresence(currentTrack)` |
-| 设置开关变更 | 根据新值启用/禁用 |
-| 切歌 | 旧歌 pause → 新歌 play |
+| 事件         | 操作                                             |
+| ------------ | ------------------------------------------------ |
+| 开始播放     | `playDiscordPresence(currentTrack, currentTime)` |
+| 暂停         | `pauseDiscordPresence(currentTrack)`             |
+| 设置开关变更 | 根据新值启用/禁用                                |
+| 切歌         | 旧歌 pause → 新歌 play                           |
 
 ## 设置项
 
-| 字段 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
+| 字段                             | 类型      | 默认值  | 说明                  |
+| -------------------------------- | --------- | ------- | --------------------- |
 | `misc.enableDiscordRichPresence` | `boolean` | `false` | 启用 Discord 状态显示 |
 
 **UI 入口**: `SystemSettings.vue` → 杂项设置 → 启用 Discord Rich Presence

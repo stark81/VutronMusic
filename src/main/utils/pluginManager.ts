@@ -330,7 +330,9 @@ export class PluginInstance {
     } catch (err: any) {
       clearTimeout(timeout)
       const isTimeout = err?.name === 'AbortError'
-      console.error('[HTTP ERROR]', fullUrl, isTimeout ? 'Request timeout' : err)
+      if (electronStore.get('settings.showHttpLog')) {
+        console.error('[HTTP ERROR]', fullUrl, isTimeout ? 'Request timeout' : err)
+      }
 
       this.worker.postMessage({
         type: 'HTTP_RESPONSE',

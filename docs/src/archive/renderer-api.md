@@ -24,17 +24,17 @@ api/*.ts ──→ utils/request.ts ──→ /netease/* ──→ Fastify 代�
 
 ## 模块清单
 
-| 文件 | 大小 | 导出函数数 | 用途 |
-|------|------|-----------|------|
-| `album.ts` | 1.4KB | 4 | 专辑内容、新碟、详情、收藏 |
-| `artist.ts` | 2.5KB | 7 | 歌手详情、专辑、MV、相似、关注 |
-| `auth.ts` | 3.1KB | 8+ | 手机/邮箱/二维码登录、登出、刷新 |
-| `comment.ts` | 0.9KB | 4 | 评论列表、点赞、楼中楼、发表 |
-| `mv.ts` | 2.3KB | 6 | MV 详情、URL、相似、订阅 |
-| `other.ts` | 2.4KB | 6 | 搜索、横幅、私人 FM |
-| `playlist.ts` | 6KB | 13 | 歌单 CRUD、推荐、排行榜 |
-| `track.ts` | 2.4KB | 6 | 歌曲详情、歌词、喜欢、Scrobble |
-| `user.ts` | 3.4KB | 8 | 用户信息、收藏、云盘、听歌记录 |
+| 文件          | 大小  | 导出函数数 | 用途                             |
+| ------------- | ----- | ---------- | -------------------------------- |
+| `album.ts`    | 1.4KB | 4          | 专辑内容、新碟、详情、收藏       |
+| `artist.ts`   | 2.5KB | 7          | 歌手详情、专辑、MV、相似、关注   |
+| `auth.ts`     | 3.1KB | 8+         | 手机/邮箱/二维码登录、登出、刷新 |
+| `comment.ts`  | 0.9KB | 4          | 评论列表、点赞、楼中楼、发表     |
+| `mv.ts`       | 2.3KB | 6          | MV 详情、URL、相似、订阅         |
+| `other.ts`    | 2.4KB | 6          | 搜索、横幅、私人 FM              |
+| `playlist.ts` | 6KB   | 13         | 歌单 CRUD、推荐、排行榜          |
+| `track.ts`    | 2.4KB | 6          | 歌曲详情、歌词、喜欢、Scrobble   |
+| `user.ts`     | 3.4KB | 8          | 用户信息、收藏、云盘、听歌记录   |
 
 ## 通用模式
 
@@ -62,11 +62,11 @@ export function functionName(params) {
 
 搜索发现以下文件仍在引用此层（清理时应同步处理）：
 
-| 消费方 | 引用的 API 模块 |
-|--------|---------------|
-| `store/data.ts` | user / auth / track / playlist |
-| `utils/index.ts` | auth |
-| `utils/auth.ts` | auth |
-| `utils/playlist.ts` | playlist |
-| `views/DailyTracks.vue` | playlist |
-| `views/UserPage.vue` | user / auth |
+| 消费方                  | 引用的 API 模块                |
+| ----------------------- | ------------------------------ |
+| `store/data.ts`         | user / auth / track / playlist |
+| `utils/index.ts`        | auth                           |
+| `utils/auth.ts`         | auth                           |
+| `utils/playlist.ts`     | playlist                       |
+| `views/DailyTracks.vue` | playlist                       |
+| `views/UserPage.vue`    | user / auth                    |

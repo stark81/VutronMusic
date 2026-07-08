@@ -8,6 +8,7 @@
     </div>
     <PlayerBar v-if="enabled" v-show="showPlayerBar" />
     <ShowToast />
+    <ConfirmModal />
     <AddTrackToPlaylistModal />
     <newPlaylistModal />
     <AccurateMatchModal />
@@ -24,6 +25,7 @@ import PlayerBar from './components/PlayerBar.vue'
 import NavBar from './components/NavBar.vue'
 import SideNav from './components/SideNav.vue'
 import ShowToast from './components/ShowToast.vue'
+import ConfirmModal from './components/ModalConfirm.vue'
 import AddTrackToPlaylistModal from './components/ModalAddTrackToPlaylist.vue'
 import newPlaylistModal from './components/ModalNewPlaylist.vue'
 import editPlaylist from './components/ModalEditPlaylist.vue'

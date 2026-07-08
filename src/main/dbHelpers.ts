@@ -901,9 +901,9 @@ export function updateTrackPicUrl(trackId: string, picUrl: string) {
 
 /** 根据 TrackId 更新其对应 Album 的封面图（无条件覆盖） */
 export function updateAlbumPicUrlByTrackId(trackId: string, picUrl: string) {
-  const track = db.sqlite
-    .prepare('SELECT albumId FROM Track WHERE id = ?')
-    .get(trackId) as { albumId: string } | undefined
+  const track = db.sqlite.prepare('SELECT albumId FROM Track WHERE id = ?').get(trackId) as
+    | { albumId: string }
+    | undefined
   if (track?.albumId) {
     db.sqlite
       .prepare("UPDATE Album SET picUrl = ?, updateTime = datetime('now') WHERE id = ?")

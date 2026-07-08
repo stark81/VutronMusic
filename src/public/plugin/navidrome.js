@@ -397,8 +397,9 @@ exports.updateBaseUrl = async (params) => {
 
 exports.systemPing = async () => {
   try {
-    const result = await subsonicRequest('ping')
-    if (result && result.status === 'ok') {
+    const url = buildSubsonicUrl('ping')
+    const result = await apis.http.get(url)
+    if (result && result['subsonic-response']?.status === 'ok') {
       return { code: 200, status: user.nativeToken ? 'login' : 'logout' }
     }
   } catch {

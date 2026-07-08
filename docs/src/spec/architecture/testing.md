@@ -10,21 +10,21 @@ last-reviewed: 2025-07-07
 
 项目使用 **Playwright** 进行 E2E 测试，支持 Electron 应用的自动化测试。当前未配置单元测试框架（无 vitest/jest）。
 
-| 工具 | 用途 | 配置文件 |
-|------|------|----------|
+| 工具       | 用途                                | 配置文件               |
+| ---------- | ----------------------------------- | ---------------------- |
 | Playwright | E2E 测试（Electron 启动、窗口交互） | `playwright.config.ts` |
 
 ## 配置
 
 `playwright.config.ts` 关键配置：
 
-| 配置项 | 值 | 说明 |
-|--------|-----|------|
-| `outputDir` | `tests/results` | 测试结果输出目录 |
-| `retries` | CI: 2, 本地: 0 | 失败重试次数 |
-| `workers` | CI: 1, 本地: 不限 | 并发 worker 数 |
-| `timeout` | 60000ms | 单个测试超时 |
-| `expect.timeout` | 10000ms | 断言超时 |
+| 配置项           | 值                | 说明             |
+| ---------------- | ----------------- | ---------------- |
+| `outputDir`      | `tests/results`   | 测试结果输出目录 |
+| `retries`        | CI: 2, 本地: 0    | 失败重试次数     |
+| `workers`        | CI: 1, 本地: 不限 | 并发 worker 数   |
+| `timeout`        | 60000ms           | 单个测试超时     |
+| `expect.timeout` | 10000ms           | 断言超时         |
 
 ## 现有测试
 
@@ -43,10 +43,10 @@ test('Environment check', async () => {
 
 ## 运行测试
 
-| 命令 | 说明 |
-|------|------|
-| `yarn test` | 先执行 `build:pre`（类型检查 + Vite 构建），再运行 Playwright |
-| `yarn test:linux` | Linux 下通过 `xvfb-run` 运行（需要虚拟帧缓冲） |
+| 命令              | 说明                                                          |
+| ----------------- | ------------------------------------------------------------- |
+| `yarn test`       | 先执行 `build:pre`（类型检查 + Vite 构建），再运行 Playwright |
+| `yarn test:linux` | Linux 下通过 `xvfb-run` 运行（需要虚拟帧缓冲）                |
 
 **注意**：测试依赖构建产物（`dist/main/index.js`），不是直接测试源码。
 
@@ -81,8 +81,8 @@ test.afterAll(async () => {
 
 ## 平台注意事项
 
-| 平台 | 说明 |
-|------|------|
-| Windows / macOS | 直接运行 `yarn test` |
-| Linux | 需要 `xvfb`（虚拟帧缓冲），CI 中通过 `xvfb-run` 包装 |
-| CI | 自动重试 2 次，单 worker 串行执行 |
+| 平台            | 说明                                                 |
+| --------------- | ---------------------------------------------------- |
+| Windows / macOS | 直接运行 `yarn test`                                 |
+| Linux           | 需要 `xvfb`（虚拟帧缓冲），CI 中通过 `xvfb-run` 包装 |
+| CI              | 自动重试 2 次，单 worker 串行执行                    |
