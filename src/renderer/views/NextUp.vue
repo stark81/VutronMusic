@@ -70,22 +70,18 @@ const tracks = ref<Track[]>([])
 
 const filteredTracks = computed(() => {
   const trackList = list.value.slice(currentTrackIndex.value + 1, currentTrackIndex.value + 100)
-  const trackMap = new Map(
-    tracks.value.map((t) => [`${t.pluginId}:${JSON.stringify(t.sourceContext)}`, t])
-  )
+  const trackMap = new Map(tracks.value.map((t) => [`${t.pluginId}:${t.sourceContext?.id}`, t]))
 
   return trackList
-    .map(([plugin, sc]) => trackMap.get(`${plugin}:${JSON.stringify(sc)}`))
+    .map(([plugin, sc]) => trackMap.get(`${plugin}:${sc?.id}`))
     .filter(Boolean) as Track[]
 })
 
 const insertTracks = computed(() => {
-  const trackMap = new Map(
-    tracks.value.map((t) => [`${t.pluginId}:${JSON.stringify(t.sourceContext)}`, t])
-  )
+  const trackMap = new Map(tracks.value.map((t) => [`${t.pluginId}:${t.sourceContext?.id}`, t]))
 
   return playNextList.value
-    .map(([plugin, sc]) => trackMap.get(`${plugin}:${JSON.stringify(sc)}`))
+    .map(([plugin, sc]) => trackMap.get(`${plugin}:${sc?.id}`))
     .filter(Boolean) as Track[]
 })
 
@@ -97,11 +93,9 @@ const loadTracks = async () => {
 
   if (trackIds.length === 0) return
 
-  const loadedKeys = new Set(
-    tracks.value.map((t) => `${t.pluginId}:${JSON.stringify(t.sourceContext)}`)
-  )
+  const loadedKeys = new Set(tracks.value.map((t) => `${t.pluginId}:${t.sourceContext?.id}`))
   const toLoad = trackIds.filter(([plugin, sc]) => {
-    const key = `${plugin}:${JSON.stringify(sc)}`
+    const key = `${plugin}:${sc?.id}`
     return !loadedKeys.has(key)
   })
 
@@ -129,6 +123,7 @@ const loadTracks = async () => {
               album: { ...track.album, pluginId: item.plugin },
               artists: track.artists.map((it) => ({ ...it, pluginId: item.plugin })),
               albumArtists: track.albumArtists.map((it) => ({ ...it, pluginId: item.plugin })),
+              sourceContext: item.source[i].sourceContext,
               pluginId: item.plugin
             }
           })

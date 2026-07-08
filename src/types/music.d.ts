@@ -202,4 +202,5 @@ export type PlaylistSourceInfo = {
   type: SourceType
   plugin: PluginId | 'all'
   sourceContext: Record<string, any>
+  pluginSourceContexts?: Record<PluginId, Record<string, any>>
 }

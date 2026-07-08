@@ -162,6 +162,7 @@ const props = withDefaults(
     gap?: number
     extraContextMenuItem?: any[]
     sourceContext: Record<string, any>
+    pluginSourceContexts?: Record<PluginId, Record<string, any>>
     height?: number
     albumObject?: {
       artist: { name: string }
@@ -285,13 +286,12 @@ const image = computed(() => {
   }
 })
 
-const showScrollTo = computed(
-  () =>
-    currentTrack.value &&
-    props.showTrackPosition &&
-    playlistSource.value.plugin === props.plugin &&
-    isEqual(playlistSource.value.sourceContext.id, currentSource.value.sourceContext.id)
-)
+const showScrollTo = computed(() => {
+  if (!currentTrack.value || !props.showTrackPosition) return false
+  const currentPlugin = currentTrack.value.pluginId
+  if (props.plugin !== 'all' && currentPlugin !== props.plugin) return false
+  return isEqual(playlistSource.value.sourceContext.id, currentSource.value.sourceContext.id)
+})
 const currentIndex = computed(() => {
   return items.value.findIndex((item) => item.id === currentTrack.value?.id)
 })
@@ -302,7 +302,8 @@ const playThisList = (index: number | string) => {
   const source: PlaylistSourceInfo = {
     type: props.type,
     plugin: props.plugin,
-    sourceContext: props.sourceContext
+    sourceContext: props.sourceContext,
+    pluginSourceContexts: props.pluginSourceContexts
   }
 
   const sourceItems = props.allItems?.length ? props.allItems : items.value

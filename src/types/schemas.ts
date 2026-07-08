@@ -254,7 +254,8 @@ export const PlaylistDetailSchema = z.object({
    * 保存插件继续执行后续操作所需的上下文
    * - 如：歌单id，歌单歌曲分页的相关信息
    */
-  sourceContext: z.record(z.string(), z.any())
+  sourceContext: z.record(z.string(), z.any()),
+  pluginSourceContexts: z.record(z.string(), z.record(z.string(), z.any())).optional()
 })
 
 export const WordSchema = z.object({

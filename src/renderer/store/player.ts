@@ -12,7 +12,7 @@ import shuffleFn from 'lodash/shuffle'
 import cloneDeep from 'lodash/cloneDeep'
 
 import { LyricLine, PluginId, Track } from '@/types/plugin'
-import { RepeatMode, SourceType, PlaylistSourceInfo } from '@/types/music'
+import { RepeatMode, PlaylistSourceInfo } from '@/types/music'
 
 const formatTime = (seconds: number) => {
   const minutes = Math.floor(seconds / 60)
@@ -101,7 +101,8 @@ export const usePlayerStore = defineStore(
     const playlistSource = ref<PlaylistSourceInfo>({
       type: 'Playlist',
       plugin: '' as PluginId,
-      sourceContext: {}
+      sourceContext: {},
+      pluginSourceContexts: {}
     })
 
     const enableDRP = computed(() => settingsStore.misc.enableDiscordRichPresence)
@@ -365,7 +366,7 @@ export const usePlayerStore = defineStore(
     // ─────────────────────────────────────────────
 
     function replacePlaylist(
-      source: { type: SourceType; plugin: PluginId | 'all'; sourceContext: Record<string, any> },
+      source: PlaylistSourceInfo,
       sourceContext: [PluginId, Record<string, any>][],
       index: number
     ) {
@@ -401,6 +402,11 @@ export const usePlayerStore = defineStore(
       const duration = ~~(track.duration / 1000)
       const position = ~~engineStore.getCurrentTime()
 
+      const trackPluginId = track.pluginId
+      const trackSourceCtx =
+        playlistSource.value.pluginSourceContexts?.[trackPluginId] ??
+        playlistSource.value.sourceContext
+
       window.mainApi?.send(
         'report-playback',
         JSON.parse(
@@ -418,7 +424,11 @@ export const usePlayerStore = defineStore(
             playing: playing.value,
             position,
             duration,
-            sourceCtx: { ...playlistSource.value, plugin: track.pluginId }
+            sourceCtx: {
+              ...playlistSource.value,
+              plugin: trackPluginId,
+              sourceContext: trackSourceCtx
+            }
           })
         )
       )

@@ -141,6 +141,7 @@
         type="Playlist"
         :plugin="pluginId"
         :source-context="{ ...playlist.sourceContext, pluginType }"
+        :plugin-source-contexts="playlist.pluginSourceContexts"
         :colunm-number="1"
         :show-service="playlistType.includes('liked')"
         :show-position="true"
@@ -336,6 +337,14 @@ const loadLikedData = (plugins: PluginId[]) => {
   show.value = true
   const type = services.value.find((item) => item.code === plugins[0])!.type
   playlist.value.sourceContext = { id: type, trackIds: [], loadedIDs: [] }
+
+  const pluginSourceContexts: Record<string, Record<string, any>> = {}
+  for (const p of plugins) {
+    if (likedTracks[p]?.sourceContext && Object.keys(likedTracks[p].sourceContext).length > 0) {
+      pluginSourceContexts[p] = { ...likedTracks[p].sourceContext, pluginType: type }
+    }
+  }
+  playlist.value.pluginSourceContexts = pluginSourceContexts
 }
 
 const loadData = async (plugin: PluginId, params: Record<string, any>) => {
@@ -397,7 +406,8 @@ const play = () => {
   const source: PlaylistSourceInfo = {
     type: 'Playlist',
     plugin: pluginId.value,
-    sourceContext: { ...playlist.value.sourceContext, pluginType: pluginType.value }
+    sourceContext: { ...playlist.value.sourceContext, pluginType: pluginType.value },
+    pluginSourceContexts: playlist.value.pluginSourceContexts
   }
 
   const trackIDs = tracks.value.map((t) => [t.pluginId, t.sourceContext]) as [

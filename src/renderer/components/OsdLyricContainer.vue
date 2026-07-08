@@ -165,7 +165,10 @@ const lineMode = computed(() => {
 
 const highlight = computed(() => Math.min(currentIndex.value, lyrics.value.length - 1))
 
-const currentTimeMs = computed(() => (seek.value + lyricOffset.value) * 1000)
+// 由于两个窗口数据传输略微有延迟，所以这里加了 50ms 的缓冲，避免歌词高亮有问题
+// 《Manta》中间有三句连续的无翻译歌词，不加50ms会导致高亮错误
+const currentTimeMs = computed(() => (seek.value + lyricOffset.value) * 1000 + 50)
+
 const isLinePlayed = (line: lyricLine) => {
   if (line === lyrics.value[highlight.value]) return false
   return currentTimeMs.value > line.end * 1000

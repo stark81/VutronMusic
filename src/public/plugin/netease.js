@@ -1818,7 +1818,8 @@ exports.scrobble = async (params) => {
   try {
     const { id, time: _time, sourceCtx } = params
     const time = (_time || 0) / 1000
-    const sourceid = sourceCtx.sourceContext?.id
+    const rawSourceid = sourceCtx.sourceContext?.id
+    const sourceid = /^\d+$/.test(String(rawSourceid)) ? rawSourceid : 0
     const result = await get('scrobble/v1', { id, time, sourceid })
     return { code: result.code || 200 }
   } catch {
