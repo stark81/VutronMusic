@@ -122,15 +122,12 @@ const calculateDropdownPosition = async () => {
     props.direction === 'up' ||
     (props.direction === 'auto' && spaceBelow < 200 && spaceAbove > spaceBelow)
 
-  let top: number
   let maxHeight: number
 
   if (openUp) {
     maxHeight = Math.min(300, spaceAbove - GAP)
-    top = selectRect.top - GAP - maxHeight
   } else {
     maxHeight = Math.min(300, spaceBelow - GAP)
-    top = selectRect.bottom + GAP
   }
 
   let left = selectRect.left
@@ -142,10 +139,15 @@ const calculateDropdownPosition = async () => {
 
   dropdownStyle.value = {
     position: 'fixed',
-    top: `${top}px`,
     left: `${left}px`,
     width: `${selectRect.width}px`,
     maxHeight: `${maxHeight}px`
+  }
+
+  if (openUp) {
+    dropdownStyle.value.bottom = `${viewportHeight - selectRect.top + GAP}px`
+  } else {
+    dropdownStyle.value.top = `${selectRect.bottom + GAP}px`
   }
 }
 
