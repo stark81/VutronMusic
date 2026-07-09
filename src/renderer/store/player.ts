@@ -1139,10 +1139,12 @@ export const usePlayerStore = defineStore(
     // 跨平台歌曲匹配（播放时触发 + 预匹配下一首）
     // ─────────────────────────────────────────────
 
-    function triggerTrackMatch(track: Track | undefined) {
+    async function triggerTrackMatch(track: Track | undefined) {
       if (!track) return Promise.resolve()
-      // 线上歌曲（网易云/酷狗）本身已有完整的歌词、评论等数据，不需要匹配
-      if (track.type === 'library') return Promise.resolve()
+      if (track.type === 'library') {
+        fetch(track.picUrl).catch(() => {})
+        return Promise.resolve()
+      }
 
       const meta = {
         trackId: String(track.id),
@@ -1156,16 +1158,16 @@ export const usePlayerStore = defineStore(
         currentPlayingPath: currentTrack.value?.filePath ?? null
       }
 
-      return (window.mainApi?.invoke('trackMatch', meta) ?? Promise.resolve()).then((result) => {
-        if (result?.picUrl) {
-          track.picUrl = result.picUrl
-          const song = pluginStore.tracks[track.pluginId].data.find(
-            (t) => String(t.id) === String(track.id)
-          )
-          if (song) song.picUrl = result.picUrl
-        }
-        return result
-      })
+      const result = await (window.mainApi?.invoke('trackMatch', meta) ?? Promise.resolve())
+      if (result?.picUrl) {
+        track.picUrl = result.picUrl
+        const song = pluginStore.tracks[track.pluginId].data.find(
+          (t) => String(t.id) === String(track.id)
+        )
+        if (song) song.picUrl = result.picUrl
+      }
+      fetch(track.picUrl).catch(() => {})
+      return result
     }
 
     let prefetchTimer: ReturnType<typeof setTimeout> | null = null
@@ -1207,11 +1209,6 @@ export const usePlayerStore = defineStore(
             artists: track.artists.map((it) => ({ ...it, pluginId: nextPlugin })),
             albumArtists: track.albumArtists.map((it) => ({ ...it, pluginId: nextPlugin })),
             pluginId: nextPlugin
-          }
-
-          // 裸 fetch 触发 HTTP 缓存，切歌后封面图秒出
-          if (track.picUrl) {
-            fetch(track.picUrl).catch(() => {})
           }
 
           triggerTrackMatch(nextTrack.value)

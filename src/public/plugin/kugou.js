@@ -2576,19 +2576,30 @@ exports.getFloorComments = async (params) => {
   }
 }
 
-exports.userRecord = async () => {
+exports.userRecord = async (params) => {
   try {
-    const [week, all] = await Promise.all([
-      get('user/listen', { type: 0 }),
-      get('user/listen', { type: 1 })
-    ])
-    const weekData = week.data?.lists?.map((item) => formatTrack(item, 64))
-    const allData = all.data?.lists?.map((item) => formatTrack(item, 64))
-    return { code: 200, weekData, allData, sourceContext: {} }
+    const { bp = '0' } = params
+    const result = await get('user/history', { bp })
+    const allData = result.data?.songs?.map((item) => formatTrack(item.info, 64))
+    return { code: 200, weekData: [], allData, sourceContext: { bp: result.data?.bp } }
   } catch {
     return { code: 404, weekData: [], allData: [], sourceContext: {} }
   }
 }
+
+// exports.userRecord = async () => {
+//   try {
+//     const [week, all] = await Promise.all([
+//       get('user/listen', { type: 0 }),
+//       get('user/listen', { type: 1 })
+//     ])
+//     const weekData = week.data?.lists?.map((item) => formatTrack(item, 64))
+//     const allData = all.data?.lists?.map((item) => formatTrack(item, 64))
+//     return { code: 200, weekData, allData, sourceContext: {} }
+//   } catch {
+//     return { code: 404, weekData: [], allData: [], sourceContext: {} }
+//   }
+// }
 
 exports.personalFM = async () => {
   try {

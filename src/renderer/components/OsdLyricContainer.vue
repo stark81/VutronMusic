@@ -483,6 +483,8 @@ onBeforeUnmount(() => {
 
   &.one-line {
     text-align: center;
+    width: fit-content;
+    margin: 0 auto;
   }
 
   &.two-line :deep(.lyric:not(.hidden-measure)) {

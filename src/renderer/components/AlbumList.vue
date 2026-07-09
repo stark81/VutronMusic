@@ -94,14 +94,17 @@ const plugins = computed(() => [...new Set(showTracks.value.map((track) => track
 
 // ==================== function ==================== //
 const playThisList = (id: number | string) => {
-  // const source: PlaylistSourceInfo = { type: 'Track', plugin: }
+  const album = albums.value[selectedIdx.value]
   const IDs = showTracks.value.map((track) => [track.pluginId, track.sourceContext]) as [
     PluginId,
     Record<string, any>
   ][]
   const idx = showTracks.value.findIndex((item) => item.id === id)
-  const type = showTracks.value[0].type
-  // replacePlaylist(type === 'local' ? 'localPlaylist' : 'streamPlaylist', 0, IDs, idx)
+  replacePlaylist(
+    { type: 'Album', plugin: album.pluginId, sourceContext: album.sourceContext },
+    IDs,
+    idx
+  )
 }
 
 const getAlbumLink = (code: PluginId) => {

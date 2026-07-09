@@ -427,10 +427,22 @@ const formatedTime = computed(() => {
 
 const formatedMemory = computed(() => {
   const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
-  let memory = defaultTracks.value
-    .map((track) => track.size!)
-    .filter((size) => size && !isNaN(Number(size)))
-    .reduce((acc, cur) => acc + cur, 0) as number
+  let memory = 0
+  const countedPaths = new Set<string>()
+  for (const track of defaultTracks.value) {
+    const size = track.size
+    if (size && !isNaN(Number(size))) {
+      // CUE 分轨共享同一 filePath，只计一次
+      if (track.filePath) {
+        if (!countedPaths.has(track.filePath)) {
+          countedPaths.add(track.filePath)
+          memory += size
+        }
+      } else {
+        memory += size
+      }
+    }
+  }
   let i = 0
   while (memory >= 1024 && i < units.length - 1) {
     memory /= 1024
