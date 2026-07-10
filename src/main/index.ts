@@ -751,6 +751,7 @@ class BackGround {
 
     app.on('before-quit', () => {
       this.willQuitApp = true
+      this.tray?.destroyTray()
     })
 
     app.on('quit', () => {

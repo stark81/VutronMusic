@@ -1,6 +1,6 @@
 import { app, ipcMain, IpcMainEvent, BrowserWindow } from 'electron'
 import type { OpenDialogOptions } from 'electron'
-import { YPMTray } from './tray'
+import { YPMTray, LyricData } from './tray'
 import { MprisImpl } from './mpris'
 import { checkUpdate, downloadUpdate } from './checkUpdate'
 import Constants from './utils/Constants'
@@ -163,6 +163,40 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
       tray.updateTray(data.img, data.width, data.height)
     }
   )
+  ipcMain.on('updateTrayLyric', (event: IpcMainEvent, data: LyricData) => {
+    tray.updateLyric(data)
+  })
+  ipcMain.on(
+    'initTrayState',
+    (
+      event: IpcMainEvent,
+      data: {
+        lyric: LyricData
+        playing: boolean
+        rate: number
+        like: boolean
+        isFM: boolean
+      }
+    ) => {
+      tray.updateLyric(data.lyric)
+      tray.setPlayState(data.playing)
+      tray.setPlaybackRate(data.rate)
+      tray.setLikeState(data.like)
+      tray.setFMMode(data.isFM)
+    }
+  )
+  ipcMain.on(
+    'updateTrayVisibility',
+    (
+      event: IpcMainEvent,
+      data: { lyric?: boolean; buttons?: boolean; icon?: boolean; width?: number }
+    ) => {
+      tray.setVisibility(data)
+    }
+  )
+  ipcMain.on('setTrayFMMode', (event: IpcMainEvent, isFM: boolean) => {
+    tray.setFMMode(isFM)
+  })
   ipcMain.on('showWindow', () => {
     win.show()
   })
@@ -171,6 +205,8 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
     for (const [key, value] of Object.entries(data) as [string, any]) {
       if (key === 'playing') {
         tray.setPlayState(value)
+      } else if (key === 'rate') {
+        tray.setPlaybackRate(value)
       } else if (key === 'repeatMode') {
         tray.setRepeatMode(value)
       } else if (key === 'shuffle') {

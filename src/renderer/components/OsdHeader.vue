@@ -79,7 +79,8 @@ onMounted(() => {
   window.mainApi?.on('update-osd-playing-status', (event: any, res: boolean) => {
     isPlaying.value = res
   })
-})</script>
+})
+</script>
 
 <style lang="scss" scoped>
 .header {

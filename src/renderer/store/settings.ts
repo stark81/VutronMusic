@@ -181,6 +181,27 @@ export const useSettingsStore = defineStore(
       }
     )
 
+    watch(
+      () => tray.showLyric,
+      (value) => {
+        window.mainApi?.send('setStoreSettings', { showLyric: value })
+      }
+    )
+
+    watch(
+      () => tray.showControl,
+      (value) => {
+        window.mainApi?.send('setStoreSettings', { showControl: value })
+      }
+    )
+
+    watch(
+      () => tray.lyricWidth,
+      (value) => {
+        window.mainApi?.send('setStoreSettings', { lyricWidth: value })
+      }
+    )
+
     watch(enableGlobalShortcut, (value) => {
       window.mainApi?.send('setStoreSettings', { enableGlobalShortcut: value })
     })

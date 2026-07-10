@@ -1057,6 +1057,7 @@ export const usePlayerStore = defineStore(
       })
 
       window.mainApi?.on('play', playOrPause)
+      window.mainApi?.on('pause', playOrPause)
 
       window.mainApi?.on('previous', () => {
         if (!isPersonalFM.value) playPrev()

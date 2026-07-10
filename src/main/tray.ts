@@ -5,11 +5,13 @@ import {
   Menu,
   MenuItemConstructorOptions,
   nativeTheme,
-  app
+  app,
+  screen
 } from 'electron'
 import Constants from './utils/Constants'
 import store from './store'
 import path from 'path'
+import fs from 'fs'
 
 let playState = false
 let repeatMode = 'off'
@@ -194,31 +196,83 @@ const createMenuTemplate = (win: BrowserWindow) => {
   ])
 }
 
+export interface LyricData {
+  text: string
+  words: Array<{ word: string; start: number; end: number }>
+  lineStart: number
+  lineEnd: number
+  hasWordTiming: boolean
+  lyricWidth?: number
+  offset?: number
+  /** 翻译/注音歌词 — 预留字段，原生层暂不渲染 */
+  translationText?: string
+  translationWords?: Array<{ word: string; start: number; end: number }>
+}
+
 export interface YPMTray {
   createTray: () => void
   updateTray: (img: string, width: number, height: number) => void
   updateTrayColor: () => void
+  updateLyric: (data: LyricData) => void
   destroyTray: () => void
   show: () => void
   setContextMenu: () => void
   setPlayState: (isPlaying: boolean) => void
+  setPlaybackRate: (rate: number) => void
   setLikeState: (isLiked: boolean) => void
   setRepeatMode: (repeat: 'on' | 'one' | 'off') => void
   setShuffleMode: (isShuffle: boolean) => void
   setShowOSD: (show: boolean) => void
   setOSDLock: (lock: boolean) => void
+  setVisibility: (opts: {
+    lyric?: boolean
+    buttons?: boolean
+    icon?: boolean
+    width?: number
+  }) => void
+  setFMMode: (isFM: boolean) => void
   updateTooltip: (title: string) => void
+}
+
+// ================ 原生插件加载 ================
+let nativeAddon: any = null
+
+function loadNativeAddon(): any {
+  if (!Constants.IS_MAC) return null
+  if (nativeAddon) return nativeAddon
+
+  const paths = [
+    path.join(__dirname, '../../src/native/tray/build/Release/tray_addon.node'),
+    path.join(process.cwd(), 'src/native/tray/build/Release/tray_addon.node'),
+    path.join(__dirname, `../../dist-native/vutron_tray_addon_darwin_${process.arch}.node`),
+    path.join(process.cwd(), `dist-native/vutron_tray_addon_darwin_${process.arch}.node`)
+  ]
+
+  for (const p of paths) {
+    try {
+      if (fs.existsSync(p)) {
+        nativeAddon = require(p)
+        return nativeAddon
+      }
+    } catch {
+      // continue
+    }
+  }
+  console.warn('[Tray] 原生插件加载失败，回退到 Electron Tray')
+  return null
 }
 
 class TrayImpl implements YPMTray {
   private _win: BrowserWindow
   private _tray: Tray | null = null
   private _contextMenu: Menu | null = null
+  private _nativeItem: any = null
 
   constructor(win: BrowserWindow) {
     this._win = win
     this._tray = null
     this._contextMenu = null
+    this._nativeItem = null
 
     this.createTray()
     this.setContextMenu()
@@ -232,7 +286,40 @@ class TrayImpl implements YPMTray {
   }
 
   createTray() {
+    // macOS → 尝试原生插件
     if (Constants.IS_MAC) {
+      const addon = loadNativeAddon()
+      if (addon) {
+        this._nativeItem = addon.createTrayItem({})
+        this._nativeItem.onButtonClick((index: number) => {
+          const channels = ['previous', 'play', 'next', 'like']
+          const channel = channels[index]
+          if (channel) {
+            this._win.webContents.send(channel)
+          }
+        })
+        this._nativeItem.onRightClick(() => {
+          const template = createMenuTemplate(this._win)
+          const menu = Menu.buildFromTemplate(template)
+          const cursor = screen.getCursorScreenPoint()
+          menu.popup({ x: Math.round(cursor.x), y: Math.round(cursor.y) })
+        })
+        this._nativeItem.onTrayClick(() => {
+          this._win.show()
+        })
+        // 设置初始图标
+        const icon = getIconPath()
+        this._nativeItem.setIconImage(icon.toPNG())
+
+        // 从 electron-store 读取持久化的可见性设置
+        const showLyric = (store.get('settings.showLyric') as boolean) ?? true
+        const showControl = (store.get('settings.showControl') as boolean) ?? true
+        if (!showLyric || !showControl) {
+          this._nativeItem.setVisibility({ lyric: showLyric, buttons: showControl })
+        }
+        return
+      }
+      // 回退：空 Tray
       const tray = new Tray(nativeImage.createEmpty())
       this._tray = tray
     } else {
@@ -249,6 +336,10 @@ class TrayImpl implements YPMTray {
   }
 
   destroyTray() {
+    if (this._nativeItem) {
+      this._nativeItem.destroy()
+      this._nativeItem = null
+    }
     if (this._tray) {
       this._tray?.destroy()
       this._tray = null
@@ -256,6 +347,7 @@ class TrayImpl implements YPMTray {
   }
 
   updateTray(img: string, width: number, height: number) {
+    if (this._nativeItem) return // 原生模式忽略 Canvas 图片
     if (store.get('settings.showTray') === false) return
     if (!this._tray) this.createTray()
     const image = nativeImage.createFromDataURL(img).resize({ height, width })
@@ -263,9 +355,26 @@ class TrayImpl implements YPMTray {
     this._tray?.setImage(image)
   }
 
+  updateLyric(data: LyricData) {
+    if (!this._nativeItem) return
+    this._nativeItem.setLyric(
+      data.text,
+      data.words,
+      data.lineStart,
+      data.lineEnd,
+      data.hasWordTiming,
+      data.lyricWidth || 0,
+      data.offset || 0
+    )
+  }
+
   updateTrayColor() {
-    if (!this._tray || Constants.IS_MAC) return
     const icon = getIconPath()
+    if (this._nativeItem) {
+      this._nativeItem.setIconImage(icon.toPNG())
+      return
+    }
+    if (!this._tray || Constants.IS_MAC) return
     this._tray?.setImage(icon.resize({ height: 20, width: 20 }))
   }
 
@@ -274,6 +383,7 @@ class TrayImpl implements YPMTray {
   }
 
   setContextMenu() {
+    if (this._nativeItem) return // 原生模式右键由插件触发
     const setMenu = Constants.IS_MAC ? (store.get('settings.enableTrayMenu') as boolean) : true
     if (setMenu) {
       const template = createMenuTemplate(this._win)
@@ -302,17 +412,39 @@ class TrayImpl implements YPMTray {
 
   setPlayState(isPlaying: boolean) {
     playState = isPlaying || false
+    if (this._nativeItem) this._nativeItem.setPlaying(isPlaying)
     if (!this._contextMenu) return
     this._contextMenu.getMenuItemById('play')!.visible = !isPlaying
     this._contextMenu.getMenuItemById('pause')!.visible = isPlaying
     this._tray?.setContextMenu(this._contextMenu)
   }
 
+  setPlaybackRate(rate: number) {
+    if (this._nativeItem) this._nativeItem.setPlaybackRate(rate)
+  }
+
   setLikeState(isLiked: boolean) {
+    if (this._nativeItem) this._nativeItem.setLikeState(isLiked)
     if (!this._contextMenu) return
     this._contextMenu.getMenuItemById('like')!.visible = !isLiked
     this._contextMenu.getMenuItemById('unlike')!.visible = isLiked
     this._tray?.setContextMenu(this._contextMenu)
+  }
+
+  setVisibility(opts: { lyric?: boolean; buttons?: boolean; icon?: boolean; width?: number }) {
+    if (!this._nativeItem) return
+    if (opts.width !== undefined) this._nativeItem.setWidth(opts.width)
+
+    const nativeOpts: { lyric?: boolean; buttons?: boolean; icon?: boolean } = {}
+    if (opts.lyric !== undefined) nativeOpts.lyric = opts.lyric
+    if (opts.buttons !== undefined) nativeOpts.buttons = opts.buttons
+    if (opts.icon !== undefined) nativeOpts.icon = opts.icon
+
+    this._nativeItem.setVisibility(nativeOpts)
+  }
+
+  setFMMode(isFM: boolean) {
+    if (this._nativeItem) this._nativeItem.setButtonType(0, isFM ? 4 : 0)
   }
 
   setRepeatMode(mode: 'on' | 'one' | 'off') {
