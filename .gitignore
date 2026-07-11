@@ -66,6 +66,7 @@ npm-debug.log
 npm-debug.log.*
 vite-plugin-electron.log
 tmp/
+build/
 
 # Flatpak builder cache
 .flatpak-builder

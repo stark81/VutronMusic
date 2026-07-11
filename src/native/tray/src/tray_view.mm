@@ -718,6 +718,12 @@ static const CGFloat kDefaultFontSize = 14;
 - (void)handleClickWithEvent:(NSEvent*)event {
   NSPoint point = [self convertPoint:event.locationInWindow fromView:nil];
 
+  // 纯图标模式（无歌词、无按钮）：点击弹出菜单
+  if (!_showLyric && !_showButtons) {
+    if (self.onRightClick) self.onRightClick();
+    return;
+  }
+
   if (_showButtons) {
     CGFloat bx = 4 + (_showLyric ? _lyricAreaWidth + kButtonGroupPadding : 0);
     for (NSInteger i = 0; i < 4; i++) {
@@ -747,12 +753,31 @@ static const CGFloat kDefaultFontSize = 14;
   return YES;
 }
 
+// MARK: - 鼠标事件/菜单位置
+- (void)storeClickPosition:(NSEvent*)event {
+  self.lastClickEvent = event;
+}
+
+- (void)showContextMenu:(NSMenu*)menu {
+  [NSMenu popUpContextMenu:menu withEvent:self.lastClickEvent forView:self];
+  self.lastClickEvent = nil;
+}
+
 - (void)mouseDown:(NSEvent*)event {
+  [self storeClickPosition:event];
   [self handleClickWithEvent:event];
 }
 
 - (void)rightMouseDown:(NSEvent*)event {
+  [self storeClickPosition:event];
   if (self.onRightClick) self.onRightClick();
+}
+
+// MARK: - 原生菜单响应
+- (IBAction)menuItemClicked:(id)sender {
+  if (self.onMenuItemClicked) {
+    self.onMenuItemClicked(((NSMenuItem*)sender).tag);
+  }
 }
 
 @end

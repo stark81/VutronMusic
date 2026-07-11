@@ -37,6 +37,7 @@
   BOOL _showLyric;
   BOOL _showIcon;
   BOOL _wBYw;          // 逐字高亮
+
 }
 
 - (instancetype)initWithStatusItem:(NSStatusItem*)item
@@ -68,8 +69,14 @@
 /// 更新按钮颜色（亮暗模式切换时刷新）
 - (void)updateColors;
 
+- (void)storeClickPosition:(NSEvent*)event;
+- (void)showContextMenu:(NSMenu*)menu;
+
+@property (nonatomic, retain) NSEvent* lastClickEvent;
+@property (nonatomic) NSPoint lastClickScreenPoint;
 @property (nonatomic, copy) void (^onButtonClick)(NSInteger index);
 @property (nonatomic, copy) void (^onRightClick)(void);
 @property (nonatomic, copy) void (^onTrayClick)(void);
+@property (nonatomic, copy) void (^onMenuItemClicked)(NSInteger tag);
 
 @end

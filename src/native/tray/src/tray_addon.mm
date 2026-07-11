@@ -26,6 +26,7 @@ class TrayItem : public Napi::ObjectWrap<TrayItem> {
   napi_threadsafe_function buttonTsfn_ = nullptr;
   napi_threadsafe_function rightTsfn_ = nullptr;
   napi_threadsafe_function trayTsfn_ = nullptr;
+  napi_threadsafe_function menuCbTsfn_ = nullptr;  // 原生菜单项点击回调
 
   Napi::Value SetLyric(const Napi::CallbackInfo& info);
   Napi::Value SetPlaying(const Napi::CallbackInfo& info);
@@ -42,6 +43,8 @@ class TrayItem : public Napi::ObjectWrap<TrayItem> {
   Napi::Value OnRightClick(const Napi::CallbackInfo& info);
   Napi::Value OnTrayClick(const Napi::CallbackInfo& info);
   Napi::Value Destroy(const Napi::CallbackInfo& info);
+  Napi::Value GetClickPosition(const Napi::CallbackInfo& info);
+  Napi::Value PopupNativeMenu(const Napi::CallbackInfo& info);
 };
 
 // ================ call_js_cb: Node.js 线程上执行 JS 的回调 ================
@@ -114,6 +117,8 @@ void TrayItem::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod("onRightClick", &TrayItem::OnRightClick),
     InstanceMethod("onTrayClick", &TrayItem::OnTrayClick),
     InstanceMethod("destroy", &TrayItem::Destroy),
+    InstanceMethod("getClickPosition", &TrayItem::GetClickPosition),
+    InstanceMethod("popupNativeMenu", &TrayItem::PopupNativeMenu),
   });
 
   constructor = Napi::Persistent(func);
@@ -306,6 +311,110 @@ Napi::Value TrayItem::OnTrayClick(const Napi::CallbackInfo& info) {
   return env.Undefined();
 }
 
+static void CallJsMenu(napi_env env, napi_value jsCb, void* context, void* data) {
+  if (!env || !jsCb) return;
+  TsfnData* d = static_cast<TsfnData*>(data);
+  if (!d) return;
+  napi_handle_scope scope;
+  if (napi_open_handle_scope(env, &scope) != napi_ok) return;
+  napi_value undefined;
+  napi_get_undefined(env, &undefined);
+  napi_value arg;
+  napi_create_double(env, (double)d->index, &arg);
+  napi_call_function(env, undefined, jsCb, 1, &arg, nullptr);
+  napi_close_handle_scope(env, scope);
+  delete d;
+}
+
+// 辅助：从 Napi::Array 递归构建 NSMenu
+static NSMenu* BuildNSMenu(Napi::Array items, NativeTrayView* view) {
+  NSMenu* menu = [[NSMenu alloc] init];
+  for (uint32_t i = 0; i < items.Length(); i++) {
+    Napi::Value val = items.Get(i);
+    if (!val.IsObject()) continue;
+    Napi::Object item = val.As<Napi::Object>();
+
+    std::string type = item.Has("type") ? item.Get("type").As<Napi::String>().Utf8Value() : "normal";
+
+    if (type == "separator") {
+      [menu addItem:[NSMenuItem separatorItem]];
+      continue;
+    }
+
+    std::string label = item.Get("label").As<Napi::String>().Utf8Value();
+    NSMenuItem* menuItem = [[NSMenuItem alloc] initWithTitle:[NSString stringWithUTF8String:label.c_str()]
+                                                      action:@selector(menuItemClicked:)
+                                               keyEquivalent:@""];
+    menuItem.target = view;
+
+    if (item.Has("id")) {
+      menuItem.tag = item.Get("id").As<Napi::Number>().Int32Value();
+    } else {
+      menuItem.tag = i;
+    }
+
+    if (item.Has("enabled") && !item.Get("enabled").As<Napi::Boolean>().Value()) {
+      menuItem.enabled = NO;
+    }
+
+    if (type == "checkbox" || type == "radio") {
+      bool checked = item.Has("checked") && item.Get("checked").As<Napi::Boolean>().Value();
+      menuItem.state = checked ? NSControlStateValueOn : NSControlStateValueOff;
+    }
+
+    // 子菜单
+    if (item.Has("submenu") && item.Get("submenu").IsArray()) {
+      NSMenu* submenu = BuildNSMenu(item.Get("submenu").As<Napi::Array>(), view);
+      [menu setSubmenu:submenu forItem:menuItem];
+    }
+
+    [menu addItem:menuItem];
+  }
+  return menu;
+}
+
+Napi::Value TrayItem::GetClickPosition(const Napi::CallbackInfo& info) {
+  Napi::Object obj = Napi::Object::New(info.Env());
+  obj.Set("x", view_.lastClickScreenPoint.x);
+  obj.Set("y", view_.lastClickScreenPoint.y);
+  return obj;
+}
+
+Napi::Value TrayItem::PopupNativeMenu(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  if (info.Length() < 2 || !info[0].IsArray() || !info[1].IsFunction()) {
+    Napi::TypeError::New(env, "Expected items array and callback function").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  // 释放旧 callback
+  if (menuCbTsfn_) {
+    napi_release_threadsafe_function(menuCbTsfn_, napi_tsfn_release);
+    menuCbTsfn_ = nullptr;
+  }
+
+  Napi::Array items = info[0].As<Napi::Array>();
+  menuCbTsfn_ = CreateTsfn(env, info[1].As<Napi::Function>(), "MenuCb", CallJsMenu);
+
+  // 构建 NSMenu（当前线程，可能为 Node.js 线程）
+  NSMenu* menu = BuildNSMenu(items, view_);
+
+  // 设置 menu callback bridge
+  __block TrayItem* self = this;
+  view_.onMenuItemClicked = ^(NSInteger tag) {
+    if (!self->menuCbTsfn_) return;
+    TsfnData* data = new TsfnData{tag, true};
+    napi_call_threadsafe_function(self->menuCbTsfn_, data, napi_tsfn_blocking);
+  };
+
+  // dispatch 到主线程展示菜单
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [view_ showContextMenu:menu];
+  });
+
+  return env.Undefined();
+}
+
 Napi::Value TrayItem::Destroy(const Napi::CallbackInfo& info) {
   if (view_) {
     [view_ removeFromSuperview];
@@ -323,6 +432,10 @@ Napi::Value TrayItem::Destroy(const Napi::CallbackInfo& info) {
   if (trayTsfn_) {
     napi_release_threadsafe_function(trayTsfn_, napi_tsfn_release);
     trayTsfn_ = nullptr;
+  }
+  if (menuCbTsfn_) {
+    napi_release_threadsafe_function(menuCbTsfn_, napi_tsfn_release);
+    menuCbTsfn_ = nullptr;
   }
   return info.Env().Undefined();
 }

@@ -308,9 +308,36 @@ class TrayImpl implements YPMTray {
           const enableMenu = (store.get('settings.enableTrayMenu') as boolean) ?? true
           if (!enableMenu) return
           const template = createMenuTemplate(this._win)
-          const menu = Menu.buildFromTemplate(template)
-          const cursor = screen.getCursorScreenPoint()
-          menu.popup({ x: Math.round(cursor.x), y: Math.round(cursor.y) })
+          // 将模板序列化为原生 NSMenu 可用的格式（全局 ID 避免层级冲突）
+          let nextId = 0
+          const clickHandlers = new Map<number, () => void>()
+          const serialize = (items: Electron.MenuItemConstructorOptions[]): any[] => {
+            const result: any[] = []
+            for (const item of items) {
+              if (item.visible === false) continue
+              const id = nextId++
+              if ('click' in item && typeof item.click === 'function') {
+                clickHandlers.set(id, () => (item.click as Function)(item as any, this._win))
+              }
+              const entry: any = {
+                id,
+                label: item.label || '',
+                type: item.type || 'normal',
+                enabled: item.enabled !== false,
+              }
+              if (item.checked !== undefined) entry.checked = item.checked
+              if (item.submenu) {
+                entry.submenu = serialize(item.submenu as any)
+              }
+              result.push(entry)
+            }
+            return result
+          }
+          const nativeItems = serialize(template)
+          this._nativeItem.popupNativeMenu(nativeItems, (clickedId: number) => {
+            const handler = clickHandlers.get(clickedId)
+            if (handler) handler()
+          })
         })
         this._nativeItem.onTrayClick(() => {
           this._win.show()

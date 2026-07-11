@@ -376,19 +376,6 @@
               </div>
               <div class="item">
                 <div class="left">
-                  <div class="title"> {{ $t('settings.tray.lyricFrameWidth') }} </div>
-                </div>
-                <div class="right">
-                  <input
-                    v-model="inputValue"
-                    type="number"
-                    class="text-input margin-right-0"
-                    @input="inputDebounce()"
-                  />
-                </div>
-              </div>
-              <div class="item">
-                <div class="left">
                   <div class="title">{{ $t('settings.tray.showIcon') }}</div>
                 </div>
                 <div class="right">
@@ -416,18 +403,27 @@
               </div>
               <div class="item">
                 <div class="left">
-                  <div class="title">{{ $t('settings.tray.playedColor') }}</div>
+                  <div class="title"> {{ $t('settings.tray.lyricFrameWidth') }} </div>
                 </div>
                 <div class="right">
-                  <pick-colors v-model:value="playedColor" :width="40" :height="40" :theme="currentTheme ?? 'light'" format="hex" />
+                  <input
+                    v-model="inputValue"
+                    type="number"
+                    class="text-input margin-right-0"
+                    @input="inputDebounce()"
+                  />
                 </div>
               </div>
               <div class="item">
-                <div class="left">
-                  <div class="title">{{ $t('settings.tray.playedColorLight') }}</div>
-                </div>
-                <div class="right">
-                  <pick-colors v-model:value="playedColorLight" :width="40" :height="40" :theme="currentTheme ?? 'light'" format="hex" />
+                <div style="display:flex;gap:32px">
+                  <div class="color">
+                    <pick-colors v-model:value="playedColor" :width="100" :height="100" :theme="currentTheme ?? 'light'" format="hex" />
+                    <div class="text">{{ $t('settings.tray.playedColor') }}</div>
+                  </div>
+                  <div class="color">
+                    <pick-colors v-model:value="playedColorLight" :width="100" :height="100" :theme="currentTheme ?? 'light'" format="hex" />
+                    <div class="text">{{ $t('settings.tray.playedColorLight') }}</div>
+                  </div>
                 </div>
               </div>
             </div>
