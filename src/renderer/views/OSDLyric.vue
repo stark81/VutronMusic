@@ -113,17 +113,16 @@ const onMouseUp = () => {
   window.mainApi?.send('osd-stop-resize')
 }
 
-window.addEventListener('message', (event: MessageEvent) => {
-  if (event.data.type === 'update-osd-status') {
-    for (const [key, value] of Object.entries(event.data.data) as [string, any]) {
-      if (key === 'title') {
-        title.value = value
-      }
-    }
+const handleOsdStatus = (_event: any, data: { title?: string }) => {
+  if (data.title !== undefined) {
+    title.value = data.title
   }
-})
+}
+
+window.mainApi?.on('update-osd-status', handleOsdStatus)
 
 onMounted(() => {
+  window.mainApi?.send('init-from-osd')
   if (isLinux) {
     isLock.value = false
   }
@@ -142,6 +141,7 @@ onBeforeUnmount(() => {
 
   const rootEl = document.getElementById('main')
   rootEl?.removeEventListener('osd-mouse-enter-leave', onOsdMouseState)
+  window.mainApi?.off('update-osd-status', handleOsdStatus)
 })
 </script>
 

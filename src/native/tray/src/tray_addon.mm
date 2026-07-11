@@ -35,6 +35,9 @@ class TrayItem : public Napi::ObjectWrap<TrayItem> {
   Napi::Value SetButtonType(const Napi::CallbackInfo& info);
   Napi::Value SetIconImage(const Napi::CallbackInfo& info);
   Napi::Value SetVisibility(const Napi::CallbackInfo& info);
+  Napi::Value SetWordByWord(const Napi::CallbackInfo& info);
+  Napi::Value SetPlayedColor(const Napi::CallbackInfo& info);
+  Napi::Value SetPlayedColorLight(const Napi::CallbackInfo& info);
   Napi::Value OnButtonClick(const Napi::CallbackInfo& info);
   Napi::Value OnRightClick(const Napi::CallbackInfo& info);
   Napi::Value OnTrayClick(const Napi::CallbackInfo& info);
@@ -104,6 +107,9 @@ void TrayItem::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod("setButtonType", &TrayItem::SetButtonType),
     InstanceMethod("setIconImage", &TrayItem::SetIconImage),
     InstanceMethod("setVisibility", &TrayItem::SetVisibility),
+    InstanceMethod("setWordByWord", &TrayItem::SetWordByWord),
+    InstanceMethod("setPlayedColor", &TrayItem::SetPlayedColor),
+    InstanceMethod("setPlayedColorLight", &TrayItem::SetPlayedColorLight),
     InstanceMethod("onButtonClick", &TrayItem::OnButtonClick),
     InstanceMethod("onRightClick", &TrayItem::OnRightClick),
     InstanceMethod("onTrayClick", &TrayItem::OnTrayClick),
@@ -191,7 +197,8 @@ Napi::Value TrayItem::SetLyric(const Napi::CallbackInfo& info) {
 }
 
 Napi::Value TrayItem::SetPlaying(const Napi::CallbackInfo& info) {
-  [view_ setPlaying:info[0].As<Napi::Boolean>().Value()];
+  [view_ setPlaying:info[0].As<Napi::Boolean>().Value()
+           progress:info.Length() > 1 ? info[1].As<Napi::Number>().DoubleValue() : 0];
   return info.Env().Undefined();
 }
 
@@ -234,6 +241,38 @@ Napi::Value TrayItem::SetVisibility(const Napi::CallbackInfo& info) {
     [view_ setButtonVisibility:opts.Get("buttons").As<Napi::Boolean>().Value()];
   if (opts.Has("icon"))
     [view_ setIconVisibility:opts.Get("icon").As<Napi::Boolean>().Value()];
+  return info.Env().Undefined();
+}
+
+Napi::Value TrayItem::SetWordByWord(const Napi::CallbackInfo& info) {
+  [view_ setWordByWord:info[0].As<Napi::Boolean>().Value()];
+  return info.Env().Undefined();
+}
+
+Napi::Value TrayItem::SetPlayedColor(const Napi::CallbackInfo& info) {
+  NSString* hex = [NSString stringWithUTF8String:info[0].As<Napi::String>().Utf8Value().c_str()];
+  // 将 hex 字符串 (#RRGGBB) 转换为 NSColor
+  unsigned int r = 0, g = 0, b = 0;
+  if (hex.length >= 7) {
+    [[NSScanner scannerWithString:[hex substringWithRange:NSMakeRange(1, 2)]] scanHexInt:&r];
+    [[NSScanner scannerWithString:[hex substringWithRange:NSMakeRange(3, 2)]] scanHexInt:&g];
+    [[NSScanner scannerWithString:[hex substringWithRange:NSMakeRange(5, 2)]] scanHexInt:&b];
+    NSColor* color = [NSColor colorWithRed:r/255.0 green:g/255.0 blue:b/255.0 alpha:1.0];
+    [view_ setPlayedColor:color];
+  }
+  return info.Env().Undefined();
+}
+
+Napi::Value TrayItem::SetPlayedColorLight(const Napi::CallbackInfo& info) {
+  NSString* hex = [NSString stringWithUTF8String:info[0].As<Napi::String>().Utf8Value().c_str()];
+  unsigned int r = 0, g = 0, b = 0;
+  if (hex.length >= 7) {
+    [[NSScanner scannerWithString:[hex substringWithRange:NSMakeRange(1, 2)]] scanHexInt:&r];
+    [[NSScanner scannerWithString:[hex substringWithRange:NSMakeRange(3, 2)]] scanHexInt:&g];
+    [[NSScanner scannerWithString:[hex substringWithRange:NSMakeRange(5, 2)]] scanHexInt:&b];
+    NSColor* color = [NSColor colorWithRed:r/255.0 green:g/255.0 blue:b/255.0 alpha:1.0];
+    [view_ setPlayedColorLight:color];
+  }
   return info.Env().Undefined();
 }
 

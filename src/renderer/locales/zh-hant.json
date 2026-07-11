@@ -373,6 +373,10 @@
     "tray": {
       "showLyric": "顯示狀態列歌詞",
       "showControl": "顯示控制按鈕",
+      "showIcon": "顯示托盤圖示",
+      "wordByWord": "逐字高亮",
+      "playedColor": "深色模式高亮顏色",
+      "playedColorLight": "淺色模式高亮顏色",
       "lyricScrollFrameRate": {
         "text": "歌詞捲動幀率",
         "desc": "該數值並非越大越好，太高會導致歌詞捲動速度過快而無法流暢顯示"

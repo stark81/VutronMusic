@@ -144,10 +144,7 @@ export const useLyricStore = defineStore(
           lyric: { text }
         })
       }
-      window.mainApi?.sendMessage({
-        type: 'update-osd-status',
-        data: { lyrics: toRaw(lyrics) }
-      })
+      window.mainApi?.send('update-osd-lyric', { lyrics: toRaw(lyrics) })
     }
 
     /** 设置歌词偏移并持久化到数据库 */

@@ -381,6 +381,10 @@
     "tray": {
       "showLyric": "显示状态栏歌词",
       "showControl": "显示控制按钮",
+      "showIcon": "显示托盘图标",
+      "wordByWord": "逐字高亮",
+      "playedColor": "深色模式高亮颜色",
+      "playedColorLight": "浅色模式高亮颜色",
       "lyricScrollFrameRate": {
         "text": "歌词滚动帧率",
         "desc": "该数值并非越大越好，太高会导致歌词滚动速度过快而无法流畅显示"

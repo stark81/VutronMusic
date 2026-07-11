@@ -22,8 +22,6 @@ declare global {
       once: (channel: string, func: (...data: any[]) => void) => void
       off: (channel: string, func: (...data: any[]) => void) => void
       invoke: (channel: string, ...data: any[]) => Promise<any>
-      sendMessage: (message: Record<string, any>) => void
-      closeMessagePort: () => void
     }
     env?: {
       isElectron: boolean

@@ -111,12 +111,14 @@ static const CGFloat kDefaultFontSize = 14;
   NSFont* _font;
   CGFloat _iconSize;
   CGFloat _buttonWidth;
-  BOOL _showLyric;
-  BOOL _showIcon;
 
   // 歌词动画参数
   double _playbackRate;
   BOOL _hasWordTiming;
+  NSColor* _playedColor;
+  NSColor* _playedColorLight;
+  double _lastOffsetMs;
+  CGFloat _lastTotalTextWidth;
 }
 
 @property (nonatomic, strong) NSArray<CAShapeLayer*>* buttonLayers;
@@ -136,12 +138,13 @@ static const CGFloat kDefaultFontSize = 14;
   _iconSize = iconSize > 0 ? iconSize : kIconSize;
   _lyricAreaWidth = lyricWidth > 0 ? lyricWidth : 180;
   _buttonWidth = btnWidth > 0 ? btnWidth : kButtonSize;
-  _font = [NSFont systemFontOfSize:kDefaultFontSize];
+  _font = [NSFont systemFontOfSize:kDefaultFontSize weight:NSFontWeightMedium];
   _playbackRate = 1.0;
   _isPlaying = NO;
   _showLyric = YES;
   _showButtons = YES;
   _showIcon = YES;
+  _wBYw = YES;
   _hasWordTiming = YES;
 
   self.wantsLayer = YES;
@@ -172,29 +175,9 @@ static const CGFloat kDefaultFontSize = 14;
   [self layoutSubviews];
   [self updateColors];
 
-  // 设置默认歌词文本，启动后立即可见
-  CGFloat textH = _font.ascender - _font.descender;
-  CGFloat textY = (kViewHeight - textH) / 2 - 2;
-  NSString *defaultText = @"听你想听的音乐";
-  CGFloat defaultTextWidth = [defaultText sizeWithAttributes:@{NSFontAttributeName: _font}].width;
+  // 不设置默认文本和图标，等渲染进程 onMounted 后通过 initTrayState 一起绘制
 
-  NSColor *unplayed = UnplayedColor(self);
-  NSDictionary *baseAttrs = @{NSFontAttributeName: _font, NSForegroundColorAttributeName: unplayed};
-  _baseText.string = [[NSAttributedString alloc] initWithString:defaultText attributes:baseAttrs];
-  _baseText.frame = CGRectMake(0, textY, defaultTextWidth, 20);
-
-  NSColor *playedColor = [NSColor yellowColor];
-  NSDictionary *playedAttrs = @{NSFontAttributeName: _font, NSForegroundColorAttributeName: playedColor};
-  _highlightText.string = [[NSAttributedString alloc] initWithString:defaultText attributes:playedAttrs];
-  _highlightText.frame = _baseText.frame;
-
-  // 初始 mask 全宽，显示完整高亮
-  _maskLayer.frame = CGRectMake(0, 0, defaultTextWidth, 20);
-
-  // 延迟到下一个 runloop 创建按钮，确保 NSStatusBarButton 已完成初始布局
-  dispatch_async(dispatch_get_main_queue(), ^{
-    [self ensureButtonsCreated];
-  });
+  // 按钮由渲染进程 onMounted 后通过 updateLyricWithText 创建
 
   return self;
 }
@@ -247,9 +230,12 @@ static const CGFloat kDefaultFontSize = 14;
   }
 
   CGFloat totalWidth = x + 4;
+  [NSAnimationContext beginGrouping];
+  [[NSAnimationContext currentContext] setDuration:0];
   _statusItem.length = totalWidth;
   _statusItem.button.needsLayout = YES;
   self.frame = NSMakeRect(0, 0, totalWidth, kViewHeight);
+  [NSAnimationContext endGrouping];
 }
 
 - (NSSize)intrinsicContentSize {
@@ -296,7 +282,6 @@ static const CGFloat kDefaultFontSize = 14;
                hasWordTiming:(BOOL)hasTiming
                   lyricWidth:(CGFloat)width
                      offset:(double)offsetMs {
-  NSLog(@"[Tray] updateLyricWithText called, offsetMs=%f, isPlaying=%d", offsetMs, _isPlaying);
   _hasWordTiming = hasTiming;
   if (width > 0 && width != _lyricAreaWidth) {
     _lyricAreaWidth = width;
@@ -323,25 +308,32 @@ static const CGFloat kDefaultFontSize = 14;
     [_maskLayer removeAllAnimations];
 
     CGFloat textH = _font.ascender - _font.descender;
-    CGFloat yPos = (kViewHeight - textH) / 2 - 2;
+    CGFloat yPos = (kViewHeight - textH) / 2 - 3;
     CGFloat tX = (totalTextWidth <= _lyricAreaWidth) ? (_lyricAreaWidth - totalTextWidth) / 2 : 0;
 
     NSColor* unplayed = UnplayedColor(self);
     NSDictionary* baseAttrs = @{NSFontAttributeName: _font, NSForegroundColorAttributeName: unplayed};
-    NSColor* playedColor = [NSColor yellowColor];
+    NSColor* playedColor = [self playedColor];
+    if (!hasTiming || !_wBYw) playedColor = unplayed;
     NSDictionary* playedAttrs = @{NSFontAttributeName: _font, NSForegroundColorAttributeName: playedColor};
     _baseText.string = [[NSAttributedString alloc] initWithString:text attributes:baseAttrs];
     _baseText.frame = CGRectMake(tX, yPos, totalTextWidth, 20);
     _baseText.position = CGPointMake(tX + totalTextWidth / 2, yPos + 10);
-    _highlightText.string = [[NSAttributedString alloc] initWithString:text attributes:playedAttrs];
-    _highlightText.frame = _baseText.frame;
-    _highlightText.position = _baseText.position;
-
-    _highlightText.mask = nil;
-    _maskLayer = [CALayer layer];
-    _maskLayer.backgroundColor = NSColor.blackColor.CGColor;
-    _maskLayer.frame = CGRectMake(0, 0, totalTextWidth, 20);
-    _highlightText.mask = _maskLayer;
+    if (_wBYw) {
+      _highlightText.string = [[NSAttributedString alloc] initWithString:text attributes:playedAttrs];
+      _highlightText.frame = _baseText.frame;
+      _highlightText.position = _baseText.position;
+      _highlightText.mask = nil;
+      _maskLayer = [CALayer layer];
+      _maskLayer.backgroundColor = NSColor.blackColor.CGColor;
+      _maskLayer.frame = CGRectMake(0, 0, totalTextWidth, 20);
+      _highlightText.mask = _maskLayer;
+      _highlightText.opacity = 1;
+    } else {
+      _highlightText.string = nil;
+      _highlightText.opacity = 0;
+      _highlightText.mask = nil;
+    }
     [CATransaction commit];
     [CATransaction flush];
     return;
@@ -349,7 +341,7 @@ static const CGFloat kDefaultFontSize = 14;
 
   // 垂直居中
   CGFloat textHeight = _font.ascender - _font.descender;
-  CGFloat y = (kViewHeight - textHeight) / 2 - 2;
+  CGFloat y = (kViewHeight - textHeight) / 2 - 3;
 
   // 累计宽度
   NSMutableArray<NSNumber*>* cumBefore = [NSMutableArray arrayWithCapacity:words.count];
@@ -362,8 +354,8 @@ static const CGFloat kDefaultFontSize = 14;
   // 文本图层
   NSColor* unplayed = UnplayedColor(self);
   NSDictionary* baseAttrs = @{NSFontAttributeName: _font, NSForegroundColorAttributeName: unplayed};
-  NSColor* playedColor = [NSColor yellowColor];
-  if (!hasTiming) playedColor = unplayed;
+  NSColor* playedColor = [self playedColor];
+  if (!hasTiming || !_wBYw) playedColor = unplayed;
   NSDictionary* playedAttrs = @{NSFontAttributeName: _font, NSForegroundColorAttributeName: playedColor};
 
   // 清除旧动画——在 CATransaction 中禁用隐式动画，
@@ -388,23 +380,31 @@ static const CGFloat kDefaultFontSize = 14;
   // 显式重置 position，防止上一行 scroll 动画 fillMode:forwards 残留
   _baseText.position = CGPointMake(textX + totalTextWidth / 2, y + 10);
 
-  _highlightText.string = [[NSAttributedString alloc] initWithString:text attributes:playedAttrs];
-  _highlightText.frame = _baseText.frame;
-  _highlightText.position = _baseText.position;
+  if (_wBYw && hasTiming) {
+    _highlightText.string = [[NSAttributedString alloc] initWithString:text attributes:playedAttrs];
+    _highlightText.frame = _baseText.frame;
+    _highlightText.position = _baseText.position;
+    _highlightText.opacity = 1;
+  } else {
+    _highlightText.string = nil;
+    _highlightText.opacity = 0;
+  }
 
   // 重建 mask layer，彻底清除上次动画的残留状态
-  _highlightText.mask = nil;
-  _maskLayer = [CALayer layer];
-  _maskLayer.backgroundColor = NSColor.blackColor.CGColor;
-  _maskLayer.anchorPoint = CGPointMake(0, 0.5);
-  _maskLayer.frame = CGRectMake(0, 0, 0, kViewHeight);
-  _maskLayer.position = CGPointMake(0, kViewHeight / 2);
-  _highlightText.mask = _maskLayer;
+  if (_wBYw) {
+    _highlightText.mask = nil;
+    _maskLayer = [CALayer layer];
+    _maskLayer.backgroundColor = NSColor.blackColor.CGColor;
+    _maskLayer.anchorPoint = CGPointMake(0, 0.5);
+    _maskLayer.frame = CGRectMake(0, 0, 0, kViewHeight);
+    _maskLayer.position = CGPointMake(0, kViewHeight / 2);
+    _highlightText.mask = _maskLayer;
+  }
   [CATransaction commit];
   [CATransaction flush];
 
   // ====== 逐字高亮动画 ======
-  if (hasTiming && words.count > 0) {
+  if (hasTiming && _wBYw && words.count > 0) {
     NSMutableArray* hKeyTimes = [NSMutableArray array];
     NSMutableArray* hValues = [NSMutableArray array];
     for (NSUInteger i = 0; i < words.count; i++) {
@@ -428,8 +428,9 @@ static const CGFloat kDefaultFontSize = 14;
     anim.fillMode = kCAFillModeForwards;
     // ── 2.4 将 offsetMs 限制在 [0, lineDurationMs] 内 ──
     double clampedOffset = MAX(0, MIN(offsetMs, lineDurationMs));
+    // 用 _clipLayer 时间系计算 beginTime，暂停时 _clipLayer.speed=0 会返回冻结时间，
+    // 恢复时再通过 setPlaying:progress: 中的 _clipLayer 时序恢复来对齐
     CFTimeInterval now = [_clipLayer convertTime:CACurrentMediaTime() fromLayer:nil];
-    // beginTime 须在 layer 本地时间空间：layer.speed = _playbackRate 时本地时间 = 父时间 × rate
     anim.beginTime = now * _playbackRate - (clampedOffset / 1000.0);
     _maskLayer.speed = _playbackRate;
     [_maskLayer addAnimation:anim forKey:@"lyricProgress"];
@@ -496,6 +497,19 @@ static const CGFloat kDefaultFontSize = 14;
     // mask 在 _highlightText 本地坐标中，自动跟随文字滚动，无需单独动画
   }
 
+  // 确保 presentation layer 反映最新动画，供后续 setAnimationsPaused: 录制
+  [CATransaction flush];
+
+  // 保存最后一次歌词数据，供 seek 恢复时重建动画
+  _lastText = text;
+  _lastWords = words;
+  _lastLineStartMs = lineStart;
+  _lastLineEndMs = lineEnd;
+  _lastHasTiming = hasTiming;
+  _lastLyricWidth = width;
+  _lastOffsetMs = offsetMs;
+  _lastTotalTextWidth = totalTextWidth;
+
   // 新歌词动画创建后，仅在暂停时冻结动画（播放时动画已通过 beginTime + speed 正确配置）
   if (!_isPlaying) {
     [self setAnimationsPaused:YES];
@@ -503,31 +517,78 @@ static const CGFloat kDefaultFontSize = 14;
 }
 
 // MARK: - 播放/暂停
-- (void)setPlaying:(BOOL)playing {
+- (void)setPlaying:(BOOL)playing progress:(double)progress {
+  if (_isPlaying == playing) return;
   _isPlaying = playing;
-  [self setAnimationsPaused:!playing];
+  _lastProgress = progress;
+
+  if (playing && progress > 0 && _lastText) {
+    // 恢复时用 progress 重建动画，避免 CAAnimation 暂停机制的偏移
+    double offsetMs = (progress * 1000 - _lastLineStartMs) + 50;
+    offsetMs = MAX(0, offsetMs);
+    [self updateLyricWithText:_lastText
+                        words:_lastWords
+                  lineStartMs:_lastLineStartMs
+                    lineEndMs:_lastLineEndMs
+               hasWordTiming:_lastHasTiming
+                  lyricWidth:_lastLyricWidth
+                     offset:offsetMs];
+    // updateLyricWithText 内部已重置各层 speed（_clipLayer 不再被冻结）
+  } else {
+    [self setAnimationsPaused:!playing];
+  }
   _buttonContainer[1].hidden = playing;  // 播放时隐藏 play
   _pauseLayer.hidden = !playing;         // 播放时显示 pause
 }
 
 - (void)setAnimationsPaused:(BOOL)paused {
-  NSArray* layers = @[_baseText, _highlightText, _maskLayer];
   if (paused) {
-    for (CALayer* layer in layers) {
-      // 逐层转换，确保每层的 timeOffset 在其自身的本地时间空间中
-      CFTimeInterval pausedTime = [layer convertTime:CACurrentMediaTime() fromLayer:nil];
-      layer.speed = 0;
-      layer.timeOffset = pausedTime;
+    // 录制-移除模式：从 presentation layer 读当前动画位置，移除动画，model 层匹配
+    if (!_lastText || _lastTotalTextWidth <= 0) return;
+
+    CALayer* maskPres = [_maskLayer presentationLayer];
+    CGFloat curMaskW = maskPres ? maskPres.bounds.size.width : _maskLayer.bounds.size.width;
+
+    CALayer* basePres = [_baseText presentationLayer];
+    CGFloat curScrollX = basePres ? basePres.position.x : _baseText.position.x;
+
+    // 从 mask 宽度估算当前 offset（近似值，恢复时跳到最近的词边界可接受）
+    double lineDurMs = _lastLineEndMs - _lastLineStartMs;
+    double offsetMs = 0;
+    if (_lastTotalTextWidth > 0 && lineDurMs > 0) {
+      offsetMs = (curMaskW / _lastTotalTextWidth) * lineDurMs;
+      offsetMs = MAX(0, MIN(offsetMs, lineDurMs));
     }
+    _lastOffsetMs = offsetMs;
+
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+
+    [_baseText removeAllAnimations];
+    [_highlightText removeAllAnimations];
+    [_maskLayer removeAllAnimations];
+
+    _baseText.speed = 1; _baseText.timeOffset = 0; _baseText.beginTime = 0;
+    _highlightText.speed = 1; _highlightText.timeOffset = 0; _highlightText.beginTime = 0;
+    _maskLayer.speed = 1; _maskLayer.timeOffset = 0; _maskLayer.beginTime = 0;
+
+    _baseText.position = CGPointMake(curScrollX, _baseText.position.y);
+    _highlightText.position = CGPointMake(curScrollX, _highlightText.position.y);
+    if (_hasWordTiming && _wBYw) {
+      _maskLayer.bounds = CGRectMake(0, 0, curMaskW, kViewHeight);
+    }
+
+    [CATransaction commit];
   } else {
-    CFTimeInterval refNow = [_clipLayer convertTime:CACurrentMediaTime() fromLayer:nil];
-    for (CALayer* layer in layers) {
-      CFTimeInterval pausedTime = layer.timeOffset;
-      layer.speed = _playbackRate;
-      layer.timeOffset = 0;
-      layer.beginTime = 0;
-      // 层本地时间 = (父时间 - beginTime) × speed，需要 pausedTime → 解得 beginTime
-      layer.beginTime = refNow - pausedTime / _playbackRate;
+    // 恢复：用录制位置重建动画
+    if (_lastText && _lastWords) {
+      [self updateLyricWithText:_lastText
+                          words:_lastWords
+                    lineStartMs:_lastLineStartMs
+                      lineEndMs:_lastLineEndMs
+                 hasWordTiming:_lastHasTiming
+                    lyricWidth:_lastLyricWidth
+                       offset:_lastOffsetMs];
     }
   }
 }
@@ -543,6 +604,27 @@ static const CGFloat kDefaultFontSize = 14;
     layer.speed = rate;
     layer.beginTime = refNow - currentLayerTime / rate;
   }
+}
+
+// MARK: - 显示设置
+- (void)setWordByWord:(BOOL)wBYw {
+  _wBYw = wBYw;
+}
+
+- (void)setPlayedColor:(NSColor*)color {
+  _playedColor = color;
+  [self updateColors];
+}
+
+- (NSColor*)playedColor {
+  BOOL isDark = [self.effectiveAppearance
+      bestMatchFromAppearancesWithNames:@[NSAppearanceNameDarkAqua, NSAppearanceNameAqua]] == NSAppearanceNameDarkAqua;
+  return isDark ? (_playedColor ?: [NSColor yellowColor]) : (_playedColorLight ?: [NSColor yellowColor]);
+}
+
+- (void)setPlayedColorLight:(NSColor*)color {
+  _playedColorLight = color;
+  [self updateColors];
 }
 
 // MARK: - 喜欢状态
@@ -613,10 +695,23 @@ static const CGFloat kDefaultFontSize = 14;
     NSDictionary* attrs = @{NSFontAttributeName: _font, NSForegroundColorAttributeName: color};
     _baseText.string = [[NSAttributedString alloc] initWithString:text attributes:attrs];
   }
+  if (_highlightText.string) {
+    NSString* text = [(NSAttributedString*)_highlightText.string string];
+    NSColor* played = [self playedColor];
+    NSDictionary* playedAttrs = @{NSFontAttributeName: _font, NSForegroundColorAttributeName: played};
+    _highlightText.string = [[NSAttributedString alloc] initWithString:text attributes:playedAttrs];
+  }
 }
 
 - (void)viewDidChangeEffectiveAppearance {
   [self updateColors];
+}
+
+- (void)viewDidMoveToWindow {
+  [super viewDidMoveToWindow];
+  CGFloat scale = self.window ? self.window.backingScaleFactor : NSScreen.mainScreen.backingScaleFactor;
+  _baseText.contentsScale = scale;
+  _highlightText.contentsScale = scale;
 }
 
 // MARK: - 鼠标事件

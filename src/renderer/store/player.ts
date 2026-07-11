@@ -272,11 +272,7 @@ export const usePlayerStore = defineStore(
           rate: value,
           progress: engineStore.getCurrentTime() ?? 0
         })
-        if (osdLyricStore.show)
-          window.mainApi?.sendMessage({
-            type: 'update-osd-status',
-            data: { rate: value }
-          })
+        if (osdLyricStore.show) window.mainApi?.send('update-osd-lyric', { rate: value })
       },
       { immediate: true }
     )
@@ -341,9 +337,8 @@ export const usePlayerStore = defineStore(
         updateMediaSessionMetaData(currentTrack.value!)
       }
       if (osdLyricStore.show) {
-        window.mainApi?.sendMessage({
-          type: 'update-osd-status',
-          data: { lyricOffset: [value, engineStore.getCurrentTime()] }
+        window.mainApi?.send('update-osd-lyric', {
+          lyricOffset: [value, engineStore.getCurrentTime()]
         })
       }
     })
@@ -352,10 +347,7 @@ export const usePlayerStore = defineStore(
       () => [osdLyricStore.mode, osdLyricStore.translationMode],
       () => {
         if (osdLyricStore.show) {
-          window.mainApi?.sendMessage({
-            type: 'update-osd-status',
-            data: { seek: engineStore.getCurrentTime() }
-          })
+          window.mainApi?.send('update-osd-lyric', { seek: engineStore.getCurrentTime() })
         }
       }
     )
@@ -872,11 +864,8 @@ export const usePlayerStore = defineStore(
       if (!value) return
 
       if (osdLyricStore.show) {
-        window.mainApi?.sendMessage({
-          type: 'update-osd-status',
-          data: {
-            title: `${value.artists?.[0]?.name || ''} - ${value.name || ''}`
-          }
+        window.mainApi?.send('update-osd-lyric', {
+          title: `${value.artists?.[0]?.name || ''} - ${value.name || ''}`
         })
       }
 
@@ -951,7 +940,7 @@ export const usePlayerStore = defineStore(
         progress: engineStore.getCurrentTime() || 0
       })
       if (osdLyricStore.show) {
-        window.mainApi?.sendMessage({ type: 'update-osd-status', data: { playing: value } })
+        window.mainApi?.send('update-osd-lyric', { playing: value })
       }
     })
 
@@ -959,10 +948,7 @@ export const usePlayerStore = defineStore(
       () => [currentIndex.value, progress.value],
       (value) => {
         if (!osdLyricStore.show) return
-        window.mainApi?.sendMessage({
-          type: 'update-osd-status',
-          data: { line: [value[0], engineStore.getCurrentTime()] }
-        })
+        window.mainApi?.send('update-osd-lyric', { line: [value[0], engineStore.getCurrentTime()] })
       }
     )
 
@@ -1022,30 +1008,22 @@ export const usePlayerStore = defineStore(
     }
 
     function handleIpcRenderer() {
-      window.addEventListener('message', (event) => {
-        if (event.data.type === 'init-from-osd') {
-          window.mainApi?.sendMessage({
-            type: 'update-osd-status',
-            data: {
-              line: [currentIndex.value, engineStore.getCurrentTime()],
-              playing: playing.value,
-              seek: engineStore.getCurrentTime(),
-              title: `${currentTrack.value?.artists[0]?.name} - ${currentTrack.value?.name}`
-            }
-          })
-        } else if (event.data.type === 'get-seek') {
-          window.mainApi?.sendMessage({
-            type: 'update-osd-status',
-            data: { seek: engineStore.getCurrentTime() || 0 }
-          })
-        }
+      window.mainApi?.on('init-from-osd', () => {
+        window.mainApi?.send('update-osd-lyric', {
+          line: [currentIndex.value, engineStore.getCurrentTime()],
+          playing: playing.value,
+          seek: engineStore.getCurrentTime(),
+          title: `${currentTrack.value?.artists[0]?.name} - ${currentTrack.value?.name}`
+        })
+      })
+
+      window.mainApi?.on('get-seek', () => {
+        window.mainApi?.send('update-osd-lyric', { seek: engineStore.getCurrentTime() || 0 })
       })
 
       watch(
         () => osdLyricStore.show,
-        (value) => {
-          if (!value) window.mainApi?.closeMessagePort()
-        }
+        () => {} // no longer need closeMessagePort
       )
 
       window.mainApi?.on('resume', async () => {

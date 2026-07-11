@@ -6,7 +6,6 @@ import {
   Menu,
   protocol,
   screen,
-  MessageChannelMain,
   powerMonitor
 } from 'electron'
 import fs from 'fs'
@@ -369,6 +368,10 @@ class BackGround {
     this.lyricWin?.webContents.send('update-osd-playing-status', playing)
   }
 
+  sendToOSD(channel: string, data: any) {
+    this.lyricWin?.webContents.send(channel, data)
+  }
+
   switchOSDWindow(showMode: string) {
     this.hideOSDWindow()
     this.showOSDWindow(showMode)
@@ -383,7 +386,6 @@ class BackGround {
       this.lyricWin!.showInactive()
     })
     this.lyricWin!.webContents.on('did-finish-load', () => {
-      this.initMessageChannel()
       this.toggleMouseIgnore()
       setTimeout(() => {
         this.lyricWin!.setFocusable(false)
@@ -425,13 +427,6 @@ class BackGround {
       this.createOSDWindow(type)
       this.handleOSDWindowEvents()
     }
-  }
-
-  initMessageChannel() {
-    if (!this.lyricWin || !this.win) return
-    const { port1, port2 } = new MessageChannelMain()
-    this.win?.webContents.postMessage('port-connect', null, [port1])
-    this.lyricWin?.webContents.postMessage('port-connect', null, [port2])
   }
 
   initOSDWindow() {
@@ -705,7 +700,8 @@ class BackGround {
         updateOsdHeight: (height: number) => this.updateOsdHeight(height),
         getOsdBounds: () => this.getOsdBounds(),
         setOsdBounds: (bounds: { x?: number; y?: number; width?: number; height?: number }) =>
-          this.setOsdBounds(bounds)
+          this.setOsdBounds(bounds),
+        sendToOSD: (channel: string, data: any) => this.sendToOSD(channel, data)
       }
       IPCs.initialize(this.win!, this.tray, this.mpris!, lrc)
 
@@ -761,7 +757,6 @@ class BackGround {
     })
 
     powerMonitor.on('resume', () => {
-      setTimeout(() => this.initMessageChannel(), 1000)
       this.win!.webContents.send('resume')
     })
 

@@ -374,6 +374,10 @@
     "tray": {
       "showLyric": "Show Tray Lyrics",
       "showControl": "Show Control Buttons",
+      "showIcon": "Show Tray Icon",
+      "wordByWord": "Word-by-Word Highlight",
+      "playedColor": "Played Highlight Color (Dark)",
+      "playedColorLight": "Played Highlight Color (Light)",
       "lyricScrollFrameRate": {
         "text": "Lyric Scroll FPS",
         "desc": "Higher values may cause flickering; adjust carefully."

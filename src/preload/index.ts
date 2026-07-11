@@ -61,7 +61,8 @@ const mainAvailChannels: string[] = [
   'set-lyric-offset',
   'create-plugin-instance',
   'delete-plugin-instance',
-  'clearStreamMatches'
+  'clearStreamMatches',
+  'update-osd-lyric'
 ]
 const rendererAvailChannels: string[] = [
   'msgHandleScanLocalMusicError',
@@ -87,30 +88,10 @@ const rendererAvailChannels: string[] = [
   'setPosition',
   'changeRouteTo',
   'updateAmuseServerStatus',
-  'receiveCacheInfo'
+  'receiveCacheInfo',
+  'init-from-osd',
+  'get-seek'
 ]
-
-let messagePort: MessagePort | null = null
-
-ipcRenderer.on('port-connect', (event: any) => {
-  if (messagePort) {
-    messagePort.close()
-  }
-  messagePort = event.ports[0]
-  messagePort?.start()
-
-  messagePort!.onmessage = (event) => {
-    window.postMessage(event.data, '*')
-  }
-
-  window.postMessage({ type: 'init-from-osd' }, '*')
-})
-
-window.addEventListener('unload', () => {
-  if (messagePort) {
-    messagePort.close()
-  }
-})
 
 contextBridge.exposeInMainWorld('mainApi', {
   send: (channel: string, ...data: any[]): void => {
@@ -148,15 +129,6 @@ contextBridge.exposeInMainWorld('mainApi', {
     }
 
     throw new Error(`Unknown ipc channel name: ${channel}`)
-  },
-  sendMessage: (message: any) => {
-    messagePort?.postMessage(message)
-  },
-  closeMessagePort: () => {
-    if (messagePort) {
-      messagePort.close()
-      messagePort = null
-    }
   }
 })
 

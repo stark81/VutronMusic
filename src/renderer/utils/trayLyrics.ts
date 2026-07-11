@@ -19,7 +19,8 @@ const trayIcon = new URL('../assets/tray/menu_white.png', import.meta.url).href
 
 const playerStore = usePlayerStore()
 const { playPrev, playNext, moveToFMTrash, playOrPause } = playerStore
-const { isPersonalFM, playing, currentTrack, isLiked, currentLyric, playbackRate, seek } = storeToRefs(playerStore)
+const { isPersonalFM, playing, currentTrack, isLiked, currentLyric, playbackRate, seek } =
+  storeToRefs(playerStore)
 
 const settingsStore = useSettingsStore()
 const { tray } = storeToRefs(settingsStore)
@@ -112,7 +113,6 @@ class TrayLyric {
         lineStart: 0,
         lineEnd: 0,
         hasWordTiming: false,
-        lyricWidth: tray.value.lyricWidth || undefined,
         offset: 0
       })
       return
@@ -137,7 +137,6 @@ class TrayLyric {
       lineStart: line.start * 1000,
       lineEnd: line.end * 1000,
       hasWordTiming: !!line.lyric.info && line.lyric.info.length > 0,
-      lyricWidth: tray.value.lyricWidth || undefined,
       offset: Math.max(0, offsetMs)
     })
   }
@@ -164,7 +163,7 @@ class TrayLyric {
           break
         case 3:
           if (currentTrack.value) {
-            likeATrack(currentTrack.value.id)
+            likeATrack(Number(currentTrack.value.id))
           }
           break
         case 4:
@@ -212,11 +211,14 @@ class TrayLyric {
     })
 
     // ── 歌词加载/切换 → 推送原生 tray ──
-    watch(() => lyricStore.lyrics.length, () => {
-      if (window.env?.isMac) {
-        this.sendNativeLyricData()
+    watch(
+      () => lyricStore.lyrics.length,
+      () => {
+        if (window.env?.isMac) {
+          this.sendNativeLyricData()
+        }
       }
-    })
+    )
 
     // ── 播放/暂停 + 倍率（原子同步，消除时序竞争） ──
     watch(playing, async (value) => {
@@ -231,6 +233,7 @@ class TrayLyric {
       if (window.env?.isMac) {
         window.mainApi?.send('updatePlayerState', {
           playing: value,
+          progress: seek.value,
           rate: playbackRate.value
         })
       }
@@ -291,12 +294,12 @@ class TrayLyric {
     )
 
     // ── 滚动速率 ──
-    watch(
-      () => tray.value.scrollRate,
-      () => {
-        this._lyric!.frame = tray.value.scrollRate
-      }
-    )
+    // watch(
+    //   () => tray.value.scrollRate,
+    //   () => {
+    //     this._lyric!.frame = tray.value.scrollRate
+    //   }
+    // )
 
     // ── 歌词偏移调整 → 即时全量重建（对齐 OSD：每次 offset 变化瞬间同步绝对位置） ──
     watch(
@@ -307,15 +310,17 @@ class TrayLyric {
     )
 
     // ── seek 变化 → 防抖重建动画（任何 seek 都同步，对齐 OSD 的 progress 变化触发） ──
-    let seekDebounceTimer: ReturnType<typeof setTimeout> | null = null
-    watch(seek, () => {
-      if (!window.env?.isMac) return
-      if (seekDebounceTimer) clearTimeout(seekDebounceTimer)
-      seekDebounceTimer = setTimeout(() => {
-        this.sendNativeLyricData()
-        seekDebounceTimer = null
-      }, 16)
-    })
+    // let seekDebounceTimer: ReturnType<typeof setTimeout> | null = null
+    // watch(seek, () => {
+    //   if (!window.env?.isMac) return
+    //   // 播放中 CAAnimation 已通过 beginTime+speed 正确推进，无需重建
+    //   if (playing.value) return
+    //   if (seekDebounceTimer) clearTimeout(seekDebounceTimer)
+    //   seekDebounceTimer = setTimeout(() => {
+    //     this.sendNativeLyricData()
+    //     seekDebounceTimer = null
+    //   }, 16)
+    // })
 
     // ── 倍率变化 → 通知原生 tray（播放时已随 playing 一起发送，此处只负责纯倍率变化场景） ──
     watch(playbackRate, (rate) => {
@@ -350,7 +355,14 @@ class TrayLyric {
         const fallbackText = currentTrack.value
           ? `${currentTrack.value.artists?.[0]?.name || ''} - ${currentTrack.value.name || ''}`
           : '听你想听的音乐'
-        lyricData = { text: fallbackText, words: [], lineStart: 0, lineEnd: 0, hasWordTiming: false, lyricWidth: tray.value.lyricWidth || undefined, offset: 0 }
+        lyricData = {
+          text: fallbackText,
+          words: [],
+          lineStart: 0,
+          lineEnd: 0,
+          hasWordTiming: false,
+          offset: 0
+        }
       } else {
         const words = line.lyric.info
           ? line.lyric.info.map((w: any) => ({ word: w.word, start: w.start, end: w.end }))
@@ -363,7 +375,6 @@ class TrayLyric {
           lineStart: line.start * 1000,
           lineEnd: line.end * 1000,
           hasWordTiming: !!line.lyric.info && line.lyric.info.length > 0,
-          lyricWidth: tray.value.lyricWidth || undefined,
           offset: Math.max(0, offsetMs)
         }
       }
@@ -375,6 +386,8 @@ class TrayLyric {
         like: isLiked.value,
         isFM: isPersonalFM.value
       })
+      // 初始歌词区宽度单独设置（几乎不变化，不必随每次换行发送）
+      window.mainApi?.send('updateTrayVisibility', { width: tray.value.lyricWidth })
     }
   }
 }

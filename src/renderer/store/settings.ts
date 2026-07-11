@@ -61,8 +61,11 @@ export const useSettingsStore = defineStore(
     const tray = reactive({
       showLyric: true,
       showControl: true,
+      showIcon: true,
       lyricWidth: 192,
-      scrollRate: 34,
+      isWordByWord: true,
+      playedColor: '#ffff00',       // 深色模式高亮颜色
+      playedColorLight: '#ffff00',  // 浅色模式高亮颜色
       enableExtension: true,
       showTray: true
     })
@@ -199,6 +202,34 @@ export const useSettingsStore = defineStore(
       () => tray.lyricWidth,
       (value) => {
         window.mainApi?.send('setStoreSettings', { lyricWidth: value })
+      }
+    )
+
+    watch(
+      () => tray.showIcon,
+      (value) => {
+        window.mainApi?.send('setStoreSettings', { showIcon: value })
+      }
+    )
+
+    watch(
+      () => tray.isWordByWord,
+      (value) => {
+        window.mainApi?.send('setStoreSettings', { isWordByWord: value })
+      }
+    )
+
+    watch(
+      () => tray.playedColor,
+      (value) => {
+        window.mainApi?.send('setStoreSettings', { playedColor: value })
+      }
+    )
+
+    watch(
+      () => tray.playedColorLight,
+      (value) => {
+        window.mainApi?.send('setStoreSettings', { playedColorLight: value })
       }
     )
 

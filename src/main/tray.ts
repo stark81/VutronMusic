@@ -217,7 +217,7 @@ export interface YPMTray {
   destroyTray: () => void
   show: () => void
   setContextMenu: () => void
-  setPlayState: (isPlaying: boolean) => void
+  setPlayState: (isPlaying: boolean, progress?: number) => void
   setPlaybackRate: (rate: number) => void
   setLikeState: (isLiked: boolean) => void
   setRepeatMode: (repeat: 'on' | 'one' | 'off') => void
@@ -232,6 +232,9 @@ export interface YPMTray {
   }) => void
   setFMMode: (isFM: boolean) => void
   updateTooltip: (title: string) => void
+  setWordByWord: (wBYw: boolean) => void
+  setPlayedColor: (hex: string) => void
+  setPlayedColorLight: (hex: string) => void
 }
 
 // ================ 原生插件加载 ================
@@ -267,6 +270,7 @@ class TrayImpl implements YPMTray {
   private _tray: Tray | null = null
   private _contextMenu: Menu | null = null
   private _nativeItem: any = null
+  private _isFmMode = false
 
   constructor(win: BrowserWindow) {
     this._win = win
@@ -292,13 +296,17 @@ class TrayImpl implements YPMTray {
       if (addon) {
         this._nativeItem = addon.createTrayItem({})
         this._nativeItem.onButtonClick((index: number) => {
-          const channels = ['previous', 'play', 'next', 'like']
+          const channels = this._isFmMode
+            ? ['fm-trash', 'play', 'next', 'like']
+            : ['previous', 'play', 'next', 'like']
           const channel = channels[index]
           if (channel) {
             this._win.webContents.send(channel)
           }
         })
         this._nativeItem.onRightClick(() => {
+          const enableMenu = (store.get('settings.enableTrayMenu') as boolean) ?? true
+          if (!enableMenu) return
           const template = createMenuTemplate(this._win)
           const menu = Menu.buildFromTemplate(template)
           const cursor = screen.getCursorScreenPoint()
@@ -307,15 +315,14 @@ class TrayImpl implements YPMTray {
         this._nativeItem.onTrayClick(() => {
           this._win.show()
         })
-        // 设置初始图标
-        const icon = getIconPath()
-        this._nativeItem.setIconImage(icon.toPNG())
+        // 图标由渲染进程 onMounted 后通过 initTrayState 设置
 
         // 从 electron-store 读取持久化的可见性设置
         const showLyric = (store.get('settings.showLyric') as boolean) ?? true
         const showControl = (store.get('settings.showControl') as boolean) ?? true
-        if (!showLyric || !showControl) {
-          this._nativeItem.setVisibility({ lyric: showLyric, buttons: showControl })
+        const showIcon = (store.get('settings.showIcon') as boolean) ?? true
+        if (!showLyric || !showControl || !showIcon) {
+          this._nativeItem.setVisibility({ lyric: showLyric, buttons: showControl, icon: showIcon })
         }
         return
       }
@@ -410,9 +417,9 @@ class TrayImpl implements YPMTray {
     this._tray?.setContextMenu(this._contextMenu)
   }
 
-  setPlayState(isPlaying: boolean) {
+  setPlayState(isPlaying: boolean, progress?: number) {
     playState = isPlaying || false
-    if (this._nativeItem) this._nativeItem.setPlaying(isPlaying)
+    if (this._nativeItem) this._nativeItem.setPlaying(isPlaying, progress || 0)
     if (!this._contextMenu) return
     this._contextMenu.getMenuItemById('play')!.visible = !isPlaying
     this._contextMenu.getMenuItemById('pause')!.visible = isPlaying
@@ -444,6 +451,7 @@ class TrayImpl implements YPMTray {
   }
 
   setFMMode(isFM: boolean) {
+    this._isFmMode = isFM
     if (this._nativeItem) this._nativeItem.setButtonType(0, isFM ? 4 : 0)
   }
 
@@ -463,6 +471,18 @@ class TrayImpl implements YPMTray {
 
   updateTooltip(title: string) {
     if (!Constants.IS_MAC) this._tray?.setToolTip(title)
+  }
+
+  setWordByWord(wBYw: boolean) {
+    if (this._nativeItem) this._nativeItem.setWordByWord(wBYw)
+  }
+
+  setPlayedColor(hex: string) {
+    if (this._nativeItem) this._nativeItem.setPlayedColor(hex)
+  }
+
+  setPlayedColorLight(hex: string) {
+    if (this._nativeItem) this._nativeItem.setPlayedColorLight(hex)
   }
 }
 

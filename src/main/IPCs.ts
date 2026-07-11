@@ -86,6 +86,23 @@ export default class IPCs {
     initOtherIpcMain(win)
     initPluginIpcMain()
 
+    // 转发 OSD 同步数据到 OSD 窗口和 native tray
+    ipcMain.on('update-osd-lyric', (event: IpcMainEvent, data: any) => {
+      // 转发到 OSD 窗口
+      if (lrc.sendToOSD) {
+        lrc.sendToOSD('update-osd-status', data)
+      }
+      // macOS: 转发播放状态到原生 tray
+      if (Constants.IS_MAC && tray) {
+        if (data.playing !== undefined) {
+          tray.setPlayState(data.playing, data.line?.[1] || 0)
+        }
+        if (data.rate !== undefined) {
+          tray.setPlaybackRate(data.rate)
+        }
+      }
+    })
+
     coverWorker = createWorker('writeCover')
     coverWorker.on('message', (msg) => {
       if (msg.status === 'done') app.exit(0)
@@ -179,10 +196,11 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
       }
     ) => {
       tray.updateLyric(data.lyric)
-      tray.setPlayState(data.playing)
+      tray.setPlayState(!!data.playing)
       tray.setPlaybackRate(data.rate)
-      tray.setLikeState(data.like)
-      tray.setFMMode(data.isFM)
+      tray.setLikeState(!!data.like)
+      tray.setFMMode(!!data.isFM)
+      tray.updateTrayColor()
     }
   )
   ipcMain.on(
@@ -202,9 +220,11 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
   })
 
   ipcMain.on('updatePlayerState', (event: IpcMainEvent, data: any) => {
+    // 从同一条消息中提取 progress（可能和 playing 一起发送）
+    const progress = typeof data.progress === 'number' ? data.progress : 0
     for (const [key, value] of Object.entries(data) as [string, any]) {
       if (key === 'playing') {
-        tray.setPlayState(value)
+        tray.setPlayState(value, progress)
       } else if (key === 'rate') {
         tray.setPlaybackRate(value)
       } else if (key === 'repeatMode') {
@@ -212,7 +232,7 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
       } else if (key === 'shuffle') {
         tray.setShuffleMode(value)
       } else if (key === 'like') {
-        tray.setLikeState(value)
+        tray.setLikeState(!!value)
       }
     }
   })
@@ -226,6 +246,14 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
         tray.setContextMenu()
       } else if (key === 'trayColor') {
         tray.updateTrayColor()
+      } else if (key === 'showIcon') {
+        tray.setVisibility({ icon: value })
+      } else if (key === 'isWordByWord') {
+        tray.setWordByWord(value)
+      } else if (key === 'playedColor') {
+        tray.setPlayedColor(value)
+      } else if (key === 'playedColorLight') {
+        tray.setPlayedColorLight(value)
       } else if (key === 'enableGlobalShortcut') {
         const { globalShortcut } = await import('electron')
         if (value) {
@@ -441,6 +469,12 @@ function initOSDWindowIpcMain(win: BrowserWindow, lrc: { [key: string]: Function
     // 恢复为真实的锁定状态（isLock 是模块级变量，随 updateOsdState/isLock 同步，
     // 这里不再需要也不应该再写 store）
     lrc.toggleMouseIgnore(isLock)
+  })
+  ipcMain.on('get-seek', () => {
+    win.webContents.send('get-seek')
+  })
+  ipcMain.on('init-from-osd', () => {
+    win.webContents.send('init-from-osd')
   })
 }
 

@@ -313,11 +313,7 @@ type statusMap = {
   seek: number // 目前这一项的触发是在当单双行切换、翻译切换时更新播放进度
 }
 
-window.addEventListener('message', (event: MessageEvent) => {
-  if (event.data.type !== 'update-osd-status') return
-
-  const data = event.data.data as Partial<statusMap>
-
+const handleOsdStatus = (event: any, data: Partial<statusMap>) => {
   if (data.lyrics !== undefined) {
     lyrics.value = data.lyrics
   }
@@ -345,11 +341,13 @@ window.addEventListener('message', (event: MessageEvent) => {
   if (data.seek !== undefined) {
     seek.value = data.seek
   }
-})
+}
+
+window.mainApi?.on('update-osd-status', handleOsdStatus)
 
 const handleVisebilitiyChange = () => {
   if (!document.hidden) {
-    window.mainApi?.sendMessage({ type: 'get-seek' })
+    window.mainApi?.send('get-seek')
   }
 }
 
@@ -384,6 +382,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', handleVisebilitiyChange)
+  window.mainApi?.off('update-osd-status', handleOsdStatus)
 })
 </script>
 

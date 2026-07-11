@@ -23,6 +23,20 @@
 
   // 布局常量
   CGFloat _lyricAreaWidth;
+
+  // 上次歌词数据（用于恢复时重建）
+  NSString* _lastText;
+  NSArray<NSDictionary*>* _lastWords;
+  double _lastLineStartMs;
+  double _lastLineEndMs;
+  BOOL _lastHasTiming;
+  CGFloat _lastLyricWidth;
+  double _lastProgress;
+
+  // 显示设置
+  BOOL _showLyric;
+  BOOL _showIcon;
+  BOOL _wBYw;          // 逐字高亮
 }
 
 - (instancetype)initWithStatusItem:(NSStatusItem*)item
@@ -39,7 +53,7 @@
                hasWordTiming:(BOOL)hasTiming
                   lyricWidth:(CGFloat)width
                      offset:(double)offsetMs;
-- (void)setPlaying:(BOOL)playing;
+- (void)setPlaying:(BOOL)playing progress:(double)progress;
 - (void)setPlaybackRate:(double)rate;
 - (void)setLikeState:(BOOL)liked;
 - (void)setWidth:(CGFloat)width;
@@ -47,6 +61,9 @@
 - (void)setLyricVisibility:(BOOL)show;
 - (void)setButtonVisibility:(BOOL)show;
 - (void)setIconVisibility:(BOOL)show;
+- (void)setWordByWord:(BOOL)wBYw;
+- (void)setPlayedColor:(NSColor*)color;
+- (void)setPlayedColorLight:(NSColor*)color;
 
 /// 更新按钮颜色（亮暗模式切换时刷新）
 - (void)updateColors;

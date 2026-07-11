@@ -387,6 +387,49 @@
                   />
                 </div>
               </div>
+              <div class="item">
+                <div class="left">
+                  <div class="title">{{ $t('settings.tray.showIcon') }}</div>
+                </div>
+                <div class="right">
+                  <div class="toggle">
+                    <input id="show-icon" v-model="showIcon" type="checkbox" name="show-icon" />
+                    <label for="show-icon"></label>
+                  </div>
+                </div>
+              </div>
+              <div class="item">
+                <div class="left">
+                  <div class="title">{{ $t('settings.tray.wordByWord') }}</div>
+                </div>
+                <div class="right">
+                  <div class="toggle">
+                    <input
+                      id="word-by-word"
+                      v-model="isWordByWord"
+                      type="checkbox"
+                      name="word-by-word"
+                    />
+                    <label for="word-by-word"></label>
+                  </div>
+                </div>
+              </div>
+              <div class="item">
+                <div class="left">
+                  <div class="title">{{ $t('settings.tray.playedColor') }}</div>
+                </div>
+                <div class="right">
+                  <pick-colors v-model:value="playedColor" :width="40" :height="40" :theme="currentTheme ?? 'light'" format="hex" />
+                </div>
+              </div>
+              <div class="item">
+                <div class="left">
+                  <div class="title">{{ $t('settings.tray.playedColorLight') }}</div>
+                </div>
+                <div class="right">
+                  <pick-colors v-model:value="playedColorLight" :width="40" :height="40" :theme="currentTheme ?? 'light'" format="hex" />
+                </div>
+              </div>
             </div>
             <div v-else-if="isLinux">
               <div class="item">
@@ -1384,7 +1427,8 @@ const {
 } = toRefs(general.value)
 const { appearance, colors } = toRefs(theme.value)
 const customizeColor = computed(() => colors.value[4])
-const { showLyric, showControl, lyricWidth, enableExtension } = toRefs(tray.value)
+const { showLyric, showControl, showIcon, isWordByWord, playedColor, playedColorLight, lyricWidth, enableExtension } =
+  toRefs(tray.value)
 const { proxy, realIp } = toRefs(misc.value)
 
 const stateStore = useNormalStateStore()
@@ -1415,7 +1459,6 @@ const {
   isLock,
   type,
   mode,
-  isWordByWord,
   translationMode,
   fontSize,
   backgroundColor,
