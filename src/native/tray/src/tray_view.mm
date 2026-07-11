@@ -297,6 +297,14 @@ static const CGFloat kDefaultFontSize = 14;
   }
   NSArray<NSNumber*>* spanWidths = MeasureWords(wordStrings, _font);
   CGFloat totalTextWidth = TotalWidth(spanWidths);
+  // 无逐字数据时直接测量整段文字宽度
+  if (totalTextWidth <= 0 && text.length > 0) {
+    totalTextWidth = [text sizeWithAttributes:@{NSFontAttributeName: _font}].width;
+    // 补齐 spanWidths 用于后续滚动计算（用一个"整段文字"的宽度填充）
+    if (spanWidths.count == 0) {
+      spanWidths = @[@(totalTextWidth)];
+    }
+  }
   double lineDurationMs = lineEnd - lineStart;
 
   // ── 2.1 零时长行（fallback 文本）→ 仅显示静态文字，跳过动画 ──

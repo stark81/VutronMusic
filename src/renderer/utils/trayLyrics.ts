@@ -4,7 +4,7 @@ import { useSettingsStore } from '../store/settings'
 import { useDataStore } from '../store/data'
 import { useLyricStore } from '../store/lyric'
 import { Lyric, Control, Canvas } from './canvas'
-import { watch } from 'vue'
+import { nextTick, watch } from 'vue'
 import eventBus from './eventBus'
 // import { currentLyric, updateEnable } from './lyricUtils'
 
@@ -95,20 +95,19 @@ class TrayLyric {
     })
   }
 
+  /** 当前歌曲的标题 fallback（切歌时立即设置，不受歌词加载时序影响） */
+  private _fallbackTitle = '听你想听的音乐'
+
   /** 给原生插件发送结构化歌词数据 */
   sendNativeLyricData() {
     if (!window.env?.isMac) return
     const idx = lyricStore.currentIndex
     const line = lyricStore.lyrics[idx]
-    const track = currentTrack.value
 
-    // ── 空歌词 fallback / 歌曲结束归零：显示 "艺术家 - 歌曲名" 或默认文本 ──
-    if (!line || (track && (seek.value || 0) >= track.duration)) {
-      const fallbackText = track
-        ? `${track.artists?.[0]?.name || ''} - ${track.name || ''}`
-        : '听你想听的音乐'
+    // ── 无歌词 / 歌曲结束 → 显示 fallback 标题 ──
+    if (!line || (currentTrack.value && (seek.value || 0) >= currentTrack.value.duration)) {
       window.mainApi?.send('updateTrayLyric', {
-        text: fallbackText,
+        text: this._fallbackTitle,
         words: [],
         lineStart: 0,
         lineEnd: 0,
@@ -202,17 +201,25 @@ class TrayLyric {
       this._lyric?.updateLyric(!playing.value)
     })
 
-    // ── 歌曲切换 → 推送当前歌词到原生 tray ──
-    watch(currentTrack, () => {
-      if (window.env?.isMac) {
-        // 延迟一帧等待 lyricStore 更新
-        setTimeout(() => this.sendNativeLyricData(), 0)
-      }
+    // ── 歌曲切换 → 更新 fallback 标题 + 立即推送到 tray ──
+    watch(currentTrack, async (track) => {
+      if (!window.env?.isMac || !track) return
+      await nextTick()
+      this._fallbackTitle = `${track.artists?.[0]?.name || ''} - ${track.name || ''}`
+      window.mainApi?.send('updateTrayLyric', {
+        text: this._fallbackTitle,
+        words: [],
+        lineStart: 0,
+        lineEnd: 0,
+        hasWordTiming: false,
+        offset: 0
+      })
+      // 等 lyrics watcher（lyricStore.lyrics 引用变化）触发 sendNativeLyricData 覆盖
     })
 
     // ── 歌词加载/切换 → 推送原生 tray ──
     watch(
-      () => lyricStore.lyrics.length,
+      () => lyricStore.lyrics,
       () => {
         if (window.env?.isMac) {
           this.sendNativeLyricData()
