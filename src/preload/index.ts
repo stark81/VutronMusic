@@ -19,6 +19,8 @@ const mainAvailChannels: string[] = [
   'metadata',
   'updateOsdState',
   'updateTouchBarLyric',
+  'updateTouchBarLyricData',
+  'initTouchBarState',
   'showWindow',
   'updatePlayerState',
   'setStoreSettings',

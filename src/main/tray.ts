@@ -5,10 +5,10 @@ import {
   Menu,
   MenuItemConstructorOptions,
   nativeTheme,
-  app,
-  screen
+  app
 } from 'electron'
 import Constants from './utils/Constants'
+import type { NativeTrayItem, NativeTrayAddon } from '../types/native-tray'
 import store from './store'
 import path from 'path'
 import fs from 'fs'
@@ -238,9 +238,9 @@ export interface YPMTray {
 }
 
 // ================ 原生插件加载 ================
-let nativeAddon: any = null
+let nativeAddon: NativeTrayAddon | null = null
 
-function loadNativeAddon(): any {
+function loadNativeAddon(): NativeTrayAddon | null {
   if (!Constants.IS_MAC) return null
   if (nativeAddon) return nativeAddon
 
@@ -269,7 +269,7 @@ class TrayImpl implements YPMTray {
   private _win: BrowserWindow
   private _tray: Tray | null = null
   private _contextMenu: Menu | null = null
-  private _nativeItem: any = null
+  private _nativeItem: NativeTrayItem | null = null
   private _isFmMode = false
 
   constructor(win: BrowserWindow) {
@@ -311,7 +311,7 @@ class TrayImpl implements YPMTray {
           // 将模板序列化为原生 NSMenu 可用的格式（全局 ID 避免层级冲突）
           let nextId = 0
           const clickHandlers = new Map<number, () => void>()
-          const serialize = (items: Electron.MenuItemConstructorOptions[]): any[] => {
+          const serialize = (items: MenuItemConstructorOptions[]): any[] => {
             const result: any[] = []
             for (const item of items) {
               if (item.visible === false) continue
@@ -323,7 +323,7 @@ class TrayImpl implements YPMTray {
                 id,
                 label: item.label || '',
                 type: item.type || 'normal',
-                enabled: item.enabled !== false,
+                enabled: item.enabled !== false
               }
               if (item.checked !== undefined) entry.checked = item.checked
               if (item.submenu) {
@@ -334,7 +334,7 @@ class TrayImpl implements YPMTray {
             return result
           }
           const nativeItems = serialize(template)
-          this._nativeItem.popupNativeMenu(nativeItems, (clickedId: number) => {
+          this._nativeItem?.popupNativeMenu(nativeItems, (clickedId: number) => {
             const handler = clickHandlers.get(clickedId)
             if (handler) handler()
           })

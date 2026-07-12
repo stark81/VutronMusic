@@ -28,6 +28,16 @@ const { tray } = storeToRefs(settingsStore)
 const { likeATrack } = useDataStore()
 const lyricStore = useLyricStore()
 
+// 歌词数据类型（与 sendNativeLyricData 使用同一结构）
+interface LyricDataPayload {
+  text: string
+  words: Array<{ word: string; start: number; end: number }>
+  lineStart: number
+  lineEnd: number
+  hasWordTiming: boolean
+  offset?: number
+}
+
 class TrayLyric {
   _icon: Control | null
   _control: Control | null
@@ -400,40 +410,167 @@ class TrayLyric {
 }
 
 class TouchBarLyric {
-  private _lyric: Lyric
-  private _touchBar: Canvas
+  private _lyric: Lyric | null = null
+  private _touchBar: Canvas | null = null
+
+  /** 当前歌曲的标题 fallback */
+  private _fallbackTitle = '听你想听的音乐'
+
+  /** 组装结构化歌词数据（与 TrayLyric.sendNativeLyricData 共享相同逻辑） */
+  private buildNativeData(): LyricDataPayload {
+    const idx = lyricStore.currentIndex
+    const line = lyricStore.lyrics[idx]
+
+    if (!line || (currentTrack.value && (seek.value || 0) >= currentTrack.value.duration)) {
+      return {
+        text: this._fallbackTitle,
+        words: [],
+        lineStart: 0,
+        lineEnd: 0,
+        hasWordTiming: false,
+        offset: 0
+      }
+    }
+
+    const words = line.lyric.info
+      ? line.lyric.info.map((w: any) => ({
+          word: w.word,
+          start: w.start,
+          end: w.end
+        }))
+      : []
+
+    const seekTime = seek.value || 0
+    const offsetMs = (seekTime + lyricStore.offset - line.start) * 1000 + 50
+
+    return {
+      text: line.lyric.text,
+      words,
+      lineStart: line.start * 1000,
+      lineEnd: line.end * 1000,
+      hasWordTiming: !!line.lyric.info && line.lyric.info.length > 0,
+      offset: Math.max(0, offsetMs)
+    }
+  }
+
   constructor() {
-    this._lyric = new Lyric({ width: 252, fontSize: 12 })
-    if (currentTrack.value)
-      this._lyric.lyric.text = currentLyric.value.content || currentTrack.value.name
-    this._touchBar = new Canvas({
-      width: this._lyric.canvas.width,
-      height: this._lyric.canvas.height,
-      devicePixelRatio: 1
-    })
-    this._lyric.draw()
+    // Canvas 回退路径
+    if (!window.env?.isMac) {
+      this._lyric = new Lyric({ width: 252, fontSize: 12 })
+      if (currentTrack.value)
+        this._lyric.lyric.text = currentLyric.value.content || currentTrack.value.name
+      this._touchBar = new Canvas({
+        width: this._lyric.canvas.width,
+        height: this._lyric.canvas.height,
+        devicePixelRatio: 1
+      })
+      this._lyric.draw()
+    }
   }
 
   buildTouchBar() {
-    const width = this._touchBar.canvas.width
-    const height = this._touchBar.canvas.height
-    this._touchBar.ctx.clearRect(0, 0, width, height)
-    this._touchBar.ctx.drawImage(this._lyric.canvas, 0, 0)
-    window.mainApi?.send('updateTouchBarLyric', {
-      img: this._touchBar.canvas.toDataURL(),
-      width: this._touchBar.canvas.width / this._touchBar.devicePixelRatio,
-      height: this._touchBar.canvas.height / this._touchBar.devicePixelRatio
-    })
+    // Canvas 回退路径
+    if (!window.env?.isMac) {
+      const width = this._touchBar!.canvas.width
+      const height = this._touchBar!.canvas.height
+      this._touchBar!.ctx.clearRect(0, 0, width, height)
+      this._touchBar!.ctx.drawImage(this._lyric!.canvas, 0, 0)
+      window.mainApi?.send('updateTouchBarLyric', {
+        img: this._touchBar!.canvas.toDataURL(),
+        width: this._touchBar!.canvas.width / this._touchBar!.devicePixelRatio,
+        height: this._touchBar!.canvas.height / this._touchBar!.devicePixelRatio
+      })
+    }
   }
 
   handleEvent() {
+    // ── macOS 原生路径 ──
+    if (window.env?.isMac) {
+      // 歌词行切换
+      let prevLyricIndex = lyricStore.currentIndex
+      watch(currentLyric, (value) => {
+        const idx = lyricStore.currentIndex
+        if (idx !== prevLyricIndex) {
+          prevLyricIndex = idx
+          window.mainApi?.send('updateTouchBarLyricData', this.buildNativeData())
+        }
+      })
+
+      // 歌曲切换 → 更新 fallback 标题
+      watch(currentTrack, async (track) => {
+        if (!track) return
+        this._fallbackTitle = `${track.artists?.[0]?.name || ''} - ${track.name || ''}`
+        window.mainApi?.send('updateTouchBarLyricData', {
+          text: this._fallbackTitle,
+          words: [],
+          lineStart: 0,
+          lineEnd: 0,
+          hasWordTiming: false,
+          offset: 0
+        })
+      })
+
+      // 歌词加载/切换
+      watch(
+        () => lyricStore.lyrics,
+        () => {
+          window.mainApi?.send('updateTouchBarLyricData', this.buildNativeData())
+        }
+      )
+
+      // 播放/暂停 + 倍率
+      watch(playing, (value) => {
+        window.mainApi?.send('updatePlayerState', {
+          playing: value,
+          progress: seek.value,
+          rate: playbackRate.value
+        })
+      })
+
+      // 倍率变化
+      watch(playbackRate, (rate) => {
+        window.mainApi?.send('updatePlayerState', { rate })
+      })
+
+      // 喜欢状态
+      watch(isLiked, (value) => {
+        window.mainApi?.send('updatePlayerState', { like: value })
+      })
+
+      // FM 模式
+      watch(isPersonalFM, (value) => {
+        window.mainApi?.send('setTrayFMMode', value)
+      })
+
+      // 歌词偏移调整
+      watch(
+        () => lyricStore.offset,
+        () => {
+          window.mainApi?.send('updateTouchBarLyricData', this.buildNativeData())
+        }
+      )
+
+      // ── 初始化 ──
+      const lyricData = this.buildNativeData()
+      window.mainApi?.send('initTouchBarState', {
+        lyric: lyricData,
+        playing: playing.value,
+        rate: playbackRate.value,
+        like: isLiked.value,
+        isFM: isPersonalFM.value
+      })
+
+      return // 原生路径完成，跳过 Canvas 路径
+    }
+
+    // ── Canvas 回退路径 ──
     watch(currentLyric, (value) => {
       this._lyric!.lyric = {
         text: value.content,
         width: 0,
         time: value.time * 1000
       }
-      this._lyric.updateLyric(!playing.value)
+      this._lyric!.updateLyric(!playing.value)
     })
     eventBus.on('lyric-draw', () => {
       this.buildTouchBar()
