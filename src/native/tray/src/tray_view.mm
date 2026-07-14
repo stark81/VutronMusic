@@ -182,11 +182,11 @@ static const char* kSVGPathHeart =
     "c0-3.859,3.141-7,7-7c2.358,0,4.062,1.272,5,2.212C15.938,5.272,17.642,4,20,4"
     "c3.859,0,7,3.14,7,7c0,6.243-10.938,14.456-11.403,14.803C15.42,25.934,15.21,26,15,26z";
 
-static const char* kSVGPathThumbsDown = "M0,56v240c0,13.255,10.745,24,24,24h80c13.255,0,24-10.745,24-24V56c0-13.255-10.745-24-24-24H24C10.745,32,0,42.745,0,56zm40,200c0-13.255,10.745-24,24-24s24,10.745,24,24-10.745,24-24,24-24-10.745-24-24zm272,256c-20.183,0-29.485-39.293-33.931-57.795-5.206-21.666-10.589-44.07-25.393-58.902-32.469-32.524-49.503-73.967-89.117-113.111a11.98,11.98,0,0,1-3.558-8.521V59.901c0-6.541,5.243-11.878,11.783-11.998,15.831-.29,36.694-9.079,52.651-16.178C256.189,17.598,295.709.017,343.995,0h2.844c42.777,0,93.363.413,113.774,29.737,8.392,12.057,10.446,27.034,6.148,44.632,16.312,17.053,25.063,48.863,16.382,74.757,17.544,23.432,19.143,56.132,9.308,79.469l.11.11c11.893,11.949,19.523,31.259,19.439,49.197-.156,30.352-26.157,58.098-59.553,58.098H350.723C358.03,364.34,384,388.132,384,430.548,384,504,336,512,312,512z";
+static const char* kSVGPathThumbsDown = "M312,512c-20.183,0-29.485-39.293-33.931-57.795-5.206-21.666-10.589-44.07-25.393-58.902-32.469-32.524-49.503-73.967-89.117-113.111a11.98,11.98,0,0,1-3.558-8.521V59.901c0-6.541,5.243-11.878,11.783-11.998,15.831-.29,36.694-9.079,52.651-16.178C256.189,17.598,295.709.017,343.995,0h2.844c42.777,0,93.363.413,113.774,29.737,8.392,12.057,10.446,27.034,6.148,44.632,16.312,17.053,25.063,48.863,16.382,74.757,17.544,23.432,19.143,56.132,9.308,79.469l.11.11c11.893,11.949,19.523,31.259,19.439,49.197-.156,30.352-26.157,58.098-59.553,58.098H350.723C358.03,364.34,384,388.132,384,430.548,384,504,336,512,312,512z";
 
 // ================ 按钮路径（SVG 版本） ================
 // 基于路径实际 bounds（而非 viewBox）计算缩放和居中，确保图标大小一致且不溢出
-static CGPathRef MakeScaledSVGPath(const char* svgD, CGFloat size, CGFloat height, CGFloat scaleAdjust = 1.0) {
+static CGPathRef MakeScaledSVGPath(const char* svgD, CGFloat size, CGFloat height, CGFloat scaleAdjust = 1.0, BOOL flipX = NO) {
   CGPathRef rawPath = CreateCGPathFromSVG(svgD);
   if (!rawPath) return CGPathCreateMutable();
 
@@ -208,7 +208,9 @@ static CGPathRef MakeScaledSVGPath(const char* svgD, CGFloat size, CGFloat heigh
   CGFloat centerY = bounds.origin.y + pathH / 2.0;
   CGFloat t_y = height / 2.0 + s * centerY;
 
-  CGAffineTransform t = CGAffineTransformMake(s, 0, 0, -s, offsetX, t_y);
+  CGFloat sx = flipX ? -s : s;
+  CGFloat tx = flipX ? (size - offsetX) : offsetX;
+  CGAffineTransform t = CGAffineTransformMake(sx, 0, 0, -s, tx, t_y);
   CGPathRef result = CGPathCreateCopyByTransformingPath(rawPath, &t);
   CGPathRelease(rawPath);
   return result;
@@ -216,16 +218,17 @@ static CGPathRef MakeScaledSVGPath(const char* svgD, CGFloat size, CGFloat heigh
 
 static CGPathRef MakeButtonPath(NSInteger type, CGFloat size, CGFloat height) {
   const char* svgD = NULL;
-  CGFloat scaleAdjust = 1.0; // 【新增】
+  CGFloat scaleAdjust = 1.0;
+  BOOL flipX = NO;
   switch (type) {
     case 0: svgD = kSVGPathSkipPrevious; break;
     case 1: svgD = kSVGPathPlayArrow;   break;
     case 2: svgD = kSVGPathSkipNext;     break;
     case 3: svgD = kSVGPathHeart; break;
-    case 4: svgD = kSVGPathThumbsDown;  break;
+    case 4: svgD = kSVGPathThumbsDown; flipX = YES; break;
     default: return CGPathCreateMutable();
   }
-  return MakeScaledSVGPath(svgD, size, height, scaleAdjust);
+  return MakeScaledSVGPath(svgD, size, height, scaleAdjust, flipX);
 }
 
 static CGPathRef MakePausePath(CGFloat width, CGFloat height) {
@@ -308,13 +311,13 @@ static NSString* SFSymbolForButtonType(NSInteger type) {
     case 1: return @"play_arrow";
     case 2: return @"skip_next";
     case 3: return @"heart";           // 喜欢/不喜欢通过切换 heart / heart-solid
-    case 4: return @"hand.thumbsdown";     // FM 模式
+    case 4: return @"hand.thumbsdown.fill"; // FM 模式
     default: return nil;
   }
 }
 
 // 创建 SF Symbols 图标 NSImage，用指定颜色绘制
-static NSImage* MakeSFButtonImage(NSString* symbolName, CGFloat size, NSColor* color) {
+static NSImage* MakeSFButtonImage(NSString* symbolName, CGFloat size, NSColor* color, BOOL flipX = NO) {
   if (@available(macOS 11.0, *)) {
     NSImage* symbol = [NSImage imageWithSystemSymbolName:symbolName
                                  accessibilityDescription:nil];
@@ -327,9 +330,23 @@ static NSImage* MakeSFButtonImage(NSString* symbolName, CGFloat size, NSColor* c
                                                          scale:NSImageSymbolScaleMedium];
     NSImage* configured = [symbol imageWithSymbolConfiguration:config] ?: symbol;
 
-    // 用模板着色：先转 template，再用 tint 上色
-    NSImage* result = [configured copy];
-    [result setTemplate:YES];
+    // 翻转和上色分开：先翻转（同 touchbar 做法），再上色
+    if (flipX) {
+      NSSize sz = configured.size;
+      NSImage* flipped = [[NSImage alloc] initWithSize:sz];
+      [flipped lockFocus];
+      NSAffineTransform* transform = [NSAffineTransform transform];
+      [transform scaleXBy:-1.0 yBy:1.0];
+      [transform concat];
+      [configured drawInRect:NSMakeRect(-sz.width, 0, sz.width, sz.height)
+                    fromRect:NSZeroRect
+                   operation:NSCompositingOperationCopy
+                    fraction:1.0];
+      [flipped unlockFocus];
+      // 不设 template — tray 自定义 tinting 不需要 template flag，
+      // 设为 template 会与下方 NSCompositingOperationDestinationIn 产生边框伪影
+      configured = flipped;
+    }
 
     // 创建一个指定尺寸的输出画布，把符号居中绘制并上色
     NSImage* tinted = [[NSImage alloc] initWithSize:NSMakeSize(size, size)];
@@ -383,6 +400,9 @@ static const CGFloat kDefaultFontSize = 14;
   NSColor* _playedColorLight;
   double _lastOffsetMs;
   CGFloat _lastTotalTextWidth;
+
+  // 按钮类型追踪（用于 updateColors 还原 FM 模式等覆盖）
+  NSInteger _buttonTypes[4];
 }
 
 @property (nonatomic, strong) NSArray<CALayer*>* buttonLayers;
@@ -410,6 +430,7 @@ static const CGFloat kDefaultFontSize = 14;
   _showIcon = YES;
   _wBYw = YES;
   _hasWordTiming = YES;
+  for (int i = 0; i < 4; i++) _buttonTypes[i] = i;
 
   self.wantsLayer = YES;
   self.layer.masksToBounds = YES;
@@ -515,7 +536,7 @@ static const CGFloat kDefaultFontSize = 14;
     // 优先使用 SF Symbols，回退到 SVG 渲染
     NSString* sym = SFSymbolForButtonType(i);
     NSImage* img = sym ? MakeSFButtonImage(sym, kIconSize, color) : nil;
-    layer.contents = MakeButtonImage(i, kIconSize, color);
+    layer.contents = img ?: MakeButtonImage(i, kIconSize, color);
     [self.layer addSublayer:layer];
     _buttonContainer[i] = layer;
   }
@@ -926,12 +947,54 @@ static const CGFloat kDefaultFontSize = 14;
 // MARK: - 按钮类型
 - (void)setButtonType:(NSInteger)index type:(NSInteger)type {
   if (index < 0 || index > 3 || !_buttonContainer[index]) return;
+  _buttonTypes[index] = type;
   NSColor* color = UnplayedColor(self);
   NSString* sym = SFSymbolForButtonType(type);
-  NSImage* img = sym ? MakeSFButtonImage(sym, kIconSize, color) : nil;
-  _buttonContainer[index].contents = MakeButtonImage(type, kIconSize, color);
+  BOOL isThumbsDown = (type == 4);
+  CGFloat iconSize = isThumbsDown ? kIconSize * 1.5 : kIconSize; // thumbdown 细节多，加大显示
+
+  if (isThumbsDown && sym) {
+    if (@available(macOS 11.0, *)) {
+      NSImage* symbol = [NSImage imageWithSystemSymbolName:sym
+                                       accessibilityDescription:nil];
+      NSImageSymbolConfiguration* cfg =
+          [NSImageSymbolConfiguration configurationWithPointSize:iconSize
+                                                          weight:NSFontWeightRegular
+                                                           scale:NSImageSymbolScaleMedium];
+      NSImage* configured = [symbol imageWithSymbolConfiguration:cfg];
+
+      NSImage* tinted = [[NSImage alloc] initWithSize:NSMakeSize(iconSize, iconSize)];
+      [tinted lockFocus];
+      
+      CGContextRef ctx = [[NSGraphicsContext currentContext] CGContext];
+      NSRect proposedRect = NSMakeRect(0, 0, iconSize, iconSize);
+      CGImageRef cgMask = [configured CGImageForProposedRect:&proposedRect context:nil hints:nil];
+      
+      if (cgMask) {
+        CGContextClipToMask(ctx, CGRectMake(0, 0, iconSize, iconSize), cgMask);
+        CGContextSetFillColorWithColor(ctx, color.CGColor);
+        CGContextFillRect(ctx, CGRectMake(0, 0, iconSize, iconSize));
+      } else {
+        [configured drawInRect:NSMakeRect(0, 0, iconSize, iconSize)
+                      fromRect:NSZeroRect
+                     operation:NSCompositingOperationSourceOver
+                      fraction:1.0];
+      }
+      
+      [tinted unlockFocus];
+      _buttonContainer[index].contents = tinted;  // 这里使用 index
+    }
+  } else {
+    NSImage* img = sym ? MakeSFButtonImage(sym, iconSize, color) : nil;
+    _buttonContainer[index].contents = img ?: MakeButtonImage(type, iconSize, color);  // 这里使用 index
+  }
+  
+  _buttonContainer[index].transform = isThumbsDown
+      ? CATransform3DMakeScale(-1, 1, 1)
+      : CATransform3DIdentity;
   [self layoutSubviews];
 }
+
 
 // MARK: - 宽度
 - (void)setWidth:(CGFloat)width {
@@ -960,11 +1023,49 @@ static const CGFloat kDefaultFontSize = 14;
 - (void)updateColors {
   NSColor* color = UnplayedColor(self);
   for (NSInteger i = 0; i < 4; i++) {
-    NSString* sym = SFSymbolForButtonType(i);
-    NSImage* img = sym ? MakeSFButtonImage(sym, kIconSize, color) : nil;
-    _buttonContainer[i].contents = MakeButtonImage(i, kIconSize, color);
+    NSInteger type = _buttonTypes[i];
+    NSString* sym = SFSymbolForButtonType(type);
+    BOOL isThumbsDown = (type == 4);
+    CGFloat iconSize = isThumbsDown ? kIconSize * 1.5 : kIconSize;
+
+    if (isThumbsDown && sym) {
+      if (@available(macOS 11.0, *)) {
+        NSImage* symbol = [NSImage imageWithSystemSymbolName:sym
+                                         accessibilityDescription:nil];
+        NSImageSymbolConfiguration* cfg =
+            [NSImageSymbolConfiguration configurationWithPointSize:iconSize
+                                                            weight:NSFontWeightRegular
+                                                             scale:NSImageSymbolScaleMedium];
+        NSImage* configured = [symbol imageWithSymbolConfiguration:cfg];
+
+        NSImage* tinted = [[NSImage alloc] initWithSize:NSMakeSize(iconSize, iconSize)];
+        [tinted lockFocus];
+        
+        CGContextRef ctx = [[NSGraphicsContext currentContext] CGContext];
+        NSRect proposedRect = NSMakeRect(0, 0, iconSize, iconSize);
+        CGImageRef cgMask = [configured CGImageForProposedRect:&proposedRect context:nil hints:nil];
+        
+        if (cgMask) {
+          CGContextClipToMask(ctx, CGRectMake(0, 0, iconSize, iconSize), cgMask);
+          CGContextSetFillColorWithColor(ctx, color.CGColor);
+          CGContextFillRect(ctx, CGRectMake(0, 0, iconSize, iconSize));
+        } else {
+          [configured drawInRect:NSMakeRect(0, 0, iconSize, iconSize)
+                        fromRect:NSZeroRect
+                       operation:NSCompositingOperationSourceOver
+                        fraction:1.0];
+        }
+        
+        [tinted unlockFocus];
+        _buttonContainer[i].contents = tinted;
+      }
+    } else {
+      NSImage* img = sym ? MakeSFButtonImage(sym, iconSize, color) : nil;
+      _buttonContainer[i].contents = img ?: MakeButtonImage(type, iconSize, color);
+    }
   }
-  NSImage* pauseImg = MakeSFButtonImage(@"pause", kIconSize, color);
+  
+  // 移除无用的 pauseImg 变量声明
   _pauseLayer.contents = MakePauseButtonImage(kIconSize, color);
 
   // 重建文字层颜色
@@ -982,6 +1083,7 @@ static const CGFloat kDefaultFontSize = 14;
     _highlightText.string = [[NSAttributedString alloc] initWithString:text attributes:playedAttrs];
   }
 }
+
 
 - (void)viewDidChangeEffectiveAppearance {
   [self updateColors];

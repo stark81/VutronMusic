@@ -11,6 +11,23 @@ static const CGFloat kButtonWidth = 44;
 static const CGFloat kLyricDefaultWidth = 300;
 static const CGFloat kIconSize = 20;
 
+// ================ 辅助函数 ================
+static NSImage* FlipImageHorizontally(NSImage* source) {
+  NSSize sz = source.size;
+  NSImage* flipped = [[NSImage alloc] initWithSize:sz];
+  [flipped lockFocus];
+  NSAffineTransform* transform = [NSAffineTransform transform];
+  [transform scaleXBy:-1.0 yBy:1.0];
+  [transform concat];
+  [source drawInRect:NSMakeRect(-sz.width, 0, sz.width, sz.height)
+            fromRect:NSZeroRect
+           operation:NSCompositingOperationCopy
+            fraction:1.0];
+  [flipped unlockFocus];
+  [flipped setTemplate:YES];
+  return flipped;
+}
+
 // ================ 按钮路径（与 tray 一致） ================
 static CGPathRef MakeButtonPath(ButtonType type, CGFloat size, CGFloat height) {
   CGFloat cx = size / 2, cy = height / 2;
@@ -387,19 +404,22 @@ static NSColor* DefaultButtonColor(void) {
     widthAnim.removedOnCompletion = NO;
     widthAnim.fillMode = kCAFillModeForwards;
 
-    // 设置动画从当前进度开始
-    double progress = MAX(0, MIN(offsetMs / lineDurationMs, 1.0));
-    widthAnim.timeOffset = progress * widthAnim.duration;
+    // 使用 beginTime 做 seek（与 scroll 动画及 tray 实现一致），避免 timeOffset
+    // 在暂停/恢复后导致 fillMode 不可靠、动画回弹到0重新播放的问题
+    double clampedOffsetMs = MAX(0, MIN(offsetMs, lineDurationMs));
+    CFTimeInterval now = [self.layer convertTime:CACurrentMediaTime() fromLayer:nil];
+    widthAnim.beginTime = now * _playbackRate - (clampedOffsetMs / 1000.0);
 
     [CATransaction begin];
     [CATransaction setDisableActions:YES];
-    _maskLayer.bounds = CGRectMake(0, 0, totalTextWidth, kTouchBarHeight);
-    
+    // 初始化为0宽度，让动画从 beginTime 计算的位置开始驱动
+    _maskLayer.bounds = CGRectMake(0, 0, 0, kTouchBarHeight);
+
     [_maskLayer removeAnimationForKey:@"maskWidthAnim"];
     [_maskLayer addAnimation:widthAnim forKey:@"maskWidthAnim"];
     [CATransaction commit];
 
-    _maskLayer.speed = _isPlaying ? _playbackRate : 0.0;
+    _maskLayer.speed = _playbackRate;
 
   } else if (lineDurationMs <= 0 || !_wBYw) {
     if (_wBYw) {
@@ -704,7 +724,11 @@ static NSString* const kButtonItemBaseIdentifier = @"com.vutron.touchbar.button"
     if (image) {
       NSImageSymbolConfiguration *config = 
           [NSImageSymbolConfiguration configurationWithScale:NSImageSymbolScaleMedium];
-      button.image = [image imageWithSymbolConfiguration:config];
+      NSImage *symImage = [image imageWithSymbolConfiguration:config];
+      if (type == ButtonTypeThumbsDown) {
+        symImage = FlipImageHorizontally(symImage);
+      }
+      button.image = symImage;
     }
   }
   return button;
@@ -801,7 +825,11 @@ static NSString* const kButtonItemBaseIdentifier = @"com.vutron.touchbar.button"
     if (@available(macOS 11.0, *)) {
       NSImage *image = [NSImage imageWithSystemSymbolName:iconName accessibilityDescription:nil];
       NSImageSymbolConfiguration *config = [NSImageSymbolConfiguration configurationWithScale:NSImageSymbolScaleMedium];
-      _prevButton.image = [image imageWithSymbolConfiguration:config];
+      NSImage *symImage = [image imageWithSymbolConfiguration:config];
+      if (isFM && symImage) {
+        symImage = FlipImageHorizontally(symImage);
+      }
+      _prevButton.image = symImage;
     }
   }
 }

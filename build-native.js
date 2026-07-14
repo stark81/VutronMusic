@@ -43,7 +43,7 @@ if (process.platform !== 'darwin') {
 }
 
 try {
-  // build('tray', 'tray')
+  build('tray', 'tray')
   build('touchbar', 'touchbar')
   console.log('[build-native] All native addons built successfully.')
 } catch (err) {
