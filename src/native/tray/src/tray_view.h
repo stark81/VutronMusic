@@ -15,8 +15,8 @@
   CALayer* _maskLayer;
 
   // 按钮
-  CAShapeLayer* _buttonContainer[4];
-  CAShapeLayer* _pauseLayer;
+  CALayer* _buttonContainer[4];
+  CALayer* _pauseLayer;
   BOOL _isPlaying;
   BOOL _showButtons;
   BOOL _isLiked;

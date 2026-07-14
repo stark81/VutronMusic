@@ -28,81 +28,345 @@ static CGFloat TotalWidth(NSArray<NSNumber*>* widths) {
   return sum;
 }
 
-// ================ 按钮路径 ================
-static CGPathRef MakeButtonPath(NSInteger type, CGFloat size, CGFloat height) {
-  CGFloat cx = size / 2, cy = height / 2;
+// ================ SVG Path 解析器 ================
+// 解析 SVG path d 属性中的数字（支持整数、浮点、科学计数法）
+static CGFloat ParseSVGNumber(const char** p) {
+  const char* s = *p;
+  // 跳过前导空白和逗号
+  while (*s == ' ' || *s == '\t' || *s == '\n' || *s == '\r' || *s == ',') s++;
+  // 可选正负号
+  BOOL negative = NO;
+  if (*s == '-') { negative = YES; s++; }
+  else if (*s == '+') { s++; }
+
+  // 整数部分
+  CGFloat value = 0;
+  BOOL hasDigits = NO;
+  while (*s >= '0' && *s <= '9') {
+    value = value * 10 + (*s - '0');
+    s++;
+    hasDigits = YES;
+  }
+  // 小数部分
+  if (*s == '.') {
+    s++;
+    CGFloat fraction = 0.1;
+    while (*s >= '0' && *s <= '9') {
+      value += (*s - '0') * fraction;
+      fraction *= 0.1;
+      s++;
+      hasDigits = YES;
+    }
+  }
+  if (!hasDigits) {
+    // 回退，没有数字可解析
+    *p = *p;  // 保持不变
+    return 0;
+  }
+  // 科学计数法（简化处理，支持常见格式）
+  if (*s == 'e' || *s == 'E') {
+    s++;
+    BOOL expNeg = NO;
+    if (*s == '-') { expNeg = YES; s++; }
+    else if (*s == '+') { s++; }
+    int exp = 0;
+    while (*s >= '0' && *s <= '9') {
+      exp = exp * 10 + (*s - '0');
+      s++;
+    }
+    CGFloat factor = 1;
+    for (int i = 0; i < exp; i++) factor *= 10;
+    value = expNeg ? value / factor : value * factor;
+  }
+  *p = s;
+  return negative ? -value : value;
+}
+
+// 从 SVG path d 属性字符串解析为 CGPath
+// 支持命令: M/m, L/l, C/c, Z/z（覆盖项目中所有 SVG 文件的需求）
+static CGPathRef CreateCGPathFromSVG(const char* d) {
   CGMutablePathRef path = CGPathCreateMutable();
-  switch (type) {
-    case 0: { // prev: ◁◁
-      CGFloat sz = 5;
-      CGPathMoveToPoint(path, NULL, cx - 1, cy - sz);
-      CGPathAddLineToPoint(path, NULL, cx - 1, cy + sz);
-      CGPathAddLineToPoint(path, NULL, cx - 1 - sz * 0.8, cy);
-      CGPathCloseSubpath(path);
-      CGPathMoveToPoint(path, NULL, cx + 4, cy - sz);
-      CGPathAddLineToPoint(path, NULL, cx + 4, cy + sz);
-      CGPathAddLineToPoint(path, NULL, cx + 4 - sz * 0.8, cy);
-      CGPathCloseSubpath(path);
-      break;
+  const char* p = d;
+  char lastCmd = 0;
+  CGFloat cx = 0, cy = 0;  // 当前点（用于相对坐标）
+  CGFloat sx = 0, sy = 0;  // 子路径起点（用于 Z 回到起点）
+
+  while (*p) {
+    // 跳过空白
+    while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r' || *p == ',') p++;
+    if (!*p) break;
+
+    // 解析命令字符
+    char cmd = *p;
+    if ((cmd >= 'A' && cmd <= 'Z') || (cmd >= 'a' && cmd <= 'z')) {
+      lastCmd = cmd;
+      p++;
+    } else {
+      // 隐式重复上一个命令（仅对 L/C 有效）
+      cmd = lastCmd;
     }
-    case 1: { // play: ▶
-      CGFloat sz = 6;
-      CGPathMoveToPoint(path, NULL, cx - 2, cy - sz);
-      CGPathAddLineToPoint(path, NULL, cx - 2, cy + sz);
-      CGPathAddLineToPoint(path, NULL, cx - 2 + sz * 0.85, cy);
-      CGPathCloseSubpath(path);
-      break;
-    }
-    case 2: { // next: ▷▷
-      CGFloat sz = 5;
-      CGPathMoveToPoint(path, NULL, cx - 3, cy - sz);
-      CGPathAddLineToPoint(path, NULL, cx - 3, cy + sz);
-      CGPathAddLineToPoint(path, NULL, cx - 3 + sz * 0.8, cy);
-      CGPathCloseSubpath(path);
-      CGPathMoveToPoint(path, NULL, cx + 2, cy - sz);
-      CGPathAddLineToPoint(path, NULL, cx + 2, cy + sz);
-      CGPathAddLineToPoint(path, NULL, cx + 2 + sz * 0.8, cy);
-      CGPathCloseSubpath(path);
-      break;
-    }
-    case 3: { // like: ♥
-      CGPathMoveToPoint(path, NULL, cx, cy + 5);
-      CGPathAddCurveToPoint(path, NULL, cx + 5, cy + 1, cx + 7, cy - 3, cx, cy - 1);
-      CGPathAddCurveToPoint(path, NULL, cx - 7, cy - 3, cx - 5, cy + 1, cx, cy + 5);
-      CGPathCloseSubpath(path);
-      break;
-    }
-    case 4: { // thumbsDown: 👎
-      CGFloat sz = 5;
-      // 手背
-      CGPathMoveToPoint(path, NULL, cx - sz, cy - 3);
-      CGPathAddLineToPoint(path, NULL, cx + sz, cy - 3);
-      CGPathAddLineToPoint(path, NULL, cx + sz, cy + 4);
-      CGPathMoveToPoint(path, NULL, cx + sz, cy + 2);
-      CGPathAddLineToPoint(path, NULL, cx + sz + 3, cy - 5);
-      CGPathAddLineToPoint(path, NULL, cx + sz - 1, cy - 5);
-      CGPathAddLineToPoint(path, NULL, cx - 2, cy + 1);
-      CGPathMoveToPoint(path, NULL, cx - sz, cy + 4);
-      CGPathAddLineToPoint(path, NULL, cx - sz, cy - 3);
-      CGPathCloseSubpath(path);
-      break;
+
+    switch (cmd) {
+      case 'M': {
+        CGFloat x = ParseSVGNumber(&p);
+        CGFloat y = ParseSVGNumber(&p);
+        CGPathMoveToPoint(path, NULL, x, y);
+        cx = x; cy = y;
+        sx = x; sy = y;
+        lastCmd = 'L';  // M 后续隐式 L
+        break;
+      }
+      case 'm': {
+        CGFloat dx = ParseSVGNumber(&p);
+        CGFloat dy = ParseSVGNumber(&p);
+        cx += dx; cy += dy;
+        CGPathMoveToPoint(path, NULL, cx, cy);
+        sx = cx; sy = cy;
+        lastCmd = 'l';
+        break;
+      }
+      case 'L': {
+        CGFloat x = ParseSVGNumber(&p);
+        CGFloat y = ParseSVGNumber(&p);
+        CGPathAddLineToPoint(path, NULL, x, y);
+        cx = x; cy = y;
+        break;
+      }
+      case 'l': {
+        CGFloat dx = ParseSVGNumber(&p);
+        CGFloat dy = ParseSVGNumber(&p);
+        cx += dx; cy += dy;
+        CGPathAddLineToPoint(path, NULL, cx, cy);
+        break;
+      }
+      case 'C': {
+        CGFloat x1 = ParseSVGNumber(&p), y1 = ParseSVGNumber(&p);
+        CGFloat x2 = ParseSVGNumber(&p), y2 = ParseSVGNumber(&p);
+        CGFloat x = ParseSVGNumber(&p), y = ParseSVGNumber(&p);
+        CGPathAddCurveToPoint(path, NULL, x1, y1, x2, y2, x, y);
+        cx = x; cy = y;
+        break;
+      }
+      case 'c': {
+        CGFloat dx1 = ParseSVGNumber(&p), dy1 = ParseSVGNumber(&p);
+        CGFloat dx2 = ParseSVGNumber(&p), dy2 = ParseSVGNumber(&p);
+        CGFloat dx = ParseSVGNumber(&p), dy = ParseSVGNumber(&p);
+        CGPathAddCurveToPoint(path, NULL,
+                              cx + dx1, cy + dy1,
+                              cx + dx2, cy + dy2,
+                              cx + dx, cy + dy);
+        cx += dx; cy += dy;
+        break;
+      }
+      case 'Z': case 'z':
+        CGPathCloseSubpath(path);
+        cx = sx; cy = sy;
+        break;
+      default:
+        // 未知命令，跳过
+        p++;
+        break;
     }
   }
   return path;
 }
 
-static CGPathRef MakePausePath(CGFloat width, CGFloat height) {
-  CGFloat cx = width / 2, cy = height / 2;
-  CGMutablePathRef path = CGPathCreateMutable();
-  CGPathAddRoundedRect(path, NULL, CGRectMake(cx - 7, cy - 5, 4, 10), 1, 1);
-  CGPathAddRoundedRect(path, NULL, CGRectMake(cx + 3, cy - 5, 4, 10), 1, 1);
-  return path;
+// ================ SVG 图标路径数据（来自 src/native/tray/src/icons/） ================
+
+static const char* kSVGPathSkipPrevious = "M6.1,11 L22,0 L22,22 Z M0,0 L2.1,0 L2.1,22 L0,22 Z";
+static const char* kSVGPathPlayArrow = "M19,12 L0,0 L0,24 Z";
+static const char* kSVGPathSkipNext = "M19,22 L19,0 L22,0 L22,22 Z M0,0 L15,11 L0,22 Z";
+static const char* kSVGPathPause = "M15,24 L15,0 L22,0 L22,24 Z M0,0 L6.1,0 L6.1,24 L0,24 Z";
+static const char* kSVGPathHeart =
+    "M15,26c-0.21,0-0.42-0.066-0.597-0.198C13.938,25.456,3,17.243,3,11"
+    "c0-3.859,3.141-7,7-7c2.358,0,4.062,1.272,5,2.212C15.938,5.272,17.642,4,20,4"
+    "c3.859,0,7,3.14,7,7c0,6.243-10.938,14.456-11.403,14.803C15.42,25.934,15.21,26,15,26z";
+
+static const char* kSVGPathThumbsDown = "M0,56v240c0,13.255,10.745,24,24,24h80c13.255,0,24-10.745,24-24V56c0-13.255-10.745-24-24-24H24C10.745,32,0,42.745,0,56zm40,200c0-13.255,10.745-24,24-24s24,10.745,24,24-10.745,24-24,24-24-10.745-24-24zm272,256c-20.183,0-29.485-39.293-33.931-57.795-5.206-21.666-10.589-44.07-25.393-58.902-32.469-32.524-49.503-73.967-89.117-113.111a11.98,11.98,0,0,1-3.558-8.521V59.901c0-6.541,5.243-11.878,11.783-11.998,15.831-.29,36.694-9.079,52.651-16.178C256.189,17.598,295.709.017,343.995,0h2.844c42.777,0,93.363.413,113.774,29.737,8.392,12.057,10.446,27.034,6.148,44.632,16.312,17.053,25.063,48.863,16.382,74.757,17.544,23.432,19.143,56.132,9.308,79.469l.11.11c11.893,11.949,19.523,31.259,19.439,49.197-.156,30.352-26.157,58.098-59.553,58.098H350.723C358.03,364.34,384,388.132,384,430.548,384,504,336,512,312,512z";
+
+// ================ 按钮路径（SVG 版本） ================
+// 基于路径实际 bounds（而非 viewBox）计算缩放和居中，确保图标大小一致且不溢出
+static CGPathRef MakeScaledSVGPath(const char* svgD, CGFloat size, CGFloat height, CGFloat scaleAdjust = 1.0) {
+  CGPathRef rawPath = CreateCGPathFromSVG(svgD);
+  if (!rawPath) return CGPathCreateMutable();
+
+  CGRect bounds = CGPathGetPathBoundingBox(rawPath);
+  CGFloat pathW = bounds.size.width;
+  CGFloat pathH = bounds.size.height;
+  if (pathW <= 0 || pathH <= 0) {
+    CGPathRelease(rawPath);
+    return CGPathCreateMutable();
+  }
+
+  // 新增：内边距系数，让 SVG 图标比 SF Symbol 略小一档，视觉对齐
+  CGFloat paddingFactor = 0.72;
+  CGFloat targetW = size * paddingFactor * scaleAdjust;
+  CGFloat targetH = height * paddingFactor * scaleAdjust;
+
+  CGFloat s = MIN(targetW / pathW, targetH / pathH);
+  CGFloat offsetX = (size - pathW * s) / 2.0 - bounds.origin.x * s;
+  CGFloat centerY = bounds.origin.y + pathH / 2.0;
+  CGFloat t_y = height / 2.0 + s * centerY;
+
+  CGAffineTransform t = CGAffineTransformMake(s, 0, 0, -s, offsetX, t_y);
+  CGPathRef result = CGPathCreateCopyByTransformingPath(rawPath, &t);
+  CGPathRelease(rawPath);
+  return result;
 }
 
+static CGPathRef MakeButtonPath(NSInteger type, CGFloat size, CGFloat height) {
+  const char* svgD = NULL;
+  CGFloat scaleAdjust = 1.0; // 【新增】
+  switch (type) {
+    case 0: svgD = kSVGPathSkipPrevious; break;
+    case 1: svgD = kSVGPathPlayArrow;   break;
+    case 2: svgD = kSVGPathSkipNext;     break;
+    case 3: svgD = kSVGPathHeart; break;
+    case 4: svgD = kSVGPathThumbsDown;  break;
+    default: return CGPathCreateMutable();
+  }
+  return MakeScaledSVGPath(svgD, size, height, scaleAdjust);
+}
+
+static CGPathRef MakePausePath(CGFloat width, CGFloat height) {
+  return MakeScaledSVGPath(kSVGPathPause, width, height);
+}
+
+// ================ CGPath 图标渲染 ================
+static NSImage* MakePathButtonImage(CGFloat size, CGPathRef path, NSColor* color) {
+  CGFloat scale = 2.0;
+  NSInteger pixelSize = (NSInteger)(size * scale);
+
+  CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+  CGContextRef ctx = CGBitmapContextCreate(NULL, pixelSize, pixelSize, 8, 0, colorSpace,
+                                           kCGImageAlphaPremultipliedLast);
+  CGColorSpaceRelease(colorSpace);
+  if (!ctx) return nil;
+
+  CGContextScaleCTM(ctx, scale, scale);
+
+  CGContextSetFillColorWithColor(ctx, color.CGColor);
+  CGContextAddPath(ctx, path);
+  CGContextFillPath(ctx);
+
+  CGImageRef cgImage = CGBitmapContextCreateImage(ctx);
+  CGContextRelease(ctx);
+
+  NSSize imageSize = NSMakeSize(size, size);
+  NSImage* image = [[NSImage alloc] initWithCGImage:cgImage size:imageSize];
+  CGImageRelease(cgImage);
+  return image;
+}
+
+// CGPath 图标渲染 - 描边版本（用于心形空心状态）
+static NSImage* MakePathButtonImageOutline(CGFloat size, CGPathRef path, NSColor* color) {
+  CGFloat scale = 2.0;
+  NSInteger pixelSize = (NSInteger)(size * scale);
+
+  CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+  CGContextRef ctx = CGBitmapContextCreate(NULL, pixelSize, pixelSize, 8, 0, colorSpace,
+                                           kCGImageAlphaPremultipliedLast);
+  CGColorSpaceRelease(colorSpace);
+  if (!ctx) return nil;
+
+  CGContextScaleCTM(ctx, scale, scale);
+
+  CGContextSetStrokeColorWithColor(ctx, color.CGColor);
+  CGContextSetLineWidth(ctx, 1.1);
+  CGContextAddPath(ctx, path);
+  CGContextStrokePath(ctx);
+
+  CGImageRef cgImage = CGBitmapContextCreateImage(ctx);
+  CGContextRelease(ctx);
+
+  NSSize imageSize = NSMakeSize(size, size);
+  NSImage* image = [[NSImage alloc] initWithCGImage:cgImage size:imageSize];
+  CGImageRelease(cgImage);
+  return image;
+}
+
+// 创建按钮图标 - 用 CGPath 绘制
+static NSImage* MakeButtonImage(NSInteger type, CGFloat size, NSColor* color) {
+  CGPathRef path = MakeButtonPath(type, size, size);
+  NSImage* image = MakePathButtonImage(size, path, color);
+  CGPathRelease(path);
+  return image;
+}
+
+static NSImage* MakePauseButtonImage(CGFloat size, NSColor* color) {
+  CGPathRef path = MakePausePath(size, size);
+  NSImage* image = MakePathButtonImage(size, path, color);
+  CGPathRelease(path);
+  return image;
+}
+
+// ================ SF Symbols 图标 ================
+// 使用 macOS 11+ 系统符号图标替换自定义 SVG 渲染
+static NSString* SFSymbolForButtonType(NSInteger type) {
+  switch (type) {
+    case 0: return @"skip_previous";
+    case 1: return @"play_arrow";
+    case 2: return @"skip_next";
+    case 3: return @"heart";           // 喜欢/不喜欢通过切换 heart / heart-solid
+    case 4: return @"hand.thumbsdown";     // FM 模式
+    default: return nil;
+  }
+}
+
+// 创建 SF Symbols 图标 NSImage，用指定颜色绘制
+static NSImage* MakeSFButtonImage(NSString* symbolName, CGFloat size, NSColor* color) {
+  if (@available(macOS 11.0, *)) {
+    NSImage* symbol = [NSImage imageWithSystemSymbolName:symbolName
+                                 accessibilityDescription:nil];
+    if (!symbol) return nil;
+
+    // 用 SymbolConfiguration 控制点尺寸，保持符号原生宽高比与留白
+    NSImageSymbolConfiguration* config =
+        [NSImageSymbolConfiguration configurationWithPointSize:size
+                                                        weight:NSFontWeightRegular
+                                                         scale:NSImageSymbolScaleMedium];
+    NSImage* configured = [symbol imageWithSymbolConfiguration:config] ?: symbol;
+
+    // 用模板着色：先转 template，再用 tint 上色
+    NSImage* result = [configured copy];
+    [result setTemplate:YES];
+
+    // 创建一个指定尺寸的输出画布，把符号居中绘制并上色
+    NSImage* tinted = [[NSImage alloc] initWithSize:NSMakeSize(size, size)];
+    [tinted lockFocus];
+    [NSGraphicsContext currentContext].imageInterpolation = NSImageInterpolationHigh;
+
+    // 先用目标颜色填满，再用符号 alpha 蒙版裁剪（SourceIn 保留交集）
+    NSRect fullRect = NSMakeRect(0, 0, size, size);
+    [color set];
+    NSRectFill(fullRect);
+
+    // 居中绘制符号（保持其自身 size，不再强制拉伸）
+    NSSize symSize = configured.size;
+    // 若符号比目标大，按比例缩放到 size 内；否则原样居中
+    CGFloat maxSide = MAX(symSize.width, symSize.height);
+    CGFloat drawScale = (maxSide > size) ? (size / maxSide) : 1.0;
+    NSSize drawSize = NSMakeSize(symSize.width * drawScale, symSize.height * drawScale);
+    NSRect drawRect = NSMakeRect((size - drawSize.width) / 2.0,
+                                 (size - drawSize.height) / 2.0,
+                                 drawSize.width, drawSize.height);
+    [configured drawInRect:drawRect
+                  fromRect:NSZeroRect
+                 operation:NSCompositingOperationDestinationIn
+                   fraction:1.0];
+
+    [tinted unlockFocus];
+    return tinted;
+  }
+  return nil;
+}
+
+
 // ================ 常量 ================
-static const CGFloat kIconSize = 18;
-static const CGFloat kIconPadding = 4;
-static const CGFloat kButtonSize = 24;
+static const CGFloat kIconSize = 8;
+static const CGFloat kIconPadding = 8;
+static const CGFloat kButtonSize = 16;
+static const CGFloat kButtonSpacing = 6;
 static const CGFloat kButtonGroupPadding = 4;
 static const CGFloat kViewHeight = 22;
 static const CGFloat kDefaultFontSize = 14;
@@ -121,7 +385,7 @@ static const CGFloat kDefaultFontSize = 14;
   CGFloat _lastTotalTextWidth;
 }
 
-@property (nonatomic, strong) NSArray<CAShapeLayer*>* buttonLayers;
+@property (nonatomic, strong) NSArray<CALayer*>* buttonLayers;
 @end
 
 @implementation NativeTrayView
@@ -199,19 +463,15 @@ static const CGFloat kDefaultFontSize = 14;
   if (_showButtons) {
     for (NSInteger i = 0; i < 4; i++) {
       if (!_buttonContainer[i]) continue;
-      CGRect btnFrame = CGRectMake(x + i * _buttonWidth, 0, _buttonWidth, kViewHeight);
+      CGFloat btnH = kViewHeight;  // 保持槽位高度，图标用 contentsGravity 居中
+      CGRect btnFrame = CGRectMake(x + i * (_buttonWidth + kButtonSpacing), 0, _buttonWidth, btnH);
+
       _buttonContainer[i].frame = btnFrame;
       _buttonContainer[i].hidden = (i == 1) ? _isPlaying : NO;
-
-      if ([_buttonContainer[i] isKindOfClass:[CAShapeLayer class]]) {
-        CAShapeLayer* shape = (CAShapeLayer*)_buttonContainer[i];
-        shape.path = MakeButtonPath(i, _buttonWidth, kViewHeight);
-      }
     }
-    _pauseLayer.frame = CGRectMake(x + 1 * _buttonWidth, 0, _buttonWidth, kViewHeight);
-    _pauseLayer.hidden = !_isPlaying;  // 播放时显示暂停
-    _pauseLayer.path = MakePausePath(_buttonWidth, kViewHeight);
-    x += 4 * _buttonWidth + kIconPadding;
+    _pauseLayer.frame = CGRectMake(x + 1 * (_buttonWidth + kButtonSpacing), 0, _buttonWidth, kViewHeight);
+    _pauseLayer.hidden = !_isPlaying;
+    x += 4 * _buttonWidth + 3 * kButtonSpacing + kIconPadding;
   } else {
     // 隐藏所有按钮和暂停层
     for (NSInteger i = 0; i < 4; i++) {
@@ -246,26 +506,32 @@ static const CGFloat kDefaultFontSize = 14;
 - (void)ensureButtonsCreated {
   if (_buttonContainer[0]) return;
 
-  CGColorRef color = UnplayedColor(self).CGColor;
+  CGFloat screenScale = NSScreen.mainScreen.backingScaleFactor;
+  NSColor* color = UnplayedColor(self);
   for (NSInteger i = 0; i < 4; i++) {
-    CAShapeLayer* layer = [CAShapeLayer layer];
-    layer.fillColor = color;
-    layer.strokeColor = nil;
+    CALayer* layer = [CALayer layer];
+    layer.contentsScale = screenScale;
+    layer.contentsGravity = kCAGravityCenter;
+    // 优先使用 SF Symbols，回退到 SVG 渲染
+    NSString* sym = SFSymbolForButtonType(i);
+    NSImage* img = sym ? MakeSFButtonImage(sym, kIconSize, color) : nil;
+    layer.contents = MakeButtonImage(i, kIconSize, color);
     [self.layer addSublayer:layer];
     _buttonContainer[i] = layer;
   }
-  _buttonLayers = @[(CAShapeLayer*)_buttonContainer[0],
-                    (CAShapeLayer*)_buttonContainer[1],
-                    (CAShapeLayer*)_buttonContainer[2],
-                    (CAShapeLayer*)_buttonContainer[3]];
+  _buttonLayers = @[_buttonContainer[0], _buttonContainer[1],
+                    _buttonContainer[2], _buttonContainer[3]];
 
-  CAShapeLayer* pause = [CAShapeLayer layer];
-  pause.fillColor = color;
-  pause.strokeColor = nil;
+  CALayer* pause = [CALayer layer];
+  pause.contentsScale = screenScale;
+  pause.contentsGravity = kCAGravityCenter;
+  NSImage* pauseImg = MakeSFButtonImage(@"pause", kIconSize, color);
+  pause.contents = MakePauseButtonImage(kIconSize, color);
+  pause.hidden = YES;
   [self.layer addSublayer:pause];
   _pauseLayer = pause;
 
-  _buttonContainer[1].hidden = YES;  // 初始播放中，隐藏 play
+  _buttonContainer[1].hidden = YES;
   [self layoutSubviews];
 }
 
@@ -643,23 +909,27 @@ static const CGFloat kDefaultFontSize = 14;
 
 - (void)updateLikeButtonAppearance {
   NSColor* color = UnplayedColor(self);
-  CAShapeLayer* likeBtn = _buttonContainer[3];
+  CALayer* likeBtn = _buttonContainer[3];
   if (!likeBtn) return;
+
+  CGPathRef path = MakeButtonPath(3, kIconSize, kIconSize);
   if (_isLiked) {
-    likeBtn.fillColor = color.CGColor;
-    likeBtn.strokeColor = nil;
+    // 已赞：实心心形（对应 heart-solid.svg 的 path）
+    likeBtn.contents = MakePathButtonImage(kIconSize, path, color);
   } else {
-    likeBtn.fillColor = [NSColor clearColor].CGColor;
-    likeBtn.strokeColor = color.CGColor;
-    likeBtn.lineWidth = 1.2;
+    // 未赞：描边心形（对应 heart.svg 的轮廓效果）
+    likeBtn.contents = MakePathButtonImageOutline(kIconSize, path, color);
   }
+  CGPathRelease(path);
 }
 
 // MARK: - 按钮类型
 - (void)setButtonType:(NSInteger)index type:(NSInteger)type {
   if (index < 0 || index > 3 || !_buttonContainer[index]) return;
-  CAShapeLayer* btn = _buttonContainer[index];
-  btn.path = MakeButtonPath(type, _buttonWidth, kViewHeight);
+  NSColor* color = UnplayedColor(self);
+  NSString* sym = SFSymbolForButtonType(type);
+  NSImage* img = sym ? MakeSFButtonImage(sym, kIconSize, color) : nil;
+  _buttonContainer[index].contents = MakeButtonImage(type, kIconSize, color);
   [self layoutSubviews];
 }
 
@@ -689,11 +959,13 @@ static const CGFloat kDefaultFontSize = 14;
 // MARK: - 颜色刷新
 - (void)updateColors {
   NSColor* color = UnplayedColor(self);
-  CGColorRef cg = color.CGColor;
-  for (CAShapeLayer* layer in self.buttonLayers) {
-    layer.fillColor = cg;
+  for (NSInteger i = 0; i < 4; i++) {
+    NSString* sym = SFSymbolForButtonType(i);
+    NSImage* img = sym ? MakeSFButtonImage(sym, kIconSize, color) : nil;
+    _buttonContainer[i].contents = MakeButtonImage(i, kIconSize, color);
   }
-  _pauseLayer.fillColor = cg;
+  NSImage* pauseImg = MakeSFButtonImage(@"pause", kIconSize, color);
+  _pauseLayer.contents = MakePauseButtonImage(kIconSize, color);
 
   // 重建文字层颜色
   [self updateLikeButtonAppearance];
@@ -735,7 +1007,7 @@ static const CGFloat kDefaultFontSize = 14;
   if (_showButtons) {
     CGFloat bx = 4 + (_showLyric ? _lyricAreaWidth + kButtonGroupPadding : 0);
     for (NSInteger i = 0; i < 4; i++) {
-      CGRect btnRect = CGRectMake(bx + i * _buttonWidth, 0, _buttonWidth, kViewHeight);
+      CGRect btnRect = CGRectMake(bx + i * (_buttonWidth + kButtonSpacing), 0, _buttonWidth, kViewHeight);
       if (CGRectContainsPoint(btnRect, point)) {
         if (self.onButtonClick) self.onButtonClick(i);
         return;

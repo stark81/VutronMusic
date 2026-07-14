@@ -56,19 +56,24 @@ static CGPathRef MakeButtonPath(ButtonType type, CGFloat size, CGFloat height) {
       break;
     }
     case ButtonTypeThumbsDown: { // 👎
-      CGFloat sz = 5;
-      CGPathMoveToPoint(path, NULL, cx - sz, cy - 3);
-      CGPathAddLineToPoint(path, NULL, cx + sz, cy - 3);
-      CGPathAddLineToPoint(path, NULL, cx + sz, cy + 4);
-      CGPathMoveToPoint(path, NULL, cx + sz, cy + 2);
-      CGPathAddLineToPoint(path, NULL, cx + sz + 3, cy - 5);
-      CGPathAddLineToPoint(path, NULL, cx + sz - 1, cy - 5);
-      CGPathAddLineToPoint(path, NULL, cx - 2, cy + 1);
-      CGPathMoveToPoint(path, NULL, cx - sz, cy + 4);
-      CGPathAddLineToPoint(path, NULL, cx - sz, cy - 3);
-      CGPathCloseSubpath(path);
-      break;
-    }
+  CGFloat sz = 5;
+  CGMutablePathRef path = CGPathCreateMutable();
+  
+  // 手掌主体（从左到右绘制）
+  CGPathMoveToPoint(path, NULL, cx - sz, cy - 3);
+  CGPathAddLineToPoint(path, NULL, cx + sz, cy - 3);
+  CGPathAddLineToPoint(path, NULL, cx + sz, cy + 4);
+  CGPathAddLineToPoint(path, NULL, cx - sz, cy + 4);
+  CGPathCloseSubpath(path);
+  // 拇指部分（从左到右绘制）
+  CGPathMoveToPoint(path, NULL, cx + sz, cy + 2);
+  CGPathAddLineToPoint(path, NULL, cx + sz + 3, cy - 5);
+  CGPathAddLineToPoint(path, NULL, cx + sz - 1, cy - 5);
+  CGPathAddLineToPoint(path, NULL, cx - 2, cy + 1);
+  CGPathCloseSubpath(path);
+  
+  return path;
+}
   }
   return path;
 }
@@ -272,9 +277,7 @@ static NSColor* DefaultButtonColor(void) {
 }
 
 - (NSColor*)playedColor {
-  BOOL isDark = [self.effectiveAppearance
-      bestMatchFromAppearancesWithNames:@[NSAppearanceNameDarkAqua, NSAppearanceNameAqua]] == NSAppearanceNameDarkAqua;
-  return isDark ? (_playedColor ?: [NSColor yellowColor]) : (_playedColorLight ?: [NSColor systemBlueColor]);
+  return _playedColor ?: [NSColor yellowColor];
 }
 
 - (void)updateLyricWithText:(NSString*)text
@@ -491,6 +494,10 @@ static NSColor* DefaultButtonColor(void) {
 
     CALayer* maskPres = [_maskLayer presentationLayer];
     CGFloat curMaskW = maskPres ? maskPres.bounds.size.width : _maskLayer.bounds.size.width;
+
+    CALayer* basePres = [_baseText presentationLayer];
+    CGFloat curScrollX = basePres ? basePres.position.x : _baseText.position.x;
+
     double lineDurMs = _lineEndMs - _lineStartMs;
     double offsetMs = 0;
     if (_lastTotalTextWidth > 0 && lineDurMs > 0) {
@@ -507,6 +514,10 @@ static NSColor* DefaultButtonColor(void) {
     _baseText.speed = 1; _baseText.timeOffset = 0; _baseText.beginTime = 0;
     _highlightText.speed = 1; _highlightText.timeOffset = 0; _highlightText.beginTime = 0;
     _maskLayer.speed = 1; _maskLayer.timeOffset = 0; _maskLayer.beginTime = 0;
+
+    _baseText.position = CGPointMake(curScrollX, _baseText.position.y);
+    _highlightText.position = CGPointMake(curScrollX, _highlightText.position.y);
+
     if (_wBYw && _hasWordTiming) {
       _maskLayer.bounds = CGRectMake(0, 0, curMaskW, kTouchBarHeight);
     }

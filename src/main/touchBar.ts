@@ -102,14 +102,21 @@ export const createTouchBar = (win: BrowserWindow) => {
 
       // 按钮点击 → Electron webContents.send
       nativeItem.onButtonClick((index: number) => {
-        // 0: prev/FM-trash, 1: play/pause, 2: next, 3: like
-        const isPersonalFM = store.get('settings.isPersonalFM') as boolean
-        const channels = isPersonalFM
-          ? ['fm-trash', 'play', 'next', 'like']
-          : ['previous', 'play', 'next', 'like']
-        const channel = channels[index]
-        if (channel) {
-          win.webContents.send(channel)
+        try {
+          // 0: prev/FM-trash, 1: play/pause, 2: next, 3: like
+          const isPersonalFM = store.get('settings.isPersonalFM') as boolean
+          const channels = isPersonalFM
+            ? ['fm-trash', 'play', 'next', 'like']
+            : ['previous', 'play', 'next', 'like']
+          const channel = channels[index]
+          console.log(
+            `[TouchBar] button click: index=${index}, channel=${channel}, isFM=${isPersonalFM}`
+          )
+          if (channel) {
+            win.webContents.send(channel)
+          }
+        } catch (err) {
+          console.error('[TouchBar] onButtonClick error:', err)
         }
       })
 
@@ -141,7 +148,6 @@ export const createTouchBar = (win: BrowserWindow) => {
 
       // IPC: 初始化全量状态
       ipcMain.on('initTouchBarState', (_event, data: InitTouchBarState) => {
-        console.log('[TouchBar] initTouchBarState 收到')
         nativeItem.setLyric(
           data.lyric.text,
           data.lyric.words,

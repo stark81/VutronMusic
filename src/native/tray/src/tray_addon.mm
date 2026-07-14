@@ -137,7 +137,7 @@ TrayItem::TrayItem(const Napi::CallbackInfo& info)
   NativeTrayView* view = [[NativeTrayView alloc] initWithStatusItem:item
                                                            iconSize:14
                                                      lyricAreaWidth:180
-                                                        buttonWidth:24];
+                                                        buttonWidth:16];
   item.button.wantsLayer = YES;
   [item.button addSubview:view];
   view_ = view;

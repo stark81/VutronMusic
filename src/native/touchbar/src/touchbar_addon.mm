@@ -24,7 +24,14 @@ static void CallJsButton(napi_env env, napi_value jsCb, void* context, void* dat
   if (d && d->hasIndex) {
     napi_value arg;
     napi_create_double(env, (double)d->index, &arg);
-    napi_call_function(env, undefined, jsCb, 1, &arg, nullptr);
+    napi_value result;
+    napi_status status = napi_call_function(env, undefined, jsCb, 1, &arg, &result);
+    if (status != napi_ok) {
+      napi_value err;
+      if (napi_get_and_clear_last_exception(env, &err) == napi_ok) {
+        NSLog(@"[TouchBar] JS callback threw an exception");
+      }
+    }
   } else {
     napi_call_function(env, undefined, jsCb, 0, nullptr, nullptr);
   }
@@ -40,7 +47,7 @@ static napi_threadsafe_function CreateTsfn(napi_env env, napi_value jsCb, const 
   napi_create_string_utf8(env, name, NAPI_AUTO_LENGTH, &resourceName);
   napi_create_threadsafe_function(
       env, jsCb, nullptr, resourceName,
-      0, 1, nullptr, nullptr, nullptr, callback, &tsfn);
+      16, 1, nullptr, nullptr, nullptr, callback, &tsfn);
   return tsfn;
 }
 
@@ -105,7 +112,11 @@ TouchBarItem::TouchBarItem(const Napi::CallbackInfo& info)
   manager_.onButtonClick = ^(NSInteger index) {
     if (!self->buttonTsfn_) return;
     TsfnData* data = new TsfnData{index, true};
-    napi_call_threadsafe_function(self->buttonTsfn_, data, napi_tsfn_blocking);
+    napi_status status = napi_call_threadsafe_function(self->buttonTsfn_, data, napi_tsfn_nonblocking);
+    if (status != napi_ok) {
+      NSLog(@"[TouchBar] napi_call_threadsafe_function failed: %d", status);
+      delete data;
+    }
   };
 }
 
