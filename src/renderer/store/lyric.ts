@@ -17,6 +17,7 @@ export const useLyricStore = defineStore(
     const currentIndex = ref(-1)
     const offset = ref(0)
     const rate = ref(1)
+    const isEnd = ref(false)
 
     let _getTime: () => number = () => 0
     let _getPlayling: () => boolean = () => false
@@ -32,15 +33,6 @@ export const useLyricStore = defineStore(
         (window.env?.isLinux && settingsStore.tray.enableExtension)
       )
     })
-    const currentLyric = computed(() => {
-      const line = lyrics.value[currentIndex.value]
-      if (!line) return { content: _getTrack()?.name || '听你想听的音乐', time: 0, start: 0 }
-      const nextLine = lyrics.value[currentIndex.value + 1]
-
-      const duration = ~~((_getTrack()?.duration || 1000) / 1000)
-      const diff = (nextLine ? nextLine.start : duration) - line?.start
-      return { content: line?.lyric?.text || '', time: diff, start: line?.start || 0 }
-    })
 
     watch(shouldGetLrcIndex, (value) => {
       if (value) {
@@ -54,15 +46,10 @@ export const useLyricStore = defineStore(
       updateIndex()
     })
 
-    // watch(currentLyric, (value) => {
-    //   if (
-    //     window.env?.isLinux &&
-    //     settingsStore.tray.enableExtension &&
-    //     stateStore.extensionCheckResult
-    //   ) {
-    //     window.mainApi?.send('updateLyricInfo', { currentLyric: toRaw(value) })
-    //   }
-    // })
+    watch(isEnd, (value) => {
+      if (value) return
+      updateIndex()
+    })
 
     function setTimeGetter(fn: () => number) {
       _getTime = fn
@@ -116,7 +103,7 @@ export const useLyricStore = defineStore(
       clearTimeout(timer)
       if (!lyrics.value.length || !shouldGetLrcIndex.value) return
       currentIndex.value = getLyricIndex(lyrics.value, 0, 1)
-      if (!_getPlayling()) return
+      if (!_getPlayling() || isEnd.value) return
       refreshLineIdx()
     }
 
@@ -154,11 +141,11 @@ export const useLyricStore = defineStore(
       lyrics,
       offset,
       noLyric,
-      currentLyric,
       currentIndex,
+      isEnd,
+
       getLyricIndex,
       clearTimer,
-      refreshLineIdx,
       updateIndex,
       updateRate,
       setOffset,

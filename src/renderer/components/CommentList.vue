@@ -139,9 +139,6 @@ const capableComment = computed(() => {
 const pluginName = computed(() => {
   return pluginStore.services.find((s) => s.code === commentCtx.mapPlugin)?.name || ''
 })
-const pluginType = computed(() => {
-  return pluginStore.services.find((s) => s.code === commentCtx.mapPlugin)!.type
-})
 
 window.mainApi
   ?.invoke('plugin-comment', {
@@ -204,7 +201,10 @@ const loadComment = (reset = true) => {
       extraParams: { sortType: sortType.value }
     })
     .then((result) => {
-      if (!result || result.code !== 200 || !result.data.length) return
+      if (!result || result.code !== 200 || !result.data.length) {
+        show.value = true
+        return
+      }
       comments.value.push(...result.data)
       totalCount.value = result.count
       hasMore.value = result.hasMore !== false

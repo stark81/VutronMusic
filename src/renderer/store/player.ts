@@ -342,11 +342,12 @@ export const usePlayerStore = defineStore(
     // 方法不需要包 computed，直接引用子 store 的函数即可。
     // ─────────────────────────────────────────────
 
-    function replacePlaylist(
+    async function replacePlaylist(
       source: PlaylistSourceInfo,
       sourceContext: [PluginId, Record<string, any>][],
       index: number
     ) {
+      await engineStore.pause()
       playlistSource.value = source
       isPersonalFM.value = false
       playList.value = sourceContext
@@ -677,6 +678,7 @@ export const usePlayerStore = defineStore(
       reportPlayback('end')
       _pendingEndReport = true
       isEnd.value = true
+      lyricStore.isEnd = true
       engineStore.setPosition(0)
       progress.value = 0
       lyricStore.updateIndex()
@@ -847,6 +849,7 @@ export const usePlayerStore = defineStore(
         return !regExpArr || l.lyric.text.replace(regExpArr[0], '') !== author
       })
       isEnd.value = false
+      lyricStore.isEnd = false
       lyrics.value = data.length === 1 && includeAM ? [] : data
     }
 

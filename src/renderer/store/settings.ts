@@ -171,7 +171,7 @@ export const useSettingsStore = defineStore(
     )
 
     watch(
-      () => !(tray.showControl || tray.showLyric),
+      () => !(tray.showControl || tray.showLyric) && tray.showIcon,
       (newValue) => {
         window.mainApi?.send('setStoreSettings', { enableTrayMenu: newValue })
       }
@@ -335,7 +335,7 @@ export const useSettingsStore = defineStore(
 
     window.mainApi?.on('resume', () => {
       setTimeout(() => {
-        const trayMenu = !(tray.showControl || tray.showLyric)
+        const trayMenu = !(tray.showControl || tray.showLyric) && tray.showIcon
         window.mainApi?.send('setStoreSettings', {
           enableTrayMenu: trayMenu
         })
