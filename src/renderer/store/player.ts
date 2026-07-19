@@ -59,6 +59,8 @@ export const usePlayerStore = defineStore(
     const lastProgressReport = ref(0)
     let _pendingEndReport = false
     const title = ref('VutronMusic')
+    const isEnd = ref(false)
+    const setSeek = ref(false)
 
     // 歌曲信息
     const isPersonalFM = ref(false)
@@ -160,11 +162,9 @@ export const usePlayerStore = defineStore(
       get: () => engineStore.progress,
       set: (value) => {
         engineStore.setPosition(value)
+        setSeek.value = true
         lyricStore.updateIndex()
         progress.value = value
-        if (window.env?.isLinux) {
-          window.mainApi?.send('updatePlayerState', { progress: value })
-        }
         if ('mediaSession' in navigator) {
           navigator.mediaSession.setPositionState({
             duration: duration.value,
@@ -210,7 +210,6 @@ export const usePlayerStore = defineStore(
       }
     })
     const currentIndex = computed(() => lyricStore.currentIndex)
-    const currentLyric = computed(() => lyricStore.currentLyric)
     const lyricOffset = computed({
       get: () => lyricStore.offset,
       set: (value) => {
@@ -268,25 +267,11 @@ export const usePlayerStore = defineStore(
             position: seek.value > duration.value ? 0 : seek.value
           })
         }
-        window.mainApi?.send('updatePlayerState', {
-          rate: value,
-          progress: engineStore.getCurrentTime() ?? 0
-        })
-        if (osdLyricStore.show) window.mainApi?.send('update-osd-lyric', { rate: value })
       },
       { immediate: true }
     )
 
-    watch(isLiked, (value) => {
-      window.mainApi?.send('updatePlayerState', { like: value })
-    })
-
-    watch(repeatMode, (value) => {
-      window.mainApi?.send('updatePlayerState', { repeatMode: value })
-    })
-
     watch(isShuffle, (value) => {
-      window.mainApi?.send('updatePlayerState', { shuffle: value })
       if (value && playList.value.length > 0) {
         shuffleTheList(currentTrackIndex.value)
         currentTrackIndex.value = 0
@@ -495,6 +480,10 @@ export const usePlayerStore = defineStore(
         playing.value = true
         await engineStore.play()
       }
+      title.value = playing.value
+        ? `${currentTrack.value?.name} · ${currentTrack.value?.artists[0]?.name} - VutronMusic`
+        : 'VutronMusic'
+      document.title = title.value
     }
 
     function _getNextTrack(): [[PluginId, Record<string, any>] | undefined, number, boolean] {
@@ -687,7 +676,7 @@ export const usePlayerStore = defineStore(
     function _nextTrackCallback() {
       reportPlayback('end')
       _pendingEndReport = true
-      // 直接重置位置，不走 seek setter（避免在 end 之后又发一条 position:0 的 progress）
+      isEnd.value = true
       engineStore.setPosition(0)
       progress.value = 0
       lyricStore.updateIndex()
@@ -701,7 +690,7 @@ export const usePlayerStore = defineStore(
 
     function _handleTimeUpdate() {
       if (window.env?.isLinux) {
-        window.mainApi?.send('updatePlayerState', { progress: engineStore.getCurrentTime() })
+        window.mainApi?.send('synchronize-player-info', { progress: engineStore.getCurrentTime() })
       }
       const now = Date.now()
       if (now - lastProgressReport.value >= 15000) {
@@ -857,6 +846,7 @@ export const usePlayerStore = defineStore(
         const regExpArr = l.lyric.text.match(reg)
         return !regExpArr || l.lyric.text.replace(regExpArr[0], '') !== author
       })
+      isEnd.value = false
       lyrics.value = data.length === 1 && includeAM ? [] : data
     }
 
@@ -935,22 +925,7 @@ export const usePlayerStore = defineStore(
           position: seek.value > duration.value ? 0 : seek.value
         })
       }
-      window.mainApi?.send('updatePlayerState', {
-        playing: value,
-        progress: engineStore.getCurrentTime() || 0
-      })
-      if (osdLyricStore.show) {
-        window.mainApi?.send('update-osd-lyric', { playing: value })
-      }
     })
-
-    watch(
-      () => [currentIndex.value, progress.value],
-      (value) => {
-        if (!osdLyricStore.show) return
-        window.mainApi?.send('update-osd-lyric', { line: [value[0], engineStore.getCurrentTime()] })
-      }
-    )
 
     function initMediaSession() {
       if ('mediaSession' in navigator) {
@@ -1008,24 +983,6 @@ export const usePlayerStore = defineStore(
     }
 
     function handleIpcRenderer() {
-      window.mainApi?.on('init-from-osd', () => {
-        window.mainApi?.send('update-osd-lyric', {
-          line: [currentIndex.value, engineStore.getCurrentTime()],
-          playing: playing.value,
-          seek: engineStore.getCurrentTime(),
-          title: `${currentTrack.value?.artists[0]?.name} - ${currentTrack.value?.name}`
-        })
-      })
-
-      window.mainApi?.on('get-seek', () => {
-        window.mainApi?.send('update-osd-lyric', { seek: engineStore.getCurrentTime() || 0 })
-      })
-
-      watch(
-        () => osdLyricStore.show,
-        () => {} // no longer need closeMessagePort
-      )
-
       window.mainApi?.on('resume', async () => {
         if (!currentTrack.value) return
         const t = progress.value
@@ -1254,6 +1211,8 @@ export const usePlayerStore = defineStore(
       fmTracks,
       hasListSource,
       getListSourcePath,
+      isEnd,
+      setSeek,
 
       replacePlaylist,
       replaceCurrentTrack,
@@ -1270,7 +1229,6 @@ export const usePlayerStore = defineStore(
       // ── 来自 lyric ──
       lyrics,
       currentIndex,
-      currentLyric,
       noLyric,
       lyricOffset,
 
@@ -1280,11 +1238,10 @@ export const usePlayerStore = defineStore(
       convolverParams: engineStore.convolverParams,
       pitch,
       outputDevice,
-      // balance, // 新增，原 store 没有
       fadeDuration,
       setConvolver,
       setDevice,
-      setBalance // 新增
+      setBalance
     }
   },
   {

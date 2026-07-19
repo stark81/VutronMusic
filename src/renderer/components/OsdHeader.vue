@@ -39,6 +39,7 @@ import { useOsdLyricStore } from '../store/osdLyric'
 import { storeToRefs } from 'pinia'
 import SvgIcon from './SvgIcon.vue'
 import MarqueeText from './MarqueeText.vue'
+import { statusMap } from '@/types/music'
 
 const props = withDefaults(
   defineProps<{
@@ -76,8 +77,8 @@ onMounted(() => {
   isLock.value = window.env?.isLinux ? false : isLock.value
   const player = JSON.parse(localStorage.getItem('player') || '{}')
   isPlaying.value = player.playing
-  window.mainApi?.on('update-osd-playing-status', (event: any, res: boolean) => {
-    isPlaying.value = res
+  window.mainApi?.on('update-osd-status', (event: any, data: Partial<statusMap>) => {
+    if (data.playing !== undefined) isPlaying.value = data.playing
   })
 })
 </script>

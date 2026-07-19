@@ -42,7 +42,7 @@ import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick } from 'vue'
 import { useOsdLyricStore } from '../store/osdLyric'
 import LyricLine from './LyricLine.vue'
 import { storeToRefs } from 'pinia'
-import { lyricLine, TranslationMode, word } from '@/types/music.d'
+import { lyricLine, statusMap, TranslationMode, word } from '@/types/music.d'
 
 const osdLyricStore = useOsdLyricStore()
 const {
@@ -209,7 +209,11 @@ const scheduleAnimation = async (type: 'all' | 'translation' = 'all') => {
       const currentTime = (seek.value + lyricOffset.value) * 1000
       instance.updateCurrentTime(currentTime)
       let op: 'play' | 'pause' | 'finish' | 'reset' = playing.value ? 'play' : 'pause'
-      if (currentTime >= lyricToShow.value[index].end * 1000) op = 'finish'
+
+      const lrc = lyricToShow.value[index]
+      const end = lrc.lyric.info ? lrc.lyric.info.at(-1)!.end : lrc.end * 1000
+
+      if (currentTime >= end) op = 'finish'
       instance.updatePlayStatus(op)
     }
   }
@@ -226,7 +230,11 @@ watch(playing, (value) => {
   if (!instance) return
   const currentTime = (seek.value + lyricOffset.value) * 1000
   let op: 'play' | 'pause' | 'finish' | 'reset' = value ? 'play' : 'pause'
-  if (currentTime >= lyricToShow.value[highlightIdx.value].end * 1000) op = 'finish'
+
+  const lrc = lyricToShow.value[highlightIdx.value]
+  const end = lrc.lyric.info ? lrc.lyric.info.at(-1)!.end : lrc.end * 1000
+
+  if (currentTime >= end) op = 'finish'
   instance.updatePlayStatus(op)
 })
 
@@ -304,15 +312,6 @@ watch(
   { immediate: true }
 )
 
-type statusMap = {
-  lyrics: lyricLine[]
-  playing: boolean
-  lyricOffset: [number, number] // 当前的歌词 offset，当前播放进度
-  line: [number, number] // 当前行，当前播放进度
-  rate: number
-  seek: number // 目前这一项的触发是在当单双行切换、翻译切换时更新播放进度
-}
-
 const handleOsdStatus = (event: any, data: Partial<statusMap>) => {
   if (data.lyrics !== undefined) {
     lyrics.value = data.lyrics
@@ -340,6 +339,14 @@ const handleOsdStatus = (event: any, data: Partial<statusMap>) => {
 
   if (data.seek !== undefined) {
     seek.value = data.seek
+  }
+
+  if (data.setSeek !== undefined) {
+    const _data = data.setSeek || seek.value
+    seek.value = 0
+    nextTick(() => {
+      seek.value = _data
+    })
   }
 }
 

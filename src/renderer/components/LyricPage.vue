@@ -69,7 +69,7 @@ const playerStore = usePlayerStore()
 const lyricStore = useLyricStore()
 const {
   noLyric,
-  // currentTrack,
+  setSeek,
   lyrics,
   playing,
   currentIndex,
@@ -102,17 +102,6 @@ const lineMode = computed(() => {
 })
 
 const highlight = computed(() => Math.min(currentIndex.value, lyrics.value.length - 1))
-
-// const offset = computed(() => {
-//   const lrcOffset =  0 // currentTrack.value!.offset ||
-//   if (lrcOffset === 0) {
-//     return '未调整'
-//   } else if (lrcOffset > 0) {
-//     return `延后${lrcOffset}s`
-//   } else {
-//     return `提前${Math.abs(lrcOffset)}s`
-//   }
-// })
 
 const transformOrigin = computed(() => `center ${props.textAlign}`)
 const lyricRefs = ref<InstanceType<typeof LyricLine>[]>([])
@@ -189,12 +178,26 @@ const handleWheel = () => {
   )
 }
 
+watch(setSeek, (value) => {
+  if (!value) return
+  const instance = lyricRefs.value[highlight.value]
+  const currentTime = (seek.value + lyricOffset.value) * 1000
+  instance?.updateCurrentTime(currentTime)
+  let op: 'play' | 'pause' | 'finish' | 'reset' = playing.value ? 'play' : 'pause'
+  if (currentTime >= (lyrics.value[highlight.value]?.end || 0) * 1000) op = 'finish'
+  instance?.updatePlayStatus(op)
+})
+
 watch(playing, (value) => {
   const instance = lyricRefs.value[highlight.value]
   if (!instance) return
   const currentTime = (seek.value + lyricOffset.value) * 1000
   let op: 'play' | 'pause' | 'finish' | 'reset' = value ? 'play' : 'pause'
-  if (currentTime >= lyrics.value[highlight.value].end * 1000) op = 'finish'
+
+  const lrc = lyrics.value[highlight.value]
+  const end = lrc.lyric.info ? lrc.lyric.info.at(-1)!.end : lrc.end * 1000
+
+  if (currentTime >= end) op = 'finish'
   instance.updatePlayStatus(op)
 })
 
@@ -252,7 +255,11 @@ watch(
           const currentTime = (seek.value + value[1]) * 1000
           instance?.updateCurrentTime(currentTime)
           let op: 'play' | 'pause' | 'finish' | 'reset' = playing.value ? 'play' : 'pause'
-          if (currentTime >= (lyrics.value[i]?.end || 0) * 1000) op = 'finish'
+
+          const lrc = lyrics.value[i]
+          const end = lrc?.lyric.info ? lrc.lyric.info.at(-1)!.end : (lrc?.end || 0) * 1000
+
+          if (currentTime >= end) op = 'finish'
           instance?.updatePlayStatus(op)
         } else {
           const instance = lyricRefs.value[i]

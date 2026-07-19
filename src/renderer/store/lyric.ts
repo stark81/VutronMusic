@@ -1,10 +1,9 @@
 import { defineStore } from 'pinia'
-import { ref, computed, watch, toRaw } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { useNormalStateStore } from './state'
 import { useSettingsStore } from './settings'
 import { useOsdLyricStore } from './osdLyric'
 import { LyricLine, Track } from '@/types/plugin'
-import cloneDeep from 'lodash/cloneDeep'
 
 export const useLyricStore = defineStore(
   'lyric',
@@ -55,15 +54,15 @@ export const useLyricStore = defineStore(
       updateIndex()
     })
 
-    watch(currentLyric, (value) => {
-      if (
-        window.env?.isLinux &&
-        settingsStore.tray.enableExtension &&
-        stateStore.extensionCheckResult
-      ) {
-        window.mainApi?.send('updateLyricInfo', { currentLyric: toRaw(value) })
-      }
-    })
+    // watch(currentLyric, (value) => {
+    //   if (
+    //     window.env?.isLinux &&
+    //     settingsStore.tray.enableExtension &&
+    //     stateStore.extensionCheckResult
+    //   ) {
+    //     window.mainApi?.send('updateLyricInfo', { currentLyric: toRaw(value) })
+    //   }
+    // })
 
     function setTimeGetter(fn: () => number) {
       _getTime = fn
@@ -130,23 +129,6 @@ export const useLyricStore = defineStore(
       rate.value = _rate
     }
 
-    function _handleLyricIpc(data: LyricLine[]) {
-      if (!osdLyricStore.show) return
-      const lyrics = cloneDeep(data)
-      if (!lyrics.length) {
-        let text = '听你想听的音乐'
-        if (_getTrack()) {
-          text = `${_getTrack()?.artists[0].name} - ${_getTrack()?.name}`
-        }
-        lyrics.push({
-          start: 0,
-          end: 0,
-          lyric: { text }
-        })
-      }
-      window.mainApi?.send('update-osd-lyric', { lyrics: toRaw(lyrics) })
-    }
-
     /** 设置歌词偏移并持久化到数据库 */
     async function setOffset(value: number) {
       offset.value = value
@@ -164,9 +146,8 @@ export const useLyricStore = defineStore(
       }
     }
 
-    watch(lyrics, (value) => {
-      updateIndex()
-      _handleLyricIpc(value)
+    onBeforeUnmount(() => {
+      clearTimeout(timer)
     })
 
     return {
@@ -186,6 +167,7 @@ export const useLyricStore = defineStore(
       setRateGetter,
       setPlayingGetter,
       setTrackGetter
+      // sendToSelf
     }
   },
   { persist: true }

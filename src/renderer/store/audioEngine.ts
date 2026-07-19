@@ -528,11 +528,6 @@ export const useAudioEngineStore = defineStore('audioEngine', () => {
     if (!nodes.audio) return
     await smoothGain(0, fadeDuration.value)
     nodes.audio.pause()
-
-    window.mainApi?.send('updatePlayerState', {
-      playing: false,
-      progress: _cueRelative(nodes.audio.currentTime)
-    })
     progress.value = _cueRelative(nodes.audio.currentTime)
 
     _clearSuspendTimer()
@@ -622,11 +617,6 @@ export const useAudioEngineStore = defineStore('audioEngine', () => {
     await nodes.audio.play()
     await smoothGain(1, fadeDuration.value)
     retryCount.value = 0
-
-    window.mainApi?.send('updatePlayerState', {
-      playing: true,
-      progress: _cueRelative(nodes.audio.currentTime)
-    })
   }
 
   function setPosition(time: number) {

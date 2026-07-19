@@ -1,3 +1,4 @@
+import { statusMap } from '@/types/music'
 import { app, BrowserWindow } from 'electron'
 
 const repeatModeList = ['off', 'on', 'one']
@@ -6,13 +7,8 @@ let shuffleMode = false
 let isPersonalFM = false
 
 export interface MprisImpl {
-  setPlayState: (isPlaying: boolean) => void
-  setRepeatMode: (repeat: 'on' | 'one' | 'off') => void
-  setShuffleMode: (isShuffle: boolean) => void
   setMetadata: (metadata: any) => void
-  setPosition: (data: { progress: number }) => void
-  setRate: (rdata: { rate: number }) => void
-  setPersonalFM: (value: boolean) => void
+  updateInfo: (data: Partial<statusMap>) => void
 }
 
 class Mpris implements MprisImpl {
@@ -50,13 +46,13 @@ class Mpris implements MprisImpl {
     })
   }
 
-  setPlayState(isPlaying: boolean) {
+  private _setPlayState(isPlaying: boolean) {
     this._player.playbackStatus = isPlaying
       ? this.Player.PLAYBACK_STATUS_PLAYING
       : this.Player.PLAYBACK_STATUS_PAUSED
   }
 
-  setRepeatMode(repeat: 'on' | 'one' | 'off') {
+  private _setRepeatMode(repeat: 'on' | 'one' | 'off') {
     idx = repeatModeList.indexOf(repeat)
     switch (repeat) {
       case 'on':
@@ -71,9 +67,23 @@ class Mpris implements MprisImpl {
     }
   }
 
-  setShuffleMode(isShuffle: boolean) {
+  private _setShuffleMode(isShuffle: boolean) {
     shuffleMode = isShuffle
     this._player.shuffle = isShuffle
+  }
+
+  private _setPersonalFM(value: boolean) {
+    isPersonalFM = value
+  }
+
+  private _setRate(rate: number) {
+    this._player.rate = rate
+  }
+
+  private _setPosition(progress: number) {
+    this._player.seeked(progress * 1000 * 1000)
+    this._player.getPosition = () => progress * 1000 * 1000
+    this._player.position = progress * 1000 * 1000
   }
 
   setMetadata(metadata: any) {
@@ -96,18 +106,25 @@ class Mpris implements MprisImpl {
     this._player.getPosition = () => metadata.progress * 1000 * 1000
   }
 
-  setPersonalFM(value: boolean) {
-    isPersonalFM = value
-  }
-
-  setRate(data: { rate: number }) {
-    this._player.rate = data.rate
-  }
-
-  setPosition(data: { progress: number }) {
-    this._player.seeked(data.progress * 1000 * 1000)
-    this._player.getPosition = () => data.progress * 1000 * 1000
-    this._player.position = data.progress * 1000 * 1000
+  updateInfo(data: Partial<statusMap>) {
+    if (data.rate !== undefined) {
+      this._setRate(data.rate)
+    }
+    if (data.playing !== undefined) {
+      this._setPlayState(data.playing)
+    }
+    if (data.seek !== undefined) {
+      this._setPosition(data.seek)
+    }
+    if (data.isFM !== undefined) {
+      this._setPersonalFM(data.isFM)
+    }
+    if (data.repeatMode !== undefined) {
+      this._setRepeatMode(data.repeatMode)
+    }
+    if (data.shuffle !== undefined) {
+      this._setShuffleMode(data.shuffle)
+    }
   }
 }
 

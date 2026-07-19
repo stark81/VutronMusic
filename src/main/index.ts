@@ -339,16 +339,6 @@ class BackGround {
     }
   }
 
-  updateOsdHeight(height: number) {
-    const bounds = this.lyricWin!.getBounds()
-    this.lyricWin!.setBounds({
-      x: bounds.x,
-      y: bounds.y,
-      width: bounds.width,
-      height
-    })
-  }
-
   getOsdBounds() {
     return this.lyricWin?.getBounds() || null
   }
@@ -369,7 +359,7 @@ class BackGround {
   }
 
   sendToOSD(channel: string, data: any) {
-    this.lyricWin?.webContents.send(channel, data)
+    this.lyricWin?.webContents?.send(channel, data)
   }
 
   switchOSDWindow(showMode: string) {
@@ -697,7 +687,6 @@ class BackGround {
         updateLyricInfo: (data: any) => this.updateLyricInfo(data),
         switchOSDWindow: (showMode: string) => this.switchOSDWindow(showMode),
         updateOSDPlayingState: (state: boolean) => this.updateOSDPlayingState(state),
-        updateOsdHeight: (height: number) => this.updateOsdHeight(height),
         getOsdBounds: () => this.getOsdBounds(),
         setOsdBounds: (bounds: { x?: number; y?: number; width?: number; height?: number }) =>
           this.setOsdBounds(bounds),

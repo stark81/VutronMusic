@@ -3,7 +3,6 @@ import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
 const mainAvailChannels: string[] = [
   'mouseleave',
   'from-osd',
-  'osd-resize',
   'osd-start-resize',
   'osd-stop-resize',
   'get-seek',

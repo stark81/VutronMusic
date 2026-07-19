@@ -64,7 +64,8 @@ const mainAvailChannels: string[] = [
   'create-plugin-instance',
   'delete-plugin-instance',
   'clearStreamMatches',
-  'update-osd-lyric'
+  'update-osd-lyric',
+  'synchronize-player-info'
 ]
 const rendererAvailChannels: string[] = [
   'msgHandleScanLocalMusicError',

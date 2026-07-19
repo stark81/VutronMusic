@@ -1,6 +1,6 @@
 import { app, ipcMain, IpcMainEvent, BrowserWindow } from 'electron'
 import type { OpenDialogOptions } from 'electron'
-import { YPMTray, LyricData } from './tray'
+import { YPMTray } from './tray'
 import { MprisImpl } from './mpris'
 import { checkUpdate, downloadUpdate } from './checkUpdate'
 import Constants from './utils/Constants'
@@ -49,11 +49,10 @@ import { createMenu } from './menu'
 import log from './log'
 import { Worker } from 'worker_threads'
 import type { Track as NewTrack, PluginId } from '@/types/plugin'
-// @ts-ignore
-// import _ from 'lodash'
 import { requestUserAuth, scrobbleTrack, updateNowPlaying } from './utils/lastfm'
 import { pluginManager } from './pluginManager'
 import { PluginInstance } from './utils/pluginManager'
+import { initMap, settingMap, statusMap } from '@/types/music'
 
 let isLock = store.get('osdWin.isLock') as boolean
 let blockerId: number | null = null
@@ -81,27 +80,11 @@ export default class IPCs {
     initWindowIpcMain(win)
     initOSDWindowIpcMain(win, lrc)
     initTrayIpcMain(win, tray)
-    initTaskbarIpcMain()
-    initMprisIpcMain(win, mpris)
+    // initTaskbarIpcMain()
+    // initMprisIpcMain(win, mpris)
     initOtherIpcMain(win)
     initPluginIpcMain()
-
-    // 转发 OSD 同步数据到 OSD 窗口和 native tray
-    ipcMain.on('update-osd-lyric', (event: IpcMainEvent, data: any) => {
-      // 转发到 OSD 窗口
-      if (lrc.sendToOSD) {
-        lrc.sendToOSD('update-osd-status', data)
-      }
-      // macOS: 转发播放状态到原生 tray
-      if (Constants.IS_MAC && tray) {
-        if (data.playing !== undefined) {
-          tray.setPlayState(data.playing, data.line?.[1] || 0)
-        }
-        if (data.rate !== undefined) {
-          tray.setPlaybackRate(data.rate)
-        }
-      }
-    })
+    initSynchronizeIpcMain(win, lrc, tray, mpris)
 
     coverWorker = createWorker('writeCover')
     coverWorker.on('message', (msg) => {
@@ -174,151 +157,71 @@ function initWindowIpcMain(win: BrowserWindow | null): void {
 }
 
 function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
-  ipcMain.on(
-    'updateTray',
-    (event: IpcMainEvent, data: { img: string; width: number; height: number }) => {
-      tray.updateTray(data.img, data.width, data.height)
-    }
-  )
-  ipcMain.on('updateTrayLyric', (event: IpcMainEvent, data: LyricData) => {
-    tray.updateLyric(data)
-  })
-  ipcMain.on(
-    'initTrayState',
-    (
-      event: IpcMainEvent,
-      data: {
-        lyric: LyricData
-        playing: boolean
-        rate: number
-        like: boolean
-        isFM: boolean
-      }
-    ) => {
-      tray.updateLyric(data.lyric)
-      tray.setPlayState(!!data.playing)
-      tray.setPlaybackRate(data.rate)
-      tray.setLikeState(!!data.like)
-      tray.setFMMode(!!data.isFM)
-      tray.updateTrayColor()
-    }
-  )
-  ipcMain.on(
-    'updateTrayVisibility',
-    (
-      event: IpcMainEvent,
-      data: { lyric?: boolean; buttons?: boolean; icon?: boolean; width?: number }
-    ) => {
-      tray.setVisibility(data)
-    }
-  )
-  ipcMain.on('setTrayFMMode', (event: IpcMainEvent, isFM: boolean) => {
-    tray.setFMMode(isFM)
-  })
-  ipcMain.on('showWindow', () => {
-    win.show()
-  })
-
-  ipcMain.on('updatePlayerState', (event: IpcMainEvent, data: any) => {
-    // 从同一条消息中提取 progress（可能和 playing 一起发送）
-    const progress = typeof data.progress === 'number' ? data.progress : 0
-    for (const [key, value] of Object.entries(data) as [string, any]) {
-      if (key === 'playing') {
-        tray.setPlayState(value, progress)
-      } else if (key === 'rate') {
-        tray.setPlaybackRate(value)
-      } else if (key === 'repeatMode') {
-        tray.setRepeatMode(value)
-      } else if (key === 'shuffle') {
-        tray.setShuffleMode(value)
-      } else if (key === 'like') {
-        tray.setLikeState(!!value)
-      }
-    }
-  })
-
-  ipcMain.on('setStoreSettings', async (event: IpcMainEvent, data: any) => {
-    for (const [key, value] of Object.entries(data) as [string, any]) {
+  ipcMain.on('setStoreSettings', async (event: IpcMainEvent, data: Partial<settingMap>) => {
+    Object.entries(data).forEach(([key, value]) => {
       store.set(`settings.${key}`, value)
-      if (key === 'enableTrayMenu') {
-        tray.setContextMenu()
-      } else if (key === 'lang') {
-        tray.setContextMenu()
-      } else if (key === 'trayColor') {
-        tray.updateTrayColor()
-      } else if (key === 'showIcon') {
-        tray.setVisibility({ icon: value })
-      } else if (key === 'isWordByWord') {
-        tray.setWordByWord(value)
-      } else if (key === 'playedColor') {
-        tray.setPlayedColor(value)
-      } else if (key === 'playedColorLight') {
-        tray.setPlayedColorLight(value)
-      } else if (key === 'enableGlobalShortcut') {
-        const { globalShortcut } = await import('electron')
-        if (value) {
-          registerGlobalShortcuts(win)
-        } else {
-          globalShortcut.unregisterAll()
-        }
-      } else if (key === 'shortcuts') {
-        createMenu(win)
-        const global = store.get('settings.enableGlobalShortcut') as boolean
-        if (global) {
-          const { globalShortcut } = await import('electron')
-          globalShortcut.unregisterAll()
-          registerGlobalShortcuts(win)
-        }
-      } else if (key === 'autoCacheTrack') {
-        const autoCache = (store.get('settings.autoCacheTrack.enable') as boolean) || false
-        if (autoCache) {
-          cacheWorker = createWorker('cacheTrack')
-          cacheWorker?.on('message', async (msg) => {
-            if (msg.type === 'task-done') {
-              const data = msg.data
-              const meta = pendingCacheMeta.get(String(data.id))
-              pendingCacheMeta.delete(String(data.id))
+    })
 
-              if (data.url && data.size !== undefined) {
-                saveCacheResult(data, meta)
-              }
-
-              await deleteExcessCache()
-              const audioCachePath =
-                (store.get('settings.autoCacheTrack.path') as string) ||
-                path.join(app.getPath('userData'), 'audioCache')
-              const stats = getAudioCacheStats(audioCachePath)
-              win.webContents.send('receiveCacheInfo', stats)
-            } else if (msg.type === 'finished') {
-              closeCacheWorker()
-            }
-          })
-        } else {
-          cacheWorker?.postMessage({ type: 'quit' })
-        }
-      } else if (key === 'proxy') {
-        const map = { 1: 'http', 2: 'https' }
-        if (value.type === 0) {
-          win.webContents.session.setProxy({})
-        } else {
-          const proxyRules = `${map[value.type as keyof typeof map]}://${value.address}:${value.port}`
-          win.webContents.session.setProxy({ proxyRules })
-        }
+    if (data.enableGlobalShortcut !== undefined) {
+      const { globalShortcut } = await import('electron')
+      if (data.enableGlobalShortcut) {
+        registerGlobalShortcuts(win)
+      } else {
+        globalShortcut.unregisterAll()
       }
     }
-  })
 
-  ipcMain.on('updateOsdState', (event, data) => {
-    const [key, value] = Object.entries(data)[0] as [string, any]
-    if (key === 'show') {
-      tray.setShowOSD(value)
-    } else if (key === 'isLock') {
-      tray.setOSDLock(value)
+    if (data.shortcuts !== undefined) {
+      createMenu(win)
+      const global = store.get('settings.enableGlobalShortcut') as boolean
+      if (global) {
+        const { globalShortcut } = await import('electron')
+        globalShortcut.unregisterAll()
+        registerGlobalShortcuts(win)
+      }
     }
-  })
 
-  ipcMain.on('updateTooltip', (event: IpcMainEvent, title: string) => {
-    tray.updateTooltip(title)
+    if (data.autoCacheTrack !== undefined) {
+      const autoCache = (store.get('settings.autoCacheTrack.enable') as boolean) || false
+      if (autoCache) {
+        cacheWorker = createWorker('cacheTrack')
+        cacheWorker?.on('message', async (msg) => {
+          if (msg.type === 'task-done') {
+            const data = msg.data
+            const meta = pendingCacheMeta.get(String(data.id))
+            pendingCacheMeta.delete(String(data.id))
+
+            if (data.url && data.size !== undefined) {
+              saveCacheResult(data, meta)
+            }
+
+            await deleteExcessCache()
+            const audioCachePath =
+              (store.get('settings.autoCacheTrack.path') as string) ||
+              path.join(app.getPath('userData'), 'audioCache')
+            const stats = getAudioCacheStats(audioCachePath)
+            win.webContents.send('receiveCacheInfo', stats)
+          } else if (msg.type === 'finished') {
+            closeCacheWorker()
+          }
+        })
+      } else {
+        cacheWorker?.postMessage({ type: 'quit' })
+      }
+    }
+
+    if (data.proxy !== undefined) {
+      const map = { 1: 'http', 2: 'https' }
+      const value = data.proxy
+      if (value.type === 0) {
+        win.webContents.session.setProxy({})
+      } else {
+        const proxyRules = `${map[value.type as keyof typeof map]}://${value.address}:${value.port}`
+        win.webContents.session.setProxy({ proxyRules })
+      }
+    }
+
+    tray.updateSetting(data)
   })
 }
 
@@ -354,9 +257,6 @@ function initOSDWindowIpcMain(win: BrowserWindow, lrc: { [key: string]: Function
     } else if (message === 'playOrPause') {
       win.webContents.send('play')
     }
-  })
-  ipcMain.on('osd-resize', (event, height) => {
-    lrc.updateOsdHeight(height)
   })
   ipcMain.on(
     'osd-start-resize',
@@ -452,13 +352,13 @@ function initOSDWindowIpcMain(win: BrowserWindow, lrc: { [key: string]: Function
       osdResizeState = null
     }
   })
-  ipcMain.on('updatePlayerState', (event: IpcMainEvent, data: any) => {
-    for (const [key, value] of Object.entries(data) as [string, any]) {
-      if (key === 'playing') {
-        lrc.updateOSDPlayingState(value)
-      }
-    }
-  })
+  // ipcMain.on('updatePlayerState', (event: IpcMainEvent, data: any) => {
+  //   for (const [key, value] of Object.entries(data) as [string, any]) {
+  //     if (key === 'playing') {
+  //       lrc.updateOSDPlayingState(value)
+  //     }
+  //   }
+  // })
   // 悬浮到解锁按钮上：只是临时允许交互，不应该把这个临时状态写进持久化的
   // osdWin.isLock（之前的写法在 store 落盘的时间窗口内有把“锁定”误存成“未锁定”的风险）。
   // 直接把临时值透传给 toggleMouseIgnore 的 overrideLock 参数即可。
@@ -477,8 +377,6 @@ function initOSDWindowIpcMain(win: BrowserWindow, lrc: { [key: string]: Function
     win.webContents.send('init-from-osd')
   })
 }
-
-function initTaskbarIpcMain(): void {}
 
 async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
   let client: any = null
@@ -1370,59 +1268,6 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
   })
 }
 
-async function initMprisIpcMain(win: BrowserWindow, mpris: MprisImpl): Promise<void> {
-  if (!Constants.IS_LINUX || !mpris) return
-
-  // 下面这一段注释请勿删除。它是本程序作为插件歌词服务端的实现方式，可供以后参考。
-  // 目前插件和本程序所采用的实现方式是：插件为服务端，本程序为客户端。
-
-  // const dbus = createDBus(win)
-  // ipcMain.on('updateCurrentLyric', (event, data) => {
-  //   dbus.iface?.emit(signalNameEnum.currentLrc, data)
-  // })
-
-  const createDBus = (await import('./dbusClient')).createDBus
-
-  const busName = 'org.gnome.Shell.TrayLyric'
-  const dbus = createDBus(busName, win)
-
-  ipcMain.handle('askExtensionStatus', async () => {
-    return dbus.status
-  })
-
-  ipcMain.on('updateLyricInfo', (event: IpcMainEvent, data: any) => {
-    const [key, value] = Object.entries(data)[0] as [string, any]
-    if (key === 'currentLyric') {
-      value.sender = 'VutronMusic'
-      dbus.iface?.UpdateLyric(JSON.stringify(value))
-    }
-  })
-
-  ipcMain.on('metadata', (event: IpcMainEvent, metadata: any) => {
-    mpris?.setMetadata(metadata)
-  })
-  ipcMain.on('updatePlayerState', (event: IpcMainEvent, data: any) => {
-    for (const [key, value] of Object.entries(data) as [string, any]) {
-      if (key === 'playing') {
-        mpris?.setPlayState(value)
-      } else if (key === 'repeatMode') {
-        mpris?.setRepeatMode(value)
-      } else if (key === 'shuffle') {
-        mpris?.setShuffleMode(value)
-      } else if (key === 'like') {
-        // dbus.iface?.LikeThisTrack(value)
-        // dbus.iface?.emit(signalNameEnum.updateLikeStatus, value)
-      } else if (key === 'isPersonalFM') {
-        mpris?.setPersonalFM(value)
-      } else if (key === 'progress') {
-        mpris?.setPosition({ progress: value })
-      } else if (key === 'rate') {
-        mpris?.setRate({ rate: value })
-      }
-    }
-  })
-}
-
 type PluginEnableState = { library: boolean; stream: boolean; local: boolean }
 
 function isPluginTypeEnabled(enable: PluginEnableState, type: string | undefined): boolean {
@@ -2000,4 +1845,55 @@ async function initPluginIpcMain() {
       }
     }
   )
+}
+
+async function initSynchronizeIpcMain(
+  win: BrowserWindow,
+  lrc: { [key: string]: Function },
+  tray: YPMTray,
+  mpris: MprisImpl
+) {
+  const busName = 'org.gnome.Shell.TrayLyric'
+  const dbus = Constants.IS_LINUX ? (await import('./dbusClient')).createDBus(busName, win) : null
+
+  ipcMain.handle('askExtensionStatus', async () => {
+    return dbus?.status || false
+  })
+
+  ipcMain.on('synchronize-player-info', (event: IpcMainEvent, data: Partial<statusMap>) => {
+    if (lrc.sendToOSD) {
+      lrc.sendToOSD('update-osd-status', data)
+    }
+
+    tray.updateInfo(data)
+    mpris?.updateInfo(data)
+
+    if (dbus && data.lyric !== undefined) {
+      const lrc = {
+        content: data.lyric.lyric.text,
+        start: data.lyric.start,
+        time: data.lyric.end - data.lyric.start,
+        sender: 'VutronMusic'
+      }
+      dbus.iface?.UpdateLyric(JSON.stringify(lrc))
+    }
+  })
+
+  ipcMain.on('initTrayState', (event: IpcMainEvent, data: initMap) => {
+    tray.initTrayState(data)
+  })
+
+  ipcMain.on(
+    'updateTrayVisibility',
+    (
+      event: IpcMainEvent,
+      data: { lyric?: boolean; buttons?: boolean; icon?: boolean; width?: number }
+    ) => {
+      tray.setVisibility(data)
+    }
+  )
+
+  ipcMain.on('metadata', (event: IpcMainEvent, metadata: any) => {
+    mpris?.setMetadata(metadata)
+  })
 }

@@ -204,3 +204,43 @@ export type PlaylistSourceInfo = {
   sourceContext: Record<string, any>
   pluginSourceContexts?: Record<PluginId, Record<string, any>>
 }
+
+export type initMap = {
+  lyric: lyricLine
+  playing: boolean
+  rate: number
+  like: boolean
+  isFM: boolean
+  seek: number
+}
+
+export type statusMap = {
+  lyrics: lyricLine[]
+  lyric: lyricLine
+  playing: boolean
+  lyricOffset: [number, number] // 当前的歌词 offset，当前播放进度
+  line: [number, number] // 当前行，当前播放进度
+  rate: number
+  seek: number // 目前这一项的触发是在当单双行切换、翻译切换时更新播放进度
+  like: boolean
+  isFM: boolean
+  setSeek: number
+  tWByW: boolean
+  repeatMode: RepeatMode
+  shuffle: boolean
+  tooltip: string
+}
+
+export type settingMap = {
+  enableTrayMenu: boolean
+  lang: string
+  trayColor: number
+  showIcon: boolean
+  isWordByWord: boolean
+  playedColor: string
+  playedColorLight: string
+  enableGlobalShortcut: boolean
+  shortcuts: any[]
+  autoCacheTrack: boolean
+  proxy: { type: 0 | 1 | 2; address: string; port: number }
+}

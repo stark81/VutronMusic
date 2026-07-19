@@ -12,11 +12,14 @@ import type { NativeTrayItem, NativeTrayAddon } from '../types/native-tray'
 import store from './store'
 import path from 'path'
 import fs from 'fs'
+import { initMap, lyricLine, settingMap, statusMap } from '@/types/music'
 
 let playState = false
 let repeatMode = 'off'
 let shuffleMode = false
 let isOSDLock = (store.get('osdWin.isLock') as boolean) || false
+let _isFmMode = false
+let progress = 0
 
 const themeList = [
   { id: 0, fileName: 'vutronmusic-icon' },
@@ -210,31 +213,17 @@ export interface LyricData {
 }
 
 export interface YPMTray {
-  createTray: () => void
-  updateTray: (img: string, width: number, height: number) => void
-  updateTrayColor: () => void
-  updateLyric: (data: LyricData) => void
-  destroyTray: () => void
-  show: () => void
-  setContextMenu: () => void
-  setPlayState: (isPlaying: boolean, progress?: number) => void
-  setPlaybackRate: (rate: number) => void
-  setLikeState: (isLiked: boolean) => void
-  setRepeatMode: (repeat: 'on' | 'one' | 'off') => void
-  setShuffleMode: (isShuffle: boolean) => void
-  setShowOSD: (show: boolean) => void
-  setOSDLock: (lock: boolean) => void
   setVisibility: (opts: {
     lyric?: boolean
     buttons?: boolean
     icon?: boolean
     width?: number
   }) => void
-  setFMMode: (isFM: boolean) => void
-  updateTooltip: (title: string) => void
-  setWordByWord: (wBYw: boolean) => void
-  setPlayedColor: (hex: string) => void
-  setPlayedColorLight: (hex: string) => void
+
+  destroyTray: () => void
+  updateSetting: (data: Partial<settingMap>) => void
+  updateInfo: (data: Partial<statusMap>) => void
+  initTrayState: (data: initMap) => void
 }
 
 // ================ 原生插件加载 ================
@@ -270,7 +259,6 @@ class TrayImpl implements YPMTray {
   private _tray: Tray | null = null
   private _contextMenu: Menu | null = null
   private _nativeItem: NativeTrayItem | null = null
-  private _isFmMode = false
 
   constructor(win: BrowserWindow) {
     this._win = win
@@ -296,7 +284,7 @@ class TrayImpl implements YPMTray {
       if (addon) {
         this._nativeItem = addon.createTrayItem({})
         this._nativeItem.onButtonClick((index: number) => {
-          const channels = this._isFmMode
+          const channels = _isFmMode
             ? ['fm-trash', 'play', 'next', 'like']
             : ['previous', 'play', 'next', 'like']
           const channel = channels[index]
@@ -380,17 +368,74 @@ class TrayImpl implements YPMTray {
     }
   }
 
-  updateTray(img: string, width: number, height: number) {
-    if (this._nativeItem) return // 原生模式忽略 Canvas 图片
-    if (store.get('settings.showTray') === false) return
-    if (!this._tray) this.createTray()
-    const image = nativeImage.createFromDataURL(img).resize({ height, width })
-    image.setTemplateImage(true)
-    this._tray?.setImage(image)
+  updateInfo(data: Partial<statusMap>) {
+    if (data.lyric !== undefined) {
+      this.updateLyric(data.lyric)
+    }
+
+    if (data.like !== undefined) {
+      this.setLikeState(data.like)
+    }
+
+    if (data.playing !== undefined) {
+      progress = data.seek ?? progress
+      this.setPlayState(data.playing, progress)
+      playState = data.playing
+    }
+
+    if (data.seek !== undefined) {
+      progress = data.seek
+      this.setPlayState(playState, data.seek)
+    }
+
+    if (data.setSeek !== undefined) {
+      progress = data.setSeek
+      this.setPlayState(playState, data.setSeek)
+    }
+
+    if (data.isFM !== undefined) {
+      _isFmMode = data.isFM
+      this.setFMMode(data.isFM)
+    }
+
+    if (data.tWByW !== undefined) {
+      this.setWordByWord(data.tWByW)
+    }
+
+    if (data.tooltip !== undefined) {
+      this.updateTooltip(data.tooltip)
+    }
+
+    if (data.repeatMode !== undefined) {
+      this.setRepeatMode(data.repeatMode)
+    }
+
+    if (data.shuffle !== undefined) {
+      this.setShuffleMode(data.shuffle)
+    }
   }
 
-  updateLyric(data: LyricData) {
+  initTrayState(data: initMap) {
+    this.updateLyric(data.lyric)
+    this.setPlayState(!!data.playing, data.seek)
+    this.setPlaybackRate(data.rate)
+    this.setLikeState(!!data.like)
+    this.setFMMode(!!data.isFM)
+    this.updateTrayColor()
+  }
+
+  updateLyric(_data: lyricLine) {
     if (!this._nativeItem) return
+    const data = {
+      text: _data.lyric?.text || '',
+      words: _data.lyric?.info || [],
+      lineStart: _data.start * 1000,
+      lineEnd: _data.end * 1000,
+      hasWordTiming: !!_data.lyric?.info?.length,
+      lyricWidth: 0,
+      offset: 0
+    }
+
     this._nativeItem.setLyric(
       data.text,
       data.words,
@@ -402,7 +447,7 @@ class TrayImpl implements YPMTray {
     )
   }
 
-  updateTrayColor() {
+  private updateTrayColor() {
     const icon = getIconPath()
     if (this._nativeItem) {
       this._nativeItem.setIconImage(icon.toPNG())
@@ -412,11 +457,11 @@ class TrayImpl implements YPMTray {
     this._tray?.setImage(icon.resize({ height: 20, width: 20 }))
   }
 
-  show() {
-    this._win.show()
-  }
+  // show() {
+  //   this._win.show()
+  // }
 
-  setContextMenu() {
+  private setContextMenu() {
     if (this._nativeItem) return // 原生模式右键由插件触发
     const setMenu = Constants.IS_MAC ? (store.get('settings.enableTrayMenu') as boolean) : true
     if (setMenu) {
@@ -429,14 +474,14 @@ class TrayImpl implements YPMTray {
     }
   }
 
-  setShowOSD(show: boolean) {
+  private setShowOSD(show: boolean) {
     if (!this._contextMenu) return
     this._contextMenu.getMenuItemById('openOSD')!.visible = !show
     this._contextMenu.getMenuItemById('closeOSD')!.visible = show
     this._tray?.setContextMenu(this._contextMenu)
   }
 
-  setOSDLock(lock: boolean) {
+  private setOSDLock(lock: boolean) {
     isOSDLock = lock
     if (!this._contextMenu) return
     this._contextMenu.getMenuItemById('lockOSD')!.visible = !lock
@@ -444,7 +489,7 @@ class TrayImpl implements YPMTray {
     this._tray?.setContextMenu(this._contextMenu)
   }
 
-  setPlayState(isPlaying: boolean, progress?: number) {
+  private setPlayState(isPlaying: boolean, progress?: number) {
     playState = isPlaying || false
     if (this._nativeItem) this._nativeItem.setPlaying(isPlaying, progress || 0)
     if (!this._contextMenu) return
@@ -453,11 +498,11 @@ class TrayImpl implements YPMTray {
     this._tray?.setContextMenu(this._contextMenu)
   }
 
-  setPlaybackRate(rate: number) {
+  private setPlaybackRate(rate: number) {
     if (this._nativeItem) this._nativeItem.setPlaybackRate(rate)
   }
 
-  setLikeState(isLiked: boolean) {
+  private setLikeState(isLiked: boolean) {
     if (this._nativeItem) this._nativeItem.setLikeState(isLiked)
     if (!this._contextMenu) return
     this._contextMenu.getMenuItemById('like')!.visible = !isLiked
@@ -475,41 +520,72 @@ class TrayImpl implements YPMTray {
     if (opts.icon !== undefined) nativeOpts.icon = opts.icon
 
     this._nativeItem.setVisibility(nativeOpts)
+    setTimeout(this.setContextMenu)
   }
 
-  setFMMode(isFM: boolean) {
-    this._isFmMode = isFM
+  private setFMMode(isFM: boolean) {
+    _isFmMode = isFM
     if (this._nativeItem) this._nativeItem.setButtonType(0, isFM ? 4 : 0)
   }
 
-  setRepeatMode(mode: 'on' | 'one' | 'off') {
+  private setRepeatMode(mode: 'on' | 'one' | 'off') {
     repeatMode = mode
     if (!this._contextMenu) return
     this._contextMenu.getMenuItemById(repeatMode)!.checked = true
     this._tray?.setContextMenu(this._contextMenu)
   }
 
-  setShuffleMode(isShuffle: boolean) {
+  private setShuffleMode(isShuffle: boolean) {
     shuffleMode = isShuffle
     if (!this._contextMenu) return
     this._contextMenu.getMenuItemById('shuffle')!.checked = isShuffle
     this._tray?.setContextMenu(this._contextMenu)
   }
 
-  updateTooltip(title: string) {
+  private updateTooltip(title: string) {
     if (!Constants.IS_MAC) this._tray?.setToolTip(title)
   }
 
-  setWordByWord(wBYw: boolean) {
+  private setWordByWord(wBYw: boolean) {
     if (this._nativeItem) this._nativeItem.setWordByWord(wBYw)
   }
 
-  setPlayedColor(hex: string) {
+  private setPlayedColor(hex: string) {
     if (this._nativeItem) this._nativeItem.setPlayedColor(hex)
   }
 
-  setPlayedColorLight(hex: string) {
+  private setPlayedColorLight(hex: string) {
     if (this._nativeItem) this._nativeItem.setPlayedColorLight(hex)
+  }
+
+  updateSetting(data: Partial<settingMap>) {
+    if (data.enableTrayMenu !== undefined) {
+      this.setContextMenu()
+    }
+
+    if (data.lang !== undefined) {
+      this.setContextMenu()
+    }
+
+    if (data.trayColor !== undefined) {
+      this.updateTrayColor()
+    }
+
+    if (data.showIcon !== undefined) {
+      this.setVisibility({ icon: data.showIcon })
+    }
+
+    if (data.isWordByWord) {
+      this.setWordByWord(data.isWordByWord)
+    }
+
+    if (data.playedColor !== undefined) {
+      this.setPlayedColor(data.playedColor)
+    }
+
+    if (data.playedColorLight !== undefined) {
+      this.setPlayedColorLight(data.playedColorLight)
+    }
   }
 }
 

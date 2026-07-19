@@ -54,30 +54,24 @@ function loadNativeTouchBarAddon(): NativeTouchBarAddon | null {
   ]
 
   for (const p of paths) {
-    console.log('[TouchBar] 尝试加载:', p)
     try {
       if (fs.existsSync(p)) {
-        console.log('[TouchBar] 文件存在，开始 require')
         nativeAddon = require(p) as NativeTouchBarAddon
-        console.log('[TouchBar] ✅ 加载成功')
         return nativeAddon
       }
     } catch (err) {
       console.error('[TouchBar] ❌ require 失败:', err)
     }
   }
-  console.warn('[TouchBar] 所有路径均无法加载，回退到 Electron TouchBar')
   return null
 }
 
 export const createTouchBar = (win: BrowserWindow) => {
-  console.log('[TouchBar] createTouchBar 被调用了')
   // macOS → 尝试原生插件
   if (Constants.IS_MAC) {
     const addon = loadNativeTouchBarAddon()
     if (addon) {
       const nativeItem = addon.createTouchBarItem({})
-      console.log('[TouchBar] nativeItem 创建成功')
 
       // ── install() 时序安全封装 ──
       // TouchBar 原生插件必须通过 install(handle) 安装到窗口才能显示。
@@ -87,14 +81,11 @@ export const createTouchBar = (win: BrowserWindow) => {
       const tryInstall = () => {
         if (installCalled) return
         if (!win.isVisible()) {
-          console.log('[TouchBar] 窗口尚未 show，等待 show 事件')
           return
         }
         const handle = win.getNativeWindowHandle()
-        console.log('[TouchBar] window handle length:', handle.length)
         nativeItem.install(handle)
         installCalled = true
-        console.log('[TouchBar] install() 完成')
       }
 
       // 窗口 show 后立即尝试安装（兜底 initTouchBarState 先到的情况）
@@ -109,9 +100,6 @@ export const createTouchBar = (win: BrowserWindow) => {
             ? ['fm-trash', 'play', 'next', 'like']
             : ['previous', 'play', 'next', 'like']
           const channel = channels[index]
-          console.log(
-            `[TouchBar] button click: index=${index}, channel=${channel}, isFM=${isPersonalFM}`
-          )
           if (channel) {
             win.webContents.send(channel)
           }

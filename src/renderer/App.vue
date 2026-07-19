@@ -47,6 +47,8 @@ import router from './router'
 import eventBus from './utils/eventBus'
 import { usePlayerThemeStore } from './store/playerTheme'
 
+import('./utils/synchronize')
+
 const pluginMusicStore = usePluginMusic()
 const { services, enableLibrary, enableStream, enableLocal } = storeToRefs(pluginMusicStore)
 const {
@@ -206,7 +208,7 @@ const showPlayerBar = computed(() => {
   return ['mv', 'loginAccount'].includes(route.name as string) === false
 })
 
-const isMac = computed(() => window.env?.isMac)
+// const isMac = computed(() => window.env?.isMac)
 const isLinux = computed(() => window.env?.isLinux)
 
 const restorePosition = () => {
@@ -303,6 +305,11 @@ const handleChanelEvent = () => {
     showLyrics.value = false
     router.push(route)
   })
+  if (isLinux.value) {
+    window.mainApi?.invoke('askExtensionStatus').then((result: boolean) => {
+      extensionCheckResult.value = result
+    })
+  }
 }
 
 watchOsdEvent()
@@ -317,20 +324,6 @@ onMounted(() => {
   handleChanelEvent()
   hasCustomTitleBar.value =
     (window.env?.isLinux && general.value.useCustomTitlebar) || window.env?.isWindows || false
-  if (isMac.value) {
-    import('./utils/trayLyrics').then((module) => {
-      const buildTrays = module.buildTrays
-      buildTrays()
-
-      const buildTouchBars = module.buildTouchBars
-      buildTouchBars()
-    })
-  }
-  if (isLinux.value) {
-    window.mainApi?.invoke('askExtensionStatus').then((result: boolean) => {
-      extensionCheckResult.value = result
-    })
-  }
   document.documentElement.style.setProperty(
     '--color-primary',
     theme.value.colors.find((c) => c.selected)?.color || 'rgba(51, 94, 234, 1)'

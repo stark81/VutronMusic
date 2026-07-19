@@ -4,7 +4,7 @@ import { useSettingsStore } from '../store/settings'
 import { useDataStore } from '../store/data'
 import { useLyricStore } from '../store/lyric'
 import { Lyric, Control, Canvas } from './canvas'
-import { nextTick, watch } from 'vue'
+import { nextTick, ref, watch } from 'vue'
 import eventBus from './eventBus'
 // import { currentLyric, updateEnable } from './lyricUtils'
 
@@ -19,7 +19,7 @@ const trayIcon = new URL('../assets/tray/menu_white.png', import.meta.url).href
 
 const playerStore = usePlayerStore()
 const { playPrev, playNext, moveToFMTrash, playOrPause } = playerStore
-const { isPersonalFM, playing, currentTrack, isLiked, currentLyric, playbackRate, seek } =
+const { isPersonalFM, playing, currentTrack, isLiked, playbackRate, seek } =
   storeToRefs(playerStore)
 
 const settingsStore = useSettingsStore()
@@ -27,6 +27,8 @@ const { tray } = storeToRefs(settingsStore)
 
 const { likeATrack } = useDataStore()
 const lyricStore = useLyricStore()
+
+const currentLyric = ref({ content: '', time: 0, start: 0 })
 
 // 歌词数据类型（与 sendNativeLyricData 使用同一结构）
 interface LyricDataPayload {

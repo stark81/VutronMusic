@@ -1,4 +1,4 @@
-import { BrowserWindow } from 'electron'
+import type { BrowserWindow } from 'electron'
 import type { DBusClient } from '@httptoolkit/dbus-native'
 import type { DBusNativeImport } from './dbus'
 import log from './log'
@@ -35,13 +35,13 @@ class ServiceMonitor {
       .getInterface(this.interfaceName, this.objectPath, this.interfaceName)
       .then((iface) => {
         // 监听 NameOwnerChanged 信号
-        iface.on('NameOwnerChanged', (name: string, oldOwner: string, newOwner: string) => {
+        iface.on('NameOwnerChanged', (name: string, _: string, newOwner: string) => {
           if (name === this.serviceName) {
             const isRunning = newOwner !== ''
 
             // 如果提供了回调，调用回调函数
             if (isRunning) {
-              this.onOwnerName(newOwner)
+              this.onOwnerName()
             } else {
               this.onLostOwnerName()
             }
@@ -53,7 +53,7 @@ class ServiceMonitor {
           if (err) {
             this.onLostOwnerName()
           } else {
-            this.onOwnerName(owner)
+            this.onOwnerName()
           }
         })
       })
@@ -63,7 +63,7 @@ class ServiceMonitor {
       })
   }
 
-  private onOwnerName(owner: string) {
+  private onOwnerName() {
     const path = `/${this.serviceName.replace(/\./g, '/')}`
     this.sessionBus
       .getService(this.serviceName)
