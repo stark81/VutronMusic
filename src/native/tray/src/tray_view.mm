@@ -436,6 +436,7 @@ static const CGFloat kDefaultFontSize = 14;
   self.layer.masksToBounds = YES;
 
   _iconLayer = [CALayer layer];
+  _iconLayer.actions = @{@"contents": NSNull.null, @"hidden": NSNull.null};
   _iconLayer.contentsGravity = kCAGravityResizeAspect;
   [self.layer addSublayer:_iconLayer];
 
@@ -469,6 +470,9 @@ static const CGFloat kDefaultFontSize = 14;
 
 // MARK: - 布局
 - (void)layoutSubviews {
+  [CATransaction begin];
+  [CATransaction setDisableActions:YES];
+
   CGFloat x = 4;
 
   // 歌词（最左边）
@@ -517,6 +521,8 @@ static const CGFloat kDefaultFontSize = 14;
   _statusItem.button.needsLayout = YES;
   self.frame = NSMakeRect(0, 0, totalWidth, kViewHeight);
   [NSAnimationContext endGrouping];
+
+  [CATransaction commit];
 }
 
 - (NSSize)intrinsicContentSize {
@@ -531,6 +537,7 @@ static const CGFloat kDefaultFontSize = 14;
   NSColor* color = UnplayedColor(self);
   for (NSInteger i = 0; i < 4; i++) {
     CALayer* layer = [CALayer layer];
+    layer.actions = @{@"hidden": NSNull.null, @"contents": NSNull.null};
     layer.contentsScale = screenScale;
     layer.contentsGravity = kCAGravityCenter;
     // 优先使用 SF Symbols，回退到 SVG 渲染
@@ -544,6 +551,7 @@ static const CGFloat kDefaultFontSize = 14;
                     _buttonContainer[2], _buttonContainer[3]];
 
   CALayer* pause = [CALayer layer];
+  pause.actions = @{@"hidden": NSNull.null, @"contents": NSNull.null};
   pause.contentsScale = screenScale;
   pause.contentsGravity = kCAGravityCenter;
   NSImage* pauseImg = MakeSFButtonImage(@"pause", kIconSize, color);
@@ -805,6 +813,10 @@ static const CGFloat kDefaultFontSize = 14;
   _lastOffsetMs = offsetMs;
   _lastTotalTextWidth = totalTextWidth;
 
+  // 暂停时立即冻结动画，避免 setProgress: 等后续调用重新激活
+  if (!_isPlaying) {
+    [self setAnimationsPaused:YES];
+  }
 }
 
 // MARK: - 播放/暂停
