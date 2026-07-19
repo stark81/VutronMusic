@@ -805,20 +805,39 @@ static const CGFloat kDefaultFontSize = 14;
   _lastOffsetMs = offsetMs;
   _lastTotalTextWidth = totalTextWidth;
 
-  // 新歌词动画创建后，仅在暂停时冻结动画（播放时动画已通过 beginTime + speed 正确配置）
-  if (!_isPlaying) {
-    [self setAnimationsPaused:YES];
-  }
 }
 
 // MARK: - 播放/暂停
-- (void)setPlaying:(BOOL)playing progress:(double)progress {
+- (void)setPlaying:(BOOL)playing {
   if (_isPlaying == playing) return;
   _isPlaying = playing;
+
+  if (playing && _lastProgress > 0 && _lastText) {
+    // 恢复播放：用 _lastProgress 重建动画
+    double offsetMs = (_lastProgress * 1000 - _lastLineStartMs) + 50;
+    offsetMs = MAX(0, offsetMs);
+    [self updateLyricWithText:_lastText
+                        words:_lastWords
+                  lineStartMs:_lastLineStartMs
+                    lineEndMs:_lastLineEndMs
+               hasWordTiming:_lastHasTiming
+                  lyricWidth:_lastLyricWidth
+                     offset:offsetMs];
+  } else if (!playing) {
+    [self setAnimationsPaused:YES];
+  } else {
+    // playing=YES 但 progress=0 或无歌词 → 仅恢复动画
+    [self setAnimationsPaused:NO];
+  }
+  _buttonContainer[1].hidden = playing;  // 播放时隐藏 play
+  _pauseLayer.hidden = !playing;         // 播放时显示 pause
+}
+
+// MARK: - 播放进度
+- (void)setProgress:(double)progress {
   _lastProgress = progress;
 
-  if (playing && progress > 0 && _lastText) {
-    // 恢复时用 progress 重建动画，避免 CAAnimation 暂停机制的偏移
+  if (progress > 0 && _lastText) {
     double offsetMs = (progress * 1000 - _lastLineStartMs) + 50;
     offsetMs = MAX(0, offsetMs);
     [self updateLyricWithText:_lastText
@@ -828,12 +847,7 @@ static const CGFloat kDefaultFontSize = 14;
                hasWordTiming:_lastHasTiming
                   lyricWidth:_lastLyricWidth
                      offset:offsetMs];
-    // updateLyricWithText 内部已重置各层 speed（_clipLayer 不再被冻结）
-  } else {
-    [self setAnimationsPaused:!playing];
   }
-  _buttonContainer[1].hidden = playing;  // 播放时隐藏 play
-  _pauseLayer.hidden = !playing;         // 播放时显示 pause
 }
 
 - (void)setAnimationsPaused:(BOOL)paused {
@@ -1143,6 +1157,14 @@ static const CGFloat kDefaultFontSize = 14;
 - (void)showContextMenu:(NSMenu*)menu {
   [NSMenu popUpContextMenu:menu withEvent:self.lastClickEvent forView:self];
   self.lastClickEvent = nil;
+}
+
+- (void)cleanup {
+  // 移出状态栏（AppKit 会自动清理关联的菜单）
+  if (_statusItem) {
+    [[NSStatusBar systemStatusBar] removeStatusItem:_statusItem];
+    _statusItem = nil;
+  }
 }
 
 - (void)mouseDown:(NSEvent*)event {

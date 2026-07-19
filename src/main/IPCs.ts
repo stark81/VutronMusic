@@ -93,6 +93,7 @@ export default class IPCs {
 
     app.on('before-quit', (event) => {
       event.preventDefault()
+      tray.destroyTray()
       win.hide()
       coverWorker.postMessage({ type: 'finished' })
     })

@@ -54,7 +54,8 @@
                hasWordTiming:(BOOL)hasTiming
                   lyricWidth:(CGFloat)width
                      offset:(double)offsetMs;
-- (void)setPlaying:(BOOL)playing progress:(double)progress;
+- (void)setPlaying:(BOOL)playing;
+- (void)setProgress:(double)progress;
 - (void)setPlaybackRate:(double)rate;
 - (void)setLikeState:(BOOL)liked;
 - (void)setWidth:(CGFloat)width;
@@ -71,6 +72,8 @@
 
 - (void)storeClickPosition:(NSEvent*)event;
 - (void)showContextMenu:(NSMenu*)menu;
+/// 清理：取消菜单跟踪、移除状态栏项
+- (void)cleanup;
 
 @property (nonatomic, retain) NSEvent* lastClickEvent;
 @property (nonatomic) NSPoint lastClickScreenPoint;

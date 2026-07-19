@@ -25,7 +25,8 @@ export interface NativeTrayItem {
     offset?: number
   ): void
 
-  setPlaying(playing: boolean, progress?: number): void
+  setPlaying(playing: boolean): void
+  setProgress(progress: number): void
   setPlaybackRate(rate: number): void
   setLikeState(liked: boolean): void
   setWidth(width: number): void

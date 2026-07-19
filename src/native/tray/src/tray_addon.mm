@@ -30,6 +30,7 @@ class TrayItem : public Napi::ObjectWrap<TrayItem> {
 
   Napi::Value SetLyric(const Napi::CallbackInfo& info);
   Napi::Value SetPlaying(const Napi::CallbackInfo& info);
+  Napi::Value SetProgress(const Napi::CallbackInfo& info);
   Napi::Value SetPlaybackRate(const Napi::CallbackInfo& info);
   Napi::Value SetLikeState(const Napi::CallbackInfo& info);
   Napi::Value SetWidth(const Napi::CallbackInfo& info);
@@ -104,6 +105,7 @@ void TrayItem::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "TrayItem", {
     InstanceMethod("setLyric", &TrayItem::SetLyric),
     InstanceMethod("setPlaying", &TrayItem::SetPlaying),
+    InstanceMethod("setProgress", &TrayItem::SetProgress),
     InstanceMethod("setPlaybackRate", &TrayItem::SetPlaybackRate),
     InstanceMethod("setLikeState", &TrayItem::SetLikeState),
     InstanceMethod("setWidth", &TrayItem::SetWidth),
@@ -202,8 +204,12 @@ Napi::Value TrayItem::SetLyric(const Napi::CallbackInfo& info) {
 }
 
 Napi::Value TrayItem::SetPlaying(const Napi::CallbackInfo& info) {
-  [view_ setPlaying:info[0].As<Napi::Boolean>().Value()
-           progress:info.Length() > 1 ? info[1].As<Napi::Number>().DoubleValue() : 0];
+  [view_ setPlaying:info[0].As<Napi::Boolean>().Value()];
+  return info.Env().Undefined();
+}
+
+Napi::Value TrayItem::SetProgress(const Napi::CallbackInfo& info) {
+  [view_ setProgress:info[0].As<Napi::Number>().DoubleValue()];
   return info.Env().Undefined();
 }
 
@@ -417,6 +423,7 @@ Napi::Value TrayItem::PopupNativeMenu(const Napi::CallbackInfo& info) {
 
 Napi::Value TrayItem::Destroy(const Napi::CallbackInfo& info) {
   if (view_) {
+    [view_ cleanup];
     [view_ removeFromSuperview];
     view_ = nil;
   }

@@ -19,7 +19,6 @@ let repeatMode = 'off'
 let shuffleMode = false
 let isOSDLock = (store.get('osdWin.isLock') as boolean) || false
 let _isFmMode = false
-let progress = 0
 
 const themeList = [
   { id: 0, fileName: 'vutronmusic-icon' },
@@ -378,19 +377,21 @@ class TrayImpl implements YPMTray {
     }
 
     if (data.playing !== undefined) {
-      progress = data.seek ?? progress
-      this.setPlayState(data.playing, progress)
+      this.setPlayState(data.playing)
       playState = data.playing
     }
 
     if (data.seek !== undefined) {
-      progress = data.seek
-      this.setPlayState(playState, data.seek)
+      this.setProgress(data.seek)
+    }
+
+    if (data.line !== undefined) {
+      // line 格式: [lineIndex, seekTime] — OSD 通过此字段持续更新进度
+      this.setProgress(data.line[1])
     }
 
     if (data.setSeek !== undefined) {
-      progress = data.setSeek
-      this.setPlayState(playState, data.setSeek)
+      this.setProgress(data.setSeek)
     }
 
     if (data.isFM !== undefined) {
@@ -417,7 +418,8 @@ class TrayImpl implements YPMTray {
 
   initTrayState(data: initMap) {
     this.updateLyric(data.lyric)
-    this.setPlayState(!!data.playing, data.seek)
+    this.setPlayState(!!data.playing)
+    if (data.seek) this.setProgress(data.seek)
     this.setPlaybackRate(data.rate)
     this.setLikeState(!!data.like)
     this.setFMMode(!!data.isFM)
@@ -489,13 +491,17 @@ class TrayImpl implements YPMTray {
     this._tray?.setContextMenu(this._contextMenu)
   }
 
-  private setPlayState(isPlaying: boolean, progress?: number) {
+  private setPlayState(isPlaying: boolean) {
     playState = isPlaying || false
-    if (this._nativeItem) this._nativeItem.setPlaying(isPlaying, progress || 0)
+    if (this._nativeItem) this._nativeItem.setPlaying(isPlaying)
     if (!this._contextMenu) return
     this._contextMenu.getMenuItemById('play')!.visible = !isPlaying
     this._contextMenu.getMenuItemById('pause')!.visible = isPlaying
     this._tray?.setContextMenu(this._contextMenu)
+  }
+
+  private setProgress(seek: number) {
+    if (this._nativeItem) this._nativeItem.setProgress(seek)
   }
 
   private setPlaybackRate(rate: number) {
