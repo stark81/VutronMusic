@@ -1,6 +1,7 @@
-import { BrowserWindow, nativeImage, TouchBar, ipcMain } from 'electron'
+import { BrowserWindow, nativeImage, TouchBar } from 'electron'
 import Constants from './utils/Constants'
-import type { NativeTouchBarAddon } from '../types/native-touchbar' // NativeTouchBarItem
+import type { NativeTouchBarAddon } from '../types/native-touchbar'
+import type { settingMap, statusMap, initMap, lyricLine } from '@/types/music'
 import store from './store'
 import path from 'path'
 import fs from 'fs'
@@ -11,25 +12,7 @@ interface LyricWord {
   end: number
 }
 
-interface LyricDataParams {
-  text: string
-  words: LyricWord[]
-  lineStart: number
-  lineEnd: number
-  hasWordTiming: boolean
-  lyricWidth?: number
-  offset?: number
-}
-
-interface InitTouchBarState {
-  lyric: LyricDataParams
-  playing: boolean
-  rate: number
-  like: boolean
-  isFM: boolean
-}
-
-const { TouchBarButton, TouchBarSpacer } = TouchBar
+const iconSize = 22
 
 const createNativeImage = (name: string) => {
   return nativeImage.createFromPath(
@@ -66,35 +49,49 @@ function loadNativeTouchBarAddon(): NativeTouchBarAddon | null {
   return null
 }
 
-export const createTouchBar = (win: BrowserWindow) => {
-  // macOS → 尝试原生插件
-  if (Constants.IS_MAC) {
-    const addon = loadNativeTouchBarAddon()
-    if (addon) {
-      const nativeItem = addon.createTouchBarItem({})
+export interface YPMTouchBar {
+  updateInfo(data: Partial<statusMap>): void
+  initTrayState(data: initMap): void
+  updateSetting(data: Partial<settingMap>): void
+  destroy(): void
+}
 
-      // ── install() 时序安全封装 ──
-      // TouchBar 原生插件必须通过 install(handle) 安装到窗口才能显示。
-      // 如果在窗口 show 之前调用 install()，[view window] 或 [NSApp keyWindow]
-      // 可能返回 nil，导致安装静默失败。这里延迟到窗口可见后才执行 install。
-      let installCalled = false
-      const tryInstall = () => {
-        if (installCalled) return
-        if (!win.isVisible()) {
-          return
+class TouchBarImpl implements YPMTouchBar {
+  private _win: BrowserWindow
+  private _nativeItem: ReturnType<NativeTouchBarAddon['createTouchBarItem']> | null = null
+  private _installCalled = false
+  private _lastLyric: lyricLine | null = null
+
+  // Electron 回退路径
+  private _touchBar: InstanceType<typeof TouchBar> | null = null
+  private _playBtn!: InstanceType<typeof TouchBar.TouchBarButton>
+  private _prevBtn!: InstanceType<typeof TouchBar.TouchBarButton>
+  private _nextBtn!: InstanceType<typeof TouchBar.TouchBarButton>
+  private _likeBtn!: InstanceType<typeof TouchBar.TouchBarButton>
+  private _lyricBtn!: InstanceType<typeof TouchBar.TouchBarButton>
+  private _fmBtn!: InstanceType<typeof TouchBar.TouchBarButton>
+
+  constructor(win: BrowserWindow) {
+    this._win = win
+
+    // macOS → 尝试原生插件
+    if (Constants.IS_MAC) {
+      const addon = loadNativeTouchBarAddon()
+      if (addon) {
+        this._nativeItem = addon.createTouchBarItem({})
+
+        // 延迟安装（窗口 show 后执行）
+        const tryInstall = () => {
+          if (this._installCalled) return
+          if (!win.isVisible()) return
+          const handle = win.getNativeWindowHandle()
+          this._nativeItem!.install(handle)
+          this._installCalled = true
         }
-        const handle = win.getNativeWindowHandle()
-        nativeItem.install(handle)
-        installCalled = true
-      }
+        win.once('show', tryInstall)
 
-      // 窗口 show 后立即尝试安装（兜底 initTouchBarState 先到的情况）
-      win.once('show', tryInstall)
-
-      // 按钮点击 → Electron webContents.send
-      nativeItem.onButtonClick((index: number) => {
-        try {
-          // 0: prev/FM-trash, 1: play/pause, 2: next, 3: like
+        // 按钮点击
+        this._nativeItem.onButtonClick((index: number) => {
           const isPersonalFM = store.get('settings.isPersonalFM') as boolean
           const channels = isPersonalFM
             ? ['fm-trash', 'play', 'next', 'like']
@@ -103,152 +100,193 @@ export const createTouchBar = (win: BrowserWindow) => {
           if (channel) {
             win.webContents.send(channel)
           }
-        } catch (err) {
-          console.error('[TouchBar] onButtonClick error:', err)
-        }
-      })
-
-      // IPC: 歌词数据
-      ipcMain.on('updateTouchBarLyricData', (_event, data: LyricDataParams) => {
-        nativeItem.setLyric(
-          data.text,
-          data.words,
-          data.lineStart,
-          data.lineEnd,
-          data.hasWordTiming,
-          data.lyricWidth ?? 0,
-          data.offset ?? 0
-        )
-      })
-
-      // IPC: 播放状态（复用 updatePlayerState，与 tray 共享）
-      ipcMain.on('updatePlayerState', (_event, data: any) => {
-        if ('playing' in data) {
-          nativeItem.setPlaying(data.playing, typeof data.progress === 'number' ? data.progress : 0)
-        }
-        if ('rate' in data) {
-          nativeItem.setPlaybackRate(data.rate)
-        }
-        if ('like' in data) {
-          nativeItem.setLikeState(!!data.like)
-        }
-      })
-
-      // IPC: 初始化全量状态
-      ipcMain.on('initTouchBarState', (_event, data: InitTouchBarState) => {
-        nativeItem.setLyric(
-          data.lyric.text,
-          data.lyric.words,
-          data.lyric.lineStart,
-          data.lyric.lineEnd,
-          data.lyric.hasWordTiming,
-          data.lyric.lyricWidth ?? 0,
-          data.lyric.offset ?? 0
-        )
-        nativeItem.setPlaying(data.playing)
-        nativeItem.setPlaybackRate(data.rate)
-        nativeItem.setLikeState(!!data.like)
-        nativeItem.setFMMode(!!data.isFM)
-
-        // 尝试安装 TouchBar（窗口可能已 show，也可能需要等待 show 事件）
-        tryInstall()
-      })
-
-      // IPC: FM 模式切换
-      ipcMain.on('setTrayFMMode', (_event, isFM: boolean) => {
-        nativeItem.setFMMode(isFM)
-      })
-
-      // IPC: 设置变化（逐字高亮、颜色等）
-      ipcMain.on('setStoreSettings', (_event, data: any) => {
-        if ('isWordByWord' in data) {
-          nativeItem.setWordByWord(data.isWordByWord)
-        }
-        if ('playedColor' in data) {
-          nativeItem.setPlayedColor(data.playedColor)
-        }
-        if ('playedColorLight' in data) {
-          nativeItem.setPlayedColorLight(data.playedColorLight)
-        }
-      })
-
-      return // 原生模式成功，跳过 Electron TouchBar
+        })
+        return // 原生模式成功
+      }
     }
-    // 回退：使用 Electron TouchBar
+
+    // ================ Electron TouchBar 回退 ================
+    const { TouchBarButton, TouchBarSpacer } = TouchBar
+    this._playBtn = new TouchBarButton({
+      icon: createNativeImage('play.png'),
+      click: () => win.webContents.send('play')
+    })
+    this._fmBtn = new TouchBarButton({
+      icon: createNativeImage('thumbs_down.png'),
+      click: () => win.webContents.send('fm-trash')
+    })
+    this._prevBtn = new TouchBarButton({
+      icon: createNativeImage('backward.png'),
+      click: () => win.webContents.send('previous')
+    })
+    this._nextBtn = new TouchBarButton({
+      icon: createNativeImage('forward.png'),
+      click: () => win.webContents.send('next')
+    })
+    this._likeBtn = new TouchBarButton({
+      icon: createNativeImage('like.png'),
+      click: () => win.webContents.send('like')
+    })
+    this._lyricBtn = new TouchBarButton({ icon: nativeImage.createEmpty() })
+
+    const touchBar = new TouchBar({
+      items: [
+        this._prevBtn,
+        this._playBtn,
+        this._nextBtn,
+        this._likeBtn,
+        new TouchBarSpacer({ size: 'flexible' }),
+        this._lyricBtn
+      ]
+    })
+    this._touchBar = touchBar
+    win.setTouchBar(touchBar)
   }
 
-  // ================ Electron TouchBar（回退方案） ================
-  const playButton = new TouchBarButton({
-    icon: createNativeImage('play.png'),
-    click: () => {
-      win.webContents.send('play')
-    }
-  })
-  const fmTrashButton = new TouchBarButton({
-    icon: createNativeImage('thumbs_down.png'),
-    click: () => {
-      win.webContents.send('fm-trash')
-    }
-  })
-  const previousTrackButton = new TouchBarButton({
-    icon: createNativeImage('backward.png'),
-    click: () => {
-      win.webContents.send('previous')
-    }
-  })
-  const nextTrackButton = new TouchBarButton({
-    icon: createNativeImage('forward.png'),
-    click: () => {
-      win.webContents.send('next')
-    }
-  })
-  const likeButton = new TouchBarButton({
-    icon: createNativeImage('like.png'),
-    click: () => {
-      win.webContents.send('like')
-    }
-  })
+  // ================ 对外接口 ================
 
-  const showLyric = new TouchBarButton({ icon: nativeImage.createEmpty() })
+  initTrayState(data: initMap): void {
+    if (this._nativeItem) {
+      this.updateLyricNative(data.lyric, data.seek)
+      this._nativeItem.setPlaying(!!data.playing, data.seek || 0)
+      this._nativeItem.setPlaybackRate(data.rate)
+      this._nativeItem.setLikeState(!!data.like)
+      this._nativeItem.setFMMode(!!data.isFM)
 
-  const updateLyric = (img: string, width: number, height: number) => {
-    const image = nativeImage.createFromDataURL(img).resize({ width, height })
-    image.setTemplateImage(true)
-    showLyric.icon = image
+      // 尝试安装 TouchBar
+      if (!this._installCalled && this._win.isVisible()) {
+        const handle = this._win.getNativeWindowHandle()
+        this._nativeItem.install(handle)
+        this._installCalled = true
+      }
+    } else if (this._touchBar) {
+      this.updateTouchBarElectron({
+        playing: !!data.playing,
+        like: !!data.like,
+        isFM: !!data.isFM
+      })
+    }
   }
 
-  ipcMain.on('updateTouchBarLyric', (_event, { img, width, height }) => {
-    updateLyric(img, width, height)
-  })
-  ipcMain.on('updatePlayerState', (_event, data) => {
+  updateInfo(data: Partial<statusMap>): void {
+    if (this._nativeItem) {
+      if (data.playing !== undefined) {
+        this._nativeItem.setPlaying(data.playing, typeof data.seek === 'number' ? data.seek : 0)
+      }
+      if (data.like !== undefined) {
+        this._nativeItem.setLikeState(data.like)
+      }
+      if (data.isFM !== undefined) {
+        this._nativeItem.setFMMode(data.isFM)
+      }
+      if (data.lyric !== undefined) {
+        this.updateLyricNative(data.lyric, data.seek)
+      }
+      if (data.line !== undefined) {
+        // line: [lineIndex, seekTime]
+        this.updateSeek(data.line[1])
+      }
+      if (data.setSeek !== undefined) {
+        this.updateSeek(data.setSeek)
+      }
+      if (data.tWByW !== undefined) {
+        this._nativeItem.setWordByWord(data.tWByW)
+      }
+      if (data.rate !== undefined) {
+        this._nativeItem.setPlaybackRate(data.rate)
+      }
+    } else if (this._touchBar) {
+      this.updateTouchBarElectron(data)
+    }
+  }
+
+  updateSetting(data: Partial<settingMap>): void {
+    if (!this._nativeItem) return
+    if (data.isWordByWord !== undefined) {
+      this._nativeItem.setWordByWord(data.isWordByWord)
+    }
+    if (data.playedColor !== undefined) {
+      this._nativeItem.setPlayedColor(data.playedColor)
+    }
+    if (data.playedColorLight !== undefined) {
+      this._nativeItem.setPlayedColorLight(data.playedColorLight)
+    }
+  }
+
+  destroy(): void {
+    if (this._nativeItem) {
+      this._nativeItem.destroy()
+      this._nativeItem = null
+    }
+    if (this._touchBar) {
+      this._win.setTouchBar(null)
+      this._touchBar = null
+    }
+  }
+
+  // ================ 内部方法 ================
+
+  private updateLyricNative(_data: lyricLine, seekOverride?: number): void {
+    if (!this._nativeItem) return
+    this._lastLyric = _data
+    let offset = 0
+    if (seekOverride !== undefined) {
+      offset = Math.max(0, (seekOverride * 1000 - _data.start * 1000) + 50)
+    }
+    this._nativeItem.setLyric(
+      _data.lyric?.text || '',
+      _data.lyric?.info || [],
+      _data.start * 1000,
+      _data.end * 1000,
+      !!_data.lyric?.info?.length,
+      0,
+      offset
+    )
+  }
+
+  private updateSeek(seek: number): void {
+    if (!this._nativeItem || !this._lastLyric) return
+    const offset = Math.max(0, (seek * 1000 - this._lastLyric.start * 1000) + 50)
+    this._nativeItem.setLyric(
+      this._lastLyric.lyric?.text || '',
+      this._lastLyric.lyric?.info || [],
+      this._lastLyric.start * 1000,
+      this._lastLyric.end * 1000,
+      !!this._lastLyric.lyric?.info?.length,
+      0,
+      offset
+    )
+  }
+
+  private updateTouchBarElectron(data: Partial<statusMap>): void {
+    let changed = false
     if ('playing' in data) {
-      playButton.icon = data.playing
+      this._playBtn.icon = data.playing
         ? createNativeImage('pause.png')
         : createNativeImage('play.png')
+      changed = true
     }
     if ('like' in data) {
-      likeButton.icon = data.like
+      this._likeBtn.icon = data.like
         ? createNativeImage('like_fill.png')
         : createNativeImage('like.png')
+      changed = true
     }
-    if ('isPersonalFM' in data) {
-      options.items[0] = data.isPersonalFM ? fmTrashButton : previousTrackButton
+    if ('isFM' in data && this._touchBar) {
+      // FM 模式切换第一个按钮
+      const items = [...this._touchBar.items]
+      items[0] = data.isFM ? this._fmBtn : this._prevBtn
+      const touchBar = new TouchBar({ items })
+      this._touchBar = touchBar
+      this._win.setTouchBar(touchBar)
+      changed = false // already rebuilt
     }
-    const touchBar = new TouchBar(options)
-    if (touchBar) win.setTouchBar(touchBar)
-  })
-
-  const options = {
-    items: [
-      previousTrackButton,
-      playButton,
-      nextTrackButton,
-      likeButton,
-      new TouchBarSpacer({ size: 'flexible' }),
-      showLyric
-    ]
+    if (changed && this._touchBar) {
+      this._win.setTouchBar(this._touchBar)
+    }
   }
+}
 
-  const touchBar = new TouchBar(options)
-  if (touchBar) win.setTouchBar(touchBar)
+export const createTouchBar = (win: BrowserWindow): YPMTouchBar => {
+  return new TouchBarImpl(win)
 }

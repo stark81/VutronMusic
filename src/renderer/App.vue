@@ -215,22 +215,6 @@ const restorePosition = () => {
   scrollBarRef.value.restorePosition()
 }
 
-const watchOsdEvent = () => {
-  watch(
-    show,
-    (value) => {
-      window.mainApi?.send('updateOsdState', { show: value })
-    },
-    { immediate: true }
-  )
-  watch(type, (value) => {
-    window.mainApi?.send('updateOsdState', { type: value })
-  })
-  watch(isLock, (value) => {
-    window.mainApi?.send('updateOsdState', { isLock: value })
-  })
-}
-
 const mainRef = ref()
 const navBarRef = ref()
 
@@ -312,7 +296,6 @@ const handleChanelEvent = () => {
   }
 }
 
-watchOsdEvent()
 getPlugins().then(async () => {
   pluginMusicStore.syncPluginEnable()
   fetchData()

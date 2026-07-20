@@ -12,6 +12,7 @@ import fs from 'fs'
 import Constants from './utils/Constants'
 import store from './store'
 import { createTray, YPMTray } from './tray'
+import { createTouchBar, YPMTouchBar } from './touchBar'
 import { createMenu } from './menu'
 import { MprisImpl } from './mpris'
 import fastify, { FastifyInstance } from 'fastify'
@@ -86,6 +87,7 @@ class BackGround {
   osdMode: string = 'small'
   lyricWin: BrowserWindow | null = null
   tray: YPMTray | null = null
+  touchBar: YPMTouchBar | null = null
   menu: Menu | null = null
   mpris: MprisImpl | null = null
   fastifyApp: FastifyInstance | null = null
@@ -692,7 +694,11 @@ class BackGround {
           this.setOsdBounds(bounds),
         sendToOSD: (channel: string, data: any) => this.sendToOSD(channel, data)
       }
-      IPCs.initialize(this.win!, this.tray, this.mpris!, lrc)
+
+      if (Constants.IS_MAC) {
+        this.touchBar = createTouchBar(this.win!)
+      }
+      IPCs.initialize(this.win!, this.tray, this.touchBar, this.mpris!, lrc)
 
       const proxy = (store.get('settings.proxy') || { type: 0, address: '', port: '' }) as {
         type: 0 | 1 | 2
@@ -712,9 +718,6 @@ class BackGround {
       if (Constants.IS_MAC) {
         const createDockMenu = (await import('./dock')).createDockMenu
         createDockMenu(this.win!)
-
-        const createTouchBar = (await import('./touchBar')).createTouchBar
-        createTouchBar(this.win!)
       }
     })
 
@@ -737,6 +740,7 @@ class BackGround {
     app.on('before-quit', () => {
       this.willQuitApp = true
       this.tray?.destroyTray()
+      this.touchBar?.destroy()
     })
 
     app.on('quit', () => {

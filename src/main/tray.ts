@@ -12,7 +12,7 @@ import type { NativeTrayItem, NativeTrayAddon } from '../types/native-tray'
 import store from './store'
 import path from 'path'
 import fs from 'fs'
-import { initMap, lyricLine, settingMap, statusMap } from '@/types/music'
+import { initMap, lyricLine, osdMap, settingMap, statusMap } from '@/types/music'
 
 let playState = false
 let repeatMode = 'off'
@@ -223,6 +223,7 @@ export interface YPMTray {
   updateSetting: (data: Partial<settingMap>) => void
   updateInfo: (data: Partial<statusMap>) => void
   initTrayState: (data: initMap) => void
+  updateOsdStatus: (data: Partial<osdMap>) => void
 }
 
 // ================ 原生插件加载 ================
@@ -449,6 +450,15 @@ class TrayImpl implements YPMTray {
     )
   }
 
+  updateOsdStatus(data: Partial<osdMap>) {
+    if (data.show !== undefined) {
+      this.setShowOSD(data.show)
+    }
+    if (data.isLock !== undefined) {
+      this.setOSDLock(data.isLock)
+    }
+  }
+
   private updateTrayColor() {
     const icon = getIconPath()
     if (this._nativeItem) {
@@ -458,10 +468,6 @@ class TrayImpl implements YPMTray {
     if (!this._tray || Constants.IS_MAC) return
     this._tray?.setImage(icon.resize({ height: 20, width: 20 }))
   }
-
-  // show() {
-  //   this._win.show()
-  // }
 
   private setContextMenu() {
     if (this._nativeItem) return // 原生模式右键由插件触发

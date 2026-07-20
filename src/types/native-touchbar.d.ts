@@ -4,6 +4,15 @@
  * 仅在 macOS 上可用。
  */
 
+import type { settingMap, statusMap, initMap } from './music'
+
+export interface YPMTouchBar {
+  updateInfo(data: Partial<statusMap>): void
+  initTrayState(data: initMap): void
+  updateSetting(data: Partial<settingMap>): void
+  destroy(): void
+}
+
 export interface NativeTouchBarItem {
   /** 设置歌词数据（含逐字时间戳） */
   setLyric(

@@ -141,6 +141,7 @@ static NSColor* DefaultButtonColor(void) {
   [self.layer addSublayer:_bgLayer];
 
   _iconLayer = [CAShapeLayer layer];
+  _iconLayer.actions = @{@"hidden": NSNull.null, @"contents": NSNull.null};
   _iconLayer.fillColor = DefaultButtonColor().CGColor;
   _iconLayer.strokeColor = nil;
   _iconLayer.frame = self.bounds;
@@ -149,6 +150,7 @@ static NSColor* DefaultButtonColor(void) {
 
   if (type == ButtonTypePlay) {
     _pauseLayer = [CAShapeLayer layer];
+    _pauseLayer.actions = @{@"hidden": NSNull.null, @"contents": NSNull.null};
     _pauseLayer.fillColor = DefaultButtonColor().CGColor;
     _pauseLayer.strokeColor = nil;
     _pauseLayer.frame = self.bounds;
@@ -207,6 +209,8 @@ static NSColor* DefaultButtonColor(void) {
 
 - (void)layout {
   [super layout];
+  [CATransaction begin];
+  [CATransaction setDisableActions:YES];
   _bgLayer.frame = self.bounds;
   _iconLayer.frame = self.bounds;
   _pauseLayer.frame = self.bounds;
@@ -214,6 +218,7 @@ static NSColor* DefaultButtonColor(void) {
   if (_pauseLayer) {
     _pauseLayer.path = MakePausePath(self.bounds.size.width, self.bounds.size.height);
   }
+  [CATransaction commit];
 }
 
 // TouchBar 上的点击处理
@@ -501,11 +506,16 @@ static NSColor* DefaultButtonColor(void) {
 
   [CATransaction flush];
 
-  // 保存数据供恢复（不在这里暂停动画，由 setPlaying: 统一控制）
+  // 保存数据供恢复
   _lastText = text;
   _lastWords = words;
   _lastHasTiming = hasTiming;
   _lastLyricWidth = width;
+
+  // 暂停时立即冻结动画，避免后续调用（如 setPlaying:progress:）重新激活
+  if (!_isPlaying) {
+    [self setAnimationsPaused:YES];
+  }
 }
 
 - (void)setAnimationsPaused:(BOOL)paused {
@@ -693,10 +703,10 @@ static NSString* const kButtonItemBaseIdentifier = @"com.vutron.touchbar.button"
     @"com.vutron.touchbar.button.1",
     @"com.vutron.touchbar.button.2",
     @"com.vutron.touchbar.button.3",
-    NSTouchBarItemIdentifierFixedSpaceSmall,
-    kLyricItemIdentifier
+    NSTouchBarItemIdentifierFlexibleSpace,
+    kLyricItemIdentifier,
+    NSTouchBarItemIdentifierFlexibleSpace
   ];
-  _touchBar.principalItemIdentifier = kLyricItemIdentifier;
 }
 
 // === 补全这个方法：创建系统原生按钮 ===

@@ -1,6 +1,7 @@
 import { app, ipcMain, IpcMainEvent, BrowserWindow } from 'electron'
 import type { OpenDialogOptions } from 'electron'
 import { YPMTray } from './tray'
+import { YPMTouchBar } from './touchBar'
 import { MprisImpl } from './mpris'
 import { checkUpdate, downloadUpdate } from './checkUpdate'
 import Constants from './utils/Constants'
@@ -52,7 +53,7 @@ import type { Track as NewTrack, PluginId } from '@/types/plugin'
 import { requestUserAuth, scrobbleTrack, updateNowPlaying } from './utils/lastfm'
 import { pluginManager } from './pluginManager'
 import { PluginInstance } from './utils/pluginManager'
-import { initMap, settingMap, statusMap } from '@/types/music'
+import { initMap, osdMap, settingMap, statusMap } from '@/types/music'
 
 let isLock = store.get('osdWin.isLock') as boolean
 let blockerId: number | null = null
@@ -74,17 +75,18 @@ export default class IPCs {
   static initialize(
     win: BrowserWindow,
     tray: YPMTray,
+    touchBar: YPMTouchBar | null,
     mpris: MprisImpl,
     lrc: Record<string, Function>
   ): void {
     initWindowIpcMain(win)
     initOSDWindowIpcMain(win, lrc)
-    initTrayIpcMain(win, tray)
+    initTrayIpcMain(win, tray, touchBar)
     // initTaskbarIpcMain()
     // initMprisIpcMain(win, mpris)
     initOtherIpcMain(win)
     initPluginIpcMain()
-    initSynchronizeIpcMain(win, lrc, tray, mpris)
+    initSynchronizeIpcMain(win, lrc, tray, touchBar, mpris)
 
     coverWorker = createWorker('writeCover')
     coverWorker.on('message', (msg) => {
@@ -157,7 +159,7 @@ function initWindowIpcMain(win: BrowserWindow | null): void {
   })
 }
 
-function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
+function initTrayIpcMain(win: BrowserWindow, tray: YPMTray, touchBar: YPMTouchBar | null): void {
   ipcMain.on('setStoreSettings', async (event: IpcMainEvent, data: Partial<settingMap>) => {
     Object.entries(data).forEach(([key, value]) => {
       store.set(`settings.${key}`, value)
@@ -223,6 +225,7 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
     }
 
     tray.updateSetting(data)
+    touchBar?.updateSetting(data)
   })
 }
 
@@ -236,18 +239,6 @@ function initOSDWindowIpcMain(win: BrowserWindow, lrc: { [key: string]: Function
     interval: ReturnType<typeof setInterval>
   } | null = null
 
-  ipcMain.on('updateOsdState', (event, data) => {
-    const [key, value] = Object.entries(data)[0] as [string, any]
-    store.set(`osdWin.${key}`, value)
-    if (key === 'show') {
-      lrc.toggleOSDWindow()
-    } else if (key === 'type') {
-      lrc.switchOSDWindow(value)
-    } else if (key === 'isLock') {
-      isLock = value
-      lrc.toggleMouseIgnore()
-    }
-  })
   ipcMain.on('from-osd', (event, message: string) => {
     if (message === 'showMainWin') {
       win.show()
@@ -353,13 +344,7 @@ function initOSDWindowIpcMain(win: BrowserWindow, lrc: { [key: string]: Function
       osdResizeState = null
     }
   })
-  // ipcMain.on('updatePlayerState', (event: IpcMainEvent, data: any) => {
-  //   for (const [key, value] of Object.entries(data) as [string, any]) {
-  //     if (key === 'playing') {
-  //       lrc.updateOSDPlayingState(value)
-  //     }
-  //   }
-  // })
+
   // 悬浮到解锁按钮上：只是临时允许交互，不应该把这个临时状态写进持久化的
   // osdWin.isLock（之前的写法在 store 落盘的时间窗口内有把“锁定”误存成“未锁定”的风险）。
   // 直接把临时值透传给 toggleMouseIgnore 的 overrideLock 参数即可。
@@ -367,8 +352,6 @@ function initOSDWindowIpcMain(win: BrowserWindow, lrc: { [key: string]: Function
     lrc.toggleMouseIgnore(ignore)
   })
   ipcMain.on('mouseleave', () => {
-    // 恢复为真实的锁定状态（isLock 是模块级变量，随 updateOsdState/isLock 同步，
-    // 这里不再需要也不应该再写 store）
     lrc.toggleMouseIgnore(isLock)
   })
   ipcMain.on('get-seek', () => {
@@ -1852,6 +1835,7 @@ async function initSynchronizeIpcMain(
   win: BrowserWindow,
   lrc: { [key: string]: Function },
   tray: YPMTray,
+  touchBar: YPMTouchBar | null,
   mpris: MprisImpl
 ) {
   const busName = 'org.gnome.Shell.TrayLyric'
@@ -1867,6 +1851,7 @@ async function initSynchronizeIpcMain(
     }
 
     tray.updateInfo(data)
+    touchBar?.updateInfo(data)
     mpris?.updateInfo(data)
 
     if (dbus && data.lyric !== undefined) {
@@ -1882,6 +1867,7 @@ async function initSynchronizeIpcMain(
 
   ipcMain.on('initTrayState', (event: IpcMainEvent, data: initMap) => {
     tray.initTrayState(data)
+    touchBar?.initTrayState(data)
   })
 
   ipcMain.on(
@@ -1896,5 +1882,20 @@ async function initSynchronizeIpcMain(
 
   ipcMain.on('metadata', (event: IpcMainEvent, metadata: any) => {
     mpris?.setMetadata(metadata)
+  })
+
+  ipcMain.on('updateOsdState', (event, data: Partial<osdMap>) => {
+    const [key, value] = Object.entries(data)[0] as [string, any]
+    store.set(`osdWin.${key}`, value)
+    if (key === 'show') {
+      lrc.toggleOSDWindow()
+      tray.updateOsdStatus({ show: value })
+    } else if (key === 'type') {
+      lrc.switchOSDWindow(value)
+    } else if (key === 'isLock') {
+      isLock = value
+      lrc.toggleMouseIgnore()
+      tray.updateOsdStatus({ isLock: value })
+    }
   })
 }

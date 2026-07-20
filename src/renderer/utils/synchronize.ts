@@ -29,7 +29,7 @@ const {
 } = storeToRefs(playerStore)
 const { tray } = storeToRefs(settingsStore)
 const { currentIndex } = storeToRefs(lyricStore)
-const { show, mode, translationMode } = storeToRefs(osdLyricStore)
+const { show, isLock, type, mode, translationMode } = storeToRefs(osdLyricStore)
 
 const { getCurrentTime } = engineStore
 
@@ -214,4 +214,18 @@ watch(title, (value) => {
       tooltip: value
     })
   }
+})
+
+watch(
+  show,
+  (value) => {
+    window.mainApi?.send('updateOsdState', { show: value })
+  },
+  { immediate: true }
+)
+watch(type, (value) => {
+  window.mainApi?.send('updateOsdState', { type: value })
+})
+watch(isLock, (value) => {
+  window.mainApi?.send('updateOsdState', { isLock: value })
 })

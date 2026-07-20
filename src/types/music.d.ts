@@ -244,3 +244,9 @@ export type settingMap = {
   autoCacheTrack: boolean
   proxy: { type: 0 | 1 | 2; address: string; port: number }
 }
+
+export type osdMap = {
+  show: boolean
+  type: Type
+  isLock: boolean
+}
