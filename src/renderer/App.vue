@@ -32,7 +32,6 @@ import editPlaylist from './components/ModalEditPlaylist.vue'
 import selectPathModal from './components/ModalFilePaths.vue'
 import AccurateMatchModal from './components/ModalAccurateMatch.vue'
 import PlayPage from './views/PlayPage.vue'
-import { useDataStore } from './store/data'
 import { useOsdLyricStore } from './store/osdLyric'
 import { usePlayerStore } from './store/player'
 import { useSettingsStore } from './store/settings'
@@ -61,8 +60,6 @@ const {
   fetchAllTracks,
   fetchPlayHistory
 } = pluginMusicStore
-
-useDataStore()
 
 const playerStore = usePlayerStore()
 const { enabled } = storeToRefs(playerStore)

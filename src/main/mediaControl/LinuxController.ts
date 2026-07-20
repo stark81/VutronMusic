@@ -1,20 +1,17 @@
 import { statusMap } from '@/types/music'
 import { app, BrowserWindow } from 'electron'
+import { MediaController, RawMetadata } from './types'
 
 const repeatModeList = ['off', 'on', 'one']
 let idx = 0
 let shuffleMode = false
 let isPersonalFM = false
 
-export interface MprisImpl {
-  setMetadata: (metadata: any) => void
-  updateInfo: (data: Partial<statusMap>) => void
-}
-
-class Mpris implements MprisImpl {
+export class LinuxController implements MediaController {
   private _player: any
   private _win: BrowserWindow
   private Player: any
+
   constructor(win: BrowserWindow) {
     this.Player = require('@jellybrick/mpris-service')
     this._player = new this.Player({
@@ -86,24 +83,26 @@ class Mpris implements MprisImpl {
     this._player.position = progress * 1000 * 1000
   }
 
-  setMetadata(metadata: any) {
+  // ───── MediaController 接口实现 ─────
+
+  setMetadata(meta: RawMetadata) {
     this._player.metadata = {
       // UUID 含短横线，替换掉以符合 D-Bus object path 规范
       'mpris:trackid': this._player.objectPath(
-        'track/' + String(metadata.trackId).replace(/-/g, '')
+        'track/' + String(meta.trackId).replace(/-/g, '')
       ),
-      'mpris:artUrl': metadata.artwork[0].src,
-      'mpris:length': metadata.length * 1000 * 1000,
-      'xesam:title': metadata.title,
-      'xesam:artist': metadata.artist.split(','),
-      'xesam:album': metadata.album,
-      'xesam:url': metadata.url,
-      'xesam:asText': metadata.asText,
-      'xesam:lyricOffset': metadata.lyricOffset
+      'mpris:artUrl': meta.artwork[0].src,
+      'mpris:length': meta.length * 1000 * 1000,
+      'xesam:title': meta.title,
+      'xesam:artist': meta.artist.split(','),
+      'xesam:album': meta.album,
+      'xesam:url': meta.url,
+      'xesam:asText': meta.asText,
+      'xesam:lyricOffset': meta.lyricOffset
     }
-    this._player.rate = metadata.rate
-    this._player.seeked(metadata.progress * 1000 * 1000)
-    this._player.getPosition = () => metadata.progress * 1000 * 1000
+    this._player.rate = meta.rate
+    this._player.seeked(meta.progress * 1000 * 1000)
+    this._player.getPosition = () => meta.progress * 1000 * 1000
   }
 
   updateInfo(data: Partial<statusMap>) {
@@ -126,11 +125,8 @@ class Mpris implements MprisImpl {
       this._setShuffleMode(data.shuffle)
     }
   }
-}
 
-export async function createMpris(win: BrowserWindow): Promise<MprisImpl> {
-  const mprisInstance = new Mpris(win)
-  await new Promise((resolve) => setImmediate(resolve))
-
-  return mprisInstance
+  destroy() {
+    // MPRIS service 没有显式销毁方法，保留引用让 GC 处理
+  }
 }

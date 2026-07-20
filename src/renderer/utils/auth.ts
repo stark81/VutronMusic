@@ -1,6 +1,4 @@
 import Cookies from 'js-cookie'
-import { logout } from '../api/auth'
-import { useDataStore } from '../store/data'
 
 export function setCookies(string: string) {
   const cookies = string.split(';;')
@@ -51,13 +49,4 @@ export function isAccountLoggedIn() {
 export function isLooseLoggedIn() {
   return isAccountLoggedIn()
   // return isAccountLoggedIn() || isUsernameLoggedIn();
-}
-
-export function doLogout() {
-  const { resetUserInfo, resetLiked } = useDataStore()
-  logout()
-  removeCookie('MUSIC_U')
-  removeCookie('__csrf')
-  resetUserInfo()
-  resetLiked()
 }

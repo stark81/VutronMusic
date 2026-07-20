@@ -58,6 +58,7 @@ export const usePluginMusic = defineStore(
     const enableLibrary = ref(true)
     const enableStream = ref(true)
     const enableLocal = ref(true)
+    const libraryPlaylistFilter = ref('all')
 
     const tracks = reactive<
       Record<PluginId, { data: Track[]; count: number; sourceContext: Record<string, any> }>
@@ -891,6 +892,7 @@ export const usePluginMusic = defineStore(
       additionalTags,
       users,
       _pagePerPlugin: readonly(_pagePerPlugin),
+      libraryPlaylistFilter,
 
       enableLibrary,
       enableStream,

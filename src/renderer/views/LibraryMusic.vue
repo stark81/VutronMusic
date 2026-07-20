@@ -230,7 +230,6 @@
 
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
-import { useDataStore } from '../store/data'
 import { useNormalStateStore } from '../store/state'
 import { usePluginMusic } from '../store/pluginMusic'
 import { ref, computed, onMounted, onUnmounted, inject, nextTick } from 'vue'
@@ -245,16 +244,21 @@ import { useRouter } from 'vue-router'
 import { lyricLine } from '@/types/music'
 import type { PluginId, Track, service } from '@/types/plugin'
 
-const dataStore = useDataStore()
-const { libraryPlaylistFilter } = storeToRefs(dataStore)
-
 const stateStore = useNormalStateStore()
 const { newPlaylistModal } = storeToRefs(stateStore)
 const { showToast } = stateStore
 
 const pluginStore = usePluginMusic()
-const { playlists, likedTracks, albums, artists, mvs, cloudDisks, playHistory } =
-  storeToRefs(pluginStore)
+const {
+  playlists,
+  likedTracks,
+  albums,
+  artists,
+  mvs,
+  cloudDisks,
+  playHistory,
+  libraryPlaylistFilter
+} = storeToRefs(pluginStore)
 const {
   fetchPlayHistory,
   fetchLikedPlaylists,

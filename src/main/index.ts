@@ -14,7 +14,7 @@ import store from './store'
 import { createTray, YPMTray } from './tray'
 import { createTouchBar, YPMTouchBar } from './touchBar'
 import { createMenu } from './menu'
-import { MprisImpl } from './mpris'
+import { MediaController } from './mediaControl/types'
 import fastify, { FastifyInstance } from 'fastify'
 import fastifyCookie from '@fastify/cookie'
 import netease from './appServer/netease'
@@ -89,7 +89,7 @@ class BackGround {
   tray: YPMTray | null = null
   touchBar: YPMTouchBar | null = null
   menu: Menu | null = null
-  mpris: MprisImpl | null = null
+  mediaController: MediaController | null = null
   fastifyApp: FastifyInstance | null = null
   amuseFastifyApp: FastifyInstance | null = null
   createAmuseFastifyAppPromise: Promise<void> = Promise.resolve()
@@ -674,10 +674,8 @@ class BackGround {
 
       initAutoUpdater(this.win!)
       this.tray = createTray(this.win!)
-      if (Constants.IS_LINUX) {
-        const createMpris = (await import('./mpris')).createMpris
-        this.mpris = await createMpris(this.win!)
-      }
+      const { createMediaController } = await import('./mediaControl')
+      this.mediaController = createMediaController(this.win!)
 
       if (store.get('settings.enableGlobalShortcut') || false) {
         registerGlobalShortcuts(this.win!)
@@ -698,7 +696,7 @@ class BackGround {
       if (Constants.IS_MAC) {
         this.touchBar = createTouchBar(this.win!)
       }
-      IPCs.initialize(this.win!, this.tray, this.touchBar, this.mpris!, lrc)
+      IPCs.initialize(this.win!, this.tray, this.touchBar, this.mediaController!, lrc)
 
       const proxy = (store.get('settings.proxy') || { type: 0, address: '', port: '' }) as {
         type: 0 | 1 | 2

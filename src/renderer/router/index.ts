@@ -86,11 +86,6 @@ const routes = [
     component: SearchPage
   },
   {
-    path: '/user/:id',
-    name: 'user',
-    component: () => import('../views/UserPage.vue')
-  },
-  {
     path: '/mv/:pluginId/:sourceContext',
     name: 'mv',
     component: () => import('../views/MvPage.vue')

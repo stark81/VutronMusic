@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { computed, toRaw, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useAudioEngineStore } from './audioEngine'
 import { useLyricStore } from './lyric'
 import { usePluginMusic } from './pluginMusic'
@@ -13,14 +13,6 @@ import cloneDeep from 'lodash/cloneDeep'
 
 import { LyricLine, PluginId, Track } from '@/types/plugin'
 import { RepeatMode, PlaylistSourceInfo } from '@/types/music'
-
-const formatTime = (seconds: number) => {
-  const minutes = Math.floor(seconds / 60)
-  const remainingSeconds = seconds % 60
-  const formattedMinutes = minutes.toString().padStart(2, '0')
-  const formattedSeconds = remainingSeconds.toFixed(3).padStart(6, '0')
-  return `[${formattedMinutes}:${formattedSeconds}]`
-}
 
 export const usePlayerStore = defineStore(
   'player',
@@ -36,7 +28,7 @@ export const usePlayerStore = defineStore(
     // 来自 pluginStore的状态与方法
     // ─────────────────────────────────────────────
     const likedTracks = computed(() => pluginStore.likedTracks)
-    const { pluginMethodCall, resizeImage, likeATrack } = pluginStore
+    const { pluginMethodCall } = pluginStore
 
     const source = computed(
       () =>
@@ -165,13 +157,6 @@ export const usePlayerStore = defineStore(
         setSeek.value = true
         lyricStore.updateIndex()
         progress.value = value
-        if ('mediaSession' in navigator) {
-          navigator.mediaSession.setPositionState({
-            duration: duration.value,
-            playbackRate: playbackRate.value,
-            position: value
-          })
-        }
         reportPlayback('progress')
         lastProgressReport.value = Date.now()
       }
@@ -222,14 +207,6 @@ export const usePlayerStore = defineStore(
     // 来自 useAudioEngineStore 的状态
     // ─────────────────────────────────────────────
 
-    // const biquadParams = computed(() => engineStore.biquadParams)
-    // const biquadUser = computed({
-    //   get: () => engineStore.biquadUser,
-    //   set: (v) => {
-    //     engineStore.biquadUser = v
-    //   }
-    // })
-    // const convolverParams = computed(() => engineStore.convolverParams)
     const pitch = computed({
       get: () => engineStore.pitch,
       set: (v) => (engineStore.pitch = v)
@@ -240,16 +217,6 @@ export const usePlayerStore = defineStore(
         engineStore.outputDevice = v
       }
     })
-    /**
-     * balance 是新增字段，原 store 没有。
-     * 对外暴露以便 UI 层（均衡器/音效设置页）可以直接通过 playerStore 访问。
-     */
-    // const balance = computed({
-    //   get: () => engineStore.balance,
-    //   set: (v) => {
-    //     engineStore.balance = v
-    //   }
-    // })
     const fadeDuration = computed(() => engineStore.fadeDuration)
 
     // ─────────────────────────────────────────────
@@ -260,13 +227,6 @@ export const usePlayerStore = defineStore(
       (value) => {
         engineStore.setPlaybackRate(value)
         lyricStore.updateRate(value)
-        if ('mediaSession' in navigator) {
-          navigator.mediaSession.setPositionState({
-            duration: duration.value,
-            playbackRate: value,
-            position: seek.value > duration.value ? 0 : seek.value
-          })
-        }
       },
       { immediate: true }
     )
@@ -316,26 +276,6 @@ export const usePlayerStore = defineStore(
         pauseDiscordPresence(currentTrack.value!)
       }
     })
-
-    watch(lyricOffset, (value) => {
-      if (window.env?.isLinux) {
-        updateMediaSessionMetaData(currentTrack.value!)
-      }
-      if (osdLyricStore.show) {
-        window.mainApi?.send('update-osd-lyric', {
-          lyricOffset: [value, engineStore.getCurrentTime()]
-        })
-      }
-    })
-
-    watch(
-      () => [osdLyricStore.mode, osdLyricStore.translationMode],
-      () => {
-        if (osdLyricStore.show) {
-          window.mainApi?.send('update-osd-lyric', { seek: engineStore.getCurrentTime() })
-        }
-      }
-    )
 
     // ─────────────────────────────────────────────
     // 方法转发
@@ -692,7 +632,7 @@ export const usePlayerStore = defineStore(
 
     function _handleTimeUpdate() {
       if (window.env?.isLinux) {
-        window.mainApi?.send('synchronize-player-info', { progress: engineStore.getCurrentTime() })
+        window.mainApi?.send('synchronize-player-info', { seek: engineStore.getCurrentTime() })
       }
       const now = Date.now()
       if (now - lastProgressReport.value >= 15000) {
@@ -780,51 +720,6 @@ export const usePlayerStore = defineStore(
     // 如有需要可取 lyricStore 直接访问。
     // ─────────────────────────────────────────────
 
-    const updateMediaSessionMetaData = async (track: Track) => {
-      if ('mediaSession' in navigator === false) return
-
-      const plugin = track.pluginId
-
-      const artist = track.artists.map((ar) => ar.name).join(',')
-      const metadata = {
-        title: track.name,
-        artist,
-        album: track.album?.name,
-        artwork: [
-          {
-            src: await resizeImage(plugin, track.picUrl, 512),
-            type: 'image/jpg',
-            sizes: '512x512'
-          },
-          {
-            src: await resizeImage(plugin, track.picUrl, 1024),
-            type: 'image/jpg',
-            sizes: '1024x1024'
-          }
-        ],
-        length: duration.value,
-        trackId: track.id,
-        url: '/trackid/' + track.id,
-        progress: engineStore.getCurrentTime() ?? 0,
-        rate: playbackRate.value,
-        asText: lyrics.value.map((lrc) => `${formatTime(lrc.start)}${lrc.lyric.text}`).join('\n'),
-        lyricOffset: lyricOffset.value
-      }
-      if (window.env?.isWindows) {
-        metadata.artwork = [
-          {
-            src: await resizeImage(plugin, track.picUrl, 2048),
-            type: 'image/jpg',
-            sizes: '2048x2048'
-          }
-        ]
-      }
-      navigator.mediaSession.metadata = new MediaMetadata(metadata)
-      if (window.env?.isLinux) {
-        window.mainApi?.send('metadata', metadata)
-      }
-    }
-
     const fetchLyric = async () => {
       const res = (await window.mainApi?.invoke('plugin-lyric', {
         pluginId: currentTrack.value?.pluginId,
@@ -907,7 +802,6 @@ export const usePlayerStore = defineStore(
       //     .catch(() => {})
       // }
 
-      updateMediaSessionMetaData(value)
       lyricStore.updateIndex()
     })
 
@@ -920,51 +814,7 @@ export const usePlayerStore = defineStore(
         lyricStore.clearTimer()
         pauseDiscordPresence(currentTrack.value!)
       }
-      if ('mediaSession' in navigator) {
-        navigator.mediaSession.playbackState = value ? 'playing' : 'paused'
-        navigator.mediaSession.setPositionState({
-          duration: duration.value,
-          playbackRate: playbackRate.value,
-          position: seek.value > duration.value ? 0 : seek.value
-        })
-      }
     })
-
-    function initMediaSession() {
-      if ('mediaSession' in navigator) {
-        navigator.mediaSession.setActionHandler('play', () => {
-          engineStore.play()
-          playing.value = true
-        })
-        navigator.mediaSession.setActionHandler('pause', () => {
-          engineStore.pause()
-          playing.value = false
-        })
-        navigator.mediaSession.setActionHandler('previoustrack', () => {
-          if (!isPersonalFM.value) playPrev()
-          else moveToFMTrash()
-        })
-        navigator.mediaSession.setActionHandler('nexttrack', () => playNext(isPersonalFM.value))
-        navigator.mediaSession.setActionHandler('stop', () => {
-          engineStore.pause()
-          playing.value = false
-        })
-        navigator.mediaSession.setActionHandler('seekto', (event) => {
-          seek.value = event.seekTime!
-        })
-        navigator.mediaSession.setActionHandler('seekbackward', (event) => {
-          seek.value -= event.seekOffset || 10
-        })
-        navigator.mediaSession.setActionHandler('seekforward', (event) => {
-          seek.value += event.seekOffset || 10
-        })
-        navigator.mediaSession.setPositionState({
-          duration: duration.value,
-          playbackRate: playbackRate.value,
-          position: seek.value > duration.value ? 0 : seek.value
-        })
-      }
-    }
 
     function handleEventBus() {
       eventBus.on('loadCurrentTrack', (params) => {
@@ -983,95 +833,6 @@ export const usePlayerStore = defineStore(
         showToast(`播放错误，正在切歌: ${currentTrack.value?.reason}`)
         playNext(isPersonalFM.value)
       })
-    }
-
-    function handleIpcRenderer() {
-      window.mainApi?.on('resume', async () => {
-        if (!currentTrack.value) return
-        const t = progress.value
-        const { pluginId, sourceContext } = currentTrack.value
-        await replaceCurrentTrack(pluginId, sourceContext, false)
-        seek.value = t
-      })
-
-      window.mainApi?.on('play', playOrPause)
-      window.mainApi?.on('pause', playOrPause)
-
-      window.mainApi?.on('previous', () => {
-        if (!isPersonalFM.value) playPrev()
-        else moveToFMTrash()
-      })
-      window.mainApi?.on('next', () => playNext(isPersonalFM.value))
-      window.mainApi?.on('repeat', (_: any, value: RepeatMode) => {
-        repeatMode.value = value
-      })
-      window.mainApi?.on('repeat-shuffle', (_: any, value: boolean) => {
-        isShuffle.value = value
-      })
-      window.mainApi?.on('like', () => {
-        if (!currentTrack.value) return
-        likeATrack(currentTrack.value)
-      })
-      window.mainApi?.on('fm-trash', () => {
-        moveToFMTrash()
-      })
-      window.mainApi?.on('setPosition', (_: any, value: number) => {
-        seek.value = value
-      })
-      window.mainApi?.on('increaseVolume', () => {
-        if (volume.value + 0.1 >= 1) return (volume.value = 1)
-        volume.value += 0.1
-      })
-      window.mainApi?.on('decreaseVolume', () => {
-        if (volume.value - 0.1 <= 0) return (volume.value = 0)
-        volume.value -= 0.1
-      })
-    }
-
-    function setupVutronMusic() {
-      if (typeof window === 'undefined') return
-      window.vutronmusic = {
-        get progress() {
-          return engineStore.getCurrentTime()
-        },
-        get playing() {
-          return playing.value
-        },
-        get volume() {
-          return volume.value
-        },
-        get currentTrack() {
-          return toRaw(currentTrack.value || {})
-        },
-        get isLiked() {
-          return isLiked.value
-        },
-        get repeatMode() {
-          return repeatMode.value
-        },
-        get lyric() {
-          const lrcLyrics = lyrics.value
-          const hasTLyric = lrcLyrics.some((lrc) => lrc.tlyric && lrc.tlyric.text.trim() !== '')
-          const hasRLyric = lrcLyrics.some((lrc) => lrc.rlyric && lrc.rlyric.text.trim() !== '')
-
-          const result = {
-            lrc: lrcLyrics.map((lrc) => `${formatTime(lrc.start)}${lrc.lyric.text}`).join('\n'),
-            tlyric: hasTLyric
-              ? lrcLyrics
-                  .filter((lrc) => lrc.tlyric)
-                  .map((lrc) => `${formatTime(lrc.start)}${lrc.tlyric?.text}`)
-                  .join('\n')
-              : '',
-            romalrc: hasRLyric
-              ? lrcLyrics
-                  .filter((lrc) => lrc.rlyric)
-                  .map((lrc) => `${formatTime(lrc.start)}${lrc.rlyric?.text}`)
-                  .join('\n')
-              : ''
-          }
-          return result
-        }
-      }
     }
 
     // ─────────────────────────────────────────────
@@ -1166,10 +927,7 @@ export const usePlayerStore = defineStore(
       lyricStore.setRateGetter(() => playbackRate.value)
       lyricStore.setTrackGetter(() => currentTrack.value)
 
-      setupVutronMusic()
       handleEventBus()
-      initMediaSession()
-      handleIpcRenderer()
 
       // FM 启动预取：library 开启且队列为空时后台获取
       if (pluginStore.enableLibrary && fmTracks.value.length === 0) {

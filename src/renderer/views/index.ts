@@ -9,7 +9,6 @@ import SearchPage from './SearchPage.vue'
 import HomePage from './HomePage.vue'
 import PlaylistPage from './PlaylistPage.vue'
 import DailyTracks from './DailyTracks.vue'
-import UserPage from './UserPage.vue'
 import MvPage from './MvPage.vue'
 import ArtistMv from './ArtistMv.vue'
 import NextUp from './NextUp.vue'
@@ -27,7 +26,6 @@ export {
   HomePage,
   PlaylistPage,
   DailyTracks,
-  UserPage,
   MvPage,
   ArtistMv,
   NextUp,

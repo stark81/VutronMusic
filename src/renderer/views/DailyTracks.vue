@@ -25,11 +25,11 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useNormalStateStore } from '../store/state'
+import { usePluginMusic } from '../store/pluginMusic'
 import { storeToRefs } from 'pinia'
 import TrackList from '../components/VirtualTrackList.vue'
 import ButtonTwoTone from '../components/ButtonTwoTone.vue'
 import SearchBox from '../components/SearchBox.vue'
-import { dailyRecommendTracks } from '../api/playlist'
 import { usePlayerStore } from '../store/player'
 import { PluginId } from '@/types/schemas'
 import { PlaylistSourceInfo } from '@/types/music'
@@ -61,13 +61,6 @@ const filterTracks = computed(() => {
   )
 })
 
-const loadDailyTracks = () => {
-  dailyRecommendTracks().then((result) => {
-    dailyTracks.value = result.data.dailySongs
-    show.value = true
-  })
-}
-
 const play = () => {
   const trackIDs = dailyTracks.value.map((t) => [t.pluginId, t.sourceContext]) as [
     PluginId,
@@ -87,7 +80,18 @@ onMounted(() => {
   pluginId.value = plugin as PluginId
 
   if (dailyTracks.value.length === 0) {
-    loadDailyTracks()
+    usePluginMusic()
+      .pluginMethodCall(pluginId.value, 'getRecommendTracks')
+      .then((result) => {
+        dailyTracks.value = result.data.map((item) => ({
+          ...item,
+          album: { ...item.album, pluginId: pluginId.value },
+          artists: item.artists.map((it) => ({ ...it, pluginId: pluginId.value })),
+          albumArtists: item.albumArtists.map((it) => ({ ...it, pluginId: pluginId.value })),
+          pluginId: pluginId.value
+        }))
+        show.value = true
+      })
   } else {
     show.value = true
   }

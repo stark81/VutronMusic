@@ -114,7 +114,6 @@ import { useNormalStateStore } from '../store/state'
 import { useSettingsStore } from '../store/settings'
 import { usePluginMusic } from '../store/pluginMusic'
 import { storeToRefs } from 'pinia'
-import { doLogout } from '../utils/auth'
 import { openExternal } from '../utils'
 import { PluginId } from '@/types/schemas'
 import { ExploreTab } from '@/types/plugin.js'
@@ -123,7 +122,9 @@ const { searchTab, exploreTab } = storeToRefs(useNormalStateStore())
 const { general } = storeToRefs(useSettingsStore())
 const { useCustomTitlebar } = toRefs(general.value)
 
-const { services, users } = toRefs(usePluginMusic())
+const pluginStore = usePluginMusic()
+const { services, users } = toRefs(pluginStore)
+const { pluginMethodCall, handleStatusChange } = pluginStore
 
 const router = useRouter()
 const route = useRoute()
@@ -171,8 +172,16 @@ const toExplore = (Category: ExploreTab) => {
 const logout = async () => {
   const { showConfirm } = useNormalStateStore()
   if (!(await showConfirm('确定要退出登录吗？'))) return
-  doLogout()
-  router.push({ name: 'HomePage' })
+
+  const plugin = services.value.find((item) => item.active)!
+
+  if (await showConfirm(`确定登出${plugin.name}吗？`)) {
+    pluginMethodCall(plugin.code, 'doLogout').then(({ code }) => {
+      if (code === 200) {
+        handleStatusChange(plugin.code, 'logout')
+      }
+    })
+  }
 }
 
 const avatarUrl = computed(() => {
