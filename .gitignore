@@ -73,6 +73,9 @@ build/
 
 # TypeScript incremental compilation cache
 *.tsbuildinfo
+
+# Native addon pre-built binaries
+src/native/*/bin/
 .claudeignore
 .mimocode
 docs/superpowers
