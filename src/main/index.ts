@@ -14,7 +14,7 @@ import store from './store'
 import { createTray, YPMTray } from './tray'
 import { createTouchBar, YPMTouchBar } from './touchBar'
 import { createMenu } from './menu'
-import { MediaController } from './mediaControl/types'
+import { MprisImpl } from './mpris'
 import fastify, { FastifyInstance } from 'fastify'
 import fastifyCookie from '@fastify/cookie'
 import netease from './appServer/netease'
@@ -89,7 +89,7 @@ class BackGround {
   tray: YPMTray | null = null
   touchBar: YPMTouchBar | null = null
   menu: Menu | null = null
-  mediaController: MediaController | null = null
+  mpris: MprisImpl | null = null
   fastifyApp: FastifyInstance | null = null
   amuseFastifyApp: FastifyInstance | null = null
   createAmuseFastifyAppPromise: Promise<void> = Promise.resolve()
@@ -103,7 +103,7 @@ class BackGround {
     process.on('uncaughtException', (err) => {
       console.error('[uncaughtException]', err)
     })
-    if (process.platform === 'win32') app.setAppUserModelId(app.getName())
+    if (process.platform === 'win32') app.setAppUserModelId('io.github.stark81.VutronMusic')
     if (!app.requestSingleInstanceLock()) {
       app.quit()
       process.exit(0)
@@ -674,8 +674,10 @@ class BackGround {
 
       initAutoUpdater(this.win!)
       this.tray = createTray(this.win!)
-      const { createMediaController } = await import('./mediaControl')
-      this.mediaController = createMediaController(this.win!)
+      if (Constants.IS_LINUX) {
+        const { createMpris } = await import('./mpris')
+        this.mpris = await createMpris(this.win!)
+      }
 
       if (store.get('settings.enableGlobalShortcut') || false) {
         registerGlobalShortcuts(this.win!)
@@ -696,7 +698,7 @@ class BackGround {
       if (Constants.IS_MAC) {
         this.touchBar = createTouchBar(this.win!)
       }
-      IPCs.initialize(this.win!, this.tray, this.touchBar, this.mediaController!, lrc)
+      IPCs.initialize(this.win!, this.tray, this.touchBar, this.mpris, lrc)
 
       const proxy = (store.get('settings.proxy') || { type: 0, address: '', port: '' }) as {
         type: 0 | 1 | 2

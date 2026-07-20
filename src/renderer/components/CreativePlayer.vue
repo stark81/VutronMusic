@@ -176,10 +176,10 @@ const props = withDefaults(
 const playerStore = usePlayerStore()
 const {
   playing,
-  currentLyric,
   playbackRate,
   seek,
   currentTrack,
+  currentIndex,
   duration,
   lyrics,
   repeatMode,
@@ -210,6 +210,19 @@ const shiftDist = ref<number[]>([])
 const loading = ref(false)
 
 let tl: gsap.core.Timeline | null = null
+
+const currentLyric = computed(() => {
+  const lrc = lyrics.value[currentIndex.value]
+  if (!lrc)
+    return {
+      start: 0,
+      time: 0,
+      content: currentTrack.value
+        ? `${currentTrack.value.artists[0].name} - ${currentTrack.value?.name}`
+        : '听你想听的音乐'
+    }
+  return { start: lrc.start, time: lrc.end - lrc.start, content: lrc.lyric.text }
+})
 
 const pickedLyric = computed(() => {
   const result = [] as string[][]

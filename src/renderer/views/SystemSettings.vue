@@ -415,13 +415,25 @@
                 </div>
               </div>
               <div class="item">
-                <div style="display:flex;gap:32px">
+                <div style="display: flex; gap: 32px">
                   <div class="color">
-                    <pick-colors v-model:value="playedColor" :width="100" :height="100" :theme="currentTheme ?? 'light'" format="hex" />
+                    <pick-colors
+                      v-model:value="playedColor"
+                      :width="100"
+                      :height="100"
+                      :theme="currentTheme ?? 'light'"
+                      format="hex"
+                    />
                     <div class="text">{{ $t('settings.tray.playedColor') }}</div>
                   </div>
                   <div class="color">
-                    <pick-colors v-model:value="playedColorLight" :width="100" :height="100" :theme="currentTheme ?? 'light'" format="hex" />
+                    <pick-colors
+                      v-model:value="playedColorLight"
+                      :width="100"
+                      :height="100"
+                      :theme="currentTheme ?? 'light'"
+                      format="hex"
+                    />
                     <div class="text">{{ $t('settings.tray.playedColorLight') }}</div>
                   </div>
                 </div>
@@ -1423,8 +1435,16 @@ const {
 } = toRefs(general.value)
 const { appearance, colors } = toRefs(theme.value)
 const customizeColor = computed(() => colors.value[4])
-const { showLyric, showControl, showIcon, isWordByWord, playedColor, playedColorLight, lyricWidth, enableExtension } =
-  toRefs(tray.value)
+const {
+  showLyric,
+  showControl,
+  showIcon,
+  isWordByWord,
+  playedColor,
+  playedColorLight,
+  lyricWidth,
+  enableExtension
+} = toRefs(tray.value)
 const { proxy, realIp } = toRefs(misc.value)
 
 const stateStore = useNormalStateStore()

@@ -43,10 +43,8 @@ try {
   if (PLATFORM === 'darwin') {
     build('tray', 'tray')
     build('touchbar', 'touchbar')
-  } else if (PLATFORM === 'win32') {
-    build('smtc', 'smtc')
   } else {
-    console.log('[build-native] Skipping native addon build (unsupported platform)')
+    console.log('[build-native] No native addons needed for this platform')
   }
   console.log('[build-native] All native addons built successfully.')
 } catch (err) {

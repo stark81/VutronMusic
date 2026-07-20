@@ -48,6 +48,10 @@ const shouldSend = computed(() => {
   )
 })
 
+// macOS 和 Windows 使用 Media Session API（Windows 上映射到 SMTC）
+const supportsMediaSession = 'mediaSession' in navigator
+const useMediaSession = supportsMediaSession && (window.env?.isMac || window.env?.isWindows)
+
 const currentLyric = computed(() => {
   const track = currentTrack.value
   const text = track ? `${track.artists[0]?.name} - ${track.name}` : '听你想听的音乐'
@@ -127,7 +131,7 @@ watch(playbackRate, (value) => {
     })
   }
 
-  if (window.env?.isMac && 'mediaSession' in navigator) {
+  if (useMediaSession) {
     navigator.mediaSession.setPositionState({
       duration: duration.value,
       playbackRate: value,
@@ -144,7 +148,7 @@ watch(
       seek: getCurrentTime()
     })
 
-    if (window.env?.isMac && 'mediaSession' in navigator) {
+    if (useMediaSession) {
       navigator.mediaSession.setPositionState({
         duration: duration.value,
         playbackRate: playbackRate.value,
@@ -178,7 +182,7 @@ watch(currentTrack, (value) => {
     })
   }
 
-  if (window.env?.isMac && 'mediaSession' in navigator && value) {
+  if (useMediaSession && value) {
     navigator.mediaSession.setPositionState({
       duration: duration.value,
       playbackRate: playbackRate.value,
@@ -190,12 +194,12 @@ watch(currentTrack, (value) => {
 })
 
 watch(setSeek, (value) => {
-  if (!value || !show.value || !window.env?.isMac) return
+  if (!value || !show.value || !useMediaSession) return
   window.mainApi?.send('synchronize-player-info', {
     setSeek: getCurrentTime()
   })
 
-  if (window.env?.isMac && 'mediaSession' in navigator) {
+  if (useMediaSession) {
     navigator.mediaSession.setPositionState({
       duration: duration.value,
       playbackRate: playbackRate.value,
@@ -284,7 +288,8 @@ const formatTime = (seconds: number) => {
 }
 
 const updateMediaSessionMetaData = async (track: Track) => {
-  if (window.env?.isMac && 'mediaSession' in navigator === false) return
+  // macOS/Windows 没有 mediaSession 支持时跳过（Linux 仍需走 IPC 发给 MPRIS）
+  if ((window.env?.isMac || window.env?.isWindows) && !supportsMediaSession) return
 
   const plugin = track.pluginId
 
@@ -322,7 +327,7 @@ const updateMediaSessionMetaData = async (track: Track) => {
       }
     ]
   }
-  if (window.env?.isMac) {
+  if (useMediaSession) {
     navigator.mediaSession.metadata = new MediaMetadata(metadata)
   } else {
     window.mainApi?.send('metadata', metadata)
@@ -330,13 +335,13 @@ const updateMediaSessionMetaData = async (track: Track) => {
 }
 
 const initMediaSession = () => {
-  if (window.env?.isMac && 'mediaSession' in navigator) {
+  if (useMediaSession) {
     navigator.mediaSession.setActionHandler('play', () => {
       engineStore.play()
       playing.value = true
     })
-    navigator.mediaSession.setActionHandler('pause', () => {
-      engineStore.pause()
+    navigator.mediaSession.setActionHandler('pause', async () => {
+      await engineStore.pause()
       playing.value = false
     })
     navigator.mediaSession.setActionHandler('previoustrack', () => {
@@ -344,8 +349,8 @@ const initMediaSession = () => {
       else moveToFMTrash()
     })
     navigator.mediaSession.setActionHandler('nexttrack', () => playNext(isPersonalFM.value))
-    navigator.mediaSession.setActionHandler('stop', () => {
-      engineStore.pause()
+    navigator.mediaSession.setActionHandler('stop', async () => {
+      await engineStore.pause()
       playing.value = false
     })
     navigator.mediaSession.setActionHandler('seekto', (event) => {

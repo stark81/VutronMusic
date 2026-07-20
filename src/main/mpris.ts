@@ -1,13 +1,17 @@
 import { statusMap } from '@/types/music'
 import { app, BrowserWindow } from 'electron'
-import { MediaController, RawMetadata } from './types'
 
 const repeatModeList = ['off', 'on', 'one']
 let idx = 0
 let shuffleMode = false
 let isPersonalFM = false
 
-export class LinuxController implements MediaController {
+export interface MprisImpl {
+  setMetadata(meta: any): void
+  updateInfo(data: Partial<statusMap>): void
+}
+
+class Mpris implements MprisImpl {
   private _player: any
   private _win: BrowserWindow
   private Player: any
@@ -83,18 +87,18 @@ export class LinuxController implements MediaController {
     this._player.position = progress * 1000 * 1000
   }
 
-  // ───── MediaController 接口实现 ─────
+  // ───── MprisImpl 接口实现 ─────
 
-  setMetadata(meta: RawMetadata) {
+  setMetadata(meta: any) {
     this._player.metadata = {
       // UUID 含短横线，替换掉以符合 D-Bus object path 规范
       'mpris:trackid': this._player.objectPath(
         'track/' + String(meta.trackId).replace(/-/g, '')
       ),
-      'mpris:artUrl': meta.artwork[0].src,
+      'mpris:artUrl': meta.artwork?.[0]?.src,
       'mpris:length': meta.length * 1000 * 1000,
       'xesam:title': meta.title,
-      'xesam:artist': meta.artist.split(','),
+      'xesam:artist': meta.artist?.split(',') || [],
       'xesam:album': meta.album,
       'xesam:url': meta.url,
       'xesam:asText': meta.asText,
@@ -125,8 +129,10 @@ export class LinuxController implements MediaController {
       this._setShuffleMode(data.shuffle)
     }
   }
+}
 
-  destroy() {
-    // MPRIS service 没有显式销毁方法，保留引用让 GC 处理
-  }
+export async function createMpris(win: BrowserWindow): Promise<MprisImpl> {
+  const mprisInstance = new Mpris(win)
+  await new Promise((resolve) => setImmediate(resolve))
+  return mprisInstance
 }

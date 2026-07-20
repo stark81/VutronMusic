@@ -231,7 +231,7 @@ class TouchBarImpl implements YPMTouchBar {
     this._lastLyric = _data
     let offset = 0
     if (seekOverride !== undefined) {
-      offset = Math.max(0, (seekOverride * 1000 - _data.start * 1000) + 50)
+      offset = Math.max(0, seekOverride * 1000 - _data.start * 1000 + 50)
     }
     this._nativeItem.setLyric(
       _data.lyric?.text || '',
@@ -246,7 +246,7 @@ class TouchBarImpl implements YPMTouchBar {
 
   private updateSeek(seek: number): void {
     if (!this._nativeItem || !this._lastLyric) return
-    const offset = Math.max(0, (seek * 1000 - this._lastLyric.start * 1000) + 50)
+    const offset = Math.max(0, seek * 1000 - this._lastLyric.start * 1000 + 50)
     this._nativeItem.setLyric(
       this._lastLyric.lyric?.text || '',
       this._lastLyric.lyric?.info || [],

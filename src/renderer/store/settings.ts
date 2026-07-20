@@ -64,8 +64,8 @@ export const useSettingsStore = defineStore(
       showIcon: true,
       lyricWidth: 192,
       isWordByWord: true,
-      playedColor: '#ffff00',       // 深色模式高亮颜色
-      playedColorLight: '#ffff00',  // 浅色模式高亮颜色
+      playedColor: '#ffff00', // 深色模式高亮颜色
+      playedColorLight: '#ffff00', // 浅色模式高亮颜色
       enableExtension: true,
       showTray: true
     })

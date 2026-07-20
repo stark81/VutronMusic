@@ -2,7 +2,7 @@ import { app, ipcMain, IpcMainEvent, BrowserWindow } from 'electron'
 import type { OpenDialogOptions } from 'electron'
 import { YPMTray } from './tray'
 import { YPMTouchBar } from './touchBar'
-import { MediaController } from './mediaControl/types'
+import { MprisImpl } from './mpris'
 import { checkUpdate, downloadUpdate } from './checkUpdate'
 import Constants from './utils/Constants'
 import store from './store'
@@ -76,7 +76,7 @@ export default class IPCs {
     win: BrowserWindow,
     tray: YPMTray,
     touchBar: YPMTouchBar | null,
-    mediaController: MediaController,
+    mpris: MprisImpl | null,
     lrc: Record<string, Function>
   ): void {
     initWindowIpcMain(win)
@@ -86,7 +86,7 @@ export default class IPCs {
     // initMprisIpcMain(win, mediaController)
     initOtherIpcMain(win)
     initPluginIpcMain()
-    initSynchronizeIpcMain(win, lrc, tray, touchBar, mediaController)
+    initSynchronizeIpcMain(win, lrc, tray, touchBar, mpris)
 
     coverWorker = createWorker('writeCover')
     coverWorker.on('message', (msg) => {
@@ -1836,7 +1836,7 @@ async function initSynchronizeIpcMain(
   lrc: { [key: string]: Function },
   tray: YPMTray,
   touchBar: YPMTouchBar | null,
-  mediaController: MediaController
+  mpris: MprisImpl | null
 ) {
   const busName = 'org.gnome.Shell.TrayLyric'
   const dbus = Constants.IS_LINUX ? (await import('./dbusClient')).createDBus(busName, win) : null
@@ -1852,7 +1852,7 @@ async function initSynchronizeIpcMain(
 
     tray.updateInfo(data)
     touchBar?.updateInfo(data)
-    mediaController?.updateInfo(data)
+    mpris?.updateInfo(data)
 
     if (dbus && data.lyric !== undefined) {
       const lrc = {
@@ -1881,7 +1881,7 @@ async function initSynchronizeIpcMain(
   )
 
   ipcMain.on('metadata', (event: IpcMainEvent, metadata: any) => {
-    mediaController?.setMetadata(metadata)
+    mpris?.setMetadata(metadata)
   })
 
   ipcMain.on('updateOsdState', (event, data: Partial<osdMap>) => {
