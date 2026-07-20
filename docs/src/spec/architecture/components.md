@@ -1,12 +1,12 @@
 ---
 title: 组件参考
 order: 7
-last-reviewed: 2025-07-07
+last-reviewed: 2025-07-21
 ---
 
 # 组件参考
 
-渲染进程共有 ~60 个 Vue 组件，位于 `src/renderer/components/`。本文档覆盖核心组件的 Props、Events、Slots 和使用场景。
+渲染进程共有 ~63 个 Vue 组件，位于 `src/renderer/components/`。本文档覆盖核心组件的 Props、Events、Slots 和使用场景。
 
 ## 组件总览
 
@@ -202,6 +202,13 @@ last-reviewed: 2025-07-07
 | `ModalNewPlaylist` | 新建歌单模态框 | `show` |
 | `ModalAccurateMatch` | 精确匹配模态框 | `show`, `track` |
 | `ModalPlayerTheme` | 播放器主题设置模态框 | `show` |
+| `ModalPlayerFont` | 播放器字体设置模态框 | `show` |
+| `ModalSaveTheme` | 保存自定义主题模态框 | `show` |
+| `ModalPitch` | 音调调节模态框 | `show` |
+| `ModalBackground` | 播放器背景设置模态框 | `show` |
+| `ModalPlayback` | 播放设置模态框 | `show` |
+| `ModalConvolver` | 混响效果设置模态框 | `show` |
+| `ModalFilePaths` | 文件路径设置模态框 | `show` |
 | `LyricLine` | 单行歌词渲染 | `line`, `active` |
 | `ScrollBar` | 自定义滚动条 | — |
 | `Pagination` | 分页器 | `total`, `pageSize` |

@@ -1,7 +1,7 @@
 ---
 title: 开发工作流
 order: 2
-last-reviewed: 2025-07-07
+last-reviewed: 2025-07-21
 ---
 
 # 开发工作流
@@ -37,7 +37,7 @@ yarn dev → 启动 Vite HMR + Electron
 | 文件               | 职责                                         | 大小/备注         |
 | ------------------ | -------------------------------------------- | ----------------- |
 | `index.ts`         | BackGround 单例，初始化链路（见 startup.md） | 入口文件          |
-| `IPCs.ts`          | 7 组 IPC 通道                                | ~66KB             |
+| `IPCs.ts`          | 6 组 IPC 通道                                | ~66KB             |
 | `db.ts`            | better-sqlite3 初始化 + 建表                 | 数据库入口        |
 | `dbHelpers.ts`     | 数据库查询（CRUD/去重/匹配）                 | ~46KB             |
 | `pluginManager.ts` | 全局插件管理器                               | Map<id, Instance> |
@@ -65,10 +65,9 @@ yarn dev → 启动 Vite HMR + Electron
 
 | 模块          | 文件数 | 说明                            |
 | ------------- | ------ | ------------------------------- |
-| `store/`      | 9 个   | Pinia Store 管理全局状态        |
-| `views/`      | 18 个  | 页面视图组件（含 2 个独立窗口） |
-| `components/` | ~60 个 | UI 组件                         |
-| `api/`        | 9 模块 | 前端 API 调用                   |
+| `store/`      | 8 个   | Pinia Store 管理全局状态        |
+| `views/`      | 17 个  | 页面视图组件（含 1 个独立窗口） |
+| `components/` | ~63 个 | UI 组件                         |
 | `locales/`    | 3 种   | zh-hans / zh-hant / en          |
 
 ### 类型定义 (`src/types/`)

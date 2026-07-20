@@ -1,7 +1,7 @@
 ---
 title: Worker 沙箱与插件执行
 order: 8
-last-reviewed: 2025-07-07
+last-reviewed: 2025-07-21
 ---
 
 # Worker 沙箱与插件执行
@@ -61,6 +61,7 @@ exports.search = async (params) => {
 | --- | --- | --- | --- | --- |
 | 音乐扫描 | `src/main/workers/scanMusic.ts` | Piscina 线程池（2-6 线程） | 遍历文件、解析音频标签、批量写入 DB | 用户触发扫描或自动扫描 |
 | 音频缓存 | `src/main/workers/cacheTrack.ts` | Node.js worker_threads（单例） | 下载在线歌曲到本地缓存 | `autoCacheTrack.enable` 开启时，每次播放触发 |
+| 封面写入 | `src/main/workers/writeCover.ts` | Node.js worker_threads（单例） | 将匹配到的封面嵌入本地文件 | 精确匹配成功且有封面时 |
 | 封面写入 | `src/main/workers/writeCover.ts` | Node.js worker_threads（单例） | 将匹配到的封面嵌入本地文件 | 精确匹配成功且有封面时 |
 
 Piscina 是线程池方案，用于并行扫描大量文件；后两者是单 Worker 线程，用于处理队列型任务。

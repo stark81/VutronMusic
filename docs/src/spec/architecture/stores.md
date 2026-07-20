@@ -1,7 +1,7 @@
 ---
 title: Store 状态管理
 order: 3
-last-reviewed: 2025-07-07
+last-reviewed: 2025-07-21
 ---
 
 # Store 状态管理
@@ -10,17 +10,16 @@ last-reviewed: 2025-07-07
 
 ## Store 总览
 
-| Store ID | 文件 | 职责 | 持久化 |
-| --- | --- | --- | --- |
-| `state` | `state.ts` | UI 状态（模态框、通知、滚动条等） | 否 |
-| `settings` | `settings.ts` | 应用设置（主题、语言、快捷键等） | 是 |
-| `player` | `player.ts` | 播放器核心（播放列表、进度、音量等） | 是 |
-| `audioEngine` | `audioEngine.ts` | Web Audio API 图（EQ、混响、增益等） | 否 |
-| `lyric` | `lyric.ts` | 歌词索引和定时更新 | 是 |
-| `data` | `data.ts` | 🚧 旧版网易云数据（逐步迁移中，仍被 App.vue / LibraryMusic / auth / trayLyrics / utils 引用；新功能应通过 `pluginMusic`） | 是 |
-| `pluginMusic` | `pluginMusic.ts` | 插件系统数据（多源聚合；承载本地与在线音乐管理） | 是 |
-| `playerTheme` | `playerTheme.ts` | 播放器主题布局 | 是 |
-| `osdLyric` | `osdLyric.ts` | 桌面歌词窗口状态 | 是 |
+| Store ID      | 文件             | 职责                                             | 持久化 |
+| ------------- | ---------------- | ------------------------------------------------ | ------ |
+| `state`       | `state.ts`       | UI 状态（模态框、通知、滚动条等）                | 否     |
+| `settings`    | `settings.ts`    | 应用设置（主题、语言、快捷键等）                 | 是     |
+| `player`      | `player.ts`      | 播放器核心（播放列表、进度、音量等）             | 是     |
+| `audioEngine` | `audioEngine.ts` | Web Audio API 图（EQ、混响、增益等）             | 否     |
+| `lyric`       | `lyric.ts`       | 歌词索引和定时更新                               | 是     |
+| `pluginMusic` | `pluginMusic.ts` | 插件系统数据（多源聚合；承载本地与在线音乐管理） | 是     |
+| `playerTheme` | `playerTheme.ts` | 播放器主题布局                                   | 是     |
+| `osdLyric`    | `osdLyric.ts`    | 桌面歌词窗口状态                                 | 是     |
 
 ## Store 间依赖关系
 
@@ -360,14 +359,6 @@ player 是全局最复杂的 store（1309 行）。以下核心状态机的设�
 | `translationMode`                   | `ref<TranslationMode>` | 翻译模式（tlyric/rlyric）       |
 | `playedLrcColor` / `unplayLrcColor` | `ref<string>`          | 已播放/未播放颜色               |
 | `font`                              | `ref<string>`          | 字体                            |
-
----
-
-### data（🚧 逐步迁移中）
-
-**文件**: `src/renderer/store/data.ts`（239 行） **依赖**: `state` **持久化**: `user`, `likedSongPlaylistID`, `lastRefreshCookieDate`, `loginMode`
-
-旧版网易云专属数据 store，承载迁移前的用户认证、收藏、播放历史等状态。当前仍被 `App.vue`、`LibraryMusic.vue`、`auth.ts`、`utils/index.ts`、`trayLyrics.ts` 等文件引用，**尚未完成废弃**。新功能应通过 `pluginMusic` 的插件化接口实现。
 
 ---
 

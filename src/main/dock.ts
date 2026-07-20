@@ -1,5 +1,6 @@
 import { app, Menu, BrowserWindow, ipcMain, MenuItemConstructorOptions } from 'electron'
 import store from './store'
+import { osdMap, statusMap } from '@/types/music'
 
 let isPlaying = false
 let enableOSD = store.get('osdWin.show') as boolean
@@ -116,23 +117,21 @@ export const createDockMenu = (win: BrowserWindow) => {
   }
   updateDockMenu(lang)
 
-  ipcMain.on('updatePlayerState', (_, data: any) => {
-    for (const [key, value] of Object.entries(data) as [string, any]) {
+  ipcMain.on('synchronize-player-info', (_, data: Partial<statusMap>) => {
+    if (data.playing !== undefined) {
       const lang = store.get('settings.lang') as 'zh' | 'en' | 'zht'
-      if (key === 'playing') {
-        isPlaying = value
-        updateDockMenu(lang)
-      }
+      isPlaying = data.playing
+      updateDockMenu(lang)
     }
   })
 
-  ipcMain.on('updateOsdState', (event, data) => {
-    const [key, value] = Object.entries(data)[0] as [string, any]
-    if (key === 'show') {
-      enableOSD = value
+  ipcMain.on('updateOsdState', (event, data: Partial<osdMap>) => {
+    if (data.show !== undefined) {
+      enableOSD = data.show
       updateDockMenu(lang)
-    } else if (key === 'isLock') {
-      isLock = value
+    }
+    if (data.isLock !== undefined) {
+      isLock = data.isLock
       updateDockMenu(lang)
     }
   })

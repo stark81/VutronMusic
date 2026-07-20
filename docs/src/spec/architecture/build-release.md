@@ -1,7 +1,7 @@
 ---
 title: 构建与发布
 order: 13
-last-reviewed: 2025-07-07
+last-reviewed: 2025-07-21
 ---
 
 # 构建与发布
@@ -22,11 +22,11 @@ last-reviewed: 2025-07-07
 
 配置文件：`buildAssets/builder/config.js`
 
-| 平台    | 产物类型                                      | 架构 |
-| ------- | --------------------------------------------- | ---- |
-| macOS   | `dmg`                                         | x64  |
-| Windows | `nsis`（安装包）+ `portable`（便携版）+ `zip` | x64  |
-| Linux   | `deb` + `rpm` + `AppImage` + `snap`           | x64  |
+| 平台    | 产物类型                                      | 架构        |
+| ------- | --------------------------------------------- | ----------- |
+| macOS   | `dmg`                                         | x64 + arm64 |
+| Windows | `nsis`（安装包）+ `portable`（便携版）+ `zip` | x64 + arm64 |
+| Linux   | `deb` + `rpm` + `AppImage` + `snap`           | x64 + arm64 |
 
 NSIS 安装包配置：一键安装关闭、允许修改安装目录、创建桌面快捷方式。
 
@@ -38,7 +38,14 @@ NSIS 安装包配置：一键安装关闭、允许修改安装目录、创建桌
 
 ## 自动更新
 
-当前未集成自动更新机制。`checkUpdate` / `downloadUpdate` 通过 IPC 触发，仅检测版本号。
+已集成 `electron-updater`，支持 Windows 和 Linux 版本的自动更新检查和下载。macOS 版本因 App Store 分发策略限制，仅提示更新可用，不支持自动下载安装。
+
+更新流程：
+
+1. 应用启动时检查 GitHub Releases 最新版本
+2. 发现新版本后弹窗提示用户
+3. 用户确认后下载更新包（Windows: nsis installer, Linux: AppImage/deb/rpm）
+4. 下载完成后提示重启安装
 
 ## asar 解包
 

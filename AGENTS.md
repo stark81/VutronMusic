@@ -69,18 +69,23 @@ yarn lint        # 代码检查
 src/
 ├── main/          # Electron 主进程
 │   ├── index.ts           # 入口: BackGround 单例
-│   ├── IPCs.ts            # 7 组 IPC 通道
+│   ├── IPCs.ts            # 6 组 IPC 通道
 │   ├── db.ts              # better-sqlite3 初始化
 │   ├── dbHelpers.ts       # 数据库查询 (46KB)
 │   ├── pluginManager.ts   # 全局插件管理器
-│   ├── workers/           # Worker 线程 (插件执行/缓存/扫描)
+│   ├── tray.ts            # 系统托盘（原生实现）
+│   ├── touchBar.ts        # macOS Touch Bar（原生实现）
+│   ├── checkUpdate.ts     # 自动更新（electron-updater）
+│   ├── mpris.ts           # Linux MPRIS 媒体集成
+│   ├── dbusService.ts     # DBus 服务（第三方歌词显示）
+│   ├── dbusClient.ts      # DBus 客户端
+│   ├── workers/           # Worker 线程 (插件执行/缓存/扫描/封面写入)
 │   └── appServer/         # Fastify 路由 (网易云 API 代理)
 ├── preload/       # contextBridge 桥接
 ├── renderer/      # Vue 3 前端
-│   ├── store/     # 9 个 Pinia stores
-│   ├── views/     # 18 个页面视图 (含 1 个独立窗口: OSDLyric)
-│   ├── components/ # ~61 个组件
-│   ├── api/       # 前端 API 调用 (album/artist/playlist...)
+│   ├── store/     # 8 个 Pinia stores
+│   ├── views/     # 17 个页面视图 (含 1 个独立窗口: OSDLyric)
+│   ├── components/ # ~63 个组件
 │   └── locales/   # i18n (zh-hans/zh-hant/en)
 ├── types/         # TS 类型 + Zod Schema（见 types.md 了解双类型系统）
 	│   ├── plugin.ts  # PluginAPI 接口（62 个方法，含 2 个已注释）

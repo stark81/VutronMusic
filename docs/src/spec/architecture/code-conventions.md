@@ -1,7 +1,7 @@
 ---
 title: 代码规范
 order: 4
-last-reviewed: 2025-07-07
+last-reviewed: 2025-07-21
 ---
 
 # 代码规范
@@ -80,7 +80,6 @@ last-reviewed: 2025-07-07
 | `views/`      | 路由页面级组件 | `{Name}Page.vue`（PlayPage, SearchPage, ExplorePage） |
 | `components/` | 可复用 UI 组件 | PascalCase，无固定后缀                                |
 | `store/`      | Pinia Store    | camelCase（player.ts, audioEngine.ts）                |
-| `api/`        | 前端 API 调用  | camelCase 按领域划分（track.ts, auth.ts, user.ts）    |
 | `utils/`      | 工具函数       | camelCase                                             |
 | `locales/`    | 国际化翻译     | `{lang}.json`（zh-hans.json, en.json）                |
 

@@ -1,7 +1,7 @@
 ---
 title: Preload contextBridge 桥接
 order: 12
-last-reviewed: 2025-07-07
+last-reviewed: 2025-07-21
 ---
 
 # Preload contextBridge 桥接
@@ -76,23 +76,32 @@ OSD 歌词窗口通过 `MessagePort` 与主窗口通信，避免走 IPC 中转�
 
 ### 渲染 → 主进程（mainAvailChannels）
 
-| 分类     | 通道                                                                           |
-| -------- | ------------------------------------------------------------------------------ |
-| 窗口控制 | `minimize`, `maximizeOrUnmaximize`, `close`, `showWindow`                      |
-| 播放器   | `metadata`, `updatePlayerState`, `updateOsdState`, `updateTouchBarLyric`       |
-| 插件     | `plugin-method-call`, `get-plugins`, `upload-plugin`, `create-plugin-instance` |
-| 本地音乐 | `msgScanLocalMusic`, `selecteFolder`, `getFilesInFolder`                       |
-| 第三方   | `playDiscordPresence`, `pauseDiscordPresence`, `lastfm-auth`                   |
-| 设置     | `setStoreSettings`, `setPluginEnable`, `set-source-priority`                   |
-| 歌词     | `updateLyricInfo`, `plugin-lyric`, `get-lyric-offset`, `set-lyric-offset`      |
+| 分类 | 通道 |
+| --- | --- |
+| 窗口控制 | `minimize`, `maximizeOrUnmaximize`, `close`, `showWindow` |
+| 播放器 | `metadata`, `updatePlayerState`, `updateOsdState`, `synchronize-player-info` |
+| 插件 | `plugin-method-call`, `get-plugins`, `upload-plugin`, `create-plugin-instance`, `delete-plugin-instance` |
+| 本地音乐 | `msgScanLocalMusic`, `selecteFolder`, `getFilesInFolder`, `deleteLocalMusicDB`, `accurateMatch`, `clearDeletedMusic` |
+| 第三方 | `playDiscordPresence`, `pauseDiscordPresence`, `lastfm-auth`, `get-lastfm-session`, `disconnect-lastfm` |
+| 设置 | `setStoreSettings`, `setPluginEnable`, `set-source-priority`, `get-source-priority` |
+| 歌词 | `updateLyricInfo`, `update-osd-lyric`, `plugin-lyric`, `get-lyric-offset`, `set-lyric-offset` |
+| 托盘 | `updateTray`, `updateTrayLyric`, `initTrayState`, `updateTrayVisibility`, `setTrayFMMode` |
+| 缓存 | `clearCacheTracks`, `getCacheTracksInfo`, `get-cache-path`, `get-song-url` |
+| 更新 | `check-update`, `downloadUpdate`, `update-powersave` |
+| 截图 | `get-screenshot`, `delete-screenshot` |
+| 其他 | `msgRequestGetVersion`, `msgOpenExternalLink`, `msgOpenFile`, `msgShowInFolder`, `msgCheckFileExist`, `showOpenDialog`, `getFilesInFolder`, `openLogFile`, `getFontList`, `report-playback`, `getStreamMatchCount`, `trackMatch`, `plugin-comment`, `clearStreamMatches` |
 
 ### 主进程 → 渲染（rendererAvailChannels）
 
-| 分类     | 通道                                                           |
-| -------- | -------------------------------------------------------------- |
-| 播放控制 | `play`, `previous`, `next`, `repeat`, `repeat-shuffle`, `like` |
-| 音量     | `increaseVolume`, `decreaseVolume`                             |
-| FM       | `fm-trash`                                                     |
-| 扫描     | `scanLocalMusicProgress`, `scanLocalMusicDone`                 |
-| 更新     | `update-error`, `download-progress`, `resume`                  |
-| 系统     | `handleTrayClick`, `rememberCloseAppOption`, `setPosition`     |
+| 分类     | 通道                                                                           |
+| -------- | ------------------------------------------------------------------------------ |
+| 播放控制 | `play`, `pause`, `previous`, `next`, `repeat`, `repeat-shuffle`, `like`        |
+| 音量     | `increaseVolume`, `decreaseVolume`                                             |
+| FM       | `fm-trash`                                                                     |
+| 进度     | `setPosition`, `resume`                                                        |
+| 扫描     | `scanLocalMusicProgress`, `scanLocalMusicDone`, `msgHandleScanLocalMusicError` |
+| 更新     | `update-error`, `download-progress`                                            |
+| 桌面歌词 | `updateOSDSetting`, `init-from-osd`, `get-seek`                                |
+| 系统     | `handleTrayClick`, `rememberCloseAppOption`, `changeRouteTo`                   |
+| 扩展     | `msgExtensionCheckResult`, `updateAmuseServerStatus`                           |
+| 缓存     | `receiveCacheInfo`                                                             |

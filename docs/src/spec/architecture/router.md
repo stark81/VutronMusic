@@ -1,7 +1,7 @@
 ---
 title: 路由配置
 order: 8
-last-reviewed: 2025-07-07
+last-reviewed: 2025-07-21
 ---
 
 # 路由配置
@@ -52,7 +52,6 @@ Vue Router 4 管理所有页面视图的导航，位于 `src/renderer/router/ind
 | 路径                    | 组件             | 说明                 |
 | ----------------------- | ---------------- | -------------------- |
 | `/search`               | `SearchPage`     | 搜索结果             |
-| `/user/:id`             | `UserPage`       | 用户主页             |
 | `/settings`             | `SystemSettings` | 系统设置             |
 | `/login/:service/:type` | `LoginAccount`   | 登录页               |
 | `/next`                 | `NextUp`         | 即将播放             |

@@ -3,6 +3,7 @@ import defaultShortcuts from './utils/shortcuts'
 import Constants from './utils/Constants'
 import store from './store'
 import { checkUpdate } from './checkUpdate'
+import { osdMap, statusMap } from '@/types/music'
 
 let isPlaying = false
 let repeatMode = 'off'
@@ -697,28 +698,28 @@ export function createMenu(win: BrowserWindow) {
   }
   updateMenu(lang)
 
-  ipcMain.on('updatePlayerState', (_, data: any) => {
-    for (const [key, value] of Object.entries(data) as [string, any]) {
-      const lang = store.get('settings.lang') as 'en' | 'zh' | 'zht'
-      if (key === 'playing') {
-        isPlaying = value
-        updateMenu(lang)
-      } else if (key === 'repeatMode') {
-        repeatMode = value
-        updateMenu(lang)
-      } else if (key === 'shuffle') {
-        shuffleMode = value
-      }
+  ipcMain.on('synchronize-player-info', (_, data: Partial<statusMap>) => {
+    const lang = store.get('settings.lang') as 'en' | 'zh' | 'zht'
+    if (data.playing !== undefined) {
+      isPlaying = data.playing
+      updateMenu(lang)
+    }
+    if (data.repeatMode !== undefined) {
+      repeatMode = data.repeatMode
+      updateMenu(lang)
+    }
+    if (data.shuffle !== undefined) {
+      shuffleMode = data.shuffle
     }
   })
 
-  ipcMain.on('updateOsdState', (event, data) => {
-    const [key, value] = Object.entries(data)[0] as [string, any]
-    if (key === 'show') {
-      enableOSD = value
+  ipcMain.on('updateOsdState', (event, data: Partial<osdMap>) => {
+    if (data.show !== undefined) {
+      enableOSD = data.show
       updateMenu(lang)
-    } else if (key === 'isLock') {
-      isLock = value
+    }
+    if (data.isLock !== undefined) {
+      isLock = data.isLock
       updateMenu(lang)
     }
   })

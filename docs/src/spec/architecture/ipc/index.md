@@ -1,7 +1,7 @@
 ---
 title: 进程模型与数据流
 order: 9
-last-reviewed: 2025-07-07
+last-reviewed: 2025-07-21
 ---
 
 # 进程模型与数据流
@@ -33,8 +33,8 @@ Renderer Process
                ┌─────┴─────────────┴─────────────────┐
                │              Main Process             │
                │  ┌──────────┐  ┌──────────┐  ┌──────┐│
-│  │ IPCs.ts  │  │ DB       │  │Window││
-                │  │ (7 组)   │  │(SQLite)  │  │/Tray ││
+               │  │ IPCs.ts  │  │ DB       │  │Window││
+               │  │ (6 组)   │  │(SQLite)  │  │/Tray ││
                │  └────┬─────┘  └──────────┘  └──────┘│
                │       │                               │
                │  ┌────▼─────────────────────────────┐ │
@@ -107,17 +107,16 @@ Renderer/Main ──HTTP──→ Fastify (端口 40001/41830)
 
 好处：统一 Cookie 管理、请求签名、代理支持、插件兼容。
 
-## 7 组 IPC 通道
+## 6 组 IPC 通道
 
-| #   | IPC 模块     | 功能           | 关键方法                                 |
-| --- | ------------ | -------------- | ---------------------------------------- |
-| 1   | WindowIpc    | 窗口控制       | minimize, maximizeOrUnmaximize, close    |
-| 2   | OSDWindowIpc | 桌面歌词窗口   | show, hide, lock, setSize, playPause     |
-| 3   | TrayIpc      | 系统托盘       | updateTray, setPlayState, updateSettings |
-| 4   | TaskbarIpc   | Windows 任务栏 | (预留)                                   |
-| 5   | MprisIpc     | Linux 媒体键   | playPause, next, prev, setVolume         |
-| 6   | OtherIpc     | 杂项           | Discord, Last.fm, 版本查询               |
-| 7   | PluginIpc    | 插件管理       | call, getPlugins, create/delete instance |
+| #   | IPC 模块       | 功能         | 关键方法                                 |
+| --- | -------------- | ------------ | ---------------------------------------- |
+| 1   | WindowIpc      | 窗口控制     | minimize, maximizeOrUnmaximize, close    |
+| 2   | TrayIpc        | 系统托盘     | updateTray, setPlayState, updateSettings |
+| 3   | OSDWindowIpc   | 桌面歌词窗口 | show, hide, lock, setSize, playPause     |
+| 4   | OtherIpc       | 杂项         | 文件操作、缓存、更新、截图等             |
+| 5   | PluginIpc      | 插件管理     | call, getPlugins, create/delete instance |
+| 6   | SynchronizeIpc | 播放同步     | tray/touchbar/MPRIS/DBus 状态同步        |
 
 ### 渲染进程 → 主进程（完整清单）
 
@@ -168,9 +167,12 @@ Renderer/Main ──HTTP──→ Fastify (端口 40001/41830)
 | `lastfm-auth` | Last.fm | Last.fm 授权 | `initOtherIpcMain` |
 | `get-lastfm-session` | Last.fm | 获取 Last.fm 会话信息 | `initOtherIpcMain` |
 | `disconnect-lastfm` | Last.fm | 断开 Last.fm | `initOtherIpcMain` |
-| `metadata` | MPRIS | 更新 MPRIS 元数据 | `initMprisIpcMain` |
-| `updateLyricInfo` | MPRIS | 更新 GNOME Shell 扩展歌词 | `initMprisIpcMain` |
-| `askExtensionStatus` | MPRIS | 查询 GNOME Shell 扩展状态 | `initMprisIpcMain` |
+| `metadata` | Synchronize | 更新 MPRIS 元数据 | `initSynchronizeIpcMain` |
+| `updateLyricInfo` | Synchronize | 更新 GNOME Shell 扩展歌词 | `initSynchronizeIpcMain` |
+| `askExtensionStatus` | Synchronize | 查询 GNOME Shell 扩展状态 | `initSynchronizeIpcMain` |
+| `synchronize-player-info` | Synchronize | 同步播放信息到 tray/touchbar/MPRIS/DBus | `initSynchronizeIpcMain` |
+| `initTrayState` | Synchronize | 初始化 tray/touchbar 状态 | `initSynchronizeIpcMain` |
+| `updateTrayVisibility` | Synchronize | 更新 tray 显隐状态 | `initSynchronizeIpcMain` |
 | `get-song-url` | Plugin | 获取歌曲播放 URL（含缓存查询） | `initOtherIpcMain` |
 | `plugin-method-call` | Plugin | 通用插件方法调用 | `initPluginIpcMain` |
 | `get-plugins` | Plugin | 获取所有已注册插件列表 | `initPluginIpcMain` |
@@ -189,38 +191,44 @@ Renderer/Main ──HTTP──→ Fastify (端口 40001/41830)
 
 ### 主进程 → 渲染进程（完整清单）
 
-| 通道名                         | 说明           | 触发时机           |
-| ------------------------------ | -------------- | ------------------ |
-| `play`                         | 播放/暂停切换  | 快捷键或 MPRIS     |
-| `previous`                     | 上一首         | 快捷键或 MPRIS     |
-| `next`                         | 下一首         | 快捷键或 MPRIS     |
-| `repeat`                       | 切换循环模式   | 快捷键             |
-| `repeat-shuffle`               | 切换随机播放   | 快捷键             |
-| `like`                         | 收藏/取消收藏  | 快捷键或 MPRIS     |
-| `increaseVolume`               | 增加音量       | 快捷键             |
-| `decreaseVolume`               | 减小音量       | 快捷键             |
-| `fm-trash`                     | FM 模式下跳过  | 快捷键             |
-| `setPosition`                  | 跳转到指定进度 | 快捷键             |
-| `resume`                       | 恢复播放       | 快捷键             |
-| `scanLocalMusicProgress`       | 扫描进度通知   | 本地扫描每批次完成 |
-| `scanLocalMusicDone`           | 扫描完成       | 扫描结束           |
-| `msgHandleScanLocalMusicError` | 扫描出错       | 扫描异常           |
-| `receiveCacheInfo`             | 缓存状态更新   | 缓存任务完成       |
-| `msgDeletedTracks`             | 已删除歌曲通知 | 文件变更检测       |
-| `update-error`                 | 更新出错       | 自动更新失败       |
-| `download-progress`            | 下载进度       | 更新下载中         |
-| `handleTrayClick`              | 托盘点击       | 系统托盘操作       |
-| `rememberCloseAppOption`       | 记住关闭选项   | 用户选择关闭行为   |
+| 通道名                         | 说明               | 触发时机                     |
+| ------------------------------ | ------------------ | ---------------------------- |
+| `play`                         | 播放/暂停切换      | 快捷键、托盘、菜单、TouchBar |
+| `previous`                     | 上一首             | 快捷键、托盘、菜单、TouchBar |
+| `next`                         | 下一首             | 快捷键、托盘、菜单、TouchBar |
+| `repeat`                       | 切换循环模式       | 快捷键、托盘、菜单           |
+| `repeat-shuffle`               | 切换随机播放       | 快捷键、托盘、菜单           |
+| `like`                         | 收藏/取消收藏      | 快捷键、托盘、菜单、TouchBar |
+| `increaseVolume`               | 增加音量           | 快捷键、菜单                 |
+| `decreaseVolume`               | 减小音量           | 快捷键、菜单                 |
+| `fm-trash`                     | FM 模式下跳过      | 快捷键、TouchBar             |
+| `setPosition`                  | 跳转到指定进度     | 快捷键                       |
+| `resume`                       | 恢复播放           | 系统休眠唤醒                 |
+| `updateOSDSetting`             | 更新桌面歌词设置   | 托盘、菜单、Dock             |
+| `changeRouteTo`                | 跳转路由           | 菜单                         |
+| `handleTrayClick`              | 托盘点击事件       | 系统托盘                     |
+| `rememberCloseAppOption`       | 记住关闭选项       | 用户选择关闭行为             |
+| `isMaximized`                  | 窗口最大化状态     | 窗口事件                     |
+| `scanLocalMusicProgress`       | 扫描进度通知       | 本地扫描每批次完成           |
+| `scanLocalMusicDone`           | 扫描完成           | 扫描结束                     |
+| `msgHandleScanLocalMusicError` | 扫描出错           | 扫描异常                     |
+| `receiveCacheInfo`             | 缓存状态更新       | 缓存任务完成                 |
+| `update-not-available`         | 无可用更新         | 自动更新检查                 |
+| `download-progress`            | 下载进度           | 更新下载中                   |
+| `update-error`                 | 更新出错           | 自动更新失败                 |
+| `updateAmuseServerStatus`      | Amuse 服务状态     | 服务启动/停止                |
+| `msgExtensionCheckResult`      | GNOME 扩展检查结果 | DBus 查询完成                |
+| `get-seek`                     | OSD 获取进度       | OSD 窗口连接                 |
+| `init-from-osd`                | OSD 初始化         | OSD 窗口连接                 |
 
 ## IPCs.ts 注册入口
 
 ```
-IPCs.initialize(win, tray, mpris, lrc)
+IPCs.initialize(win, tray, touchBar, mpris, lrc)
   ├── initWindowIpcMain.main()
-  ├── initOSDWindowIpcMain.main()
   ├── initTrayIpcMain.main()
-  ├── initMprisIpcMain.main()
-  ├── initTaskbarIpcMain.main()
+  ├── initOSDWindowIpcMain.main()
   ├── initOtherIpcMain.main()
-  └── initPluginIpcMain.main()
+  ├── initPluginIpcMain.main()
+  └── initSynchronizeIpcMain.main()
 ```

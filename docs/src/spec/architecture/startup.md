@@ -1,7 +1,7 @@
 ---
 title: 主进程启动序列
 order: 11
-last-reviewed: 2025-07-07
+last-reviewed: 2025-07-21
 ---
 
 # 主进程启动序列
@@ -52,14 +52,14 @@ Phase 2: app.whenReady() 回调
   │       → 响应式启动/停止 6kLabs Amuse 服务
   │
   ├── ⑪ initAutoUpdater() → 自动更新检查
-  ├── ⑫ createTray() → 系统托盘
+  ├── ⑫ createTray() → 系统托盘（YPMTray 原生实现，含歌词显示、播放控制）
   ├── ⑬ createMpris() → Linux MPRIS (仅 Linux)
   ├── ⑭ registerGlobalShortcuts() → 全局快捷键
   ├── ⑮ IPCs.initialize() → 所有 IPC 通道注册
   ├── ⑯ 配置 HTTP/HTTPS 代理 (若启用)
   ├── ⑰ createMenu() → 应用菜单
   ├── ⑱ createDockMenu() → macOS Dock 菜单 (仅 macOS)
-  └── ⑲ createTouchBar() → macOS Touch Bar (仅 macOS)
+  └── ⑲ createTouchBar() → macOS Touch Bar (YPMTouchBar 原生实现，仅 macOS)
 
 OSD 窗口 (懒初始化)
 ════════════════════
@@ -105,14 +105,14 @@ if (!global[MAIN_PROCESS_INITIALIZED_KEY]) {
 
 ### 4. 各平台分支
 
-| 功能                | 平台    | 初始化时机           |
-| ------------------- | ------- | -------------------- |
-| `createDockMenu()`  | macOS   | Phase 2 末尾         |
-| `createTouchBar()`  | macOS   | Phase 2 末尾         |
-| `createThumBar()`   | Windows | `ready-to-show` 事件 |
-| `createMpris()`     | Linux   | Phase 2              |
-| `closeOnLinux`      | Linux   | Phase 0 常量         |
-| `setAppUserModelId` | Windows | Phase 1.②            |
+| 功能                | 平台    | 初始化时机                 |
+| ------------------- | ------- | -------------------------- |
+| `createDockMenu()`  | macOS   | Phase 2 末尾               |
+| `createTouchBar()`  | macOS   | Phase 2 末尾（原生 addon） |
+| `createThumBar()`   | Windows | `ready-to-show` 事件       |
+| `createMpris()`     | Linux   | Phase 2                    |
+| `closeOnLinux`      | Linux   | Phase 0 常量               |
+| `setAppUserModelId` | Windows | Phase 1.②                  |
 
 ### 5. OSD 窗口是懒加载的
 

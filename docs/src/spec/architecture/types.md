@@ -1,7 +1,7 @@
 ---
 title: 类型系统说明
 order: 10
-last-reviewed: 2025-07-07
+last-reviewed: 2025-07-21
 ---
 
 # 类型系统说明
@@ -69,12 +69,11 @@ pluginDbGet('Track', ...) [dbHelpers.ts:477]
 
 ## 黄金法则
 
-| 层 | 应使用 |
-| --- | --- |
-| **主进程 DB 操作**（dbHelpers.ts/db.ts） | `music.d.ts` 类型或原始 SQL 行 |
-| **主进程 IPC 处理**（IPCs.ts） | 两者皆可，IPC 接收端用 `@/types/plugin` 的 Zod 类型 |
-| **渲染进程 Store/组件** | **必须用 Zod 类型**（`@/types/plugin`） |
-| **渲染进程旧 API 层**（`src/renderer/api/`） | 返回原始 axios 数据，不在类型系统内 |
+| 层                                       | 应使用                                              |
+| ---------------------------------------- | --------------------------------------------------- |
+| **主进程 DB 操作**（dbHelpers.ts/db.ts） | `music.d.ts` 类型或原始 SQL 行                      |
+| **主进程 IPC 处理**（IPCs.ts）           | 两者皆可，IPC 接收端用 `@/types/plugin` 的 Zod 类型 |
+| **渲染进程 Store/组件**                  | **必须用 Zod 类型**（`@/types/plugin`）             |
 
 ## 相关文件
 
