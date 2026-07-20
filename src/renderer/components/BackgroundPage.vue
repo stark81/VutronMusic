@@ -289,7 +289,8 @@ const onLottieLoaded = async () => {
 onMounted(async () => {
   lottieContainer.value?.stop()
   lottieContainer.value?.destroy()
-  getImage(pic.value)
+  // 推迟 Vibrant 颜色提取到首帧后，避免阻塞首次渲染
+  setTimeout(() => getImage(pic.value), 0)
   if (activeBG.value.type === 'random-folder') {
     await loadRandomFolderSource()
   } else if (activeBG.value.type === 'api') {

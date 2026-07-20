@@ -37,6 +37,9 @@ const { tray } = storeToRefs(settingsStore)
 const { currentIndex } = storeToRefs(lyricStore)
 const { show, isLock, type, mode, translationMode } = storeToRefs(osdLyricStore)
 
+const silenceUrl = new URL('../assets/medias/Silence02s.mp3', import.meta.url).href
+let primeAudio: HTMLAudioElement | null = null
+
 const { playOrPause, playPrev, playNext, replaceCurrentTrack, moveToFMTrash } = playerStore
 const { getCurrentTime } = engineStore
 const { likeATrack, resizeImage } = pluginStore
@@ -149,6 +152,7 @@ watch(
     })
 
     if (useMediaSession) {
+      navigator.mediaSession.playbackState = value ? 'playing' : 'paused'
       navigator.mediaSession.setPositionState({
         duration: duration.value,
         playbackRate: playbackRate.value,
@@ -175,23 +179,30 @@ watch(lyrics, (value) => {
   })
 })
 
-watch(currentTrack, (value) => {
-  if (show.value && value) {
-    window.mainApi?.send('synchronize-player-info', {
-      title: `${value.artists?.[0]?.name || ''} - ${value.name || ''}`
-    })
-  }
+watch(
+  currentTrack,
+  (value) => {
+    if (show.value && value) {
+      window.mainApi?.send('synchronize-player-info', {
+        title: `${value.artists?.[0]?.name || ''} - ${value.name || ''}`
+      })
+    }
 
-  if (useMediaSession && value) {
-    navigator.mediaSession.setPositionState({
-      duration: duration.value,
-      playbackRate: playbackRate.value,
-      position: getCurrentTime()
-    })
-
-    updateMediaSessionMetaData(value)
+    if (useMediaSession && value) {
+      primeMediaSession()?.finally(() => {
+        updateMediaSessionMetaData(value)
+        navigator.mediaSession.setPositionState({
+          duration: duration.value,
+          playbackRate: playbackRate.value,
+          position: getCurrentTime()
+        })
+      })
+    }
+  },
+  {
+    immediate: true
   }
-})
+)
 
 watch(setSeek, (value) => {
   if (!value || !show.value || !useMediaSession) return
@@ -287,8 +298,7 @@ const formatTime = (seconds: number) => {
   return `[${formattedMinutes}:${formattedSeconds}]`
 }
 
-const updateMediaSessionMetaData = async (track: Track) => {
-  // macOS/Windows 没有 mediaSession 支持时跳过（Linux 仍需走 IPC 发给 MPRIS）
+async function updateMediaSessionMetaData(track: Track) {
   if ((window.env?.isMac || window.env?.isWindows) && !supportsMediaSession) return
 
   const plugin = track.pluginId
@@ -334,43 +344,58 @@ const updateMediaSessionMetaData = async (track: Track) => {
   }
 }
 
-const initMediaSession = () => {
-  if (useMediaSession) {
-    navigator.mediaSession.setActionHandler('play', () => {
-      engineStore.play()
-      playing.value = true
-    })
-    navigator.mediaSession.setActionHandler('pause', async () => {
-      await engineStore.pause()
-      playing.value = false
-    })
-    navigator.mediaSession.setActionHandler('previoustrack', () => {
-      if (!isPersonalFM.value) playPrev()
-      else moveToFMTrash()
-    })
-    navigator.mediaSession.setActionHandler('nexttrack', () => playNext(isPersonalFM.value))
-    navigator.mediaSession.setActionHandler('stop', async () => {
-      await engineStore.pause()
-      playing.value = false
-    })
-    navigator.mediaSession.setActionHandler('seekto', (event) => {
-      seek.value = event.seekTime!
-    })
-    navigator.mediaSession.setActionHandler('seekbackward', (event) => {
-      seek.value -= event.seekOffset || 10
-    })
-    navigator.mediaSession.setActionHandler('seekforward', (event) => {
-      seek.value += event.seekOffset || 10
-    })
+function initMediaSession() {
+  if (!useMediaSession) return
+
+  primeMediaSession()?.finally(() => {
+    navigator.mediaSession.playbackState = 'paused'
+
+    if (currentTrack.value) {
+      const track = currentTrack.value
+      const artist = track.artists.map((ar) => ar.name).join(',')
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: track.name,
+        artist,
+        album: track.album?.name,
+        artwork: []
+      })
+    }
     navigator.mediaSession.setPositionState({
       duration: duration.value,
       playbackRate: playbackRate.value,
-      position: seek.value > duration.value ? 0 : seek.value
+      position: getCurrentTime()
     })
-  }
+  })
+
+  navigator.mediaSession.setActionHandler('play', () => {
+    engineStore.play()
+    playing.value = true
+  })
+  navigator.mediaSession.setActionHandler('pause', async () => {
+    await engineStore.pause()
+    playing.value = false
+  })
+  navigator.mediaSession.setActionHandler('previoustrack', () => {
+    if (!isPersonalFM.value) playPrev()
+    else moveToFMTrash()
+  })
+  navigator.mediaSession.setActionHandler('nexttrack', () => playNext(isPersonalFM.value))
+  navigator.mediaSession.setActionHandler('stop', async () => {
+    await engineStore.pause()
+    playing.value = false
+  })
+  navigator.mediaSession.setActionHandler('seekto', (event) => {
+    seek.value = event.seekTime!
+  })
+  navigator.mediaSession.setActionHandler('seekbackward', (event) => {
+    seek.value -= event.seekOffset || 10
+  })
+  navigator.mediaSession.setActionHandler('seekforward', (event) => {
+    seek.value += event.seekOffset || 10
+  })
 }
 
-const setupVutronMusic = () => {
+function setupVutronMusic() {
   if (typeof window === 'undefined') return
   window.vutronmusic = {
     get progress() {
@@ -416,7 +441,7 @@ const setupVutronMusic = () => {
   }
 }
 
-const handleIpcRenderer = () => {
+function handleIpcRenderer() {
   window.mainApi?.on('resume', async () => {
     if (!currentTrack.value) return
     const t = progress.value
@@ -456,6 +481,24 @@ const handleIpcRenderer = () => {
   window.mainApi?.on('decreaseVolume', () => {
     if (volume.value - 0.1 <= 0) return (volume.value = 0)
     volume.value -= 0.1
+  })
+}
+
+function createPrimeAudio() {
+  const audio = new Audio(silenceUrl)
+  audio.preload = 'auto'
+  audio.volume = 0
+  audio.onplaying = () => {
+    audio.pause()
+  }
+  return audio
+}
+
+function primeMediaSession() {
+  if (!useMediaSession) return
+  if (!primeAudio) primeAudio = createPrimeAudio()
+  return primeAudio.play().catch((err) => {
+    console.warn('[SMTC] prime audio play failed:', err)
   })
 }
 

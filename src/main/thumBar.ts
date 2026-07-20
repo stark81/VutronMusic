@@ -2,6 +2,7 @@
 import { BrowserWindow, nativeImage, nativeTheme, ThumbarButton, ipcMain } from 'electron'
 import Constants from './utils/Constants'
 import path from 'path'
+import { statusMap } from '@/types/music'
 
 const playStatus = {
   liked: false,
@@ -92,11 +93,11 @@ class ThumbarImpl implements Thumbar {
       this._createButtons()
     })
 
-    ipcMain.on('updatePlayerState', (event, data) => {
-      if ('playing' in data) {
+    ipcMain.on('synchronize-player-info', (event, data: Partial<statusMap>) => {
+      if (data.playing !== undefined) {
         this.updatePlayState('play', data.playing)
       }
-      if ('like' in data) {
+      if (data.like !== undefined) {
         this.updatePlayState('liked', data.like)
       }
     })

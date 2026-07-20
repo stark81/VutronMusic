@@ -877,9 +877,12 @@ onMounted(async () => {
   loadTracks()
   if (!loading.value) {
     loading.value = true
-    buildLyricElements()
-    enterAnimation()
-    loading.value = false
+    // 推迟歌词 DOM 构建和动画初始化到首帧后
+    requestAnimationFrame(() => {
+      buildLyricElements()
+      enterAnimation()
+      loading.value = false
+    })
   }
   if (playing.value) {
     tl?.play()
