@@ -53,7 +53,6 @@ const shouldSend = computed(() => {
 
 // macOS 和 Windows 使用 Media Session API（Windows 上映射到 SMTC）
 const supportsMediaSession = 'mediaSession' in navigator
-const useMediaSession = supportsMediaSession && (window.env?.isMac || window.env?.isWindows)
 
 const currentLyric = computed(() => {
   const track = currentTrack.value
@@ -134,7 +133,7 @@ watch(playbackRate, (value) => {
     })
   }
 
-  if (useMediaSession) {
+  if (supportsMediaSession) {
     navigator.mediaSession.setPositionState({
       duration: duration.value,
       playbackRate: value,
@@ -151,7 +150,7 @@ watch(
       seek: getCurrentTime()
     })
 
-    if (useMediaSession) {
+    if (supportsMediaSession) {
       navigator.mediaSession.playbackState = value ? 'playing' : 'paused'
       navigator.mediaSession.setPositionState({
         duration: duration.value,
@@ -188,7 +187,7 @@ watch(
       })
     }
 
-    if (useMediaSession && value) {
+    if (supportsMediaSession && value) {
       primeMediaSession()?.finally(() => {
         updateMediaSessionMetaData(value)
         navigator.mediaSession.setPositionState({
@@ -205,12 +204,12 @@ watch(
 )
 
 watch(setSeek, (value) => {
-  if (!value || !show.value || !useMediaSession) return
+  if (!value || !show.value || !supportsMediaSession) return
   window.mainApi?.send('synchronize-player-info', {
     setSeek: getCurrentTime()
   })
 
-  if (useMediaSession) {
+  if (supportsMediaSession) {
     navigator.mediaSession.setPositionState({
       duration: duration.value,
       playbackRate: playbackRate.value,
@@ -299,8 +298,6 @@ const formatTime = (seconds: number) => {
 }
 
 async function updateMediaSessionMetaData(track: Track) {
-  if ((window.env?.isMac || window.env?.isWindows) && !supportsMediaSession) return
-
   const plugin = track.pluginId
 
   const artist = track.artists.map((ar) => ar.name).join(',')
@@ -337,7 +334,7 @@ async function updateMediaSessionMetaData(track: Track) {
       }
     ]
   }
-  if (useMediaSession) {
+  if ((window.env?.isMac || window.env?.isWindows) && supportsMediaSession) {
     navigator.mediaSession.metadata = new MediaMetadata(metadata)
   } else {
     window.mainApi?.send('metadata', metadata)
@@ -345,7 +342,7 @@ async function updateMediaSessionMetaData(track: Track) {
 }
 
 function initMediaSession() {
-  if (!useMediaSession) return
+  if (!supportsMediaSession) return
 
   primeMediaSession()?.finally(() => {
     navigator.mediaSession.playbackState = 'paused'
@@ -495,7 +492,7 @@ function createPrimeAudio() {
 }
 
 function primeMediaSession() {
-  if (!useMediaSession) return
+  if (!supportsMediaSession) return
   if (!primeAudio) primeAudio = createPrimeAudio()
   return primeAudio.play().catch((err) => {
     console.warn('[SMTC] prime audio play failed:', err)
