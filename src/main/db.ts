@@ -6,6 +6,7 @@ import log from './log'
 import { app } from 'electron'
 import { createFileIfNotExist } from './utils'
 import Constants from './utils/Constants'
+import { compare, validate } from 'compare-versions'
 
 export enum Tables {
   Track = 'Track',
@@ -69,18 +70,24 @@ class DB {
   }
 
   migrate() {
-    for (const col of ['cueOffset', 'cueDuration']) {
-      try {
-        this.sqlite.exec(`ALTER TABLE Audio ADD COLUMN "${col}" INTEGER NOT NULL DEFAULT 0`)
-      } catch {
-        // 列已存在则忽略
-      }
-    }
     const key = 'appVersion'
-    const appVersion = this.findAppData(key)
-    if (appVersion?.value !== Constants.APP_VERSION) {
+    const appVersionRow = this.findAppData(key)
+    const appVersion = appVersionRow?.value || '0.0.0'
+    const updateAppVersionInDB = () => {
       this.upsertAppData({ id: key, value: Constants.APP_VERSION })
     }
+    const sqlFiles = fs.readdirSync(migrationsDir).sort()
+    sqlFiles.forEach((sqlFile: string) => {
+      const versionMatch = sqlFile.match(/^(\d+(\.\d+)*)(?=\.)/)
+      const version = versionMatch ? versionMatch[0] : ''
+      if (!validate(version)) return
+      if (compare(version, appVersion, '>')) {
+        const file = readSqlFile(sqlFile)
+        this.sqlite.exec(file)
+        this.sqlite.pragma('journal_mode=WAL')
+      }
+    })
+    updateAppVersionInDB()
   }
 
   /* ---------------- 基础查询 ---------------- */

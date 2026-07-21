@@ -1133,9 +1133,16 @@ export interface PluginRow {
 
 /** 读取所有已注册插件 */
 export function getAllPlugins(): PluginRow[] {
-  return db.sqlite
-    .prepare(`SELECT * FROM ${Tables.Plugins} ORDER BY builtIn DESC, id ASC`)
-    .all() as PluginRow[]
+  try {
+    return db.sqlite
+      .prepare(`SELECT * FROM ${Tables.Plugins} ORDER BY builtIn DESC, sortOrder ASC, id ASC`)
+      .all() as PluginRow[]
+  } catch {
+    // sortOrder 列不存在（旧版数据库迁移未成功），回退到原查询
+    return db.sqlite
+      .prepare(`SELECT * FROM ${Tables.Plugins} ORDER BY builtIn DESC, id ASC`)
+      .all() as PluginRow[]
+  }
 }
 
 /** 插入或更新插件记录（INSERT OR IGNORE） */
