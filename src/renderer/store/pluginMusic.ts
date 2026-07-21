@@ -199,8 +199,8 @@ export const usePluginMusic = defineStore(
     const getPlugins = async () => {
       await window.mainApi?.invoke('get-plugins').then(
         (
-          result: Record<
-            PluginId,
+          result: [
+            string,
             {
               name: string
               icon: string
@@ -208,22 +208,19 @@ export const usePluginMusic = defineStore(
               capabilities?: service['capabilities']
               builtIn?: boolean
             }
-          >
+          ][]
         ) => {
-          for (const [code, meta] of Object.entries(result)) {
+          for (const [code, meta] of result) {
             const pluginId = code as PluginId
             const existing = services.value.find((s) => s.code === pluginId)
 
             if (existing) {
-              // 已存在：同步字段，保留用户状态
               existing.name = meta.name
               existing.icon = meta.icon
               existing.type = meta.type
               existing.capabilities = meta.capabilities
               existing.builtIn = meta.builtIn
-              // active, status, loadFull 保持不变（用户运行时状态）
             } else {
-              // 新插件：创建完整对象
               const info = _buildService(pluginId, meta)
               services.value.push(info)
               _initPluginData(pluginId)

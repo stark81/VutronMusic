@@ -1327,16 +1327,20 @@ async function initPluginIpcMain() {
   })
 
   ipcMain.handle('get-plugins', () => {
-    const result: Record<string, any> = {}
+    const result: [string, any][] = []
+
     pluginManager.plugins.forEach((instance, id) => {
       const dbRow = getPluginById(id)
-      result[id] = {
-        name: dbRow?.name || instance.meta.name,
-        type: instance.meta.type,
-        icon: instance.meta.icon,
-        capabilities: instance.meta.capabilities,
-        builtIn: dbRow ? dbRow.builtIn === 1 : instance.builtIn
-      }
+      result.push([
+        id,
+        {
+          name: dbRow?.name || instance.meta.name,
+          type: instance.meta.type,
+          icon: instance.meta.icon,
+          capabilities: instance.meta.capabilities,
+          builtIn: dbRow ? dbRow.builtIn === 1 : instance.builtIn
+        }
+      ])
     })
     return result
   })
