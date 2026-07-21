@@ -365,7 +365,7 @@ export const useAudioEngineStore = defineStore('audioEngine', () => {
     nodes.dryGain.gain.value = 1
     nodes.wetGain.gain.value = 0
     nodes.replayGain.gain.value = 1
-    nodes.volume.gain.value = 1
+    nodes.volume.gain.value = 0
     nodes.fade.gain.value = 1
 
     // eqExit → dryGain ──────────────────┐

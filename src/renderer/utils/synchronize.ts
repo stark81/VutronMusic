@@ -158,6 +158,10 @@ watch(
         position: getCurrentTime()
       })
     }
+
+    title.value = value
+      ? `${currentTrack.value?.name} · ${currentTrack.value?.artists[0]?.name} - VutronMusic`
+      : 'VutronMusic'
   },
   { immediate: true }
 )
@@ -197,6 +201,10 @@ watch(
         })
       })
     }
+
+    title.value = playing.value
+      ? `${value?.name} · ${value?.artists[0]?.name} - VutronMusic`
+      : 'VutronMusic'
   },
   {
     immediate: true
@@ -273,6 +281,7 @@ watch(title, (value) => {
       tooltip: value
     })
   }
+  document.title = title.value
 })
 
 watch(

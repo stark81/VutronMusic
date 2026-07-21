@@ -421,10 +421,6 @@ export const usePlayerStore = defineStore(
         playing.value = true
         await engineStore.play()
       }
-      title.value = playing.value
-        ? `${currentTrack.value?.name} · ${currentTrack.value?.artists[0]?.name} - VutronMusic`
-        : 'VutronMusic'
-      document.title = title.value
     }
 
     function _getNextTrack(): [[PluginId, Record<string, any>] | undefined, number, boolean] {
@@ -733,7 +729,14 @@ export const usePlayerStore = defineStore(
         return
       }
 
-      let data = res.data.filter((l) => !/^作(词|曲)\s*(:|：)\s*无$/.exec(l.lyric.text))
+      let data = res.data
+        .filter((l) => !/^作(词|曲)\s*(:|：)\s*无$/.exec(l.lyric.text))
+        .map((line) => {
+          if (line.end === 0 && line.start > line.end) {
+            line.end = Math.min(duration.value, line.start + 10)
+          }
+          return line
+        })
       const includeAM =
         data.length <= 10 && data.some((l) => ['纯音乐，请欣赏', '暂无歌词'].includes(l.lyric.text))
       const reg = /^作(词|曲)\s*(:|：)\s*/
@@ -750,12 +753,6 @@ export const usePlayerStore = defineStore(
 
     watch(currentTrack, async (value) => {
       if (!value) return
-
-      if (osdLyricStore.show) {
-        window.mainApi?.send('update-osd-lyric', {
-          title: `${value.artists?.[0]?.name || ''} - ${value.name || ''}`
-        })
-      }
 
       chorus.value = 0
       const nextPos = playing.value ? 0 : progress.value

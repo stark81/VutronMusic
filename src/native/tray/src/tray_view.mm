@@ -602,6 +602,19 @@ static const CGFloat kDefaultFontSize = 14;
   }
   double lineDurationMs = lineEnd - lineStart;
 
+  // 计算有效动画时长（匹配 LyricLine.vue buildWordKeyFrame 逻辑）：
+  // - 有逐字时间时：首个字 start → 最后一个字 end（裁剪到 line 边界）
+  // - 无逐字时间时：回退到 lineStart → lineEnd（行为不变）
+  double effectiveStartMs = lineStart;
+  double effectiveEndMs = lineEnd;
+  if (hasTiming && words.count > 0) {
+    double firstWordStart = [words[0][@"start"] doubleValue];
+    double lastWordEnd = [words[words.count - 1][@"end"] doubleValue];
+    if (firstWordStart > 0) effectiveStartMs = firstWordStart;
+    effectiveEndMs = MIN(lastWordEnd, lineEnd);
+  }
+  double effectiveDurationMs = MAX(effectiveEndMs - effectiveStartMs, 1);
+
   // ── 2.1 零时长行（fallback 文本）→ 仅显示静态文字，跳过动画 ──
   if (lineDurationMs <= 0) {
     [CATransaction begin];
@@ -712,7 +725,7 @@ static const CGFloat kDefaultFontSize = 14;
     NSMutableArray* hValues = [NSMutableArray array];
     for (NSUInteger i = 0; i < words.count; i++) {
       double start = [words[i][@"start"] doubleValue];
-      double offset = MAX(MIN((start - lineStart) / lineDurationMs, 1), 0);
+      double offset = MAX(MIN((start - effectiveStartMs) / effectiveDurationMs, 1), 0);
       if (hKeyTimes.count > 0 && offset < [hKeyTimes.lastObject doubleValue]) {
         offset = [hKeyTimes.lastObject doubleValue];
       }
@@ -726,15 +739,15 @@ static const CGFloat kDefaultFontSize = 14;
     anim.keyTimes = hKeyTimes;
     anim.values = hValues;
     anim.calculationMode = kCAAnimationLinear;
-    anim.duration = lineDurationMs / 1000.0;
+    anim.duration = effectiveDurationMs / 1000.0;
     anim.removedOnCompletion = NO;
     anim.fillMode = kCAFillModeForwards;
-    // ── 2.4 将 offsetMs 限制在 [0, lineDurationMs] 内 ──
-    double clampedOffset = MAX(0, MIN(offsetMs, lineDurationMs));
+    // ── 将 offsetMs 转换为 effective 时间系的 offset ──
+    double effectiveOffset = MAX(0, MIN(offsetMs - (effectiveStartMs - lineStart), effectiveDurationMs));
     // 用 _clipLayer 时间系计算 beginTime，暂停时 _clipLayer.speed=0 会返回冻结时间，
     // 恢复时再通过 setPlaying:progress: 中的 _clipLayer 时序恢复来对齐
     CFTimeInterval now = [_clipLayer convertTime:CACurrentMediaTime() fromLayer:nil];
-    anim.beginTime = now * _playbackRate - (clampedOffset / 1000.0);
+    anim.beginTime = now * _playbackRate - (effectiveOffset / 1000.0);
     _maskLayer.speed = _playbackRate;
     [_maskLayer addAnimation:anim forKey:@"lyricProgress"];
   } else {
@@ -761,7 +774,7 @@ static const CGFloat kDefaultFontSize = 14;
 
         CGFloat sWidth = MIN(curWidth - _lyricAreaWidth / 2, scrollWidth);
         double end = [words[i][@"end"] doubleValue];
-        double offset = MAX(MIN((end - lineStart) / lineDurationMs, 1), 0);
+        double offset = MAX(MIN((end - effectiveStartMs) / effectiveDurationMs, 1), 0);
         if (sKeyTimes.count > 0 && offset < [sKeyTimes.lastObject doubleValue]) {
           offset = [sKeyTimes.lastObject doubleValue];
         }
@@ -784,15 +797,15 @@ static const CGFloat kDefaultFontSize = 14;
     scrollAnim.keyTimes = sKeyTimes;
     scrollAnim.values = sValues;
     scrollAnim.calculationMode = kCAAnimationLinear;
-    scrollAnim.duration = lineDurationMs / 1000.0;
+    scrollAnim.duration = effectiveDurationMs / 1000.0;
     scrollAnim.removedOnCompletion = NO;
     scrollAnim.fillMode = kCAFillModeForwards;
 
-    // ── 2.4 将 offsetMs 限制在 [0, lineDurationMs] 内 ──
-    double clampedOffset = MAX(0, MIN(offsetMs, lineDurationMs));
+    // ── 将 offsetMs 转换为 effective 时间系的 offset ──
+    double effectiveOffset = MAX(0, MIN(offsetMs - (effectiveStartMs - lineStart), effectiveDurationMs));
     CFTimeInterval now = [_clipLayer convertTime:CACurrentMediaTime() fromLayer:nil];
     // beginTime 须在 layer 本地时间空间：layer.speed = _playbackRate 时本地时间 = 父时间 × rate
-    scrollAnim.beginTime = now * _playbackRate - (clampedOffset / 1000.0);
+    scrollAnim.beginTime = now * _playbackRate - (effectiveOffset / 1000.0);
     _baseText.speed = _playbackRate;
     _highlightText.speed = _playbackRate;
     [_baseText addAnimation:scrollAnim forKey:@"scroll"];
