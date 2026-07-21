@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-08
 title: 技术规格
 order: 1
 ---

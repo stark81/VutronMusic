@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-08
 title: 排错指南说明
 order: 1
 ---

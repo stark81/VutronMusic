@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-21
 title: Worker 沙箱与插件执行
 order: 8
 last-reviewed: 2025-07-21

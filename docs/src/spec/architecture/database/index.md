@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-26
 title: 数据架构总览
 order: 1
 ---
@@ -19,14 +20,14 @@ order: 1
 
 ## 数据库快照
 
-| 项目         | 内容                                              |
-| ------------ | ------------------------------------------------- |
-| 引擎         | better-sqlite3（同步 API，主进程直接调用）        |
-| 文件路径     | `{userData}/api_cache/vutron_music.sqlite`        |
-| 建表         | `src/public/migrations/plugin.sql` → 16 张表      |
-| 初始化       | `src/main/db.ts`（建表 → WAL → 迁移）             |
-| 查询层       | `src/main/dbHelpers.ts`（45KB，含去重/匹配/CRUD） |
-| 插件数据     | 通过 `api.db.get/set` 访问 `PluginData` 表        |
-| 渲染进程访问 | ❌ 不允许，必须通过 IPC 间接访问                  |
+| 项目 | 内容 |
+| --- | --- |
+| 引擎 | better-sqlite3（同步 API，主进程直接调用） |
+| 文件路径 | `{userData}/api_cache/vutron_music.sqlite` |
+| 建表 | `src/public/migrations/plugin.sql` → 16 张表（Tables 枚举含 20 个条目，其中 AppleMusicAlbum/AppleMusicArtist/Unblock/LocalAlbumCover 为历史遗留） |
+| 初始化 | `src/main/db.ts`（建表 → WAL → 迁移） |
+| 查询层 | `src/main/dbHelpers.ts`（45KB，含去重/匹配/CRUD） |
+| 插件数据 | 通过 `api.db.get/set` 访问 `PluginData` 表 |
+| 渲染进程访问 | ❌ 不允许，必须通过 IPC 间接访问 |
 
 > 📖 详细 Schema 见 [数据库 Schema 参考](./schema)

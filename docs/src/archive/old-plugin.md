@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-08
 title: 旧插件系统
 order: 5
 ---

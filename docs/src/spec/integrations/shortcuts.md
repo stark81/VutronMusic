@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-26
 title: 快捷键系统
 order: 13
 ---
@@ -29,12 +30,13 @@ order: 13
 
 ### 窗口内快捷键
 
-通过 `window.mainApi.on()` 监听主进程转发的事件，在 `player.ts` 的 `handleIpcRenderer()` 中处理：
+通过 `window.mainApi.on()` 监听主进程转发的事件，在 `synchronize.ts` 的 `handleIpcRenderer()` 中处理：
 
 ```typescript
 window.mainApi?.on('play', playOrPause)
 window.mainApi?.on('next', () => playNext(isPersonalFM.value))
 window.mainApi?.on('previous', () => { ... })
+window.mainApi?.on('like', () => likeATrack(currentTrack.value))
 ```
 
 ### 全局快捷键

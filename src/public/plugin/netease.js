@@ -2108,3 +2108,11 @@ exports.fmTrash = async (params) => {
   const result = await get('fm/trash', { timestamp: Date.now(), id: params.id })
   return { code: result?.code ?? 200 }
 }
+
+exports.intelligencePlaylist = async (params) => {
+  const idx = Math.floor(Math.random() * params.trackIds.length + 1)
+  const id = params.trackIds[idx]
+  const result = await get('playmode/intelligence/list', { id, pid: params.id })
+  const data = result.data.map((item) => formatTrack(item.songInfo, 64))
+  return { code: 200, data, sourceContext: {} }
+}

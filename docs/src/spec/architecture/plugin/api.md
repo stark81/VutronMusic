@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-26
 title: 插件 API 参考
 order: 6
 ---
@@ -31,25 +32,25 @@ order: 6
 
 | 方法 | 参数 | 返回 |
 | --- | --- | --- |
-| `search` | `{ keyword, limit, offset, type? }` | `{ code, data: Track[]\|Album[]\|..., count, sourceContext }` |
+| `search` | `{ tab, keywords, page? }` | `{ code, data: Track[]\|Album[]\|..., count, sourceContext }` |
 
-最核心方法之一。`type` 指定搜索类型：`tracks` / `albums` / `artists` / `playlists` / `mvs`。
+最核心方法之一。`tab` 指定搜索类型：`tracks` / `albums` / `artists` / `playlists` / `mvs`。`sourceContext` 由插件返回分页上下文。
 
 ### 登录 (5)
 
-| 方法               | 参数                      | 返回                               |
-| ------------------ | ------------------------- | ---------------------------------- |
-| `loginQrKey`       | —                         | `{ code, data: { url, qrcode } }`  |
-| `loginQrCodeCheck` | `{ key }`                 | `{ code, message }`                |
-| `doLogin`          | `{ account, pwd, type? }` | `{ code, message }`                |
-| `doLogout`         | —                         | `{ code }`                         |
-| `getAccount`       | —                         | `{ code, baseUrl, userName, pwd }` |
+| 方法 | 参数 | 返回 |
+| --- | --- | --- |
+| `loginQrKey` | — | `{ code, data: { url, qrcode } }` |
+| `loginQrCodeCheck` | `{ key }` | `{ code, message, user?: { userId, avatarUrl, nickname, isVip, signature } }` |
+| `doLogin` | `{ account, pwd, type? }` | `{ code, data?: { userId, avatarUrl, nickname, isVip, signature, scanDir? }, message? }` |
+| `doLogout` | — | `{ code }` |
+| `getAccount` | — | `{ code, baseUrl, userName, pwd }` |
 
 ### 歌曲 (6)
 
 | 方法 | 参数 | 返回 |
 | --- | --- | --- |
-| `songUrl` | `{ id }` | `{ code, data: { url: string[], replayGain, peak } }` |
+| `songUrl` | `{ id }` | `{ code, data: { url: string[], replayGain, peak, cueOffset?, cueDuration? } }` |
 | `getTrackDetail` | `{ id }` | `{ code, data: Track[] }` |
 | `getLyric` | `{ id }` | `{ code, data: LyricLine[] }` |
 | `topSong` | `{ type? }` | `{ code, data: Track[], sourceContext }` |
@@ -96,8 +97,8 @@ order: 6
 | `subscribePlaylist` | `{ id, subscribe }` | `{ code }` |
 | `addOrRemoveTracksToPlaylist` | `{ id, trackIds, op }` | `{ code }` |
 | `reorderPlaylistTracks` | `{ id, trackIds }` | `{ code }` |
-| `rankList` | — | `{ code, data: Playlist[], sourceContext }` |
-| `rankTop` | `{ id }` | `{ code, data: Track[] }` |
+| `rankList` | `{ ...sourceContext }` | `{ code, data: Playlist[], sourceContext }` |
+| `rankTop` | — | `{ code, data: Playlist[] }` |
 
 ### MV (4)
 
@@ -114,20 +115,20 @@ order: 6
 | --- | --- | --- |
 | `getCommentTab` | `{ type, id }` | `{ code, data: CommentTab[] }` |
 | `getComments` | `{ id, type?, offset?, limit? }` | `{ code, data: Comment[], count, sourceContext }` |
-| `likeAComment` | `{ id, type?, liked? }` | `{ code }` |
-| `submitAComment` | `{ id, content, type? }` | `{ code, data }` |
+| `likeAComment` | `{ commentInfo, currentStatus, type }` | `{ code }` |
+| `submitAComment` | `{ t: 'sub'\|'del'\|'reply', type, comment?, commentId? }` | `{ code, data }` |
 | `getFloorComments` | `{ id, commentId }` | `{ code, data: Comment[], count, sourceContext }` |
 
 评论内容类型：`track` / `album` / `playlist` / `mv`。
 
 ### 收藏 (4)
 
-| 方法               | 参数            | 返回                                      |
-| ------------------ | --------------- | ----------------------------------------- |
-| `likeATrack`       | `{ id, like? }` | `{ code }`                                |
-| `likelist`         | `{ uid? }`      | `{ code, data: Track[], sourceContext }`  |
-| `userLikedArtists` | —               | `{ code, data: Artist[], sourceContext }` |
-| `userLikedMVs`     | —               | `{ code, data: Mv[], sourceContext }`     |
+| 方法 | 参数 | 返回 |
+| --- | --- | --- |
+| `likeATrack` | `{ op: 'add'\|'del', playlist?, tracks }` | `{ code }` |
+| `likelist` | `{ uid? }` | `{ code, data: Track[], sourceContext }` |
+| `userLikedArtists` | — | `{ code, data: Artist[], sourceContext }` |
+| `userLikedMVs` | — | `{ code, data: Mv[], sourceContext }` |
 
 ### 用户 (3)
 
@@ -146,10 +147,10 @@ order: 6
 
 ### 系统 (2)
 
-| 方法            | 参数          | 返回               |
-| --------------- | ------------- | ------------------ |
-| `updateBaseUrl` | `{ baseUrl }` | `{ code }`         |
-| `systemPing`    | —             | `{ code, status }` |
+| 方法            | 参数          | 返回                                   |
+| --------------- | ------------- | -------------------------------------- |
+| `updateBaseUrl` | `{ baseUrl }` | `{ code }`                             |
+| `systemPing`    | —             | `{ code, status, scanDir?: string[] }` |
 
 `systemPing` 返回 `status` 表示服务状态：`login` / `logout` / `offline`。
 

@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-05
 title: ADR-0004 SQLite Schema
 order: 5
 ---

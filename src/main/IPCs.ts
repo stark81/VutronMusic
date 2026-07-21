@@ -8,48 +8,14 @@ import Constants from './utils/Constants'
 import store from './store'
 import fs from 'fs'
 import path from 'path'
-import crypto from 'crypto'
-import {
-  getLocalMusicData,
-  loadScanDedupData,
-  writeBatchData,
-  markAllLocalMusicDeleted,
-  restoreLocalMusicDeleted,
-  restoreAllLocalMusic,
-  findTrackIdBySourceContext,
-  findTrackSourcesByTrackId,
-  findLocalTrackAudio,
-  insertTrackSourceOnce,
-  upsertTrackSource,
-  checkTrackSourceExists,
-  updateTrackPicUrl,
-  updateAlbumPicUrlByTrackId,
-  refreshPlaylistCoverAfterMatch,
-  deleteAllLocalMusicData,
-  saveCacheResult,
-  getAudioCacheStats,
-  getAudioCacheStatsAll,
-  findCachedAudio,
-  hasCachedAudio,
-  getLyricOffsetFromDB,
-  saveLyricOffsetToDB,
-  deleteCacheAudio,
-  deleteCacheTrackSources,
-  restoreCueTracks,
-  getAllPlugins,
-  upsertPlugin,
-  getPluginById,
-  createPluginInstance,
-  deletePluginInstance,
-  getStreamMatchCount,
-  clearStreamMatches
-} from './dbHelpers'
+import * as db from './dbHelpers'
 import { deleteExcessCache, createWorker } from './utils'
+import { scanLocalMusic } from './utils/localMusicScanner'
 import { registerGlobalShortcuts } from './globalShortcut'
 import { createMenu } from './menu'
 import log from './log'
 import { Worker } from 'worker_threads'
-import type { Track as NewTrack, PluginId } from '@/types/plugin'
+import type { Track as NewTrack, PluginId, Track } from '@/types/plugin'
 import { requestUserAuth, scrobbleTrack, updateNowPlaying } from './utils/lastfm'
 import { pluginManager } from './pluginManager'
 import { PluginInstance } from './utils/pluginManager'
@@ -195,14 +161,14 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray, touchBar: YPMTouchBa
             pendingCacheMeta.delete(String(data.id))
 
             if (data.url && data.size !== undefined) {
-              saveCacheResult(data, meta)
+              db.saveCacheResult(data, meta)
             }
 
             await deleteExcessCache()
             const audioCachePath =
               (store.get('settings.autoCacheTrack.path') as string) ||
               path.join(app.getPath('userData'), 'audioCache')
-            const stats = getAudioCacheStats(audioCachePath)
+            const stats = db.getAudioCacheStats(audioCachePath)
             win.webContents.send('receiveCacheInfo', stats)
           } else if (msg.type === 'finished') {
             closeCacheWorker()
@@ -499,11 +465,6 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     }
   })
 
-  ipcMain.handle('getLocalMusic', () => {
-    const data = getLocalMusicData()
-    return { ...data, playlists: [] }
-  })
-
   ipcMain.on('clearDeletedMusic', () => {
     // const { songs } = cache.get(CacheAPIs.LocalMusic)
     // const deletedTracks = []
@@ -529,443 +490,26 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
   /**
    * @param {Object} data
    * @param data.filePath 待扫描的歌曲目录列表
-   * @param data.cb 扫描完成后是否通知渲染进程
    */
-  ipcMain.on('msgScanLocalMusic', async (event, data: { filePath: string[]; cb: boolean }) => {
-    let piscina: any = null
+  ipcMain.on('msgScanLocalMusic', async (event, data: { filePath: string[] }) => {
     if (isScanningLocalMusic) {
       log.warn('扫描已在执行中，忽略重复请求')
       return
     }
     isScanningLocalMusic = true
     try {
-      const { default: Piscina } = (await import('piscina')) as typeof import('piscina')
-      const fg = await import('fast-glob')
-      const os = await import('os')
-      const {
-        existingArtists,
-        existingAlbums,
-        existingTracks,
-        existingAudios,
-        existingTrackArtists,
-        existingArtistAlbums,
-        existingTrackSources
-      } = loadScanDedupData()
-
-      // 软删除：先把所有本地 Track/Audio 标记为 deleted=1。
-      // 注意：必须在 loadScanDedupData() 读取快照之后调用，
-      // 否则去重比对数据会被清空，导致全表重复插入。
-      // 本轮扫描命中的文件稍后通过 restoreLocalMusicDeleted 恢复为 deleted=0。
-      markAllLocalMusicDeleted()
-
-      // 归一化函数：trim空格、统一全角/半角字符、忽略大小写
-      const normalize = (str: string) => {
-        return str
-          .trim()
-          .toLowerCase()
-          .replace(/[\uff01-\uff5e]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xfee0))
-      }
-
-      const artistMap = new Map(existingArtists.map((a) => [normalize(a.name), a.id]))
-      const existingAudioPathSet = new Set(
-        existingAudios.map((a) => a.filePath + '@' + (a.cueOffset || 0))
-      )
-
-      // 构建Track去重键（不含duration，允许时长误差）
-      const buildTrackDedupKey = (
-        title: string,
-        album: string,
-        artists: string[],
-        albumArtists: string[]
-      ): string => {
-        const normalizedTitle = normalize(title)
-        const normalizedAlbum = normalize(album)
-        const normalizedArtists = artists.map(normalize).sort().join(',')
-        const normalizedAlbumArtists = albumArtists.map(normalize).sort().join(',')
-        return `${normalizedTitle}|${normalizedAlbum}|${normalizedArtists}|${normalizedAlbumArtists}`
-      }
-
-      // Album去重键：albumName + albumArtists（排序）
-      const buildAlbumDedupKey = (albumName: string, albumArtists: string[]): string => {
-        const normalizedAlbumName = normalize(albumName)
-        const normalizedAlbumArtists = albumArtists.map(normalize).sort().join(',')
-        return `${normalizedAlbumName}|${normalizedAlbumArtists}`
-      }
-
-      // 创建去重索引
-      const musicBrainzTrackMap = new Map<string, string>() // musicBrainzTrackId -> trackId
-      const trackDedupMap = new Map<string, Array<{ trackId: string; duration: number }>>() // normalizedKey -> [{trackId, duration}]
-
-      // 构建Track的关联信息用于去重
-      const trackAlbumMap = new Map<string, string>() // trackId -> albumId
-      const albumArtistMap = new Map<string, string[]>() // albumId -> artistIds (专辑艺术家，可能多个)
-      const trackArtistMap = new Map<string, string[]>() // trackId -> artistIds (歌曲艺术家)
-
-      for (const track of existingTracks) {
-        // 强信号：MusicBrainz Track ID
-        if (track.musicBrainzTrackId) {
-          musicBrainzTrackMap.set(track.musicBrainzTrackId, track.id)
-        }
-        trackAlbumMap.set(track.id, track.albumId)
-      }
-
-      // 构建专辑-艺术家关系（一个专辑可能有多个艺术家）
-      for (const aa of existingArtistAlbums) {
-        const artists = albumArtistMap.get(aa.albumId) || []
-        if (!artists.includes(aa.artistId)) {
-          artists.push(aa.artistId)
-          albumArtistMap.set(aa.albumId, artists)
-        }
-      }
-
-      // 构建歌曲-艺术家关系
-      for (const ta of existingTrackArtists) {
-        const artists = trackArtistMap.get(ta.trackId) || []
-        if (!artists.includes(ta.artistId)) {
-          artists.push(ta.artistId)
-          trackArtistMap.set(ta.trackId, artists)
-        }
-      }
-
-      // 获取艺术家名称用于归一化（O(1)查找）
-      const artistNameMap = new Map(existingArtists.map((a) => [a.id, a.name]))
-      const getArtistName = (artistId: string) => {
-        return artistNameMap.get(artistId) || ''
-      }
-
-      const albumById = new Map(existingAlbums.map((a) => [a.id, a]))
-
-      // 构建trackDedupMap：normalizedKey -> [{trackId, duration}]
-      for (const track of existingTracks) {
-        const albumId = trackAlbumMap.get(track.id) || ''
-        const album = albumById.get(albumId)
-        const albumArtistIds = albumArtistMap.get(albumId) || []
-        const albumArtistNames = albumArtistIds.map(getArtistName).filter(Boolean)
-        const trackArtistIds = trackArtistMap.get(track.id) || []
-        const trackArtistNames = trackArtistIds.map(getArtistName).filter(Boolean)
-
-        const normalizedKey = buildTrackDedupKey(
-          track.name,
-          album?.name || '',
-          trackArtistNames,
-          albumArtistNames
-        )
-        if (normalizedKey) {
-          const entries = trackDedupMap.get(normalizedKey) || []
-          entries.push({ trackId: track.id, duration: track.duration })
-          trackDedupMap.set(normalizedKey, entries)
-        }
-      }
-
-      const makeId = (prefix: string, value: string) =>
-        crypto.createHash('md5').update(`${prefix}:${value}`).digest('hex')
-      const patterns = ['**/*.{mp3,aiff,flac,alac,m4a,aac,wav,opus}']
-      const results = await Promise.all(
-        data.filePath.map((dir) => fg.glob(patterns, { cwd: dir, absolute: true, onlyFiles: true }))
-      )
-      const allFiles = [...new Set(results.flat())]
-      // 命中文件为空：扫描目录下无音频文件或暂时不可达（启动时机、权限等）。
-      // 回滚 markAllLocalMusicDeleted，保留已有数据。
-      if (allFiles.length === 0) {
-        // 空文件列表：可能是目录暂时不可达（启动时机、权限等），
-        // 回滚 markAllLocalMusicDeleted，保留已有数据。
-        restoreAllLocalMusic()
-        win.webContents.send('scanLocalMusicDone')
-        return
-      }
-      // 扫描 .cue 搭配
-      const cueCompanions = new Set<string>()
-      for (const file of allFiles) {
-        const dir = path.dirname(file)
-        const base = path.basename(file, path.extname(file))
-        if (fs.existsSync(path.join(dir, base + '.cue'))) {
-          cueCompanions.add(file)
-        }
-      }
-
-      // 有 CUE 的 FLAC 强制重扫（移除所有复合键，使重扫时重新创建 CUE 分轨条目）
-      for (const file of cueCompanions) {
-        const keysToDelete = [...existingAudioPathSet].filter((k) => k.startsWith(file + '@'))
-        for (const k of keysToDelete) {
-          existingAudioPathSet.delete(k)
-        }
-      }
-
-      // 只扫描新文件（不存在于 Audio 表中的）
-      const filesToProcess = allFiles.filter((f) => !existingAudioPathSet.has(f + '@0'))
-      const workerPath = path.join(__dirname, 'workers/scanMusic.js')
-      piscina = new Piscina({
-        filename: workerPath,
-        minThreads: 2,
-        maxThreads: Math.min(os.cpus().length / 2, 6)
+      const result = await scanLocalMusic(data.filePath, (progress) => {
+        win.webContents.send('scanLocalMusicProgress', progress)
       })
-      const batchSize = 100
-      const dataToInsert = {
-        Artist: [] as any[],
-        Album: [] as any[],
-        Track: [] as any[],
-        Audio: [] as any[],
-        TrackArtist: [] as any[],
-        ArtistAlbum: [] as any[],
-        TrackSource: [] as any[]
-      }
-
-      // 去重Set，防止重复插入（初始化已有关系）
-      const trackArtistSet = new Set<string>(
-        existingTrackArtists.map((ta) => `${ta.trackId}:${ta.artistId}`)
-      ) // trackId:artistId
-      const artistAlbumSet = new Set<string>(
-        existingArtistAlbums.map((aa) => `${aa.artistId}:${aa.albumId}`)
-      ) // artistId:albumId
-
-      const trackSourceSet = new Set<string>(
-        existingTrackSources.map((ts) => `${ts.trackId}:${ts.pluginId}`)
-      )
-
-      // albumMap: albumDedupKey -> albumId
-      const albumMap = new Map<string, string>()
-      for (const album of existingAlbums) {
-        const albumArtistIds = albumArtistMap.get(album.id) || []
-        const albumArtistNames = albumArtistIds.map(getArtistName).filter(Boolean)
-        const key = buildAlbumDedupKey(album.name, albumArtistNames)
-        albumMap.set(key, album.id)
-      }
-
-      // 收集因去重匹配而需恢复的 CUE 分轨（软删除后被 INSERT OR IGNORE 阻挡无法重新插入）
-      const restoredTrackIds = new Set<string>()
-      for (let i = 0; i < filesToProcess.length; i += batchSize) {
-        const batch = filesToProcess.slice(i, i + batchSize)
-        const batchResults = await Promise.allSettled(
-          batch.map((file) => piscina.run({ filePath: file }))
-        )
-        const _beforeTrack = dataToInsert.Track.length
-        for (const items of batchResults
-          .filter((r) => r.status === 'fulfilled')
-          .map((r) => r.value)) {
-          if (!items || !items.length) continue
-          for (const item of items) {
-            const now = Date.now()
-            let trackId: string
-            let isNewTrack = true
-
-            // albumArtist为空时用artists作为fallback
-            const effectiveAlbumArtists =
-              item.albumArtist?.length > 0 ? item.albumArtist : item.artists || []
-
-            // 文件已被 existingAudioPathSet 过滤，走到这里的一定没有重复的 Audio
-            // 强信号匹配：MusicBrainz Track ID
-            if (item.musicBrainzTrackId && musicBrainzTrackMap.has(item.musicBrainzTrackId)) {
-              trackId = musicBrainzTrackMap.get(item.musicBrainzTrackId)!
-              isNewTrack = false
-              if (cueCompanions.has(item.filePath)) restoredTrackIds.add(trackId)
-            } else {
-              // 中信号匹配：使用trackDedupMap进行O(1)查找，允许2秒时长误差
-              const normalizedKey = buildTrackDedupKey(
-                item.name,
-                item.album || '未知专辑',
-                item.artists || [],
-                effectiveAlbumArtists
-              )
-
-              const candidates = trackDedupMap.get(normalizedKey) || []
-              const matchedCandidate = candidates.find(
-                (c) => Math.abs(c.duration - item.duration) <= 2000
-              )
-
-              if (matchedCandidate) {
-                trackId = matchedCandidate.trackId
-                isNewTrack = false
-                // CUE 分轨去重匹配：后续需要恢复 deleted=0
-                if (cueCompanions.has(item.filePath)) restoredTrackIds.add(trackId)
-              } else {
-                // 没有匹配到，创建新Track（使用UUID，而非filePath）
-                trackId = crypto.randomUUID().replace(/-/g, '')
-              }
-            }
-
-            // 创建艺术家
-            const allArtistNames = [...new Set([...(item.artists || []), ...effectiveAlbumArtists])]
-            const artistIds = allArtistNames.map((name: string) => {
-              const normName = normalize(name)
-              if (!artistMap.has(normName)) {
-                const id = makeId('local_artist', normName)
-                artistMap.set(normName, id)
-                // 同步更新 artistNameMap
-                artistNameMap.set(id, name)
-                dataToInsert.Artist.push({
-                  id,
-                  name,
-                  picUrl: '',
-                  description: '',
-                  followed: 0,
-                  createTime: now,
-                  updateTime: now
-                })
-              }
-              return { name, id: artistMap.get(normName)! }
-            })
-            const artistIdMap = new Map(artistIds.map((a: any) => [a.name, a.id]))
-
-            // Album去重：albumName + albumArtists（排序）
-            const albumName = item.album || '未知专辑'
-            const albumDedupKey = buildAlbumDedupKey(albumName, effectiveAlbumArtists)
-            let albumId: string
-
-            if (albumMap.has(albumDedupKey)) {
-              albumId = albumMap.get(albumDedupKey)!
-            } else {
-              albumId = makeId(
-                'local_album',
-                `${albumName}:${[...effectiveAlbumArtists].sort().join(',')}`
-              )
-              albumMap.set(albumDedupKey, albumId)
-              dataToInsert.Album.push({
-                id: albumId,
-                name: albumName,
-                picUrl: '',
-                type: '',
-                company: '',
-                description: '',
-                subscribed: 0,
-                isExplicit: 0,
-                publishTime: 0,
-                createTime: now,
-                updateTime: now
-              })
-            }
-
-            // 如果是新Track，创建Track记录
-            if (isNewTrack) {
-              dataToInsert.Track.push({
-                id: trackId,
-                name: item.name,
-                duration: item.duration,
-                albumId,
-                no: 0,
-                alias: '',
-                picUrl: '',
-                playCount: 0,
-                musicBrainzTrackId: item.musicBrainzTrackId || null,
-                createTime: item.createTime || now,
-                updateTime: now
-              })
-
-              // 注册强信号：批次内后续文件可匹配
-              if (item.musicBrainzTrackId) {
-                musicBrainzTrackMap.set(item.musicBrainzTrackId, trackId)
-              }
-
-              // 创建TrackArtist关系（使用Set去重）
-              for (const name of item.artists || []) {
-                const artistId = artistIdMap.get(name)
-                if (artistId) {
-                  const key = `${trackId}:${artistId}`
-                  if (!trackArtistSet.has(key)) {
-                    trackArtistSet.add(key)
-                    dataToInsert.TrackArtist.push({ trackId, artistId })
-                  }
-                }
-              }
-
-              // 创建ArtistAlbum关系（albumArtist为空时用artists，使用Set去重）
-              const albumArtistsToUse =
-                effectiveAlbumArtists.length > 0 ? effectiveAlbumArtists : item.artists || []
-              for (const name of albumArtistsToUse) {
-                const artistId = artistIdMap.get(name)
-                if (artistId) {
-                  const key = `${artistId}:${albumId}`
-                  if (!artistAlbumSet.has(key)) {
-                    artistAlbumSet.add(key)
-                    dataToInsert.ArtistAlbum.push({ artistId, albumId })
-                    // 同步更新 albumArtistMap
-                    const artists = albumArtistMap.get(albumId) || []
-                    if (!artists.includes(artistId)) {
-                      artists.push(artistId)
-                      albumArtistMap.set(albumId, artists)
-                    }
-                  }
-                }
-              }
-
-              // 将新Track加入trackDedupMap
-              const normalizedKey = buildTrackDedupKey(
-                item.name,
-                albumName,
-                item.artists || [],
-                effectiveAlbumArtists
-              )
-              const entries = trackDedupMap.get(normalizedKey) || []
-              entries.push({ trackId, duration: item.duration })
-              trackDedupMap.set(normalizedKey, entries)
-            }
-
-            const audioKey = item.filePath + '@' + (item.cueOffset || 0)
-            const audioId =
-              item.cueOffset > 0
-                ? makeId('audio', item.filePath + '@' + item.cueOffset)
-                : makeId('audio', item.filePath)
-            dataToInsert.Audio.push({
-              id: audioId,
-              trackId,
-              filePath: item.filePath,
-              md5: item.md5 || '',
-              bitrate: item.br || 0,
-              gain: item.gain || 0,
-              peak: item.peak || 1,
-              size: item.size || 0,
-              cueOffset: item.cueOffset || 0,
-              cueDuration: item.cueDuration || 0
-            })
-            existingAudioPathSet.add(audioKey) // 防止同批次重复
-
-            // TrackSource：标记该 Track 有本地来源（仅当尚未存在时）
-            const trackSourceKey = `${trackId}:local`
-            if (!trackSourceSet.has(trackSourceKey)) {
-              trackSourceSet.add(trackSourceKey)
-              dataToInsert.TrackSource.push({
-                trackId,
-                pluginId: 'local',
-                sourceContext: JSON.stringify({
-                  id: trackId,
-                  filePath: item.filePath,
-                  md5: item.md5 || '',
-                  cueOffset: item.cueOffset || 0,
-                  cueDuration: item.cueDuration || 0
-                }),
-                matched: 1,
-                createTime: now,
-                updateTime: now
-              })
-            }
-          }
-        }
-        // 通知进度（每批次）
-        win.webContents.send('scanLocalMusicProgress', {
-          newTracks: dataToInsert.Track.length - _beforeTrack
-        })
-      }
-      // 单事务批量写入
-      const hasNewData = Object.values(dataToInsert).some((arr) => arr.length > 0)
-      writeBatchData(dataToInsert)
-      // CUE 分轨：恢复去重匹配到的 Track/Audio（软删除后被 INSERT OR IGNORE 阻挡无法重新插入）
-      restoreCueTracks([...restoredTrackIds])
-      // 恢复本轮命中的文件：writeBatchData 之后调用，
-      // 以便反查到新插入 Audio 关联的 trackId，一并恢复。
-      // CUE 文件也走 restoreLocalMusicDeleted（通过 filePath 恢复 Audio → 反查 trackId 恢复 Track），
-      // 确保即使去重匹配失败，CUE 关联的 Track 也不会停留在 deleted=1。
-      restoreLocalMusicDeleted(allFiles)
-      win.webContents.send('scanLocalMusicDone', { hasNewData })
+      win.webContents.send('scanLocalMusicDone', { hasNewData: result.hasNewData })
     } catch (error: any) {
       log.error('扫描本地歌曲失败:', error?.stack || error)
-      // 回滚 markAllLocalMusicDeleted：扫描失败时恢复数据到扫描前状态，
-      // 避免所有歌曲被错误标记为 deleted 导致列表清空。
       try {
-        restoreAllLocalMusic()
+        db.restoreAllLocalMusic()
       } catch (rollbackError: any) {
         log.error('回滚 deleted 标记失败:', rollbackError?.stack || rollbackError)
       }
       try {
-        // 通知渲染进程
         win.webContents.send('msgHandleScanLocalMusicError', {
           err: String(error?.stack || error),
           filePath: ''
@@ -973,7 +517,6 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
       } catch {}
     } finally {
       isScanningLocalMusic = false
-      if (piscina) await piscina.destroy().catch(() => {})
     }
   })
 
@@ -983,7 +526,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
   })
 
   ipcMain.on('deleteLocalMusicDB', () => {
-    deleteAllLocalMusicData()
+    db.deleteAllLocalMusicData()
     pluginManager.call('local', 'doLogout', {})
   })
 
@@ -993,11 +536,11 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
   })
 
   ipcMain.handle('getStreamMatchCount', () => {
-    return getStreamMatchCount()
+    return db.getStreamMatchCount()
   })
 
   ipcMain.handle('clearStreamMatches', () => {
-    clearStreamMatches()
+    db.clearStreamMatches()
     return true
   })
 
@@ -1005,7 +548,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     const audioCachePath =
       (store.get('settings.autoCacheTrack.path') as string) ||
       path.join(app.getPath('userData'), 'audioCache')
-    return getAudioCacheStatsAll(audioCachePath)
+    return db.getAudioCacheStatsAll(audioCachePath)
   })
 
   ipcMain.handle('create-plugin-instance', (_, params: { basePluginId: string; name: string }) => {
@@ -1014,10 +557,10 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
       : path.join(__dirname, '../plugin')
 
     // 解析基础插件的实际文件路径
-    const baseRow = getPluginById(params.basePluginId)!
+    const baseRow = db.getPluginById(params.basePluginId)!
     const resolvedPath = baseRow?.path || path.join(pluginDir, `${params.basePluginId}.js`)
 
-    const dbResult = createPluginInstance(params.basePluginId, params.name, resolvedPath)
+    const dbResult = db.createPluginInstance(params.basePluginId, params.name, resolvedPath)
     if (!dbResult.success) {
       return dbResult
     }
@@ -1030,7 +573,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     try {
       const plugin = new PluginInstance(resolvedPath, dbResult.id!, false)
       pluginManager.register(dbResult.id!, plugin)
-      const dbRow = getPluginById(dbResult.id!)
+      const dbRow = db.getPluginById(dbResult.id!)
       const baseInstance = pluginManager.get(params.basePluginId)
       return {
         success: true,
@@ -1050,7 +593,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
   })
 
   ipcMain.handle('delete-plugin-instance', (_, pluginId: string) => {
-    const success = deletePluginInstance(pluginId)
+    const success = db.deletePluginInstance(pluginId)
     if (success) {
       pluginManager.plugins.delete(pluginId)
       store.delete(`plugins.${pluginId}` as any)
@@ -1075,7 +618,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
         (store.get('settings.autoCacheTrack.path') as string) ||
         path.join(app.getPath('userData'), 'audioCache')
 
-      const cached = findCachedAudio(String(track.id), audioCachePath)
+      const cached = db.findCachedAudio(String(track.id), audioCachePath)
 
       if (cached?.filePath && fs.existsSync(cached.filePath)) {
         return {
@@ -1086,12 +629,12 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
       }
 
       if (cached?.filePath && !fs.existsSync(cached.filePath)) {
-        deleteCacheAudio(String(cached.id))
+        db.deleteCacheAudio(String(cached.id))
         const libPluginIds = [...pluginManager.plugins.entries()]
           .filter(([, p]) => p.meta.type === 'library')
           .map(([id]) => id)
         if (libPluginIds.length) {
-          deleteCacheTrackSources(String(track.id), libPluginIds)
+          db.deleteCacheTrackSources(String(track.id), libPluginIds)
         }
       }
 
@@ -1108,7 +651,7 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
             if (!fs.existsSync(audioCachePath)) {
               fs.mkdirSync(audioCachePath, { recursive: true })
             }
-            if (!hasCachedAudio(String(track?.id || ''))) {
+            if (!db.hasCachedAudio(String(track?.id || ''))) {
               pendingCacheMeta.set(track.id.toString(), {
                 gain: replayGain,
                 peak,
@@ -1132,20 +675,22 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
     'accurateMatch',
     (event, { trackId, pluginId, sourceContext, picUrl, currentPlayingPath }) => {
       // 检查匹配到的 sourceContext 是否已关联到其他 trackId
-      const existingTrackId = findTrackIdBySourceContext(pluginId, sourceContext)
-      const effectiveTrackId =
-        existingTrackId && existingTrackId !== trackId ? existingTrackId : trackId
-
-      insertTrackSourceOnce(effectiveTrackId, pluginId, JSON.stringify(sourceContext))
-      if (picUrl) {
-        updateTrackPicUrl(effectiveTrackId, picUrl)
-        updateAlbumPicUrlByTrackId(effectiveTrackId, picUrl)
+      const existingTrackId = db.findTrackIdBySourceContext(pluginId, sourceContext)
+      if (existingTrackId && existingTrackId !== trackId) {
+        // 已有 canonical trackId → 将其 TrackSource 等关联数据迁到本地 trackId 下
+        db.reassignTrackId(existingTrackId, trackId)
       }
-      refreshPlaylistCoverAfterMatch(effectiveTrackId, picUrl)
+
+      db.insertTrackSourceOnce(trackId, pluginId, JSON.stringify(sourceContext))
+      if (picUrl) {
+        db.updateTrackPicUrl(trackId, picUrl)
+        db.updateAlbumPicUrlByTrackId(trackId, picUrl)
+      }
+      db.refreshPlaylistCoverAfterMatch(trackId, picUrl)
 
       // 写入封面：仅对本地歌曲触发
       if (picUrl) {
-        const audioInfo = findLocalTrackAudio(trackId)
+        const audioInfo = db.findLocalTrackAudio(trackId)
         if (audioInfo) {
           const embedOption = (store.get('settings.embedCoverArt') as number) || 0
           const embedStyle = (store.get('settings.embedStyle') as number) || 0
@@ -1269,7 +814,7 @@ async function initPluginIpcMain() {
   const uploadDir = path.join(app.getPath('userData'), 'plugins')
 
   // 加载所有已注册插件（从 DB 读取，文件不存在则跳过）
-  const pluginRows = getAllPlugins()
+  const pluginRows = db.getAllPlugins()
 
   for (const row of pluginRows) {
     const filePath = row.builtIn
@@ -1316,7 +861,7 @@ async function initPluginIpcMain() {
       pluginManager.register(id, plugin)
 
       // 写入 Plugins 表
-      upsertPlugin(id, targetPath)
+      db.upsertPlugin(id, targetPath)
 
       store.set(`plugins.${id}`, { path: targetPath })
       return { code: 200, message: 'Plugin uploaded successfully' }
@@ -1330,7 +875,7 @@ async function initPluginIpcMain() {
     const result: [string, any][] = []
 
     pluginManager.plugins.forEach((instance, id) => {
-      const dbRow = getPluginById(id)
+      const dbRow = db.getPluginById(id)
       result.push([
         id,
         {
@@ -1373,8 +918,6 @@ async function initPluginIpcMain() {
         currentPlayingPath
       } = params
       const results: { pluginId: string; matched: number; confidence: number }[] = []
-      // 匹配过程中可能发现的 canonical trackId（来自已有的 TrackSource 记录）
-      let effectiveTrackId = trackId
       // 收集首次匹配成功的封面 URL，用于 write-cover
       let matchedPicUrl: string | null = null
 
@@ -1384,7 +927,7 @@ async function initPluginIpcMain() {
       const pluginEnable = store.get('pluginEnable') as PluginEnableState
       if (!pluginEnable.library) {
         if (sourcePlugin && sourceType && sourceType !== 'library') {
-          insertTrackSourceOnce(effectiveTrackId, sourcePlugin, JSON.stringify(sourceContext ?? {}))
+          db.insertTrackSourceOnce(trackId, sourcePlugin, JSON.stringify(sourceContext ?? {}))
         }
         return { code: 200, data: results }
       }
@@ -1394,7 +937,7 @@ async function initPluginIpcMain() {
         if (meta.type !== 'library') continue
         if (!meta.capabilities?.matchTrack) continue
 
-        if (checkTrackSourceExists(effectiveTrackId, pluginId)) continue
+        if (db.checkTrackSourceExists(trackId, pluginId)) continue
 
         try {
           const result = await instance.call('matchTrack', {
@@ -1419,17 +962,18 @@ async function initPluginIpcMain() {
 
           try {
             // 检查匹配到的 library sourceContext 是否已关联到其他 trackId
-            const existingTrackId = findTrackIdBySourceContext(pluginId, result.data.sourceContext)
+            const existingTrackId = db.findTrackIdBySourceContext(
+              pluginId,
+              result.data.sourceContext
+            )
 
-            if (existingTrackId && existingTrackId !== effectiveTrackId) {
-              // 已有其他 trackId 关联了同一个 library 来源 → 沿用 canonical trackId
-              effectiveTrackId = existingTrackId
-              // canonical trackId 可能已存在该 plugin 的匹配记录
-              if (checkTrackSourceExists(effectiveTrackId, pluginId)) continue
+            if (existingTrackId && existingTrackId !== trackId) {
+              // 已有 canonical trackId → 将其 TrackSource 等迁到本地 trackId 下
+              db.reassignTrackId(existingTrackId, trackId)
             }
 
-            upsertTrackSource(
-              effectiveTrackId,
+            db.upsertTrackSource(
+              trackId,
               pluginId,
               JSON.stringify(result.data.sourceContext ?? {}),
               matched
@@ -1437,8 +981,8 @@ async function initPluginIpcMain() {
 
             // 匹配成功且返回了封面时，更新本地歌曲的 picUrl
             if (result.data.picUrl) {
-              updateTrackPicUrl(effectiveTrackId, result.data.picUrl)
-              updateAlbumPicUrlByTrackId(effectiveTrackId, result.data.picUrl)
+              db.updateTrackPicUrl(trackId, result.data.picUrl)
+              db.updateAlbumPicUrlByTrackId(trackId, result.data.picUrl)
               if (!matchedPicUrl) matchedPicUrl = result.data.picUrl
             }
 
@@ -1452,14 +996,14 @@ async function initPluginIpcMain() {
         }
       }
 
-      // 匹配完成后，用最终的 effectiveTrackId 写入自身来源
+      // 用最终的 trackId 写入自身来源
       if (sourcePlugin && sourceType && sourceType !== 'library') {
-        insertTrackSourceOnce(effectiveTrackId, sourcePlugin, JSON.stringify(sourceContext ?? {}))
+        db.insertTrackSourceOnce(trackId, sourcePlugin, JSON.stringify(sourceContext ?? {}))
       }
 
       // 写入封面：仅对本地歌曲、且匹配到了封面时触发
       if (sourceType === 'local' && matchedPicUrl) {
-        const audioInfo = findLocalTrackAudio(trackId)
+        const audioInfo = db.findLocalTrackAudio(trackId)
         if (audioInfo) {
           const embedOption = (store.get('settings.embedCoverArt') as number) || 0
           const embedStyle = (store.get('settings.embedStyle') as number) || 0
@@ -1505,9 +1049,9 @@ async function initPluginIpcMain() {
       } else {
         const matchedMap = new Map<string, number>()
         try {
-          const trackId = findTrackIdBySourceContext(pluginId, rawCtx)
+          const trackId = db.findTrackIdBySourceContext(pluginId, rawCtx)
           if (trackId) {
-            const rows = findTrackSourcesByTrackId(trackId)
+            const rows = db.findTrackSourcesByTrackId(trackId)
             for (const row of rows) {
               if (row.pluginId === pluginId) {
                 matchedMap.set(row.pluginId, row.matched)
@@ -1591,9 +1135,9 @@ async function initPluginIpcMain() {
 
       try {
         // 通过 rawCtx 匹配 TrackSource sourceContext 来找 trackId
-        const trackId = findTrackIdBySourceContext(pluginId, rawCtx)
+        const trackId = db.findTrackIdBySourceContext(pluginId, rawCtx)
         if (trackId) {
-          const rows = findTrackSourcesByTrackId(trackId)
+          const rows = db.findTrackSourcesByTrackId(trackId)
           for (const row of rows) {
             if (row.pluginId === pluginId) {
               matchedMap.set(row.pluginId, row.matched)
@@ -1656,7 +1200,7 @@ async function initPluginIpcMain() {
       }
     ) => {
       const { pluginId, trackId } = params
-      return getLyricOffsetFromDB(pluginId, trackId)
+      return db.getLyricOffsetFromDB(pluginId, trackId)
     }
   )
 
@@ -1671,7 +1215,7 @@ async function initPluginIpcMain() {
       }
     ) => {
       const { pluginId, trackId, offset } = params
-      saveLyricOffsetToDB(pluginId, trackId, offset)
+      db.saveLyricOffsetToDB(pluginId, trackId, offset)
       return true
     }
   )
@@ -1742,9 +1286,9 @@ async function initPluginIpcMain() {
       // 2. Plugin reportPlayback 广播
       try {
         const pluginEnable = store.get('pluginEnable') as PluginEnableState
-        const trackId = findTrackIdBySourceContext(pluginId, rawCtx)
+        const trackId = db.findTrackIdBySourceContext(pluginId, rawCtx)
         if (pluginEnable.library && trackId) {
-          const rows = findTrackSourcesByTrackId(trackId)
+          const rows = db.findTrackSourcesByTrackId(trackId)
           for (const row of rows) {
             pluginManager.call(row.pluginId, 'reportPlayback', {
               type,
@@ -1764,16 +1308,16 @@ async function initPluginIpcMain() {
           })
         }
       } catch (error) {
-        console.log('[reportPlayback error]: ', error)
+        console.error('[reportPlayback error]: ', error)
       }
 
       // 3. Plugin scrobble 广播（仅 end + 条件满足）
       if (type === 'end' && condMet) {
         try {
           const pluginEnable = store.get('pluginEnable') as PluginEnableState
-          const trackId = findTrackIdBySourceContext(pluginId, rawCtx)
+          const trackId = db.findTrackIdBySourceContext(pluginId, rawCtx)
           if (pluginEnable.library && trackId) {
-            const rows = findTrackSourcesByTrackId(trackId)
+            const rows = db.findTrackSourcesByTrackId(trackId)
             for (const row of rows) {
               pluginManager.call(row.pluginId, 'scrobble', {
                 ...JSON.parse(row.sourceContext),
@@ -1789,7 +1333,7 @@ async function initPluginIpcMain() {
             })
           }
         } catch (error) {
-          console.log('[scrobble error]: ', error)
+          console.error('[scrobble error]: ', error)
         }
       }
     }
@@ -1813,6 +1357,32 @@ async function initPluginIpcMain() {
         stream: data.enableStream,
         local: data.enableLocal
       })
+    }
+  )
+
+  ipcMain.handle(
+    'plugin-intelligence',
+    async (event, data: Record<PluginId, Record<string, any>>) => {
+      const result = {
+        code: 200,
+        data: [] as Track[],
+        sourceContexts: {} as Record<PluginId, Record<string, any>>
+      }
+      await Promise.all(
+        Object.entries(data).map(async ([plugin, param]) => {
+          const res = await pluginManager.call(plugin, 'intelligencePlaylist', param)
+          const tracks = res.data.map((item: Track) => ({
+            ...item,
+            album: { ...item.album, pluginId: plugin },
+            artists: item.artists.map((it) => ({ ...it, pluginId: plugin })),
+            albumArtists: item.albumArtists.map((it) => ({ ...it, pluginId: plugin })),
+            pluginId: plugin
+          }))
+          result.data.push(...tracks)
+          result.sourceContexts[plugin as PluginId] = res.sourceContext
+        })
+      )
+      return result
     }
   )
 

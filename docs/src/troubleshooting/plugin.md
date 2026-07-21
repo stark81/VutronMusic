@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-08
 title: 插件问题
 order: 3
 ---

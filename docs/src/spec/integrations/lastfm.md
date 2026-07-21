@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-26
 title: Last.fm Scrobble 集成
 order: 15
 ---
@@ -36,11 +37,11 @@ order: 15
 
 ### 触发时机
 
-在 `IPCs.ts` 的播放事件处理中：
+Scrobble 集成在 `IPCs.ts` 的 `report-playback` IPC handler 中：
 
 ```
-歌曲播放完成（end）→ scrobbleTrack()
-播放进度上报（progress）→ 条件满足时 scrobbleTrack()
+歌曲开始播放（type === 'start'）→ updateNowPlaying()
+歌曲播放完成（type === 'end'）→ 播放进度 >= 总时长一半或 >= 30 秒时 scrobbleTrack()
 ```
 
 ### 上报参数
@@ -78,12 +79,10 @@ order: 15
 除了 Last.fm，插件也可以接收 scrobble 事件：
 
 ```typescript
-// IPCs.ts 中
+// IPCs.ts 中，report-playback handler 内
 pluginManager.call(pluginId, 'scrobble', {
-  pluginId,
-  track,
-  time,
-  completed
+  time: position * 1000,
+  sourceCtx // 从匹配的 TrackSource 解析的上下文
 })
 ```
 

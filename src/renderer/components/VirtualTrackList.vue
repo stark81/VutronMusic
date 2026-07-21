@@ -131,7 +131,8 @@ import {
   onBeforeUnmount,
   onDeactivated,
   onMounted,
-  watch
+  watch,
+  nextTick
 } from 'vue'
 import { usePlayerStore } from '../store/player'
 import { useNormalStateStore } from '../store/state'
@@ -315,8 +316,9 @@ const playThisList = (index: number | string) => {
   replacePlaylist(source, sourceContext, idx)
 }
 
-const closeMenu = () => {
+const closeMenu = async () => {
   if (showComment.value) return
+  await nextTick()
   rightClickedTrack.value = {
     id: 0,
     name: '',

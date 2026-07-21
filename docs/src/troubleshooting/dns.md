@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-08
 title: DNS 与网络问题
 order: 2
 ---

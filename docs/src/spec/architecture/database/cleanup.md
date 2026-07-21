@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-26
 title: 数据清理策略
 order: 4
 ---
@@ -20,13 +21,17 @@ order: 4
 **已有的清理能力**：
 
 - 本地扫描时自动标记不存在的文件为 `deleted=1`
-- 删除插件实例时清理关联数据
 - 软删除的 Track 在 UI 中不可见（`WHERE deleted = 0`）
+- `cleanupOrphanRefs()` — 清理孤立的 Album/Artist/Lyrics/LyricOffsets 等数据
+- `deleteCacheFromDB()` — 清理缓存相关数据
+- `deleteAllLocalMusicData()` — 全量清理本地音乐数据 + 孤儿数据
+- `clearStreamMatches()` — 清理流媒体匹配的 TrackSource + 孤儿数据
+- `deletePluginInstance()` — 从 Plugins 表删除插件实例（**不**清理关联的 PluginData/TrackSource）
 
 **待完善的清理能力**：
 
 - 自动定期清理超过一定时间的软删除记录
-- 孤立数据检测与清理工具
+- 孤立数据检测与清理工具（当前 `cleanupOrphanRefs` 为部分覆盖）
 - 用户可视化的「数据管理」UI
 
 ## CUE 分轨的数据一致性
@@ -54,9 +59,8 @@ const tracks = db
 当前缺失的清理逻辑：
 
 ```typescript
-// 清理 >30 天的软删除 Track
+// 清理 >30 天的软删除 Track（尚未实现自动定期执行）
 db.prepare(`DELETE FROM Track WHERE deleted = 1 AND updateTime < datetime('now', '-30 days')`).run()
-
-// 清理孤立歌词
-db.prepare(`DELETE FROM Lyrics WHERE trackId NOT IN (SELECT id FROM Track)`).run()
 ```
+
+孤歌词清理已通过 `cleanupOrphanRefs()` 实现（`DELETE FROM Lyrics WHERE trackId NOT IN (SELECT id FROM Track)`）。

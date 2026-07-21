@@ -115,7 +115,7 @@
           {{ $t('common.play') }}
         </ButtonTwoTone>
         <ButtonTwoTone
-          v-if="playlistType === 'online'"
+          v-if="playlistType === 'liked-library'"
           class="play-button"
           icon-class="play"
           color="grey"
@@ -419,13 +419,32 @@ const play = () => {
 }
 
 const playIntelligenceList = () => {
-  // const randomId = Math.floor(Math.random() * tracks.value.length + 1)
-  // const songId = tracks.value[randomId].id
-  // intelligencePlaylist({ id: songId as number, pid: likedSongPlaylistID.value }).then((result) => {
-  //   const trackIDs = result.data.map((t: any) => t.id)
-  //   const idx = isShuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
-  //   replacePlaylist('playlist', likedSongPlaylistID.value, trackIDs, idx)
-  // })
+  window.mainApi
+    ?.invoke('plugin-intelligence', JSON.parse(JSON.stringify(playlist.value.pluginSourceContexts)))
+    .then(
+      (result: {
+        code: number
+        data: Track[]
+        sourceContexts: Record<PluginId, Record<string, any>>
+      }) => {
+        if (!result.data.length) {
+          showToast('no data')
+          return
+        }
+        const source: PlaylistSourceInfo = {
+          type: 'Playlist',
+          plugin: pluginId.value,
+          sourceContext: { ...playlist.value.sourceContext, pluginType: pluginType.value },
+          pluginSourceContexts: playlist.value.pluginSourceContexts
+        }
+        const trackIDs = result.data.map((t) => [t.pluginId, t.sourceContext]) as [
+          PluginId,
+          Record<string, any>
+        ][]
+        const idx = isShuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
+        replacePlaylist(source, trackIDs, idx)
+      }
+    )
 }
 
 const toggleFullDescription = () => {

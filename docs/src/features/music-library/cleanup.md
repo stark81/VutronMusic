@@ -1,9 +1,13 @@
 ---
 title: 数据清理
+last-updated: 2026-07-21
 order: 9
+related: [index.md]
 ---
 
 # 数据清理
+
+> 本地音乐库整体设计见 [index.md](./index.md)。
 
 ## 用户场景
 

@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-08
 title: 第三方集成
 order: 2
 ---

@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-08
 title: 旧版 Renderer API 层（已废弃）
 order: 7
 ---

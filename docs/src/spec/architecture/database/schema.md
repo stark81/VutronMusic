@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-21
 title: 数据库 Schema 参考
 order: 2
 last-reviewed: 2025-07-21

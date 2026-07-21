@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-26
 title: 架构设计
 order: 1
 ---
@@ -16,7 +17,7 @@ order: 1
 | [测试](testing) | Playwright E2E 测试、运行方式、编写指南 | 验证功能正确性 |
 | **前端架构** |  |  |
 | [路由配置](router) | 路由表、守卫、独立窗口、PlayPage vs OSDLyric | 新增页面/路由 |
-| [Store 状态管理](stores) | 9 个 Pinia Store 职责、持久化策略、Store 间通信 | 新增/修改组件 |
+| [Store 状态管理](stores) | 8 个 Pinia Store 职责、持久化策略、Store 间通信 | 新增/修改组件 |
 | [组件参考](components) | 核心组件 Props/Events/Slots、使用场景 | 新增/修改 UI 组件 |
 | [Preload 桥接](preload) | contextBridge 白名单、IPC 通道分类、MessagePort | 新增 IPC 通道 |
 | [类型系统说明](types) | 双类型系统（DB 层 vs Zod 层）、对照表、转换路径 | 使用 Track/Album/Artist 类型 |

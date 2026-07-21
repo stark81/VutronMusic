@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-08
 title: ADR-0005 插件架构演化史
 order: 6
 ---

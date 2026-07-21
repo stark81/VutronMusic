@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-21
 title: Fastify 内嵌服务器
 order: 11
 last-reviewed: 2025-07-21

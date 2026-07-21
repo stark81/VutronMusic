@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-21
 title: 路由配置
 order: 8
 last-reviewed: 2025-07-21

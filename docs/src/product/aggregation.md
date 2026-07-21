@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-08
 title: 多源聚合设计
 order: 2
 ---

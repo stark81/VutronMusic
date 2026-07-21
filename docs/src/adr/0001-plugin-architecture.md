@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-05
 title: ADR-0001 插件架构选择
 order: 2
 ---

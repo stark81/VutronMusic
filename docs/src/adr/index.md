@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-08
 title: 架构决策记录 (ADR) 说明
 order: 1
 ---

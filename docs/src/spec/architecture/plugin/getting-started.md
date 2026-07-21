@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-26
 title: 插件开发入门
 order: 7
 ---
@@ -59,7 +60,7 @@ exports.search = async function (params) {
   const { keyword } = params
   // 写你的逻辑...
   const result = await api.http.get('https://api.example.com/search', { q: keyword })
-  api.log('search result:', JSON.stringify(result)) // 用 log 确认数据正确
+  api.log('search result: ' + JSON.stringify(result)) // 用 log 确认数据正确
 
   // 2️⃣ 确认逻辑正确前，继续返回兜底 404，不影响页面其他功能
   return { code: 404 }
@@ -112,15 +113,21 @@ exports.meta = {
 ### api 对象 — 插件工具箱
 
 ```javascript
-api.http.get('/path', { query: 'value' }) // HTTP GET 请求
-api.http.post('/path', { body: 'data' }) // HTTP POST 请求
+api.http.get(url, params?, headers?, raw?) // HTTP GET 请求
+api.http.post(url, data?, headers?, raw?) // HTTP POST 请求
+api.http.delete(url, data?, headers?, raw?) // HTTP DELETE 请求
 api.store.set('key', 'value') // 插件私有键值存储（持久化）
 api.store.get('key') // 读取
-api.db.set('myKey', JSON.stringify(data)) // 全局数据库 PluginData 表
-api.db.get('myKey') // 读取
+api.db.set(table, value) // 全局数据库写入（table 为表名，如 'PluginData'）
+api.db.get(table, filter?) // 全局数据库读取，filter 可选（如 { ids: string[] }）
 api.utils.parseLyric(lrcString) // 解析 LRC / 逐字歌词
 api.utils.md5('string') // MD5 哈希
-api.log('消息', data) // 日志输出（DevTools + 日志面板）
+api.utils.generateSalt() // 生成 12 字符十六进制盐值
+api.utils.generateToken(password, salt) // 密码加盐 MD5 哈希
+api.utils.getEmbeddedLyric(filePath) // 从音频文件提取嵌入歌词
+api.utils.getPathLyric(filePath) // 从 LRC 文件路径读取歌词
+api.utils.checkFileExist(paths) // 批量检查文件是否存在
+api.log('消息') // 日志输出（DevTools + 日志面板），单字符串参数
 ```
 
 ### 方法返回结构

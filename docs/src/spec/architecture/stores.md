@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-26
 title: Store 状态管理
 order: 3
 last-reviewed: 2025-07-21
@@ -39,7 +40,7 @@ audioEngine ──→ settings
 
 ### state（UI 状态）
 
-**文件**: `src/renderer/store/state.ts`（188 行） **依赖**: 无
+**文件**: `src/renderer/store/state.ts`（220 行） **依赖**: 无
 
 管理与业务逻辑无关的 UI 临时状态。
 
@@ -74,7 +75,7 @@ audioEngine ──→ settings
 
 ### settings（应用设置）
 
-**文件**: `src/renderer/store/settings.ts`（328 行） **依赖**: 无 **持久化**: 全量持久化（`omit: ['playerThemeNew']`）
+**文件**: `src/renderer/store/settings.ts`（380 行） **依赖**: 无 **持久化**: 全量持久化（`omit: ['playerThemeNew']`）
 
 管理所有用户可配置的设置项，每个字段变更通过 `watch` 同步到主进程。
 
@@ -116,7 +117,7 @@ audioEngine ──→ settings
 
 ### player（播放器核心）
 
-**文件**: `src/renderer/store/player.ts`（1309 行） **依赖**: `audioEngine`, `lyric`, `pluginMusic`, `osdLyric`, `state`, `settings` **持久化**: 排除 `pic`, `title`, `fmTracks`
+**文件**: `src/renderer/store/player.ts`（1010 行） **依赖**: `audioEngine`, `lyric`, `pluginMusic`, `osdLyric`, `state`, `settings` **持久化**: 排除 `pic`, `title`, `fmTracks`
 
 最顶层的播放控制 store，聚合了多个子 store 的状态和方法。
 
@@ -170,7 +171,7 @@ audioEngine ──→ settings
 
 #### 播放状态机
 
-player 是全局最复杂的 store（1309 行）。以下核心状态机的设计理解直接影响调试：
+player 是全局最复杂的 store（1010 行）。以下核心状态机的设计理解直接影响调试：
 
 **循环模式切换**：`switchRepeatMode()` 按照 `off → on → one → off` 循环。`off` 不循环列表播完即停，`on` 播完自动从头开始，`one` 单曲循环。
 

@@ -2630,3 +2630,7 @@ exports.fmTrash = async (params) => {
   }
   return { code: 200 }
 }
+
+exports.intelligencePlaylist = async () => {
+  return { code: 404, data: [], sourceContext: {} }
+}

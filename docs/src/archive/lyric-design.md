@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-08
 title: 歌词格式选型历史
 order: 2
 ---

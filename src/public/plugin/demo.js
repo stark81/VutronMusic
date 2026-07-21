@@ -901,3 +901,7 @@ exports.search = async (params) => {
 }
 
 exports.userRecord = async () => ({ code: 404, weekData: [], allData: [], sourceContext: {} })
+
+exports.intelligencePlaylist = async (params) => {
+  return { code: 404, data: [], sourceContext: {} }
+}

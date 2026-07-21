@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-08
 title: Linux 平台问题
 order: 3
 ---

@@ -6,14 +6,6 @@ import store from './store'
 import path from 'path'
 import fs from 'fs'
 
-interface LyricWord {
-  word: string
-  start: number
-  end: number
-}
-
-const iconSize = 22
-
 const createNativeImage = (name: string) => {
   return nativeImage.createFromPath(
     Constants.IS_DEV_ENV
@@ -274,7 +266,7 @@ class TouchBarImpl implements YPMTouchBar {
     }
     if ('isFM' in data && this._touchBar) {
       // FM 模式切换第一个按钮
-      const items = [...this._touchBar.items]
+      const items = [...(this._touchBar as any).items]
       items[0] = data.isFM ? this._fmBtn : this._prevBtn
       const touchBar = new TouchBar({ items })
       this._touchBar = touchBar

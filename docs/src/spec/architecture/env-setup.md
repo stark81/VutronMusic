@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-21
 title: 开发环境搭建
 order: 0
 last-reviewed: 2025-07-21

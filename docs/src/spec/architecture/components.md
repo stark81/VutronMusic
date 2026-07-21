@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-21
 title: 组件参考
 order: 7
 last-reviewed: 2025-07-21

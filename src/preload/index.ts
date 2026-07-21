@@ -40,6 +40,7 @@ const mainAvailChannels: string[] = [
   'trackMatch',
   'plugin-comment',
   'plugin-lyric',
+  'plugin-intelligence',
   'get-screenshot',
   'delete-screenshot',
   'get-cache-path',

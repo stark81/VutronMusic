@@ -1,7 +1,8 @@
 ---
+last-updated: 2026-07-21
 title: 进程模型与数据流
 order: 9
-last-reviewed: 2025-07-21
+last-reviewed: 2025-07-26
 ---
 
 # 进程模型与数据流
@@ -145,7 +146,6 @@ Renderer/Main ──HTTP──→ Fastify (端口 40001/41830)
 | `selecteFolder` | Other | 选择文件夹对话框 | `initOtherIpcMain` |
 | `showOpenDialog` | Other | 通用文件打开对话框 | `initOtherIpcMain` |
 | `getFilesInFolder` | Other | 获取目录下指定扩展名的文件列表 | `initOtherIpcMain` |
-| `getLocalMusic` | Other | 获取本地音乐数据 | `initOtherIpcMain` |
 | `msgScanLocalMusic` | Other | 扫描本地音乐（Piscina 线程池） | `initOtherIpcMain` |
 | `msgShowInFolder` | Other | 在文件管理器中显示文件 | `initOtherIpcMain` |
 | `deleteLocalMusicDB` | Other | 删除本地音乐数据库 | `initOtherIpcMain` |

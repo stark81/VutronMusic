@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-26
 title: Linux MPRIS 媒体键集成
 order: 14
 ---
@@ -7,7 +8,7 @@ order: 14
 
 通过 MPRIS（Media Player Remote Interfacing Specification）协议，让 Linux 桌面环境的媒体控制键和系统媒体播放器界面能控制 VutronMusic。
 
-**核心文件**: `src/main/mpris.ts`（119 行） **依赖**: `@jellybrick/mpris-service` **平台限制**: 仅 Linux（`Constants.IS_LINUX`）
+**核心文件**: `src/main/mpris.ts`（136 行） **依赖**: `@jellybrick/mpris-service` **平台限制**: 仅 Linux（`Constants.IS_LINUX`）
 
 ## 实现方式
 
@@ -57,36 +58,36 @@ const player = new Player({
 
 ## 事件映射
 
-| MPRIS 事件                     | 转发到渲染进程                                      |
-| ------------------------------ | --------------------------------------------------- |
-| `next`                         | `send('next')`                                      |
-| `previous`                     | `send('previous')` 或 `send('fm-trash')`（FM 模式） |
-| `playpause` / `play` / `pause` | `send('play')`                                      |
-| `quit`                         | `app.exit()`                                        |
-| `position`                     | `send('setPosition', position)`                     |
-| `loopStatus`                   | `send('repeat', mode)`                              |
-| `shuffle`                      | `send('repeat-shuffle', shuffle)`                   |
+| MPRIS 事件 | 转发到渲染进程 |
+| --- | --- |
+| `next` | `send('next')` |
+| `previous` | `send('previous')` 或 `send('fm-trash')`（FM 模式） |
+| `playpause` / `play` / `pause` | `send('play')` |
+| `quit` | `app.exit()` |
+| `position` | `send('setPosition', position)`（position 值以微秒传入，内部除以 1000/1000 转为秒） |
+| `loopStatus` | `send('repeat', mode)` |
+| `shuffle` | `send('repeat-shuffle', shuffle)` |
 
 ## 初始化流程
 
+MPRIS 不再通过独立的 `initMprisIpcMain` 初始化，而是整合到统一的 `initSynchronizeIpcMain` 中央分发通道中：
+
 ```
-BackGround.createWindow()
-  → createMpris(win)   // 仅 Linux
-  → IPCs.initialize(win, tray, mpris, lrc)
-    → initMprisIpcMain(win, mpris)
-      → 监听 renderer 状态变更 → mpris.setMetadata() / setPlayState() / ...
+BackGround.handleAppEvents()
+  → createMpris(win)   // 仅 Linux，在 app.whenReady() 中调用
+  → IPCs.initialize(win, tray, touchBar, mpris, lrc)
+    → initSynchronizeIpcMain(win, tray, touchBar, mpris, lrc)
+      → 收到 synchronize-player-info → mpris.updateInfo(data)
+      → 收到 metadata → mpris.setMetadata(metadata)
 ```
 
 ## 接口定义
 
 ```typescript
 interface MprisImpl {
-  setPlayState: (isPlaying: boolean) => void
-  setRepeatMode: (repeat: 'on' | 'one' | 'off') => void
-  setShuffleMode: (isShuffle: boolean) => void
   setMetadata: (metadata: any) => void
-  setPosition: (data: { progress: number }) => void
-  setRate: (data: { rate: number }) => void
-  setPersonalFM: (value: boolean) => void
+  updateInfo: (data: Partial<statusMap>) => void
 }
 ```
+
+渲染进程通过 `synchronize-player-info` 通道推送状态变化，主进程收到后调用 `mpris.updateInfo(data)` 更新播放状态。`mpris.setMetadata(metadata)` 通过独立的 `metadata` 通道触发。

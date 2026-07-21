@@ -10,6 +10,7 @@
  * ② TrackSource 路由查询（plugin-comment / plugin-lyric 的跨插件查找）
  */
 
+import { ScanBatchData } from '@/types/localMusic'
 import { db, Tables } from './db'
 
 // ============ 本地音乐相关 ============
@@ -45,19 +46,8 @@ export function loadScanDedupData() {
   }
 }
 
-/** 获取完整的本地音乐数据（给 getLocalMusic IPC 使用） */
-export function getLocalMusicData() {
-  const tracks = db.findAll(Tables.Track, { deleted: 0 })
-  const albums = db.findAll(Tables.Album)
-  const artists = db.findAll(Tables.Artist)
-  const audios = db.findAll(Tables.Audio, { deleted: 0 })
-  const trackArtists = db.findAll(Tables.TrackArtist)
-  const artistAlbums = db.findAll(Tables.ArtistAlbum)
-  return { tracks, albums, artists, audios, trackArtists, artistAlbums }
-}
-
 /** 事务写入一批数据（扫描结果批量入库） */
-export function writeBatchData(dataToInsert: Record<string, any[]>) {
+export function writeBatchData(dataToInsert: ScanBatchData) {
   db.sqlite.transaction(() => {
     for (const [table, rows] of Object.entries(dataToInsert)) {
       if (rows.length) db.insertMany(Tables[table as keyof typeof Tables], rows)
@@ -393,6 +383,59 @@ export function checkTrackSourceExists(trackId: string, pluginId: string): boole
     .prepare('SELECT 1 FROM TrackSource WHERE trackId = ? AND pluginId = ?')
     .get(trackId, pluginId)
   return !!row
+}
+
+/**
+ * 将 fromTrackId 下的关联数据迁移到 toTrackId。
+ *
+ * 不碰 Audio（Audio 有 FK → Track，而 toTrackId 可能无 Track 记录），
+ * 不删旧 Track（避免 FK 约束冲突），只迁移无 FK 约束的表。
+ *
+ * 适用于匹配流程中检测到同一歌曲有多个 trackId 时，
+ * 将一侧的 TrackSource/TrackArtist 等迁到另一侧。
+ */
+export function reassignTrackId(fromTrackId: string, toTrackId: string) {
+  if (fromTrackId === toTrackId) return
+
+  db.sqlite.transaction(() => {
+    // 1. TrackSource — 复制不冲突的行到 toTrackId，再删旧
+    db.sqlite
+      .prepare(
+        `INSERT OR IGNORE INTO ${Tables.TrackSource}(trackId, pluginId, sourceContext, matched, createTime, updateTime)
+         SELECT ?, pluginId, sourceContext, matched, createTime, updateTime FROM ${Tables.TrackSource} WHERE trackId = ?`
+      )
+      .run(toTrackId, fromTrackId)
+    db.sqlite.prepare(`DELETE FROM ${Tables.TrackSource} WHERE trackId = ?`).run(fromTrackId)
+
+    // 2. TrackArtist — 同上
+    db.sqlite
+      .prepare(
+        `INSERT OR IGNORE INTO ${Tables.TrackArtist}(trackId, artistId)
+         SELECT ?, artistId FROM ${Tables.TrackArtist} WHERE trackId = ?`
+      )
+      .run(toTrackId, fromTrackId)
+    db.sqlite.prepare(`DELETE FROM ${Tables.TrackArtist} WHERE trackId = ?`).run(fromTrackId)
+
+    // 3. Lyrics — 同上
+    db.sqlite
+      .prepare(
+        `INSERT OR IGNORE INTO ${Tables.Lyrics}(trackId, pluginId, content, updateTime)
+         SELECT ?, pluginId, content, updateTime FROM ${Tables.Lyrics} WHERE trackId = ?`
+      )
+      .run(toTrackId, fromTrackId)
+    db.sqlite.prepare(`DELETE FROM ${Tables.Lyrics} WHERE trackId = ?`).run(fromTrackId)
+
+    // 4. LyricOffsets — 同上
+    db.sqlite
+      .prepare(
+        `INSERT OR IGNORE INTO ${Tables.LyricOffsets}(pluginId, trackId, offset, updateTime)
+         SELECT pluginId, ?, offset, updateTime FROM ${Tables.LyricOffsets} WHERE trackId = ?`
+      )
+      .run(toTrackId, fromTrackId)
+    db.sqlite.prepare(`DELETE FROM ${Tables.LyricOffsets} WHERE trackId = ?`).run(fromTrackId)
+
+    // 注意：不碰 Audio（有 FK → Track），不删旧 Track（Audio 可能还引用它）
+  })()
 }
 
 /** 根据 trackId 查找本地音频文件路径和封面（用于本地封面服务，含 albumId fallback） */

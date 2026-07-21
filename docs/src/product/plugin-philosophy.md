@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-08
 title: 插件化设计
 order: 3
 ---

@@ -1,4 +1,5 @@
 ---
+last-updated: 2026-07-05
 title: ADR-0003 Worker 线程模型
 order: 4
 ---
