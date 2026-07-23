@@ -176,7 +176,7 @@ watch(
 )
 
 watch(lyrics, (value) => {
-  if (!shouldSend.value) return
+  if (!show.value) return
   window.mainApi?.send('synchronize-player-info', {
     lyrics: toRaw(value)
   })
