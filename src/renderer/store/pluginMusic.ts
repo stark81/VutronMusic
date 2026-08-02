@@ -849,7 +849,10 @@ export const usePluginMusic = defineStore(
           const plugin = services.value.find((item) => item.type === 'local')
           if (!plugin) return
           const key = plugin.code
-          if (tracks[key]) tracks[key].count += data.newTracks
+          if (!tracks[key]) {
+            tracks[key] = { data: [], count: 0, sourceContext: {} }
+          }
+          tracks[key].count += data.newTracks
         }
       )
 

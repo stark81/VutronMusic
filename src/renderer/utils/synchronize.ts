@@ -451,13 +451,24 @@ function handleIpcRenderer() {
   window.mainApi?.on('resume', async () => {
     if (!currentTrack.value) return
     const t = progress.value
+    const wasPaused = !playing.value
     const { pluginId, sourceContext } = currentTrack.value
-    await replaceCurrentTrack(pluginId, sourceContext, false)
+    await replaceCurrentTrack(pluginId, sourceContext, !wasPaused, false)
     seek.value = t
+    if (wasPaused && playing.value) {
+      await playOrPause()
+    }
   })
 
   window.mainApi?.on('play', playOrPause)
   window.mainApi?.on('pause', playOrPause)
+
+  window.mainApi?.on('play-now', async () => {
+    if (!playing.value) await playOrPause()
+  })
+  window.mainApi?.on('pause-now', async () => {
+    if (playing.value) await playOrPause()
+  })
 
   window.mainApi?.on('previous', () => {
     if (!isPersonalFM.value) playPrev()

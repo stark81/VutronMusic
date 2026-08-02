@@ -355,9 +355,10 @@ export const usePlayerStore = defineStore(
     async function replaceCurrentTrack(
       plugin: PluginId,
       sourceContext: Record<string, any>,
-      autoPlay = true
+      autoPlay = true,
+      reportEnd = true
     ) {
-      if (autoPlay && currentTrack.value?.name && !_pendingEndReport) {
+      if (autoPlay && reportEnd && currentTrack.value?.name && !_pendingEndReport) {
         reportPlayback('end')
       }
       _pendingEndReport = false
@@ -505,7 +506,7 @@ export const usePlayerStore = defineStore(
       return [list.value[prev], prev, false]
     }
 
-    function _playNext() {
+    function _playNext(autoPlay = true) {
       if (playingNext.value) {
         const track = currentTrack.value!
         list.value.splice(currentTrackIndex.value, 0, [track.pluginId, track.sourceContext])
@@ -518,8 +519,8 @@ export const usePlayerStore = defineStore(
         playing.value = false
       } else {
         currentTrackIndex.value = index
-        replaceCurrentTrack(...trackInfo, true)
-        playing.value = true
+        replaceCurrentTrack(...trackInfo, autoPlay)
+        playing.value = autoPlay
       }
     }
 
@@ -543,15 +544,15 @@ export const usePlayerStore = defineStore(
       } catch {}
     }
 
-    async function playNextFM() {
+    async function playNextFM(autoPlay = true) {
       if (fmTracks.value.length === 0) {
         await refillFMTracks()
         if (fmTracks.value.length === 0) return
       }
       const track = fmTracks.value.shift()!
       nextTrack.value = track
-      await replaceCurrentTrack(track.pluginId, track.sourceContext, true)
-      playing.value = true
+      await replaceCurrentTrack(track.pluginId, track.sourceContext, autoPlay)
+      playing.value = autoPlay
       if (fmTracks.value.length === 0) {
         refillFMTracks()
       }
@@ -601,12 +602,12 @@ export const usePlayerStore = defineStore(
       }
     }
 
-    async function playNext(isPersonal: boolean) {
+    async function playNext(isPersonal: boolean, autoPlay = true) {
       await engineStore.pause()
       if (isPersonal) {
-        await playNextFM()
+        await playNextFM(autoPlay)
       } else {
-        _playNext()
+        _playNext(autoPlay)
       }
     }
 
@@ -826,9 +827,10 @@ export const usePlayerStore = defineStore(
           if (autoPlay) engineStore.play()
         })
       })
-      eventBus.on('playNext', () => {
+      eventBus.on('playNext', (autoPlay) => {
         showToast(`播放错误，正在切歌: ${currentTrack.value?.reason}`)
-        playNext(isPersonalFM.value)
+        // 无参 emit（自然播放结束）时 autoPlay 为 undefined，兜底 true 自动播放
+        playNext(isPersonalFM.value, (autoPlay ?? true) as boolean)
       })
     }
 

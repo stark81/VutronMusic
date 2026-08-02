@@ -561,7 +561,7 @@ export const useAudioEngineStore = defineStore('audioEngine', () => {
     } else if (!sources.length) {
       _cueOffset = 0
       _cueDuration = 0
-      eventBus.emit('playNext')
+      eventBus.emit('playNext', autoPlay)
       return
     }
 
@@ -601,7 +601,7 @@ export const useAudioEngineStore = defineStore('audioEngine', () => {
         await _delay(500)
         _cueOffset = 0
         _cueDuration = 0
-        eventBus.emit('playNext')
+        eventBus.emit('playNext', autoPlay)
       }
     }
 

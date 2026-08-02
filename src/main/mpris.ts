@@ -31,8 +31,8 @@ class Mpris implements MprisImpl {
     this._player.on('next', () => renderer.send('next'))
     this._player.on('previous', () => renderer.send(isPersonalFM ? 'fm-trash' : 'previous'))
     this._player.on('playpause', () => renderer.send('play'))
-    this._player.on('play', () => renderer.send('play'))
-    this._player.on('pause', () => renderer.send('play'))
+    this._player.on('play', () => renderer.send('play-now'))
+    this._player.on('pause', () => renderer.send('pause-now'))
     this._player.on('quit', () => app.exit())
     this._player.on('position', (args: { position: number }) =>
       renderer.send('setPosition', args.position / 1000 / 1000)

@@ -66,6 +66,8 @@ const rendererAvailChannels: string[] = [
   'handleTrayClick',
   'play',
   'pause',
+  'play-now',
+  'pause-now',
   'previous',
   'next',
   'repeat',

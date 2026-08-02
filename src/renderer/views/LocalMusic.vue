@@ -8,7 +8,7 @@
           <div class="content-info">
             <div>
               <div class="subtitle">全部歌曲</div>
-              <div class="text">{{ rawTracks.length }}首</div>
+              <div class="text">{{ localCounts }}首</div>
             </div>
             <div>
               <div class="subtitle">歌曲总时长</div>
@@ -341,6 +341,7 @@ const tabStyle = computed(() => {
 
 // ---- data ----
 
+const localCounts = computed(() => tracks.value[plugin.value]?.count || 0)
 const rawTracks = computed(() => tracks.value[plugin.value]?.data || [])
 
 const defaultTracks = computed(() => {
