@@ -85,12 +85,11 @@ const audioId = makeId('audio', audioKey)
 ## 3. 数据库变更
 
 ```sql
--- Audio 表新增字段（通过 ALTER TABLE 增量迁移）
-ALTER TABLE Audio ADD cueOffset INTEGER DEFAULT 0;
-ALTER TABLE Audio ADD cueDuration INTEGER DEFAULT 0;
+-- Audio 表的 cueOffset / cueDuration 字段已内置于 plugin.sql 的初始建表定义中
+-- （v3.3.0 曾用 3.3.0.sql 通过 ALTER TABLE 增量添加，已删除，避免与初始建表重复报错）
 ```
 
-迁移逻辑在 `db.ts` 构造函数中通过 `appVersion` 对比执行。
+迁移逻辑在 `db.ts` 构造函数中通过 `appVersion` 对比执行（当前剩余迁移：`3.3.1.sql`）。
 
 ## 4. 已知限制
 
