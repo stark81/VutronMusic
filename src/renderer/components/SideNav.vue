@@ -1,6 +1,7 @@
 <template>
   <div class="side-nav">
     <button-icon
+      v-if="enableLibrary"
       :class="{ active: isCurrentRoute('/') }"
       :data-tip="`${$t('nav.home')}`"
       @click="handleRoute('/')"
@@ -8,6 +9,7 @@
       <svg-icon class="icon" icon-class="logo" />
     </button-icon>
     <button-icon
+      v-if="enableLibrary"
       :class="{ active: isCurrentRoute('/explore') }"
       :data-tip="`${$t('nav.explore')}`"
       @click="handleRoute('/explore')"
@@ -15,6 +17,7 @@
       <svg-icon class="icon" icon-class="explore" style="transform: scale(1.4)" />
     </button-icon>
     <button-icon
+      v-if="enableLibrary"
       :class="{ active: isCurrentRoute('/library') }"
       :data-tip="`${$t('nav.library')}`"
       @click="handleRoute('/library')"
@@ -22,7 +25,7 @@
       <svg-icon class="icon" icon-class="library" />
     </button-icon>
     <button-icon
-      v-if="enable"
+      v-if="enableStream"
       :class="{ active: isCurrentRoute('/stream') }"
       :data-tip="`${$t('nav.stream')}`"
       @click="handleRoute('/stream')"
@@ -30,7 +33,7 @@
       <svg-icon class="icon" icon-class="stream-icon" style="transform: scale(0.9)"></svg-icon>
     </button-icon>
     <button-icon
-      v-if="isElectron && localMusic.enble"
+      v-if="isElectron && enableLocal"
       :class="{ active: isCurrentRoute('/localMusic') }"
       :data-tip="`${$t('nav.localMusic')}`"
       @click="handleRoute('/localMusic')"
@@ -51,15 +54,11 @@
 import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useSettingsStore } from '../store/settings'
-import { useStreamMusicStore } from '../store/streamingMusic'
+import { usePluginMusic } from '../store/pluginMusic'
 import { storeToRefs } from 'pinia'
 
-const settingsStore = useSettingsStore()
-const { localMusic } = storeToRefs(settingsStore)
-
-const streamStore = useStreamMusicStore()
-const { enable } = storeToRefs(streamStore)
+const pluginStore = usePluginMusic()
+const { enableLibrary, enableStream, enableLocal } = storeToRefs(pluginStore)
 
 const router = useRouter()
 const route: any = useRoute()

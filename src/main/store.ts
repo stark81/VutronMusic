@@ -20,6 +20,11 @@ export interface TypeElectronStore {
   settings: {
     [key: string]: any
   }
+  pluginEnable: {
+    library: boolean
+    stream: boolean
+    local: boolean
+  }
   accounts: {
     selected: string
     navidrome: {
@@ -48,6 +53,9 @@ export interface TypeElectronStore {
       accessToken: string
       status: streamStatus
     }
+  }
+  plugins: {
+    [key: string]: Record<string, any>
   }
 }
 
@@ -134,7 +142,18 @@ const store = new Store<TypeElectronStore>({
       enableAmuseServer: true,
       lastfmSession: { name: '', key: '', subscriber: 0 },
       proxy: { type: 0, address: '', port: '' },
-      forceFactor: false
+      forceFactor: false,
+      showHttpLog: false,
+      sourcePriority: {
+        lyric: ['self'] as string[],
+        comment: ['self'] as string[],
+        trackInfoOrder: ['path', 'online', 'embedded']
+      }
+    },
+    pluginEnable: {
+      library: true,
+      stream: true,
+      local: true
     },
     accounts: {
       selected: 'navidrome',
@@ -164,7 +183,8 @@ const store = new Store<TypeElectronStore>({
         accessToken: '',
         status: 'logout'
       }
-    }
+    },
+    plugins: {}
   }
 })
 

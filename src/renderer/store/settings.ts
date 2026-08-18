@@ -1,10 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, reactive, watch, toRaw, onMounted } from 'vue'
 import DefaultShortcuts from '../utils/shortcuts'
-import { playlistCategories } from '../utils/common'
 import cloneDeep from 'lodash/cloneDeep'
-import { useLocalMusicStore } from './localMusic'
-import { TrackInfoOrder, Appearance } from '@/types/music'
+import { Appearance } from '@/types/music'
 
 type BackgroundEffect = 'none' | 'true' | 'blur' | 'dynamic' | 'customize'
 type StandardBackgroundEffect = Exclude<BackgroundEffect, 'customize'>
@@ -13,10 +11,6 @@ export type bgType = 'image' | 'video' | 'folder' | 'api'
 export const useSettingsStore = defineStore(
   'settings',
   () => {
-    const localMusicStore = useLocalMusicStore()
-    const { scanLocalMusic } = localMusicStore
-
-    const enabledPlaylistCategories = playlistCategories.filter((c) => c.enable).map((c) => c.name)
     const theme = reactive({
       appearance: 'auto' as Appearance,
       colors: [
@@ -28,14 +22,12 @@ export const useSettingsStore = defineStore(
       ]
     })
     const localMusic = reactive({
+      /** @deprecated 已迁移至 pluginMusic.enableLocal，此字段仅保持持久化兼容 */
       enble: true,
-      scanDir: [] as string[],
       replayGain: false,
       useInnerInfoFirst: false,
       embedCoverArt: 0, // 0: 不嵌入, 1: 内嵌, 2: 歌曲路径下, 3: 两者都嵌入
-      embedStyle: 0, // 0: 跳过，1：覆盖
-      trackInfoOrder: ['online', 'path', 'embedded'] as TrackInfoOrder[],
-      scanning: false
+      embedStyle: 0 // 0: 跳过，1：覆盖
     })
     const general = reactive({
       language: 'zh',
@@ -48,22 +40,32 @@ export const useSettingsStore = defineStore(
       preventSuspension: false,
       lyricBackground: 'true' as BackgroundEffect,
       savedBackground: 'true' as StandardBackgroundEffect,
-      enabledPlaylistCategories,
-      fadeDuration: 0.2, // 音频淡入淡出时长（秒）
+      fadeDuration: 0.5, // 音频淡入淡出时长（秒）
       showBanner: true,
       autoUpdate: true,
       jumpToLyricBegin: false,
       trayColor: 0, // 0: 彩色, 1: 白色, 2: 黑色, 3: 跟随系统
       showChorus: true, // 进度条显示副歌时间
       clickToLyric: false, // 点击播放栏打开歌词页
-      forceFactor: false
+      forceFactor: false,
+      /** 音量均衡（ReplayGain），自动平衡不同歌曲间的响度差异 */
+      volumeNormalization: true,
+      /** 全局每页加载数量，匹配插件内部页大小 */
+      pageSize: 1000,
+      /** 搜索来源顺序（plugin code 数组） */
+      searchOrder: [] as { code: string; name: string }[],
+      /** 搜索框最后选中的插件 */
+      searchPlugin: ''
     })
 
     const tray = reactive({
       showLyric: true,
       showControl: true,
+      showIcon: true,
       lyricWidth: 192,
-      scrollRate: 34,
+      isWordByWord: true,
+      playedColor: '#ffff00', // 深色模式高亮颜色
+      playedColorLight: '#ffff00', // 浅色模式高亮颜色
       enableExtension: true,
       showTray: true
     })
@@ -96,7 +98,8 @@ export const useSettingsStore = defineStore(
       enableDiscordRichPresence: false,
       lastfm: { enable: false, name: '' },
       proxy: { type: 0, address: '', port: '' },
-      realIp: { enable: false, ip: '' }
+      realIp: { enable: false, ip: '' },
+      showHttpLog: false
     })
 
     watch(
@@ -110,13 +113,6 @@ export const useSettingsStore = defineStore(
       },
       {
         deep: true
-      }
-    )
-
-    watch(
-      () => localMusic.scanDir,
-      () => {
-        scanLocalMusic()
       }
     )
 
@@ -165,13 +161,6 @@ export const useSettingsStore = defineStore(
     )
 
     watch(
-      () => localMusic.trackInfoOrder,
-      (value) => {
-        window.mainApi?.send('setStoreSettings', { trackInfoOrder: toRaw(value) })
-      }
-    )
-
-    watch(
       () => misc.proxy,
       (value) => {
         window.mainApi?.send('setStoreSettings', { proxy: toRaw(value) })
@@ -182,7 +171,7 @@ export const useSettingsStore = defineStore(
     )
 
     watch(
-      () => !(tray.showControl || tray.showLyric),
+      () => !(tray.showControl || tray.showLyric) && tray.showIcon,
       (newValue) => {
         window.mainApi?.send('setStoreSettings', { enableTrayMenu: newValue })
       }
@@ -192,6 +181,55 @@ export const useSettingsStore = defineStore(
       () => tray.showTray,
       (value) => {
         window.mainApi?.send('setStoreSettings', { showTray: value })
+      }
+    )
+
+    watch(
+      () => tray.showLyric,
+      (value) => {
+        window.mainApi?.send('setStoreSettings', { showLyric: value })
+      }
+    )
+
+    watch(
+      () => tray.showControl,
+      (value) => {
+        window.mainApi?.send('setStoreSettings', { showControl: value })
+      }
+    )
+
+    watch(
+      () => tray.lyricWidth,
+      (value) => {
+        window.mainApi?.send('setStoreSettings', { lyricWidth: value })
+      }
+    )
+
+    watch(
+      () => tray.showIcon,
+      (value) => {
+        window.mainApi?.send('setStoreSettings', { showIcon: value })
+      }
+    )
+
+    watch(
+      () => tray.isWordByWord,
+      (value) => {
+        window.mainApi?.send('setStoreSettings', { isWordByWord: value })
+      }
+    )
+
+    watch(
+      () => tray.playedColor,
+      (value) => {
+        window.mainApi?.send('setStoreSettings', { playedColor: value })
+      }
+    )
+
+    watch(
+      () => tray.playedColorLight,
+      (value) => {
+        window.mainApi?.send('setStoreSettings', { playedColorLight: value })
       }
     )
 
@@ -257,6 +295,13 @@ export const useSettingsStore = defineStore(
       }
     )
 
+    watch(
+      () => misc.showHttpLog,
+      (val) => {
+        window.mainApi?.send('setStoreSettings', { showHttpLog: val })
+      }
+    )
+
     const lastfmConnect = () => {
       if (misc.lastfm.enable) return
       window.mainApi?.invoke('lastfm-auth').then((result: { name: string }) => {
@@ -270,17 +315,6 @@ export const useSettingsStore = defineStore(
       misc.lastfm.enable = false
       misc.lastfm.name = ''
       window.mainApi?.send('disconnect-lastfm')
-    }
-
-    const togglePlaylistCategory = (name: string) => {
-      const index = general.enabledPlaylistCategories.findIndex((c) => c === name)
-      if (index !== -1) {
-        general.enabledPlaylistCategories = general.enabledPlaylistCategories.filter(
-          (c) => c !== name
-        )
-      } else {
-        general.enabledPlaylistCategories.push(name)
-      }
     }
 
     const updateShortcut = ({ id, type, shortcut }) => {
@@ -301,7 +335,7 @@ export const useSettingsStore = defineStore(
 
     window.mainApi?.on('resume', () => {
       setTimeout(() => {
-        const trayMenu = !(tray.showControl || tray.showLyric)
+        const trayMenu = !(tray.showControl || tray.showLyric) && tray.showIcon
         window.mainApi?.send('setStoreSettings', {
           enableTrayMenu: trayMenu
         })
@@ -309,11 +343,6 @@ export const useSettingsStore = defineStore(
     })
 
     onMounted(() => {
-      const path = localMusic.scanDir as unknown
-      if (typeof path === 'string') {
-        localMusic.scanDir = path ? [path] : []
-      }
-
       window.mainApi?.invoke('get-lastfm-session').then((result: { name: string }) => {
         misc.lastfm.name = result.name
         misc.lastfm.enable = result.name !== ''
@@ -338,7 +367,6 @@ export const useSettingsStore = defineStore(
       unblockNeteaseMusic,
       updateShortcut,
       deleteCacheTracks,
-      togglePlaylistCategory,
       restoreDefaultShortcuts,
       lastfmConnect,
       lastfmDisconnect

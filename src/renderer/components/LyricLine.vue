@@ -9,7 +9,8 @@
 
 <script setup lang="ts">
 import { lyricLine, TranslationMode, word } from '@/types/music.d'
-import { computed, toRefs, onBeforeUnmount, ref, nextTick } from 'vue'
+import { computed, toRefs, onBeforeUnmount, ref } from 'vue'
+import { measureWords } from '../utils/lyricMeasure'
 
 type lyricType = 'lyric' | 'translation'
 type AnimationStatus = 'play' | 'pause' | 'finish' | 'reset'
@@ -24,10 +25,14 @@ const props = withDefaults(
     playbackRate?: number
     isWordByWord: boolean
     isMini?: boolean
+    lyricFont?: string
+    lyricFontSize?: number
   }>(),
   {
     playbackRate: 1.0,
-    isMini: false
+    isMini: false,
+    lyricFont: 'system-ui',
+    lyricFontSize: 28
   }
 )
 
@@ -67,36 +72,13 @@ const translation = computed(() => {
   return props.item[modeKey] as { text: string; info?: word[] } | null
 })
 
-/**
- * 创建测量用的 dom、获取所有字的offsetWidth、销毁 dom
- * @param dom 待测量的 div dom 元素
- * @param info 逐字歌词信息
- * @returns 返回每个字的宽度信息
- */
-const measureDom = async (dom: HTMLElement, info: word[]) => {
-  const spanC = document.createElement('span')
-  spanC.classList.add('measure-span')
-  info.forEach((font) => {
-    const span = document.createElement('span')
-    span.textContent = font.word
-    spanC.appendChild(span)
-  })
-
-  await nextTick()
-  dom.appendChild(spanC)
-
-  const spans = spanC.querySelectorAll('span')
-  const result = Array.from(spans).map((span) => span.offsetWidth)
-  dom.removeChild(spanC)
-  return result
-}
-
 const buildWordKeyFrame = (info: word[], spanWidths: number[]) => {
   const start = info[0].start || props.item.start * 1000
   const end = Math.min(info.at(-1)?.end || 0, props.item.end * 1000) || props.item.end * 1000
   const duration = Math.max(end - start, 1)
   let curWidth = 0
   const totalWidth = spanWidths.reduce((acc, cur) => acc + cur, 0)
+  if (!totalWidth) return null
 
   const keyframes = info.map((font, index) => {
     const _start = font.start
@@ -124,6 +106,7 @@ const buildWordKeyFrame = (info: word[], spanWidths: number[]) => {
  */
 const buildWordAnimation = (dom: HTMLElement, info: word[], offsetWidths: number[]) => {
   const result = buildWordKeyFrame(info, offsetWidths)
+  if (!result) return null
 
   const span = dom.querySelector('span')
   const effect = new KeyframeEffect(span, result.keyframes, {
@@ -230,7 +213,8 @@ const createAnimations = async (type: 'all' | 'translation' = 'all') => {
     let spanWidths: number[] = []
 
     if (item.info) {
-      spanWidths = await measureDom(item.dom, item.info)
+      const words = item.info.map((w) => w.word)
+      spanWidths = measureWords(words, props.lyricFont, props.lyricFontSize)
       animations[l] = buildWordAnimation(item.dom, item.info, spanWidths)
     }
 

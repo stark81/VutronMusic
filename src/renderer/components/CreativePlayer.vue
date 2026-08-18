@@ -11,12 +11,12 @@
           <img
             v-for="track in selectedTracks"
             :key="track.name"
-            :src="getImg(track)"
+            :src="track.picUrl"
             :alt="track.name"
             loading="lazy"
           />
         </div>
-        <span class="title">{{ currentTrack?.name }}&nbsp;-&nbsp;{{ artist.name }}</span>
+        <span class="title">{{ currentTrack?.name }}&nbsp;-&nbsp;{{ artist?.name }}</span>
       </div>
       <div class="play-bar" :class="{ hover: hoverParent }">
         <div class="player-progress-bar">
@@ -25,7 +25,7 @@
             <vue-slider
               v-model="position"
               :min="0"
-              :max="currentTrackDuration"
+              :max="duration"
               :interval="1"
               :duration="0.5"
               :dot-size="12"
@@ -44,7 +44,7 @@
               :silent="true"
             ></vue-slider>
           </div>
-          <div class="time">{{ formatTime(currentTrackDuration) }}</div>
+          <div class="time">{{ formatTime(duration) }}</div>
         </div>
         <div class="player-media-control">
           <button-icon
@@ -55,8 +55,8 @@
             <svg-icon v-show="repeatMode !== 'one'" icon-class="repeat" />
             <svg-icon v-show="repeatMode === 'one'" icon-class="repeat-1" />
           </button-icon>
-          <button-icon :class="{ active: !shuffle }" @click="shuffle = !shuffle"
-            ><svg-icon icon-class="shuffle"
+          <button-icon :class="{ active: !isShuffle }" @click="isShuffle = !isShuffle"
+            ><svg-icon icon-class="isShuffle"
           /></button-icon>
           <div class="middle">
             <button-icon v-show="!isPersonalFM" :title="$t('player.previous')" @click="playPrev"
@@ -74,7 +74,7 @@
               @click="playOrPause"
               ><svg-icon :icon-class="playing ? 'pause' : 'play'"
             /></button-icon>
-            <button-icon :title="$t('player.next')" @click="_playNextTrack(isPersonalFM)"
+            <button-icon :title="$t('player.next')" @click="playNext(isPersonalFM)"
               ><svg-icon icon-class="next"
             /></button-icon>
           </div>
@@ -135,7 +135,9 @@
           <Comment
             v-else-if="show === 'comment'"
             :id="currentTrack!.id"
-            type="music"
+            :plugin="currentTrack!.pluginId"
+            :source-context="currentTrack?.sourceContext || {}"
+            type="track"
             padding-right="0vh"
             :style="{ width: '90%', paddingTop: '4vw' }"
           />
@@ -147,12 +149,10 @@
 
 <script setup lang="ts">
 import { ref, watch, onBeforeUnmount, computed, onMounted, nextTick, inject } from 'vue'
-import { useDataStore } from '../store/data'
 import { usePlayerStore } from '../store/player'
 import { useSettingsStore } from '../store/settings'
-import { useStreamMusicStore } from '../store/streamingMusic'
-import { useLocalMusicStore } from '../store/localMusic'
 import { usePlayerThemeStore } from '../store/playerTheme'
+import { usePluginMusic } from '../store/pluginMusic'
 import { storeToRefs } from 'pinia'
 import { gsap } from 'gsap'
 import VueSlider from './VueSlider.vue'
@@ -161,9 +161,9 @@ import SvgIcon from './SvgIcon.vue'
 import LyricPage from './LyricPage.vue'
 import Comment from './CommentPage.vue'
 import ContextMenu from './ContextMenu.vue'
-import { Track } from '@/types/music'
-import { getTrackDetail } from '../api/track'
+import { Track } from '@/types/plugin'
 import { AniName } from '@/types/theme'
+import { PluginId } from '@/types/schemas'
 
 const props = withDefaults(
   defineProps<{ show: 'fullLyric' | 'pickLyric' | 'comment'; hoverParent: boolean }>(),
@@ -176,37 +176,31 @@ const props = withDefaults(
 const playerStore = usePlayerStore()
 const {
   playing,
-  currentLyric,
   playbackRate,
   seek,
   currentTrack,
-  currentTrackDuration,
+  currentIndex,
+  duration,
   lyrics,
   repeatMode,
   isPersonalFM,
   isLiked,
-  shuffle,
+  isShuffle,
   list,
-  _playNextList,
+  playNextList,
   currentTrackIndex,
   volume
 } = storeToRefs(playerStore)
 
-const { playPrev, playOrPause, _playNextTrack, switchRepeatMode, moveToFMTrash } = playerStore
+const { playPrev, playOrPause, playNext, switchRepeatMode, moveToFMTrash } = playerStore
 
 const settingsStore = useSettingsStore()
 const { general } = storeToRefs(settingsStore)
 
-const localMusicStore = useLocalMusicStore()
-const { getALocalTrack } = localMusicStore
-
-const streamMusicStore = useStreamMusicStore()
-const { likeAStreamTrack, getAStreamTrack } = streamMusicStore
+const { pluginMethodCall, likeATrack } = usePluginMusic()
 
 const playerTheme = usePlayerThemeStore()
 const { activeTheme, senses, activeBG } = storeToRefs(playerTheme)
-
-const { likeATrack } = useDataStore()
 
 const hover = ref(false)
 const pickLyricRef = ref<HTMLElement>()
@@ -216,6 +210,19 @@ const shiftDist = ref<number[]>([])
 const loading = ref(false)
 
 let tl: gsap.core.Timeline | null = null
+
+const currentLyric = computed(() => {
+  const lrc = lyrics.value[currentIndex.value]
+  if (!lrc)
+    return {
+      start: 0,
+      time: 0,
+      content: currentTrack.value
+        ? `${currentTrack.value.artists[0].name} - ${currentTrack.value?.name}`
+        : '听你想听的音乐'
+    }
+  return { start: lrc.start, time: lrc.end - lrc.start, content: lrc.lyric.text }
+})
 
 const pickedLyric = computed(() => {
   const result = [] as string[][]
@@ -307,8 +314,8 @@ const selectedIdx = computed(() => {
   const list2 = list.value.slice(index + 1)
 
   let result = pre.concat(list1)
-  result.push(currentTrack.value!.id)
-  result = result.concat(_playNextList.value).concat(list2).concat(next)
+  result.push([currentTrack.value!.pluginId, currentTrack.value!.sourceContext])
+  result = result.concat(playNextList.value).concat(list2).concat(next)
   const idx = currentTrackIndex.value + 2
   return result.slice(idx - 2, idx + 3)
 })
@@ -347,7 +354,7 @@ const splitWithSpaces = (str: string) => {
 }
 
 const artist = computed(() => {
-  return currentTrack.value?.artists ? currentTrack.value.artists[0] : currentTrack.value?.ar[0]
+  return currentTrack.value?.artists[0]
 })
 
 const position = computed({
@@ -371,9 +378,7 @@ const position = computed({
   }
 })
 
-const heartDisabled = computed(() => {
-  return currentTrack.value?.type === 'local' && !currentTrack.value?.matched
-})
+const heartDisabled = computed(() => false)
 
 const shouldAni = computed(() => {
   if (activeTheme.value.theme.activeLayout === 'Classic') return true
@@ -586,12 +591,8 @@ const animations = computed(() => ({
 }))
 
 const likeTrack = () => {
-  if (currentTrack.value?.type === 'stream') {
-    const op = currentTrack.value.starred ? 'unstar' : 'star'
-    likeAStreamTrack(op, currentTrack.value)
-  } else if (currentTrack.value?.matched) {
-    likeATrack(currentTrack.value.id)
-  }
+  if (!currentTrack.value) return
+  likeATrack(currentTrack.value)
 }
 
 const showContextMenu = (e: MouseEvent): void => {
@@ -746,46 +747,69 @@ const formatTime = (time: number) => {
 }
 
 const loadTracks = async () => {
-  const tracks: Track[] = []
-  const onlineIDs: number[] = []
+  const map = new Map<
+    PluginId,
+    {
+      index: number
+      sourceContext: Record<string, any>
+    }[]
+  >()
 
-  for (const id of selectedIdx.value) {
-    let track = getALocalTrack({ id })
-    if (track) {
-      tracks.push(track)
-      continue
+  selectedIdx.value.forEach(([plugin, sourceContext], index) => {
+    if (!map.has(plugin)) {
+      map.set(plugin, [])
     }
-    track = getAStreamTrack(id)
-    if (track) {
-      tracks.push(track)
-      continue
-    }
-    onlineIDs.push(id)
-  }
 
-  if (onlineIDs.length) {
-    const data = await getTrackDetail(onlineIDs.join(','))
-    tracks.push(...data.songs)
-  }
+    map.get(plugin)!.push({
+      index,
+      sourceContext
+    })
+  })
 
-  selectedTracks.value = selectedIdx.value.map((id) => tracks.find((track) => track.id === id)!)
+  const groups = Array.from(map, ([plugin, source]) => ({
+    plugin,
+    source
+  }))
+
+  groups.map((item) =>
+    pluginMethodCall(item.plugin, 'getTrackDetail', {
+      tracks: item.source.map((s) => s.sourceContext)
+    }).then((result) => {
+      result.data.forEach((track, i) => {
+        selectedTracks.value[item.source[i].index] = {
+          ...track,
+          album: {
+            ...track.album,
+            pluginId: item.plugin
+          },
+          artists: track.artists.map((it) => ({
+            ...it,
+            pluginId: item.plugin
+          })),
+          albumArtists: track.albumArtists.map((it) => ({
+            ...it,
+            pluginId: item.plugin
+          })),
+          pluginId: item.plugin
+        }
+      })
+    })
+  )
 }
 
-const getImg = (track: Track) => {
-  let url: string
-  if (track.type === 'online') {
-    url = track.al?.picUrl || track.album?.picUrl || track.picUrl
-    if (url && url.startsWith('http')) url = url.replace('http:', 'https:')
-    url += '?param=256y256'
-    return url
-  } else if (track.type === 'stream') {
-    url = track.al?.picUrl || track.album?.picUrl || track.picUrl
-    return url
-  } else {
-    url = `atom://local-asset?type=pic&id=${track.id}&size=256`
-    return url
-  }
-}
+watch(
+  selectedTracks,
+  (value) => {
+    value.forEach((item) => {
+      pluginMethodCall(item.pluginId, 'resizePicUrl', { url: item.picUrl, size: 256 }).then(
+        (result) => {
+          item.picUrl = result.data
+        }
+      )
+    })
+  },
+  { deep: true }
+)
 
 watch(
   () => props.show,
@@ -853,9 +877,12 @@ onMounted(async () => {
   loadTracks()
   if (!loading.value) {
     loading.value = true
-    buildLyricElements()
-    enterAnimation()
-    loading.value = false
+    // 推迟歌词 DOM 构建和动画初始化到首帧后
+    requestAnimationFrame(() => {
+      buildLyricElements()
+      enterAnimation()
+      loading.value = false
+    })
   }
   if (playing.value) {
     tl?.play()
@@ -930,6 +957,7 @@ $mid: math.ceil(math.div($count, 2));
     span {
       font-size: 3vw;
     }
+
     .title {
       display: block;
       font-size: 3vw;
@@ -986,13 +1014,16 @@ $mid: math.ceil(math.div($count, 2));
   .button-icon.disabled {
     cursor: default;
     opacity: 0.48;
+
     &:hover {
       background: none;
     }
+
     &:active {
       transform: unset;
     }
   }
+
   .player-progress-bar {
     width: 22vw;
     display: flex;
@@ -1105,6 +1136,7 @@ $mid: math.ceil(math.div($count, 2));
       height: 120px;
       width: 120px;
     }
+
     .title-name {
       top: 40px !important;
       left: 0px !important;
@@ -1114,6 +1146,7 @@ $mid: math.ceil(math.div($count, 2));
       .title {
         display: none;
       }
+
       .fan-container {
         margin-bottom: 60px;
         height: 100px;
@@ -1126,6 +1159,7 @@ $mid: math.ceil(math.div($count, 2));
           width: 96%;
           border-radius: 0;
           border: 4px solid white;
+
           @for $i from 1 through $count {
             &:nth-child(#{$i}) {
               transform: rotate(0);

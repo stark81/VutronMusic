@@ -1,16 +1,20 @@
 <template>
-  <VueDraggable v-model="list" class="cover-row" :disabled="!isLocal" :style="rowStyles">
-    <div v-for="item in list" :key="item?.id" class="item" :class="{ artist: type === 'artist' }">
+  <VueDraggable v-model="test" class="cover-row" :disabled="false" :style="rowStyles">
+    <div v-for="item in items" :key="item?.id" class="item" :class="{ artist: type === 'Artist' }">
       <Cover
         :id="item.id"
+        :plugin-id="item.pluginId!"
         :image-url="getImageUrl(item)"
         :type="type"
-        :play-button-size="type === 'artist' ? 26 : playButtonSize"
+        :source-context="item.sourceContext"
+        :play-button-size="type === 'Artist' ? 26 : playButtonSize"
       />
       <div class="text">
         <div v-show="showPlayCount" class="info">
           <span class="play-count">
-            <svg-icon icon-class="play" />{{ formatPlayCount(item.playCount) }}
+            <svg-icon icon-class="play" />{{
+              formatPlayCount('playCount' in item ? item.playCount : 0)
+            }}
           </span>
         </div>
         <div class="title" :style="{ fontSize: subTextFontSize }">
@@ -20,9 +24,11 @@
           <span v-show="isPrivacy(item)" class="lock-icon">
             <SvgIcon icon-class="lock" />
           </span>
-          <router-link :to="`/${type}/${item.id}`">{{ item.name }}</router-link>
+          <router-link :to="`/${type}/${item.pluginId}/${JSON.stringify(item.sourceContext)}`">{{
+            item.name
+          }}</router-link>
         </div>
-        <div v-show="type !== 'artist' && subText !== 'none'" class="info">
+        <div v-show="type !== 'Artist' && subText !== 'none'" class="info">
           <span v-same-html="getSubText(item)"></span>
         </div>
       </div>
@@ -31,22 +37,22 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { storeToRefs } from 'pinia'
-import { useLocalMusicStore } from '../store/localMusic'
+import { computed, PropType, ref } from 'vue'
 import Cover from './CoverBox.vue'
 import SvgIcon from './SvgIcon.vue'
 import ExplicitSymbol from './ExplicitSymbol.vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import { formatPlayCount } from '../utils'
+import { Album, Artist, PlaylistDetail } from '@/types/plugin'
+import { CoverType } from '@/types/music'
 
 const props = defineProps({
   items: {
-    type: Array as () => any[],
+    type: Array as () => (Album | Artist | PlaylistDetail)[],
     required: true
   },
   showPlayCount: { type: Boolean, default: false },
-  type: { type: String, required: true },
+  type: { type: String as PropType<CoverType>, required: true },
   subText: { type: String, default: 'null' },
   subTextFontSize: { type: String, default: '16px' },
   colunmNumber: { type: Number, default: 5 },
@@ -54,19 +60,21 @@ const props = defineProps({
   playButtonSize: { type: Number, default: 22 }
 })
 
-const localMusicStore = useLocalMusicStore()
-const { sortPlaylistsIDs } = storeToRefs(localMusicStore)
-const isLocal = computed(() => props.type.includes('local'))
+// const localMusicStore = useLocalMusicStore()
+// const { sortPlaylistsIDs } = storeToRefs(localMusicStore)
+// const isLocal = computed(() => props.type.includes('local'))
 
-const list = computed({
-  get: () =>
-    isLocal.value
-      ? sortPlaylistsIDs.value.map((id: number) => props.items.find((item) => item.id === id)!)
-      : props.items,
-  set: (value) => {
-    sortPlaylistsIDs.value = value.map((item) => item.id)
-  }
-})
+// const list = computed({
+//   get: () =>
+//     // isLocal.value
+//     //   ? sortPlaylistsIDs.value.map((id: number) => props.items.find((item) => item.id === id)!)
+//        props.items,
+//   set: (value) => {
+//     sortPlaylistsIDs.value = value.map((item) => item.id) as number[]
+//   }
+// })
+
+const test = ref([])
 
 const rowStyles = computed(() => {
   return {
@@ -76,51 +84,37 @@ const rowStyles = computed(() => {
 })
 
 const getImageUrl = (item: any) => {
-  if (item.img1v1Url) {
-    let img1v1ID = item.img1v1Url.split('/')
-    img1v1ID = img1v1ID[img1v1ID.length - 1]
-    if (img1v1ID === '5639395138885805.jpg') {
-      return 'https://p2.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg?param=256y256'
-    }
-  }
-  const img = item.img1v1Url || item.picUrl || item.coverImgUrl
-  let url = img?.replace('size=512', 'size=256')
-  url = url?.replace('http://', 'https://')
-  if (url.startsWith('https://')) url += '?param=256y256'
-  return url
+  return item.picUrl
 }
 
 const isExplicit = (item: any) => {
-  return props.type === 'album' && item.mark === 1056768
+  return props.type === 'Album' && item.mark === 1056768
 }
 
 const isPrivacy = (item: any) => {
-  return props.type === 'playlist' && item.privacy === 10
+  return props.type === 'Playlist' && item.isPrivate
 }
 
 const getSubText = (item: any) => {
   let subText = ''
   if (props.subText === 'artist') {
-    if (item.artist !== undefined)
-      subText = `<a href="/#/artist/${item.artist.id}">${item.artist.name}</a>`
-    if (item.artists !== undefined)
-      subText = `<a href="/#/artist/${item.artists[0].id}">${item.artists[0].name}</a>`
+    subText = `<a href="/#/artist/${item.pluginId}/${JSON.stringify(item.sourceContext)}">${item.name}</a>`
   } else if (props.subText === 'updateFrequency') {
     subText = item.updateFrequency
   } else if (props.subText === 'copywriter') {
     subText = item.copywriter
   } else if (props.subText === 'releaseYear') {
-    subText = new Date(item.publishTime).getFullYear().toString()
+    subText = new Date(item.createTime).getFullYear().toString()
   } else if (props.subText === 'albumType+releaseYear') {
     let albumType = item.type
-    if (item.type === 'EP/Single') {
-      albumType = item.size === 1 ? 'Single' : 'EP'
-    } else if (item.type === 'Single') {
+    if (item.type === 'EP') {
+      albumType = 'EP'
+    } else if (item.type === '单曲') {
       albumType = 'Single'
     } else if (item.type === '专辑') {
       albumType = 'Album'
     }
-    return `${albumType} · ${new Date(item.publishTime).getFullYear()}`
+    return `${albumType} · ${new Date(item.createTime).getFullYear()}`
   }
   return subText
 }

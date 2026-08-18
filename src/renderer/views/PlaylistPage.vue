@@ -1,10 +1,15 @@
 <template>
   <div v-if="show" class="playlist">
-    <div v-if="specialPlaylistInfo === undefined && !isLikedSongsPage" class="playlist-info">
+    <div
+      v-if="!playlist.specialPlaylistInfo && !isLikedSongsPage && pluginId !== 'all'"
+      class="playlist-info"
+    >
       <Cover
         :id="playlist?.id"
-        :image-url="playlist?.coverImgUrl"
+        :source-context="playlist?.sourceContext || {}"
+        :image-url="playlist?.picUrl"
         :show-play-button="true"
+        :plugin-id="pluginId"
         :always-show-shadow="true"
         :click-cover-to-play="true"
         :fixed-size="288"
@@ -14,28 +19,12 @@
       />
       <div class="info">
         <div class="title" :title="playlist?.name"
-          ><span v-if="playlist?.privacy === 10" class="lock-icon"
-            ><svg-icon icon-class="lock" /></span
+          ><span v-if="playlist?.isPrivate" class="lock-icon"><svg-icon icon-class="lock" /></span
           >{{ playlist?.name }}</div
         >
-        <div v-if="playlistType === 'local'" class="artist">
-          离线歌单 {{ user.nickname ? `by ${user.nickname}` : `` }}
-        </div>
-        <div v-else-if="playlistType === 'stream'" class="artist">
-          {{ currentService + ' 歌单 by ' + playlist.creator.nickname }}
-        </div>
-        <div v-else class="artist">
-          歌单 by
-          <span
-            v-if="
-              [5277771961, 5277965913, 5277969451, 5277778542, 5278068783].includes(playlist.id)
-            "
-            style="font-weight: 600"
-            >Apple Music</span
-          >
-          <router-link :to="`/user/${playlist?.creator?.userId}`">{{
-            playlist.creator.nickname
-          }}</router-link>
+        <div class="artist">
+          {{ getPluginName(pluginId) }} 歌单 by
+          {{ playlist?.creator?.nickname }}
         </div>
         <div class="date-and-count">
           {{ $t('library.playlist.updatedAt') }}
@@ -50,25 +39,25 @@
             {{ $t('common.play') }}
           </ButtonTwoTone>
           <ButtonTwoTone
-            v-if="playlistType === 'online'"
+            v-if="['playlist-library', 'album-library'].includes(playlistType)"
             icon-class="floor-comment"
             @click="openComment"
           >
             {{ '评论' }}
           </ButtonTwoTone>
           <ButtonTwoTone
-            v-if="playlistType === 'online' && playlist?.creator?.userId !== user.userId"
-            :icon-class="playlist.subscribed ? 'heart-solid' : 'heart'"
+            v-if="playlistType.includes('library') && playlist?.creator?.userId !== user.userId"
+            :icon-class="playlist?.subscribed ? 'heart-solid' : 'heart'"
             :icon-button="true"
             :horizontal-padding="0"
-            :color="playlist.subscribed ? 'var(--color-primary)' : 'grey'"
-            :text-color="playlist.subscribed ? 'var(--color-primary)' : ''"
-            :background-color="playlist.subscribed ? 'var(--color-secondary-bg)' : ''"
+            :color="playlist?.subscribed ? 'var(--color-primary)' : 'grey'"
+            :text-color="playlist?.subscribed ? 'var(--color-primary)' : ''"
+            :background-color="playlist?.subscribed ? 'var(--color-secondary-bg)' : ''"
             @click="likePlaylist"
           >
           </ButtonTwoTone>
           <ButtonTwoTone
-            v-if="playlistType !== 'online' || playlist?.creator?.userId === user.userId"
+            v-if="!playlistType.includes('library') || playlist?.creator?.userId === user.userId"
             icon-class="more"
             :icon-button="true"
             :horizontal-padding="0"
@@ -81,11 +70,15 @@
       </div>
     </div>
 
-    <div v-if="specialPlaylistInfo !== undefined" class="special-playlist">
-      <div class="title" :class="specialPlaylistInfo.gradient">
-        {{ specialPlaylistInfo.name }}
+    <div v-if="playlist.specialPlaylistInfo" class="special-playlist">
+      <div class="title" :class="playlist.specialPlaylistInfo?.gradient">
+        {{ playlist.specialPlaylistInfo.name }}
       </div>
-      <div class="subtitle">{{ playlist.englishTitle }} · {{ playlist.updateFrequency }} </div>
+      <div class="subtitle">{{
+        playlist.copywriter
+          ? `${playlist.copywriter} · ${playlist.updateFrequency}`
+          : playlist.updateFrequency
+      }}</div>
 
       <div class="buttons">
         <ButtonTwoTone class="play-button" icon-class="play" color="grey" @click="play">
@@ -110,16 +103,19 @@
     </div>
 
     <div v-if="isLikedSongsPage" class="special-playlist">
-      <div v-show="playlistType === 'online'" class="title gradient-green">我喜欢的音乐</div>
-      <div v-show="playlistType === 'streamLiked'" class="title gradient-sky-blue"
+      <div v-show="playlistType === 'liked-library'" class="title gradient-green">我喜欢的音乐</div>
+      <div v-show="playlistType === 'liked-stream'" class="title gradient-sky-blue"
         >我收藏的流媒体</div
+      >
+      <div v-show="playlistType === 'liked-local'" class="title gradient-radar"
+        >我喜欢的本地音乐</div
       >
       <div class="buttons">
         <ButtonTwoTone class="play-button" icon-class="play" color="grey" @click="play">
           {{ $t('common.play') }}
         </ButtonTwoTone>
         <ButtonTwoTone
-          v-if="playlistType === 'online'"
+          v-if="playlistType === 'liked-library'"
           class="play-button"
           icon-class="play"
           color="grey"
@@ -140,16 +136,19 @@
 
     <div>
       <TrackList
-        :id="playlist?.id"
+        ref="trackListRef"
         :items="filterTracks"
-        :type="typeMap[playlistType]"
-        :group-by="currentService"
+        type="Playlist"
+        :plugin="pluginId"
+        :source-context="{ ...playlist.sourceContext, pluginType }"
+        :plugin-source-contexts="playlist.pluginSourceContexts"
         :colunm-number="1"
-        :show-service="['stream', 'streamLiked'].includes(playlistType)"
+        :show-service="playlistType.includes('liked')"
         :show-position="true"
         :load-more="loadMore"
         :extra-context-menu-item="isUserOwnPlaylist ? ['removeTrackFromPlaylist'] : []"
         :is-end="true"
+        :reorderable="reorderMode && !keyword"
       />
     </div>
 
@@ -164,6 +163,9 @@
     >
 
     <ContextMenu ref="playlistMenu">
+      <div v-if="isLocalPlaylist" class="item" @click="toggleReorderMode">
+        {{ reorderMode ? '关闭排序' : '开启排序' }}
+      </div>
       <div
         v-if="playlistType !== 'online' || playlist?.creator?.userId === user.userId"
         class="item"
@@ -190,6 +192,8 @@
       <CommentPage
         v-if="showComment"
         :id="playlist.id"
+        :plugin="playlist.pluginId"
+        :source-context="playlist.sourceContext"
         type="playlist"
         :style="{ width: '100%', padding: '40px 4vh 10px 4vh' }"
       />
@@ -199,13 +203,11 @@
 
 <script setup lang="ts">
 import { computed, ref, provide, onMounted, watch } from 'vue'
-import { useDataStore } from '../store/data'
-import { useLocalMusicStore } from '../store/localMusic'
-import { useStreamMusicStore } from '../store/streamingMusic'
 import { useNormalStateStore } from '../store/state'
 import { usePlayerStore } from '../store/player'
+import { usePluginMusic } from '../store/pluginMusic'
 import { storeToRefs } from 'pinia'
-import { useRoute, useRouter } from 'vue-router'
+import { onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import { formatDate, openExternal } from '../utils'
 import Cover from '../components/CoverBox.vue'
 import CommentPage from '../components/CommentPage.vue'
@@ -215,314 +217,234 @@ import ContextMenu from '../components/ContextMenu.vue'
 import SearchBox from '../components/SearchBox.vue'
 import SvgIcon from '../components/SvgIcon.vue'
 import Modal from '../components/BaseModal.vue'
-import { isAccountLoggedIn } from '../utils/auth'
 import { tricklingProgress } from '../utils/tricklingProgress'
 import { useI18n } from 'vue-i18n'
-import { getTrackDetail } from '../api/track'
-import {
-  getPlaylistDetail,
-  subscribePlaylist,
-  intelligencePlaylist,
-  deletePlaylist
-} from '../api/playlist'
-import { Playlist, Track, StreamPlaylist, serviceName } from '@/types/music.d'
-import _ from 'lodash'
+import { CoverType, PlaylistSourceInfo } from '@/types/music.d'
+import type { PluginId, Track, PlaylistDetail, MusicType } from '@/types/plugin'
 
-const specialPlaylist = {
-  2829816518: {
-    name: '欧美私人订制',
-    gradient: 'gradient-pink-purple-blue'
+const rawPlaylist = {
+  id: 0,
+  name: '',
+  description: '',
+  subscribed: false,
+  isPrivate: false,
+  tracks: [],
+  pluginId: '' as PluginId,
+  copywriter: '',
+  updateFrequency: null,
+  specialPlaylistInfo: null,
+  updateTime: 0,
+  trackCount: 0,
+  creator: {
+    userId: '',
+    nickname: '',
+    avatarUrl: '',
+    isVip: false,
+    signature: '',
+    sourceContext: {}
   },
-  2890490211: {
-    name: '助眠鸟鸣声',
-    gradient: 'gradient-green'
-  },
-  5089855855: {
-    name: '夜的胡思乱想',
-    gradient: 'gradient-moonstone-blue'
-  },
-  2888212971: {
-    name: '全球百大DJ',
-    gradient: 'gradient-orange-red'
-  },
-  2829733864: {
-    name: '睡眠伴侣',
-    gradient: 'gradient-midnight-blue'
-  },
-  2829844572: {
-    name: '洗澡时听的歌',
-    gradient: 'gradient-yellow'
-  },
-  2920647537: {
-    name: '还是会想你',
-    gradient: 'gradient-dark-blue-midnight-blue'
-  },
-  2890501416: {
-    name: '助眠白噪声',
-    gradient: 'gradient-sky-blue'
-  },
-  5217150082: {
-    name: '摇滚唱片行',
-    gradient: 'gradient-yellow-red'
-  },
-  2829961453: {
-    name: '古风音乐大赏',
-    gradient: 'gradient-fog'
-  },
-  4923261701: {
-    name: 'Trance',
-    gradient: 'gradient-light-red-light-blue '
-  },
-  5212729721: {
-    name: '欧美点唱机',
-    gradient: 'gradient-indigo-pink-yellow'
-  },
-  3103434282: {
-    name: '甜蜜少女心',
-    gradient: 'gradient-pink'
-  },
-  2829896389: {
-    name: '日系私人订制',
-    gradient: 'gradient-yellow-pink'
-  },
-  2829779628: {
-    name: '运动随身听',
-    gradient: 'gradient-orange-red'
-  },
-  2860654884: {
-    name: '独立女声精选',
-    gradient: 'gradient-sharp-blue'
-  },
-  898150: {
-    name: '浪漫婚礼专用',
-    gradient: 'gradient-pink'
-  },
-  2638104052: {
-    name: '牛奶泡泡浴',
-    gradient: 'gradient-fog'
-  },
-  5317236517: {
-    name: '后朋克精选',
-    gradient: 'gradient-pink-purple-blue'
-  },
-  2821115454: {
-    name: '一周原创发现',
-    gradient: 'gradient-blue-purple'
-  },
-  2829883282: {
-    name: '华语私人雷达',
-    gradient: 'gradient-yellow-red'
-  },
-  3136952023: {
-    name: '私人雷达',
-    gradient: 'gradient-radar'
-  }
+  picUrl: '',
+  trackIds: [],
+  tags: [],
+  sourceContext: { id: 0, trackIds: [], loadedIDs: [] }
 }
 
 const route = useRoute()
 const router = useRouter()
-const playlist = ref<{ [key: string]: any }>({
-  id: 0,
-  name: '',
-  description: '',
-  updateTime: 0,
-  trackCount: 0,
-  creator: { userId: '' },
-  coverImgUrl: '',
-  trackIds: []
-})
+const playlist = ref<PlaylistDetail>(rawPlaylist)
 const tracks = ref<Track[]>([])
 const playlistMenu = ref()
 const show = ref(false)
-const lastLoadedTrackIndex = ref(9)
+// const lastLoadedTrackIndex = ref(9)
 const showFullDescription = ref(false)
 const showComment = ref(false)
 const pSearchBoxRef = ref<InstanceType<typeof SearchBox>>()
-const currentService = ref<serviceName | 'all'>('all')
+const pluginId = ref<PluginId | 'all'>('all')
+const pluginType = ref<MusicType>('library')
 
-const { user, likedSongPlaylistID } = storeToRefs(useDataStore())
-const listType = computed(() => route.name!.toString())
-const specialPlaylistInfo = computed(() => specialPlaylist[playlist.value?.id])
+const pluginMusicStore = usePluginMusic()
+const { users, services, tools } = storeToRefs(pluginMusicStore)
+const {
+  getPlaylistDetail,
+  fetchPlaylistTracks,
+  pluginMethodCall,
+  isAccountLoggedIn,
+  getPluginName
+} = pluginMusicStore
+
+// const { user, likedSongPlaylistID } = storeToRefs(useDataStore())
+const listType = computed(() => route.name!.toString() as CoverType)
 const keyword = computed(() => pSearchBoxRef.value?.keywords || '')
 const filterTracks = computed(() => {
+  if (!tracks.value.length) return []
   return tracks.value.filter(
     (track) =>
       (track.name && track.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
-      (track.alia || track.alias)?.find((al) =>
-        al.toLowerCase().includes(keyword.value?.toLowerCase())
-      ) ||
+      track.alias?.find((al) => al.toLowerCase().includes(keyword.value?.toLowerCase())) ||
       (track.album?.name &&
         track.album.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
-      (track.artists || track.ar).find(
+      track.artists.find(
         (ar) => ar.name && ar.name.toLowerCase().includes(keyword.value?.toLowerCase())
       )
   )
 })
 
-const { playlists, localTracks } = storeToRefs(useLocalMusicStore())
-const { deleteLocalPlaylist } = useLocalMusicStore()
-
-const streamMusic = useStreamMusicStore()
-
 const stateStore = useNormalStateStore()
-const { showToast } = stateStore
+const { showToast, showConfirm } = stateStore
 const { editPlaylistModal } = storeToRefs(stateStore)
 
 const playerStore = usePlayerStore()
-const { _shuffle } = storeToRefs(playerStore)
+const { isShuffle } = storeToRefs(playerStore)
 const { replacePlaylist } = playerStore
 
 const { t } = useI18n()
 
 const playlistType = computed(() => {
-  if (route.name === 'localPlaylist') {
-    return 'local'
-  } else if (route.name === 'streamPlaylist') {
-    return 'stream'
-  } else if (route.name === 'streamLikedSongs') {
-    return 'streamLiked'
+  if (route.name === 'Playlist') {
+    return `playlist-${pluginType.value}`
   } else {
-    return 'online'
+    return `liked-${pluginType.value}`
   }
 })
 
-const typeMap = {
-  local: 'localPlaylist',
-  stream: 'streamPlaylist',
-  streamLiked: 'streamLiked',
-  online: 'playlist'
-}
+const user = computed(() => users.value[pluginId.value] || {})
 
 const isLikedSongsPage = computed(
   () => route.name === 'likedSongs' || route.name === 'streamLikedSongs'
 )
 
+const isLocalPlaylist = computed(() => pluginType.value === 'local' && !isLikedSongsPage.value)
+
+const reorderMode = ref(false)
+
 const isUserOwnPlaylist = computed(() => {
-  return (
-    playlistType.value !== 'online' ||
-    (playlist.value?.creator?.userId === user.value?.userId &&
-      playlist.value?.id !== likedSongPlaylistID.value)
-  )
+  return playlist.value.creator.userId === user.value.userId
 })
 
 watch(
   () => editPlaylistModal.value.show,
   (value, oldVal) => {
     if (oldVal && !value && playlistType.value === 'online') {
-      loadData(playlist.value.id)
+      loadData('' as PluginId, playlist.value?.sourceContext ?? {})
     }
   }
 )
 
-const loadLocalData = (id: number) => {
-  playlist.value = playlists.value.find((item) => item.id === id) as Playlist
-  if (!playlist.value) {
-    router.go(-1)
-    return
+const loadLikedData = (plugins: PluginId[]) => {
+  const likedTracks = pluginMusicStore.likedTracks
+  tracks.value = plugins.map((item) => likedTracks[item]?.data || []).flat()
+  tricklingProgress.done()
+  show.value = true
+  const type = services.value.find((item) => item.code === plugins[0])!.type
+  playlist.value.sourceContext = { id: type, trackIds: [], loadedIDs: [] }
+
+  const pluginSourceContexts: Record<string, Record<string, any>> = {}
+  for (const p of plugins) {
+    if (likedTracks[p]?.sourceContext && Object.keys(likedTracks[p].sourceContext).length > 0) {
+      pluginSourceContexts[p] = { ...likedTracks[p].sourceContext, pluginType: type }
+    }
   }
-  const trackIDs = playlist.value.trackIds
-  tracks.value = trackIDs
-    .map((id) => localTracks.value.find((item) => item.id === id) as Track)
-    .reverse()
-  tricklingProgress.done()
-  show.value = true
+  playlist.value.pluginSourceContexts = pluginSourceContexts
 }
 
-const loadStreamData = (id: string) => {
-  playlist.value = streamMusic.playlists[currentService.value].find(
-    (p) => p.id === id
-  ) as StreamPlaylist
-  if (!playlist.value) {
-    router.go(-1)
-    return
+const loadData = async (plugin: PluginId, params: Record<string, any>) => {
+  getPlaylistDetail(plugin, params).then((result) => {
+    tricklingProgress.done()
+    show.value = true
+    if (!result.data) return
+    playlist.value = result.data
+    tracks.value = result.data?.tracks ?? []
+  })
+}
+
+const trackListRef = ref<InstanceType<typeof TrackList>>()
+
+async function toggleReorderMode() {
+  if (reorderMode.value) {
+    const reordered = await trackListRef.value?.saveReorder()
+    if (reordered && reordered.length > 0) {
+      tracks.value = reordered
+      const ser = services.value.find((ser) => ser.type === 'local')!
+      playlist.value.picUrl = (
+        await pluginMethodCall(ser.code, 'resizePicUrl', { url: reordered[0].picUrl, size: 512 })
+      ).data
+    }
   }
-  const trackIDs = playlist.value.trackIds
-  tracks.value = trackIDs
-    .map((id) => streamMusic.streamTracks[currentService.value].find((item) => item.id === id))
-    .map((track) => {
-      if (!playlist.value.trackItemIds) return track
-      return { ...track, playlistItemId: playlist.value.trackItemIds[track.id] }
-    })
-  tricklingProgress.done()
-  show.value = true
+  reorderMode.value = !reorderMode.value
 }
 
-const loadStreamLiked = () => {
-  tracks.value =
-    currentService.value === 'all'
-      ? _.flatten(Object.values(streamMusic.streamLikedTracks))
-      : streamMusic.streamLikedTracks[currentService.value]
-  tricklingProgress.done()
-  show.value = true
-}
-
-const loadData = async (id: number) => {
-  await getPlaylistDetail(id, true)
-    .then((data: any) => {
-      playlist.value = data.playlist
-      tracks.value = data.playlist.tracks
-      lastLoadedTrackIndex.value = data.playlist.tracks.length - 1
-      tricklingProgress.done()
-      show.value = true
-    })
-    .then(() => {
-      if (playlist.value.trackCount > tracks.value.length) {
-        const trackIDs = playlist.value.trackIds
-          .slice(tracks.value.length, tracks.value.length + 500)
-          .map((t) => t.id)
-        getTrackDetail(trackIDs.join(',')).then((data: any) => {
-          tracks.value.push(...data.songs)
-        })
-      }
-    })
-}
-
-const loadMore = (Num: number = 500) => {
+const loadMore = () => {
   if (playlist.value.trackCount > tracks.value.length) {
-    const trackIDs = playlist.value.trackIds
-      .slice(tracks.value.length, tracks.value.length + Num)
-      .map((t) => t.id)
-    getTrackDetail(trackIDs.join(',')).then((data: any) => {
-      tracks.value.push(...data.songs)
-      lastLoadedTrackIndex.value = tracks.value.length - 1
+    fetchPlaylistTracks(playlist.value.pluginId, playlist.value.sourceContext).then((res) => {
+      tracks.value.push(...res.data)
+      playlist.value.sourceContext = res.sourceContext
     })
   }
 }
 
 const likePlaylist = (toast = false) => {
-  if (!isAccountLoggedIn()) {
-    showToast(t('toast.needToLogin'))
+  if (!isAccountLoggedIn(pluginId.value as PluginId)) {
+    showToast(t('toast.needToLogin', { serviceName: getPluginName(pluginId.value as PluginId) }))
     return
   }
-  subscribePlaylist({ id: playlist.value.id, t: playlist.value.subscribed ? 2 : 1 }).then(
-    (data) => {
-      if (data.code === 200) {
-        playlist.value.subscribed = !playlist.value.subscribed
-        if (toast) {
-          showToast(playlist.value.subscribed ? '已保存到音乐库' : '已从音乐库删除')
-        }
-      }
-      getPlaylistDetail(playlist.value.id, true).then((data: any) => {
-        playlist.value = data.playlist
-      })
+
+  const op = playlist.value.subscribed ? 'del' : 'add'
+  pluginMethodCall(pluginId.value as PluginId, 'subscribePlaylist', {
+    op,
+    name: playlist.value.name,
+    tracks: tracks.value.map((item) => item.sourceContext),
+    ...playlist.value.sourceContext
+  }).then((result) => {
+    if (result.code === 200) playlist.value.subscribed = !playlist.value.subscribed
+    if (toast) {
+      showToast(playlist.value.subscribed ? '已保存到音乐库' : '已从音乐库删除')
     }
-  )
+  })
 }
 
 const play = () => {
-  const trackIDs = tracks.value.map((t) => t.id)
-  const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
-  replacePlaylist(typeMap[playlistType.value], playlist.value.id || 0, trackIDs, idx)
+  const source: PlaylistSourceInfo = {
+    type: 'Playlist',
+    plugin: pluginId.value,
+    sourceContext: { ...playlist.value.sourceContext, pluginType: pluginType.value },
+    pluginSourceContexts: playlist.value.pluginSourceContexts
+  }
+
+  const trackIDs = tracks.value.map((t) => [t.pluginId, t.sourceContext]) as [
+    PluginId,
+    Record<string, any>
+  ][]
+  const idx = isShuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
+  replacePlaylist(source, trackIDs, idx)
 }
 
 const playIntelligenceList = () => {
-  const randomId = Math.floor(Math.random() * tracks.value.length + 1)
-  const songId = tracks.value[randomId].id
-  intelligencePlaylist({ id: songId, pid: likedSongPlaylistID.value }).then((result) => {
-    const trackIDs = result.data.map((t: any) => t.id)
-    const idx = _shuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
-    replacePlaylist('playlist', likedSongPlaylistID.value, trackIDs, idx)
-  })
+  window.mainApi
+    ?.invoke('plugin-intelligence', JSON.parse(JSON.stringify(playlist.value.pluginSourceContexts)))
+    .then(
+      (result: {
+        code: number
+        data: Track[]
+        sourceContexts: Record<PluginId, Record<string, any>>
+      }) => {
+        if (!result.data.length) {
+          showToast('no data')
+          return
+        }
+        const source: PlaylistSourceInfo = {
+          type: 'Playlist',
+          plugin: pluginId.value,
+          sourceContext: { ...playlist.value.sourceContext, pluginType: pluginType.value },
+          pluginSourceContexts: playlist.value.pluginSourceContexts
+        }
+        const trackIDs = result.data.map((t) => [t.pluginId, t.sourceContext]) as [
+          PluginId,
+          Record<string, any>
+        ][]
+        const idx = isShuffle.value ? Math.floor(Math.random() * trackIDs.length) : 0
+        replacePlaylist(source, trackIDs, idx)
+      }
+    )
 }
 
 const toggleFullDescription = () => {
@@ -533,78 +455,40 @@ const openMenu = (e: MouseEvent) => {
   playlistMenu.value.openMenu(e)
 }
 
-const deleteAPlaylist = () => {
-  if (playlistType.value === 'online' && !isAccountLoggedIn()) {
-    showToast(t('toast.needToLogin'))
-    return
-  }
-
-  if (confirm(`确定要删除歌单 ${playlist.value.name}？`)) {
-    if (playlistType.value === 'local') {
-      deleteLocalPlaylist(playlist.value.id).then((result) => {
-        if (result) {
-          show.value = false
-          playlist.value = {
-            id: 0,
-            name: '',
-            description: '',
-            updateTime: 0,
-            trackCount: 0,
-            creator: { userId: '' },
-            coverImgUrl: '',
-            trackIds: []
-          }
-          showToast(t('toast.deleteSuccess'))
-          router.go(-1)
-        } else {
-          showToast(t('toast.deleteFailed'))
-        }
+const deleteAPlaylist = async () => {
+  const service = services.value.find((item) => item.code === pluginId.value)
+  if (
+    await showConfirm(
+      t('playlist.deletePlaylist', {
+        name: service?.name || '',
+        code: pluginId.value,
+        pname: playlist.value.name
       })
-    } else if (playlistType.value === 'stream') {
-      window.mainApi
-        ?.invoke('deleteStreamPlaylist', {
-          id: playlist.value.id,
-          platform: currentService.value
-        })
-        .then((result: boolean) => {
-          if (result) {
-            show.value = false
-            playlist.value = {
-              id: 0,
-              name: '',
-              description: '',
-              updateTime: 0,
-              trackCount: 0,
-              creator: { userId: '' },
-              coverImgUrl: '',
-              trackIds: []
-            }
-            showToast(t('toast.deleteSuccess'))
-            router.go(-1)
-          } else {
-            showToast(t('toast.deleteFailed'))
-          }
-        })
-    } else {
-      deletePlaylist(playlist.value.id).then((result) => {
-        if (result.code === 200) {
-          showToast(t('toast.deleteSuccess'))
-          router.go(-1)
-        } else {
-          showToast(t('toast.deleteFailed'))
-        }
-      })
-    }
+    )
+  ) {
+    pluginMethodCall(
+      pluginId.value as PluginId,
+      'deletePlaylist',
+      playlist.value.sourceContext
+    ).then((res) => {
+      if (res.code === 200) {
+        show.value = false
+        playlist.value = rawPlaylist
+        showToast(t('toast.deleteSuccess'))
+        router.go(-1)
+      } else {
+        showToast(t('toast.deleteFailed'))
+      }
+    })
   }
 }
 
 const editPlaylist = () => {
-  if (playlistType.value === 'streamLiked') return
+  if (isLikedSongsPage.value) return
   editPlaylistModal.value = {
     show: true,
-    type:
-      playlistType.value === 'stream' ? (currentService.value as serviceName) : playlistType.value,
-    playlistID: playlist.value.id,
+    pluginId: pluginId.value as PluginId,
+    playlistID: playlist.value.id as number,
     info: {
       title: playlist.value.name,
       description: playlist.value.description || '',
@@ -642,21 +526,32 @@ const removeTrack = (idx: number) => {
 
 provide('removeTrack', removeTrack)
 
-onMounted(() => {
-  if (playlistType.value === 'local') {
-    loadLocalData(Number(route.params.id))
-  } else if (playlistType.value === 'stream') {
-    currentService.value = route.params.service as serviceName
-    const id = route.params.id as string
-    loadStreamData(id)
-  } else if (route.name === 'streamLikedSongs') {
-    currentService.value = route.params.service as serviceName | 'all'
-    loadStreamLiked()
-  } else if (route.name === 'likedSongs') {
-    loadData(likedSongPlaylistID.value)
+onBeforeRouteUpdate((to, from, next) => {
+  show.value = false
+  const { pluginId: plugin, sourceContext } = to.params
+  if (route.name === 'likedSongs') {
+    pluginId.value = (plugin as PluginId[])[0]
+    loadLikedData(plugin as PluginId[])
   } else {
-    loadData(Number(route.params.id))
+    pluginId.value = plugin as PluginId
+    loadData(pluginId.value, JSON.parse(sourceContext as string))
   }
+  next()
+})
+
+onMounted(() => {
+  const { pluginId: _plugin, sourceContext } = route.params
+  if (route.name === 'likedSongs') {
+    const plugin = _plugin as PluginId[]
+    pluginType.value = services.value.find((item) => item.code === plugin[0])!.type
+    pluginId.value = tools.value[pluginType.value!].groundBy
+    loadLikedData(plugin)
+  } else {
+    pluginId.value = _plugin as PluginId
+    pluginType.value = services.value.find((item) => item.code === _plugin)!.type
+    loadData(pluginId.value, JSON.parse(sourceContext as string))
+  }
+
   setTimeout(() => {
     if (!show.value) tricklingProgress.start()
   }, 1000)

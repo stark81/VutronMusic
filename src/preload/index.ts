@@ -8,72 +8,66 @@ const mainAvailChannels: string[] = [
   'msgShowInFolder',
   'msgCheckFileExist',
   'msgScanLocalMusic',
-  'getLocalMusic',
   'selecteFolder',
   'showOpenDialog',
   'getFilesInFolder',
-  'updateTray',
+  'initTrayState',
+  'updateTrayVisibility',
   'metadata',
   'updateOsdState',
-  'updateTouchBarLyric',
-  'showWindow',
-  'updatePlayerState',
   'setStoreSettings',
   'deleteLocalMusicDB',
-  'upsertLocalPlaylist',
-  'deleteLocalPlaylist',
-  'logout',
   'accurateMatch',
-  'updateLocalTrackInfo',
-  'updateLocalPlaylist',
-  'updateStreamingAccount',
   'clearCacheTracks',
   'getCacheTracksInfo',
-  'deleteACacheTrack',
-  'updateLyricInfo',
   'clearDeletedMusic',
   'minimize',
   'maximizeOrUnmaximize',
   'close',
   'askExtensionStatus',
-  'stream-login',
-  'get-stream-songs',
-  'get-stream-playlists',
-  'get-stream-lyric',
-  'deleteStreamPlaylist',
-  'createStreamPlaylist',
-  'updateStreamPlaylist',
-  'updateStreamPlaylistInfo',
-  'logoutStreamMusic',
-  'scrobbleStreamMusic',
-  'likeAStreamTrack',
-  'systemPing',
-  'get-stream-account',
   'check-update',
   'downloadUpdate',
   'update-powersave',
   'openLogFile',
-  'updateTooltip',
-  'write-cover',
   'getFontList',
-  'cacheATrack',
   'playDiscordPresence',
   'pauseDiscordPresence',
   'lastfm-auth',
   'get-lastfm-session',
   'disconnect-lastfm',
-  'update-now-playing',
-  'track-scrobble',
+  'report-playback',
+  'getStreamMatchCount',
+  'trackMatch',
+  'plugin-comment',
+  'plugin-lyric',
+  'plugin-intelligence',
   'get-screenshot',
   'delete-screenshot',
-  'get-cache-path'
+  'get-cache-path',
+  'get-song-url',
+  'plugin-method-call',
+  'get-plugins',
+  'upload-plugin',
+  'get-source-priority',
+  'set-source-priority',
+  'setPluginEnable',
+  'get-lyric-offset',
+  'set-lyric-offset',
+  'create-plugin-instance',
+  'delete-plugin-instance',
+  'clearStreamMatches',
+  'update-osd-lyric',
+  'synchronize-player-info'
 ]
 const rendererAvailChannels: string[] = [
-  'msgHandleScanLocalMusic',
   'msgHandleScanLocalMusicError',
   'scanLocalMusicDone',
+  'scanLocalMusicProgress',
   'handleTrayClick',
   'play',
+  'pause',
+  'play-now',
+  'pause-now',
   'previous',
   'next',
   'repeat',
@@ -84,40 +78,17 @@ const rendererAvailChannels: string[] = [
   'fm-trash',
   'updateOSDSetting',
   'rememberCloseAppOption',
-  'msgDeletedTracks',
   'msgExtensionCheckResult',
   'resume',
-  'update-not-available',
   'update-error',
   'download-progress',
   'setPosition',
   'changeRouteTo',
   'updateAmuseServerStatus',
   'receiveCacheInfo',
-  'updateLocalMusic'
+  'init-from-osd',
+  'get-seek'
 ]
-
-let messagePort: MessagePort | null = null
-
-ipcRenderer.on('port-connect', (event: any) => {
-  if (messagePort) {
-    messagePort.close()
-  }
-  messagePort = event.ports[0]
-  messagePort.start()
-
-  messagePort.onmessage = (event) => {
-    window.postMessage(event.data, '*')
-  }
-
-  window.postMessage({ type: 'init-from-osd' }, '*')
-})
-
-window.addEventListener('unload', () => {
-  if (messagePort) {
-    messagePort.close()
-  }
-})
 
 contextBridge.exposeInMainWorld('mainApi', {
   send: (channel: string, ...data: any[]): void => {
@@ -155,15 +126,6 @@ contextBridge.exposeInMainWorld('mainApi', {
     }
 
     throw new Error(`Unknown ipc channel name: ${channel}`)
-  },
-  sendMessage: (message: any) => {
-    messagePort?.postMessage(message)
-  },
-  closeMessagePort: () => {
-    if (messagePort) {
-      messagePort.close()
-      messagePort = null
-    }
   }
 })
 

@@ -1,16 +1,14 @@
-import { net } from 'electron'
+import { app, net } from 'electron'
 import fs from 'fs'
 import path from 'path'
 import jschardet from 'jschardet'
 import iconv from 'iconv-lite'
 import { fileTypeFromBuffer } from 'file-type'
 import { IAudioMetadata, parseFile } from 'music-metadata'
-import request from '../appServer/request'
-import { CacheAPIs } from './CacheApis'
-import Cache from '../cache'
+import { db, Tables } from '../db'
+import { deleteCacheFromDB } from '../dbHelpers'
 import store from '../store'
 
-import { db, Tables } from '../db'
 import log from '../log'
 import { Worker } from 'worker_threads'
 import { TrackInfoOrder, lyricLine } from '@/types/music'
@@ -32,33 +30,74 @@ export const createFileIfNotExist = (file: string) => {
   }
 }
 
+// Vorbis Comment 歌词字段（FLAC/OGG），按优先级排列
+const VORBIS_LYRIC_IDS = ['LYRICS', 'UNSYNCEDLYRICS', 'SYNCEDLYRICS']
+// ID3v2 歌词帧（MP3）
+const ID3_LYRIC_IDS = ['USLT', 'SYLT']
+// APEv2 歌词字段（APE/WV），大小写不敏感匹配
+const APE_LYRIC_IDS = ['LYRICS', 'UNSYNCEDLYRICS']
+
+/**
+ * 从音频元数据中提取歌词文本
+ * 优先从原生标签提取（Vorbis/ID3v2/APEv2），兜底使用 common.lyrics（覆盖 iTunes/MP4、ASF 等格式）
+ */
 export const getLyricFromMetadata = (metadata: IAudioMetadata) => {
   const { common, format, native } = metadata
-  let lyrics: string = ''
+
+  // 1. 优先从原生标签提取
+  for (const tagType of format.tagTypes ?? []) {
+    let lyricIds: string[]
+    let extractValue: (value: any) => string
+
+    switch (tagType) {
+      case 'vorbis':
+        lyricIds = VORBIS_LYRIC_IDS
+        // Vorbis Comment 的值直接是字符串
+        extractValue = (v) => v
+        break
+      case 'ID3v2.3':
+      case 'ID3v2.4':
+        lyricIds = ID3_LYRIC_IDS
+        // USLT: { language, descriptor, text } → 取 text
+        // SYLT: { syncText: [{ text, timestamp }] } → 拼接所有文本行
+        extractValue = (v) =>
+          v?.text ??
+          (Array.isArray(v?.syncText) ? v.syncText.map((s: any) => s.text).join('\n') : '')
+        break
+      case 'APEv2':
+        lyricIds = APE_LYRIC_IDS
+        // APEv2 的值直接是字符串
+        extractValue = (v) => v
+        break
+      default:
+        // 其他标签格式（iTunes/ASF 等）交给兜底逻辑处理
+        continue
+    }
+
+    // 按 lyricIds 优先级查找，大小写不敏感匹配
+    const tags = native[tagType] ?? []
+    for (const id of lyricIds) {
+      const tag = tags.find((t) => t.id.toUpperCase() === id)
+      if (tag) {
+        const lyrics = extractValue(tag.value)
+        if (lyrics) return lyrics
+      }
+    }
+  }
+
+  // 2. 兜底：从 common.lyrics 提取（覆盖 iTunes/MP4、ASF 等格式）
   if (common.lyrics) {
-    // 这种一般是iTunes的歌词
     if (typeof common.lyrics[0] === 'string') {
-      lyrics = common.lyrics[0]
+      return common.lyrics[0]
     } else if (typeof common.lyrics[0] === 'object') {
-      lyrics = common.lyrics[0].syncText
-        ? common.lyrics[0].syncText[0]?.text
+      const lyrics = common.lyrics[0].syncText
+        ? common.lyrics[0].syncText.map((s: any) => s.text).join('\n')
         : (common.lyrics[0].text ?? '')
+      if (lyrics) return lyrics
     }
   }
-  if (lyrics || lyrics !== undefined) return lyrics
-  for (const tag of format.tagTypes ?? []) {
-    if (tag === 'vorbis') {
-      // flac
-      lyrics = (native.vorbis?.find((item) => item.id === 'LYRICS')?.value ?? '') as string
-    } else if (tag === 'ID3v2.3') {
-      lyrics = (native['ID3v2.3'].find((item) => item.id === 'USLT')?.value as any)?.text ?? ''
-    } else if (tag === 'ID3v2.4') {
-      lyrics = (native['ID3v2.4'].find((item) => item.id === 'USLT')?.value as any)?.text ?? ''
-    } else if (tag === 'APEv2') {
-      // APEv2好像并没有固定的歌词标签，todo...
-    }
-  }
-  return lyrics
+
+  return ''
 }
 
 export const parseLyricString = (lyrics: string): lyricLine[] => {
@@ -71,19 +110,24 @@ export const parseLyricString = (lyrics: string): lyricLine[] => {
   const lrcResult: lyricLine[] = []
 
   for (const line of lyrics.trim().matchAll(extractLrcRegex)) {
-    const { content } = line.groups
+    const { content } = line.groups as { content: string }
     if (/\(\d+,\d+,\d+\)/.test(content)) {
-      const lyric = _parseYrcLine(line)
+      const lyric = _parseYrcLine(line)!
       if (!lyricMap.has(lyric.start)) {
         lyricMap.set(lyric.start, [])
       }
-      lyricMap.get(lyric.start).push(lyric)
+      lyricMap.get(lyric.start)!.push(lyric)
     } else if (/\[\d{2}:\d{2}\.\d{3}\]/.test(content)) {
-      const lyric = _parseWrcLine(line)
+      const lyric = _parseWrcLine(line)!
       if (!lyricMap.has(lyric.start)) {
         lyricMap.set(lyric.start, [])
       }
-      lyricMap.get(lyric.start).push(lyric)
+      lyricMap.get(lyric.start)?.push(lyric)
+    } else if (/^<[\d:.]+>/.test(content)) {
+      const lyric = _parseEnhancedLrcLine(line)
+      if (!lyric) continue
+      if (!lyricMap.has(lyric.start)) lyricMap.set(lyric.start, [])
+      lyricMap.get(lyric.start)!.push(lyric)
     } else {
       const _line = _parseLrcLine(line)
       const lyric = { start: _line.start, end: 0, lyric: { text: _line.cInfo } }
@@ -98,7 +142,7 @@ export const parseLyricString = (lyrics: string): lyricLine[] => {
     if (!lyricMap.has(line.start)) {
       lyricMap.set(line.start, [])
     }
-    lyricMap.get(line.start).push(line)
+    lyricMap.get(line.start)?.push(line)
   })
 
   for (const lyricArray of lyricMap.values()) {
@@ -120,7 +164,7 @@ export const parseLyricString = (lyrics: string): lyricLine[] => {
   return result
 }
 
-const getLyricFromEmbedded = async (filePath: string) => {
+export const getLyricFromEmbedded = async (filePath: string) => {
   let result: lyricLine[] = []
 
   const metadata = await parseFile(decodeURI(filePath))
@@ -133,7 +177,7 @@ const getLyricFromEmbedded = async (filePath: string) => {
   return result
 }
 
-const getLyricFromPath = async (filePath: string) => {
+export const getLyricFromPath = async (filePath: string) => {
   let result: lyricLine[] = []
   const buffer = await fs.promises.readFile(filePath)
   const detected = jschardet.detect(buffer)
@@ -152,7 +196,7 @@ export const getPicFromApi = async (url: string) => {
   pic = await net
     .fetch(url)
     .then((res) => {
-      format = res.headers.get('Content-Type')
+      format = res.headers.get('Content-Type')!
       return res.arrayBuffer()
     })
     .then((res) => Buffer.from(res))
@@ -164,8 +208,8 @@ export const getPicFromApi = async (url: string) => {
 }
 
 export const getPicFromEmbedded = async (filePath: string) => {
-  let pic: Buffer
-  let format: string
+  let pic: Buffer | null = null
+  let format: string = ''
   const metadata = await parseFile(decodeURI(filePath))
   if (metadata.common.picture && metadata.common.picture.length > 0) {
     pic = Buffer.from(metadata.common.picture[0].data)
@@ -178,24 +222,22 @@ export const getPicFromPath = async (filePath: string) => {
   let pic: Buffer | null = null
   let format: string = ''
   pic = await fs.promises.readFile(filePath)
-  const type = await fileTypeFromBuffer(pic)
+  const type = (await fileTypeFromBuffer(pic))!
   format = type.mime
   return { pic, format }
 }
 
 export const getPic = async (track: any): Promise<{ pic: Buffer; format: string }> => {
-  const trackInfoOrder = (store.get('settings.trackInfoOrder') as TrackInfoOrder[]) || [
-    'path',
-    'online',
-    'embedded'
-  ]
+  const trackInfoOrder = (store.get(
+    'settings.sourcePriority.trackInfoOrder'
+  ) as TrackInfoOrder[]) || ['path', 'online', 'embedded']
 
-  let res: { pic: Buffer<ArrayBufferLike>; format: string }
+  let res: { pic: Buffer<ArrayBufferLike> | null; format: string } = { pic: null, format: '' }
   const url = track.album?.picUrl || track.al?.picUrl
 
   for (const order of trackInfoOrder) {
-    if (order === 'online' && track.matched) {
-      res = await getPicFromApi(url)
+    if (order === 'online') {
+      res = (await getPicFromApi(url)) as { pic: Buffer; format: string }
     } else if (order === 'path' && track.filePath) {
       const prefixs = ['.jpg', '.png', '.jpeg', '.webp']
       for (const prefix of prefixs) {
@@ -205,18 +247,16 @@ export const getPic = async (track: any): Promise<{ pic: Buffer; format: string 
           .then(async () => {
             return await getPicFromPath(filePath)
           })
-          .catch(() => {
-            return { pic: null, format: '' }
-          })
+          .catch(() => ({ pic: null, format: '' }))
         if (res?.pic) break
       }
     } else if (order === 'embedded' && track.filePath) {
-      res = await getPicFromEmbedded(track.filePath)
+      res = (await getPicFromEmbedded(track.filePath)) as { pic: Buffer; format: string }
     }
-    if (res?.pic) return res
+    if (res.pic) return res as { pic: Buffer; format: string }
   }
-  res = await getPicFromApi(url)
-  return res
+  res = (await getPicFromApi(url)) as { pic: Buffer; format: string }
+  return res as { pic: Buffer; format: string }
 }
 
 export const getPicColor = async (pic: Buffer) => {
@@ -236,129 +276,11 @@ export const getPicColor = async (pic: Buffer) => {
   }
 }
 
-export const getLyricFromApi = async (id: number): Promise<lyricLine[]> => {
-  return await request({
-    url: '/lyric/new',
-    method: 'get',
-    params: { id }
-  }).catch(() => [])
-}
-
-export const getLyric = async (track: {
-  id: number
-  matched: boolean
-  filePath?: string
-}): Promise<lyricLine[]> => {
-  const trackInfoOrder = (store.get('settings.trackInfoOrder') as TrackInfoOrder[]) || [
-    'path',
-    'online',
-    'embedded'
-  ]
-
-  let lyrics: lyricLine[] = null
-
-  for (const order of trackInfoOrder) {
-    if (order === 'online') {
-      if (track.matched) {
-        lyrics = await getLyricFromApi(track.id)
-      }
-    } else if (order === 'embedded') {
-      if (track.filePath) {
-        lyrics = await getLyricFromEmbedded(track.filePath)
-      }
-    } else if (order === 'path') {
-      if (track.filePath) {
-        const filePath = track.filePath.replace(/\.[^/.]+$/, '.lrc')
-        lyrics = await fs.promises
-          .access(filePath, fs.constants.F_OK)
-          .then(async () => {
-            return await getLyricFromPath(filePath)
-          })
-          .catch(() => [])
-      }
-    }
-    if (lyrics.length) return lyrics
-  }
-  return lyrics
-}
-
-export const handleNeteaseResult = async (name: string, result: any) => {
-  switch (name) {
-    case CacheAPIs.Playlist: {
-      if (!result) return result
-      if (result.playlist) {
-        result.playlist.tracks = mapTrackPlayableStatus(
-          result.playlist.tracks,
-          result.privileges || []
-        )
-      }
-      return result
-    }
-    case CacheAPIs.Track: {
-      result.songs = mapTrackPlayableStatus(result.songs, result.privileges)
-      return result
-    }
-    case CacheAPIs.recommendTracks: {
-      result.data.dailySongs = mapTrackPlayableStatus(
-        result.data.dailySongs,
-        result.data.privileges
-      )
-      return result
-    }
-    case CacheAPIs.Artist: {
-      result.hotSongs = mapTrackPlayableStatus(result.hotSongs)
-      return result
-    }
-    case CacheAPIs.Album: {
-      result.songs = mapTrackPlayableStatus(result.songs)
-      return result
-    }
-    case CacheAPIs.ListenedRecords: {
-      if (result.weekData) {
-        result.weekData = result.weekData.map((item: any) => {
-          item.song = { ...item.song, type: 'online', matched: true }
-          return item
-        })
-      }
-      if (result.allData) {
-        result.allData = result.allData.map((item: any) => {
-          item.song = { ...item.song, type: 'online', matched: true }
-          return item
-        })
-      }
-      return result
-    }
-    case CacheAPIs.CloudDisk: {
-      result.data = result.data.map((item: any) => {
-        item.type = 'online'
-        item.matched = true
-        if (item.simpleSong) item.simpleSong = { ...item.simpleSong, type: 'online', matched: true }
-        return item
-      })
-      return result
-    }
-    case CacheAPIs.TopSong: {
-      result.data = mapTrackPlayableStatus(result.data)
-      return result
-    }
-    case CacheAPIs.LyricNew: {
-      if (result.yrc?.lyric) {
-        return yrcLyricParse(result)
-      } else if (result.lrc.lyric) {
-        return lrcLyricParse(result)
-      }
-      return []
-    }
-    default:
-      return result
-  }
-}
-
 const _parseYrcLine = (line: RegExpExecArray) => {
   const timestampRegex = /\[(\d+),(\d+)\]/g
   const extractTimestampRegex = /\((\d+),(\d+),\d+\)([^(]+)/g
 
-  const { lyricTimestamps, content } = line.groups
+  const { lyricTimestamps, content } = line.groups!
   const startTime = lyricTimestamps.match(timestampRegex)
   const times = startTime
     ? startTime.flatMap((match) => {
@@ -380,7 +302,7 @@ const _parseYrcLine = (line: RegExpExecArray) => {
 const _parseLrcLine = (line: RegExpExecArray) => {
   const extractTimestampRegex = /\[(?<min>\d+):(?<sec>\d+)(?:\.|:)*(?<ms>\d+)*\]/g
 
-  const { lyricTimestamps, content } = line.groups
+  const { lyricTimestamps, content } = line.groups!
   let start: number = 0
 
   const match = extractTimestampRegex.exec(lyricTimestamps)
@@ -407,7 +329,7 @@ const _parseWrcLine = (line: RegExpExecArray) => {
   const regex = /(\[\d{2}:\d{2}\.\d{1,3}\])([^[]*?)(?=(\[\d{2}:\d{2}\.\d{2,3}\]))/g
   const extractTimestampRegex = /\[(?<min>\d+):(?<sec>\d+)(?:\.|:)*(?<ms>\d+)*\]/g
 
-  const { lyricTimestamps, content } = line.groups
+  const { lyricTimestamps, content } = line.groups!
   const lineText = lyricTimestamps + content
   const words = lineText.trim().matchAll(regex)
   const ws = [...words]
@@ -422,6 +344,24 @@ const _parseWrcLine = (line: RegExpExecArray) => {
   const end = Number((info.at(-1)!.end / 1000).toFixed(3))
   const text = info.map((item) => item.word).join('')
   return { start, end, lyric: { info, text } }
+}
+
+const _parseEnhancedLrcLine = (line: RegExpExecArray) => {
+  const { lyricTimestamps, content } = line.groups!
+  const converted = content
+    .replace(/^<[\d:.]+>/, '') // 去掉开头与行时间戳重复的那个
+    .replace(/<([\d:.]+)>/g, '[$1]')
+  const fakeMatch = Object.assign([lyricTimestamps + converted] as unknown as RegExpExecArray, {
+    index: 0,
+    input: lyricTimestamps + converted,
+    groups: { lyricTimestamps, content: converted }
+  })
+  const result = _parseWrcLine(fakeMatch)
+  if (result?.lyric?.info) {
+    result.lyric.info = result.lyric.info.filter((item) => item.word.trim() !== '')
+    result.lyric.text = result.lyric.info.map((item) => item.word).join('')
+  }
+  return result
 }
 
 export const yrcLyricParse = (data: {
@@ -451,12 +391,12 @@ export const yrcLyricParse = (data: {
   }
 
   for (const line of data.yrc.lyric.trim().matchAll(extractyrcRegex)) {
-    const lyric = _parseYrcLine(line)
+    const lyric = _parseYrcLine(line)!
     result.splice(binarySearch(lyric), 0, lyric)
   }
 
   const lrcList = ['ytlrc', 'yromalrc'] as const
-  const lrcMap = { ytlrc: ['tlyric', ''], yromalrc: ['rlyric', ' '] }
+  const lrcMap = { ytlrc: ['tlyric', ''], yromalrc: ['rlyric', ' '] } as const
   lrcList.forEach((lrc) => {
     if (data[lrc]) {
       for (const line of data[lrc]?.lyric.trim().matchAll(extractyrcRegex)) {
@@ -467,7 +407,7 @@ export const yrcLyricParse = (data: {
           ? matchedLyric.lyric.info[0].start
           : matchedLyric.start * 1000
         const end = matchedLyric.lyric.info
-          ? matchedLyric.lyric.info.at(-1).end
+          ? matchedLyric.lyric.info.at(-1)!.end
           : matchedLyric.end * 1000
         const info = [{ start: Math.max(100, _start), end, word: cInfo }]
         matchedLyric[lrcMap[lrc][0]] = { info, text: cInfo }
@@ -510,8 +450,8 @@ export const lrcLyricParse = (data: {
     result.splice(binarySearch(lyric), 0, lyric)
   }
 
-  const lrcList = ['tlyric', 'romalrc']
-  const lrcMap = { tlyric: ['tlyric', ''], romalrc: ['rlyric', ' '] }
+  const lrcList = ['tlyric', 'romalrc'] as const
+  const lrcMap = { tlyric: ['tlyric', ''], romalrc: ['rlyric', ' '] } as const
 
   lrcList.forEach((lrc) => {
     if (data[lrc]) {
@@ -532,160 +472,25 @@ export const lrcLyricParse = (data: {
   return result
 }
 
-const mapTrackPlayableStatus = (tracks: any[], privileges: any[] = []) => {
-  if (tracks?.length === undefined) return tracks
-  return tracks.map((t) => {
-    const privilege = privileges.find((item) => item.id === t.id) || {}
-    if (t.privilege) {
-      Object.assign(t.privilege, privilege)
-    } else {
-      t.privilege = privilege
-    }
-    const result = isTrackPlayable(t)
-    t.playable = result.playable
-    t.reason = result.reason
-    t.type = 'online'
-    t.matched = true
-    t.cache = false
-    t.source = 'netease'
-    return t
-  })
-}
-
-const isTrackPlayable = (track: any) => {
-  const user = Cache.get(CacheAPIs.loginStatus)
-  const result = {
-    playable: true,
-    reason: ''
-  }
-  if (track?.privilege?.pl > 0) {
-    return result
-  }
-  // cloud storage judgement logic
-  if (user.userId !== 0 && track?.privilege?.cs) {
-    return result
-  }
-  if (track.fee === 1 || track.privilege?.fee === 1) {
-    if (user.userId !== 0 && user.vipType === 11) {
-      result.playable = true
-    } else {
-      result.playable = false
-      result.reason = 'VIP Only'
-    }
-  } else if (track.fee === 4 || track.privilege?.fee === 4) {
-    result.playable = false
-    result.reason = '付费专辑'
-  } else if (track.noCopyrightRcmd !== null && track.noCopyrightRcmd !== undefined) {
-    result.playable = false
-    result.reason = '无版权'
-  } else if (track.privilege?.st < 0 && user.userId !== 0) {
-    result.playable = false
-    result.reason = '已下架'
-  }
-  return result
-}
-
-const getAudioSourceFromNetease = async (track: any): Promise<{ [key: string]: any }> => {
-  const getBr = () => {
-    const quality = store.get('settings.musicQuality')
-    return quality === 'flac' ? 350000 : quality
-  }
-  const getMP3 = async (id: string) => {
-    return request({
-      url: '/song/url',
-      method: 'get',
-      params: {
-        id,
-        br: getBr()
-      }
-    })
-  }
-
-  return getMP3(track.id)
-    .then((result: any) => {
-      const br = result.data[0]?.br || 128000
-      const gain = result.data[0]?.gain || 0
-      const peak = result.data[0]?.peak || 1
-      // if (!result.data[0]) return null
-      if (!result.data[0] || !result.data[0].url || result.data[0].freeTrialInfo !== null) {
-        return { url: null, br, gain, peak }
-      }
-      const source = result.data[0].url.replace(/^http:/, 'https:')
-      return { url: source, br, gain, peak }
-    })
-    .catch(() => {
-      const url = `https://music.163.com/song/media/outer/url?id=${track.id}`
-      return { url, br: 128000, gain: 0, peak: 1 }
-    })
-}
-
-export const getAudioSource = async (track: any) => {
-  const enableUNM = (store.get('settings.unblockNeteaseMusic.enable') as boolean) || true
-  let source = 'netease'
-
-  // 缓存里没有，从网易云里获取
-  const trackInfo = await getAudioSourceFromNetease(track)
-
-  // 网易云里没有，从unblock里获取
-  if (!trackInfo.url && enableUNM) {
-    const res = await getAudioSourceFromUnblock(track)
-    trackInfo.url = res.url
-    source = res.source
-  }
-  trackInfo.source = source
-  return trackInfo
-}
-
-export const getTrackDetail = (ids: string) => {
-  return request({
-    url: '/song/detail',
-    method: 'get',
-    params: { ids }
-  })
-}
-
-export const getAudioSourceFromUnblock = async (track: any) => {
-  const source = (store.get('settings.unblockNeteaseMusic.source') as string) || ''
-  const sourceList = source
-    ? source.split(',').map((s) => s.trim().toLowerCase())
-    : ['bodian', 'kuwo', 'kugou', 'ytdlp', 'qq', 'bilibili', 'pyncmd', 'migu']
-
-  const qqCookie = (store.get('settings.unblockNeteaseMusic.qqCookie') as string) || ''
-  const jooxCookie = store.get('settings.unblockNeteaseMusic.jooxCookie') as string
-  const enableFlac = store.get('settings.unblockNeteaseMusic.enableFlac') as boolean
-  const orderFirst = store.get('settings.unblockNeteaseMusic.orderFirst') as boolean
-
-  process.env.ENABLE_LOCAL_VIP = 'true'
-  process.env.QQ_COOKIE = qqCookie || ''
-  process.env.JOOX_COOKIE = jooxCookie || ''
-  process.env.ENABLE_FLAC = enableFlac ? 'true' : 'false'
-  process.env.FOLLOW_SOURCE_ORDER = orderFirst ? 'true' : 'false'
-
-  const match = require('@unblockneteasemusic/server')
-
-  const proxy = store.get('settings.proxy') as { type: 0 | 1 | 2; address: string; port: string }
-  const map = { 1: 'http', 2: 'https' }
-  const url =
-    proxy && proxy.type !== 0 ? `${map[proxy.type]}://${proxy.address}:${proxy.port}` : null
-
-  global.proxy = url
-
-  return match(track.id, sourceList).catch((error) => {
-    console.log('=== unblock error ===', global.proxy, error)
-    return null
-  })
-}
-
 export const deleteExcessCache = async (deleteAll = false): Promise<boolean> => {
-  const tracks = Cache.get(CacheAPIs.LocalMusic, { sql: "type = 'online'" })
+  const audioCachePath =
+    (store.get('settings.autoCacheTrack.path') as string) ||
+    path.join(app.getPath('userData'), 'audioCache')
+
+  const rows = db.sqlite
+    .prepare(`SELECT rowid, * FROM ${Tables.Audio} WHERE filePath LIKE ?  ORDER BY rowid ASC`)
+    .all(`${audioCachePath}%`) as Record<string, any>[]
 
   if (deleteAll) {
     try {
-      const ids = tracks.songs.map((s: any) => {
-        fs.promises.rm(s.url, { force: true })
-        return s.id
-      })
-      if (ids.length > 0) db.deleteMany(Tables.Track, ids)
+      // 先删磁盘文件，文件删除失败不阻塞 DB 操作
+      for (const r of rows) {
+        fs.promises.unlink(r.filePath).catch(() => {})
+      }
+      const ids = rows.map((r) => r.id)
+      const trackIds = [...new Set(rows.map((r) => r.trackId))]
+      deleteCacheFromDB(ids, trackIds)
+      log.info(`全量清理完成，共删除 ${ids.length} 首缓存歌曲`)
       return true
     } catch (error) {
       log.error('清理全量缓存失败:', error)
@@ -696,39 +501,36 @@ export const deleteExcessCache = async (deleteAll = false): Promise<boolean> => 
   const sizeLimit = store.get('settings.autoCacheTrack.sizeLimit') as boolean | number
   if (sizeLimit === false) return true
 
-  const songs = [...tracks.songs].sort((a: any, b: any) => a.insertTime - b.insertTime)
-
-  let currentTotalSize = songs.reduce((acc: number, cur: any) => acc + Number(cur.size), 0)
+  let currentTotalSize = rows.reduce((acc: number, cur: any) => acc + Number(cur.size), 0)
   const limitInBytes = (sizeLimit as number) * 1024 * 1024
 
   try {
-    const deletedIds: number[] = []
+    const deletedIds: string[] = []
 
-    while (currentTotalSize > limitInBytes && songs.length > 0) {
-      const target = songs.shift()
-      if (!target) break
-
-      try {
-        await fs.promises.unlink(target.url)
-        deletedIds.push(target.id)
-        currentTotalSize -= Number(target.size)
-      } catch (fileError: any) {
-        if (fileError.code === 'ENOENT') {
-          deletedIds.push(target.id)
-        } else {
-          log.error(`文件删除失败: ${target.url}`, fileError)
-        }
-      }
+    for (const row of rows) {
+      if (currentTotalSize <= limitInBytes) break
+      deletedIds.push(row.id)
+      currentTotalSize -= Number(row.size)
     }
 
     if (deletedIds.length > 0) {
-      db.deleteMany(Tables.Track, deletedIds)
+      const deletedIdSet = new Set(deletedIds)
+      // 先删磁盘文件
+      for (const row of rows) {
+        if (deletedIdSet.has(row.id)) {
+          fs.promises.unlink(row.filePath).catch(() => {})
+        }
+      }
+      // 再删 DB 记录
+      const deletedAudios = rows.filter((r) => deletedIdSet.has(r.id))
+      const trackIds = [...new Set(deletedAudios.map((r) => r.trackId))]
+      deleteCacheFromDB(deletedIds, trackIds)
       log.info(`自动清理完成，共删除 ${deletedIds.length} 首缓存歌曲`)
     }
 
     return true
   } catch (error) {
-    log.error('循环清理超额缓存失败:', error)
+    log.error('清理超额缓存失败:', error)
     return false
   }
 }

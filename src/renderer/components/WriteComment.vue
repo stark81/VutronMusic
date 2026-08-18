@@ -4,9 +4,11 @@
       v-model="comment"
       class="comment-input"
       :placeholder="placeholder"
+      :readonly="disabled"
+      :disabled="disabled"
       @keydown.enter="handleEnterKey"
     ></textarea>
-    <button class="comment-button" @click="submitComment">发送</button>
+    <button class="comment-button" :disabled="disabled" @click="submitComment">发送</button>
   </div>
 </template>
 
@@ -14,7 +16,8 @@
 import { ref } from 'vue'
 
 defineProps({
-  placeholder: { type: String, default: '请输入评论' }
+  placeholder: { type: String, default: '请输入评论' },
+  disabled: { type: Boolean, default: false }
 })
 
 const $emit = defineEmits(['keydown-enter'])
@@ -65,6 +68,11 @@ defineExpose({ comment })
     margin-left: 1px;
     color: var(--text-color);
     background: var(--color-secondary-bg-for-transparent);
+  }
+  .comment-input:disabled,
+  .comment-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 }
 </style>

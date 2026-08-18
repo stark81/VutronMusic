@@ -121,14 +121,14 @@ function _inherits(t, e) {
 function _isNativeFunction(t) {
   try {
     return Function.toString.call(t).indexOf('[native code]') !== -1
-  } catch (n) {
+  } catch {
     return typeof t === 'function'
   }
 }
 function _isNativeReflectConstruct() {
   try {
     var t = !Boolean.prototype.valueOf.call(Reflect.construct(Boolean, [], function () {}))
-  } catch (t) {}
+  } catch {}
   return (_isNativeReflectConstruct = function () {
     return !!t
   })()
@@ -152,7 +152,7 @@ function _superPropBase(t, o) {
   for (; !{}.hasOwnProperty.call(t, o) && (t = _getPrototypeOf(t)) !== null; );
   return t
 }
-function _superPropGet(t, o, e, r) {
+function _superPropGet(t, o, e) {
   const p = _get(_getPrototypeOf(t.prototype), o, e)
   return typeof p === 'function'
     ? function (t) {

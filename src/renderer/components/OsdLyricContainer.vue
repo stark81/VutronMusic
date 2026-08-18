@@ -1,6 +1,5 @@
 <template>
   <div
-    ref="lyricContainer"
     class="container"
     :class="{
       lineMode,
@@ -17,7 +16,7 @@
       class="lyric"
       :class="{
         active: index === highlightIdx,
-        played: index < highlightIdx && !(isShowingNextGroup && index === 0),
+        played: isLinePlayed(lyric),
         center: lyricToShow.length === 1
       }"
     >
@@ -31,6 +30,8 @@
         :is-word-by-word="!lineMode"
         :playback-rate="playbackRate"
         :is-mini="isMini"
+        :lyric-font="font || 'system-ui'"
+        :lyric-font-size="fontSize"
       />
     </div>
   </div>
@@ -41,7 +42,7 @@ import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick } from 'vue'
 import { useOsdLyricStore } from '../store/osdLyric'
 import LyricLine from './LyricLine.vue'
 import { storeToRefs } from 'pinia'
-import { lyricLine, TranslationMode, word } from '@/types/music.d'
+import { lyricLine, statusMap, TranslationMode, word } from '@/types/music.d'
 
 const osdLyricStore = useOsdLyricStore()
 const {
@@ -57,7 +58,6 @@ const {
 } = storeToRefs(osdLyricStore)
 
 const lyricRefs = ref<InstanceType<typeof LyricLine>[]>([])
-const lyricContainer = ref<HTMLElement>()
 const playing = ref(false)
 const lyrics = ref<lyricLine[]>([])
 const currentIndex = ref(-1)
@@ -80,34 +80,6 @@ const lyricMap: Record<TranslationMode, TranslationMode> = {
   none: 'none'
 }
 
-const currentGroupIndex = computed(() => {
-  if (!isMini.value) return -1
-  const idx = groupLyric.value.findIndex((g) => g.includes(highlight.value))
-  return Math.max(0, idx)
-})
-
-const lyricToShow = computed(() => {
-  if (!isMini.value) return lyrics.value
-
-  const idx = currentGroupIndex.value
-  const currentGroup = groupLyric.value[idx] ?? []
-
-  if (
-    mode.value === 'twoLines' &&
-    currentGroup.length === 2 &&
-    currentGroup[1] === highlight.value
-  ) {
-    const nextGroup = groupLyric.value[idx + 1]
-    if (nextGroup?.[0] !== undefined) {
-      return [lyrics.value[nextGroup[0]], lyrics.value[currentGroup[1]]]
-    }
-    return [lyrics.value[currentGroup[1]]]
-  }
-
-  const result = currentGroup.map((index) => lyrics.value[index])
-  return result
-})
-
 const modeKey = computed(() => lyricMap[translationMode.value])
 
 const groupLyric = computed(() => {
@@ -124,13 +96,9 @@ const groupLyric = computed(() => {
       result.push([idx])
       idx++
     } else {
-      const nextTrans =
-        lyrics.value[idx + 1] &&
-        (lyrics.value[idx + 1][modeKey.value] as {
-          text: string
-          info?: word[]
-        } | null)
-      if (idx + 1 < lyrics.value.length && !nextTrans) {
+      const nextLine = lyrics.value[idx + 1]
+      const nextTrans = nextLine ? (nextLine[modeKey.value] as any) : null
+      if (nextLine && !nextTrans) {
         result.push([idx, idx + 1])
         idx += 2
       } else {
@@ -139,7 +107,56 @@ const groupLyric = computed(() => {
       }
     }
   }
+
+  if (mode.value === 'twoLines' && result.length > 1) {
+    const snapshot = result.map((g) => [...g])
+    for (let i = 1; i < result.length; i++) {
+      const group = snapshot[i]
+      const prevGroup = snapshot[i - 1]
+      if (group.length === 1 && prevGroup.length === 2) {
+        const ownLine = lyrics.value[group[0]]
+        if (ownLine && !ownLine[modeKey.value]) {
+          result[i] = [group[0], prevGroup[1]]
+        }
+      }
+    }
+  }
+
   return result
+})
+
+const currentGroupIndex = computed(() => {
+  if (!isMini.value) return -1
+  const idx = groupLyric.value.findIndex((g) => g.includes(highlight.value))
+  return Math.max(0, idx)
+})
+
+const lyricToShow = computed(() => {
+  if (!isMini.value) return lyrics.value
+  const groups = groupLyric.value
+  const currentGroup = groups[currentGroupIndex.value]
+  if (!currentGroup) return []
+  if (mode.value === 'oneLine') return currentGroup.map((i) => lyrics.value[i])
+
+  const isLastLineOfGroup = highlight.value === currentGroup[1]
+  const nextGroup = groups[currentGroupIndex.value + 1]
+  if (isLastLineOfGroup && nextGroup?.length === 2) {
+    return [lyrics.value[nextGroup[0]], lyrics.value[currentGroup[1]]]
+  }
+  return currentGroup.map((i) => lyrics.value[i])
+})
+
+const highlightIdx = computed(() => {
+  if (!isMini.value) return highlight.value
+  const groups = groupLyric.value
+  const currentGroup = groups[currentGroupIndex.value]
+  if (!currentGroup) return 0
+  const indexInGroup = currentGroup.indexOf(highlight.value)
+  if (mode.value === 'oneLine') return indexInGroup
+
+  const nextGroup = groups[currentGroupIndex.value + 1]
+  if (indexInGroup === 1 && nextGroup?.length === 2) return 1
+  return indexInGroup
 })
 
 const lineMode = computed(() => {
@@ -148,28 +165,14 @@ const lineMode = computed(() => {
 
 const highlight = computed(() => Math.min(currentIndex.value, lyrics.value.length - 1))
 
-const highlightIdx = computed(() => {
-  if (!isMini.value) return highlight.value
+// 由于两个窗口数据传输略微有延迟，所以这里加了 50ms 的缓冲，避免歌词高亮有问题
+// 《Manta》中间有三句连续的无翻译歌词，不加50ms会导致高亮错误
+const currentTimeMs = computed(() => (seek.value + lyricOffset.value) * 1000 + 50)
 
-  const currentIdx = highlight.value
-  for (let i = 0; i < lyricToShow.value.length; i++) {
-    if (lyricToShow.value[i] === lyrics.value[currentIdx]) {
-      return i
-    }
-  }
-
-  const currentGroup = groupLyric.value[currentGroupIndex.value]
-  if (!currentGroup) return -1
-  return currentGroup.findIndex((id) => id === currentIdx)
-})
-
-const isShowingNextGroup = computed(() => {
-  if (!isMini.value || mode.value !== 'twoLines' || lyricToShow.value.length < 2) return false
-
-  const idx = currentGroupIndex.value
-  const nextGroup = groupLyric.value[idx + 1]
-  return nextGroup && lyricToShow.value[0] === lyrics.value[nextGroup[0]]
-})
+const isLinePlayed = (line: lyricLine) => {
+  if (line === lyrics.value[highlight.value]) return false
+  return currentTimeMs.value > line.end * 1000
+}
 
 const clearAnimations = (clearAll = true) => {
   lyricRefs.value.forEach((instance) => {
@@ -206,7 +209,11 @@ const scheduleAnimation = async (type: 'all' | 'translation' = 'all') => {
       const currentTime = (seek.value + lyricOffset.value) * 1000
       instance.updateCurrentTime(currentTime)
       let op: 'play' | 'pause' | 'finish' | 'reset' = playing.value ? 'play' : 'pause'
-      if (currentTime >= lyricToShow.value[index].end * 1000) op = 'finish'
+
+      const lrc = lyricToShow.value[index]
+      const end = lrc.lyric.info ? lrc.lyric.info.at(-1)!.end : lrc.end * 1000
+
+      if (currentTime >= end) op = 'finish'
       instance.updatePlayStatus(op)
     }
   }
@@ -223,7 +230,11 @@ watch(playing, (value) => {
   if (!instance) return
   const currentTime = (seek.value + lyricOffset.value) * 1000
   let op: 'play' | 'pause' | 'finish' | 'reset' = value ? 'play' : 'pause'
-  if (currentTime >= lyricToShow.value[highlightIdx.value].end * 1000) op = 'finish'
+
+  const lrc = lyricToShow.value[highlightIdx.value]
+  const end = lrc.lyric.info ? lrc.lyric.info.at(-1)!.end : lrc.end * 1000
+
+  if (currentTime >= end) op = 'finish'
   instance.updatePlayStatus(op)
 })
 
@@ -301,20 +312,7 @@ watch(
   { immediate: true }
 )
 
-type statusMap = {
-  lyrics: lyricLine[]
-  playing: boolean
-  lyricOffset: [number, number] // 当前的歌词 offset，当前播放进度
-  line: [number, number] // 当前行，当前播放进度
-  rate: number
-  seek: number // 目前这一项的触发是在当单双行切换、翻译切换时更新播放进度
-}
-
-window.addEventListener('message', (event: MessageEvent) => {
-  if (event.data.type !== 'update-osd-status') return
-
-  const data = event.data.data as Partial<statusMap>
-
+const handleOsdStatus = (event: any, data: Partial<statusMap>) => {
   if (data.lyrics !== undefined) {
     lyrics.value = data.lyrics
   }
@@ -342,20 +340,31 @@ window.addEventListener('message', (event: MessageEvent) => {
   if (data.seek !== undefined) {
     seek.value = data.seek
   }
-})
+
+  if (data.setSeek !== undefined) {
+    const _data = data.setSeek || seek.value
+    seek.value = 0
+    nextTick(() => {
+      seek.value = _data
+    })
+  }
+}
+
+window.mainApi?.on('update-osd-status', handleOsdStatus)
 
 const handleVisebilitiyChange = () => {
   if (!document.hidden) {
-    window.mainApi?.sendMessage({ type: 'get-seek' })
+    window.mainApi?.send('get-seek')
   }
 }
 
 onMounted(async () => {
   const player = JSON.parse(localStorage.getItem('player') || '{}')
+  const _lyrics = JSON.parse(localStorage.getItem('lyric') || '{}')
   playing.value = player?.playing || false
-  if (!player.lyrics) return
-  lyrics.value = player.lyrics
-  currentIndex.value = player.currentIndex || -1
+  if (!_lyrics.lyrics) return
+  lyrics.value = _lyrics.lyrics
+  currentIndex.value = _lyrics.currentIndex || -1
   if (!lyrics.value.length) {
     lyrics.value[0] = {
       start: 0,
@@ -365,7 +374,7 @@ onMounted(async () => {
       }
     }
   }
-  lyricOffset.value = player.currentTrack.offset || 0
+  lyricOffset.value = _lyrics.offset || 0
 
   scheduleAnimation()
 
@@ -379,22 +388,22 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  // destroyController(true)
   document.removeEventListener('visibilitychange', handleVisebilitiyChange)
+  window.mainApi?.off('update-osd-status', handleOsdStatus)
 })
 </script>
 
 <style scoped lang="scss">
 .container {
   user-select: none;
-  height: calc(100vh - 54px);
+  height: calc(100vh - 64px);
   scrollbar-width: none;
   display: flex;
   flex-direction: column;
+  -webkit-app-region: no-drag;
 
   :deep(.lyric) {
     border-radius: 12px;
-    margin: 2px 0;
     user-select: none;
     padding: 2px 0;
     font-weight: 600;
@@ -459,6 +468,8 @@ onBeforeUnmount(() => {
 
 .container:not(.mini) {
   text-align: center;
+  width: fit-content;
+  margin: 0 auto;
   :deep(.lyric:first-of-type) {
     margin-top: 40vh !important;
   }
@@ -478,6 +489,8 @@ onBeforeUnmount(() => {
 
   &.one-line {
     text-align: center;
+    width: fit-content;
+    margin: 0 auto;
   }
 
   &.two-line :deep(.lyric:not(.hidden-measure)) {

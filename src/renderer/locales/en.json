@@ -15,7 +15,6 @@
     "album": "Album",
     "playlist": "Playlist",
     "user": "User",
-    "lyric": "Lyrics",
     "mv": "MV",
     "chart": "Charts",
     "newTrack": "New Tracks",
@@ -105,11 +104,11 @@
     },
     "embeddedInformation": "Prioritize Embedded Track Info",
     "trackInfoOrder": {
-      "text": "Song Information Retrieval Order",
-      "desc": "This setting determines the order in which local songs information (lyrics, cover art) is retrieved. Drag and drop to adjust the priority.",
+      "text": "Cover Art Fetch Order",
+      "desc": "Sets the order for fetching local music cover art. Drag to adjust priority.",
       "path": "From song directory",
       "online": "From online sources",
-      "embedded": "From embedded information"
+      "embedded": "From embedded metadata"
     },
     "embedCoverArt": {
       "text": "Embed Cover Art into Local Music Files",
@@ -151,11 +150,14 @@
   },
   "contextMenu": {
     "defaultSort": "Default Sort",
-    "sortByName": "Sort by Name",
-    "descendSort": "Sort by Date (Descending)",
-    "ascendSort": "Sort by Date (Ascending)",
+    "name": "Sort by Name",
+    "createTime": "Sort by Date Created",
+    "playCount": "Sort by Play Count",
+    "ascOrder": "Ascending Order",
+    "descOrder": "Descending Order",
     "selectAll": "Select All",
     "batchOperation": "Batch Actions",
+    "refreshData": "Refresh Data",
     "reScan": "Rescan Tracks",
     "showComment": "View Comments",
     "showLyric": "Show Lyrics",
@@ -181,6 +183,7 @@
     "openOnBrowser": "Open in Browser",
     "copyURL": "Copy URL",
     "copyId": "Copy ID",
+    "copySourceContext": "Copy Track Context",
     "playMV": "Play MV",
     "setFont": "Set Font"
   },
@@ -189,14 +192,21 @@
     "phone": "Phone",
     "email": "Email",
     "password": "Password",
-    "loginText": "Login with NetEase Account",
+    "loginText": "Login with {serviceName} Account",
     "countryCode": "Country Code",
     "usernameLogin": "Username Login",
     "loginWithEmail": "Login with Email",
     "loginWithPhone": "Login with Phone",
     "loginWithQr": "Login with QrCode",
     "loginWithCookie": "Login with Cookie",
-    "noticeElectron": "Your password is hashed with MD5 locally before transmission to NetEase API. VutronMusic does not transmit your account data to any non-official servers."
+    "cookiePlaceholder": "Paste your Cookie string",
+    "errorNoCookie": "Please enter Cookie",
+    "noticeElectron": "Your password is hashed with MD5 locally before transmission to NetEase API. VutronMusic does not transmit your account data to any non-official servers.",
+    "removeDir": "Remove",
+    "emptyScanDir": "Set local music scan directory",
+    "chooseDir": "Choose Directory",
+    "setScanDir": "Set",
+    "errorNoScanDir": "Please set a scan directory"
   },
   "player": {
     "play": "Play",
@@ -257,6 +267,10 @@
     "fade": {
       "fadeDuration": "Audio Fade In/Out Duration (seconds)",
       "fadeDurationDesc": "Duration of volume fade when switching, playing, or pausing."
+    },
+    "volumeNormalization": {
+      "title": "Volume Normalization",
+      "desc": "Automatically balance loudness across tracks so all songs sound equally loud at the same volume level"
     }
   },
   "common": {
@@ -270,6 +284,8 @@
       "tray": "System Tray",
       "extension": "Lyrics Extension",
       "platformSetting": "Platform Settings",
+      "plugin": "Plugin Settings",
+      "musicSource": "Music Sources",
       "lyricSetting": "Lrc Setting",
       "lyric": "Main Window Lyrics",
       "osdLyric": "Desktop Lyrics",
@@ -280,6 +296,7 @@
       "netease": "Online Music",
       "stream": "Stream Music",
       "local": "Local Music",
+      "library": "Library",
       "unblock": "Unblock",
       "shortcut": "Shortcuts",
       "misc": "Miscellaneous",
@@ -357,6 +374,10 @@
     "tray": {
       "showLyric": "Show Tray Lyrics",
       "showControl": "Show Control Buttons",
+      "showIcon": "Show Tray Icon",
+      "wordByWord": "Word-by-Word Highlight",
+      "playedColor": "Played Highlight Color (Dark)",
+      "playedColorLight": "Played Highlight Color (Light)",
       "lyricScrollFrameRate": {
         "text": "Lyric Scroll FPS",
         "desc": "Higher values may cause flickering; adjust carefully."
@@ -528,6 +549,9 @@
       "logout": "Logged out",
       "offline": "Offline"
     },
+    "library": {
+      "enable": "Enable Library"
+    },
     "update": {
       "autoUpdate": "Enable Automatic Update Checks",
       "currentVersion": "Current Version",
@@ -551,6 +575,12 @@
       "running": "Server is running normally",
       "error": "Server failed to start: {0}",
       "notRunning": "Server is not running"
+    },
+    "sourcePriority": {
+      "search": {
+        "text": "Search Source Priority",
+        "desc": "Drag to reorder search sources. The first one will be the default."
+      }
     }
   },
   "toast": {
@@ -559,7 +589,7 @@
     "savedToPlaylist": "Added to playlist",
     "saveFailed": "Failed To Save",
     "tracksAlreadyInPlaylist": "Tracks already in playlist",
-    "needToLogin": "Requires NetEase Account login",
+    "needToLogin": "Requires {serviceName} account login",
     "getColorFailed": "Failed to fetch color",
     "scanning": "Scanning local music...",
     "addFailed": "Failed: Album unavailable or restricted",

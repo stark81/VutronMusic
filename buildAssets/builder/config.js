@@ -3,7 +3,7 @@ const dotenv = require('dotenv')
 
 const baseConfig = {
   productName: 'VutronMusic',
-  appId: '',
+  appId: 'io.github.stark81.VutronMusic',
   asar: true,
   asarUnpack: [
     '**/node_modules/sharp/**/*',
@@ -58,6 +58,34 @@ const baseConfig = {
     createDesktopShortcut: true,
     runAfterFinish: true
   },
+  flatpak: {
+    runtimeVersion: '25.08',
+    baseVersion: '25.08',
+    finishArgs: [
+      // Wayland/X11 Rendering
+      '--socket=wayland',
+      '--socket=x11',
+      '--share=ipc',
+      // Open GL
+      '--device=dri',
+      // Audio output
+      '--socket=pulseaudio',
+      // Read/write home directory access
+      '--filesystem=home',
+      // Allow communication with network
+      '--share=network',
+      // System notifications with libnotify
+      '--talk-name=org.freedesktop.Notifications',
+      // MPRIS media controls (own D-Bus name)
+      '--own-name=org.mpris.MediaPlayer2.VutronMusic',
+      // Discord RPC IPC socket
+      '--filesystem=xdg-run/discord-ipc:create',
+      // DBus session bus (lyric extension communication)
+      '--socket=session-bus',
+      '--talk-name=org.gnome.Shell.TrayLyric',
+      '--talk-name=org.kde.StatusNotifierWatcher'
+    ]
+  },
   linux: {
     executableName: 'vutron',
     icon: 'buildAssets/icons/icon.icns',
@@ -77,6 +105,10 @@ const baseConfig = {
       },
       {
         target: 'rpm',
+        arch: 'x64'
+      },
+      {
+        target: 'flatpak',
         arch: 'x64'
       }
     ]

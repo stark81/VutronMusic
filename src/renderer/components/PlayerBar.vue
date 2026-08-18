@@ -7,7 +7,7 @@
         :min="0"
         tooltip-pos="hoverValue"
         :tooltip="hoverText"
-        :max="currentTrackDuration"
+        :max="duration"
         :marks="marks"
         :rail-style="{ backgroundColor: 'rgba(128, 128, 128, 0.18)' }"
         :process-style="{ background: 'var(--color-primary)' }"
@@ -30,15 +30,15 @@
         <img :src="pic" loading="lazy" @click.stop="goToAlbum" />
         <div class="track-info">
           <div
-            :class="['title', { haslist: hasListSource() }]"
+            :class="['title', { haslist: hasListSource }]"
             :title="source"
-            @click.stop="hasListSource() && goToList()"
+            @click.stop="hasListSource && goToList()"
           >
             <span>{{ currentTrack?.name }}</span>
           </div>
           <div class="albumAndLyric">
             <span v-for="(ar, index) in artists" :key="ar.id" class="artist">
-              <span :class="{ ar: ar.matched !== false }" @click.stop="goToArtist(ar)">
+              <span :class="{ ar: ar.id !== 0 }" @click.stop="goToArtist(ar)">
                 {{ ar.name }}
               </span>
               <span v-if="index !== artists.length! - 1">, </span>
@@ -50,8 +50,8 @@
         <div class="blank"></div>
         <div class="container">
           <button-icon
-            :class="{ active: isLiked, disabled: heartDisabled }"
-            :title="heartDisabled ? $t('player.noAllowCauseLocal') : $t('player.like')"
+            :class="{ active: isLiked }"
+            :title="$t('player.like')"
             @click.stop="likeTrack"
           >
             <svg-icon icon-class="heart-solid"></svg-icon>
@@ -72,7 +72,7 @@
           >
             <svg-icon :icon-class="playing ? 'pause' : 'play'"
           /></button-icon>
-          <button-icon :title="$t('player.next')" @click.stop="_playNextTrack(isPersonalFM)"
+          <button-icon :title="$t('player.next')" @click.stop="playNext(isPersonalFM)"
             ><svg-icon icon-class="next"
           /></button-icon>
           <button-icon
@@ -111,7 +111,7 @@
           @click.stop="shuffle = !shuffle"
           ><svg-icon icon-class="shuffle"
         /></button-icon>
-        <div class="volume" @wheel="updateVolume">
+        <div class="volume" :class="{ 'is-dragging': isDragging }" @wheel="updateVolume">
           <div class="volume-slider" @click.stop>
             <slider-vue
               v-model="volume"
@@ -119,22 +119,35 @@
               :max="1"
               :interval="0.01"
               direction="btt"
-              :use-keyboard="true"
-              :drag-on-click="false"
               :tooltip-formatter="formatVolume"
               :tooltip-style="{
                 backgroundColor: 'var(--color-primary)',
                 borderColor: 'var(--color-primary)'
               }"
-              :rail-style="{ backgroundColor: 'rgba(128, 128, 128, 0.18)' }"
-              :process-style="{ background: 'var(--color-primary)' }"
+              :rail-style="{
+                width: '4px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                borderRadius: '2px',
+                backgroundColor: 'rgba(128, 128, 128, 0.18)'
+              }"
+              :process-style="{
+                width: '4px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                borderRadius: '2px',
+                background: 'var(--color-primary)'
+              }"
               :dot-style="{ display: 'none' }"
+              :width="24"
               :height="130"
               :dot-size="12"
               :silent="true"
+              @drag-start="isDragging = true"
+              @drag-end="isDragging = false"
             ></slider-vue>
           </div>
-          <button-icon
+          <button-icon @click.stop="toggleMute"
             ><svg-icon v-show="volume > 0.5" icon-class="volume" />
             <svg-icon v-show="volume === 0" icon-class="volume-mute" />
             <svg-icon v-show="volume <= 0.5 && volume !== 0" icon-class="volume-half"
@@ -157,41 +170,45 @@ import SliderVue from 'vue-3-slider-component'
 import VueSlider from './VueSlider.vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../store/player'
-import { useDataStore } from '../store/data'
 import { useOsdLyricStore } from '../store/osdLyric'
 import { useNormalStateStore } from '../store/state'
-import { hasListSource, getListSourcePath } from '../utils/playlist'
-import { useStreamMusicStore } from '../store/streamingMusic'
 import { useSettingsStore } from '../store/settings'
+import { usePluginMusic } from '../store/pluginMusic'
 import ButtonIcon from './ButtonIcon.vue'
 import SvgIcon from './SvgIcon.vue'
 import { computed, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { Artist } from '@/types/plugin'
 
 const router = useRouter()
 const route = useRoute()
 
 const playerStore = usePlayerStore()
-const { _playNextTrack, moveToFMTrash, playPrev, playOrPause, switchRepeatMode } = playerStore
+const { playNext, moveToFMTrash, playPrev, playOrPause, switchRepeatMode, toggleMute } = playerStore
 const {
-  currentTrackDuration,
+  duration,
   currentTrack,
   playing,
   isPersonalFM,
   repeatMode,
-  shuffle,
+  isShuffle: shuffle,
   seek,
   pic,
   volume,
   isLiked,
   lyrics,
   chorus,
-  source
+  source: rawSource,
+  hasListSource,
+  getListSourcePath,
+  lyricOffset
 } = storeToRefs(playerStore)
 
-const playerBarRef = ref()
+// const playerBarRef = ref()
 const hoverX = ref('0')
 const hoverText = ref('')
+
+const isDragging = ref(false)
 
 const osdLyric = useOsdLyricStore()
 const { show } = storeToRefs(osdLyric)
@@ -202,11 +219,7 @@ const { general } = storeToRefs(settingsStore)
 const stateStore = useNormalStateStore()
 const { showLyrics, enableScrolling } = storeToRefs(stateStore)
 
-const dataStore = useDataStore()
-const { likeATrack } = dataStore
-
-const streamMusicStore = useStreamMusicStore()
-const { likeAStreamTrack } = streamMusicStore
+const pluginMusicStore = usePluginMusic()
 
 const formatTime = (time: number) => {
   const minutes = Math.floor(time / 60)
@@ -215,7 +228,11 @@ const formatTime = (time: number) => {
 }
 
 const artists = computed(() => {
-  return currentTrack.value?.artists ?? currentTrack.value?.ar
+  return currentTrack.value?.artists ?? []
+})
+
+const source = computed(() => {
+  return `${currentTrack.value?.name}, 音源：${rawSource.value}`
 })
 
 const position = computed({
@@ -235,7 +252,7 @@ const position = computed({
         return value >= l.start && value < l.start + 10
       }
     })
-    seek.value = line ? line?.start - (currentTrack.value?.offset || 0) : value
+    seek.value = line ? line?.start - (lyricOffset.value || 0) : value
   }
 })
 
@@ -247,25 +264,19 @@ const marks = computed(() => {
 })
 
 const likeTrack = () => {
-  if (currentTrack.value?.type === 'stream') {
-    const op = currentTrack.value.starred ? 'unstar' : 'star'
-    likeAStreamTrack(op, currentTrack.value)
-  } else if (currentTrack.value?.matched) {
-    likeATrack(currentTrack.value.id)
-  }
+  if (!currentTrack.value) return
+  pluginMusicStore.likeATrack(currentTrack.value)
 }
 
-const goToArtist = (artist: any) => {
-  if (artist.matched !== false) {
-    router.push(`/artist/${artist.id}`)
-  }
+const goToArtist = (artist: Artist) => {
+  if (!artist) return
+  router.push(`/artist/${artist.pluginId}/${JSON.stringify(artist.sourceContext)}`)
 }
 
 const goToAlbum = () => {
-  const album = currentTrack.value?.album || currentTrack.value?.al
-  if (album.matched !== false) {
-    router.push(`/album/${album.id}`)
-  }
+  const album = currentTrack.value?.album
+  if (!album || album.id === 0) return
+  router.push(`/album/${album.pluginId}/${JSON.stringify(album.sourceContext)}`)
 }
 
 const switchLyricPage = () => {
@@ -275,7 +286,7 @@ const switchLyricPage = () => {
 }
 
 const goToList = () => {
-  const path = getListSourcePath()
+  const path = getListSourcePath.value
   router.push(path)
 }
 
@@ -297,7 +308,7 @@ const handleHover = (position: number) => {
     if (next) {
       return next.start > position && line.start <= position
     } else {
-      return position >= line.start && position < currentTrackDuration.value
+      return position >= line.start && position < duration.value
     }
   })
   hoverText.value = lyric ? `[${time}] ${lyric.lyric.text}` : `${time}`
@@ -312,9 +323,9 @@ const formatVolume = computed(() => {
   return Math.round(volume.value * 100).toString()
 })
 
-const heartDisabled = computed(() => {
-  return currentTrack.value?.type === 'local' && !currentTrack.value?.matched
-})
+// const heartDisabled = computed(() => {
+//   return currentTrack.value?.type === 'local' && !currentTrack.value?.matched
+// })
 
 watch(showLyrics, (value) => {
   enableScrolling.value = !value
@@ -451,6 +462,7 @@ watch(showLyrics, (value) => {
       position: relative;
       .volume-slider {
         display: none;
+        width: 36px;
         height: 130px;
         position: absolute;
         border-radius: 6px;
@@ -460,10 +472,11 @@ watch(showLyrics, (value) => {
         background-color: var(--color-secondary-bg);
         z-index: 10;
         font-size: 10px;
-        padding: 12px 10px;
+        padding: 12px 0;
         box-sizing: content-box;
       }
-      &:hover .volume-slider {
+      &:hover .volume-slider,
+      &.is-dragging .volume-slider {
         display: block;
       }
     }

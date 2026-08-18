@@ -15,9 +15,9 @@
         v-for="playlist in ownPlaylists"
         :key="playlist?.id"
         class="playlist"
-        @click="addTrackToPlaylist(playlist?.id)"
+        @click="addTrackToPlaylist(playlist?.sourceContext)"
       >
-        <img :src="playlist?.coverImgUrl" loading="lazy" />
+        <img :src="playlist?.picUrl" loading="lazy" />
         <div class="info">
           <div class="title">{{ playlist?.name }}</div>
           <div class="track-count">{{ playlist?.trackCount || 0 }} 首</div>
@@ -31,14 +31,11 @@
 import BaseModal from './BaseModal.vue'
 import SvgIcon from './SvgIcon.vue'
 import { useNormalStateStore } from '../store/state'
-import { useLocalMusicStore } from '../store/localMusic'
-import { useStreamMusicStore } from '../store/streamingMusic'
-import { useDataStore } from '../store/data'
+import { usePluginMusic } from '../store/pluginMusic'
 import { storeToRefs } from 'pinia'
 import { computed, toRaw, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { addOrRemoveTrackFromPlaylist } from '../api/playlist'
-import { serviceName, StreamPlaylist, Playlist } from '@/types/music.d'
+import { PluginId } from '@/types/plugin'
 
 const { t } = useI18n()
 
@@ -46,14 +43,9 @@ const stateStore = useNormalStateStore()
 const { showToast } = stateStore
 const { addTrackToPlaylistModal, newPlaylistModal, modalOpen } = storeToRefs(stateStore)
 
-const localMusicStore = useLocalMusicStore()
-const { sortPlaylistsIDs, playlists } = storeToRefs(localMusicStore)
-const { addTrackToLocalPlaylist } = localMusicStore
-
-const streamMusicStore = useStreamMusicStore()
-const { addOrRemoveTrackFromStreamPlaylist } = useStreamMusicStore()
-
-const { liked, user, likedSongPlaylistID } = storeToRefs(useDataStore())
+const pluginStore = usePluginMusic()
+const { playlists, services } = storeToRefs(pluginStore)
+const { pluginMethodCall } = pluginStore
 
 const show = computed({
   get: () => addTrackToPlaylistModal.value.show,
@@ -61,10 +53,10 @@ const show = computed({
     addTrackToPlaylistModal.value.show = value
   }
 })
-const type = computed({
-  get: () => addTrackToPlaylistModal.value.type,
+const plugin = computed({
+  get: () => addTrackToPlaylistModal.value.plugin,
   set: (value) => {
-    addTrackToPlaylistModal.value.type = value
+    addTrackToPlaylistModal.value.plugin = value
   }
 })
 
@@ -76,27 +68,12 @@ const ids = computed({
 })
 
 const ownPlaylists = computed(() => {
-  if (type.value === 'local') {
-    return sortPlaylistsIDs.value.map(
-      (id: number) => playlists.value.find((playlist) => playlist.id === id) as Playlist
-    )
-  } else if (type.value === 'online') {
-    return liked.value.playlists.filter(
-      (playlist) =>
-        playlist.creator.userId === user.value.userId && playlist.id !== likedSongPlaylistID.value
-    )
-  } else {
-    return streamMusicStore.playlists[type.value] as StreamPlaylist[]
-  }
+  return playlists.value[plugin.value].data.filter((item) => item.isMine)
 })
 
 const modelTitle = computed(() => {
-  if (type.value === 'local') {
-    return t('localMusic.playlist.addToPlaylist')
-  } else if (type.value === 'online') {
-    return t('player.addToPlaylist')
-  }
-  return t('streamMusic.playlist.addToPlaylist')
+  const service = services.value.find((item) => item.code === plugin.value)
+  return t('playlist.addToPlaylist', { name: service?.name || '', code: service?.code || '' })
 })
 
 watch(show, (value) => {
@@ -104,7 +81,7 @@ watch(show, (value) => {
 })
 
 const close = () => {
-  type.value = 'online'
+  plugin.value = '' as PluginId
   show.value = false
   ids.value = []
 }
@@ -116,54 +93,21 @@ const closeFn = () => {
 const newPlaylist = () => {
   show.value = false
   newPlaylistModal.value = {
-    type: type.value as serviceName,
-    afterCreateAddTrackID: ids.value as number[],
+    plugin: plugin.value,
+    afterCreateAddTrackID: ids.value,
     show: true
   }
 }
 
-const addTrackToPlaylist = (playlistId: number | string) => {
-  if (type.value === 'local') {
-    addTrackToLocalPlaylist(playlistId as number, ids.value as number[]).then((result) => {
-      close()
-      if (result) {
-        showToast(t('toast.savedToPlaylist'))
-      } else {
-        showToast(t('toast.tracksAlreadyInPlaylist'))
-      }
-    })
-  } else if (type.value === 'online') {
-    const id = ids.value.join(',')
-    addOrRemoveTrackFromPlaylist({
-      op: 'add',
-      pid: playlistId,
-      tracks: id
-    }).then((result) => {
-      show.value = false
-      if (result?.body?.code === 200) {
-        showToast(t('toast.savedToPlaylist'))
-      } else {
-        showToast(result.message)
-      }
-    })
-  } else {
-    if (type.value === 'all') {
-      showToast('在聚合视图下无法进行操作，请先选择具体的流媒体服务')
-      return
-    }
-    addOrRemoveTrackFromStreamPlaylist(
-      'add',
-      type.value,
-      playlistId as string,
-      ids.value as string[]
-    ).then((res) => {
-      show.value = false
-      if (res) {
-        showToast(t('toast.savedToPlaylist'))
-      } else {
-        showToast(t('toast.tracksAlreadyInPlaylist'))
-      }
-    })
+const addTrackToPlaylist = async (sourceContext: Record<string, any>) => {
+  const result = await pluginMethodCall(plugin.value, 'addOrRemoveTracksToPlaylist', {
+    op: 'add',
+    playlist: sourceContext,
+    tracks: ids.value
+  })
+  if (result.code === 200) {
+    showToast(t('toast.savedToPlaylist'))
+    close()
   }
 }
 </script>

@@ -18,36 +18,32 @@
           :style="{ transform: dropdownVisible ? 'scaleY(-1)' : 'scaleY(1)' }"
       /></span>
     </div>
-    <div
-      v-if="dropdownVisible"
-      ref="dropdownRef"
-      class="custom-dropdown"
-      :class="{ 'dropdown-up': dropdownPosition === 'up' }"
-      :style="dropdownStyle"
-    >
-      <div v-if="filteredOptions.length === 0" class="no-data-item">
-        {{ noDataText }}
+    <Teleport to="body">
+      <div v-if="dropdownVisible" ref="dropdownRef" class="custom-dropdown" :style="dropdownStyle">
+        <div v-if="filteredOptions.length === 0" class="no-data-item">
+          {{ noDataText }}
+        </div>
+        <div
+          v-for="(option, index) in filteredOptions"
+          :key="String(option.value)"
+          class="custom-select-item"
+          :class="{
+            active: option.value === hoverValue,
+            highlighted: index === highlightedIndex
+          }"
+          @mouseover="onMouseOver(option.value, index)"
+          @click="selectOption(option.value)"
+        >
+          <slot name="option" :option="option">
+            <div>{{ option.label }}</div>
+          </slot>
+        </div>
       </div>
-      <div
-        v-for="(option, index) in filteredOptions"
-        :key="String(option.value)"
-        class="custom-select-item"
-        :class="{
-          active: option.value === hoverValue,
-          highlighted: index === highlightedIndex
-        }"
-        @mouseover="onMouseOver(option.value, index)"
-        @click="selectOption(option.value)"
-      >
-        <slot name="option" :option="option">
-          <div>{{ option.label }}</div>
-        </slot>
-      </div>
-    </div>
+    </Teleport>
   </div>
 </template>
 <script lang="ts" setup>
-import { computed, watch, ref, nextTick } from 'vue'
+import { computed, watch, ref, nextTick, onUnmounted } from 'vue'
 import SvgIcon from './SvgIcon.vue'
 import { useNormalStateStore } from '../store/state'
 import { storeToRefs } from 'pinia'
@@ -87,7 +83,6 @@ const searchInputRef = ref<HTMLInputElement | null>(null)
 
 const dropdownVisible = ref(false)
 const hoverValue = ref(props.modelValue)
-const dropdownPosition = ref<'down' | 'up'>('down')
 const dropdownStyle = ref<Record<string, string>>({})
 const searchKeyword = ref('')
 const highlightedIndex = ref(-1)
@@ -114,44 +109,45 @@ const selectedLabel = computed(() => {
 })
 
 const calculateDropdownPosition = async () => {
-  if (!rootRef.value || !dropdownRef.value) return
-  await nextTick()
+  if (!rootRef.value) return
   const selectRect = rootRef.value.getBoundingClientRect()
-  const dropdownHeight = dropdownRef.value.offsetHeight
   const viewportHeight = window.innerHeight
+  const viewportWidth = window.innerWidth
+  const GAP = 4
 
   const spaceBelow = viewportHeight - selectRect.bottom
   const spaceAbove = selectRect.top
 
-  if (
+  const openUp =
     props.direction === 'up' ||
-    (props.direction === 'auto' && spaceBelow < dropdownHeight && spaceAbove > spaceBelow)
-  ) {
-    dropdownPosition.value = 'up'
-    dropdownStyle.value = {
-      bottom: '100%',
-      top: 'auto',
-      maxHeight: `${Math.min(300, spaceAbove)}px`
-    }
-  } else if (props.direction === 'down' || props.direction === 'auto') {
-    dropdownPosition.value = 'down'
-    dropdownStyle.value = {
-      top: '100%',
-      bottom: 'auto',
-      maxHeight: `${Math.min(300, spaceBelow)}px`
-    }
+    (props.direction === 'auto' && spaceBelow < 200 && spaceAbove > spaceBelow)
+
+  let maxHeight: number
+
+  if (openUp) {
+    maxHeight = Math.min(300, spaceAbove - GAP)
+  } else {
+    maxHeight = Math.min(300, spaceBelow - GAP)
   }
 
-  const selectLeft = selectRect.left
-  const selectWidth = selectRect.width
-  const viewportWidth = window.innerWidth
+  let left = selectRect.left
+  if (left + selectRect.width > viewportWidth - 8) {
+    left = viewportWidth - selectRect.width - 8
+  } else if (left < 8) {
+    left = 8
+  }
 
-  if (selectLeft + selectWidth > viewportWidth - 20) {
-    dropdownStyle.value.right = '0'
-    dropdownStyle.value.left = 'auto'
-  } else if (selectLeft < 20) {
-    dropdownStyle.value.left = '0'
-    dropdownStyle.value.right = 'auto'
+  dropdownStyle.value = {
+    position: 'fixed',
+    left: `${left}px`,
+    width: `${selectRect.width}px`,
+    maxHeight: `${maxHeight}px`
+  }
+
+  if (openUp) {
+    dropdownStyle.value.bottom = `${viewportHeight - selectRect.top + GAP}px`
+  } else {
+    dropdownStyle.value.top = `${selectRect.bottom + GAP}px`
   }
 }
 
@@ -257,6 +253,10 @@ const handleVisibilityChange = () => {
   }
 }
 
+const isTargetInside = (target: Node) => {
+  return rootRef.value?.contains(target) || dropdownRef.value?.contains(target)
+}
+
 watch(dropdownVisible, (visible) => {
   if (visible) {
     enableScrolling.value = false
@@ -275,6 +275,12 @@ watch(dropdownVisible, (visible) => {
     window.removeEventListener('visibilitychange', handleVisibilityChange)
     dropdownStyle.value = {}
   }
+})
+
+defineExpose({ isTargetInside })
+
+onUnmounted(() => {
+  enableScrolling.value = true
 })
 </script>
 
@@ -335,24 +341,14 @@ watch(dropdownVisible, (visible) => {
 }
 
 .custom-dropdown {
-  position: absolute;
-  left: 0;
-  width: 100%;
+  position: fixed;
   background: var(--color-secondary-bg);
   border-radius: 8px;
   border: 1px solid var(--color-border);
   box-shadow: 0 2px 20px rgba(0, 0, 0, 0.2);
   z-index: 10000;
   overflow: auto;
-
-  // 默认向下展开
-  top: 100%;
-
-  &.dropdown-up {
-    // 向上展开时的样式调整
-    bottom: 100%;
-    top: auto;
-  }
+  box-sizing: border-box;
 }
 
 .custom-select-item {

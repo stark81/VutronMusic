@@ -13,30 +13,34 @@
     :show-position="showPosition"
   >
     <template #default="{ item }">
-      <div class="cover-item" :class="{ artist: type === 'artist' }">
+      <div class="cover-item" :class="{ artist: type === 'Artist' }">
         <Cover
           :id="item.id"
-          :image-url="getImageUrl(item)"
+          :plugin-id="item.pluginId!"
+          :source-context="item.sourceContext"
+          :image-url="item.picUrl"
           :type="type"
-          :service="item.service"
-          :play-button-size="type === 'artist' ? 26 : playButtonSize"
+          :play-button-size="type === 'Artist' ? 26 : playButtonSize"
         />
         <div class="text">
-          <div v-show="showPlayCount" class="info">
+          <div v-if="isPlaylist(item)" v-show="showPlayCount" class="info">
             <span class="play-count">
               <svg-icon icon-class="play" />{{ formatPlayCount(item.playCount) }}
             </span>
           </div>
           <div class="title" :style="{ fontSize: subTextFontSize }">
+            {{ `[${getPluginName(item.pluginId)}]: ` }}
             <span v-show="isExplicit(item)" class="explicit-symbol">
               <ExplicitSymbol />
             </span>
             <span v-show="isPrivacy(item)" class="lock-icon">
               <SvgIcon icon-class="lock" />
             </span>
-            <router-link :to="`/${type}/${item.id}`">{{ item.name }}</router-link>
+            <router-link :to="`/${type}/${item.pluginId}/${JSON.stringify(item.sourceContext)}`">{{
+              item.name
+            }}</router-link>
           </div>
-          <div v-show="type !== 'artist' && subText !== 'none'" class="info">
+          <div v-show="type !== 'Artist' && subText !== 'none'" class="info">
             <span v-same-html="getSubText(item)"></span>
           </div>
         </div>
@@ -51,11 +55,14 @@ import VirtualScroll from './VirtualScrollNoHeight.vue'
 import Cover from './CoverBox.vue'
 import SvgIcon from './SvgIcon.vue'
 import ExplicitSymbol from './ExplicitSymbol.vue'
+import { usePluginMusic } from '../store/pluginMusic'
 import { formatPlayCount } from '../utils'
+import { Album, Artist, Playlist, PlaylistDetail } from '@/types/plugin'
+import { CoverType } from '@/types/music'
 
 const props = defineProps({
-  items: { type: Array as () => any[], required: true },
-  type: { type: String, default: '' },
+  items: { type: Array as () => (Playlist | Artist | Album | PlaylistDetail)[], required: true },
+  type: { type: String as PropType<CoverType>, default: '' },
   subText: { type: String, default: null },
   itemHeight: { type: Number, default: 240 },
   showPosition: { type: Boolean, default: true },
@@ -74,32 +81,26 @@ const props = defineProps({
 
 const { items } = toRefs(props)
 
-const getImageUrl = (item: any) => {
-  if (item.img1v1Url) {
-    let img1v1ID = item.img1v1Url.split('/')
-    img1v1ID = img1v1ID[img1v1ID.length - 1]
-    if (img1v1ID === '5639395138885805.jpg') {
-      return 'https://p2.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg?param=256y256'
-    }
-  }
-  const img = item.img1v1Url || item.picUrl || item.coverImgUrl || item.avatarUrl
-  return `${img?.replace('thumbnail=140y140&', 'thumbnail=256y256&')}${item.service ? '' : '?param=256y256'}`
+const isPlaylist = (item: Playlist | Artist | Album | PlaylistDetail): item is Playlist => {
+  return 'playCount' in item
 }
 
+const { getPluginName } = usePluginMusic()
+
 const isExplicit = (item: any) => {
-  return props.type === 'album' && item.mark === 1056768
+  return props.type === 'Album' && item.mark === 1056768
 }
 
 const isPrivacy = (item: any) => {
-  return props.type === 'playlist' && item.privacy === 10
+  return props.type === 'Playlist' && item.isPrivate
 }
 const getSubText = (item: any) => {
-  let subText = ''
+  let subText = ``
   if (props.subText === 'artist') {
-    if (item.artist !== undefined)
-      subText = `<a href="/#/artist/${item.artist.id}">${item.artist.name}</a>`
-    if (item.artists !== undefined)
-      subText = `<a href="/#/artist/${item.artists[0].id}">${item.artists[0].name}</a>`
+    const ar = item.artists?.[0] || null
+    subText = ar
+      ? `<a href='/artist/${ar.pluginId}/${JSON.stringify(ar.sourceContext)}'>${ar.name}</a>`
+      : ''
   } else if (props.subText === 'updateFrequency') {
     subText = item.updateFrequency
   } else if (props.subText === 'copywriter') {

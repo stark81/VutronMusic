@@ -29,8 +29,8 @@ const getFilePath = (
     const urlExt = extname(url.pathname).toLowerCase()
     if (urlExt && urlExt.length > 1) extension = urlExt.substring(1)
   }
-  if (extension === 'mp3' && contentType && typeMap[contentType]) {
-    extension = typeMap[contentType]
+  if (extension === 'mp3' && contentType && contentType in typeMap) {
+    extension = typeMap[contentType as keyof typeof typeMap]
   }
 
   const name = track.name.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
@@ -42,13 +42,13 @@ const getPic = (url: string): Promise<{ pic: Buffer; format: string }> =>
     try {
       const client = url.startsWith('https') ? _https : _http
       const fullUrl = url + '?param=1024y1024'
-      const req = client.get(fullUrl, (res) => {
+      const req = client.get(fullUrl, (res: any) => {
         if (res.statusCode !== 200) {
           res.resume()
           return reject(new Error(`Request Failed: ${res.statusCode}`))
         }
-        const chunks = []
-        res.on('data', (chunk) => chunks.push(chunk))
+        const chunks: Buffer[] = []
+        res.on('data', (chunk: Buffer) => chunks.push(chunk))
         res.on('end', () => {
           resolve({
             pic: Buffer.concat(chunks),
@@ -69,12 +69,12 @@ const downloadToBuffer = (
   new Promise((resolve, reject) => {
     const client = url.startsWith('https') ? _https : _http
     client
-      .get(url, (res) => {
+      .get(url, (res: any) => {
         if (res.statusCode !== 200) {
           reject(new Error(`Request Failed. Status: ${res.statusCode}`))
         }
-        const data = []
-        res.on('data', (chunk) => data.push(chunk))
+        const data: Buffer[] = []
+        res.on('data', (chunk: Buffer) => data.push(chunk))
         res.on('end', () => {
           const buffer = Buffer.concat(data)
           resolve({
@@ -132,13 +132,13 @@ const runCacheTask = async (track: Record<string, any>, url: string, audioCacheP
   }
 }
 
-const taskQueue = []
+const taskQueue: { track: Record<string, any>; url: string; audioCachePath: string }[] = []
 let _running = false
 
 async function processQueue() {
   if (_running || taskQueue.length === 0) return
   _running = true
-  const { track, url, audioCachePath } = taskQueue.shift()
+  const { track, url, audioCachePath } = taskQueue.shift()!
 
   try {
     const result = await runCacheTask(track, url, audioCachePath)

@@ -1,26 +1,35 @@
+import { PluginId } from './plugin'
+
 export type TrackType = 'online' | 'local' | 'stream'
 
 export interface Artist {
-  id: number
+  id: string
+  pluginId: string
   name: string
   picUrl: string
-  matched: boolean
-  [key: string]: any
+  description: string
+  followed: boolean
+  updatedAt: number
 }
 
 export interface Album {
-  id: number
+  id: string
+  pluginId: string
   name: string
   picUrl: string
-  matched: boolean
-  artist?: Artist
-  [key: string]: any
+  type: string
+  company: string
+  description: string
+  subscribed: boolean
+  isExplicit: boolean
+
+  createTime: number
+  updatedAt: number
 }
 
 export interface scanTrack {
-  id: number
   name: string
-  dt: number
+  duration: number
   filePath: string
   type?: TrackType
   matched?: boolean
@@ -38,43 +47,69 @@ export interface scanTrack {
   picUrl: string
 }
 
+// 数据库的Track类型，和渲染进程的类型不一致
 export interface Track {
-  id: number
+  id: string
+  pluginId: string
   name: string
-  dt: number
-  filePath: string
-  type?: TrackType
-  matched?: boolean
-  offset?: number
-  md5?: string
-  createTime: number
-  alias: string[]
-  album: Album
-  artists: Artist[]
-  albumArtist: Artist[]
+  duration: number
   picUrl: string
-  source?: string
-  size?: number
+  no: number
+  alias: string
+  mvid: string
+  albumId: string
+
+  filePath: string
+  md5: string
+  playCount: number
+  bitrate: string
   gain: number
   peak: number
-  [key: string]: any
+  offset: number
+
+  type: TrackType
+  deleted: boolean
+  size: number
+
+  createTime: number
+  updatedAt: number
 }
 
-export interface Playlist {
-  id: number
-  name: string
-  description: string
-  coverImgUrl: string
-  updateTime: number
-  trackCount: number
-  trackIds: number[]
-  creator?: any
-}
+// export interface Playlist {
+//   id: number
+//   name: string
+//   description: string
+//   coverImgUrl: string
+//   updateTime: number
+//   trackCount: number
+//   trackIds: number[]
+//   creator?: any
+// }
 
-export interface StreamPlaylist extends Omit<Playlist, 'id'> {
+// Playlist/PlaylistEntry 数据库行类型
+export interface PlaylistRow {
   id: string
-  trackItemIds: Record<number, number>
+  pluginId: string
+  name: string
+  picUrl: string
+  description: string
+  createTime: number
+  updateTime: number
 }
+
+export interface PlaylistEntryRow {
+  id: number
+  playlistId: string
+  pluginId: string
+  sourceContext: string
+  position: number
+  createTime: number
+}
+
+// export interface StreamPlaylist extends Omit<Playlist, 'id'> {
+//   id: string
+//   trackItemIds: Record<number, number>
+// }
 
 export type serviceName = 'navidrome' | 'jellyfin' | 'emby'
 export type streamStatus = 'logout' | 'login' | 'offline'
@@ -144,4 +179,74 @@ export interface CommonTheme {
     port: string
   }
   realIp: { enable: boolean; ip: string }
+}
+
+export type RepeatMode = 'off' | 'on' | 'one'
+
+export type CoverType = 'Playlist' | 'Album' | 'Artist' | 'User'
+
+export type SourceType =
+  | 'Playlist'
+  | 'Album'
+  | 'Artist'
+  | 'Track'
+  | 'LocalTrack'
+  | 'TrackList'
+  | 'DailySongs'
+  | 'ExploreTrack'
+  | 'SearchTrack'
+  | 'History'
+  | 'CloudDisk'
+
+export type PlaylistSourceInfo = {
+  type: SourceType
+  plugin: PluginId | 'all'
+  sourceContext: Record<string, any>
+  pluginSourceContexts?: Record<PluginId, Record<string, any>>
+}
+
+export type initMap = {
+  lyric: lyricLine
+  playing: boolean
+  rate: number
+  like: boolean
+  isFM: boolean
+  seek: number
+}
+
+export type statusMap = {
+  lyrics: lyricLine[]
+  lyric: lyricLine
+  playing: boolean
+  lyricOffset: [number, number] // 当前的歌词 offset，当前播放进度
+  line: [number, number] // 当前行，当前播放进度
+  rate: number
+  seek: number // 目前这一项的触发是在当单双行切换、翻译切换时更新播放进度
+  like: boolean
+  isFM: boolean
+  setSeek: number
+  tWByW: boolean
+  repeatMode: RepeatMode
+  shuffle: boolean
+  tooltip: string
+}
+
+export type settingMap = {
+  enableTrayMenu: boolean
+  lang: string
+  trayColor: number
+  showIcon: boolean
+  isWordByWord: boolean
+  playedColor: string
+  playedColorLight: string
+  enableGlobalShortcut: boolean
+  shortcuts: any[]
+  autoCacheTrack: boolean
+  proxy: { type: 0 | 1 | 2; address: string; port: number }
+}
+
+export type osdMap = {
+  show: boolean
+  type: Type
+  isLock: boolean
 }

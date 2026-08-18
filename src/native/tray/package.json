@@ -1,0 +1,10 @@
+{
+  "name": "vutron-tray-native",
+  "version": "1.0.0",
+  "main": "build/Release/tray_addon.node",
+  "private": true,
+  "dependencies": {
+    "node-addon-api": "^7.1.0",
+    "node-gyp": "^11.5.0"
+  }
+}

@@ -25,7 +25,7 @@
           :key="index"
           :track-prop="item"
           :track-no="item.no || index + 1"
-          type-prop="localPlaylist"
+          type-prop="Playlist"
           @dblclick="playThisList(item.id)"
         />
       </template>
@@ -39,6 +39,8 @@ import { usePlayerStore } from '../store/player'
 import SvgIcon from './SvgIcon.vue'
 import VirtualScroll from './VirtualScrollNoHeight.vue'
 import TrackListItem from './TrackListItem.vue'
+import { PlaylistSourceInfo } from '@/types/music'
+import { PluginId } from '@/types/schemas'
 
 const props = defineProps<{ tracks: any[] }>()
 
@@ -57,9 +59,21 @@ const showTracks = computed(() => {
 })
 
 const playThisList = (id: number) => {
-  const ids = showTracks.value.map((track) => track.id)
   const idx = showTracks.value.findIndex((item) => item.id === id)
-  replacePlaylist('localPlaylist', 0, ids, idx)
+
+  const source: PlaylistSourceInfo = {
+    type: 'Playlist',
+    plugin: 'local' as PluginId,
+    sourceContext: {},
+    pluginSourceContexts: {}
+  }
+
+  const sourceContext: [PluginId, Record<string, any>][] = showTracks.value.map((item) => [
+    'local' as PluginId,
+    { id: item.id }
+  ])
+
+  replacePlaylist(source, sourceContext, idx)
 }
 
 const updatePadding = inject('updatePadding') as (padding: number) => void

@@ -5,12 +5,12 @@
         <InfoBG />
         <div class="content">
           <label class="left-title"
-            >流媒体歌曲 - {{ defaultGroupBy === 'all' ? '聚合' : defaultGroupBy }}</label
+            >流媒体歌曲 - {{ tool.groundBy === 'all' ? '聚合' : tool.groundBy }}</label
           >
           <div class="content-info">
             <div>
               <div class="subtitle">全部歌曲</div>
-              <div class="text">{{ defaultTracks.length }}首</div>
+              <div class="text">{{ tracksCount }}首</div>
             </div>
             <div>
               <div class="subtitle">歌曲总时长</div>
@@ -18,7 +18,7 @@
             </div>
             <div>
               <div class="subtitle">流媒体歌单</div>
-              <div class="text">{{ defaultPlaylists.length }}个</div>
+              <div class="text">{{ filterPlaylists.length }}个</div>
             </div>
             <div>
               <div class="subtitle">歌曲占用</div>
@@ -29,7 +29,8 @@
       </div>
       <div class="right-top" @click="goToLikedSongsList">
         <div class="title"
-          >{{ $t('library.likedSongs') }} - {{ likedTracks.length }}{{ $t('common.songs') }}</div
+          >{{ $t('library.likedSongs') }} - {{ filterLikedTracks.length
+          }}{{ $t('common.songs') }}</div
         >
         <div>
           <div
@@ -37,11 +38,14 @@
             v-show="line !== ''"
             :key="`${line}${index}`"
             class="lyric-p"
-            >{{ line }}</div
+          >
+            {{ line }}</div
           >
         </div>
       </div>
-      <div class="right-bottom">{{ randomTrack?.artists[0].name }} - {{ randomTrack?.name }}</div>
+      <div class="right-bottom"
+        >{{ randomtrack?.artists?.[0]?.name }} - {{ randomtrack?.name }}</div
+      >
     </div>
     <div class="section-two">
       <div
@@ -71,15 +75,19 @@
           <div v-if="isBatchOp" class="tab" @click="addTracksToQueue">{{
             $t('contextMenu.addToQueue')
           }}</div>
-          <div v-else class="tab" :class="{ active: idx === 2 }" @click="idx = 2">
-            {{ $t('streamMusic.album') }}
+          <div v-else class="tab dropdown" :class="{ active: idx === 2 }" @click="idx = 2">
+            <span class="text">{{ `${$t('streamMusic.album')}` }}</span>
+            <span class="icon" @click.stop="(e) => openTabMenu('album', e)"
+              ><svg-icon icon-class="dropdown"
+            /></span>
           </div>
           <div v-if="isBatchOp" class="tab" @click="finishBatchOp">{{
             $t('contextMenu.finish')
           }}</div>
           <div v-else class="tab dropdown" :class="{ active: idx === 3 }" @click="idx = 3">
+            <!-- ${artistTab === 'default' ? '全部' : '收藏'} -  -->
             <span class="text">{{
-              $t(artistBy === 0 ? 'streamMusic.artist' : 'localMusic.albumArtist')
+              `${$t(tool.artistBy === 'artists' ? 'streamMusic.artist' : 'localMusic.albumArtist')}`
             }}</span>
             <span class="icon" @click.stop="(e) => openTabMenu('artist', e)"
               ><svg-icon icon-class="dropdown"
@@ -89,139 +97,234 @@
         <div v-show="idx !== 1" class="search-box">
           <SearchBox
             ref="streamSearchBoxRef"
-            :placeholder="`搜索${placeHolderMap(idx === 3 ? (tabs[idx][artistBy] as string) : (tabs[idx] as string))}`"
+            :placeholder="`搜索${placeHolderMap(idx === 3 ? tool.artistBy : String(tabs[idx]))}`"
           />
+          <div
+            class="pagi-wrap"
+            :class="{
+              visible:
+                tool.groundBy !== 'all' &&
+                !isCurrentPluginLoadFull &&
+                !streamSearchBoxRef?.showInput
+            }"
+          >
+            <Pagination
+              :current-page="currentPage"
+              :total-pages="totalPages"
+              @page-change="onPageChange"
+            />
+          </div>
         </div>
         <button v-show="idx === 1" class="tab-button" @click="openAddPlaylistModal"
           ><svg-icon icon-class="plus" />{{ $t('library.playlist.newPlaylist') }}</button
         >
       </div>
-      <div v-if="!loginedServices.length" class="errorInfo">{{ streamMessage }}</div>
+      <div v-if="!loginService.length" class="errorInfo">{{ 'streamMessage' }}</div>
       <div v-if="show" class="section-two-content" :style="tabStyle">
         <div v-show="idx === 0">
           <TrackList
-            :id="0"
+            v-if="tool.groundBy === 'all' || isCurrentPluginLoadFull"
             ref="streamListRef"
-            :items="sortedLocalTracks"
-            :type="'streamPlaylist'"
-            :group-by="defaultGroupBy"
-            :show-service="true"
+            :items="filterTracks"
+            :type="'Track'"
+            :plugin="tool.groundBy"
+            :source-context="{ pluginType: 'stream', id: 'stream' }"
+            :show-service="tool.groundBy === 'all'"
             :colunm-number="1"
             :is-end="true"
-            :extra-context-menu-item="['addToStreamList']"
           />
+          <template v-else>
+            <TrackList
+              ref="streamListRef"
+              :items="filterTracks"
+              :type="'Track'"
+              :plugin="tool.groundBy"
+              :source-context="{ pluginType: 'stream', id: 'stream' }"
+              :show-service="false"
+              :colunm-number="1"
+              :is-end="true"
+            />
+          </template>
         </div>
         <div v-show="idx === 1">
           <CoverRow
-            :items="defaultPlaylists"
-            type="streamPlaylist"
+            :items="filterPlaylists"
+            type="Playlist"
             sub-text="creator"
             :colunm-number="5"
             :is-end="true"
           />
         </div>
         <div v-show="idx === 2">
-          <AlbumList :tracks="sortedLocalTracks" />
+          <AlbumList v-if="albumTab === 'default'" :tracks="filterTracks" />
+          <CoverRow
+            v-else
+            :items="filterAlbums"
+            type="Album"
+            sub-text="artist"
+            :colunm-number="5"
+            :is-end="true"
+          />
         </div>
         <div v-show="idx === 3">
-          <ArtistList :tracks="sortedLocalTracks" :type="tabs[3][artistBy]" />
+          <ArtistList v-if="artistTab === 'default'" :tracks="filterTracks" :type="tool.artistBy" />
+          <CoverRow
+            v-else
+            :items="filterArtists"
+            type="Artist"
+            sub-text="artist"
+            :colunm-number="5"
+            :is-end="true"
+          />
         </div>
       </div>
     </div>
 
     <ContextMenu ref="streamTabMenu">
-      <div class="item" :class="{ active: groundBy === 'all' }" @click="groundBy = 'all'">聚合</div>
-      <div
-        v-for="service in loginedServices"
-        :key="service.name"
-        class="item"
-        :class="{ active: groundBy === service.name }"
-        @click="groundBy = service.name"
+      <div class="item" :class="{ active: tool.groundBy === 'all' }" @click="tool.groundBy = 'all'"
+        >聚合</div
       >
-        {{ service.name }}
+      <div
+        v-for="se in loginService"
+        :key="se.code"
+        class="item"
+        :class="{ active: tool.groundBy === se.code }"
+        @click="tool.groundBy = se.code"
+      >
+        {{ se.name }}
       </div>
       <hr />
       <div
         v-for="sortOption in sortOptions"
         :key="sortOption.value"
         class="item"
-        :class="{ active: sortOption.value === sortBy }"
-        @click="sortBy = sortOption.value"
+        :class="{ active: sortOption.value === tool.sortBy }"
+        @click="tool.sortBy = sortOption.value"
         >{{ sortOption.name }}</div
       >
       <hr v-show="!isBatchOp" />
+      <div
+        v-for="option in orderOptions"
+        :key="option.value"
+        class="item"
+        :class="{ active: option.value === tool.orderBy }"
+        @click="tool.orderBy = option.value"
+        >{{ option.name }}</div
+      >
+      <hr v-show="!isBatchOp" />
+      <div v-show="!isBatchOp" class="item" @click="refreshTracks">{{
+        $t('contextMenu.refreshData')
+      }}</div>
       <div v-show="!isBatchOp" class="item" @click="isBatchOp = true">{{
         $t('contextMenu.batchOperation')
       }}</div>
     </ContextMenu>
 
+    <ContextMenu ref="albumTabMenu">
+      <div class="item" :class="{ active: albumTab === 'default' }" @click="albumTab = 'default'"
+        >全部</div
+      >
+      <div class="item" :class="{ active: albumTab === 'liked' }" @click="albumTab = 'liked'"
+        >收藏</div
+      >
+    </ContextMenu>
+
     <ContextMenu ref="artistTabMenu">
-      <div class="item" @click="artistBy = 0">{{ $t('localMusic.artists') }}</div>
-      <div class="item" @click="artistBy = 1">{{ $t('localMusic.albumArtist') }}</div>
+      <div
+        class="item"
+        :class="{ active: tool.artistBy === 'artists' }"
+        @click="tool.artistBy = 'artists'"
+        >{{ $t('localMusic.artists') }}</div
+      >
+      <div
+        class="item"
+        :class="{ active: tool.artistBy === 'albumArtists' }"
+        @click="tool.artistBy = 'albumArtists'"
+        >{{ $t('localMusic.albumArtist') }}</div
+      >
+      <br />
+      <div class="item" :class="{ active: artistTab === 'default' }" @click="artistTab = 'default'"
+        >全部</div
+      >
+      <div class="item" :class="{ active: artistTab === 'liked' }" @click="artistTab = 'liked'"
+        >收藏</div
+      >
     </ContextMenu>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, inject, computed, provide, watch, shallowRef, onBeforeUnmount } from 'vue'
+import { onMounted, onBeforeUnmount, computed, watch, inject, ref, provide, shallowRef } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useStreamMusicStore } from '../store/streamingMusic'
+import { usePluginMusic } from '../store/pluginMusic'
 import { useNormalStateStore } from '../store/state'
 import { useRouter } from 'vue-router'
 import InfoBG from '../components/InfoBG.vue'
 import SvgIcon from '../components/SvgIcon.vue'
 import SearchBox from '../components/SearchBox.vue'
 import TrackList from '../components/VirtualTrackList.vue'
-import AlbumList from '../components/AlbumList.vue'
-import ArtistList from '../components/ArtistList.vue'
 import CoverRow from '../components/VirtualCoverRow.vue'
 import ContextMenu from '../components/ContextMenu.vue'
+import AlbumList from '../components/AlbumList.vue'
+import ArtistList from '../components/ArtistList.vue'
 import { useI18n } from 'vue-i18n'
 import { randomNum, pickedLyric } from '../utils'
-import { Track, lyricLine, serviceName } from '@/types/music.d'
-import _ from 'lodash'
+import { lyricLine } from '@/types/music.d'
+import type { Track, sortType, orderType } from '@/types/plugin'
+// import _ from 'lodash'
+import Pagination from '../components/Pagination.vue'
+import { PluginId } from '@/types/schemas'
 
 const stateStore = useNormalStateStore()
 const { newPlaylistModal, modalOpen } = storeToRefs(stateStore)
 const { showToast } = stateStore
 
-const streamMusicStore = useStreamMusicStore()
+const pluginStore = usePluginMusic()
+const { playlists, tools, likedTracks, services, albums, artists, tracks } =
+  storeToRefs(pluginStore)
 const {
-  sortBy,
-  streamTracks,
-  playlists,
-  message,
-  streamLikedTracks,
-  loginedServices,
-  groundBy,
-  artistBy
-} = storeToRefs(streamMusicStore)
-const { fetchStreamMusic, fetchStreamPlaylist, getStreamLyric, checkStreamStatus } =
-  streamMusicStore
+  fetchLikedPlaylists,
+  fetchLikedSongsWithDetails,
+  // fetchLyric,
+  pluginMethodCall,
+  fetchLikedArtists,
+  fetchAllTracks,
+  handleStatusChange,
+  loadTrackPage
+} = pluginStore
 
+const streamService = computed(() => services.value.filter((item) => item.type === 'stream'))
+const loginService = computed(() => streamService.value.filter((item) => item.status === 'login'))
+const tool = computed(() => tools.value.stream)
 const router = useRouter()
 
 const hasCustomTitleBar = inject('hasCustomTitleBar', ref(true))
 const streamTabMenu = ref<InstanceType<typeof ContextMenu>>()
+const albumTabMenu = ref<InstanceType<typeof ContextMenu>>()
 const artistTabMenu = ref<InstanceType<typeof ContextMenu>>()
 const streamSearchBoxRef = ref<InstanceType<typeof SearchBox>>()
 const streamListRef = shallowRef<InstanceType<typeof TrackList>>()
 const tabsRowRef = ref()
 const isBatchOp = ref(false)
 const show = ref(false)
-
+const lyric = ref<{ content: string }[]>([])
+const randomtrack = ref<Track>()
 const idx = ref(0)
-const randomTrack = ref<Track>()
-const randomLyric = ref<{ content: string }[]>([])
+
+const albumTab = ref<'default' | 'liked'>('default')
+const artistTab = ref<'default' | 'liked'>('default')
 
 const tabs = ['track', 'playlist', 'album', ['artist', 'albumArtist']] as const
 
 const { t } = useI18n()
-const sortOptions = [
-  { name: t('contextMenu.defaultSort'), value: 'default' },
-  { name: t('contextMenu.sortByName'), value: 'byname' },
-  { name: t('contextMenu.ascendSort'), value: 'ascend' },
-  { name: t('contextMenu.descendSort'), value: 'descend' }
+const sortOptions: { name: string; value: sortType }[] = [
+  { name: t('contextMenu.name'), value: 'name' },
+  { name: t('contextMenu.createTime'), value: 'createTime' },
+  { name: t('contextMenu.playCount'), value: 'playCount' }
+]
+const orderOptions: { name: string; value: orderType }[] = [
+  { name: t('contextMenu.ascOrder'), value: 'ASC' },
+  { name: t('contextMenu.descOrder'), value: 'DESC' }
 ]
 
 const tabStyle = computed(() => {
@@ -229,48 +332,116 @@ const tabStyle = computed(() => {
   return { marginTop: `${marginTop}px` }
 })
 
-const defaultGroupBy = computed(() => {
-  if (loginedServices.value.length === 1) {
-    return loginedServices.value[0].name
+const sers = computed(() => loginService.value.map((it) => it.code))
+
+const filterLikedTracks = computed(() => {
+  const tracks =
+    tool.value.groundBy === 'all'
+      ? Object.entries(likedTracks.value)
+          .filter(([plugin]) => sers.value.includes(plugin as PluginId))
+          .map(([, item]) => item.data)
+          .flat()
+      : likedTracks.value?.[tool.value.groundBy]?.data || []
+  return tracks
+})
+
+const defaultTracks = computed(() => {
+  if (tool.value.groundBy === 'all') {
+    // 只聚合 loadFull=true 的已登录流媒体服务
+    return Object.entries(tracks.value)
+      .filter(([plugin]) => {
+        const svc = services.value.find((s) => s.code === plugin)
+        return svc && svc.loadFull && sers.value.includes(plugin as PluginId)
+      })
+      .map(([, item]) => item.data)
+      .flat()
   }
-  return groundBy.value
+  return tracks.value[tool.value.groundBy]?.data || []
 })
 
-const streamMessage = computed(() => {
-  return loginedServices.value.length === 0 ? message.value : '当前服务离线，请稍后再试'
+const currentService = computed(() => {
+  if (tool.value.groundBy === 'all') return null
+  return services.value.find((s) => s.code === tool.value.groundBy) || null
 })
 
-const defaultPlaylists = computed(() => {
-  if (groundBy.value === 'all') {
-    return _.cloneDeep(_.flatten(Object.values(playlists.value)))
-  }
-  return playlists.value[groundBy.value]
+const isCurrentPluginLoadFull = computed(() => {
+  return currentService.value ? currentService.value.loadFull : true
 })
 
-const likedTracks = computed(() => {
-  return groundBy.value === 'all'
-    ? _.flatten(Object.values(streamLikedTracks.value))
-    : streamLikedTracks.value[groundBy.value]
+const currentPage = computed(() => {
+  if (!currentService.value) return 0
+  return pluginStore._pagePerPlugin[currentService.value.code] || 0
+})
+
+const totalPages = computed(() => {
+  if (!currentService.value) return 1
+  const pluginTracks = tracks.value[currentService.value.code]
+  if (!pluginTracks) return 1
+  const pageSize = tool.value.pageSize || 1000
+  return Math.max(1, Math.ceil(pluginTracks.count / pageSize))
+})
+
+const onPageChange = async (page: number) => {
+  if (!currentService.value) return
+  await loadTrackPage(currentService.value.code, page)
+}
+
+const tracksCount = computed(() => {
+  const groundByCount = Object.entries(tracks.value)
+    .filter(([plugin]) => {
+      if (!sers.value.includes(plugin as PluginId)) return false
+      if (tool.value.groundBy === 'all') {
+        const svc = services.value.find((s) => s.code === plugin)
+        return svc?.loadFull
+      }
+      return true
+    })
+    .map(([, item]) => item.count)
+    .reduce((acc, cur) => acc + cur, 0)
+  return tool.value.groundBy === 'all'
+    ? groundByCount
+    : tracks.value[tool.value.groundBy]?.count || defaultTracks.value.length
+})
+
+const filterPlaylists = computed(() => {
+  const streamTool = pluginStore.tools.stream
+
+  const onlinePlaylists = streamService.value
+    .map((item) => (playlists.value[item.code]?.data ?? []).flat())
+    .flat()
+
+  const plists =
+    streamTool.groundBy === 'all'
+      ? onlinePlaylists
+      : playlists.value?.[streamTool.groundBy]?.data || []
+  return plists
+})
+
+const filterAlbums = computed(() => {
+  const streamTool = pluginStore.tools.stream
+
+  const al = streamService.value.map((item) => (albums.value[item.code]?.data ?? []).flat()).flat()
+  const plists = streamTool.groundBy === 'all' ? al : albums.value[streamTool.groundBy].data
+  return plists
+})
+
+const filterArtists = computed(() => {
+  const streamTool = pluginStore.tools.stream
+
+  const ar = streamService.value.map((item) => (artists.value[item.code]?.data ?? []).flat()).flat()
+  const plists = streamTool.groundBy === 'all' ? ar : artists.value[streamTool.groundBy].data
+  return plists
 })
 
 const pickedLyricLines = computed(() => {
-  const randomLines = pickedLyric(randomLyric.value)
+  const randomLines = pickedLyric(lyric.value)
   return randomLines
 })
 
 const keyword = computed(() => streamSearchBoxRef.value?.keywords || '')
 
-const defaultTracks = computed(() => {
-  if (groundBy.value === 'all') {
-    return _.cloneDeep(
-      _.flatten(Object.values(streamTracks.value)).map((track, index) => ({ ...track, index }))
-    )
-  }
-  return streamTracks.value[groundBy.value].map((track, index) => ({ ...track, index }))
-})
-
-const filterStreamTracks = computed(() => {
-  return defaultTracks.value.filter(
+const filterTracks = computed(() => {
+  return sortedLocalTracks.value.filter(
     (track) =>
       (track.name && track.name.toLowerCase().includes(keyword.value?.toLowerCase())) ||
       (track.album?.name &&
@@ -278,32 +449,35 @@ const filterStreamTracks = computed(() => {
       track.artists.find(
         (ar) => ar.name && ar.name.toLowerCase().includes(keyword.value?.toLowerCase())
       ) ||
-      track.albumArtist.find(
+      track.albumArtists.find(
         (ar) => ar.name && ar.name.toLowerCase().includes(keyword.value?.toLowerCase())
       )
   )
 })
 
 const sortedLocalTracks = computed(() => {
-  return filterStreamTracks.value.slice().sort((a, b) => {
-    if (sortBy.value === 'default') {
-      return a.index - b.index
-    } else if (sortBy.value === 'ascend') {
-      const timeA = new Date(a.createTime).getTime()
-      const timeB = new Date(b.createTime).getTime()
-      return timeA - timeB
-    } else if (sortBy.value === 'descend') {
-      const timeA = new Date(a.createTime).getTime()
-      const timeB = new Date(b.createTime).getTime()
-      return timeB - timeA
-    } else return a.name.localeCompare(b.name, 'zh-CN', { numeric: true })
+  return defaultTracks.value.slice().sort((a, b) => {
+    const first = a[tool.value.sortBy]
+    const second = b[tool.value.sortBy]
+
+    if (tool.value.orderBy === 'ASC') {
+      if (typeof first === 'number' && typeof second === 'number') {
+        return first - second
+      }
+      return String(first).localeCompare(String(second), 'zh-CN', { numeric: true })
+    } else {
+      if (typeof first === 'number' && typeof second === 'number') {
+        return second - first
+      }
+      return String(second).localeCompare(String(first), 'zh-CN', { numeric: true })
+    }
   })
 })
 
 const formatedTime = computed(() => {
   const dt =
-    defaultTracks.value
-      .map((track) => track.dt)
+    filterTracks.value
+      .map((track) => track.duration)
       .filter((dt) => dt && !isNaN(Number(dt)))
       .reduce((acc, cur) => acc + cur, 0) / 1000
   const hourse = Math.floor(dt / 3600)
@@ -314,9 +488,22 @@ const formatedTime = computed(() => {
 
 const formatedMemory = computed(() => {
   const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
-  let memory = defaultTracks.value
-    .map((track) => track.size!)
-    .reduce((acc, cur) => acc + cur, 0) as number
+  let memory = 0
+  const countedPaths = new Set<string>()
+  for (const track of filterTracks.value) {
+    const size = track.size
+    if (size && !isNaN(Number(size))) {
+      // CUE 分轨共享同一 filePath，只计一次
+      if (track.filePath) {
+        if (!countedPaths.has(track.filePath)) {
+          countedPaths.add(track.filePath)
+          memory += size
+        }
+      } else {
+        memory += size
+      }
+    }
+  }
   let i = 0
   while (memory >= 1024 && i < units.length - 1) {
     memory /= 1024
@@ -330,11 +517,11 @@ const selectAll = () => {
 }
 
 const addToPlaylist = () => {
-  streamListRef.value?.addToSteamPlaylist()
+  streamListRef.value?.addTrackToPlaylist()
 }
 
 const addTracksToQueue = () => {
-  streamListRef.value?.addToQueue()
+  // streamListRef.value?.addToQueue()
 }
 
 const finishBatchOp = () => {
@@ -342,9 +529,28 @@ const finishBatchOp = () => {
   streamListRef.value?.doFinish()
 }
 
-const openTabMenu = (ref: 'track' | 'artist', e: MouseEvent): void => {
+const refreshTracks = () => {
+  if (tool.value.groundBy === 'all') {
+    loginService.value
+      .filter((se) => {
+        const svc = services.value.find((s) => s.code === se.code)
+        return svc?.loadFull
+      })
+      .forEach((se) => fetchAllTracks(se.code, true))
+  } else {
+    const svc = services.value.find((s) => s.code === tool.value.groundBy)
+    if (svc?.loadFull) {
+      fetchAllTracks(tool.value.groundBy, true)
+    } else {
+      loadTrackPage(tool.value.groundBy, 0)
+    }
+  }
+}
+
+const openTabMenu = (ref: 'track' | 'album' | 'artist', e: MouseEvent): void => {
   const map = {
     track: streamTabMenu.value,
+    album: albumTabMenu.value,
     artist: artistTabMenu.value
   }
   map[ref]?.openMenu(e)
@@ -360,38 +566,44 @@ const placeHolderMap = (tab: string) => {
 }
 
 const goToLikedSongsList = () => {
-  router.push({ path: `/stream-liked-songs/${groundBy.value}` })
+  if (tool.value.groundBy === 'all') {
+    const plugins = loginService.value.map((it) => it.code).join('/')
+    router.push({ path: `/liked-songs/${plugins}` })
+  } else {
+    router.push({ path: `/liked-songs/${tool.value.groundBy}` })
+  }
 }
 
 const openAddPlaylistModal = () => {
-  if (groundBy.value === 'all' && loginedServices.value.length > 1) {
+  if (tool.value.groundBy === 'all' && loginService.value.length > 1) {
     showToast('在聚合视图下无法进行操作，请先选择具体的流媒体服务')
     return
   }
   newPlaylistModal.value = {
-    type:
-      groundBy.value === 'all' ? loginedServices.value[0].name : (groundBy.value as serviceName),
+    plugin: tool.value.groundBy === 'all' ? loginService.value[0].code : tool.value.groundBy,
     afterCreateAddTrackID: [],
     show: true
   }
 }
 
 const getRandomTrack = async () => {
+  if (filterLikedTracks.value.length === 0) return
+
   let i = 0
   let data: lyricLine[]
-  let randomT: Track
-  while (i < likedTracks.value.length - 1) {
-    randomT = likedTracks.value[randomNum(0, likedTracks.value.length - 1)]
-    data = await getStreamLyric(randomT)
-    if (data.length > 0) {
-      const isInstrumental = data
-        .map((lien) => lien.lyric)
-        .filter((l) => l.text.includes('纯音乐，请欣赏'))
-      if (!isInstrumental.length) {
-        randomLyric.value = data.map((l) => ({ content: l.lyric.text }))
-        randomTrack.value = randomT
-        break
+  while (i < filterLikedTracks.value.length) {
+    const track = filterLikedTracks.value[randomNum(0, filterLikedTracks.value.length - 1)]
+    data = await pluginMethodCall(track.pluginId, 'getLyric', track.sourceContext).then(
+      (result) => {
+        if (result.code === 200) return result.data
+        return []
       }
+    )
+    const isInstrumental = data.some((l) => l.lyric.text.includes('纯音乐，请欣赏'))
+    if (data.length && !isInstrumental) {
+      lyric.value = data.map((l) => ({ content: l.lyric.text }))
+      randomtrack.value = track
+      break
     }
     i++
   }
@@ -442,26 +654,57 @@ const handleResize = () => {
   if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
 }
 
-onMounted(async () => {
-  checkStreamStatus()
-  if (loginedServices.value.length === 0) {
-    router.push(`/streamLogin/${groundBy.value === 'all' ? 'navidrome' : groundBy.value}`)
-    return
-  }
+const checkLoginStatus = async () => {
+  await Promise.all(
+    streamService.value
+      .filter((item) => item.status !== 'logout')
+      .map(async (item) => {
+        const res = await pluginMethodCall(item.code, 'systemPing')
+        handleStatusChange(item.code, res.status)
+      })
+  )
+}
 
-  if (!defaultTracks.value.length) {
-    fetchStreamPlaylist()
-    await fetchStreamMusic().then(() => {
-      show.value = true
-      getRandomTrack()
-    })
-  } else {
+const loadData = async (ser: PluginId) => {
+  if (filterTracks.value.length) {
     show.value = true
-    fetchStreamMusic().then(() => {
-      getRandomTrack()
-    })
-    fetchStreamPlaylist()
+    await fetchLikedPlaylists(ser)
+    fetchLikedSongsWithDetails(ser)
+    fetchLikedArtists(ser)
+    fetchAllTracks(ser)
+  } else {
+    await fetchLikedPlaylists(ser)
+    await fetchLikedSongsWithDetails(ser)
+    fetchLikedArtists(ser)
+    fetchAllTracks(ser)
+    show.value = true
   }
+}
+
+watch(loginService, (value, oldValue) => {
+  value.forEach((item) => {
+    if (!oldValue?.length) {
+      loadData(item.code)
+    } else {
+      const idx = oldValue.findIndex((it) => it.code === item.code)
+      if (idx === -1) {
+        loadData(item.code)
+      }
+    }
+  })
+})
+
+watch(
+  filterLikedTracks,
+  () => {
+    getRandomTrack()
+  },
+  { deep: true, immediate: true }
+)
+
+onMounted(async () => {
+  await checkLoginStatus()
+  loginService.value.forEach((item) => loadData(item.code))
   window.addEventListener('resize', handleResize)
   setTimeout(() => {
     if (tabsRowRef.value) observeTab.observe(tabsRowRef.value)
@@ -485,11 +728,13 @@ onBeforeUnmount(() => {
   height: 240px;
   transition: all 0.4s;
   position: relative;
+
   .left {
     position: absolute;
     height: 100%;
     border-radius: 12px;
     overflow: hidden;
+
     .content {
       display: flex;
       flex-direction: column;
@@ -499,7 +744,7 @@ onBeforeUnmount(() => {
       left: 0;
       width: 410px;
       height: 100%;
-      padding: 36px 80px;
+      padding: 36px 60px;
       box-sizing: border-box;
 
       .left-title {
@@ -513,20 +758,24 @@ onBeforeUnmount(() => {
         grid-gap: 20px 40px;
         align-items: center;
       }
+
       .subtitle {
         font-size: 14px;
       }
+
       .text {
         font-size: 18px;
       }
     }
   }
+
   .title {
     font-size: 22px;
     font-weight: 700;
     margin-bottom: 20px;
     color: var(--color-primary);
   }
+
   .right-top {
     position: absolute;
     height: 190px;
@@ -548,6 +797,7 @@ onBeforeUnmount(() => {
       text-overflow: ellipsis;
     }
   }
+
   .right-bottom {
     position: absolute;
     white-space: nowrap;
@@ -593,6 +843,7 @@ onBeforeUnmount(() => {
       flex-wrap: wrap;
       font-size: 18px;
       -webkit-app-region: no-drag;
+
       .tab {
         font-weight: 600;
         padding: 8px 14px;
@@ -602,34 +853,62 @@ onBeforeUnmount(() => {
         user-select: none;
         transition: 0.2s;
         opacity: 0.68;
+
         &:hover {
           opacity: 0.88;
           background-color: var(--color-secondary-bg);
         }
       }
+
       .tab.active {
         opacity: 0.88;
         background-color: var(--color-secondary-bg);
       }
+
       .tab.dropdown {
         display: flex;
         align-items: center;
         padding: 0;
         overflow: hidden;
+
         .text {
           padding: 8px 3px 8px 14px;
         }
+
         .icon {
           height: 100%;
           display: flex;
           align-items: center;
           padding: 0 8px 0 3px;
+
           .svg-icon {
             height: 16px;
             width: 16px;
           }
         }
       }
+    }
+  }
+
+  .search-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .pagi-wrap {
+    overflow: hidden;
+    max-width: 0;
+    opacity: 0;
+    transition:
+      max-width 0.3s ease,
+      opacity 0.3s ease;
+    white-space: nowrap;
+    margin-left: 6px;
+
+    &.visible {
+      max-width: 376px;
+      opacity: 1;
     }
   }
 }
@@ -645,15 +924,18 @@ button.tab-button {
   opacity: 0.68;
   font-weight: 500;
   font-size: 14px;
+
   .svg-icon {
     width: 14px;
     height: 14px;
     margin-right: 8px;
   }
+
   &:hover {
     opacity: 1;
     background: var(--color-secondary-bg);
   }
+
   &:active {
     opacity: 1;
     transform: scale(0.92);
