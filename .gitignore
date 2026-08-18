@@ -1,3 +1,7 @@
+flatpak/.flatpak-builder
+flatpak/builddir
+flatpak/repo
+flatpak/vutron-music.flatpak
 # .gitignore for NodeJS Projects
 # ---------- Start of common ignore files
 
