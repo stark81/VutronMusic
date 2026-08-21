@@ -96,6 +96,7 @@ export const useSettingsStore = defineStore(
       enableAmuseServer: true,
       enableDiscordRichPresence: false,
       roundedDockIcon: false,
+      disableWindowShadow: false,
       deepDark: false,
       lastfm: { enable: false, name: '' },
       proxy: { type: 0, address: '', port: '' },
@@ -257,6 +258,13 @@ export const useSettingsStore = defineStore(
       () => misc.enableAmuseServer,
       (val) => {
         window.mainApi?.send('setStoreSettings', { enableAmuseServer: val })
+      }
+    )
+
+    watch(
+      () => misc.disableWindowShadow,
+      (val) => {
+        window.mainApi?.send('setStoreSettings', { disableWindowShadow: val })
       }
     )
 

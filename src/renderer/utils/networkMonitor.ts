@@ -1,63 +1,103 @@
 import { ref } from 'vue'
 
+const FAILURE_THRESHOLD = 3
+const RETRY_DELAYS = [5_000, 15_000, 30_000, 60_000]
+
 const consecutiveFailures = ref(0)
 const isOfflineMode = ref(false)
 
 let initDone = false
+let retryTimer: ReturnType<typeof setTimeout> | undefined
+let retryAttempt = 0
 
-function recordFailure() {
+function clearRetry() {
+  if (retryTimer) clearTimeout(retryTimer)
+  retryTimer = undefined
+  retryAttempt = 0
+}
+
+function scheduleRetry() {
+  if (retryTimer || !navigator.onLine) return
+  const delay = RETRY_DELAYS[Math.min(retryAttempt++, RETRY_DELAYS.length - 1)]
+  retryTimer = setTimeout(() => {
+    retryTimer = undefined
+    retryConnection().catch(() => undefined)
+  }, delay)
+}
+
+function enterOfflineMode() {
+  isOfflineMode.value = true
+  scheduleRetry()
+}
+
+function isTransportFailure(error?: unknown) {
+  // HTTP responses (including 4xx/5xx) prove that the configured service was
+  // reached. They are application failures, not evidence of being offline.
+  const axiosError = error as { response?: unknown; code?: string } | undefined
+  return !axiosError?.response
+}
+
+function recordFailure(error?: unknown) {
+  if (!isTransportFailure(error)) return
   consecutiveFailures.value++
-  if (consecutiveFailures.value >= 2 || !navigator.onLine) {
-    isOfflineMode.value = true
+  if (!navigator.onLine || consecutiveFailures.value >= FAILURE_THRESHOLD) {
+    enterOfflineMode()
   }
 }
 
-function recordSuccess() {
+function recordSuccess(confirmed = false) {
   consecutiveFailures.value = 0
-  if (isOfflineMode.value) {
+  // A successful health check is sufficient to recover. Regular API traffic is
+  // deliberately not allowed to flip the mode after a single transient result.
+  if (isOfflineMode.value && confirmed) {
     isOfflineMode.value = false
+    clearRetry()
   }
 }
 
 async function retryConnection(): Promise<boolean> {
-  if (!navigator.onLine) return false
+  if (!navigator.onLine) {
+    enterOfflineMode()
+    return false
+  }
+
   try {
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 2000)
+    const timeout = setTimeout(() => controller.abort(), 3_000)
     const response = await fetch('/netease/banner?timestamp=' + Date.now(), {
       signal: controller.signal,
       cache: 'no-cache'
     })
     clearTimeout(timeout)
     if (response.ok) {
-      recordSuccess()
+      recordSuccess(true)
       return true
     }
-    return false
   } catch {
-    return false
+    // A failed probe while already offline should keep the retry loop alive.
   }
+
+  enterOfflineMode()
+  return false
 }
 
 function init() {
   if (initDone) return
   initDone = true
 
-  if (!navigator.onLine) {
-    isOfflineMode.value = true
-  }
+  if (!navigator.onLine) enterOfflineMode()
 
   window.addEventListener('online', () => {
-    retryConnection()
+    retryConnection().catch(() => undefined)
   })
 
   window.addEventListener('offline', () => {
-    isOfflineMode.value = true
+    enterOfflineMode()
   })
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && navigator.onLine && isOfflineMode.value) {
-      retryConnection()
+      retryConnection().catch(() => undefined)
     }
   })
 }

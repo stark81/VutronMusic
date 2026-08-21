@@ -515,6 +515,7 @@
       "enableAmuseServer": "启用 6K Amuse Youtube Music 信息源兼容服务器",
       "enableDiscordRichPresence": "启用 Discord Rich Presence",
       "roundedDockIcon": "圆角 Dock 图标",
+      "disableWindowShadow": "关闭窗口阴影",
       "deepDark": "更深的黑色",
       "FmStatusConnected": "已连接到 Lst.fm ({username})",
       "connectToFM": "连接 Last.fm ",

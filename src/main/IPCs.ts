@@ -196,6 +196,8 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray): void {
         tray.setContextMenu()
       } else if (key === 'trayColor') {
         tray.updateTrayColor()
+      } else if (key === 'disableWindowShadow' && Constants.IS_MAC) {
+        win.setHasShadow(!value)
       } else if (key === 'enableGlobalShortcut') {
         const { globalShortcut } = await import('electron')
         if (value) {

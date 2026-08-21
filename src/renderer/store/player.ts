@@ -92,6 +92,11 @@ export const usePlayerStore = defineStore(
     }>({ id: 0 })
 
     let lastUpdateTime = 0
+    let playbackTransitionPending = false
+    let recoveringPlayback = false
+    // Every track switch gets a generation. Async work from an older switch
+    // must never delay or overwrite the newer track's player state.
+    let trackSwitchGeneration = 0
 
     const localMusicStore = useLocalMusicStore()
     const streamMusicStore = useStreamMusicStore()
@@ -440,13 +445,6 @@ export const usePlayerStore = defineStore(
     )
 
     watch(
-      () => !audioNodes.audio?.paused,
-      (value) => {
-        playing.value = value
-      }
-    )
-
-    watch(
       () => convolverParams.sendGain,
       (value) => {
         if (convolverParams.buffer && audioNodes.convolverOutputGain) {
@@ -468,14 +466,11 @@ export const usePlayerStore = defineStore(
           nextLine.start - ((audioNodes.audio?.currentTime || 0) + lyricOffset.value)
         if (playing.value) {
           const delay = Math.max(50, (driftTime * 1000) / playbackRate.value)
-          timer = setTimeout(
-            () => {
-              clearTimeout(timer)
-              if (!playing.value) return
-              _refreshLineIdx()
-            },
-            delay
-          )
+          timer = setTimeout(() => {
+            clearTimeout(timer)
+            if (!playing.value) return
+            _refreshLineIdx()
+          }, delay)
         }
       }
     }
@@ -627,8 +622,8 @@ export const usePlayerStore = defineStore(
       }
     }
 
-    const searchMatchForLocal = async (track: Track) => {
-      if (track.type === 'local' && !track.matched) {
+    const searchMatchForLocal = async (track: Track): Promise<Track> => {
+      if (track.type === 'local' && !track.matched && !networkMonitor.isOfflineMode.value) {
         const params = {
           title: track.name,
           album: '',
@@ -639,7 +634,7 @@ export const usePlayerStore = defineStore(
         }
         const result = await searchMatch(params)
           .then((res: any) => {
-            if (res.result.songs.length > 0) {
+            if (res?.result?.songs?.length > 0) {
               const newTrack = res.result.songs[0]
               updateLocalID2OnlineID(track.id, newTrack.id)
               updateTrack(track.filePath, newTrack)
@@ -652,6 +647,11 @@ export const usePlayerStore = defineStore(
           })
         if (result) track = result
       }
+      return track
+    }
+
+    const updateCurrentTrackPresentation = async (track: Track) => {
+      if (currentTrack.value?.id !== track.id) return
       window.mainApi?.send('write-cover', {
         filePath: track.filePath,
         picUrl: track.matched ? track.album?.picUrl || track.al?.picUrl : null,
@@ -660,7 +660,6 @@ export const usePlayerStore = defineStore(
       if (track.type === 'online' && !track.cache && settingsStore.autoCacheTrack.enable) {
         window.mainApi?.send('cacheATrack', { id: track.id, url: track.url })
       }
-      await getCurrentTrackInfo(track)
       await updateMediaSessionMetaData(track)
       if (osdLyricStore.show) {
         window.mainApi?.sendMessage({
@@ -719,7 +718,20 @@ export const usePlayerStore = defineStore(
     }
 
     const getLyric = async (track: Track) => {
-      const cached = await trackCache.getCachedLyric(track.id)
+      // A matched local track changes id to its online counterpart. Keep its
+      // lyric cache bound to its file path so matching never strands the cache.
+      const cacheIdentity = trackCache.lyricCacheIdentity(
+        track.id,
+        track.type === 'local' ? track.filePath : undefined
+      )
+      let cached = await trackCache.getCachedLyric(cacheIdentity)
+
+      // Read caches created by older versions once, then promote them to the
+      // stable local identity. This also covers a track matched before upgrade.
+      if (!cached && track.type === 'local' && cacheIdentity !== track.id) {
+        cached = await trackCache.getCachedLyric(track.id)
+        if (cached?.length) await trackCache.cacheLyric(cacheIdentity, cached)
+      }
 
       let data: lyricLine[] = []
       switch (track.type!) {
@@ -774,7 +786,7 @@ export const usePlayerStore = defineStore(
       }
 
       if (data.length > 0) {
-        trackCache.cacheLyric(track.id, data)
+        await trackCache.cacheLyric(cacheIdentity, data)
       }
       if (currentTrack.value?.id !== track.id) return
       lyrics.value = data.length === 1 && includeAM ? [] : data
@@ -795,7 +807,9 @@ export const usePlayerStore = defineStore(
         return false
       }
 
-      await trackCache.deleteCachedLyric(track.id)
+      // Do not delete the last known-good lyric before a refresh succeeds.
+      // getLyric fetches the online lyric while keeping the current cache as a
+      // fallback if the request fails.
       await getLyric(track)
 
       const result = await window.mainApi?.invoke('rebuildTrackCache', track.id)
@@ -814,7 +828,10 @@ export const usePlayerStore = defineStore(
       for (const order of trackInfoOrder) {
         switch (order) {
           case 'online':
-            if (track.matched) data = await getApiLyric(track.id)
+            // In offline mode only local sources and the cache are valid.
+            if (track.matched && !networkMonitor.isOfflineMode.value) {
+              data = await getApiLyric(track.id)
+            }
             break
           default:
             data = await getLocalLyric(track.id)
@@ -866,37 +883,59 @@ export const usePlayerStore = defineStore(
     }
 
     const replaceCurrentTrack = async (trackID: number | string, autoPlay = true) => {
+      const generation = ++trackSwitchGeneration
       if (autoPlay && currentTrack.value?.name) {
         scrobbleFM(currentTrack.value, seek.value)
       }
 
       await smoothGain(0, 0)
+      if (generation !== trackSwitchGeneration) return false
       return getLocalMusic(trackID as number).then(async (track) => {
+        if (generation !== trackSwitchGeneration) return false
         if (!track) {
           nextTrackCallback()
           return false
         }
         if (networkMonitor.isOfflineMode.value) {
-          const needsNetwork =
-            track.type === 'stream' || (track.type === 'online' && !track.cache)
+          const needsNetwork = track.type === 'stream' || (track.type === 'online' && !track.cache)
           if (needsNetwork) {
             showToast(t('toast.offlineTrackUnavailable'))
             return false
           }
         }
+
+        // Update the visible state before any matching or network work. Clear
+        // the old lyric immediately so it cannot appear under the new album.
         currentTrack.value = track
-        searchMatchForLocal(track!)
-        const source = await getTrackSource(track!)
+        lyrics.value = []
+        track = await searchMatchForLocal(track!)
+        if (generation !== trackSwitchGeneration) return false
+        currentTrack.value = track
+        lyrics.value = []
+        ;(async () => {
+          await updatePlayerPic(track)
+        })().catch((error) => {
+          console.log('update player pic failed', error)
+        })
+        const source = await getTrackSource(track)
+        if (generation !== trackSwitchGeneration) return false
         let replaced = false
         if (source) {
-          if (track!.id === currentTrack.value?.id) {
-            playAudioSource(source, autoPlay)
+          if (track.id === currentTrack.value?.id) {
+            await playAudioSource(source, autoPlay)
             replaced = true
           }
         } else {
           showToast(track?.reason)
           _playNextTrack(isPersonalFM.value)
         }
+        ;(async () => {
+          await getCurrentTrackInfo(track)
+          if (generation !== trackSwitchGeneration || currentTrack.value?.id !== track.id) return
+          await updateCurrentTrackPresentation(track)
+        })().catch((error) => {
+          console.log('update current track presentation failed', error)
+        })
         if (autoPlay && currentTrack.value?.type === 'stream') {
           scrobbleStream(track)
         }
@@ -951,8 +990,7 @@ export const usePlayerStore = defineStore(
       audioNodes.audio!.src = source
       audioNodes.audio!.load()
       if (autoPlay) {
-        play()
-        playing.value = true
+        await play()
       }
     }
 
@@ -963,7 +1001,12 @@ export const usePlayerStore = defineStore(
           if (!isLocalList.value) {
             showToast(`使用本地文件播放`)
           }
-          matchTrack.source = 'localTrack'
+          matchTrack = {
+            ...matchTrack,
+            type: 'local',
+            source: 'localTrack',
+            cache: false
+          }
           resolve(matchTrack)
           return
         }
@@ -973,23 +1016,36 @@ export const usePlayerStore = defineStore(
           return
         }
         if (window.env?.isElectron) {
-          fetch(`atom://local-asset?type=track&id=${id}`).then((data) => {
-            if (data.status === 200) {
-              data.json().then((track: Track) => {
-                resolve(track)
-              })
-            } else if (data.status === 404) {
+          fetch(`atom://local-asset?type=track&id=${id}`)
+            .then((data) => {
+              if (data.status !== 200) {
+                resolve(undefined)
+                return
+              }
+              data
+                .json()
+                .then((track: Track) => {
+                  resolve(track)
+                })
+                .catch(() => {
+                  resolve(undefined)
+                })
+            })
+            .catch(() => {
               resolve(undefined)
-            }
-          })
+            })
         } else {
-          getTrackDetail(id.toString()).then((data) => {
-            if (data.code === 200) {
-              resolve(data.songs[0])
-            } else {
+          getTrackDetail(id.toString())
+            .then((data) => {
+              if (data.code === 200) {
+                resolve(data.songs[0])
+              } else {
+                resolve(undefined)
+              }
+            })
+            .catch(() => {
               resolve(undefined)
-            }
-          })
+            })
         }
       })
     }
@@ -998,6 +1054,7 @@ export const usePlayerStore = defineStore(
       return new Promise<string>((resolve) => {
         if (track.type === 'online' && !track.url) {
           resolve('')
+          return
         }
         if (track.type === 'local' || track.cache) {
           resolve(
@@ -1100,24 +1157,17 @@ export const usePlayerStore = defineStore(
       window.mainApi?.send('pauseDiscordPresence', cloneDeep(track))
     }
 
-    const play = async () => {
-      if (!audioNodes.audio) return
+    const play = async (): Promise<boolean> => {
+      if (!audioNodes.audio || !currentTrack.value) return false
 
       try {
         if (!isValidUrl(currentTrack.value?.url || '')) {
           const savedProgress = _progress.value
-          await replaceCurrentTrack(currentTrack.value!.id, false)
-          audioNodes.audio!.removeAttribute('src')
-          audioNodes.audio!.load()
-          audioNodes.audio!.src = currentTrack.value!.url!
-          audioNodes.audio!.load()
+          const refreshed = await replaceCurrentTrack(currentTrack.value.id, false)
+          if (!refreshed || !isValidUrl(currentTrack.value?.url || '')) {
+            throw new Error('刷新后 URL 仍然无效')
+          }
           seek.value = savedProgress
-
-          setTimeout(() => {
-            if (!isValidUrl(currentTrack.value?.url || '')) {
-              throw new Error('刷新后 URL 仍然无效')
-            }
-          }, 20)
         }
 
         const arts = currentTrack.value?.artists ?? currentTrack.value?.ar
@@ -1140,31 +1190,48 @@ export const usePlayerStore = defineStore(
 
         playDiscordPresence(currentTrack.value!, audioNodes.audio.currentTime)
         updateNowPlaying()
+        return true
       } catch (error) {
-        if (currentTrack.value?.cache) {
-          const isOk = (await window.mainApi?.invoke(
-            'deleteACacheTrack',
-            currentTrack.value.id
-          )) as boolean
-          if (isOk) {
-            replaceCurrentTrack(currentTrack.value!.id, true)
+        playing.value = false
+        if (recoveringPlayback) {
+          console.error('播放恢复失败:', error)
+          return false
+        }
+
+        recoveringPlayback = true
+        try {
+          if (currentTrack.value?.cache) {
+            const isOk = (await window.mainApi?.invoke(
+              'deleteACacheTrack',
+              currentTrack.value.id
+            )) as boolean
+            if (isOk) {
+              await replaceCurrentTrack(currentTrack.value.id, true)
+            } else {
+              showToast(`歌曲 ${currentTrack.value?.name} 播放错误，正在切换下一首...`)
+              await _playNextTrack(isPersonalFM.value)
+            }
           } else {
-            showToast(`歌曲 ${currentTrack.value?.name} 播放错误，正在切换下一首...`)
-            _playNextTrack(isPersonalFM.value)
+            console.error('播放失败:', error)
+            showToast(`歌曲 ${currentTrack.value?.name} 的音乐链接已过期，正在重新获取...`)
+            await replaceCurrentTrack(currentTrack.value.id, true)
           }
-        } else {
-          console.log('==2=2=11=1=1====', error)
-          showToast(`歌曲 ${currentTrack.value?.name} 的音乐链接已过期，正在重新获取...`)
-          replaceCurrentTrack(currentTrack.value!.id, true)
+          return audioNodes.audio ? !audioNodes.audio.paused : false
+        } finally {
+          recoveringPlayback = false
         }
       }
     }
 
-    const pause = async () => {
+    const pause = async (): Promise<void> => {
       if (!audioNodes.audio) return
       const fade = fadeDuration.value
       await smoothGain(0, fade)
-      audioNodes.audio?.pause()
+      audioNodes.audio.pause()
+      playing.value = false
+      if (audioNodes.audioContext?.state === 'running') {
+        await audioNodes.audioContext.suspend()
+      }
       title.value = 'VutronMusic'
       if (!window.env?.isMac) {
         window.mainApi?.send('updateTooltip', title.value)
@@ -1174,13 +1241,17 @@ export const usePlayerStore = defineStore(
     }
 
     const playOrPause = async () => {
-      if (playing.value) {
-        playing.value = false
-        await pause()
-        audioNodes.audioContext?.suspend()
-      } else {
-        play()
-        playing.value = true
+      if (!audioNodes.audio || playbackTransitionPending) return
+
+      playbackTransitionPending = true
+      try {
+        if (!audioNodes.audio.paused) {
+          await pause()
+        } else {
+          await play()
+        }
+      } finally {
+        playbackTransitionPending = false
       }
     }
 
@@ -1229,10 +1300,22 @@ export const usePlayerStore = defineStore(
       }
     }
 
+    const _handlePlaying = () => {
+      playing.value = true
+    }
+
+    const _handleNotPlaying = () => {
+      playing.value = false
+    }
+
     const destroAudioNode = async () => {
       if (audioNodes.audio) {
         audioNodes.audio.removeEventListener('timeupdate', _handleTimeUpdate)
         audioNodes.audio.removeEventListener('ended', nextTrackCallback)
+        audioNodes.audio.removeEventListener('ended', _handleNotPlaying)
+        audioNodes.audio.removeEventListener('playing', _handlePlaying)
+        audioNodes.audio.removeEventListener('pause', _handleNotPlaying)
+        audioNodes.audio.removeEventListener('error', _handleNotPlaying)
         audioNodes.audio.pause()
 
         audioNodes.audioSource?.disconnect()
@@ -1293,6 +1376,10 @@ export const usePlayerStore = defineStore(
 
       audioNodes.audio.addEventListener('timeupdate', _handleTimeUpdate)
       audioNodes.audio.addEventListener('ended', nextTrackCallback)
+      audioNodes.audio.addEventListener('ended', _handleNotPlaying)
+      audioNodes.audio.addEventListener('playing', _handlePlaying)
+      audioNodes.audio.addEventListener('pause', _handleNotPlaying)
+      audioNodes.audio.addEventListener('error', _handleNotPlaying)
 
       audioNodes.audioContext = new AudioContext()
       audioNodes.audioSource = audioNodes.audioContext.createMediaElementSource(audioNodes.audio)
@@ -1480,21 +1567,34 @@ export const usePlayerStore = defineStore(
       window.mainApi?.send('updateDockIcon', dataUrl)
     }
 
-    const updateMediaSessionMetaData = async (track: Track) => {
-      if ('mediaSession' in navigator === false) return
+    const isCurrentPresentationTrack = (track: Track) => {
+      if (currentTrack.value?.id !== track.id) return false
+      if (track.type === 'local' && track.filePath) {
+        return currentTrack.value.filePath === track.filePath
+      }
+      return true
+    }
 
+    const updatePlayerPic = async (track: Track) => {
       const newPic = await getPic(track, 512)
-      if (currentTrack.value?.id !== track.id) return
+      if (!isCurrentPresentationTrack(track)) return null
 
       if (pic.value?.startsWith('blob:')) {
         URL.revokeObjectURL(pic.value)
       }
       if (newPic) pic.value = newPic
+      return newPic
+    }
+
+    const updateMediaSessionMetaData = async (track: Track) => {
+      const newPic = await updatePlayerPic(track)
+      if (!isCurrentPresentationTrack(track)) return
+      if ('mediaSession' in navigator === false) return
 
       const art512 = newPic ?? ''
-      if (currentTrack.value?.id !== track.id) return
+      if (!isCurrentPresentationTrack(track)) return
       const art1024 = (await getPic(track, 1024)) ?? ''
-      if (currentTrack.value?.id !== track.id) return
+      if (!isCurrentPresentationTrack(track)) return
 
       const arts = track.artists ?? track.ar
       const artists = arts.map((a) => a.name)
@@ -1524,7 +1624,7 @@ export const usePlayerStore = defineStore(
       }
       if (window.env?.isWindows) {
         const art2048 = (await getPic(track, 2048)) ?? ''
-        if (currentTrack.value?.id !== track.id) return
+        if (!isCurrentPresentationTrack(track)) return
         metadata.artwork = [
           {
             src: art2048,
@@ -1657,14 +1757,13 @@ export const usePlayerStore = defineStore(
       )
 
       window.mainApi?.on('resume', async () => {
-        if (!currentTrack.value) return
+        if (!currentTrack.value || !audioNodes.audio) return
+        const wasPlaying = !audioNodes.audio.paused
         const t = _progress.value
-        await replaceCurrentTrack(currentTrack.value.id, false)
-        audioNodes.audio!.removeAttribute('src')
-        audioNodes.audio!.load()
-        audioNodes.audio!.src = currentTrack.value!.url!
-        audioNodes.audio!.load()
+        const replaced = await replaceCurrentTrack(currentTrack.value.id, false)
+        if (!replaced) return
         seek.value = t
+        if (wasPlaying) await play()
       })
 
       window.mainApi?.on('play', () => {
@@ -1715,12 +1814,10 @@ export const usePlayerStore = defineStore(
     const initMediaSession = () => {
       if ('mediaSession' in navigator) {
         navigator.mediaSession.setActionHandler('play', () => {
-          play()
-          playing.value = true
+          play().catch((error) => console.error('媒体控制播放失败:', error))
         })
         navigator.mediaSession.setActionHandler('pause', () => {
-          pause()
-          playing.value = false
+          pause().catch((error) => console.error('媒体控制暂停失败:', error))
         })
         navigator.mediaSession.setActionHandler('previoustrack', () => {
           if (!isPersonalFM.value) playPrev()
@@ -1730,8 +1827,7 @@ export const usePlayerStore = defineStore(
           _playNextTrack(isPersonalFM.value)
         )
         navigator.mediaSession.setActionHandler('stop', () => {
-          pause()
-          playing.value = false
+          pause().catch((error) => console.error('媒体控制停止失败:', error))
         })
         navigator.mediaSession.setActionHandler('seekto', (event) => {
           seek.value = event.seekTime!

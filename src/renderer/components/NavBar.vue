@@ -68,7 +68,12 @@
         >
       </div>
       <div class="right-part">
-        <div v-if="state.isOfflineMode" class="network-icon" :title="$t('nav.offlineStatus')" @click="retryConnection">
+        <div
+          v-if="state.isOfflineMode"
+          class="network-icon"
+          :title="$t('nav.offlineStatus')"
+          @click="retryConnection"
+        >
           <svg-icon icon-class="wifi-off" />
         </div>
         <SearchBox ref="searchBoxRef" :clear-keywords="true" @keydown-enter="doSearch($event)" />
@@ -262,11 +267,11 @@ nav.has-custom-titlebar {
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  gap: 12px;
   -webkit-user-drag: none;
   .avatar {
     user-select: none;
     height: 30px;
-    margin-left: 12px;
     vertical-align: -7px;
     border-radius: 50%;
     cursor: pointer;
@@ -279,7 +284,8 @@ nav.has-custom-titlebar {
   .network-icon {
     display: flex;
     align-items: center;
-    margin-left: 12px;
+    flex: 0 0 32px;
+    justify-content: center;
     cursor: pointer;
     -webkit-app-region: no-drag;
     .svg-icon {

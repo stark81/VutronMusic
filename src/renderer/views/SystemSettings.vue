@@ -974,6 +974,22 @@
                 </div>
               </div>
             </div>
+            <div v-if="isMac" class="item">
+              <div class="left">
+                <div class="title">{{ $t('settings.misc.disableWindowShadow') }}</div>
+              </div>
+              <div class="right">
+                <div class="toggle">
+                  <input
+                    id="disableWindowShadow"
+                    v-model="misc.disableWindowShadow"
+                    type="checkbox"
+                    name="disableWindowShadow"
+                  />
+                  <label for="disableWindowShadow"></label>
+                </div>
+              </div>
+            </div>
           </template>
           <div class="item">
             <div class="left">
@@ -981,12 +997,7 @@
             </div>
             <div class="right">
               <div class="toggle">
-                <input
-                  id="deepDark"
-                  v-model="misc.deepDark"
-                  type="checkbox"
-                  name="deepDark"
-                />
+                <input id="deepDark" v-model="misc.deepDark" type="checkbox" name="deepDark" />
                 <label for="deepDark"></label>
               </div>
             </div>

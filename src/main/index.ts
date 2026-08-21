@@ -88,6 +88,121 @@ const defaultImagePath = Constants.IS_DEV_ENV
   ? path.join(process.cwd(), `./src/public/images/default.jpg`)
   : path.join(__dirname, `../images/default.jpg`)
 
+const createFileStreamResponse = (
+  filePath: string,
+  options: { start?: number; end?: number; status?: number; headers: Record<string, string> }
+) => {
+  const fileStream = fs.createReadStream(filePath, { start: options.start, end: options.end })
+  let closed = false
+
+  const closeFileStream = () => {
+    if (fileStream.destroyed) return
+    fileStream.destroy()
+  }
+
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      fileStream.on('data', (chunk: Buffer) => {
+        if (closed) return
+        try {
+          controller.enqueue(new Uint8Array(chunk))
+        } catch {
+          closed = true
+          closeFileStream()
+        }
+      })
+      fileStream.once('end', () => {
+        if (closed) return
+        closed = true
+        try {
+          controller.close()
+        } catch {
+          // The response may have been canceled by the renderer while the file stream ended.
+        }
+      })
+      fileStream.once('error', (error) => {
+        if (closed) return
+        closed = true
+        try {
+          controller.error(error)
+        } catch {
+          // The response may already be closed after a canceled media request.
+        }
+      })
+    },
+    cancel() {
+      closed = true
+      closeFileStream()
+    }
+  })
+
+  return new Response(body, {
+    status: options.status ?? 200,
+    headers: options.headers
+  })
+}
+
+const createProxyStreamResponse = (response: Response, abortSignal?: AbortSignal) => {
+  if (!response.body) {
+    return new Response(null, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers
+    })
+  }
+
+  const reader = response.body.getReader()
+  let closed = false
+
+  const cancelReader = () => {
+    if (closed) return
+    closed = true
+    reader.cancel().catch(() => undefined)
+  }
+
+  abortSignal?.addEventListener('abort', cancelReader, { once: true })
+
+  const body = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      if (closed) return
+      try {
+        const { done, value } = await reader.read()
+        if (closed) return
+        if (done) {
+          closed = true
+          abortSignal?.removeEventListener('abort', cancelReader)
+          try {
+            controller.close()
+          } catch {
+            // The renderer may cancel a media request right as the upstream stream ends.
+          }
+          return
+        }
+        controller.enqueue(value)
+      } catch (error) {
+        if (closed) return
+        closed = true
+        abortSignal?.removeEventListener('abort', cancelReader)
+        try {
+          controller.error(error)
+        } catch {
+          // The response may already be closed after cancellation.
+        }
+      }
+    },
+    cancel() {
+      cancelReader()
+      abortSignal?.removeEventListener('abort', cancelReader)
+    }
+  })
+
+  return new Response(body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers
+  })
+}
+
 class BackGround {
   win: BrowserWindow | null = null
   osdMode: string
@@ -216,6 +331,9 @@ class BackGround {
 
     this.win = new BrowserWindow(option)
     this.win.setMenuBarVisibility(false)
+    if (Constants.IS_MAC) {
+      this.win.setHasShadow(!store.get('settings.disableWindowShadow'))
+    }
 
     if (Constants.IS_DEV_ENV) {
       await this.win.loadURL(Constants.APP_INDEX_URL_DEV)
@@ -547,11 +665,6 @@ class BackGround {
               }
             }
             const chunkSize = end - start + 1
-            const stream = fs.createReadStream(filePath, { start, end })
-
-            request.signal?.addEventListener('abort', () => {
-              stream.destroy()
-            })
 
             const mimeType = mime.lookup(filePath) || 'application/octet-stream'
             const headers = {
@@ -566,8 +679,9 @@ class BackGround {
               headers['content-length'] = String(fileStat.size)
             }
 
-            // @ts-ignore
-            return new Response(stream, {
+            return createFileStreamResponse(filePath, {
+              start,
+              end,
               status: range ? 206 : 200,
               headers
             })
@@ -584,6 +698,7 @@ class BackGround {
               if (!res || !res.songs?.length) {
                 log.error('======get-track-error=====', ids)
                 return new Response(JSON.stringify({ status: 404 }), {
+                  status: 404,
                   headers: { 'content-type': 'application/json' }
                 })
               }
@@ -654,9 +769,9 @@ class BackGround {
             end = match[2] ? parseInt(match[2], 10) : end
           }
           const chunkSize = end - start + 1
-          const stream = fs.createReadStream(filePath, { start, end })
-          // @ts-ignore
-          return new Response(stream, {
+          return createFileStreamResponse(filePath, {
+            start,
+            end,
             status: 206,
             headers: {
               'content-type': mimeType,
@@ -676,7 +791,7 @@ class BackGround {
         const headers = request.headers
         url += search
         try {
-          const response = await proxyFetch(url, { headers })
+          const response = await proxyFetch(url, { headers, signal: request.signal })
           if (!response.ok) {
             return new Response(null, {
               status: response.status,
@@ -686,7 +801,7 @@ class BackGround {
               }
             })
           }
-          return response
+          return createProxyStreamResponse(response, request.signal)
         } catch (error) {
           log.error('== get-online-music error ==', error)
           return new Response(null, {

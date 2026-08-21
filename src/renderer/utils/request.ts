@@ -60,8 +60,8 @@ const request = async (config: AxiosRequestConfig) => {
       pageCache.cacheApiResponse(url, config.params, data)
     }
     return data as any
-  } catch {
-    networkMonitor.recordFailure()
+  } catch (error) {
+    networkMonitor.recordFailure(error)
     const cached =
       (await pageCache.getCachedApiResponse(url, config.params)) ||
       (await pageCache.getAnyCachedForUrl(url))

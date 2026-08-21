@@ -508,6 +508,7 @@
       "enableAmuseServer": "Enable 6K Amuse Youtube Music Source Compatibility Server",
       "enableDiscordRichPresence": "Enable Discord Rich Presence",
       "roundedDockIcon": "Rounded Dock Icon",
+      "disableWindowShadow": "Disable Window Shadow",
       "deepDark": "Deeper Black",
       "FmStatusConnected": "Connected to Last.fm ({username})",
       "connectToFM": "Connect to Last.fm",

@@ -132,6 +132,7 @@ const store = new Store<TypeElectronStore>({
         }
       ],
       enableAmuseServer: true,
+      disableWindowShadow: false,
       lastfmSession: { name: '', key: '', subscriber: 0 },
       proxy: { type: 0, address: '', port: '' },
       forceFactor: false

@@ -4,22 +4,37 @@ import { lyricLine } from '@/types/music'
 const LYRIC_PREFIX = 'track:lyric:'
 const PIC_PREFIX = 'track:pic:'
 
-async function cacheLyric(trackId: number, data: lyricLine[]) {
+type CacheIdentity = number | string
+
+/**
+ * Local tracks can receive a new online id after matching.  Their file path is
+ * stable across that operation, so use it as the cache identity instead of the
+ * mutable track id.
+ */
+function lyricCacheIdentity(trackId: number, filePath?: string): CacheIdentity {
+  return filePath ? `local:${filePath}` : trackId
+}
+
+function lyricCacheKey(identity: CacheIdentity) {
+  return LYRIC_PREFIX + identity
+}
+
+async function cacheLyric(identity: CacheIdentity, data: lyricLine[]) {
   if (!data || data.length === 0) return
   await db.localData.put({
-    id: LYRIC_PREFIX + trackId,
+    id: lyricCacheKey(identity),
     data,
     updatedAt: Date.now()
   })
 }
 
-async function getCachedLyric(trackId: number): Promise<lyricLine[] | null> {
-  const entry = await db.localData.get(LYRIC_PREFIX + trackId)
+async function getCachedLyric(identity: CacheIdentity): Promise<lyricLine[] | null> {
+  const entry = await db.localData.get(lyricCacheKey(identity))
   return entry ? entry.data : null
 }
 
-async function deleteCachedLyric(trackId: number) {
-  await db.localData.delete(LYRIC_PREFIX + trackId)
+async function deleteCachedLyric(identity: CacheIdentity) {
+  await db.localData.delete(lyricCacheKey(identity))
 }
 
 async function cachePic(trackId: number, dataUrl: string) {
@@ -76,6 +91,7 @@ async function extractAndCacheCover(trackId: number, filePath: string): Promise<
 }
 
 export const trackCache = {
+  lyricCacheIdentity,
   cacheLyric,
   getCachedLyric,
   deleteCachedLyric,

@@ -508,6 +508,7 @@
       "enableAmuseServer": "啟用 6K Amuse Youtube Music 信息源兼容伺服器",
       "enableDiscordRichPresence": "啟用 Discord Rich Presence",
       "roundedDockIcon": "圓角 Dock 圖示",
+      "disableWindowShadow": "關閉視窗陰影",
       "deepDark": "更深的黑色",
       "FmStatusConnected": "已連線至 Last.fm（{username}）",
       "connectToFM": "連線至 Last.fm",
