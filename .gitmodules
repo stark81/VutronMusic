@@ -1,0 +1,3 @@
+[submodule "flatpak/Vutron_FlatpakResource"]
+	path = flatpak/Vutron_FlatpakResource
+	url = github.com:ling-yumeng/VutronMusic_Flatpak.git
