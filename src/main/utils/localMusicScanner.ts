@@ -40,6 +40,12 @@ const makeId = (prefix: string, value: string) =>
   crypto.createHash('md5').update(`${prefix}:${value}`).digest('hex')
 
 /**
+ * 支持的本地音频扩展名（一律小写）。
+ * 匹配时配合 fast-glob 的 caseSensitiveMatch: false，兼容 .FLAC / .Mp3 等大写扩展名。
+ */
+const AUDIO_EXTS = ['mp3', 'aiff', 'aif', 'aifc', 'flac', 'alac', 'm4a', 'aac', 'wav', 'opus']
+
+/**
  * 执行本地音乐扫描的主逻辑。
  *
  * 职责范围：
@@ -141,9 +147,17 @@ export async function scanLocalMusic(
     }
   }
 
-  const patterns = ['**/*.{mp3,aiff,flac,alac,m4a,aac,wav,opus}']
+  const patterns = [`**/*.{${AUDIO_EXTS.join(',')}}`]
   const results = await Promise.all(
-    filePaths.map((dir) => fg.glob(patterns, { cwd: dir, absolute: true, onlyFiles: true }))
+    filePaths.map((dir) =>
+      fg.glob(patterns, {
+        cwd: dir,
+        absolute: true,
+        onlyFiles: true,
+        // 大小写不敏感：避免漏掉 .FLAC / .Mp3 等大写扩展名的文件
+        caseSensitiveMatch: false
+      })
+    )
   )
   const allFiles = [...new Set(results.flat())]
 
