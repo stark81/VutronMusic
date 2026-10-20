@@ -259,12 +259,21 @@ class TrayImpl implements YPMTray {
   private _tray: Tray | null = null
   private _contextMenu: Menu | null = null
   private _nativeItem: NativeTrayItem | null = null
+  /** 当前歌词偏移（秒），由渲染进程 setOffset 同步而来 */
+  private _lyricOffset = 0
+  /** 最近一次已知的播放进度（秒，未叠加歌词偏移） */
+  private _currentSeek = 0
+  /** 最近一次歌词行，offset 变化时用它重建动画 */
+  private _lastLyric: lyricLine | null = null
 
   constructor(win: BrowserWindow) {
     this._win = win
     this._tray = null
     this._contextMenu = null
     this._nativeItem = null
+    this._lyricOffset = 0
+    this._currentSeek = 0
+    this._lastLyric = null
 
     this.createTray()
     this.setContextMenu()
@@ -339,6 +348,12 @@ class TrayImpl implements YPMTray {
         if (!showLyric || !showControl || !showIcon) {
           this._nativeItem.setVisibility({ lyric: showLyric, buttons: showControl, icon: showIcon })
         }
+
+        // 立即应用持久化的歌词区宽度：原生构造函数里是 180 的兜底值，
+        // 不同步的话首帧会先用 180pt 排版（渲染进程的 initTrayState 还在路上）。
+        // 这里与构造处于同一个 tick，视图尚未上屏，等价于「用设置值初始化」。
+        const lyricWidth = store.get('settings.lyricWidth') as number
+        this._nativeItem.setWidth(lyricWidth > 0 ? lyricWidth : 192)
         return
       }
       // 回退：空 Tray
@@ -370,6 +385,8 @@ class TrayImpl implements YPMTray {
 
   updateInfo(data: Partial<statusMap>) {
     if (data.lyric !== undefined) {
+      // lyric 消息始终携带当前 seek，用它校准进度基准
+      if (data.seek !== undefined) this._currentSeek = data.seek
       this.updateLyric(data.lyric)
     }
 
@@ -378,21 +395,37 @@ class TrayImpl implements YPMTray {
     }
 
     if (data.playing !== undefined) {
+      // 原生 setPlaying: 只用 _lastProgress 做恢复定位（不接受 seek 参数），
+      // 因此先更新播放状态，再补一次进度，保证恢复时携带歌词 offset。
       this.setPlayState(data.playing)
+      if (typeof data.seek === 'number') {
+        this._currentSeek = data.seek
+        this.setProgress(data.seek)
+      }
       playState = data.playing
     }
 
     if (data.seek !== undefined) {
+      this._currentSeek = data.seek
       this.setProgress(data.seek)
     }
 
     if (data.line !== undefined) {
       // line 格式: [lineIndex, seekTime] — OSD 通过此字段持续更新进度
+      this._currentSeek = data.line[1]
       this.setProgress(data.line[1])
     }
 
     if (data.setSeek !== undefined) {
+      this._currentSeek = data.setSeek
       this.setProgress(data.setSeek)
+    }
+
+    // 歌词偏移调整：用「seek + offset」重建当前行的逐字动画，并同步后续进度基准
+    if (data.lyricOffset !== undefined) {
+      this._lyricOffset = data.lyricOffset[0] || 0
+      this._currentSeek = data.lyricOffset[1]
+      if (this._lastLyric) this.updateLyric(this._lastLyric)
     }
 
     if (data.isFM !== undefined) {
@@ -402,6 +435,10 @@ class TrayImpl implements YPMTray {
 
     if (data.tWByW !== undefined) {
       this.setWordByWord(data.tWByW)
+    }
+
+    if (data.rate !== undefined) {
+      this.setPlaybackRate(data.rate)
     }
 
     if (data.tooltip !== undefined) {
@@ -418,35 +455,38 @@ class TrayImpl implements YPMTray {
   }
 
   initTrayState(data: initMap) {
-    this.updateLyric(data.lyric)
-    this.setPlayState(!!data.playing)
-    if (data.seek) this.setProgress(data.seek)
+    if (typeof data.lyricOffset === 'number') this._lyricOffset = data.lyricOffset
+    if (typeof data.seek === 'number') this._currentSeek = data.seek
+    // 倍速要在 updateLyric 之前设置：原生重建动画时会读取 _playbackRate
     this.setPlaybackRate(data.rate)
+    this.updateLyric(data.lyric)
     this.setLikeState(!!data.like)
     this.setFMMode(!!data.isFM)
+    if (data.seek) this.setProgress(data.seek)
+    // setPlaying 放最后：它内部会用 _lastProgress 重建动画，需要进度已就位
+    this.setPlayState(!!data.playing)
     this.updateTrayColor()
   }
 
-  updateLyric(_data: lyricLine) {
+  updateLyric(data: lyricLine) {
     if (!this._nativeItem) return
-    const data = {
-      text: _data.lyric?.text || '',
-      words: _data.lyric?.info || [],
-      lineStart: _data.start * 1000,
-      lineEnd: _data.end * 1000,
-      hasWordTiming: !!_data.lyric?.info?.length,
-      lyricWidth: 0,
-      offset: 0
-    }
+    this._lastLyric = data
+
+    // 行内已播放时长 = (seek + offset - 行起始) * 1000，+50ms 补偿跨窗口延迟。
+    // 原生层会用该值作为逐字高亮/滚动动画的起始位置。
+    const offsetMs = Math.max(
+      0,
+      (this._currentSeek + this._lyricOffset - (data.start || 0)) * 1000 + 50
+    )
 
     this._nativeItem.setLyric(
-      data.text,
-      data.words,
-      data.lineStart,
-      data.lineEnd,
-      data.hasWordTiming,
-      data.lyricWidth || 0,
-      data.offset || 0
+      data.lyric?.text || '',
+      data.lyric?.info || [],
+      data.start * 1000,
+      data.end * 1000,
+      !!data.lyric?.info?.length,
+      0,
+      offsetMs
     )
   }
 
@@ -507,7 +547,9 @@ class TrayImpl implements YPMTray {
   }
 
   private setProgress(seek: number) {
-    if (this._nativeItem) this._nativeItem.setProgress(seek)
+    // 原生层用 (progress - lineStart) 计算行内偏移，因此这里必须叠加歌词 offset，
+    // 否则每次进度更新都会把 offset 调整覆盖掉。
+    if (this._nativeItem) this._nativeItem.setProgress(seek + this._lyricOffset)
   }
 
   private setPlaybackRate(rate: number) {

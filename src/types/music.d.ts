@@ -212,6 +212,8 @@ export type initMap = {
   like: boolean
   isFM: boolean
   seek: number
+  /** 当前歌词偏移（秒），用于托盘首帧对齐 */
+  lyricOffset?: number
 }
 
 export type statusMap = {

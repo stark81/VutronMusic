@@ -28,10 +28,11 @@
     />
     <div
       v-else-if="
-        ['blur-image', 'dynamic-image', 'letter-image', 'custom-image', 'api'].includes(typeValue)
+        ['blur-image', 'dynamic-image', 'letter-image', 'custom-image'].includes(typeValue)
       "
       :class="cls"
     ></div>
+    <div v-if="typeValue === 'api'" class="bg-img customize-image api-bg" :style="apiBgStyle"></div>
     <div v-if="typeValue === 'lottie' || activeBG.useExtractedColor" class="lt-mask"></div>
   </div>
 </template>
@@ -62,6 +63,27 @@ const secondary = ref('')
 const tempSrc = ref('')
 const tempType = ref<'custom-image' | 'custom-video'>('custom-image')
 let apiRefreshTimer: ReturnType<typeof setInterval> | null = null
+/**
+ * api 背景：`apiSrc` 是当前已上屏的图片地址（带 `_t=` 的原始地址）。
+ * 用 `new Image()` 预加载 + 预解码，而不是 `fetch`：图床普遍不返回
+ * `Access-Control-Allow-Origin`，`fetch` 会被 CORS 直接拦掉，而 `Image`/CSS
+ * 背景图的加载不受 CORS 限制。预加载用的地址与最终交给 `background-image`
+ * 的地址完全一致，因此可以直接复用浏览器已下载的缓存。
+ * 不使用双层交叉淡入：两层半透明图叠加会产生明显重影，这里只做「ready 后原子替换」。
+ */
+const apiSrc = ref('')
+/** CSS url() 里的字符串需要转义，避免地址中的引号/反斜杠破坏样式 */
+const escapeCssUrl = (src: string) => src.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+const apiBgStyle = computed(() => ({
+  backgroundImage: apiSrc.value ? `url("${escapeCssUrl(apiSrc.value)}")` : 'none'
+}))
+/**
+ * 载入令牌：只有最后一次请求的结果会被写入画面。
+ * 定时切换与切歌几乎同时触发时，旧结果不会覆盖新结果。
+ */
+let apiLoadToken = 0
+let apiLoadController: AbortController | null = null
+const API_IMAGE_TIMEOUT = 8_000
 
 const srcValue = computed(() => {
   if (activeBG.value.type === 'gradient') {
@@ -85,8 +107,6 @@ const srcValue = computed(() => {
     }
     return src
   } else if (activeBG.value.type === 'random-folder') {
-    return tempSrc.value
-  } else if (activeBG.value.type === 'api') {
     return tempSrc.value
   }
   return ''
@@ -182,11 +202,9 @@ const reauthorizeCustomSource = async () => {
   }
 }
 
-watch(
-  [() => activeBG.value.type, () => activeBG.value.src],
-  reauthorizeCustomSource,
-  { immediate: true }
-)
+watch([() => activeBG.value.type, () => activeBG.value.src], reauthorizeCustomSource, {
+  immediate: true
+})
 
 const getImage = async (pic: string) => {
   if (!pic) return
@@ -221,9 +239,9 @@ watch(
 watch(
   () => currentTrack.value?.id,
   () => {
-    stopApiRefreshTimer()
     if (activeBG.value.type === 'api' && activeBG.value.switchMode === 'track') {
-      tempSrc.value = `url(${activeBG.value.src}${activeBG.value.src.includes('?') ? '&' : '?'}t=${Date.now()})`
+      stopApiRefreshTimer()
+      switchApiBackground()
     }
   }
 )
@@ -240,21 +258,90 @@ const startApiRefreshTimer = () => {
   if (activeBG.value.type !== 'api' || activeBG.value.switchMode !== 'time') return
   const time = (activeBG.value.timer || 5) * 60 * 1000
   apiRefreshTimer = setInterval(() => {
-    tempSrc.value = `url(${activeBG.value.src}${activeBG.value.src.includes('?') ? '&' : '?'}t=${Date.now()})`
+    switchApiBackground()
   }, time)
+}
+
+/** 切歌/换源时彻底丢弃当前 api 背景，避免旧图残留在屏幕上 */
+const clearApiSource = () => {
+  apiLoadToken++
+  apiLoadController?.abort()
+  apiLoadController = null
+  apiSrc.value = ''
+}
+
+/**
+ * 用 `new Image()` 预加载并预解码，返回是否 ready。
+ * 不走 `fetch`：图床基本都不返回 CORS 头，`fetch` 会被拦掉；`Image` 不受此限制，
+ * 且与最终 `background-image` 使用完全相同的地址，可直接复用浏览器缓存。
+ * signal 只用于取消「等待」——超时或已有更新的切换时提前返回，图片本身仍留在缓存里，
+ * 因此即便这里返回 false，调用方退回直连地址也能立刻命中缓存。
+ */
+const preloadImage = (src: string, signal: AbortSignal) =>
+  new Promise<boolean>((resolve) => {
+    const image = new Image()
+    let settled = false
+    const settle = (ready: boolean) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      signal.removeEventListener('abort', onAbort)
+      resolve(ready)
+    }
+    const onAbort = () => settle(false)
+    const timer = setTimeout(() => settle(false), API_IMAGE_TIMEOUT)
+    signal.addEventListener('abort', onAbort)
+    image.onerror = () => settle(false)
+    image.onload = async () => {
+      // decode() 失败不代表图片不可用（例如响应缺少 CORS 头），忽略即可
+      try {
+        await image.decode()
+      } catch {
+        /* noop */
+      }
+      settle(true)
+    }
+    image.src = src
+  })
+
+const switchApiBackground = async () => {
+  if (activeBG.value.type !== 'api' || !activeBG.value.src) return
+
+  // 追加时间戳：图床/其 CDN 对同一地址有 30 天缓存，不换地址就永远是同一张图
+  const rawSrc = `${activeBG.value.src}${activeBG.value.src.includes('?') ? '&' : '?'}_t=${Date.now()}`
+  const token = ++apiLoadToken
+  apiLoadController?.abort()
+  const controller = new AbortController()
+  apiLoadController = controller
+
+  try {
+    // 新图 ready 之前不碰画面，旧背景保持可见
+    const ready = await preloadImage(rawSrc, controller.signal)
+    if (!ready || token !== apiLoadToken) return
+
+    apiSrc.value = rawSrc
+  } finally {
+    if (apiLoadController === controller) apiLoadController = null
+  }
 }
 
 /**
  * 对于lottie动画需要十分注意，否则可能会导致lottie组件不断尝试恢复动画而导致cpu占用异常
  * 1. 从lottie切换到其他类型，需要停止lottie并destroy；
  * 2. lottie动画的src从有变成了无、从A切换到了B，都需要先停止
+ *
+ * 这个监听同时是 api 背景的**唯一加载入口**（immediate）：切到 api 时拉第一张，
+ * 之后改地址也由它重新拉。切歌、定时刷新则分别由 currentTrack 监听与定时器负责，
+ * 三者互不重叠——任意两处同时触发都会互相 abort，导致首张图迟迟不上屏。
  */
 watch(
   () => [activeBG.value.type, activeBG.value.src],
-  (newType, oldType) => {
+  (newType, oldType = ['', '']) => {
     tempSrc.value = ''
     tempType.value = 'custom-image'
     stopApiRefreshTimer()
+    // 类型或地址一旦变化，当前 api 背景图即失效
+    clearApiSource()
 
     if (oldType[0] === 'lottie' && newType[0] !== 'lottie') {
       lottieContainer.value?.stop()
@@ -275,11 +362,11 @@ watch(
     if (newType[0] === 'random-folder' && newType[1]) {
       loadRandomFolderSource()
     } else if (newType[0] === 'api') {
-      tempSrc.value = `url(${activeBG.value.src}${activeBG.value.src.includes('?') ? '&' : '?'}t=${Date.now()})`
       startApiRefreshTimer()
+      switchApiBackground()
     }
   },
-  { flush: 'pre' }
+  { flush: 'pre', immediate: true }
 )
 
 watch(
@@ -338,10 +425,9 @@ onMounted(async () => {
   setTimeout(() => getImage(pic.value), 0)
   if (activeBG.value.type === 'random-folder') {
     await loadRandomFolderSource()
-  } else if (activeBG.value.type === 'api') {
-    tempSrc.value = `url(${activeBG.value.src}${activeBG.value.src.includes('?') ? '&' : '?'}t=${Date.now()})`
-    startApiRefreshTimer()
   }
+  // 注意：api 背景的首次加载由下面那个 [type, src] 监听（immediate）负责，
+  // 这里不要再调用 switchApiBackground，否则两处会互相 abort，首张图要等两轮才出现
   if (playing.value) {
     if (shouldPlayLottie.value) {
       lottieContainer.value?.play()
@@ -360,6 +446,7 @@ onUnmounted(() => {
   tempSrc.value = ''
   tempType.value = 'custom-image'
   stopApiRefreshTimer()
+  clearApiSource()
 })
 </script>
 
@@ -388,6 +475,18 @@ onUnmounted(() => {
   background-position: center;
   background-repeat: no-repeat;
   background-image: v-bind(srcValue);
+}
+
+/**
+ * api 背景：单层渲染，直接由内联 style 给出 background-image（objectURL）。
+ * 刻意不加任何透明度过渡——两层半透明图叠加会看到重影，
+ * 这里只在预加载 + 预解码完成后原子替换，切换观感是「立即生效」。
+ */
+.api-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transition: none;
 }
 
 .bg-img.cover-image {

@@ -629,6 +629,13 @@ export const usePlayerStore = defineStore(
       if (window.env?.isLinux) {
         window.mainApi?.send('synchronize-player-info', { seek: engineStore.getCurrentTime() })
       }
+      if (window.env?.isWindows) {
+        navigator.mediaSession.setPositionState({
+          duration: duration.value,
+          playbackRate: playbackRate.value,
+          position: engineStore.getCurrentTime()
+        })
+      }
       const now = Date.now()
       if (now - lastProgressReport.value >= 15000) {
         reportPlayback('progress')

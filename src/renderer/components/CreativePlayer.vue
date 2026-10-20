@@ -16,7 +16,7 @@
             loading="lazy"
           />
         </div>
-        <span class="title">{{ currentTrack?.name }}&nbsp;-&nbsp;{{ artist?.name }}</span>
+        <span class="title">{{ artist?.name }}&nbsp;-&nbsp;{{ currentTrack?.name }}</span>
       </div>
       <div class="play-bar" :class="{ hover: hoverParent }">
         <div class="player-progress-bar">
@@ -56,7 +56,7 @@
             <svg-icon v-show="repeatMode === 'one'" icon-class="repeat-1" />
           </button-icon>
           <button-icon :class="{ active: !isShuffle }" @click="isShuffle = !isShuffle"
-            ><svg-icon icon-class="isShuffle"
+            ><svg-icon icon-class="shuffle"
           /></button-icon>
           <div class="middle">
             <button-icon v-show="!isPersonalFM" :title="$t('player.previous')" @click="playPrev"
@@ -91,7 +91,12 @@
         </div>
         <div class="player-progress-bar">
           <div class="time"
-            ><button-icon> <svg-icon icon-class="volume-half" /></button-icon
+            ><button-icon @click.stop="toggleMute"
+              ><svg-icon v-show="volume > 0.5" icon-class="volume" />
+              <svg-icon v-show="volume === 0" icon-class="volume-mute" />
+              <svg-icon
+                v-show="volume <= 0.5 && volume !== 0"
+                icon-class="volume-half" /></button-icon
           ></div>
           <div class="slider">
             <VueSlider
@@ -192,7 +197,7 @@ const {
   volume
 } = storeToRefs(playerStore)
 
-const { playPrev, playOrPause, playNext, switchRepeatMode, moveToFMTrash } = playerStore
+const { playPrev, playOrPause, playNext, switchRepeatMode, moveToFMTrash, toggleMute } = playerStore
 
 const settingsStore = useSettingsStore()
 const { general } = storeToRefs(settingsStore)
@@ -213,6 +218,8 @@ let tl: gsap.core.Timeline | null = null
 
 const currentLyric = computed(() => {
   const lrc = lyrics.value[currentIndex.value]
+  const nextLrc = lyrics.value[currentIndex.value + 1]
+
   if (!lrc)
     return {
       start: 0,
@@ -221,7 +228,8 @@ const currentLyric = computed(() => {
         ? `${currentTrack.value.artists[0].name} - ${currentTrack.value?.name}`
         : '听你想听的音乐'
     }
-  return { start: lrc.start, time: lrc.end - lrc.start, content: lrc.lyric.text }
+  const time = nextLrc ? nextLrc.start - lrc.start : Math.max(duration.value, lrc.end) - lrc.start
+  return { start: lrc.start, time, content: lrc.lyric.text }
 })
 
 const pickedLyric = computed(() => {
@@ -699,6 +707,8 @@ const buildShift = () => {
   pickLyricRef.value?.querySelectorAll('.ani-char').forEach((el) => {
     const rect = el.getBoundingClientRect()
     const posX = rect.left + rect.width / 2
+    // @ts-ignore
+    el.style.opacity = '0'
     result.push((posX - midX) / 2)
   })
   shiftDist.value = result
@@ -1122,7 +1132,7 @@ $mid: math.ceil(math.div($count, 2));
 
             z-index: $mid - $distance;
             transform: rotate($angle);
-            opacity: max(1 - $distance * 0.4, 0.2);
+            opacity: max(1 - $distance * 0.3, 0.2);
           }
         }
       }

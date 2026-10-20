@@ -79,7 +79,9 @@ window.mainApi?.send('initTrayState', {
   playing: playing.value,
   rate: playbackRate.value,
   like: isLiked.value,
-  isFM: isPersonalFM.value
+  isFM: isPersonalFM.value,
+  // 带上持久化的歌词偏移，避免托盘首帧用 offset=0 渲染
+  lyricOffset: lyricOffset.value
 })
 
 // ============================================================================= //
@@ -118,8 +120,9 @@ watch(
   }
 )
 
+// 歌词偏移变化需要同时通知：macOS/Linux 的状态栏歌词（shouldSend）与桌面歌词窗口（show）
 watch(lyricOffset, (value) => {
-  if (!shouldSend.value || !show.value) return
+  if (!shouldSend.value && !show.value) return
   window.mainApi?.send('synchronize-player-info', {
     lyricOffset: [value, getCurrentTime()]
   })
