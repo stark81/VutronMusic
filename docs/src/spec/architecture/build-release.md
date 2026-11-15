@@ -69,7 +69,17 @@ Referenced from: .../python/bin/python3.14
 - `sharp` 同样通过 `@img/sharp-<platform>-<arch>` 可选依赖分发预编译二进制；
 - 因此 `buildAssets/builder/config.js` 里设了 `npmRebuild: false`，electron-builder 打包时也不会再调 node-gyp。这同时避开了 Windows ARM64 的坑：`windows-11-arm` 镜像已换成 Visual Studio 2026，而 `node-gyp@11` 只认 VS 2019/2022，一旦触发编译就会报找不到 VS。
 
-需要临时跳过上述第 2、3 步时设置环境变量 `SKIP_REBUILD=true`（CI 就是这么做的，macOS 插件由工作流单独执行 `npm run build:native`）。
+需要临时跳过上述第 2、3 步时设置环境变量 `SKIP_REBUILD=true`。
+
+### CI 里的安装：`yarn install --ignore-scripts`
+
+CI 完全不执行安装脚本（`SKIP_REBUILD=true` 只是二道保险）。除了上文的预编译原因，**必须**跳过还因为：
+
+- `better-sqlite3` 带 `binding.gyp` 却**没有** `install` 脚本，npm/yarn 会隐式执行 `node-gyp rebuild`；
+- `windows-11-arm` 镜像只装了 **Visual Studio 2026**（`C:\Program Files\Microsoft Visual Studio\18\Enterprise`），`node-gyp@11` 只认 VS 2019/2022，configure 时直接报 `Could not find any Visual Studio installation to use` → `Install deps` 失败；
+- `register-scheme`（`electron-extension-installer` 的传递依赖，仅 dev 入口使用）也是 `node-gyp rebuild`，同样会失败（只是被标为 optional，不会中断安装）。
+
+跳过后需要单独执行的两件事，工作流里已有对应步骤：`npm run fix-taglib`（打补丁）与 `npm run build:native`（macOS 原生插件，用本机 Xcode 编译，不经 VS）。
 
 ## 代码签名
 
@@ -138,7 +148,7 @@ Linux 环境通过 `xvfb-run` 提供虚拟帧缓冲以运行 Electron 测试。
 >
 > 架构只由运行器的 `--x64` / `--arm64` 决定：`config.js` 的 `mac/win/linux.target` 里**不要**写死 `arch`，否则会覆盖命令行架构。
 
-CI 的 `Install deps` 步骤带 `SKIP_REBUILD=true`，步骤内部也不会再启动 Electron，因此 Linux 任务不需要 `xvfb`。
+CI 的 `Install deps` 步骤是 `yarn install --ignore-scripts`（见上文「CI 里的安装」），安装阶段不会编译任何东西、也不会启动 Electron，因此 Linux 任务不需要 `xvfb`。
 
 **发布流程**：
 

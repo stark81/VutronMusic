@@ -84,17 +84,22 @@ jobs:
           rm -rf ~/.cache/electron-builder/fpm || true
           fpm --version
 
-      # SKIP_REBUILD 跳过 sandbox 设置与原生插件编译：打包用到的原生模块都是预编译产物
-      # （见 rebuild.js 注释），因此安装依赖阶段不需要图形环境，也不会触发 node-gyp。
+      # --ignore-scripts：CI 里一个安装脚本都不需要跑（原生依赖全是预编译产物，
+      # taglib-wasm 补丁与 macOS 原生插件由后面的步骤单独执行），但必须跳过，因为
+      # better-sqlite3 带 binding.gyp 却没有 install 脚本，npm/yarn 会隐式执行
+      # `node-gyp rebuild`；而 windows-11-arm 镜像只装了 Visual Studio 2026，
+      # node-gyp 11 只认 VS 2019/2022，一旦 configure 就报
+      # "Could not find any Visual Studio installation to use"。
+      # SKIP_REBUILD 作为二道保险，防止以后有人去掉 --ignore-scripts。
       - name: Install deps
         env:
           SKIP_REBUILD: 'true'
-        run: yarn
+        run: yarn install --ignore-scripts
 
       - name: Fix taglib-wasm
         run: npm run fix-taglib
 
-      # macOS 的 tray / touchbar 原生插件必须本机编译（postinstall 里这一步在 CI 被跳过了）
+      # macOS 的 tray / touchbar 原生插件必须本机编译（安装阶段跳过了所有脚本）
       - name: Build native addons (macOS)
         if: matrix.platform == 'darwin'
         run: npm run build:native
