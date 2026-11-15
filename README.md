@@ -150,9 +150,9 @@ VutronMusic 是一款基于 **Electron + Vue 3 + TypeScript** 的桌面音乐播
 | :------------------: | :------------------------------: | :-----------------------------: |
 | ![MV](images/mv.png) | ![评论](images/comment-page.png) | ![搜索](images/search-page.png) |
 
-| 播放器样式 | 卷积混响 | 系统媒体控制 |
+| 播放器样式 | 卷积混响 | 搜索 |
 | :-: | :-: | :-: |
-| ![播放器样式](images/player-theme.png) | ![卷积混响](images/setConvolver.png) | ![系统媒体控制](images/media-control-lyric.png) |
+| ![播放器样式](images/player-theme.png) | ![卷积混响](images/setConvolver.png) | ![搜索页](images/search-page.png) |
 
 </details>
 
