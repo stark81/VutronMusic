@@ -1,8 +1,8 @@
 ---
-last-updated: 2026-11-14
+last-updated: 2026-11-15
 title: 构建与发布
 order: 13
-last-reviewed: 2026-11-14
+last-reviewed: 2026-11-15
 ---
 
 # 构建与发布
@@ -54,6 +54,22 @@ Referenced from: .../python/bin/python3.14
 > ⚠️ 因此升级 electron-builder 前必须先确认打包机的 macOS 最低版本：要么只在新系统上出 dmg，要么给 `node_modules` 打补丁 / 用 `CUSTOM_DMGBUILD_PATH` 指向自行准备的 dmgbuild。**仓库当前没有任何 dmg 打包补丁脚本**，`rebuild` 只处理 sandbox、taglib-wasm 与原生模块。
 
 只在本机出 `.app`（跳过 dmg）：`yarn build:dir` → `release/${version}/mac/VutronMusic.app`。
+
+## 原生模块
+
+安装依赖后的收尾由 `rebuild.js`（`postinstall`）完成，分三步：
+
+1. 修补 `taglib-wasm` 的 `package.json`（`fix-taglib-wasm.js`）——这个改动会被打进安装包，所以 CI 也要执行；
+2. Linux 上给 `chrome-sandbox` 设置 setuid（`fix-sandbox.js`）——只有本地跑 Electron 才需要；
+3. macOS 上编译 tray / touchbar 插件到 `dist-native/`（`build-native.js`）——仅 darwin 有效。
+
+**不再使用 `electron-rebuild`**（旧流程是 `electron rebuild.js`，等于启动 Electron GUI 跑 electron-rebuild，在无图形环境的 CI 上又慢又容易失败）：
+
+- `better-sqlite3` 13+ 自带 Node-API 预编译二进制（`prebuilds/<platform>-<arch>.node`），Node 与 Electron 通用，不需要按 ABI 重新编译；
+- `sharp` 同样通过 `@img/sharp-<platform>-<arch>` 可选依赖分发预编译二进制；
+- 因此 `buildAssets/builder/config.js` 里设了 `npmRebuild: false`，electron-builder 打包时也不会再调 node-gyp。这同时避开了 Windows ARM64 的坑：`windows-11-arm` 镜像已换成 Visual Studio 2026，而 `node-gyp@11` 只认 VS 2019/2022，一旦触发编译就会报找不到 VS。
+
+需要临时跳过上述第 2、3 步时设置环境变量 `SKIP_REBUILD=true`（CI 就是这么做的，macOS 插件由工作流单独执行 `npm run build:native`）。
 
 ## 代码签名
 
@@ -112,11 +128,17 @@ Linux 环境通过 `xvfb-run` 提供虚拟帧缓冲以运行 Electron 测试。
 | 平台    | Runner           | 架构  |
 | ------- | ---------------- | ----- |
 | macOS   | macos-15-intel   | x64   |
-| macOS   | macos-14         | arm64 |
+| macOS   | macos-26         | arm64 |
 | Windows | windows-2022     | x64   |
 | Windows | windows-11-arm   | arm64 |
 | Linux   | ubuntu-22.04     | x64   |
 | Linux   | ubuntu-22.04-arm | arm64 |
+
+> macOS 镜像不断退役：`macos-14`（x64）已于 2026-11-02 退役，继续使用会让任务直接失败（`The configuration 'macos-14-arm64-...' is not supported`）。当前可用的免费 arm64 镜像是 `macos-15` 与 `macos-26`。
+>
+> 架构只由运行器的 `--x64` / `--arm64` 决定：`config.js` 的 `mac/win/linux.target` 里**不要**写死 `arch`，否则会覆盖命令行架构。
+
+CI 的 `Install deps` 步骤带 `SKIP_REBUILD=true`，步骤内部也不会再启动 Electron，因此 Linux 任务不需要 `xvfb`。
 
 **发布流程**：
 

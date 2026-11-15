@@ -1,8 +1,8 @@
 ---
-last-updated: 2026-07-21
+last-updated: 2026-11-15
 title: 开发环境搭建
 order: 0
-last-reviewed: 2026-11-14
+last-reviewed: 2026-11-15
 ---
 
 # 开发环境搭建
@@ -105,13 +105,13 @@ rm -rf node_modules yarn.lock
 yarn install
 ```
 
-若 `postinstall` 阶段（`electron rebuild.js`）报错，按报错类型处理：
+若 `postinstall` 阶段（`node rebuild.js`）报错，按报错类型处理。该脚本只做三件事：修补 `taglib-wasm`、Linux 上设置 `chrome-sandbox` 的 setuid、macOS 上编译 tray / touchbar 插件，**不再调用 `electron-rebuild`**（原生模块都走预编译二进制，详见 [构建与发布](./build-release)）。
 
 | 报错 | 原因与处理 |
 | --- | --- |
-| `Could not detect abi for version 43.x and runtime electron` | `node-abi` 太旧，不认识 Electron 43。`@electron/rebuild@4.x` 依赖 `node-abi ^4.2.0`，当前锁文件已解析到 4.40.0（认识 Electron 43）；`package.json` 中**没有** `resolutions` 固定它。若锁被回退，删除 `node_modules` 与 `yarn.lock` 重新安装即可 |
-| `was compiled against a different Node.js version`（NODE_MODULE_VERSION 不匹配） | 原生模块是用旧 Electron 的 ABI 编译的。删除 `node_modules/better-sqlite3/build` 后重新 `yarn install`；better-sqlite3 13 使用 Node-API 预编译二进制，正常不会出现 |
-| `'source_location' file not found` / `three_way_comparable_with` | Electron 43 的原生模块需要 C++20 工具链，当前 Xcode 太旧（Xcode 14 及以下）。升级到 Xcode 15+，或改用带 Node-API 预编译二进制的依赖版本 |
+| `chown: ... chrome-sandbox: No such file or directory`（Linux） | `node_modules/electron/dist` 还没准备好（Electron 自己的 postinstall 没跑完）。删掉 `node_modules` 重新 `yarn install` |
+| `was compiled against a different Node.js version`（NODE_MODULE_VERSION 不匹配） | 通常是旧 Electron ABI 的产物残留。删除 `node_modules/better-sqlite3/build` 后重新 `yarn install`；better-sqlite3 13 使用 Node-API 预编译二进制，正常不会出现 |
+| `'source_location' file not found` / `three_way_comparable_with` | 编译 `src/native`（macOS 的 tray / touchbar 插件）需要 C++20，当前 Xcode 太旧（Xcode 14 及以下）。升级到 Xcode 15+ |
 
 ### Electron 启动白屏
 

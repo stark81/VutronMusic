@@ -14,11 +14,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # macOS
+          # macOS（macos-14 已于 2026-11-02 退役；arm64 免费镜像是 macos-15 / macos-26）
           - os: macos-15-intel
             arch: x64
             platform: darwin
-          - os: macos-14
+          - os: macos-26
             arch: arm64
             platform: darwin
 
@@ -39,16 +39,8 @@ jobs:
             platform: linux
 
     runs-on: ${{ matrix.os }}
-    env:
-      XVFB_PFX: ${{ (matrix.platform == 'linux' && 'xvfb-run --auto-servernum -- ') || '' }}
 
     steps:
-      - name: Validate architecture match
-        run: |
-          echo "Runner OS: ${{ matrix.os }}"
-          echo "Target architecture: ${{ matrix.arch }}"
-          echo "✅ 架构验证通过"
-
       - name: Check out Git repository
         uses: actions/checkout@v4
         with:
@@ -60,9 +52,16 @@ jobs:
           node-version: 22
           cache: 'yarn'
 
-      - name: Install build essentials (macOS)
-        if: matrix.platform == 'darwin'
-        run: brew install rpm
+      # 校验 runner 架构与矩阵一致，避免在 arm64 runner 上产出 x64 包（或反之）
+      - name: Validate architecture match
+        shell: bash
+        run: |
+          runner_arch=$(node -p "process.arch")
+          echo "Runner OS: ${{ matrix.os }} / node arch: $runner_arch / target arch: ${{ matrix.arch }}"
+          if [ "$runner_arch" != "${{ matrix.arch }}" ]; then
+            echo "::error::runner 架构 ($runner_arch) 与目标架构 (${{ matrix.arch }}) 不一致"
+            exit 1
+          fi
 
       - name: Install build essentials (Linux x64)
         if: matrix.platform == 'linux' && matrix.arch == 'x64'
@@ -70,7 +69,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y rpm fakeroot snapd flatpak flatpak-builder
           sudo snap install snapcraft --classic
-          sudo apt-get install -y libnss3-dev libgtk-3-dev libxss-dev libgconf-2-4 libasound2
+          sudo apt-get install -y libnss3-dev libgtk-3-dev libxss-dev libasound2
           sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
           sudo flatpak install -y --noninteractive org.freedesktop.Platform//25.08 org.freedesktop.Sdk//25.08 org.electronjs.Electron2.BaseApp//25.08
 
@@ -81,27 +80,29 @@ jobs:
           sudo apt-get install -y ruby ruby-dev build-essential
           sudo gem install fpm
           sudo apt-get install -y rpm fakeroot
-          sudo apt-get install -y libnss3 libgtk-3-0 libxss1 libgconf-2-4 libasound2
+          sudo apt-get install -y libnss3 libgtk-3-0 libxss1 libasound2
           rm -rf ~/.cache/electron-builder/fpm || true
           fpm --version
 
+      # SKIP_REBUILD 跳过 sandbox 设置与原生插件编译：打包用到的原生模块都是预编译产物
+      # （见 rebuild.js 注释），因此安装依赖阶段不需要图形环境，也不会触发 node-gyp。
       - name: Install deps
         env:
-          SKIP_REBUILD: true
-        run: ${{ env.XVFB_PFX }}yarn
+          SKIP_REBUILD: 'true'
+        run: yarn
 
       - name: Fix taglib-wasm
-        run: ${{ env.XVFB_PFX }}npm run fix-taglib
+        run: npm run fix-taglib
+
+      # macOS 的 tray / touchbar 原生插件必须本机编译（postinstall 里这一步在 CI 被跳过了）
+      - name: Build native addons (macOS)
+        if: matrix.platform == 'darwin'
+        run: npm run build:native
 
       - name: Fix app-builder permissions (Linux ARM64)
         if: matrix.platform == 'linux' && matrix.arch == 'arm64'
         run: |
           chmod +x node_modules/app-builder-bin/linux/arm64/app-builder || true
-
-      - name: Rebuild native dependencies for current architecture
-        run: |
-          ${{ env.XVFB_PFX }}npm rebuild
-          ${{ env.XVFB_PFX }}./node_modules/.bin/electron-rebuild
 
       - name: Build Electron app (Linux ARM64)
         if: matrix.platform == 'linux' && matrix.arch == 'arm64'

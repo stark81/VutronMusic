@@ -1,5 +1,5 @@
 ---
-last-updated: 2026-07-05
+last-updated: 2026-11-15
 title: ADR-0004 SQLite Schema
 order: 5
 ---
@@ -58,7 +58,7 @@ const db = new Database('vutron_music.sqlite')
 - **优点**：零配置（不需要服务器进程）
 - **优点**：跨平台（SQLite 支持所有桌面平台）
 - **优点**：性能优秀（10 万条记录查询 <10ms）
-- **缺点**：better-sqlite3 需要原生编译（electron-rebuild）
+- **缺点**：better-sqlite3 需要原生二进制（better-sqlite3 13+ 已自带 Node-API 预编译，不再需要 `electron-rebuild`）
 - **缺点**：WAL 模式下需要处理文件锁定
 
 ## Decision
@@ -115,7 +115,7 @@ db.pragma('auto_vacuum = FULL')
 
 ### 负面
 
-- better-sqlite3 需要 `electron-rebuild`（构建流程复杂一些）
+- ~~better-sqlite3 需要 `electron-rebuild`（构建流程复杂一些）~~ — 13+ 版本自带 Node-API 预编译二进制，该项已不成立
 - 同步 API 意味着所有数据库操作在主进程执行（不能放到 Worker 中）
 - 没有内置的迁移工具（需要自己写迁移逻辑）
 
