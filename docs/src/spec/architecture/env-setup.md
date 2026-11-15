@@ -2,7 +2,7 @@
 last-updated: 2026-07-21
 title: 开发环境搭建
 order: 0
-last-reviewed: 2025-07-21
+last-reviewed: 2026-11-14
 ---
 
 # 开发环境搭建
@@ -11,11 +11,13 @@ last-reviewed: 2025-07-21
 
 ## 环境要求
 
-| 依赖    | 版本要求  | 说明                                   |
-| ------- | --------- | -------------------------------------- |
-| Node.js | >= 22.6.0 | `package.json` engines 字段指定        |
-| Yarn    | 1.22.22   | `package.json` packageManager 字段指定 |
-| Git     | 2.x+      | 版本控制                               |
+| 依赖    | 版本要求  | 说明                                            |
+| ------- | --------- | ----------------------------------------------- |
+| Node.js | >= 22.6.0 | `package.json` engines 字段指定（推荐 22.23.1） |
+| Yarn    | 1.22.22   | `package.json` packageManager 字段指定          |
+| Git     | 2.x+      | 版本控制                                        |
+
+> Electron 43 + better-sqlite3 13：数据库驱动走 Node-API 预编译二进制（`prebuilds/`），不再需要 `node-gyp` 本地编译。但若某个原生依赖需要从源码编译，Electron 43 的头文件要求 C++20 标准库（`<source_location>`、`three_way_comparable_with`），macOS 12 + Xcode 14 无法编译，需 macOS 13+/Xcode 15+。
 
 ## 安装步骤
 
@@ -95,11 +97,21 @@ yarn build:pre    # 构建前检查
 
 ### 依赖安装失败
 
+先确认 Node 版本（`node -v` 应为 22.x）。`better-sqlite3` 13 要求 Node >= 22，版本不符时 `yarn install` 会直接报错。
+
 ```bash
 # 清除缓存重新安装
 rm -rf node_modules yarn.lock
 yarn install
 ```
+
+若 `postinstall` 阶段（`electron rebuild.js`）报错，按报错类型处理：
+
+| 报错 | 原因与处理 |
+| --- | --- |
+| `Could not detect abi for version 43.x and runtime electron` | `node-abi` 太旧，不认识 Electron 43。`@electron/rebuild@4.x` 依赖 `node-abi ^4.2.0`，当前锁文件已解析到 4.40.0（认识 Electron 43）；`package.json` 中**没有** `resolutions` 固定它。若锁被回退，删除 `node_modules` 与 `yarn.lock` 重新安装即可 |
+| `was compiled against a different Node.js version`（NODE_MODULE_VERSION 不匹配） | 原生模块是用旧 Electron 的 ABI 编译的。删除 `node_modules/better-sqlite3/build` 后重新 `yarn install`；better-sqlite3 13 使用 Node-API 预编译二进制，正常不会出现 |
+| `'source_location' file not found` / `three_way_comparable_with` | Electron 43 的原生模块需要 C++20 工具链，当前 Xcode 太旧（Xcode 14 及以下）。升级到 Xcode 15+，或改用带 Node-API 预编译二进制的依赖版本 |
 
 ### Electron 启动白屏
 

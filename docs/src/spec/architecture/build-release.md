@@ -1,8 +1,8 @@
 ---
-last-updated: 2026-07-21
+last-updated: 2026-11-14
 title: 构建与发布
 order: 13
-last-reviewed: 2025-07-21
+last-reviewed: 2026-11-14
 ---
 
 # 构建与发布
@@ -30,6 +30,30 @@ last-reviewed: 2025-07-21
 | Linux   | `deb` + `rpm` + `AppImage` + `snap`           | x64 + arm64 |
 
 NSIS 安装包配置：一键安装关闭、允许修改安装目录、创建桌面快捷方式。
+
+### macOS DMG 的 dmgbuild 来源（当前 26.5.0：系统 Python）
+
+electron-builder 生成 dmg 时依赖 `dmgbuild`，来源随版本不同：
+
+| electron-builder | dmgbuild 来源 | 前置条件 |
+| --- | --- | --- |
+| **26.5.0（仓库当前固定）** | `dmg-builder/vendor/run_dmgbuild.py`，由**系统 Python** 执行 | 打包机必须装 Python 3 |
+| 26.8.x 及以后 | 从 [electron-builder-binaries](https://github.com/electron-userland/electron-builder-binaries) 下载预编译 bundle | 见下，要求 macOS 15+ |
+
+26.5.0 的解释器路径取 `PYTHON_PATH`，取不到就依次尝试 `python3` / `python`，都找不到时报 `Cannot find 'python' or 'python3' executable`。这一版**没有**预编译 bundle，也**不认** `CUSTOM_DMGBUILD_PATH`。
+
+26.8.x 起（26.8.x 用 `dmg-builder@1.2.0`，26.18.x 与 27.0.0-alpha.14 用 `1.2.5`）指向同一个 bundle `dmgbuild-bundle-<arch>-75c8a6c.tar.gz`，其中 OpenSSL（`libssl.3.dylib` / `libcrypto.3.dylib`）的 `otool -l` 显示 `minos 15.0`，即要求 **macOS 15+**，在 macOS 12 及更早版本上 dmg 步骤会失败：
+
+```
+dyld: Symbol not found: (_mkfifoat)
+Referenced from: .../python/bin/python3.14
+```
+
+上游 [PR #10477](https://github.com/electron-userland/electron-builder/pull/10477) 已把 bundle 换成 `dmg-builder@1.2.7`（`cc96fa2`，两个 dylib 的 `minos` 为 `11.0`），但截至 2026-11 **尚无正式版包含它**。
+
+> ⚠️ 因此升级 electron-builder 前必须先确认打包机的 macOS 最低版本：要么只在新系统上出 dmg，要么给 `node_modules` 打补丁 / 用 `CUSTOM_DMGBUILD_PATH` 指向自行准备的 dmgbuild。**仓库当前没有任何 dmg 打包补丁脚本**，`rebuild` 只处理 sandbox、taglib-wasm 与原生模块。
+
+只在本机出 `.app`（跳过 dmg）：`yarn build:dir` → `release/${version}/mac/VutronMusic.app`。
 
 ## 代码签名
 

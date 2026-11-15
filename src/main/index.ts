@@ -85,6 +85,292 @@ const singerImagePath = Constants.IS_DEV_ENV
   ? path.join(process.cwd(), `./src/public/images/singer.png`)
   : path.join(__dirname, `../images/singer.png`)
 
+/**
+ * vutron:// 的 CORS 响应头。
+ *
+ * 渲染层用 `<audio crossOrigin="anonymous">` 播放 vutron:// 资源（流媒体插件、本地
+ * 缓存、netease 解锁源），Chromium 会以 CORS 模式请求。自定义协议要同时具备
+ * `corsEnabled` 权限与 `Access-Control-Allow-Origin` 响应头，否则音频被网络层拦掉，
+ * 播放层拿不到数据，只会表现为「重试 → 跳歌」。
+ */
+function buildVutronCorsHeaders(origin: string | null): Record<string, string> {
+  return {
+    ...(origin ? { 'access-control-allow-origin': origin, vary: 'Origin' } : {}),
+    'access-control-allow-methods': 'GET, HEAD, OPTIONS',
+    'access-control-allow-headers': 'Range, Content-Type, Origin, Authorization',
+    'access-control-expose-headers': 'Content-Length, Content-Range, Accept-Ranges, Content-Type'
+  }
+}
+
+/** 给实际响应补上 CORS 头；Origin 为空表示不是 CORS 请求，原样返回 */
+function withVutronCors(response: Response, origin: string | null): Response {
+  if (!origin) return response
+
+  const headers = new Headers(response.headers)
+  const cors = buildVutronCorsHeaders(origin)
+  for (const key of Object.keys(cors)) headers.set(key, cors[key])
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
+  })
+}
+
+/** vutron:// 的路由本体（不含安全边界与 CORS 包装） */
+async function routeVutronRequest(request: Request): Promise<Response> {
+  const { host, pathname, searchParams, search } = new URL(request.url)
+
+  if (host === 'get-default-pic') {
+    const pic = fs.readFileSync(defaultImagePath)
+    return new Response(new Uint8Array(pic))
+  } else if (host === 'get-singer-pic') {
+    const pic = fs.readFileSync(singerImagePath)
+    return new Response(new Uint8Array(pic))
+  } else if (host === 'get-pic-path') {
+    const filePath = pathname.slice(1)
+    // 本地文件读取必须落在用户授权目录 / 授权文件 / 应用自身目录内
+    if (!isGrantedLocalResource(filePath)) {
+      log.warn(`[security] 已拒绝读取未授权的封面路径: ${filePath}`)
+      return new Response('Forbidden', { status: 403 })
+    }
+    const track = { matched: false, filePath, album: { picUrl: 'vutron://get-default-pic' } }
+
+    const result = await getPic(track)
+    return new Response(new Uint8Array(result.pic), {
+      headers: { 'Content-Type': result.format }
+    })
+  } else if (host === 'get-color') {
+    const urlString = pathname.slice(1)
+    const [url, savePic] = urlString.split('/save-pic=')
+    const { pic, format } = await getPicFromApi(url)
+    const { color, color2 } = await getPicColor(pic!)
+    const jsonString = savePic
+      ? {
+          pic,
+          format,
+          color,
+          color2,
+          lyrics: {
+            lrc: { lyric: [] },
+            tlyric: { lyric: [] },
+            romalrc: { lyric: [] },
+            yrc: { lyric: [] },
+            ytlrc: { lyric: [] },
+            yromalrc: { lyric: [] }
+          }
+        }
+      : { color, color2 }
+    return new Response(JSON.stringify(jsonString), {
+      headers: { 'content-type': 'application/json' }
+    })
+  } else if (host === 'local-asset') {
+    const type = searchParams.get('type')
+
+    switch (type) {
+      case 'stream':
+        const mime = require('mime-types')
+        try {
+          let filePath = searchParams.get('path') || ''
+          if (!filePath) {
+            // id 分支：路径来自数据库，可信
+            const trackId = searchParams.get('id') || ''
+            if (trackId) {
+              const row = db.sqlite
+                .prepare(`SELECT filePath FROM ${Tables.Audio} WHERE trackId = ?`)
+                .get(trackId) as { filePath: string } | undefined
+              if (row) filePath = row.filePath
+            }
+          } else {
+            // path 分支：路径由渲染进程提供，必须落在授权范围内
+            filePath = decodeURIComponent(filePath)
+            if (!isGrantedLocalResource(filePath)) {
+              log.warn(`[security] 已拒绝读取未授权的流资源: ${filePath}`)
+              return new Response('Forbidden', { status: 403 })
+            }
+          }
+          if (!fs.existsSync(filePath)) {
+            return new Response('Not Found', { status: 404 })
+          }
+          const fileStat = fs.statSync(filePath)
+          const range = request.headers.get('range')
+          let start = 0
+          let end = fileStat.size - 1
+          if (range) {
+            const match = range.match(/bytes=(\d*)-(\d*)/)
+            if (match) {
+              start = match[1] ? parseInt(match[1], 10) : start
+              end = match[2] ? parseInt(match[2], 10) : end
+            }
+          }
+          const chunkSize = end - start + 1
+          const stream = fs.createReadStream(filePath, { start, end })
+          stream.on('error', () => stream.destroy())
+
+          request.signal?.addEventListener('abort', () => {
+            stream.destroy()
+          })
+
+          const mimeType = mime.lookup(filePath) || 'application/octet-stream'
+          const headers = {
+            'content-type': mimeType,
+            'accept-ranges': 'bytes'
+          }
+
+          if (range) {
+            // @ts-ignore
+            headers['content-length'] = String(chunkSize)
+            // @ts-ignore
+            headers['content-range'] = `bytes ${start}-${end}/${fileStat.size}`
+          } else {
+            // @ts-ignore
+            headers['content-length'] = String(fileStat.size)
+          }
+          // @ts-ignore
+          return new Response(stream, {
+            status: range ? 206 : 200,
+            headers
+          })
+        } catch (streamErr) {
+          console.error('[vutron stream error]', streamErr)
+          return new Response('Stream Error', { status: 500 })
+        }
+
+      case 'json':
+        const jsonFile = searchParams.get('path')!
+        if (!isGrantedLocalResource(jsonFile)) {
+          log.warn(`[security] 已拒绝读取未授权的 json 资源: ${jsonFile}`)
+          return new Response('Forbidden', { status: 403 })
+        }
+        if (!fs.existsSync(jsonFile)) {
+          return new Response('Not Found', { status: 404 })
+        }
+        try {
+          const content = await fs.promises.readFile(jsonFile, 'utf-8')
+          const json = JSON.parse(content)
+          return new Response(JSON.stringify(json), {
+            headers: { 'Content-Type': 'application/json' }
+          })
+        } catch (err: any) {
+          return new Response(JSON.stringify({ error: err.message }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' }
+          })
+        }
+    }
+  } else if (host === 'local-resource') {
+    const mime = require('mime-types')
+    let filePath = decodeURIComponent(pathname.slice(1))
+    if (process.platform === 'win32' && filePath.match(/^\/[A-Za-z]:/)) {
+      filePath = filePath.slice(1)
+    }
+    // 本地文件读取必须落在用户授权目录 / 授权文件 / 应用自身目录内
+    if (!isGrantedLocalResource(filePath)) {
+      log.warn(`[security] 已拒绝读取未授权的本地资源: ${filePath}`)
+      return new Response('Forbidden', { status: 403 })
+    }
+    if (!fs.existsSync(filePath)) {
+      return new Response('Not Found', { status: 404 })
+    }
+    const fileStat = fs.statSync(filePath)
+    const mimeType = mime.lookup(filePath) || 'application/octet-stream'
+
+    const range = request.headers.get('range')
+    if (range) {
+      const match = range.match(/bytes=(\d*)-(\d*)/)
+      let start = 0
+      let end = fileStat.size - 1
+      if (match) {
+        start = match[1] ? parseInt(match[1], 10) : start
+        end = match[2] ? parseInt(match[2], 10) : end
+      }
+      const chunkSize = end - start + 1
+      const stream = fs.createReadStream(filePath, { start, end })
+      // 与 local-asset 的流分支保持一致：流错误 / 客户端中止（拖进度条、切歌）
+      // 都要销毁读流，否则 fd 会一直挂到流自然耗尽。
+      stream.on('error', () => stream.destroy())
+      request.signal?.addEventListener('abort', () => stream.destroy())
+      // @ts-ignore
+      return new Response(stream, {
+        status: 206,
+        headers: {
+          'content-type': mimeType,
+          'content-length': chunkSize.toString(),
+          'accept-ranges': 'bytes',
+          'content-range': `bytes ${start}-${end}/${fileStat.size}`
+        }
+      })
+    }
+
+    const fileBuffer = fs.readFileSync(filePath)
+    return new Response(new Uint8Array(fileBuffer), {
+      headers: { 'Content-Type': mimeType }
+    })
+  } else if (host === 'get-online-music') {
+    let url = pathname.slice(1)
+    const headers = request.headers
+    url += search
+    try {
+      const response = await proxyFetch(url, { headers })
+      if (!response.ok) {
+        return new Response(null, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: {
+            'Content-Type': 'text/plain'
+          }
+        })
+      }
+      return response
+    } catch (error) {
+      log.error('== get-online-music error ==', error)
+      return new Response(null, {
+        status: 500,
+        statusText: 'Internal Server Error'
+      })
+    }
+  } else if (host === 'get-plugin-asset') {
+    const pluginId = searchParams.get('plugin')!
+    const plugin = pluginManager.get(pluginId)
+    if (!plugin) {
+      return new Response('Not Found', {
+        status: 404,
+        headers: { 'Content-Type': 'text/plain' }
+      })
+    }
+
+    const type = searchParams.get('type')
+    switch (type) {
+      case 'stream':
+        const id = searchParams.get('id')
+        const { url, headers } = await plugin.call('getStream', { id })
+        try {
+          const response = await proxyFetch(url, {
+            method: 'GET',
+            headers: {
+              ...Object.fromEntries(request.headers),
+              ...headers
+            }
+          })
+
+          return new Response(response.body, {
+            status: response.status,
+            headers: response.headers
+          })
+        } catch (error) {
+          log.error('== get-online-music error ==', error)
+          return new Response(null, {
+            status: 500,
+            statusText: 'Internal Server Error'
+          })
+        }
+      default:
+        break
+    }
+  }
+  return new Response('Not Found', { status: 404, headers: { 'Content-Type': 'text/plain' } })
+}
+
 class BackGround {
   win: BrowserWindow | null = null
   osdMode: string = 'small'
@@ -127,7 +413,20 @@ class BackGround {
     protocol.registerSchemesAsPrivileged([
       {
         scheme: 'vutron',
-        privileges: { secure: true, standard: true, supportFetchAPI: true, stream: true }
+        privileges: {
+          secure: true,
+          standard: true,
+          supportFetchAPI: true,
+          stream: true,
+          /**
+           * 必须开启。渲染层用 `<audio crossOrigin="anonymous">` 播放 vutron:// 资源
+           * （流媒体插件 / 本地缓存 / netease 解锁源），这属于 CORS 请求；未登记为
+           * CORS-enabled 的 scheme 会被 Chromium 直接拒绝：
+           * "Cross origin requests are only supported for protocol schemes: ..."
+           * → 音频加载失败 → 播放层重试后跳歌。
+           */
+          corsEnabled: true
+        }
       }
     ])
 
@@ -459,260 +758,23 @@ class BackGround {
 
   handleProtocol() {
     protocol.handle('vutron', async (request) => {
-      const { host, pathname, searchParams, search } = new URL(request.url)
+      const { host } = new URL(request.url)
 
       // 安全边界：vutron:// 只服务于应用自身页面。
-      // 资源加载（img/video/audio）不带 Origin，跨源 fetch 一定带 Origin。
+      // <img>/<video> 默认不带 Origin；带 crossOrigin 的媒体与跨源 fetch 一定带 Origin。
       const requestOrigin = request.headers.get('Origin')
       if (requestOrigin && requestOrigin !== Constants.APP_ORIGIN) {
         log.warn(`[security] 已拒绝来自 ${requestOrigin} 的 vutron:// 请求: ${host}`)
         return new Response('Forbidden', { status: 403 })
       }
 
-      if (host === 'get-default-pic') {
-        const pic = fs.readFileSync(defaultImagePath)
-        return new Response(new Uint8Array(pic))
-      } else if (host === 'get-singer-pic') {
-        const pic = fs.readFileSync(singerImagePath)
-        return new Response(new Uint8Array(pic))
-      } else if (host === 'get-pic-path') {
-        const filePath = pathname.slice(1)
-        // 本地文件读取必须落在用户授权目录 / 授权文件 / 应用自身目录内
-        if (!isGrantedLocalResource(filePath)) {
-          log.warn(`[security] 已拒绝读取未授权的封面路径: ${filePath}`)
-          return new Response('Forbidden', { status: 403 })
-        }
-        const track = { matched: false, filePath, album: { picUrl: 'vutron://get-default-pic' } }
-
-        const result = await getPic(track)
-        return new Response(new Uint8Array(result.pic), {
-          headers: { 'Content-Type': result.format }
-        })
-      } else if (host === 'get-color') {
-        const urlString = pathname.slice(1)
-        const [url, savePic] = urlString.split('/save-pic=')
-        const { pic, format } = await getPicFromApi(url)
-        const { color, color2 } = await getPicColor(pic!)
-        const jsonString = savePic
-          ? {
-              pic,
-              format,
-              color,
-              color2,
-              lyrics: {
-                lrc: { lyric: [] },
-                tlyric: { lyric: [] },
-                romalrc: { lyric: [] },
-                yrc: { lyric: [] },
-                ytlrc: { lyric: [] },
-                yromalrc: { lyric: [] }
-              }
-            }
-          : { color, color2 }
-        return new Response(JSON.stringify(jsonString), {
-          headers: { 'content-type': 'application/json' }
-        })
-      } else if (host === 'local-asset') {
-        const type = searchParams.get('type')
-
-        switch (type) {
-          case 'stream':
-            const mime = require('mime-types')
-            try {
-              let filePath = searchParams.get('path') || ''
-              if (!filePath) {
-                // id 分支：路径来自数据库，可信
-                const trackId = searchParams.get('id') || ''
-                if (trackId) {
-                  const row = db.sqlite
-                    .prepare(`SELECT filePath FROM ${Tables.Audio} WHERE trackId = ?`)
-                    .get(trackId) as { filePath: string } | undefined
-                  if (row) filePath = row.filePath
-                }
-              } else {
-                // path 分支：路径由渲染进程提供，必须落在授权范围内
-                filePath = decodeURIComponent(filePath)
-                if (!isGrantedLocalResource(filePath)) {
-                  log.warn(`[security] 已拒绝读取未授权的流资源: ${filePath}`)
-                  return new Response('Forbidden', { status: 403 })
-                }
-              }
-              if (!fs.existsSync(filePath)) {
-                return new Response('Not Found', { status: 404 })
-              }
-              const fileStat = fs.statSync(filePath)
-              const range = request.headers.get('range')
-              let start = 0
-              let end = fileStat.size - 1
-              if (range) {
-                const match = range.match(/bytes=(\d*)-(\d*)/)
-                if (match) {
-                  start = match[1] ? parseInt(match[1], 10) : start
-                  end = match[2] ? parseInt(match[2], 10) : end
-                }
-              }
-              const chunkSize = end - start + 1
-              const stream = fs.createReadStream(filePath, { start, end })
-              stream.on('error', () => stream.destroy())
-
-              request.signal?.addEventListener('abort', () => {
-                stream.destroy()
-              })
-
-              const mimeType = mime.lookup(filePath) || 'application/octet-stream'
-              const headers = {
-                'content-type': mimeType,
-                'accept-ranges': 'bytes'
-              }
-
-              if (range) {
-                // @ts-ignore
-                headers['content-length'] = String(chunkSize)
-                // @ts-ignore
-                headers['content-range'] = `bytes ${start}-${end}/${fileStat.size}`
-              } else {
-                // @ts-ignore
-                headers['content-length'] = String(fileStat.size)
-              }
-              // @ts-ignore
-              return new Response(stream, {
-                status: range ? 206 : 200,
-                headers
-              })
-            } catch (streamErr) {
-              console.error('[vutron stream error]', streamErr)
-              return new Response('Stream Error', { status: 500 })
-            }
-
-          case 'json':
-            const jsonFile = searchParams.get('path')!
-            if (!isGrantedLocalResource(jsonFile)) {
-              log.warn(`[security] 已拒绝读取未授权的 json 资源: ${jsonFile}`)
-              return new Response('Forbidden', { status: 403 })
-            }
-            if (!fs.existsSync(jsonFile)) {
-              return new Response('Not Found', { status: 404 })
-            }
-            try {
-              const content = await fs.promises.readFile(jsonFile, 'utf-8')
-              const json = JSON.parse(content)
-              return new Response(JSON.stringify(json), {
-                headers: { 'Content-Type': 'application/json' }
-              })
-            } catch (err: any) {
-              return new Response(JSON.stringify({ error: err.message }), {
-                status: 500,
-                headers: { 'Content-Type': 'application/json' }
-              })
-            }
-        }
-      } else if (host === 'local-resource') {
-        const mime = require('mime-types')
-        let filePath = decodeURIComponent(pathname.slice(1))
-        if (process.platform === 'win32' && filePath.match(/^\/[A-Za-z]:/)) {
-          filePath = filePath.slice(1)
-        }
-        // 本地文件读取必须落在用户授权目录 / 授权文件 / 应用自身目录内
-        if (!isGrantedLocalResource(filePath)) {
-          log.warn(`[security] 已拒绝读取未授权的本地资源: ${filePath}`)
-          return new Response('Forbidden', { status: 403 })
-        }
-        if (!fs.existsSync(filePath)) {
-          return new Response('Not Found', { status: 404 })
-        }
-        const fileStat = fs.statSync(filePath)
-        const mimeType = mime.lookup(filePath) || 'application/octet-stream'
-
-        const range = request.headers.get('range')
-        if (range) {
-          const match = range.match(/bytes=(\d*)-(\d*)/)
-          let start = 0
-          let end = fileStat.size - 1
-          if (match) {
-            start = match[1] ? parseInt(match[1], 10) : start
-            end = match[2] ? parseInt(match[2], 10) : end
-          }
-          const chunkSize = end - start + 1
-          const stream = fs.createReadStream(filePath, { start, end })
-          // @ts-ignore
-          return new Response(stream, {
-            status: 206,
-            headers: {
-              'content-type': mimeType,
-              'content-length': chunkSize.toString(),
-              'accept-ranges': 'bytes',
-              'content-range': `bytes ${start}-${end}/${fileStat.size}`
-            }
-          })
-        }
-
-        const fileBuffer = fs.readFileSync(filePath)
-        return new Response(new Uint8Array(fileBuffer), {
-          headers: { 'Content-Type': mimeType }
-        })
-      } else if (host === 'get-online-music') {
-        let url = pathname.slice(1)
-        const headers = request.headers
-        url += search
-        try {
-          const response = await proxyFetch(url, { headers })
-          if (!response.ok) {
-            return new Response(null, {
-              status: response.status,
-              statusText: response.statusText,
-              headers: {
-                'Content-Type': 'text/plain'
-              }
-            })
-          }
-          return response
-        } catch (error) {
-          log.error('== get-online-music error ==', error)
-          return new Response(null, {
-            status: 500,
-            statusText: 'Internal Server Error'
-          })
-        }
-      } else if (host === 'get-plugin-asset') {
-        const pluginId = searchParams.get('plugin')!
-        const plugin = pluginManager.get(pluginId)
-        if (!plugin) {
-          return new Response('Not Found', {
-            status: 404,
-            headers: { 'Content-Type': 'text/plain' }
-          })
-        }
-
-        const type = searchParams.get('type')
-        switch (type) {
-          case 'stream':
-            const id = searchParams.get('id')
-            const { url, headers } = await plugin.call('getStream', { id })
-            try {
-              const response = await proxyFetch(url, {
-                method: 'GET',
-                headers: {
-                  ...Object.fromEntries(request.headers),
-                  ...headers
-                }
-              })
-
-              return new Response(response.body, {
-                status: response.status,
-                headers: response.headers
-              })
-            } catch (error) {
-              log.error('== get-online-music error ==', error)
-              return new Response(null, {
-                status: 500,
-                statusText: 'Internal Server Error'
-              })
-            }
-          default:
-            break
-        }
+      // <audio crossOrigin="anonymous"> 以 CORS 模式请求 vutron://，预检必须先放行，
+      // 否则 Chromium 直接拒绝加载音频（Cross origin requests are only supported ...）。
+      if (request.method === 'OPTIONS') {
+        return new Response(null, { status: 204, headers: buildVutronCorsHeaders(requestOrigin) })
       }
-      return new Response('Not Found', { status: 404, headers: { 'Content-Type': 'text/plain' } })
+
+      return withVutronCors(await routeVutronRequest(request), requestOrigin)
     })
   }
 

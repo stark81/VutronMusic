@@ -235,15 +235,11 @@ IPCs.initialize(win, tray, touchBar, mpris, lrc)
 
 ## 🔒 IPC 安全边界（调用方校验）
 
-> 背景见 [issue #416](https://github.com/stark81/VutronMusic/issues/416)，
-> 完整不变量见 [安全边界与不变量](../security)。
+> 背景见 [issue #416](https://github.com/stark81/VutronMusic/issues/416)，完整不变量见 [安全边界与不变量](../security)。
 
-**preload 的通道白名单只校验 channel 名，不校验调用方**，因此它不是安全边界：
-preload 会在窗口当前承载的任意 origin 上重新执行。真正的边界在
-`src/main/utils/ipcGuard.ts`：
+**preload 的通道白名单只校验 channel 名，不校验调用方**，因此它不是安全边界：preload 会在窗口当前承载的任意 origin 上重新执行。真正的边界在 `src/main/utils/ipcGuard.ts`：
 
-`installIpcGuard()` 会包装 Electron 的 `ipcMain.on/handle`，因此
-`IPCs.ts` / `menu.ts` / `dock.ts` / `thumBar.ts` 的所有注册点都自动生效。每次调用校验：
+`installIpcGuard()` 会包装 Electron 的 `ipcMain.on/handle`，因此 `IPCs.ts` / `menu.ts` / `dock.ts` / `thumBar.ts` 的所有注册点都自动生效。每次调用校验：
 
 1. `event.senderFrame` 必须存在，且是该 webContents 的**主 frame**（子 iframe 拒绝）；
 2. 该 webContents 必须由 `hardenWindow()` 登记为可信窗口；
@@ -261,6 +257,4 @@ preload 会在窗口当前承载的任意 origin 上重新执行。真正的边�
 
 ### 参数校验约定
 
-调用方校验只解决「谁能调用」，**不解决「参数是否合法」**。渲染进程传入的路径必须再经过
-`src/main/utils/pathGrants.ts` / `pathSafety.ts`（授权目录白名单、文件名清洗、目录包含性与
-realpath 校验），详见[安全边界与不变量](../security)。
+调用方校验只解决「谁能调用」，**不解决「参数是否合法」**。渲染进程传入的路径必须再经过 `src/main/utils/pathGrants.ts` / `pathSafety.ts`（授权目录白名单、文件名清洗、目录包含性与 realpath 校验），详见[安全边界与不变量](../security)。

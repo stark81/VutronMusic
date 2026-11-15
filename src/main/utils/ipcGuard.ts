@@ -128,10 +128,7 @@ function describeSender(event: IpcMainEvent | IpcMainInvokeEvent): string {
   return `senderId=${id} senderFrame=${url}`
 }
 
-function authorize(
-  event: IpcMainEvent | IpcMainInvokeEvent,
-  channel: string
-): SenderInfo | null {
+function authorize(event: IpcMainEvent | IpcMainInvokeEvent, channel: string): SenderInfo | null {
   const info = resolveSender(event)
   if (!info) {
     log.warn(

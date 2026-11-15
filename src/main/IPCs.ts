@@ -39,6 +39,23 @@ const closeCacheWorker = async () => {
   cacheWorker = null
 }
 
+/**
+ * 插件请求失败里哪些属于「等一会儿可能就好」的瞬态错误。
+ *
+ * 插件的 HTTP 失败会以 reject 抛回渲染层前的 caller（`pluginRunner` 收到
+ * `HTTP_RESPONSE.error` 就 reject），常见形态：
+ *   · `Request timeout`（worker 12s 超时）
+ *   · `getaddrinfo ENOTFOUND ...` / `ECONNRESET` / `socket hang up`
+ *   · `HTTP 5xx`（上游临时故障）
+ * 插件未加载、域名不在白名单、`HTTP 4xx` 属于确定性失败，重试只会白等。
+ */
+function isTransientPluginError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err ?? '')
+  return /timeout|timed out|econnreset|econnrefused|etimedout|enotfound|eai_again|socket hang up|network|http 5\d\d/i.test(
+    message
+  )
+}
+
 /*
  * IPC Communications
  * */
@@ -703,12 +720,33 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
       }
 
       // 2. 无缓存，调插件获取线上地址
-      try {
-        const result = await pluginManager.call(pluginId, 'songUrl', sourceContext)
-        if (result?.code === 200 && result.data?.url?.length) {
-          const { url, replayGain, peak, cueOffset, cueDuration } = result.data
+      //
+      // 插件 HTTP 请求失败要分两类：瞬态错误（12s 超时 / 连接重置 / DNS 抖动 /
+      // 上游 5xx）重试一次多半就好了；确定性错误（插件未加载、域名不在白名单、
+      // HTTP 4xx）重试只是白等。插件正常返回但没有可用地址（歌不可播放）不重试。
+      let result: { code?: number; data?: any } | null = null
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const isRetry = attempt > 0
+        try {
+          result = await pluginManager.call(pluginId, 'songUrl', sourceContext)
+          break
+        } catch (err) {
+          result = null
+          if (!isTransientPluginError(err)) {
+            log.error('[get-song-url] 获取失败（确定性错误，不重试）:', err)
+            break
+          }
+          log.error(`[get-song-url] 获取失败${isRetry ? '（已重试）' : '，稍后重试一次'}:`, err)
+          if (!isRetry) await new Promise((resolve) => setTimeout(resolve, 400))
+        }
+      }
 
-          // 3. 异步触发缓存（仅 library 插件）
+      if (result?.code === 200 && result.data?.url?.length) {
+        const { url, replayGain, peak, cueOffset, cueDuration } = result.data
+
+        // 3. 异步触发缓存（仅 library 插件）
+        // 缓存只是增强能力：这里出任何错都不能让本次播放请求失败
+        try {
           const autoCacheSettings = store.get('settings.autoCacheTrack') as any
           const pType = pluginManager.get(pluginId)?.meta?.type
           if (autoCacheSettings?.enable && pType === 'library' && cacheWorker && url[0]) {
@@ -724,11 +762,11 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
               cacheWorker.postMessage({ type: 'task', track, url: url[0], audioCachePath })
             }
           }
-
-          return { url, replayGain, peak, cueOffset: cueOffset || 0, cueDuration: cueDuration || 0 }
+        } catch (err) {
+          log.warn('[get-song-url] 触发音频缓存失败（不影响本次播放）:', err)
         }
-      } catch (err) {
-        log.error('[get-song-url] 获取失败:', err)
+
+        return { url, replayGain, peak, cueOffset: cueOffset || 0, cueDuration: cueDuration || 0 }
       }
 
       return { url: '', replayGain: 0, peak: 1, cueOffset: 0, cueDuration: 0 }
@@ -1224,18 +1262,32 @@ async function initPluginIpcMain() {
 
       // 遍历候选，返回第一个成功的
       const pluginEnable = store.get('pluginEnable') as PluginEnableState
+      let failed = 0
+      let noLyric = false
       for (const candidate of candidates) {
         const pType = pluginManager.get(candidate.pluginId)?.meta?.type
         if (!isPluginTypeEnabled(pluginEnable, pType)) continue
         try {
           const result = await pluginManager.call(candidate.pluginId, 'getLyric', candidate.ctx)
-          if (result?.code === 200 && result.data?.length) return result
+          if (result?.code !== 200) {
+            failed += 1
+            continue
+          }
+          if (result.data?.length) return result
+          // 插件明确回答「没有歌词」，与请求失败不是一回事
+          noLyric = true
         } catch {
+          failed += 1
           continue
         }
       }
 
-      return { code: 200, data: [] }
+      // 失败语义必须与「确实没有歌词」区分开：渲染层的歌词预取缓存与失败重试
+      // 依赖它。全部候选失败（或没有可用候选）时返回非 200，否则一次超时就会被
+      // 当成「这首歌没有歌词」缓存下来，整场会话都刷不出来。
+      if (failed) log.warn(`[plugin-lyric] ${failed} 个歌词候选失败: ${pluginId}`)
+      if (noLyric) return { code: 200, data: [] }
+      return { code: 404, data: [] }
     }
   )
 

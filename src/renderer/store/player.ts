@@ -6,6 +6,7 @@ import { usePluginMusic } from './pluginMusic'
 import { useNormalStateStore } from './state'
 import { useSettingsStore } from './settings'
 import eventBus from '../utils/eventBus'
+import { preloadImage } from '../utils/preloadImage'
 
 import shuffleFn from 'lodash/shuffle'
 import cloneDeep from 'lodash/cloneDeep'
@@ -58,6 +59,35 @@ export const usePlayerStore = defineStore(
     const currentTrackIndex = ref(0)
     const currentTrack = ref<Track>()
     const nextTrack = ref<Track>()
+    /**
+     * nextTrack 对应的「插件的 sourceContext 指纹」。
+     *
+     * 不能拿 nextTrack.sourceContext 反推：插件 getTrackDetail 返回的 sourceContext
+     * 未必和播放列表里的完全一致（字段增减、类型差异都会让 JSON 比较失败），
+     * 一失败就会重新走 getTrackDetail + 实时拉歌词/封面，表现为切歌卡 1~2 秒。
+     * 这里比较的是我们自己当初传进去的那份上下文，一定对得上。
+     */
+    let nextTrackKey: string | null = null
+    const clearNextTrack = () => {
+      nextTrack.value = undefined
+      nextTrackKey = null
+    }
+
+    /**
+     * 预取状态。
+     *
+     * 刻意声明在这里而不是真正的预取实现旁边：`replaceCurrentTrack` 与下面两个
+     * 「播放列表变化」watch 都会用到它们，而 `let` 有 TDZ —— 声明晚于首次使用
+     * 就可能在 setup 阶段被意外调用时抛 ReferenceError。
+     */
+    let prefetchTimer: ReturnType<typeof setTimeout> | null = null
+    /**
+     * 预取代际。切换歌曲 / 更换播放列表后，之前在飞行中的预取结果必须作废：
+     * 否则它会覆盖新的 nextTrack，并对已经不再播放的歌曲发起预热请求
+     * （歌词候选遍历、trackMatch 都会占用插件 HTTP 连接，挤掉真正的播放请求）。
+     */
+    let prefetchGen = 0
+
     const chorus = ref(0)
     const pic = ref('http://localhost:41830/local-asset/default-cover')
 
@@ -233,7 +263,7 @@ export const usePlayerStore = defineStore(
       if (value && playList.value.length > 0) {
         shuffleTheList(currentTrackIndex.value)
         currentTrackIndex.value = 0
-        nextTrack.value = undefined
+        clearNextTrack()
         if (prefetchTimer) clearTimeout(prefetchTimer)
         scheduleNextTrackPrefetch()
       }
@@ -243,7 +273,7 @@ export const usePlayerStore = defineStore(
     watch(
       [playNextList, () => (isShuffle.value ? shuffleList.value : playList.value)],
       () => {
-        nextTrack.value = undefined
+        clearNextTrack()
         if (prefetchTimer) clearTimeout(prefetchTimer)
         scheduleNextTrackPrefetch()
       },
@@ -289,7 +319,7 @@ export const usePlayerStore = defineStore(
       playlistSource.value = source
       isPersonalFM.value = false
       playList.value = sourceContext
-      nextTrack.value = undefined
+      clearNextTrack()
 
       if (isShuffle.value) {
         shuffleTheList(index)
@@ -350,32 +380,53 @@ export const usePlayerStore = defineStore(
       )
     }
 
+    /**
+     * 切换当前歌曲（不改动播放列表）。
+     *
+     * 返回 `false` 表示拿不到歌曲详情、`currentTrack` 没有变化，调用方需要把
+     * 「正在播放」的状态改回去。刻意不抛错：9 处调用方里多数是 fire-and-forget，
+     * 抛错会变成未处理的 promise rejection。
+     */
     async function replaceCurrentTrack(
       plugin: PluginId,
       sourceContext: Record<string, any>,
       autoPlay = true,
       reportEnd = true
-    ) {
+    ): Promise<boolean> {
+      // 切歌后旧的预取结果一律作废，避免它回来覆盖 nextTrack / 触发无谓的预热请求
+      prefetchGen++
+
       if (autoPlay && reportEnd && currentTrack.value?.name && !_pendingEndReport) {
         reportPlayback('end')
       }
       _pendingEndReport = false
 
-      if (
-        nextTrack.value?.pluginId === plugin &&
-        JSON.stringify(nextTrack.value?.sourceContext) === JSON.stringify(sourceContext)
-      ) {
+      if (nextTrack.value && nextTrackKey === contextCacheKey(plugin, sourceContext)) {
         currentTrack.value = nextTrack.value
-        nextTrack.value = undefined
+        clearNextTrack()
       } else {
-        nextTrack.value = undefined
+        clearNextTrack()
         const res = await pluginMethodCall(plugin, 'getTrackDetail', { tracks: [sourceContext] })
+        const detail = res?.data?.[0]
+
+        // 详情拿不到（插件超时 / 被插件判为不可用）时不要用空数据覆盖 currentTrack，
+        // 更不要让 undefined 解构冒泡成未捕获异常。
+        // 注意：prefetchGen 上面已经自增，这里必须补一次调度，否则下一首预取会
+        // 一直停摆到下一次成功切歌；同时把「正在播放」改回 false，避免 UI 显示
+        // 播放中但实际没有声音。是否自动跳下一首交给调用方决定（默认不跳）。
+        if (!detail) {
+          showToast(`获取歌曲信息失败: ${plugin}`)
+          playing.value = false
+          engineStore.pause().catch(() => {})
+          scheduleNextTrackPrefetch()
+          return false
+        }
 
         currentTrack.value = {
-          ...res.data[0],
-          album: { ...res.data[0].album, pluginId: plugin },
-          artists: res.data[0].artists.map((it) => ({ ...it, pluginId: plugin })),
-          albumArtists: res.data[0].albumArtists.map((it) => ({ ...it, pluginId: plugin })),
+          ...detail,
+          album: { ...(detail.album ?? {}), pluginId: plugin },
+          artists: (detail.artists ?? []).map((it) => ({ ...it, pluginId: plugin })),
+          albumArtists: (detail.albumArtists ?? []).map((it) => ({ ...it, pluginId: plugin })),
           pluginId: plugin
         }
       }
@@ -408,6 +459,7 @@ export const usePlayerStore = defineStore(
 
       triggerTrackMatch(currentTrack.value)
       scheduleNextTrackPrefetch()
+      return true
     }
 
     // function getTrackInfo() {}
@@ -549,8 +601,9 @@ export const usePlayerStore = defineStore(
       }
       const track = fmTracks.value.shift()!
       nextTrack.value = track
-      await replaceCurrentTrack(track.pluginId, track.sourceContext, autoPlay)
-      playing.value = autoPlay
+      nextTrackKey = contextCacheKey(track.pluginId, track.sourceContext)
+      const ok = await replaceCurrentTrack(track.pluginId, track.sourceContext, autoPlay)
+      playing.value = autoPlay && ok
       if (fmTracks.value.length === 0) {
         refillFMTracks()
       }
@@ -577,6 +630,7 @@ export const usePlayerStore = defineStore(
 
       const track = fmTracks.value.shift()!
       nextTrack.value = track // 跳过 getTrackDetail
+      nextTrackKey = contextCacheKey(track.pluginId, track.sourceContext)
       await replaceCurrentTrack(track.pluginId, track.sourceContext, playing)
       if (fmTracks.value.length === 0) {
         refillFMTracks()
@@ -677,13 +731,13 @@ export const usePlayerStore = defineStore(
       } else {
         playNextList.value.push(...trackInfos)
       }
-      nextTrack.value = undefined
+      clearNextTrack()
       if (playNow) playNext(false)
     }
 
     function clearPlayNextList() {
       playNextList.value = []
-      nextTrack.value = undefined
+      clearNextTrack()
     }
 
     const resetPlayer = (resetAll = true) => {
@@ -694,7 +748,7 @@ export const usePlayerStore = defineStore(
       enabled.value = false
       currentTrackIndex.value = 0
       currentTrack.value = undefined
-      nextTrack.value = undefined
+      clearNextTrack()
       progress.value = 0
       isPersonalFM.value = false
       lyrics.value = []
@@ -722,39 +776,221 @@ export const usePlayerStore = defineStore(
     // 如有需要可取 lyricStore 直接访问。
     // ─────────────────────────────────────────────
 
-    const fetchLyric = async () => {
-      const res = (await window.mainApi?.invoke('plugin-lyric', {
-        pluginId: currentTrack.value?.pluginId,
-        sourceContext: {
-          rawCtx: JSON.parse(JSON.stringify(currentTrack.value?.sourceContext || {}))
-        }
-      })) as { code: number; data: LyricLine[] }
-
-      if (!res || res.code !== 200 || !res.data?.length) {
-        lyrics.value = []
-        return
-      }
-
-      let data = res.data
-        .filter((l) => !/^作(词|曲)\s*(:|：)\s*无$/.exec(l.lyric.text))
-        .map((line) => {
-          if (line.end === 0 && line.start > line.end) {
-            line.end = Math.min(duration.value, line.start + 10)
+    /**
+     * 加载指定歌曲的歌词并做过滤处理。
+     * 返回 undefined 表示请求失败（调用方会重试一次），[] 表示确实没有歌词（不重试）。
+     * 注意：内部不能依赖 currentTrack / duration，预取下一首时传入的是下一首的 track。
+     */
+    const buildLyric = async (track: Track): Promise<LyricLine[] | undefined> => {
+      try {
+        const res = (await window.mainApi?.invoke('plugin-lyric', {
+          pluginId: track.pluginId,
+          sourceContext: {
+            rawCtx: JSON.parse(JSON.stringify(track.sourceContext || {}))
           }
-          return line
+        })) as { code: number; data: LyricLine[] } | undefined
+
+        // 主进程用非 200 表达「候选插件全部失败」，必须和「确实没有歌词」
+        // （200 + 空 data）区分开，否则一次超时会被缓存成「这首歌没有歌词」。
+        if (!res) return undefined
+        if (res.code !== 200) return undefined
+        if (!res.data?.length) return []
+
+        const trackDuration = ~~((track.duration || 1000) / 1000)
+        const rawData = res.data
+          .filter((l) => !/^作(词|曲)\s*(:|：)\s*无$/.exec(l.lyric.text))
+          .map((line) => {
+            if (line.end === 0 && line.start > line.end) {
+              line.end = Math.min(trackDuration, line.start + 10)
+            }
+            return line
+          })
+        const includeAM =
+          rawData.length <= 10 &&
+          rawData.some((l) => ['纯音乐，请欣赏', '暂无歌词'].includes(l.lyric.text))
+        const reg = /^作(词|曲)\s*(:|：)\s*/
+        // 与 replaceCurrentTrack / prefetch 里的 artists 处理保持一致：
+        // artists 缺失时不能让整个歌词流程抛错（否则每次切歌都会白发一次请求）。
+        const author = track.artists?.[0]?.name
+        const data = rawData.filter((l) => {
+          const regExpArr = l.lyric.text.match(reg)
+          return !regExpArr || l.lyric.text.replace(regExpArr[0], '') !== author
         })
-      const includeAM =
-        data.length <= 10 && data.some((l) => ['纯音乐，请欣赏', '暂无歌词'].includes(l.lyric.text))
-      const reg = /^作(词|曲)\s*(:|：)\s*/
-      const artists = currentTrack.value!.artists
-      const author = artists[0]?.name
-      data = data.filter((l) => {
-        const regExpArr = l.lyric.text.match(reg)
-        return !regExpArr || l.lyric.text.replace(regExpArr[0], '') !== author
-      })
+        return data.length === 1 && includeAM ? [] : data
+      } catch {
+        return undefined
+      }
+    }
+
+    /** 应用歌词到播放器状态（lyrics 的 setter 会继续做空文本过滤与空格压缩） */
+    const applyLyric = (data: LyricLine[]) => {
       isEnd.value = false
       lyricStore.isEnd = false
-      lyrics.value = data.length === 1 && includeAM ? [] : data
+      lyrics.value = data
+    }
+
+    // ─────────────────────────────────────────────
+    // 预取：详情 + 歌词 + 封面
+    //
+    // 缓存以「哪一首歌」为 key，而不是「下一首」这个槽位。
+    // 只缓存一个 nextTrack 槽位时，只要下面任何一条成立，预取就等于没做：
+    //   · 预取预测的下一首和真正播的不是同一首（顺序变化、插入下一首播放）
+    //   · 预取还没跑完用户就切走了
+    //   · 预取因为一次 IPC 抖动被丢弃
+    // 换成按歌曲索引之后，切歌那一刻只要这首歌曾经被预取过，
+    // 歌词与封面就能同步上屏，不再等任何网络请求。
+    // ─────────────────────────────────────────────
+
+    /** trackMatch 的返回（null = 跑过但没有可用结果，避免重复请求） */
+    type TrackMatchResult = { picUrl?: string } | null
+
+    type TrackPrefetch = {
+      /** 封面最终展示地址（resizePicUrl 的结果，须与 <img :src> 完全一致才能命中浏览器缓存） */
+      coverUrl?: string
+      /** resizePicUrl 所依据的 picUrl：跨插件匹配改写 picUrl 后需要重算 */
+      picUrl?: string
+      /** 封面是否已下载 + 解码完成 */
+      coverReady?: boolean
+      /** 歌词；undefined 表示还没有结果（预取中或预取失败） */
+      lyrics?: LyricLine[]
+      lyricPromise?: Promise<LyricLine[] | undefined>
+      coverPromise?: Promise<string | undefined>
+      /**
+       * 跨插件匹配结果。同一首歌只跑一次 matchTrack，且结果要能应用到**每一个**
+       * 调用方的 track 对象上：预取用的对象和真正播放的对象可能不是同一个实例。
+       */
+      matchResult?: TrackMatchResult
+      matchPromise?: Promise<TrackMatchResult>
+    }
+
+    const PREFETCH_LIMIT = 8
+    const prefetchCache = new Map<string, TrackPrefetch>()
+
+    /** 播放列表里的「哪一首」：插件 + 上下文指纹 */
+    const contextCacheKey = (pluginId: string, sourceContext?: Record<string, any>) =>
+      `${pluginId}::ctx:${JSON.stringify(sourceContext ?? {})}`
+
+    /**
+     * 歌曲缓存 key。
+     * id 为空时（kugou 等插件的 track.id 可能是空串）退化为 sourceContext 指纹，
+     * 否则不同歌曲会命中同一份数据。
+     */
+    const getTrackCacheKey = (track: Track) => {
+      const id = String(track.id ?? '')
+      if (id) return `${track.pluginId}::${id}`
+      return contextCacheKey(track.pluginId, track.sourceContext)
+    }
+
+    /** 取（或创建）缓存条目；命中时移到尾部，让淘汰顺序是 LRU 而不是 FIFO */
+    const getPrefetchEntry = (track: Track) => {
+      const key = getTrackCacheKey(track)
+      const existing = prefetchCache.get(key)
+      if (existing) {
+        // 命中也要刷新顺序：正在循环重播的歌不该被下一个预取挤掉
+        prefetchCache.delete(key)
+        prefetchCache.set(key, existing)
+        return existing
+      }
+
+      const entry: TrackPrefetch = {}
+      prefetchCache.set(key, entry)
+      while (prefetchCache.size > PREFETCH_LIMIT) {
+        const oldest = prefetchCache.keys().next().value
+        if (oldest === undefined || oldest === key) break
+        prefetchCache.delete(oldest)
+      }
+      return entry
+    }
+
+    /** 封面地址：缓存优先；并发调用复用同一次 IPC */
+    const ensureCover = (track: Track, entry: TrackPrefetch): Promise<string | undefined> => {
+      if (entry.coverUrl) return Promise.resolve(entry.coverUrl)
+      if (entry.coverPromise) return entry.coverPromise
+      if (!track.picUrl) return Promise.resolve(undefined)
+
+      const picUrlAtIssue = track.picUrl
+      const task = pluginMethodCall(track.pluginId, 'resizePicUrl', {
+        url: picUrlAtIssue,
+        size: 512
+      })
+        .then((res) => {
+          // 期间 picUrl 被跨插件匹配改写：丢弃这次结果，按新地址重算
+          if (track.picUrl !== picUrlAtIssue) return undefined
+          const url = res?.data
+          if (url) {
+            entry.coverUrl = url
+            entry.picUrl = picUrlAtIssue
+          }
+          return url
+        })
+        .catch(() => undefined)
+
+      entry.coverPromise = task
+      task.then(() => {
+        if (entry.coverPromise === task) entry.coverPromise = undefined
+      })
+      return task
+    }
+
+    /** 封面预热：把图下载 + 解码进浏览器缓存，切歌时 <img> 换 src 即可直接出图 */
+    const warmCover = (task: Promise<string | undefined>, entry: TrackPrefetch) =>
+      task.then((url) => {
+        if (!url) return
+        preloadImage(url).then((ready) => {
+          if (entry.coverUrl === url) entry.coverReady = ready
+        })
+      })
+
+    /** 歌词：预取与切歌共用同一个 Promise，同一首歌不会发两次请求 */
+    const ensureLyrics = (track: Track, entry: TrackPrefetch) => {
+      if (entry.lyrics) return Promise.resolve(entry.lyrics)
+      if (entry.lyricPromise) return entry.lyricPromise
+
+      const task = buildLyric(track).then((data) => {
+        // 失败时保留 undefined，切歌时会再试一次
+        if (data) entry.lyrics = data
+        if (entry.lyricPromise === task) entry.lyricPromise = undefined
+        return data
+      })
+      entry.lyricPromise = task
+      return task
+    }
+
+    /**
+     * 跨插件匹配改写了 picUrl 后，按新地址重算封面并预热封面。
+     * 返回可上屏的封面地址；picUrl 没变则直接返回已缓存的地址。
+     */
+    const refreshCoverAfterMatch = async (track: Track, entry: TrackPrefetch) => {
+      // 最多两轮：第一轮可能命中「按旧地址发出、正在飞行」的请求
+      for (let attempt = 0; attempt < 2; attempt++) {
+        if (entry.picUrl === track.picUrl) return entry.coverUrl
+        entry.coverUrl = undefined
+        entry.coverReady = false
+        const url = await ensureCover(track, entry)
+        if (url && entry.picUrl === track.picUrl) return url
+      }
+      return undefined
+    }
+
+    /**
+     * 预热一首歌：歌词、封面、跨插件封面匹配三者互不依赖，全部并行发起。
+     * 之前封面预热挂在 trackMatch 之后，只要某个 library 插件的 matchTrack
+     * 卡住（它有 12s 的 worker 超时），封面就永远等不到预热。
+     */
+    function warmUpTrack(track: Track) {
+      const entry = getPrefetchEntry(track)
+
+      ensureLyrics(track, entry).catch(() => {})
+      warmCover(ensureCover(track, entry), entry).catch(() => {})
+
+      // 跨插件匹配可能换掉 picUrl：命中后重算地址并补热新图
+      const picUrlBefore = track.picUrl
+      triggerTrackMatch(track)
+        .then(() => {
+          if (track.picUrl === picUrlBefore) return
+          warmCover(refreshCoverAfterMatch(track, entry), entry).catch(() => {})
+        })
+        .catch(() => {})
     }
 
     const toggleMute = () => {
@@ -766,46 +1002,111 @@ export const usePlayerStore = defineStore(
       }
     }
 
+    /**
+     * 切歌序号。旧歌曲的异步结果（歌词、封面、匹配）回来时不能覆盖新歌曲，
+     * 否则连续切歌会出现「歌词/封面还是上一首」的错乱。
+     */
+    let switchSeq = 0
+
     watch(currentTrack, async (value) => {
       if (!value) return
+      const seq = ++switchSeq
 
       chorus.value = 0
       const nextPos = playing.value ? 0 : progress.value
       engineStore.setPosition(nextPos)
       progress.value = nextPos
       lyricStore.updateIndex()
-      const plugin = value.pluginId
 
-      if (value.type !== 'library') {
-        await triggerTrackMatch(value)
+      const entry = getPrefetchEntry(value)
+
+      /**
+       * 切歌耗时探针：`localStorage.setItem('debug:prefetch', '1')` 后重载窗口，
+       * 每次切歌会打印预取命中情况与封面/歌词实际上屏的时刻。
+       * 排查「切歌卡 1~2 秒」时先看 cover/lyric 是 miss（预取没命中）
+       * 还是 hit 但上屏仍慢（那就不在预取，而在渲染或图片解码）。
+       */
+      const t0 = localStorage.getItem('debug:prefetch') === '1' ? performance.now() : 0
+      const logSwitch = (what: string) => {
+        if (!t0) return
+        console.debug(
+          `[prefetch] ${value.name} · ${what} +${(performance.now() - t0).toFixed(0)}ms ` +
+            `(cover ${entry.coverUrl ? 'hit' : 'miss'}, lyric ${entry.lyrics ? 'hit' : 'miss'})`
+        )
       }
 
-      await Promise.all([
-        pluginMethodCall(plugin, 'resizePicUrl', { url: value.picUrl, size: 512 }).then(
-          (result) => {
-            pic.value = result.data
-          }
-        ),
-        fetchLyric()
-      ])
+      // ① 预取命中的部分同步上屏：
+      //    这里是「切歌后封面/歌词还要等 1~2 秒」的关键——封面地址和歌词
+      //    都不该再等任何 IPC / 网络请求。
+      if (entry.coverUrl) {
+        pic.value = entry.coverUrl
+        if (!entry.coverReady) {
+          preloadImage(entry.coverUrl).then((ready) => {
+            entry.coverReady = ready
+          })
+        }
+      } else {
+        const coverTask = ensureCover(value, entry)
+        warmCover(coverTask, entry).catch(() => {})
+        coverTask
+          .then((url) => {
+            if (seq !== switchSeq) return
+            // 新歌没有封面 / resizePicUrl 失败时必须清掉旧封面，否则会一直显示
+            // 上一首的图（`pic` 还派生背景主题色）。旧实现是无条件赋值。
+            pic.value = url ?? ''
+            logSwitch('cover')
+          })
+          .catch(() => {})
+      }
 
-      // 从数据库加载该歌曲的歌词偏移量
+      // ② 歌词：命中预取就同步应用；否则复用飞行中的请求，没有就现取
+      if (entry.lyrics) {
+        applyLyric(entry.lyrics)
+      } else {
+        ensureLyrics(value, entry)
+          // 请求失败（undefined）时重试一次，仍失败才当作无歌词
+          .then((data) => data || ensureLyrics(value, entry))
+          .then((data) => {
+            if (seq !== switchSeq) return
+            applyLyric(data ?? [])
+            logSwitch('lyric')
+          })
+          .catch(() => {})
+      }
+
+      logSwitch('sync')
+
+      // ③ 非 library 来源的跨插件匹配：并行跑，不再阻塞上屏。
+      //    等它结束才显示封面的话，一次 matchTrack 网络搜索就是 1~2 秒空白。
+      if (value.type !== 'library') {
+        triggerTrackMatch(value)
+          .then(() => {
+            if (seq !== switchSeq) return
+            const coverTask = refreshCoverAfterMatch(value, entry)
+            coverTask
+              .then((url) => {
+                if (url && seq === switchSeq) pic.value = url
+              })
+              .catch(() => {})
+          })
+          .catch(() => {})
+      }
+
+      // ④ 从数据库加载该歌曲的歌词偏移量
       try {
         const dbOffset = await window.mainApi?.invoke('get-lyric-offset', {
           pluginId: value.pluginId,
           trackId: String(value.id)
         })
-        if (typeof dbOffset === 'number') {
-          lyricStore.offset = dbOffset
-        } else {
-          lyricStore.offset = 0
-        }
+        if (seq !== switchSeq) return
+        lyricStore.offset = typeof dbOffset === 'number' ? dbOffset : 0
       } catch {
+        if (seq !== switchSeq) return
         lyricStore.offset = 0
       }
 
       // if (settingsStore.general.showChorus) {
-      //   pluginMethodCall(plugin, 'songChorus', { ...value.sourceContext })
+      //   pluginMethodCall(value.pluginId, 'songChorus', { ...value.sourceContext })
       //     .then((res: any) => {
       //       if (res.data?.length) {
       //         chorus.value = res.data[0].startTime / 1000 - (lyricOffset.value || 0)
@@ -835,7 +1136,13 @@ export const usePlayerStore = defineStore(
 
         const [autoPlay, currentTime] = params as [boolean, number]
         const { pluginId, sourceContext } = currentTrack.value
-        replaceCurrentTrack(pluginId, sourceContext, false).then(() => {
+        replaceCurrentTrack(pluginId, sourceContext, false).then((ok) => {
+          // 详情没拿到时不要再 play() 一次坏音源：那会立刻触发 onerror →
+          // loadCurrentTrack 二次重试，退化成「播放错误，正在切歌」。
+          if (!ok) {
+            playing.value = false
+            return
+          }
           seek.value = currentTime
           engineStore.setPosition(currentTime)
           if (autoPlay) {
@@ -855,18 +1162,26 @@ export const usePlayerStore = defineStore(
     // 跨平台歌曲匹配（播放时触发 + 预匹配下一首）
     // ─────────────────────────────────────────────
 
-    async function triggerTrackMatch(track: Track | undefined) {
-      if (!track) return Promise.resolve()
-      if (track.type === 'library') {
-        fetch(track.picUrl).catch(() => {})
-        return Promise.resolve()
-      }
+    /**
+     * 把跨插件匹配结果写回传入的 track 与当前列表里的同名条目。
+     * 一定要按「调用方传入的对象」应用，不能只在发起请求的那一次写自己：
+     * 预取与真正播放可能持有同一首歌的两个 Track 实例。
+     */
+    function applyTrackMatch(track: Track, result: TrackMatchResult) {
+      if (!result?.picUrl) return
+      track.picUrl = result.picUrl
+      const song = pluginStore.tracks[track.pluginId]?.data?.find(
+        (t) => String(t.id) === String(track.id)
+      )
+      if (song) song.picUrl = result.picUrl
+    }
 
+    async function runTrackMatch(track: Track): Promise<TrackMatchResult> {
       const meta = {
         trackId: String(track.id),
         name: track.name,
         album: track.album?.name,
-        artists: track.artists.map((a) => a.name),
+        artists: (track.artists ?? []).map((a) => a.name),
         duration: track.duration,
         sourcePlugin: track.pluginId,
         sourceType: track.type,
@@ -874,62 +1189,112 @@ export const usePlayerStore = defineStore(
         currentPlayingPath: currentTrack.value?.filePath ?? null
       }
 
-      const result = await (window.mainApi?.invoke('trackMatch', meta) ?? Promise.resolve())
-      if (result?.picUrl) {
-        track.picUrl = result.picUrl
-        const song = pluginStore.tracks[track.pluginId].data.find(
-          (t) => String(t.id) === String(track.id)
-        )
-        if (song) song.picUrl = result.picUrl
+      // library 来源不需要跨插件匹配，自己的封面就是最终封面
+      return (await (window.mainApi?.invoke('trackMatch', meta) ?? Promise.resolve())) ?? null
+    }
+
+    /**
+     * 跨插件匹配：同一首歌只会真正请求一次。
+     *
+     * 结果缓存在 prefetchCache 的条目里（受 PREFETCH_LIMIT 约束），因此
+     *   · 预取时已经匹配过的歌，真正播放时不会再搜一次；
+     *   · 后到的调用方拿到的是同一个结果，并被写回**自己的** track 对象。
+     */
+    async function triggerTrackMatch(
+      track: Track | undefined
+    ): Promise<TrackMatchResult | undefined> {
+      if (!track) return undefined
+      if (track.type === 'library') return undefined
+
+      const entry = getPrefetchEntry(track)
+
+      if (entry.matchResult !== undefined) {
+        applyTrackMatch(track, entry.matchResult)
+        return entry.matchResult
       }
-      fetch(track.picUrl).catch(() => {})
+
+      if (!entry.matchPromise) {
+        // 失败不向外抛：匹配只决定「封面好不好看」，失败就保持原封面、下次再试。
+        // 成功结果写进 matchResult（null = 跑过但没有结果）避免重复搜索。
+        entry.matchPromise = runTrackMatch(track)
+          .then((result) => {
+            entry.matchResult = result
+            return result
+          })
+          .catch(() => null)
+          .finally(() => {
+            entry.matchPromise = undefined
+          })
+      }
+
+      const result = await entry.matchPromise
+      applyTrackMatch(track, result)
       return result
     }
 
-    let prefetchTimer: ReturnType<typeof setTimeout> | null = null
+    /**
+     * 切歌后多久开始预取下一首。
+     *
+     * 这里曾经是 20s —— 而播放列表里 20s 内被切掉的歌曲非常多，
+     * 于是预取要么没开始，要么做完时已经切走了，等于没做。
+     * 现在只留一点余量让当前歌曲自身的请求（播放链接 / 歌词 / 封面）先发出去，
+     * 剩下的交给插件连接池（16 条）去消化。
+     */
+    const PREFETCH_DELAY = 2500
 
     function scheduleNextTrackPrefetch() {
       if (prefetchTimer) clearTimeout(prefetchTimer)
+      const gen = ++prefetchGen
 
       prefetchTimer = setTimeout(() => {
         prefetchTimer = null
+        if (gen !== prefetchGen) return
+        prefetchNextTrack(gen).catch(() => {})
+      }, PREFETCH_DELAY)
+    }
 
-        if (isPersonalFM.value) {
-          // FM 模式：队列中已是完整 Track，直接缓存 + 预热封面
-          const next = fmTracks.value[0]
-          if (!next) return
-          nextTrack.value = next
-          if (next.picUrl) {
-            fetch(next.picUrl).catch(() => {})
-          }
-          return
-        }
+    async function prefetchNextTrack(gen: number) {
+      if (isPersonalFM.value) {
+        // FM 模式：队列中已是完整 Track，直接缓存 + 预取歌词/预热封面
+        const next = fmTracks.value[0]
+        if (!next) return
+        nextTrack.value = next
+        nextTrackKey = contextCacheKey(next.pluginId, next.sourceContext)
+        warmUpTrack(next)
+        return
+      }
 
-        const nextInfo = _peekNextTrack()
-        if (!nextInfo) return
+      const nextInfo = _peekNextTrack()
+      if (!nextInfo) return
 
-        const [nextPlugin, nextSourceContext] = nextInfo
+      const [nextPlugin, nextSourceContext] = nextInfo
 
-        // 获取下一首的详细信息
-        pluginMethodCall(nextPlugin as PluginId, 'getTrackDetail', {
-          tracks: [nextSourceContext]
-        }).then((res) => {
-          if (!res.data?.[0]) return
+      // 获取下一首的详细信息
+      const res = await pluginMethodCall(nextPlugin as PluginId, 'getTrackDetail', {
+        tracks: [nextSourceContext]
+      }).catch(() => undefined)
 
-          const track = res.data[0] as Track
+      // 预取期间可能已经切歌 / 换了播放列表，丢弃过期结果
+      if (gen !== prefetchGen) return
+      const track = res?.data?.[0] as Track | undefined
+      if (!track) return
 
-          // 保存 nextTrack 缓存，供 replaceCurrentTrack 复用
-          nextTrack.value = {
-            ...track,
-            album: { ...track.album, pluginId: nextPlugin },
-            artists: track.artists.map((it) => ({ ...it, pluginId: nextPlugin })),
-            albumArtists: track.albumArtists.map((it) => ({ ...it, pluginId: nextPlugin })),
-            pluginId: nextPlugin
-          }
+      // 保存 nextTrack 缓存，供 replaceCurrentTrack 复用
+      const nextTrackInfo: Track = {
+        ...track,
+        album: { ...(track.album ?? {}), pluginId: nextPlugin },
+        artists: (track.artists ?? []).map((it) => ({ ...it, pluginId: nextPlugin })),
+        albumArtists: (track.albumArtists ?? []).map((it) => ({
+          ...it,
+          pluginId: nextPlugin
+        })),
+        pluginId: nextPlugin
+      }
+      nextTrack.value = nextTrackInfo
+      nextTrackKey = contextCacheKey(nextPlugin, nextSourceContext)
 
-          triggerTrackMatch(nextTrack.value)
-        })
-      }, 20000)
+      // 歌词 + 封面 + 跨插件匹配并行预热
+      warmUpTrack(nextTrackInfo)
     }
 
     onMounted(() => {
@@ -952,10 +1317,17 @@ export const usePlayerStore = defineStore(
 
       if (enabled.value && currentTrack.value) {
         const { pluginId, sourceContext } = currentTrack.value
-        replaceCurrentTrack(pluginId, sourceContext, false).catch(() => {
+        const recoverFromFailedRestore = () => {
           playing.value = false
           reportPlayback('start')
-        })
+        }
+        replaceCurrentTrack(pluginId, sourceContext, false)
+          .then((ok) => {
+            // 启动恢复失败时也要把 playing 改回 false（旧实现靠 promise reject
+            // 走 catch，现在失败是 resolve(false)）
+            if (!ok) recoverFromFailedRestore()
+          })
+          .catch(recoverFromFailedRestore)
       }
     })
 
