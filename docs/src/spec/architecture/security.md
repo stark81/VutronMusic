@@ -60,7 +60,7 @@ last-reviewed: 2026-09-26
 | --- | --- |
 | `setStoreSettings` | 运行时白名单（`src/main/utils/settingKeys.ts`），未列入的 key 丢弃并记日志；避免 dot-path 覆盖嵌套设置 |
 | `msgOpenExternalLink` | 只允许 `http:` / `https:` / `mailto:`（`openExternalSafely()`） |
-| `vutron://` 协议 | 请求带 `Origin` 且非应用 origin 时返回 403（挡跨源 `fetch` 读取本地文件） |
+| `vutron://` 协议 | 请求带 `Origin` 且非应用 origin 时返回 403（挡跨源 `fetch` 读取本地文件）。scheme 登记为 `corsEnabled` 只是为了 `<audio crossOrigin>` 能拉流：`Access-Control-Allow-Origin` **只回显 `Constants.APP_ORIGIN`**，其他人仍被上面的 403 挡在前面；`OPTIONS` 预检也在 Origin 校验之后才放行 |
 | 本地 HTTP 服务 | 显式 `host: '127.0.0.1'`；主服务端口被占用时 **fail-closed**（弹错退出而不是加载他人内容） |
 | 响应头 | `Content-Security-Policy`（安全子集）+ `X-Content-Type-Options: nosniff` |
 | preload 白名单 | 按窗口拆分（`index.ts` / `osdWin.ts`）。**注意：白名单不是安全边界**，真正的边界是不变量 2 |

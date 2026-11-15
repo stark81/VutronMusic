@@ -109,21 +109,16 @@ OSD 歌词窗口通过 `MessagePort` 与主窗口通信，避免走 IPC 中转�
 
 ## ⚠️ 白名单不是安全边界
 
-通道白名单只校验 **channel 名**，不校验调用方。preload 会在窗口当前承载的任意
-origin 上重新执行，因此一旦特权窗口被导航到攻击者站点，攻击者页面就能拿到同一个
-`window.mainApi` 并调用任意白名单通道。
+通道白名单只校验 **channel 名**，不校验调用方。preload 会在窗口当前承载的任意 origin 上重新执行，因此一旦特权窗口被导航到攻击者站点，攻击者页面就能拿到同一个 `window.mainApi` 并调用任意白名单通道。
 
 真正的安全边界在主进程侧，由两部分组成（详见 [安全边界与不变量](./security)）：
 
 1. `src/main/utils/windowHardening.ts` —— 窗口只能在应用自身 origin 内导航，跨源一律拦截；
-2. `src/main/utils/ipcGuard.ts` —— 只接受已登记窗口的**主 frame**、且 origin 等于
-   `Constants.APP_ORIGIN` 的调用，否则 fail-closed 拒绝并记录日志。
+2. `src/main/utils/ipcGuard.ts` —— 只接受已登记窗口的**主 frame**、且 origin 等于 `Constants.APP_ORIGIN` 的调用，否则 fail-closed 拒绝并记录日志。
 
 两个 preload 的通道集合是分开维护的：
 
 - `src/preload/index.ts` —— 主窗口
-- `src/preload/osdWin.ts` —— 桌面歌词窗口（另有一处直接使用 `ipcRenderer` 发送
-  `set-ignore-mouse` / `mouseleave`，这些通道同样受主进程守卫约束）
+- `src/preload/osdWin.ts` —— 桌面歌词窗口（另有一处直接使用 `ipcRenderer` 发送 `set-ignore-mouse` / `mouseleave`，这些通道同样受主进程守卫约束）
 
-新增通道时请同时更新对应 preload 的白名单，并判断它是否需要加入 `ipcGuard.ts` 的
-`OSD_ONLY_CHANNELS` / `MAIN_ONLY_CHANNELS` 分级。
+新增通道时请同时更新对应 preload 的白名单，并判断它是否需要加入 `ipcGuard.ts` 的 `OSD_ONLY_CHANNELS` / `MAIN_ONLY_CHANNELS` 分级。

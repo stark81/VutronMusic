@@ -237,3 +237,29 @@ test('插件侧的存在性探测同样受授权限制', async () => {
 
   expect(result?.code).toBe(400)
 })
+
+test('vutron:// 已登记 CORS：应用 origin 可 fetch，未授权路径仍 403', async () => {
+  const result = await appWindow.evaluate(async () => {
+    const read = async (url: string) => {
+      try {
+        const res = await fetch(url)
+        const buf = await res.arrayBuffer()
+        return { status: res.status, bytes: buf.byteLength }
+      } catch (err) {
+        return { status: -1, bytes: 0, error: String(err) }
+      }
+    }
+    return {
+      defaultPic: await read('vutron://get-default-pic'),
+      forbidden: await read('vutron://get-pic-path/not-granted/secret.png')
+    }
+  })
+
+  // 未开启 corsEnabled（或缺少 Access-Control-Allow-Origin）时，这两条都会在
+  // fetch 阶段直接抛 CORS 错误、拿不到 status —— 那正是 <audio crossOrigin> 被拦、
+  // 播放层「重试 → 跳歌」的根因，所以这里把状态码当回归断言。
+  expect(result.defaultPic.status).toBe(200)
+  expect(result.defaultPic.bytes).toBeGreaterThan(0)
+  // 图片能读，但未授权路径依然 fail-closed
+  expect(result.forbidden.status).toBe(403)
+})

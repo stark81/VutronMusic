@@ -1,8 +1,8 @@
 ---
-last-updated: 2026-07-21
+last-updated: 2026-11-15
 title: 开发环境搭建
 order: 0
-last-reviewed: 2025-07-21
+last-reviewed: 2026-11-15
 ---
 
 # 开发环境搭建
@@ -11,11 +11,13 @@ last-reviewed: 2025-07-21
 
 ## 环境要求
 
-| 依赖    | 版本要求  | 说明                                   |
-| ------- | --------- | -------------------------------------- |
-| Node.js | >= 22.6.0 | `package.json` engines 字段指定        |
-| Yarn    | 1.22.22   | `package.json` packageManager 字段指定 |
-| Git     | 2.x+      | 版本控制                               |
+| 依赖    | 版本要求  | 说明                                            |
+| ------- | --------- | ----------------------------------------------- |
+| Node.js | >= 22.6.0 | `package.json` engines 字段指定（推荐 22.23.1） |
+| Yarn    | 1.22.22   | `package.json` packageManager 字段指定          |
+| Git     | 2.x+      | 版本控制                                        |
+
+> Electron 43 + better-sqlite3 13：数据库驱动走 Node-API 预编译二进制（`prebuilds/`），不再需要 `node-gyp` 本地编译。但若某个原生依赖需要从源码编译，Electron 43 的头文件要求 C++20 标准库（`<source_location>`、`three_way_comparable_with`），macOS 12 + Xcode 14 无法编译，需 macOS 13+/Xcode 15+。
 
 ## 安装步骤
 
@@ -95,11 +97,21 @@ yarn build:pre    # 构建前检查
 
 ### 依赖安装失败
 
+先确认 Node 版本（`node -v` 应为 22.x）。`better-sqlite3` 13 要求 Node >= 22，版本不符时 `yarn install` 会直接报错。
+
 ```bash
 # 清除缓存重新安装
 rm -rf node_modules yarn.lock
 yarn install
 ```
+
+若 `postinstall` 阶段（`node rebuild.js`）报错，按报错类型处理。该脚本只做三件事：修补 `taglib-wasm`、Linux 上设置 `chrome-sandbox` 的 setuid、macOS 上编译 tray / touchbar 插件，**不再调用 `electron-rebuild`**（原生模块都走预编译二进制，详见 [构建与发布](./build-release)）。
+
+| 报错 | 原因与处理 |
+| --- | --- |
+| `chown: ... chrome-sandbox: No such file or directory`（Linux） | `node_modules/electron/dist` 还没准备好（Electron 自己的 postinstall 没跑完）。删掉 `node_modules` 重新 `yarn install` |
+| `was compiled against a different Node.js version`（NODE_MODULE_VERSION 不匹配） | 通常是旧 Electron ABI 的产物残留。删除 `node_modules/better-sqlite3/build` 后重新 `yarn install`；better-sqlite3 13 使用 Node-API 预编译二进制，正常不会出现 |
+| `'source_location' file not found` / `three_way_comparable_with` | 编译 `src/native`（macOS 的 tray / touchbar 插件）需要 C++20，当前 Xcode 太旧（Xcode 14 及以下）。升级到 Xcode 15+ |
 
 ### Electron 启动白屏
 

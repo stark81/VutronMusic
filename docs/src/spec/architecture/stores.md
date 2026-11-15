@@ -2,7 +2,7 @@
 last-updated: 2026-07-26
 title: Store 状态管理
 order: 3
-last-reviewed: 2025-07-21
+last-reviewed: 2026-11-15
 ---
 
 # Store 状态管理
@@ -117,7 +117,7 @@ audioEngine ──→ settings
 
 ### player（播放器核心）
 
-**文件**: `src/renderer/store/player.ts`（1010 行） **依赖**: `audioEngine`, `lyric`, `pluginMusic`, `osdLyric`, `state`, `settings` **持久化**: 排除 `pic`, `title`, `fmTracks`
+**文件**: `src/renderer/store/player.ts`（约 1400 行） **依赖**: `audioEngine`, `lyric`, `pluginMusic`, `osdLyric`, `state`, `settings` **持久化**: 排除 `pic`, `title`, `fmTracks`
 
 最顶层的播放控制 store，聚合了多个子 store 的状态和方法。
 
@@ -164,14 +164,15 @@ audioEngine ──→ settings
 | `playPersonalFM(playing)`                        | 进入 FM 模式                               |
 | `moveToFMTrash()`                                | FM 跳过（trash + 下一首）                  |
 | `resetPlayer(resetAll)`                          | 重置播放器状态                             |
-| `fetchLyric()`                                   | 获取当前歌曲歌词                           |
 | `reportPlayback(type)`                           | 上报播放数据（start/progress/end）         |
+
+> `buildLyric(track)` / `ensureLyrics(track, entry)` / `warmUpTrack(track)` 是**内部实现**，不对外导出：`buildLyric` 返回三态（`undefined` = 请求失败、`[]` = 确实无歌词、数组 = 歌词），`ensureLyrics` 负责同一首歌只发一次请求。
 
 **IPC 监听**（通过 `handleIpcRenderer` 注册）: `play`, `previous`, `next`, `repeat`, `repeat-shuffle`, `like`, `fm-trash`, `setPosition`, `increaseVolume`, `decreaseVolume`, `resume`
 
 #### 播放状态机
 
-player 是全局最复杂的 store（1010 行）。以下核心状态机的设计理解直接影响调试：
+player 是全局最复杂的 store（约 1400 行）。以下核心状态机的设计理解直接影响调试：
 
 **循环模式切换**：`switchRepeatMode()` 按照 `off → on → one → off` 循环。`off` 不循环列表播完即停，`on` 播完自动从头开始，`one` 单曲循环。
 
@@ -189,6 +190,21 @@ player 是全局最复杂的 store（1010 行）。以下核心状态机的设�
 
 - `replacePlaylist(source, list, index)`：替换整个 `playList` 和 `shuffleList`，重置索引，开始播放。用于切换页面/歌单。
 - `replaceCurrentTrack(plugin, ctx, autoPlay)`：只切换当前曲目，不修改列表。用于精确匹配、单曲切换等场景。
+
+#### 切歌时的封面 / 歌词预取
+
+`currentTrack` 一变，歌词与封面必须立刻跟着变，否则就是「切歌卡 1~2 秒」。实现要点：
+
+| 机制 | 位置 | 说明 |
+| --- | --- | --- |
+| `prefetchCache` | `player.ts` | 以「插件 + track.id」（id 为空时用 `sourceContext` 指纹）为 key，缓存歌词、封面地址、封面预热状态与跨插件匹配结果。**不缓存 Track 详情**（详情只通过 `nextTrack` 槽位复用） |
+| `nextTrackKey` | `player.ts` | 记录 `nextTrack` 对应的**上下文指纹**（当初传进 `getTrackDetail` 的那份），而不是反查插件返回的 `sourceContext`；两者字段可能有差异，JSON 比较失败就会白跑一次详情请求 |
+| `PREFETCH_DELAY` | `player.ts` | 切歌后 2.5s 开始预取下一首（曾经的 20s 会让「快速切歌」场景下预取完全失效） |
+| `warmUpTrack()` | `player.ts` | 歌词、封面地址、跨插件 `trackMatch` **并行**发起，互不阻塞（封面预热不要挂在 `trackMatch` 后面） |
+| `preloadImage()` | `utils/preloadImage.ts` | 用 `new Image()` 下载 + 解码，地址必须与最终 `<img :src>` 完全一致才能命中浏览器缓存 |
+| `switchSeq` | `player.ts` | 切歌序号，旧歌曲的异步结果不得覆盖新歌曲 |
+
+切歌 watcher 的顺序：**先同步上屏缓存命中的封面与歌词**，再对缺失的部分发请求。任何 `await` 放在上屏之前，都会让「预取」失效。
 
 ---
 

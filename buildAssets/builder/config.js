@@ -13,6 +13,12 @@ const baseConfig = {
   ],
   extends: null,
   artifactName: '${productName}-${version}_${os}_${arch}.${ext}',
+  // 原生模块全部自带预编译产物，不需要 electron-builder 再跑 node-gyp：
+  //  - better-sqlite3 13+ 自带 Node-API 预编译（prebuilds/<platform>-<arch>.node），Node/Electron 通用
+  //  - sharp 通过 @img/sharp-<platform>-<arch> 可选依赖分发预编译二进制
+  //  - macOS 的 tray / touchbar 插件由 build-native.js 预先生成到 dist-native/
+  // 关闭后还能避开 Windows ARM64 上的 node-gyp 问题（该镜像自带 VS2026，node-gyp 11 识别不了）
+  npmRebuild: false,
   directories: {
     output: './release/${version}'
   },
@@ -23,7 +29,8 @@ const baseConfig = {
     notarize: false,
     icon: 'buildAssets/icons/icon.icns',
     type: 'distribution',
-    target: [{ target: 'dmg', arch: 'x64' }]
+    // 不写死 arch，交给命令行 --x64 / --arm64（默认取当前机器架构）
+    target: ['dmg']
   },
   dmg: {
     contents: [
@@ -43,11 +50,7 @@ const baseConfig = {
   },
   win: {
     icon: 'buildAssets/icons/icon.ico',
-    target: [
-      { target: 'zip', arch: 'x64' },
-      { target: 'portable', arch: 'x64' },
-      { target: 'nsis', arch: 'x64' }
-    ]
+    target: ['zip', 'portable', 'nsis']
   },
   portable: {
     artifactName: '${productName}-${version}_${os}_${arch}-Portable.${ext}'
@@ -90,28 +93,7 @@ const baseConfig = {
     executableName: 'vutron',
     icon: 'buildAssets/icons/icon.icns',
     category: 'Utility',
-    target: [
-      {
-        target: 'snap',
-        arch: 'x64'
-      },
-      {
-        target: 'AppImage',
-        arch: 'x64'
-      },
-      {
-        target: 'deb',
-        arch: 'x64'
-      },
-      {
-        target: 'rpm',
-        arch: 'x64'
-      },
-      {
-        target: 'flatpak',
-        arch: 'x64'
-      }
-    ]
+    target: ['snap', 'AppImage', 'deb', 'rpm', 'flatpak']
   }
 }
 

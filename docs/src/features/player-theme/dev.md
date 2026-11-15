@@ -47,16 +47,14 @@ watch([activeBG.type, activeBG.src], (newType, oldType) => {
 
 ## api 背景的预加载实现
 
-| 关注点        | 位置                                                          |
-| ------------- | ------------------------------------------------------------- |
-| 当前背景地址  | `apiSrc`（带 `_t=` 的原始地址）/ `apiBgStyle`（内联样式）     |
+| 关注点 | 位置 |
+| --- | --- |
+| 当前背景地址 | `apiSrc`（带 `_t=` 的原始地址）/ `apiBgStyle`（内联样式） |
 | 预加载 + 预解码 | `preloadImage()`（`new Image()` + `decode()`，不用 `fetch`） |
-| 切换入口      | `switchApiBackground()`；api 的**唯一加载入口**是 `watch([type, src], immediate)` |
-| 缓存破坏      | 每次拼接 `_t=${Date.now()}`，否则图床的 30 天缓存会一直返回同一张图 |
+| 切换入口 | `switchApiBackground()`；api 的**唯一加载入口**是 `watch([type, src], immediate)` |
+| 缓存破坏 | 每次拼接 `_t=${Date.now()}`，否则图床的 30 天缓存会一直返回同一张图 |
 
-**不要用 `fetch` 取图**：图床普遍不返回 `Access-Control-Allow-Origin`（302 与跳转目标都没有），
-`fetch` 会被 CORS 拦掉并刷错误日志，而 `Image`/CSS 背景图不受此限制。预加载地址与最终
-`background-image` 地址保持一致，即可复用浏览器缓存，不产生重复下载。
+**不要用 `fetch` 取图**：图床普遍不返回 `Access-Control-Allow-Origin`（302 与跳转目标都没有）， `fetch` 会被 CORS 拦掉并刷错误日志，而 `Image`/CSS 背景图不受此限制。预加载地址与最终 `background-image` 地址保持一致，即可复用浏览器缓存，不产生重复下载。
 
 其他触发时机的定义见 [design.md §5](./design.md#5-背景类型的生命周期管理)。
 

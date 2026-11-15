@@ -47,6 +47,7 @@ import { storeToRefs } from 'pinia'
 import { Vibrant } from 'node-vibrant/browser'
 import Color from 'color'
 import { useI18n } from 'vue-i18n'
+import { preloadImage } from '../utils/preloadImage'
 
 const playerThemeStore = usePlayerThemeStore()
 const { activeBG } = storeToRefs(playerThemeStore)
@@ -270,40 +271,6 @@ const clearApiSource = () => {
   apiSrc.value = ''
 }
 
-/**
- * 用 `new Image()` 预加载并预解码，返回是否 ready。
- * 不走 `fetch`：图床基本都不返回 CORS 头，`fetch` 会被拦掉；`Image` 不受此限制，
- * 且与最终 `background-image` 使用完全相同的地址，可直接复用浏览器缓存。
- * signal 只用于取消「等待」——超时或已有更新的切换时提前返回，图片本身仍留在缓存里，
- * 因此即便这里返回 false，调用方退回直连地址也能立刻命中缓存。
- */
-const preloadImage = (src: string, signal: AbortSignal) =>
-  new Promise<boolean>((resolve) => {
-    const image = new Image()
-    let settled = false
-    const settle = (ready: boolean) => {
-      if (settled) return
-      settled = true
-      clearTimeout(timer)
-      signal.removeEventListener('abort', onAbort)
-      resolve(ready)
-    }
-    const onAbort = () => settle(false)
-    const timer = setTimeout(() => settle(false), API_IMAGE_TIMEOUT)
-    signal.addEventListener('abort', onAbort)
-    image.onerror = () => settle(false)
-    image.onload = async () => {
-      // decode() 失败不代表图片不可用（例如响应缺少 CORS 头），忽略即可
-      try {
-        await image.decode()
-      } catch {
-        /* noop */
-      }
-      settle(true)
-    }
-    image.src = src
-  })
-
 const switchApiBackground = async () => {
   if (activeBG.value.type !== 'api' || !activeBG.value.src) return
 
@@ -316,7 +283,10 @@ const switchApiBackground = async () => {
 
   try {
     // 新图 ready 之前不碰画面，旧背景保持可见
-    const ready = await preloadImage(rawSrc, controller.signal)
+    const ready = await preloadImage(rawSrc, {
+      signal: controller.signal,
+      timeout: API_IMAGE_TIMEOUT
+    })
     if (!ready || token !== apiLoadToken) return
 
     apiSrc.value = rawSrc

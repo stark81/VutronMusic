@@ -607,6 +607,8 @@ export const usePluginMusic = defineStore(
         pluginId: track.pluginId,
         sourceContext: { rawCtx: JSON.parse(JSON.stringify(track.sourceContext || {})) }
       })
+      // 这里只做一次性展示，不缓存也不重试：失败与「确实没有歌词」都降级为空数组
+      // （player store 的预取缓存另有失败语义，见 buildLyric）
       if (res?.code === 200 && res.data?.length) return res.data
       return []
     }

@@ -456,7 +456,9 @@ function handleIpcRenderer() {
     const t = progress.value
     const wasPaused = !playing.value
     const { pluginId, sourceContext } = currentTrack.value
-    await replaceCurrentTrack(pluginId, sourceContext, !wasPaused, false)
+    const restored = await replaceCurrentTrack(pluginId, sourceContext, !wasPaused, false)
+    // 详情/播放链接拿不到时不要继续 seek + play：音源已经无效了
+    if (!restored) return
     seek.value = t
     if (wasPaused && playing.value) {
       await playOrPause()

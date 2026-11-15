@@ -4,7 +4,7 @@
 
 ## 技术栈
 
-- **桌面框架**: Electron 37
+- **桌面框架**: Electron 43
 - **前端**: Vue 3 + TypeScript + Vite 5
 - **状态管理**: Pinia (persist: pinia-plugin-persistedstate)
 - **路由**: Vue Router 4 (Hash 模式)
@@ -144,8 +144,7 @@ src/
 - 新增窗口必须调用 `hardenWindow(win, kind)`（`src/main/utils/windowHardening.ts`）；
 - IPC 调用方校验由 `src/main/utils/ipcGuard.ts` 统一完成，不要绕过 `ipcMain` 守卫；
 - 渲染进程传来的路径必须经 `pathGrants` / `pathSafety` 授权与校验（原生对话框是唯一授权来源）；
-- 平台 UGC 一律按纯文本渲染，禁止 `v-html` / 直接写 `innerHTML`；确需富文本时复用
-  `v-safe-html` 指令（`src/renderer/main.ts`）；
+- 平台 UGC 一律按纯文本渲染，禁止 `v-html` / 直接写 `innerHTML`；确需富文本时复用 `v-safe-html` 指令（`src/renderer/main.ts`）；
 - 新增设置项必须加入 `src/main/utils/settingKeys.ts` 白名单。
 
 完整不变量与检查清单见 `docs/src/spec/architecture/security.md`。

@@ -17,7 +17,17 @@ import log from '../log'
 import { isGrantedLocalResource, isGrantedPath } from './pathGrants'
 
 const dispatcher = new Agent({
-  connections: 2,
+  /**
+   * 每个 origin 的最大连接数。
+   *
+   * 所有插件共用这一个 Agent，而同一 origin 上既有播放关键请求（get-song-url 的
+   * `songUrl`），也有后台请求（歌词候选遍历、trackMatch、report-playback 广播）。
+   * 上限过小时后台请求会把连接占满，关键请求只能排队，最终撞上插件 worker 的
+   * 12s 超时被判失败 —— 播放层拿到空 URL 后会「重试一次 → 跳歌」，表现为切歌时
+   * 弹出「正在重新获取播放链接 / 播放错误，正在切歌」。这里给足连接数，避免
+   * 后台预取把播放请求饿死。
+   */
+  connections: 16,
   pipelining: 0,
   keepAliveTimeout: 1000,
   keepAliveMaxTimeout: 2000
@@ -267,9 +277,12 @@ export class PluginInstance {
 
     const controller = new AbortController()
 
+    // worker 侧的请求超时是 12s（pluginRunner 里每个 http 请求各自计时），
+    // 这边必须略晚一点：让 worker 先给出「Request timeout」的结果，主进程随后
+    // abort 释放连接。以前是 20s，导致 worker 放弃后 socket 还要白占 8 秒。
     const timeout = setTimeout(() => {
       controller.abort()
-    }, 20000)
+    }, 12500)
 
     let fullUrl: string
 

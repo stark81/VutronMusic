@@ -78,11 +78,22 @@ async function netease(fastify: FastifyInstance) {
         port: string
       }
       const map = { 1: 'http', 2: 'https' }
-      const url =
+      const proxyString =
         proxy && proxy.type !== 0 ? `${map[proxy.type]}://${proxy.address}:${proxy.port}` : null
 
+      // @unblockneteasemusic/server 的 request.js 直接读 global.proxy 的
+      // .protocol / .hostname / .port，必须是 URL 对象。传字符串会被当成没有 hostname，
+      // 请求退化成连 localhost:80，表现为 AggregateError [ECONNREFUSED]。
+      let unblockProxy: URL | null = null
+      if (proxyString) {
+        try {
+          unblockProxy = new URL(proxyString)
+        } catch {
+          log.error('[unblock] 代理地址无效，已忽略:', proxyString)
+        }
+      }
       // @ts-ignore
-      global.proxy = url
+      global.proxy = unblockProxy
 
       const result = await match(id, sourceList).catch((error: any) => {
         // @ts-ignore
