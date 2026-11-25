@@ -206,7 +206,9 @@
     "emptyScanDir": "Set local music scan directory",
     "chooseDir": "Choose Directory",
     "setScanDir": "Set",
-    "errorNoScanDir": "Please set a scan directory"
+    "errorNoScanDir": "Please set a scan directory",
+    "errorLoginFailed": "Login failed. Check your credentials or try again later.",
+    "loggingIn": "Signing in…"
   },
   "player": {
     "play": "Play",
@@ -271,7 +273,8 @@
     "volumeNormalization": {
       "title": "Volume Normalization",
       "desc": "Automatically balance loudness across tracks so all songs sound equally loud at the same volume level"
-    }
+    },
+    "resetPlayerAuto": "Upgraded from an older version — player state was reset automatically."
   },
   "common": {
     "songs": "songs",
@@ -358,7 +361,11 @@
       "clickToLyric": "Click empty area of the player-bar to enter lyrics page",
       "jumpToLyricBegin": "Jump to begining of current lyric when seeking",
       "perventSuspend": "Prevent system sleep during playback",
-      "forceFactor": "Ignore system scaling (force 100%, restart required)"
+      "forceFactor": "Ignore system scaling (force 100%, restart required)",
+      "uiScale": {
+        "text": "Interface Scale",
+        "desc": "Lower it on small screens (e.g. 1024×600) so the UI fits; the window minimum size scales too"
+      }
     },
     "theme": {
       "auto": "Auto",

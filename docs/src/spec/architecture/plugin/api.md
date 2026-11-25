@@ -1,5 +1,5 @@
 ---
-last-updated: 2026-07-26
+last-updated: 2026-11-25
 title: 插件 API 参考
 order: 6
 ---
@@ -35,6 +35,15 @@ order: 6
 | `search` | `{ tab, keywords, page? }` | `{ code, data: Track[]\|Album[]\|..., count, sourceContext }` |
 
 最核心方法之一。`tab` 指定搜索类型：`tracks` / `albums` / `artists` / `playlists` / `mvs`。`sourceContext` 由插件返回分页上下文。
+
+参数约定（框架侧，见 `SearchPage.loadData`）：
+
+| 场景 | 传给插件的参数 |
+| --- | --- |
+| 重新搜索（`reset: true`，含换关键词、切 tab） | 只有 `{ tab, keywords, reset }`，**不带**上一轮的 `sourceContext` |
+| 加载更多（`reset: false`） | `{ ...sourceContext, tab, keywords, reset }`，框架参数优先 |
+
+因此不要把 `keywords`、`tab` 这类请求参数放进 `sourceContext`——它只用于翻页游标（`page` / `count` / `StartIndex` / `_start`）。历史上 netease 把 `keywords` 放进上下文，导致「在搜索结果页再次搜索，标题变了但结果没变」（issue #431）。
 
 ### 登录 (5)
 

@@ -101,6 +101,15 @@
               <CustomSelect v-model="selectLanguage" :options="languageOption" />
             </div>
           </div>
+          <div class="item">
+            <div class="left">
+              <div class="title">{{ $t('settings.general.uiScale.text') }}</div>
+              <div class="description">{{ $t('settings.general.uiScale.desc') }}</div>
+            </div>
+            <div class="right">
+              <CustomSelect v-model="selectUiScale" :options="uiScaleOptions" />
+            </div>
+          </div>
           <div v-if="!isMac" class="item">
             <div class="left">
               <div class="title">{{ $t('settings.general.closeAppOption.text') }}</div>
@@ -492,6 +501,9 @@
           <div class="music-card" :class="{ collapsed: cardCollapsed.library }">
             <div class="card-header" @click="cardCollapsed.library = !cardCollapsed.library">
               <span class="card-title">📦 媒体库插件</span>
+              <span class="card-summary" :class="{ 'not-login': !libraryLoggedIn.length }">{{
+                libraryStatusSummary
+              }}</span>
               <span class="card-toggle">{{ cardCollapsed.library ? '▶' : '▼' }}</span>
             </div>
             <div v-show="!cardCollapsed.library" class="card-body">
@@ -531,6 +543,13 @@
                   <div class="plugin-info">
                     <span class="plugin-name-text">{{ plugin.name }}</span>
                     <span v-if="plugin.active" class="active-badge">★ 当前使用</span>
+                    <span
+                      class="login-chip"
+                      :class="{ 'is-login': plugin.status === 'login' }"
+                      :title="loginChipTip(plugin)"
+                      @click.stop="handleLogin(plugin)"
+                      >{{ plugin.status === 'login' ? '已登录' : '登录' }}</span
+                    >
                   </div>
                 </div>
               </div>
@@ -604,6 +623,9 @@
           <div class="music-card" :class="{ collapsed: cardCollapsed.stream }">
             <div class="card-header" @click="cardCollapsed.stream = !cardCollapsed.stream">
               <span class="card-title">🌐 流媒体插件</span>
+              <span class="card-summary" :class="{ 'not-login': !streamLoggedIn.length }">{{
+                streamStatusSummary
+              }}</span>
               <span class="card-toggle">{{ cardCollapsed.stream ? '▶' : '▼' }}</span>
             </div>
             <div v-show="!cardCollapsed.stream" class="card-body">
@@ -646,6 +668,13 @@
                       title="关闭时仅加载第一页，可在歌曲列表通过分页浏览全部"
                       @click.stop="toggleLoadFull(ser)"
                       >全量</span
+                    >
+                    <span
+                      class="login-chip"
+                      :class="{ 'is-login': ser.status === 'login' }"
+                      :title="loginChipTip(ser)"
+                      @click.stop="handleLogin(ser)"
+                      >{{ ser.status === 'login' ? '已登录' : '登录' }}</span
                     >
                     <span
                       v-if="!ser.builtIn"
@@ -1522,6 +1551,26 @@ const showTrackInfo = computed({
 
 const libraryPlugins = computed(() => pluginServices.value.filter((s) => s.type === 'library'))
 const streamPlugins = computed(() => pluginServices.value.filter((s) => s.type === 'stream'))
+const libraryLoggedIn = computed(() => libraryPlugins.value.filter((s) => s.status === 'login'))
+const streamLoggedIn = computed(() => streamPlugins.value.filter((s) => s.status === 'login'))
+
+/** 折叠状态下的账号摘要：让用户不展开也能看到「有没有登录」 */
+const loginSummary = (list: service[]) => {
+  if (!list.length) return ''
+  return list
+    .map((s) => users.value[s.code]?.nickname || users.value[s.code]?.userId || '未登录')
+    .join(' / ')
+}
+const libraryStatusSummary = computed(() =>
+  libraryLoggedIn.value.length
+    ? loginSummary(libraryLoggedIn.value)
+    : `${libraryPlugins.value.length} 个插件未登录 · 点击展开登录`
+)
+const streamStatusSummary = computed(() =>
+  streamLoggedIn.value.length
+    ? loginSummary(streamLoggedIn.value)
+    : `${streamPlugins.value.length} 个插件未登录 · 点击展开登录`
+)
 const builtInStreamPlugins = computed(() => streamPlugins.value.filter((s) => s.builtIn === true))
 const localPlugins = computed(() => pluginServices.value.filter((s) => s.type === 'local'))
 
@@ -1568,11 +1617,20 @@ const pageSize = computed({
 
 const getStatusTip = (plugin: service) => {
   const tips = {
-    login: '已登录，右击登出',
-    logout: '未登录，右击登录',
-    offline: '服务器离线，右击登出'
+    login: '已登录，点击「已登录」或右击可登出',
+    logout: '未登录，点击「登录」或右击可登录',
+    offline: '服务器离线，点击「已登录」或右击可登出'
   }
   return tips[plugin.status]
+}
+
+/**
+ * 登录入口以前只有「右击插件卡片」这一个隐藏操作，用户找不到入口（issue #424）。
+ * 这里给卡片加一个可见的状态 chip。
+ */
+const loginChipTip = (plugin: service) => {
+  if (plugin.status === 'login') return `退出登录 ${plugin.name}`
+  return `登录 ${plugin.name}`
 }
 
 const toggleLoadFull = (ser: service) => {
@@ -1655,6 +1713,18 @@ const selectLanguage = computed({
     locale.value = value
   }
 })
+
+const selectUiScale = computed({
+  get: () => general.value.uiScale ?? 1,
+  set: (value: number) => {
+    general.value.uiScale = value
+  }
+})
+
+const uiScaleOptions = [1, 0.9, 0.8, 0.75, 0.67].map((value) => ({
+  label: `${Math.round(value * 100)}%`,
+  value
+}))
 
 const languageOption = [
   { label: t('settings.general.language.zhHans'), value: 'zh' },
@@ -1788,9 +1858,12 @@ const getAllOutputDevices = () => {
 
 const tab = ref('general')
 const lyricTab = ref(isWindows ? 'osdLyric' : 'trayLyric')
+// 没有任何已登录插件时默认展开卡片：登录入口就藏在卡片里，
+// 全新安装/从 3.x 升级的用户很容易找不到（issue #424）。
+// 注意服务列表可能还没加载（此时视为「未登录」→ 展开，等用户看到入口）。
 const cardCollapsed = reactive({
-  library: true,
-  stream: true,
+  library: pluginServices.value.some((s) => s.type === 'library' && s.status === 'login'),
+  stream: pluginServices.value.some((s) => s.type === 'stream' && s.status === 'login'),
   local: true,
   player: true, // 播放器卡片默认折叠
   general: true
@@ -2620,6 +2693,21 @@ onBeforeUnmount(() => {
     }
   }
 
+  .card-summary {
+    margin-left: 12px;
+    font-size: 11px;
+    opacity: 0.6;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 55%;
+
+    &.not-login {
+      color: #e74c3c;
+      opacity: 0.9;
+    }
+  }
+
   .loadfull-chip {
     font-size: 11px;
     padding: 1px 8px;
@@ -2640,6 +2728,37 @@ onBeforeUnmount(() => {
       background: var(--color-primary);
       border-color: var(--color-primary);
       color: white;
+    }
+  }
+
+  .login-chip {
+    font-size: 11px;
+    padding: 1px 8px;
+    border-radius: 10px;
+    border: 1px solid var(--color-primary);
+    color: var(--color-primary);
+    opacity: 0.85;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    user-select: none;
+
+    &:hover {
+      opacity: 1;
+      background: var(--color-primary);
+      color: white;
+    }
+
+    &.is-login {
+      opacity: 0.6;
+      border-color: var(--color-text);
+      color: var(--color-text);
+
+      &:hover {
+        opacity: 1;
+        background: transparent;
+        color: var(--color-text);
+      }
     }
   }
 

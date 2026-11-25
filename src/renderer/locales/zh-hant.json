@@ -205,7 +205,9 @@
     "emptyScanDir": "請設定本地音樂掃描目錄",
     "chooseDir": "選擇目錄",
     "setScanDir": "設定",
-    "errorNoScanDir": "請設定掃描目錄"
+    "errorNoScanDir": "請設定掃描目錄",
+    "errorLoginFailed": "登入失敗，請檢查帳號資訊或稍後重試",
+    "loggingIn": "登入中…"
   },
   "player": {
     "play": "播放",
@@ -270,7 +272,8 @@
     "volumeNormalization": {
       "title": "音量平衡",
       "desc": "自動平衡不同歌曲之間的響度差異，使所有歌曲在同一音量下聽感一致"
-    }
+    },
+    "resetPlayerAuto": "已偵測到從舊版本升級，播放器狀態已自動重置"
   },
   "common": {
     "songs": "首歌曲",
@@ -357,7 +360,11 @@
       "clickToLyric": "點擊播放欄空白處進入歌詞頁",
       "jumpToLyricBegin": "調整進度時吸附到歌詞開始位置",
       "perventSuspend": "播放時防止系統休眠",
-      "forceFactor": "忽略系統縮放（強制 100%，重新啟動後生效）"
+      "forceFactor": "忽略系統縮放（強制 100%，重新啟動後生效）",
+      "uiScale": {
+        "text": "介面縮放",
+        "desc": "螢幕較小時（如 1024×600）可調小，讓介面完整顯示；視窗最小尺寸也會按比例縮小"
+      }
     },
     "theme": {
       "auto": "跟隨系統",

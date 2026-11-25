@@ -166,4 +166,19 @@ const isCurrentRoute = (path: string): boolean => {
     }
   }
 }
+
+/*
+ * 低分辨率屏幕（issue #432：1024×600 / 800×480）：
+ * 导航栏是「垂直居中 + 固定图标间距」，窗口太矮时会顶到顶部搜索栏、
+ * 底部设置按钮又会被播放条盖住。这里在矮窗口下压缩间距，保证整条导航可用。
+ */
+@media (max-height: 660px) {
+  .side-nav {
+    padding: 8px;
+
+    button {
+      margin: 6px 0;
+    }
+  }
+}
 </style>

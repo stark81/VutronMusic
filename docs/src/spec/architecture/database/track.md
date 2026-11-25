@@ -1,5 +1,5 @@
 ---
-last-updated: 2026-07-21
+last-updated: 2026-11-25
 title: Track 数据模型设计
 order: 3
 last-reviewed: 2025-07-21
@@ -64,6 +64,14 @@ Audio 表：本地物理音频文件
 ```
 
 **为什么框架层不解析？** 因为每种插件的上下文结构完全不同，强行统一意味着要么丢失信息，要么频繁修改框架层。
+
+## 不变量：本地归属不能被合并拿走
+
+本地歌曲的「身份」是它的 `Audio` 行（真实文件），`TrackSource(pluginId='local')` 只是这个身份的索引：
+
+- 本地音乐列表按「有本地音频文件」取歌（`Audio.filePath` 不在音频缓存目录内），**不是**只认 `TrackSource(pluginId='local')`；
+- `reassignTrackId(from, to)` 只允许把「在线缓存 Track」并入真实 Track。若 `from` 是本地文件、或 `to` 没有 `Track` 行（流媒体歌曲的临时 id），必须跳过合并——否则会连带删掉本地歌曲的 local 来源与 `TrackArtist`，表现为「本地扫描少歌 + 歌手为空」；
+- 扫描时会顺带修复这类历史数据：缺 local 来源或缺歌手的已入库文件会重新解析补回关联（不重建 Track / Audio）。
 
 ## 三表设计的业务价值
 

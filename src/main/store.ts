@@ -94,6 +94,7 @@ const store = new Store<TypeElectronStore>({
       useCustomTitlebar: false,
       showTray: true,
       trayColor: 0, // 0: 彩色, 1: 白色, 2: 黑色, 3: 跟随系统
+      uiScale: 1, // 界面缩放比例：1 = 100%，低分辨率屏幕可调到 0.8 等
       embedCoverArt: 0, // 0: 不嵌入, 1: 内嵌, 2: 歌曲路径下, 3: 两者都嵌入
       embedStyle: 0, // 0: 跳过, 1: 覆盖
       enableGlobalShortcut: false,

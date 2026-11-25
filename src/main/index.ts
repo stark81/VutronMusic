@@ -33,6 +33,7 @@ import { pluginManager } from './pluginManager'
 import { installIpcGuard } from './utils/ipcGuard'
 import { hardenWindow } from './utils/windowHardening'
 import { isGrantedLocalResource } from './utils/pathGrants'
+import { applyUiScale, getMinWindowSize, getUiScale } from './utils/uiScale'
 
 const closeOnLinux = (e: any, win: BrowserWindow | null) => {
   const closeOpt = store.get('settings.closeAppOption') || 'ask'
@@ -75,6 +76,29 @@ const closeOnLinux = (e: any, win: BrowserWindow | null) => {
   } else {
     win!.hide()
   }
+}
+
+/**
+ * 把窗口收进它所在显示器的工作区。
+ *
+ * 低分辨率屏幕（issue #432：1024×600）下，恢复出来的窗口尺寸或窗口最小尺寸
+ * 可能大于屏幕可用区域，导致普通窗口 / 最大化 / 全屏都按更大的尺寸排版，
+ * 界面右侧与底部被裁掉。这里在窗口创建后做最后一次兜底。
+ */
+function fitWindowToWorkArea(win: BrowserWindow): void {
+  const bounds = win.getBounds()
+  const { workArea } = screen.getDisplayMatching(bounds)
+  const width = Math.min(bounds.width, workArea.width)
+  const height = Math.min(bounds.height, workArea.height)
+  if (width === bounds.width && height === bounds.height) return
+
+  win.setBounds({
+    x: Math.max(workArea.x, Math.min(bounds.x, workArea.x + workArea.width - width)),
+    y: Math.max(workArea.y, Math.min(bounds.y, workArea.y + workArea.height - height)),
+    width,
+    height
+  })
+  log.info(`[window] 窗口超出显示器工作区，已收缩为 ${width}×${height}`)
 }
 
 const defaultImagePath = Constants.IS_DEV_ENV
@@ -483,15 +507,29 @@ class BackGround {
   }
 
   async createMainWindow() {
+    const DEFAULT_WIDTH = 1080
+    const DEFAULT_HEIGHT = 720
+    // 界面缩放：默认 100% 时最小尺寸仍是 1080×720（历史行为），
+    // 调小缩放后按比例缩小最小尺寸，低分辨率屏幕才能完整显示（issue #432）
+    const uiScale = getUiScale()
+    const primaryWorkArea = screen.getPrimaryDisplay().workAreaSize
+    const minWindowSize = getMinWindowSize(primaryWorkArea, uiScale)
+
     const option = {
       title: Constants.APP_NAME,
       show: false,
-      width: (store.get('window.width') as number) || 1080,
-      height: (store.get('window.height') as number) || 720,
+      width: Math.min(
+        (store.get('window.width') as number) || DEFAULT_WIDTH,
+        primaryWorkArea.width
+      ),
+      height: Math.min(
+        (store.get('window.height') as number) || DEFAULT_HEIGHT,
+        primaryWorkArea.height
+      ),
       x: undefined as number | undefined,
       y: undefined as number | undefined,
-      minWidth: 1080,
-      minHeight: 720,
+      minWidth: minWindowSize.width,
+      minHeight: minWindowSize.height,
       frame: !(
         Constants.IS_WINDOWS ||
         (Constants.IS_LINUX && store.get('settings.useCustomTitlebar'))
@@ -542,6 +580,13 @@ class BackGround {
 
     this.win = new BrowserWindow(option)
     this.win.setMenuBarVisibility(false)
+    // 恢复的位置/尺寸可能来自更大的显示器，或含标题栏的窗口尺寸略大于工作区
+    fitWindowToWorkArea(this.win)
+    // 页面缩放要在加载前设一次，加载后再补一次（Chromium 会按 origin 记住缩放级别）
+    applyUiScale(this.win, uiScale)
+    // 注意这里不能闭包捕获 uiScale：渲染层在页面加载期间会同步设置（可能改过缩放），
+    // 用旧值覆盖会把用户刚改的缩放又改回去
+    this.win.webContents.on('did-finish-load', () => applyUiScale(this.win))
     // 安全边界：锁定导航 + 登记可信 IPC 调用方，必须在 loadURL 之前完成
     hardenWindow(this.win, 'main')
 

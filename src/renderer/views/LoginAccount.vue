@@ -115,14 +115,26 @@
         class="confirm"
         :class="{ 'confirm-single': loginType === 'LocalDir' }"
       >
-        <div v-if="step > 0 && loginType !== 'LocalDir'" class="button" @click="prev"> 上一步 </div>
+        <div
+          v-if="step > 0 && loginType !== 'LocalDir' && currentMode !== 'Cookie'"
+          class="button"
+          @click="prev"
+        >
+          上一步
+        </div>
         <div
           class="button"
-          :class="{ disable: loginType === 'LocalDir' && !localScanDir.length }"
+          :class="{ disable: (loginType === 'LocalDir' && !localScanDir.length) || loggingIn }"
           @click="step ? login() : next()"
         >
           {{
-            loginType === 'LocalDir' ? $t('login.setScanDir') : step ? $t('login.login') : '下一步'
+            loginType === 'LocalDir'
+              ? $t('login.setScanDir')
+              : loggingIn
+                ? $t('login.loggingIn')
+                : step
+                  ? $t('login.login')
+                  : '下一步'
           }}
         </div>
       </div>
@@ -217,6 +229,7 @@ const loginModes = computed(() => {
 })
 
 const cookie = ref('')
+const loggingIn = ref(false)
 
 const localScanDir = ref<string[]>([])
 const showManualInput = ref(false)
@@ -262,15 +275,29 @@ const selectPlatform = (platform: PluginId) => {
   if (platform === pluginId.value) return
   // 平台切换以 URL 参数为准，由 initFromRoute 统一重置页面状态，
   // 避免只改本地 ref 导致 URL 与界面不一致。
-  router.replace({ name: 'login', params: { service: platform, type: loginType.value } })
+  // Cookie 模式要保留：loginType 是 QrCode，但用户此刻在 Cookie 表单里。
+  const type = currentMode.value === 'Cookie' ? 'Cookie' : loginType.value
+  router.replace({ name: 'login', params: { service: platform, type } })
 }
 
 const switchMode = (mode: LoginType) => {
+  if (mode === currentMode.value) return
+  // 切走后要停掉扫码轮询：否则 Cookie 模式下还会每 3 秒用空 key 请求一次
+  clearInterval(qrCodeCheckInterval)
   currentMode.value = mode
-  step.value = 0
   error.value = null
-  saved.value = false
   qrCodeSvg.value = ''
+  qrCodeKey.value = ''
+
+  if (mode === 'Cookie') {
+    // Cookie 模式不需要「填写服务地址 → 下一步」，直接展示 Cookie 输入框和登录按钮
+    step.value = 1
+    return
+  }
+
+  // 切回二维码：服务地址已保存时直接出码，避免先看到一张空二维码
+  step.value = saved.value ? 1 : 0
+  if (step.value === 1 && loginType.value === 'QrCode') getQrCodeKey()
 }
 
 const checkQrCodeLogin = () => {
@@ -348,40 +375,57 @@ const addManualDir = () => {
   manualDir.value = ''
 }
 
+const handleLoginResult = (
+  result: { code: number; data?: any; message?: string },
+  onSuccess: (result: { code: number; data?: any; message?: string }) => void
+) => {
+  loggingIn.value = false
+  if (result.code === 200 && result.data) {
+    handleStatusChange(pluginId.value!, 'login')
+    users.value[pluginId.value!] = {
+      userId: result.data.userId || '',
+      avatarUrl: result.data.avatarUrl || '',
+      nickname: result.data.nickname || '',
+      isVip: result.data.isVip || false,
+      signature: result.data.signature || ''
+    }
+    onSuccess(result)
+    return
+  }
+  // 插件调用失败 / 返回值被 Schema 拦下时 message 可能是空的，
+  // 不兜底就表现为「点登录没有任何反应」
+  error.value = result.message || t('login.errorLoginFailed')
+}
+
+/** 统一的登录调用：进入「登录中」状态，异常也要给出可见提示 */
+const runLogin = (
+  params: Record<string, any>,
+  onSuccess: (result: { code: number; data?: any; message?: string }) => void
+) => {
+  if (!pluginId.value || loggingIn.value) return
+  loggingIn.value = true
+  error.value = null
+  pluginMethodCall(pluginId.value, 'doLogin', params)
+    .then((result) => handleLoginResult(result, onSuccess))
+    .catch(() => {
+      loggingIn.value = false
+      error.value = t('login.errorLoginFailed')
+    })
+}
+
 const login = () => {
   if (!pluginId.value) return
-
-  const handleLoginSuccess = (
-    result: { code: number; data?: any; message?: string },
-    onRoute: () => void
-  ) => {
-    if (result.code === 200) {
-      handleStatusChange(pluginId.value!, 'login')
-      users.value[pluginId.value!] = {
-        userId: result.data!.userId || '',
-        avatarUrl: result.data!.avatarUrl || '',
-        nickname: result.data!.nickname || '',
-        isVip: result.data!.isVip || false,
-        signature: result.data!.signature || ''
-      }
-      onRoute()
-    } else {
-      error.value = result.message || ''
-    }
-  }
 
   if (loginType.value === 'LocalDir') {
     if (!localScanDir.value.length) {
       error.value = t('login.errorNoScanDir')
       return
     }
-    pluginMethodCall(pluginId.value, 'doLogin', { dirs: localScanDir.value }).then((result) => {
-      handleLoginSuccess(result, () => {
-        if (result.data?.scanDir) {
-          pluginScanDir.value = result.data.scanDir
-        }
-        router.push('/localMusic')
-      })
+    runLogin({ dirs: localScanDir.value }, (result) => {
+      if (result.data?.scanDir) {
+        pluginScanDir.value = result.data.scanDir
+      }
+      router.push('/localMusic')
     })
     return
   }
@@ -391,23 +435,17 @@ const login = () => {
       error.value = t('login.errorNoCookie')
       return
     }
-    pluginMethodCall(pluginId.value, 'doLogin', { cookie: cookie.value.trim() }).then((result) => {
-      handleLoginSuccess(result, () => {
-        const ser = services.value.find((item) => item.code === pluginId.value)
-        router.push({ name: ser?.type || 'library' })
-      })
+    runLogin({ cookie: cookie.value.trim() }, () => {
+      const ser = services.value.find((item) => item.code === pluginId.value)
+      router.push({ name: ser?.type || 'library' })
     })
     return
   }
 
-  pluginMethodCall(pluginId.value, 'doLogin', { userName: user.value, pwd: password.value }).then(
-    (result) => {
-      handleLoginSuccess(result, () => {
-        const ser = services.value.find((item) => item.code === pluginId.value)
-        router.push({ name: ser?.type || 'stream' })
-      })
-    }
-  )
+  runLogin({ userName: user.value, pwd: password.value }, () => {
+    const ser = services.value.find((item) => item.code === pluginId.value)
+    router.push({ name: ser?.type || 'stream' })
+  })
 }
 
 const prev = () => {
@@ -464,10 +502,14 @@ const initFromRoute = async () => {
   const token = ++initToken
   const previousStep = step.value
 
-  loginType.value = type
+  // Cookie 是二维码登录的一种「模式」，不是独立的登录类型：
+  // loginType 必须保持 QrCode，否则模板里所有分支都匹配不到，页面会只剩空白表单
+  // （直接访问 /login/netease/Cookie 就是这个表现）
+  loginType.value = type === 'Cookie' ? 'QrCode' : type
   pluginId.value = service
   currentMode.value = type
   error.value = null
+  loggingIn.value = false
   saved.value = false
   qrCodeSvg.value = ''
   qrCodeKey.value = ''
@@ -495,7 +537,8 @@ const initFromRoute = async () => {
   password.value = result.pwd
   url.value = result.baseUrl
   saved.value = !!result.baseUrl
-  step.value = result.baseUrl ? 1 : 0
+  // Cookie 模式直接进表单（不需要先确认服务地址）
+  step.value = type === 'Cookie' ? 1 : result.baseUrl ? 1 : 0
 
   // step 未变化时 watch(step) 不会触发，需要手动为二维码登录换新码
   if (
@@ -512,7 +555,8 @@ watch(
   () => [route.params.service, route.params.type],
   ([service, type]) => {
     if (!service || !type) return
-    if (service === pluginId.value && type === loginType.value) return
+    // 用 currentMode 比较：Cookie 模式的路由值是 Cookie，但 loginType 仍是 QrCode
+    if (service === pluginId.value && type === currentMode.value) return
     initFromRoute()
   },
   { immediate: true }

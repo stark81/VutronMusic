@@ -1,5 +1,5 @@
 ---
-last-updated: 2026-07-21
+last-updated: 2026-11-25
 title: Worker 沙箱与插件执行
 order: 8
 last-reviewed: 2025-07-21
@@ -66,6 +66,19 @@ exports.search = async (params) => {
 | 封面写入 | `src/main/workers/writeCover.ts` | Node.js worker_threads（单例） | 将匹配到的封面嵌入本地文件 | 精确匹配成功且有封面时 |
 
 Piscina 是线程池方案，用于并行扫描大量文件；后两者是单 Worker 线程，用于处理队列型任务。
+
+### 音频缓存 Worker 的下载约定
+
+`cacheTrack` 是纯 Node 线程（没有 Electron 的 `protocol` 实现），只能下载 `http(s)` 地址：
+
+| 约定 | 位置 | 说明 |
+| --- | --- | --- |
+| 地址归一化 | `src/main/utils/streamUrl.ts` | 播放地址可能被 `vutron://` 代理（netease 音源替换返回 `vutron://get-online-music/<真实地址>`），派发任务前必须还原成真实地址，否则 Worker 会 `ERR_INVALID_PROTOCOL` |
+| 请求头 | `src/main/IPCs.ts` | 随任务下发渲染层的 UA；替换音源（bilibili 等）对 UA 敏感，Node 默认 UA 会被 CDN 拒绝 |
+| 失败回传 | `cacheTrack.ts` → `IPCs.ts` | 任务失败以 `task-error` 回传主进程写日志（Worker 的 console 在打包版里看不到） |
+| 元数据兜底 | `cacheTrack.ts` | 写标签 / 嵌封面失败时回退为原始音频落盘，不能让整首歌缓存失败 |
+
+> 历史问题 #427：v4.0.0 把替换音源地址包成 `vutron://get-online-music/...` 后直接交给缓存 Worker，表现为「能正常播放但缓存目录始终为空」。
 
 ## 技术参考
 

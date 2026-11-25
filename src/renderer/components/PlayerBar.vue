@@ -490,6 +490,13 @@ watch(showLyrics, (value) => {
   flex-grow: 1;
 }
 
+/* 窄窗口（issue #432）：两侧留白收窄，中间播放控制不被挤到换行 */
+@media (max-width: 1000px) {
+  .controls {
+    padding: 0 20px;
+  }
+}
+
 .button-icon.disabled {
   cursor: default;
   opacity: 0.48;

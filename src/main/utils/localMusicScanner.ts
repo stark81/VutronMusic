@@ -125,6 +125,30 @@ export async function scanLocalMusic(
 
   const albumById = new Map(existingAlbums.map((a) => [a.id, a]))
 
+  // ---- 需要修复的已入库文件 ----
+  // 历史 bug（见 dbHelpers.reassignTrackId）：本地歌曲被并入流媒体临时 id 时，
+  // 它的 local 来源和 TrackArtist 会被删掉，只剩 Track + Audio。
+  // 这类歌在本地列表里会消失、歌手也是空的，而且普通重扫只处理「新文件」，永远修不好。
+  // 所以把「本地文件但缺 local 来源或缺歌手」的文件挑出来，用原 trackId 重新解析补关联。
+  const tracksWithLocalSource = new Set(
+    existingTrackSources.filter((ts) => ts.pluginId === 'local').map((ts) => ts.trackId)
+  )
+  const tracksWithOnlineSource = new Set(
+    existingTrackSources.filter((ts) => ts.pluginId !== 'local').map((ts) => ts.trackId)
+  )
+  const tracksWithArtist = new Set(existingTrackArtists.map((ta) => ta.trackId))
+  const repairTrackByFile = new Map<string, string>()
+  for (const audio of existingAudios) {
+    // 只修整文件条目：CUE 分轨每次扫描都会重扫，不在这里处理
+    if ((audio.cueOffset || 0) !== 0 || !audio.filePath) continue
+    const trackId = audio.trackId
+    const hasLocalSource = tracksWithLocalSource.has(trackId)
+    if (hasLocalSource && tracksWithArtist.has(trackId)) continue
+    // 在线缓存歌曲也有 Audio 行（缓存文件），不是本地文件，别把它们的来源改成本地
+    if (!hasLocalSource && tracksWithOnlineSource.has(trackId)) continue
+    repairTrackByFile.set(audio.filePath, trackId)
+  }
+
   // 构建 trackDedupMap：normalizedKey → [{trackId, duration}]
   for (const track of existingTracks) {
     const albumId = trackAlbumMap.get(track.id) || ''
@@ -186,8 +210,13 @@ export async function scanLocalMusic(
     }
   }
 
-  // 只扫描新文件（不存在于 Audio 表中的）
-  const filesToProcess = allFiles.filter((f) => !existingAudioPathSet.has(f + '@0'))
+  // 只扫描新文件（不存在于 Audio 表中的）+ 需要修复关联的旧文件
+  const filesToProcess = allFiles.filter(
+    (f) => !existingAudioPathSet.has(f + '@0') || repairTrackByFile.has(f)
+  )
+  if (repairTrackByFile.size) {
+    log.info(`[scan] 需要修复本地关联的文件: ${repairTrackByFile.size} 个`)
+  }
   const workerPath = path.join(__dirname, 'workers/scanMusic.js')
   const piscina = new Piscina({
     filename: workerPath,
@@ -254,9 +283,16 @@ export async function scanLocalMusic(
           const effectiveAlbumArtists =
             item.albumArtist?.length > 0 ? item.albumArtist : item.artists || []
 
-          // 文件已被 existingAudioPathSet 过滤，走到这里的一定没有重复的 Audio
-          // 强信号匹配：MusicBrainz Track ID
-          if (item.musicBrainzTrackId && musicBrainzTrackMap.has(item.musicBrainzTrackId)) {
+          // 修复已有条目：沿用原 trackId，只补缺失的 local 来源 / TrackArtist，不重建 Track/Audio
+          const repairTrackId =
+            (item.cueOffset || 0) === 0 ? repairTrackByFile.get(item.filePath) : undefined
+
+          if (repairTrackId) {
+            trackId = repairTrackId
+            isNewTrack = false
+          } else if (item.musicBrainzTrackId && musicBrainzTrackMap.has(item.musicBrainzTrackId)) {
+            // 文件已被 existingAudioPathSet 过滤，走到这里的一定没有重复的 Audio
+            // 强信号匹配：MusicBrainz Track ID
             trackId = musicBrainzTrackMap.get(item.musicBrainzTrackId)!
             isNewTrack = false
             if (cueCompanions.has(item.filePath)) restoredTrackIds.add(trackId)
@@ -353,19 +389,22 @@ export async function scanLocalMusic(
             if (item.musicBrainzTrackId) {
               musicBrainzTrackMap.set(item.musicBrainzTrackId, trackId)
             }
+          }
 
-            // 创建 TrackArtist 关系
-            for (const name of item.artists || []) {
-              const artistId = artistIdMap.get(name)
-              if (artistId) {
-                const key = `${trackId}:${artistId}`
-                if (!trackArtistSet.has(key)) {
-                  trackArtistSet.add(key)
-                  dataToInsert.TrackArtist.push({ trackId, artistId })
-                }
+          // 创建 TrackArtist 关系（修复已有条目时也要补：历史 bug 会把它删掉）
+          // 用 trackArtistSet 去重，重复走过不会产生重复行
+          for (const name of item.artists || []) {
+            const artistId = artistIdMap.get(name)
+            if (artistId) {
+              const key = `${trackId}:${artistId}`
+              if (!trackArtistSet.has(key)) {
+                trackArtistSet.add(key)
+                dataToInsert.TrackArtist.push({ trackId, artistId })
               }
             }
+          }
 
+          if (isNewTrack) {
             // 创建 ArtistAlbum 关系
             const albumArtistsToUse =
               effectiveAlbumArtists.length > 0 ? effectiveAlbumArtists : item.artists || []
@@ -398,24 +437,27 @@ export async function scanLocalMusic(
             trackDedupMap.set(normalizedKey, entries)
           }
 
-          const audioKey = item.filePath + '@' + (item.cueOffset || 0)
-          const audioId =
-            item.cueOffset > 0
-              ? makeId('audio', item.filePath + '@' + item.cueOffset)
-              : makeId('audio', item.filePath)
-          dataToInsert.Audio.push({
-            id: audioId,
-            trackId,
-            filePath: item.filePath,
-            md5: item.md5 || '',
-            bitrate: item.br || 0,
-            gain: item.gain || 0,
-            peak: item.peak || 1,
-            size: item.size || 0,
-            cueOffset: item.cueOffset || 0,
-            cueDuration: item.cueDuration || 0
-          })
-          existingAudioPathSet.add(audioKey)
+          // 修复已有条目时 Audio 已经存在，不能重复插入（id 相同虽然会被 IGNORE，但没必要）
+          if (!repairTrackId) {
+            const audioKey = item.filePath + '@' + (item.cueOffset || 0)
+            const audioId =
+              item.cueOffset > 0
+                ? makeId('audio', item.filePath + '@' + item.cueOffset)
+                : makeId('audio', item.filePath)
+            dataToInsert.Audio.push({
+              id: audioId,
+              trackId,
+              filePath: item.filePath,
+              md5: item.md5 || '',
+              bitrate: item.br || 0,
+              gain: item.gain || 0,
+              peak: item.peak || 1,
+              size: item.size || 0,
+              cueOffset: item.cueOffset || 0,
+              cueDuration: item.cueDuration || 0
+            })
+            existingAudioPathSet.add(audioKey)
+          }
 
           // TrackSource：标记该 Track 有本地来源
           const trackSourceKey = `${trackId}:local`

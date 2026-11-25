@@ -210,7 +210,9 @@
     "emptyScanDir": "请设置本地音乐扫描目录",
     "chooseDir": "选择目录",
     "setScanDir": "设置",
-    "errorNoScanDir": "请设置扫描目录"
+    "errorNoScanDir": "请设置扫描目录",
+    "errorLoginFailed": "登录失败，请检查账号信息或稍后重试",
+    "loggingIn": "登录中…"
   },
   "player": {
     "play": "播放",
@@ -275,7 +277,8 @@
     "volumeNormalization": {
       "title": "音量平衡",
       "desc": "自动平衡不同歌曲之间的响度差异，使所有歌曲在同一音量下听感一致"
-    }
+    },
+    "resetPlayerAuto": "已检测到从旧版本升级，播放器状态已自动重置"
   },
   "common": {
     "songs": "首歌",
@@ -362,7 +365,11 @@
       "clickToLyric": "点击播放栏空白处进入歌词页",
       "jumpToLyricBegin": "调整进度时吸附到歌词开始位置",
       "perventSuspend": "播放时防止系统休眠",
-      "forceFactor": "忽略系统缩放（强制 100%，重启后生效）"
+      "forceFactor": "忽略系统缩放（强制 100%，重启后生效）",
+      "uiScale": {
+        "text": "界面缩放",
+        "desc": "屏幕较小时（如 1024×600）可调小，让界面完整显示；窗口最小尺寸也会按比例缩小"
+      }
     },
     "plugin": {
       "title": "插件管理"

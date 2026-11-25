@@ -298,7 +298,9 @@ const UserResultSchema = z.object({
 
 export const LoginQrCodeCheckResultSchema = z.object({
   code: z.union([z.literal(800), z.literal(801), z.literal(802), z.literal(803)]),
-  message: z.string(),
+  // message 只是轮询状态的文案，部分插件/上游不返回；缺失时不能把整个结果丢掉
+  // （丢了会让扫码成功却永远不会进入登录态）
+  message: z.string().optional(),
   user: UserResultSchema.optional()
 })
 

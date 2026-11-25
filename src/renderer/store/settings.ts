@@ -42,6 +42,8 @@ export const useSettingsStore = defineStore(
       savedBackground: 'true' as StandardBackgroundEffect,
       fadeDuration: 0.5, // 音频淡入淡出时长（秒）
       showBanner: true,
+      /** 界面缩放比例（1 = 100%）；低分辨率屏幕可调小，窗口最小尺寸会按比例缩小 */
+      uiScale: 1,
       autoUpdate: true,
       jumpToLyricBegin: false,
       trayColor: 0, // 0: 彩色, 1: 白色, 2: 黑色, 3: 跟随系统
@@ -289,6 +291,13 @@ export const useSettingsStore = defineStore(
     )
 
     watch(
+      () => general.uiScale,
+      (val) => {
+        window.mainApi?.send('setStoreSettings', { uiScale: val })
+      }
+    )
+
+    watch(
       () => misc.enableAmuseServer,
       (val) => {
         window.mainApi?.send('setStoreSettings', { enableAmuseServer: val })
@@ -343,6 +352,10 @@ export const useSettingsStore = defineStore(
     })
 
     onMounted(() => {
+      // 界面缩放以渲染层持久化值为准：启动时同步一次，避免主进程残留旧值
+      // （例如渲染层 localStorage 被清理后，主进程配置里还是 80%）
+      window.mainApi?.send('setStoreSettings', { uiScale: general.uiScale })
+
       window.mainApi?.invoke('get-lastfm-session').then((result: { name: string }) => {
         misc.lastfm.name = result.name
         misc.lastfm.enable = result.name !== ''

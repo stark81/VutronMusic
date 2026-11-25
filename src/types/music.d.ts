@@ -244,6 +244,8 @@ export type settingMap = {
   enableGlobalShortcut: boolean
   shortcuts: any[]
   autoCacheTrack: boolean
+  /** 界面缩放比例（1 = 100%），低分辨率屏幕可调小 */
+  uiScale: number
   proxy: { type: 0 | 1 | 2; address: string; port: number }
 }
 

@@ -196,7 +196,8 @@ const genSessionId = () => {
 
 apis.db.get('PluginData').then((result) => {
   user.userId = result.userId
-  user.vipType = result.vipType
+  // 老数据只存了 isVip 布尔值（没有 vipType），这里兜底，避免重启后 VIP 状态丢失
+  user.vipType = result.vipType ?? (result.isVip ? 11 : 0)
   user.cookie = result.cookie
 })
 
@@ -240,9 +241,11 @@ const get = async (url, params) => {
     const response = await apis.http.get(`${baseUrl}/${url}`, params, headers)
     if (response.code === 301) {
       user.userId = 0
-      user.vipType = false
+      user.vipType = 0
       user.cookie = ''
-      apis.db.set('PluginData', data)
+      // 这里要落库的是「已登出的用户信息」；原来传的是未定义的 data（get 里没有这个变量），
+      // 会变成 ReferenceError，导致 UNAUTHORIZED 分支永远走不到
+      apis.db.set('PluginData', user)
       throw new Error('UNAUTHORIZED')
     }
     return response
@@ -264,9 +267,10 @@ const post = async (url, data) => {
     const response = await apis.http.post(`${baseUrl}/${url}`, data, headers)
     if (response.code === 301) {
       user.userId = 0
-      user.vipType = false
+      user.vipType = 0
       user.cookie = ''
-      apis.db.set('PluginData', data)
+      // 这里曾经把请求体 data 当成用户信息落库，会把 PluginData 写脏
+      apis.db.set('PluginData', user)
       throw new Error('UNAUTHORIZED')
     }
     return response
@@ -283,7 +287,7 @@ const isTrackPlayable = (track) => {
   if (track.privilege?.pr > 0) return result
   if (user.userId !== 0 && track.privilege.cs) return result
   if (track.fee === 1 || track.privilege?.fee === 1) {
-    if (user.userId !== 0 && user.vipType === 11) {
+    if (user.userId !== 0 && [11, 110].includes(user.vipType)) {
       result.playable = true
     } else {
       result.playable = false
@@ -629,16 +633,19 @@ exports.loginQrCodeCheck = async (params) => {
       const res = await post(`login/status?timestamp=${Date.now()}`) // &ua=pc
       const profile = res.data.profile
 
-      const data = { userId: profile.userId, isVip: profile.vipType === 11, cookie }
+      // vipType 必须一起持久化：插件初始化时用它判断 VIP 可播放权限，
+      // 之前只存了 isVip 布尔值，重启后 VIP 用户会掉权限
+      const isVip = [11, 110].includes(profile.vipType)
+      const data = { userId: profile.userId, isVip, vipType: profile.vipType, cookie }
       user.userId = profile.userId
-      user.vipType = [11, 110].includes(profile.vipType)
+      user.vipType = profile.vipType ?? 0
       apis.db.set('PluginData', data)
 
       result.user = {
         userId: profile.userId,
         avatarUrl: profile.avatarUrl || '',
         nickname: profile.nickname || '',
-        isVip: [11, 110].includes(profile.vipType),
+        isVip,
         signature: profile.signature || ''
       }
     }
@@ -665,35 +672,53 @@ exports.getAccount = () => {
 exports.doLogin = async (params) => {
   if (params?.cookie) {
     const cookies = {}
-    params.cookie.split(';').forEach((c) => {
+    // 用户从浏览器/插件导出的 cookie 可能是 `a=b; c=d`，也可能一行一个（`a=b\nc=d`）；
+    // 值里的 % 不一定是合法转义，decodeURIComponent 抛错会让整个登录直接失败
+    params.cookie.split(/[;\n]/).forEach((c) => {
       const [key, ...rest] = c.trim().split('=')
       const value = rest.join('=')
       if (!key || !value) return
-      cookies[key] = decodeURIComponent(value)
+      let decoded = value
+      try {
+        decoded = decodeURIComponent(value)
+      } catch {
+        decoded = value
+      }
+      cookies[key.trim()] = decoded
     })
 
     const cookie = Object.entries(cookies)
       .map(([key, value]) => `${key}=${value}`)
       .join('; ')
 
+    // 记住原 cookie：本次填错了不应该顺手把已登录的会话踢掉
+    const previousCookie = user.cookie
     user.cookie = cookie
 
     try {
       const res = await post(`login/status?timestamp=${Date.now()}`)
       if (res.data?.profile) {
         const profile = res.data.profile
+        const isVip = [11, 110].includes(profile.vipType)
         user.userId = profile.userId
-        user.vipType = [11, 110].includes(profile.vipType)
-        apis.db.set('PluginData', { userId: profile.userId, isVip: user.vipType, cookie })
+        user.vipType = profile.vipType ?? 0
+        apis.db.set('PluginData', {
+          userId: profile.userId,
+          isVip,
+          vipType: profile.vipType ?? 0,
+          cookie
+        })
 
+        // 必须保证所有字段都是字符串：渲染层用 Zod 校验返回值，
+        // undefined 会被判为数据格式异常 → 登录结果被丢弃 → 界面「点了没反应」
         return {
           code: 200,
           data: {
-            userId: profile.userId,
-            avatarUrl: profile.avatarUrl,
-            nickname: profile.nickname,
-            isVip: [11, 110].includes(profile.vipType),
-            signature: profile.signature
+            userId: profile.userId ?? 0,
+            avatarUrl: profile.avatarUrl || '',
+            nickname: profile.nickname || '',
+            isVip,
+            signature: profile.signature || ''
           }
         }
       }
@@ -701,7 +726,7 @@ exports.doLogin = async (params) => {
       // 网络失败或 301 等异常
     }
 
-    user.cookie = ''
+    user.cookie = previousCookie || ''
     return { code: 404, message: 'Cookie 无效或已过期' }
   }
   return { code: 404, message: '本插件不支持该登录方式' }

@@ -35,6 +35,7 @@ const ALLOWED_SETTING_KEYS = new Set<string>([
   'showLyric',
   'showTray',
   'trayColor',
+  'uiScale',
   'unblockNeteaseMusic',
   'useCustomTitlebar'
 ])

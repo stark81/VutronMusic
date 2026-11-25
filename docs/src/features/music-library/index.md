@@ -1,6 +1,6 @@
 ---
 title: 本地音乐库
-last-updated: 2026-07-21
+last-updated: 2026-11-25
 order: 9
 related: [cleanup.md, ../../spec/architecture/database/track]
 ---
@@ -49,6 +49,7 @@ Given 用户配置了本地音乐目录 When 触发扫描 Then 系统应该：
 - 与已有记录比对，筛选出新文件
 - 使用 Worker 线程池并行解析元数据
 - 按去重规则写入数据库
+- 顺带修复历史数据：已入库但丢了本地来源或歌手的文件会重新解析补回关联（不重建歌曲记录）
 
 ### 场景 2：去重归并
 

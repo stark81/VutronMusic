@@ -25,18 +25,80 @@ import { grantFiles, grantPaths, isGrantedLocalResource, isGrantedPath } from '.
 import { isAllowedSettingKey, isPlainObject } from './utils/settingKeys'
 import { isExistingDirectory } from './utils/pathSafety'
 import { openExternalSafely } from './utils/windowHardening'
+import { resolveDownloadableUrl } from './utils/streamUrl'
+import { applyUiScaleToWindow } from './utils/uiScale'
 
 let isLock = store.get('osdWin.isLock') as boolean
 let blockerId: number | null = null
 let isScanningLocalMusic = false
 let coverWorker: Worker
 let cacheWorker: Worker | null = null
+/** Worker 收到 quit 后要等队列跑完，期间用户可能又把自动缓存打开 */
+let cacheWorkerClosing = false
 /** 暂存待缓存的歌曲播放参数（gain/peak/pluginId），task-done 时取出写入 Audio 和 TrackSource */
 const pendingCacheMeta = new Map<string, { gain: number; peak: number; plugin: string }>()
 
 const closeCacheWorker = async () => {
+  cacheWorkerClosing = false
   await cacheWorker?.terminate()
   cacheWorker = null
+}
+
+/**
+ * 启动音频缓存 Worker（幂等）。
+ *
+ * 之前只在渲染层改动 `autoCacheTrack` 设置时才创建，重启后（设置已经开着）Worker
+ * 不存在，`get-song-url` 里 `cacheWorker` 为空 → 整个会话都不缓存，用户只能靠
+ * 「重新开关一次自动缓存」恢复。所以启动时也要按持久化设置补一次。
+ */
+function startCacheWorker(win: BrowserWindow): void {
+  if (cacheWorker) {
+    // 正在退出又被重新启用：撤销关闭，继续用现有 Worker
+    cacheWorkerClosing = false
+    return
+  }
+  const worker = createWorker('cacheTrack')
+  cacheWorker = worker
+  cacheWorkerClosing = false
+  // Worker 异常退出后要能重建，否则后续播放会一直「静默不缓存」
+  worker.on('exit', () => {
+    if (cacheWorker !== worker) return
+    cacheWorker = null
+    cacheWorkerClosing = false
+    pendingCacheMeta.clear()
+  })
+  worker.on('message', async (msg) => {
+    if (msg.type === 'task-done') {
+      const data = msg.data
+      const meta = pendingCacheMeta.get(String(data.id))
+      pendingCacheMeta.delete(String(data.id))
+
+      if (data.url && data.size !== undefined) {
+        db.saveCacheResult(data, meta)
+      }
+
+      await deleteExcessCache()
+      const audioCachePath =
+        (store.get('settings.autoCacheTrack.path') as string) ||
+        path.join(app.getPath('userData'), 'audioCache')
+      const stats = db.getAudioCacheStats(audioCachePath)
+      win.webContents.send('receiveCacheInfo', stats)
+    } else if (msg.type === 'task-error') {
+      // 失败要落到主进程日志里：Worker 的 console 在打包版里看不到，
+      // 否则只会表现为「能播放但缓存目录始终是空的」
+      pendingCacheMeta.delete(String(msg.id))
+      log.warn(`[cacheTrack] 缓存失败（track ${msg.id}）:`, msg.error)
+    } else if (msg.type === 'finished' && cacheWorkerClosing) {
+      closeCacheWorker()
+    }
+  })
+}
+
+/** 关闭音频缓存 Worker：让它把队列跑完再退出 */
+function stopCacheWorker(): void {
+  if (!cacheWorker) return
+  cacheWorkerClosing = true
+  cacheWorker.postMessage({ type: 'quit' })
 }
 
 /**
@@ -75,6 +137,9 @@ export default class IPCs {
     initOtherIpcMain(win)
     initPluginIpcMain()
     initSynchronizeIpcMain(win, lrc, tray, touchBar, mpris)
+
+    // 自动缓存已在设置里开着时，重启后也要继续缓存（否则要重新开关一次才生效）
+    if (store.get('settings.autoCacheTrack.enable') as boolean) startCacheWorker(win)
 
     coverWorker = createWorker('writeCover')
     coverWorker.on('message', (msg) => {
@@ -184,30 +249,15 @@ function initTrayIpcMain(win: BrowserWindow, tray: YPMTray, touchBar: YPMTouchBa
     if (accepted.autoCacheTrack !== undefined) {
       const autoCache = (store.get('settings.autoCacheTrack.enable') as boolean) || false
       if (autoCache) {
-        cacheWorker = createWorker('cacheTrack')
-        cacheWorker?.on('message', async (msg) => {
-          if (msg.type === 'task-done') {
-            const data = msg.data
-            const meta = pendingCacheMeta.get(String(data.id))
-            pendingCacheMeta.delete(String(data.id))
-
-            if (data.url && data.size !== undefined) {
-              db.saveCacheResult(data, meta)
-            }
-
-            await deleteExcessCache()
-            const audioCachePath =
-              (store.get('settings.autoCacheTrack.path') as string) ||
-              path.join(app.getPath('userData'), 'audioCache')
-            const stats = db.getAudioCacheStats(audioCachePath)
-            win.webContents.send('receiveCacheInfo', stats)
-          } else if (msg.type === 'finished') {
-            closeCacheWorker()
-          }
-        })
+        startCacheWorker(win)
       } else {
-        cacheWorker?.postMessage({ type: 'quit' })
+        stopCacheWorker()
       }
+    }
+
+    if (accepted.uiScale !== undefined) {
+      // 界面缩放：页面缩放 + 重新计算窗口最小尺寸（issue #432）
+      applyUiScaleToWindow(win)
     }
 
     if (accepted.proxy !== undefined) {
@@ -749,17 +799,35 @@ async function initOtherIpcMain(win: BrowserWindow): Promise<void> {
         try {
           const autoCacheSettings = store.get('settings.autoCacheTrack') as any
           const pType = pluginManager.get(pluginId)?.meta?.type
-          if (autoCacheSettings?.enable && pType === 'library' && cacheWorker && url[0]) {
-            if (!fs.existsSync(audioCachePath)) {
-              fs.mkdirSync(audioCachePath, { recursive: true })
-            }
-            if (!db.hasCachedAudio(String(track?.id || ''))) {
+          // 播放地址可能被 vutron:// 代理（netease 音源替换等），Worker 只能走
+          // http(s)，先还原成真实地址，见 utils/streamUrl.ts（issue #427）
+          const downloadUrl = resolveDownloadableUrl(url[0])
+          if (autoCacheSettings?.enable && pType === 'library' && url[0]) {
+            if (!downloadUrl) {
+              log.warn(`[get-song-url] 跳过缓存：地址无法直接下载 ${url[0]}`)
+            } else if (!db.hasCachedAudio(String(track?.id || ''))) {
+              // 设置开着但 Worker 不在（启动竞态 / 异常退出）时补一个
+              if (!cacheWorker) startCacheWorker(win)
+              if (!fs.existsSync(audioCachePath)) {
+                fs.mkdirSync(audioCachePath, { recursive: true })
+              }
               pendingCacheMeta.set(track.id.toString(), {
                 gain: replayGain,
                 peak,
                 plugin: pluginId
               })
-              cacheWorker.postMessage({ type: 'task', track, url: url[0], audioCachePath })
+              cacheWorker?.postMessage({
+                type: 'task',
+                track,
+                url: downloadUrl,
+                audioCachePath,
+                // 与渲染层播放请求的 UA 保持一致：替换音源（bilibili 等）对 UA 敏感，
+                // Node 默认 UA 会被 CDN 拒掉
+                headers: {
+                  'user-agent': win.webContents.session.getUserAgent(),
+                  accept: '*/*'
+                }
+              })
             }
           }
         } catch (err) {

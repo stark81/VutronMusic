@@ -10,8 +10,12 @@
  * ② TrackSource 路由查询（plugin-comment / plugin-lyric 的跨插件查找）
  */
 
+import path from 'path'
+import { app } from 'electron'
 import { ScanBatchData } from '@/types/localMusic'
 import { db, Tables } from './db'
+import store from './store'
+import log from './log'
 
 // ============ 本地音乐相关 ============
 
@@ -385,6 +389,18 @@ export function checkTrackSourceExists(trackId: string, pluginId: string): boole
   return !!row
 }
 
+/** Track 表里是否存在该 id（流媒体歌曲只有 TrackSource，没有 Track 行） */
+function trackExists(trackId: string): boolean {
+  return !!db.sqlite.prepare(`SELECT 1 FROM ${Tables.Track} WHERE id = ? LIMIT 1`).get(trackId)
+}
+
+/** 该 Track 是否代表一份真实本地文件（以 pluginId='local' 的来源为标记） */
+function isLocalOwnedTrack(trackId: string): boolean {
+  return !!db.sqlite
+    .prepare(`SELECT 1 FROM ${Tables.TrackSource} WHERE trackId = ? AND pluginId = 'local' LIMIT 1`)
+    .get(trackId)
+}
+
 /**
  * 将 fromTrackId 下的关联数据迁移到 toTrackId。
  *
@@ -393,9 +409,27 @@ export function checkTrackSourceExists(trackId: string, pluginId: string): boole
  *
  * 适用于匹配流程中检测到同一歌曲有多个 trackId 时，
  * 将一侧的 TrackSource/TrackArtist 等迁到另一侧。
+ *
+ * 只允许「在线缓存 Track → 真实 Track」这一个方向，以下情况必须跳过：
+ * - `toTrackId` 没有 Track 行：迁过去的 TrackSource 会变成孤儿行（流媒体歌曲就是
+ *   这种「只有 TrackSource 没有 Track」的临时 id），等于把数据丢进黑洞；
+ * - `fromTrackId` 是本地文件：本地歌曲的身份来自它自己的 Audio 行，迁移会连带删掉
+ *   它的 local 来源和 TrackArtist —— 歌曲从此不在本地音乐列表里，歌手也变成空。
+ *   （历史 bug：本地歌曲被并到流媒体临时 id 上，导致本地扫描「少歌」）
  */
 export function reassignTrackId(fromTrackId: string, toTrackId: string) {
   if (fromTrackId === toTrackId) return
+
+  const fromExists = trackExists(fromTrackId)
+  const toExists = trackExists(toTrackId)
+  const fromIsLocal = isLocalOwnedTrack(fromTrackId)
+  if (!fromExists || !toExists || fromIsLocal) {
+    log.warn(
+      `[reassignTrackId] 跳过合并 ${fromTrackId} → ${toTrackId}` +
+        `（from 是本地文件=${fromIsLocal}，from 有 Track=${fromExists}，to 有 Track=${toExists}）`
+    )
+    return
+  }
 
   db.sqlite.transaction(() => {
     // 1. TrackSource — 复制不冲突的行到 toTrackId，再删旧
@@ -516,6 +550,18 @@ export function getLoginStatus(platform: string) {
 
 // ============ 插件 Worker 统一路由（替代 cache.ts 的 get/set，供 pluginManager 使用） ============
 
+/** 音频缓存目录（标准化成 `/` 分隔，用于把缓存文件排除在本地音乐之外） */
+function getAudioCacheDir(): string {
+  const configured = store.get('settings.autoCacheTrack.path') as string
+  return ((configured || path.join(app.getPath('userData'), 'audioCache')) as string).replace(
+    /\\/g,
+    '/'
+  )
+}
+
+/** 把路径转成 SQLite LIKE 模式（转义 % 与 _，配合 ESCAPE '\' 使用） */
+const toLikePattern = (value: string) => `${value.replace(/[\\%_]/g, (ch) => '\\' + ch)}/%`
+
 /** 通用插件数据查询：根据 key 路由到对应表的查询逻辑 */
 export function pluginDbGet(
   key: string,
@@ -526,26 +572,42 @@ export function pluginDbGet(
       return getPluginData(params.pluginId || '')
     case 'Track': {
       const filterIds = params.filter?.ids as string[] | undefined
-      const pluginJoin = params.pluginId
-        ? `JOIN ${Tables.TrackSource} ts ON ts.trackId = t.id AND ts.pluginId = ?`
+      // 本地音乐的权威事实是「有本地音频文件」，而不是 TrackSource 行：
+      // 历史 bug 会把本地歌曲的 local 来源删掉（见 reassignTrackId），只按来源过滤会让
+      // 这些歌凭空从本地列表消失（表现为「本地扫描少歌」）。
+      // 缓存目录里的 Audio 属于在线歌曲的缓存，必须排除，否则会把缓存歌曲当成本地歌曲。
+      const isLocalPlugin = params.pluginId === 'local'
+      const pluginJoin =
+        params.pluginId && !isLocalPlugin
+          ? `JOIN ${Tables.TrackSource} ts ON ts.trackId = t.id AND ts.pluginId = ?`
+          : ''
+      const localFilter = isLocalPlugin
+        ? `AND EXISTS (
+             SELECT 1 FROM ${Tables.Audio} a
+             WHERE a.trackId = t.id AND a.deleted = 0
+               AND replace(a.filePath, '\\', '/') NOT LIKE ? ESCAPE '\\'
+           )`
         : ''
-      const pluginParam = params.pluginId ? [params.pluginId] : []
+      const localParam = isLocalPlugin ? [toLikePattern(getAudioCacheDir())] : []
+      const pluginParam = params.pluginId && !isLocalPlugin ? [params.pluginId] : []
       // 跨表组装：Track + Album + Artist + TrackArtist + ArtistAlbum + Audio
       let trackRows: Record<string, any>[]
       if (filterIds?.length) {
         const placeholders = filterIds.map(() => '?').join(',')
         trackRows = db.sqlite
           .prepare(
-            `SELECT t.* FROM ${Tables.Track} t ${pluginJoin} WHERE t.id IN (${placeholders}) AND t.deleted = 0`
+            `SELECT t.* FROM ${Tables.Track} t ${pluginJoin} WHERE t.id IN (${placeholders}) AND t.deleted = 0 ${localFilter}`
           )
-          .all(...pluginParam, ...filterIds) as Record<string, any>[]
+          .all(...pluginParam, ...filterIds, ...localParam) as Record<string, any>[]
         // SQLite WHERE IN 不保证返回顺序，按传入 ids 重排
         const idOrder = new Map(filterIds.map((id, i) => [id, i]))
         trackRows.sort((a, b) => (idOrder.get(a.id) ?? 0) - (idOrder.get(b.id) ?? 0))
       } else {
         trackRows = db.sqlite
-          .prepare(`SELECT t.* FROM ${Tables.Track} t ${pluginJoin} WHERE t.deleted = 0`)
-          .all(...pluginParam) as Record<string, any>[]
+          .prepare(
+            `SELECT t.* FROM ${Tables.Track} t ${pluginJoin} WHERE t.deleted = 0 ${localFilter}`
+          )
+          .all(...pluginParam, ...localParam) as Record<string, any>[]
       }
       const albumMap = new Map(
         (

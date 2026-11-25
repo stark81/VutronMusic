@@ -41,10 +41,12 @@ import { storeToRefs } from 'pinia'
 import Utils from './utils'
 import { prewarmMeasureCache, collectUniqueWords } from './utils/lyricMeasure'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { type ProgressInfo } from 'electron-updater'
 import router from './router'
 import eventBus from './utils/eventBus'
 import { usePlayerThemeStore } from './store/playerTheme'
+import { getLastRunVersion, setLastRunVersion, shouldResetPlayerForUpgrade } from './utils/upgrade'
 
 import('./utils/synchronize')
 
@@ -67,6 +69,7 @@ const { enabled } = storeToRefs(playerStore)
 const osdLyricStore = useOsdLyricStore()
 const { show, isLock } = storeToRefs(osdLyricStore)
 
+const { t } = useI18n()
 const stateStore = useNormalStateStore()
 const { extensionCheckResult, showLyrics, isDownloading } = storeToRefs(stateStore)
 const { showToast, checkUpdate, registerInstance, unregisterInstance, updateScroll, getFontList } =
@@ -292,6 +295,35 @@ const handleChanelEvent = () => {
     })
   }
 }
+
+/**
+ * 4.0 重构了播放器 / 缓存机制，3.x 持久化的播放器状态会让新版播不出来；
+ * 发布说明要求用户手动「重置播放器状态」，这里在启动时自动补一次（issue #424）。
+ * 只在「上次运行的版本 < 4.0.0」时触发，之后正常升级不再动用户状态。
+ */
+const migrateLegacyPlayerState = async () => {
+  try {
+    const currentVersion = (await window.mainApi?.invoke('msgRequestGetVersion')) as
+      | string
+      | undefined
+    const previousVersion = getLastRunVersion()
+
+    if (shouldResetPlayerForUpgrade(previousVersion, currentVersion)) {
+      playerStore.resetPlayer()
+      console.info(
+        `[upgrade] 检测到从旧版本升级（${previousVersion || '未记录'} → ${currentVersion}），已重置播放器状态`
+      )
+      // 首次安装时没有旧状态，不打扰用户
+      if (previousVersion) showToast(t('player.resetPlayerAuto'))
+    }
+
+    if (currentVersion) setLastRunVersion(currentVersion)
+  } catch (error) {
+    console.warn('[upgrade] 播放器状态迁移检查失败:', error)
+  }
+}
+
+migrateLegacyPlayerState()
 
 getPlugins().then(async () => {
   pluginMusicStore.syncPluginEnable()

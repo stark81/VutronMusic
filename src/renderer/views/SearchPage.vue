@@ -196,19 +196,25 @@ const loadData = async (reset = true) => {
     // 重置所有目标槽位
     if (reset) {
       targets.forEach((p) => {
-        ensureSlot(currentTab, p).data = []
+        const slot = ensureSlot(currentTab, p)
+        slot.data = []
+        slot.count = 0
       })
     }
 
     // 并行搜索所有目标
     const results = await Promise.all(
       targets.map(async (p) => {
-        const sourceContext = ensureSlot(currentTab, p).sourceContext || {}
+        // 只有加载更多才带插件返回的分页上下文。重新搜索时若把它一起展开，
+        // 上下文里的旧字段会覆盖本次请求：netease 的 sourceContext 就带着
+        // `keywords`，导致「标题是新关键词、结果还是上一次的」（issue #431）。
+        // 同时把本次参数放在后面，任何插件的上下文都不能改写 tab/keywords/reset。
+        const sourceContext = reset ? {} : ensureSlot(currentTab, p).sourceContext || {}
         const res = await pluginMethodCall(p, 'search', {
+          ...sourceContext,
           tab: currentTab,
           keywords: keywords.value,
-          reset,
-          ...sourceContext
+          reset
         })
         return { plugin: p, res }
       })
