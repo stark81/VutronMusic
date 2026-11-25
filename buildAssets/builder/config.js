@@ -91,6 +91,16 @@ const baseConfig = {
   },
   linux: {
     executableName: 'vutron',
+    // 窗口身份（WM_CLASS / Wayland app_id）必须和 .desktop 的 StartupWMClass 一致，
+    // 否则 GNOME/KDE 会把运行中的窗口当成另一个应用，任务栏出现一个多余的空图标（issue #436）。
+    //   · Electron 42+ 用 XDG app id（即 package.json 的 desktopName 去掉 .desktop）同时设置
+    //     X11 WM_CLASS 与 Wayland app_id；不写 desktopName 时会退化成 app name 的 slug，
+    //     本项目 name=VutronMusic → WM_CLASS 变成 vutronmusic；
+    //   · electron-builder 的 StartupWMClass 默认取 productName（VutronMusic），两边大小写不一致，
+    //     于是匹配失败。
+    // package.json 里写死 desktopName: "vutron.desktop"（= executableName），这里再打开
+    // syncDesktopName，让 .desktop 文件名、StartupWMClass、WM_CLASS 三处都等于 vutron。
+    syncDesktopName: true,
     icon: 'buildAssets/icons/icon.icns',
     category: 'Utility',
     target: ['snap', 'AppImage', 'deb', 'rpm', 'flatpak']

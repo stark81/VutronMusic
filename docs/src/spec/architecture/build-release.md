@@ -31,6 +31,20 @@ last-reviewed: 2026-11-15
 
 NSIS 安装包配置：一键安装关闭、允许修改安装目录、创建桌面快捷方式。
 
+### Linux 窗口身份（WM_CLASS / StartupWMClass）
+
+任务栏图标能不能和窗口对上，取决于三处字符串完全一致：
+
+| 位置 | 由谁决定 | 本项目取值 |
+| --- | --- | --- |
+| X11 `WM_CLASS` / Wayland `app_id` | Electron 42+ 用 XDG app id = `package.json` 的 `desktopName` 去掉 `.desktop`（未设置时退化成 app name 的 slug） | `vutron` |
+| `.desktop` 的 `StartupWMClass` | electron-builder：`desktopName` 去掉后缀，未设置则取 `productName` | `vutron` |
+| `.desktop` 文件名（Wayland 按 app_id 找文件） | electron-builder：开 `linux.syncDesktopName` 时取 `desktopName`，否则取 `executableName` | `vutron.desktop` |
+
+所以 `package.json` 里写了 `"desktopName": "vutron.desktop"`，`config.js` 的 `linux` 里同时开了 `syncDesktopName: true`，三处都等于 `vutron`。
+
+> ⚠️ 这三者是耦合的：改名/改大小写时三处要一起改，否则 GNOME/KDE 会在任务栏多显示一个空图标（[issue #436](https://github.com/stark81/VutronMusic/issues/436)）。别改回「`StartupWMClass` 取 `productName`」的默认行为——`productName` 是 `VutronMusic`，和 Electron 给出的 `vutron` 大小写不一致。`tests/linux-desktop.spec.ts` 会校验这个不变量。
+
 ### macOS DMG 的 dmgbuild 来源（当前 26.5.0：系统 Python）
 
 electron-builder 生成 dmg 时依赖 `dmgbuild`，来源随版本不同：
