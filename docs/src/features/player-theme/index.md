@@ -80,18 +80,18 @@ Given 用户修改了主题配置 When 点击保存为自定义主题 Then 系�
 
 ## 10 种背景类型
 
-| 类型          | 说明                                     |
-| ------------- | ---------------------------------------- |
-| none          | 无背景                                   |
-| gradient      | 渐变色（从专辑封面自动提取）             |
-| blur-image    | 模糊的专辑封面                           |
-| dynamic-image | 动态旋转的专辑封面                       |
-| letter-image  | 信笺风格封面                             |
-| custom-image  | 用户自定义图片                           |
-| custom-video  | 用户自定义视频                           |
-| lottie        | Lottie 动画（snow/sunshine）             |
-| random-folder | 随机文件夹中的图片/视频                  |
-| api           | 从 API 获取的图片（支持按歌曲/定时切换） |
+| 类型          | 说明                                                           |
+| ------------- | -------------------------------------------------------------- |
+| none          | 无背景                                                         |
+| gradient      | 渐变色（从专辑封面自动提取）                                   |
+| blur-image    | 模糊的专辑封面                                                 |
+| dynamic-image | 动态旋转的专辑封面                                             |
+| letter-image  | 信笺风格封面                                                   |
+| custom-image  | 用户自定义图片                                                 |
+| custom-video  | 用户自定义视频                                                 |
+| lottie        | Lottie 动画（内置 snow/sunshine，也可选 .json / .lottie 文件） |
+| random-folder | 随机文件夹中的图片/视频                                        |
+| api           | 从 API 获取的图片（支持按歌曲/定时切换）                       |
 
 ## 主题管理
 

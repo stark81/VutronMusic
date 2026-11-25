@@ -364,6 +364,13 @@
       "uiScale": {
         "text": "介面縮放",
         "desc": "螢幕較小時（如 1024×600）可調小，讓介面完整顯示；視窗最小尺寸也會按比例縮小"
+      },
+      "lottieRenderer": {
+        "text": "Lottie 渲染",
+        "desc": "背景動畫的渲染後端；WebGPU 為實驗特性，異常時會自動回退",
+        "webgl": "WebGL2（推薦）",
+        "webgpu": "WebGPU（實驗性）",
+        "software": "軟體渲染（相容）"
       }
     },
     "theme": {

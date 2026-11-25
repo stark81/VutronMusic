@@ -38,7 +38,7 @@ related: [index.md, design.md]
 ```typescript
 watch([activeBG.type, activeBG.src], (newType, oldType) => {
   // 1. 清空临时状态 + 丢弃当前 api 背景图（clearApiSource）
-  // 2. 停止旧类型的资源（lottie destroy, video pause）
+  // 2. 停止旧类型的资源（video pause；lottie 的销毁由 LottieBackground 组件自行处理）
   // 3. 加载新类型的资源
   // 4. 启动定时器（api 类型）
   // 注意：不要在这里再触发 switchApiBackground，否则会和 onMounted 的首次加载互相作废

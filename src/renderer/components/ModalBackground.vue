@@ -40,6 +40,19 @@
             <button @click="reset">{{ $t('settings.lyric.reset') }}</button>
           </div>
         </div>
+        <div v-if="activeBG.type === 'lottie'" class="item lottie-renderer">
+          <div class="left">
+            <div class="title">{{ $t('settings.general.lottieRenderer.text') }}</div>
+            <div class="description">{{ $t('settings.general.lottieRenderer.desc') }}</div>
+          </div>
+          <div class="right">
+            <CustomSelect
+              v-model="lottieRenderer"
+              direction="up"
+              :options="lottieRendererOptions"
+            />
+          </div>
+        </div>
         <template v-if="activeBG.type === 'api'">
           <div class="item">
             <div class="left">
@@ -156,12 +169,14 @@ import CustomSelect from './CustomSelect.vue'
 import VueSlider from './VueSlider.vue'
 import { useNormalStateStore } from '../store/state'
 import { usePlayerThemeStore, createBG } from '../store/playerTheme'
+import { useSettingsStore } from '../store/settings'
 import { useI18n } from 'vue-i18n'
 
 const stateStore = useNormalStateStore()
 const { backgroundModal } = storeToRefs(stateStore)
 const playerThemeStore = usePlayerThemeStore()
 const { activeBG, activeTheme } = storeToRefs(playerThemeStore)
+const settingsStore = useSettingsStore()
 
 const { t } = useI18n()
 
@@ -177,6 +192,23 @@ const bgMap = {
   'random-folder': t('settings.lyric.bgType.folder'),
   api: t('settings.lyric.bgType.api')
 }
+
+/**
+ * Lottie 背景的渲染后端（settings.general.lottieRenderer）。
+ * 放在背景弹窗里而不是通用设置：这是和具体 lottie 背景绑定的选项。
+ */
+const lottieRenderer = computed({
+  get: () => settingsStore.general.lottieRenderer ?? 'webgl',
+  set: (value: 'webgl' | 'webgpu' | 'software') => {
+    settingsStore.general.lottieRenderer = value
+  }
+})
+
+const lottieRendererOptions = computed(() => [
+  { label: t('settings.general.lottieRenderer.webgl'), value: 'webgl' },
+  { label: t('settings.general.lottieRenderer.webgpu'), value: 'webgpu' },
+  { label: t('settings.general.lottieRenderer.software'), value: 'software' }
+])
 
 const isCustomize = computed(() => {
   return ['custom-image', 'custom-video', 'lottie', 'random-folder', 'api'].includes(
@@ -204,7 +236,7 @@ const bgSourcePlaceholder = computed(() => {
     case 'custom-video':
       return t('settings.lyric.placeholder.video')
     case 'lottie':
-      return 'lottie路径，默认可选择：snow和sunshine'
+      return 'lottie动画路径（.json / .lottie），默认可选择：snow和sunshine'
     case 'random-folder':
       return t('settings.lyric.placeholder.folder')
     case 'api':
@@ -244,7 +276,7 @@ const type = computed({
 
 const filterMap = {
   'custom-video': [{ name: 'Video', extensions: ['mp4', 'webm'] }],
-  lottie: [{ name: 'Lottie', extensions: ['json'] }],
+  lottie: [{ name: 'Lottie', extensions: ['json', 'lottie'] }],
   'custom-image': [{ name: 'Image', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }]
 }
 
@@ -289,11 +321,27 @@ const close = () => {
       font-weight: 600;
       opacity: 0.78;
     }
+
+    .description {
+      margin-top: 4px;
+      font-size: 12px;
+      line-height: 1.4;
+      opacity: 0.6;
+    }
   }
 
   .right :deep(.custom-select) {
     background-color: var(--color-secondary-bg-for-transparent);
     border: none;
+  }
+
+  /* Lottie 渲染后端的选项文案较长，给下拉留足宽度避免换行 */
+  &.lottie-renderer .right :deep(.custom-select) {
+    min-width: 172px;
+  }
+
+  &.lottie-renderer .right :deep(.custom-text) {
+    white-space: nowrap;
   }
 
   button {

@@ -149,7 +149,7 @@ CSS 实现的扇形展开效果：
 
 | 类型 | 加载 | 暂停 | 销毁 |
 | --- | --- | --- | --- |
-| lottie | `play()` | `pause()` | `stop()` + `destroy()` |
+| lottie | `LottieBackground` 组件内部创建播放器 | `playing` 属性驱动 `pause()` | 组件卸载 / `src` 变化时 `destroy()` |
 | video | `play()` | `pause()` | `removeAttribute('src')` + `load()` |
 | random-folder | 随机选取文件 | - | 清空 tempSrc |
 | api | `Image` 预加载 + 预解码 → 原子替换 | 停止定时器 | 停止定时器 |
@@ -181,16 +181,24 @@ API 类型每次切换都会请求一个新地址（随机图接口尤其如此�
 
 `Image` 加载失败或 8s 超时后会退回直接使用原地址（多花一次下载时间，不会出现背景永久卡住）。载入令牌（`apiLoadToken`）保证定时切换与切歌几乎同时触发时，只有最后一次的结果会生效； `AbortController` 用于提前结束「等待」，图片本身仍留在浏览器缓存里。
 
-**Lottie 特别注意：**
+**Lottie 播放器：**
 
-```typescript
-// 从 lottie 切换到其他类型，必须先停止并 destroy
-if (oldType === 'lottie' && newType !== 'lottie') {
-  lottieContainer.value?.stop()
-  lottieContainer.value?.destroy()
-}
-// 否则 lottie 组件会不断尝试恢复动画，导致 CPU 占用异常
-```
+背景动画用 [`@lottiefiles/dotlottie-web`](https://developers.lottiefiles.com/docs/dotlottie-player/dotlottie-web/)（ThorVG WASM 引擎）渲染，封装在 `src/renderer/components/LottieBackground.vue`：
+
+- **渲染后端**：由「背景设置弹窗 → Lottie 渲染」选择（`settings.general.lottieRenderer`，只在背景类型选到 lottie 时显示）：
+
+  | 选项 | 值 | 行为 |
+  | --- | --- | --- |
+  | WebGL2（默认） | `webgl` | `@lottiefiles/dotlottie-web/webgl`；拿不到 `webgl2` 上下文时回退软件渲染 |
+  | WebGPU（实验性） | `webgpu` | `@lottiefiles/dotlottie-web/webgpu`；无 `navigator.gpu` / adapter 或初始化失败时逐级回退 WebGL2 → 软件 |
+  | 软件渲染 | `software` | 强制 ThorVG 软件光栅化（CPU → 2D canvas），兼容性最好 |
+
+  三个后端 API 完全一致，只切换 import 子路径与对应的 wasm；回退时会替换 canvas 元素（同一个 canvas 不能换上下文类型）。每个后端各打包一份 ~1.2–1.4MB 的 wasm（合计约 4MB），但**只在真正用到该后端时才下载**。
+
+- **WASM 本地化**：dotLottie 默认从 jsdelivr/unpkg 拉取 wasm，桌面端离线场景必须用 `setWasmUrl()` 指向 `?url` 打包出来的本地文件（`dist/assets/dotlottie-player-*.wasm`）。
+- **动画格式**：内置 `snow` / `sunshine` 是 `.json`；用户自定义背景支持 `.json` 与 `.lottie`（zip 容器，可内嵌图片等资源），后者通过 `vutron://local-asset?type=stream` 读取。
+- **生命周期**：组件自己管理播放器——`playing` 属性驱动 `play()/pause()`，`src` 变化或组件卸载时 `destroy()`（`BackgroundPage` 不再手动 stop/destroy）。渲染配置开启 `freezeOnOffscreen`、关闭 `useFrameInterpolation`（源动画 30fps，没必要按 60fps 插值重绘）。
+- **已知差异**：ThorVG 不实现部分 After Effects 效果（如高斯模糊），`sunshine` 的水面倒影会比 lottie-web 渲染得略锐利。
 
 ## 相关文档
 

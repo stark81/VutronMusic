@@ -365,6 +365,13 @@
       "uiScale": {
         "text": "Interface Scale",
         "desc": "Lower it on small screens (e.g. 1024×600) so the UI fits; the window minimum size scales too"
+      },
+      "lottieRenderer": {
+        "text": "Lottie Renderer",
+        "desc": "Rendering backend for animated backgrounds. WebGPU is experimental and falls back automatically.",
+        "webgl": "WebGL2 (recommended)",
+        "webgpu": "WebGPU (experimental)",
+        "software": "Software (compatibility)"
       }
     },
     "theme": {

@@ -44,6 +44,13 @@ export const useSettingsStore = defineStore(
       showBanner: true,
       /** 界面缩放比例（1 = 100%）；低分辨率屏幕可调小，窗口最小尺寸会按比例缩小 */
       uiScale: 1,
+      /**
+       * Lottie 背景渲染后端：
+       * - 'webgl'（默认）：WebGL2，不可用时回退软件渲染
+       * - 'webgpu'：优先 WebGPU（实验性），失败逐级回退 WebGL2 → 软件
+       * - 'software'：强制 CPU 渲染，兼容性最好但更吃 CPU
+       */
+      lottieRenderer: 'webgl' as 'webgl' | 'webgpu' | 'software',
       autoUpdate: true,
       jumpToLyricBegin: false,
       trayColor: 0, // 0: 彩色, 1: 白色, 2: 黑色, 3: 跟随系统

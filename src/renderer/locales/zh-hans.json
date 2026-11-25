@@ -369,6 +369,13 @@
       "uiScale": {
         "text": "界面缩放",
         "desc": "屏幕较小时（如 1024×600）可调小，让界面完整显示；窗口最小尺寸也会按比例缩小"
+      },
+      "lottieRenderer": {
+        "text": "Lottie 渲染",
+        "desc": "背景动画的渲染后端；WebGPU 为实验特性，异常时会自动回退",
+        "webgl": "WebGL2（推荐）",
+        "webgpu": "WebGPU（实验性）",
+        "software": "软件渲染（兼容）"
       }
     },
     "plugin": {

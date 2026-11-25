@@ -8,7 +8,6 @@ import 'virtual:svg-icons-register'
 import './assets/css/global.scss'
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import DOMPurify from 'dompurify'
-import vue3lottie from 'vue3-lottie'
 
 // Add API key defined in contextBridge to window object type
 declare global {
@@ -38,7 +37,6 @@ declare global {
       repeatMode: string
       lyric: { lrc: string; tlyric: string; romalrc: string }
     }
-    LottieAnimation: (typeof import('vue3-lottie'))['Vue3Lottie']
   }
 }
 
@@ -160,7 +158,6 @@ pinia.use(piniaPluginPersistedstate)
 
 app
   // .use(vuetify)
-  .use(vue3lottie)
   .use(i18n)
   .use(router)
   .use(pinia)

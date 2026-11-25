@@ -14,17 +14,11 @@
       muted
       playsinline
     />
-    <Vue3Lottie
+    <LottieBackground
       v-else-if="typeValue === 'lottie' && srcValue"
-      :key="`${srcValue}-1`"
-      ref="lottieContainer"
       class="lottie-container customize-image"
-      :animation-link="srcValue"
-      :auto-play="false"
-      height="100%"
-      width="100%"
-      renderer="canvas"
-      @on-animation-loaded="onLottieLoaded"
+      :src="srcValue"
+      :playing="shouldPlayLottie"
     />
     <div
       v-else-if="
@@ -39,7 +33,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, useTemplateRef, onMounted, nextTick, onUnmounted } from 'vue'
-import { Vue3Lottie } from 'vue3-lottie'
+import LottieBackground from './LottieBackground.vue'
 import { usePlayerThemeStore } from '../store/playerTheme'
 import { usePlayerStore } from '../store/player'
 import { useNormalStateStore } from '../store/state'
@@ -57,7 +51,6 @@ const { showToast } = useNormalStateStore()
 const { t } = useI18n()
 
 const videoRef = useTemplateRef('videoRef')
-const lottieContainer = useTemplateRef('lottieContainer')
 
 const primary = ref('')
 const secondary = ref('')
@@ -99,14 +92,15 @@ const srcValue = computed(() => {
     if (!activeBG.value.src) return ''
     return `vutron://local-asset?type=stream&path=${encodeURIComponent(activeBG.value.src)}`
   } else if (activeBG.value.type === 'lottie') {
-    let src = activeBG.value.src
+    const src = activeBG.value.src
     if (!src) return ''
     if (['snow', 'sunshine'].includes(src)) {
-      src = new URL(`../assets/lottie/${src}.json`, import.meta.url).href
-    } else {
-      src = `vutron://local-asset?type=json&path=${encodeURIComponent(activeBG.value.src)}`
+      return new URL(`../assets/lottie/${src}.json`, import.meta.url).href
     }
-    return src
+    // 用户自定义动画：.json 用 json 分支（会校验 JSON 合法性），
+    // .lottie 是 zip 容器，按二进制流直接读给播放器
+    const assetType = src.toLowerCase().endsWith('.lottie') ? 'stream' : 'json'
+    return `vutron://local-asset?type=${assetType}&path=${encodeURIComponent(src)}`
   } else if (activeBG.value.type === 'random-folder') {
     return tempSrc.value
   }
@@ -296,9 +290,8 @@ const switchApiBackground = async () => {
 }
 
 /**
- * 对于lottie动画需要十分注意，否则可能会导致lottie组件不断尝试恢复动画而导致cpu占用异常
- * 1. 从lottie切换到其他类型，需要停止lottie并destroy；
- * 2. lottie动画的src从有变成了无、从A切换到了B，都需要先停止
+ * lottie 的播放/暂停/销毁由 LottieBackground 组件自己管理（切换类型即卸载、
+ * 切换 src 会重建播放器），这里只需要处理 api 背景与视频的加载。
  *
  * 这个监听同时是 api 背景的**唯一加载入口**（immediate）：切到 api 时拉第一张，
  * 之后改地址也由它重新拉。切歌、定时刷新则分别由 currentTrack 监听与定时器负责，
@@ -313,20 +306,10 @@ watch(
     // 类型或地址一旦变化，当前 api 背景图即失效
     clearApiSource()
 
-    if (oldType[0] === 'lottie' && newType[0] !== 'lottie') {
-      lottieContainer.value?.stop()
-      lottieContainer.value?.destroy()
-    } else if (oldType[0] === 'custom-video' && newType[0] !== 'custom-video') {
+    if (oldType[0] === 'custom-video' && newType[0] !== 'custom-video') {
       videoRef.value?.pause()
       videoRef.value?.removeAttribute('src')
       videoRef.value?.load()
-    }
-
-    if (newType[0] === 'lottie') {
-      if (!newType[1] || newType[1] !== oldType[1]) {
-        lottieContainer.value?.stop()
-        lottieContainer.value?.destroy()
-      }
     }
 
     if (newType[0] === 'random-folder' && newType[1]) {
@@ -366,31 +349,7 @@ watch(
   }
 )
 
-watch(shouldPlayLottie, async (value) => {
-  await nextTick()
-  if (!lottieContainer.value) return
-
-  if (value) {
-    lottieContainer.value.play()
-  } else {
-    if (activeBG.value.type === 'lottie') {
-      lottieContainer.value.pause()
-    } else {
-      lottieContainer.value.stop()
-      lottieContainer.value.destroy()
-    }
-  }
-})
-
-const onLottieLoaded = async () => {
-  if (!shouldPlayLottie.value) return
-  await nextTick()
-  lottieContainer.value?.play()
-}
-
 onMounted(async () => {
-  lottieContainer.value?.stop()
-  lottieContainer.value?.destroy()
   // 推迟 Vibrant 颜色提取到首帧后，避免阻塞首次渲染
   setTimeout(() => getImage(pic.value), 0)
   if (activeBG.value.type === 'random-folder') {
@@ -398,18 +357,12 @@ onMounted(async () => {
   }
   // 注意：api 背景的首次加载由下面那个 [type, src] 监听（immediate）负责，
   // 这里不要再调用 switchApiBackground，否则两处会互相 abort，首张图要等两轮才出现
-  if (playing.value) {
-    if (shouldPlayLottie.value) {
-      lottieContainer.value?.play()
-    } else if (shouldPlayVideo.value) {
-      videoRef.value?.play()
-    }
+  if (playing.value && shouldPlayVideo.value) {
+    videoRef.value?.play()
   }
 })
 
 onUnmounted(() => {
-  lottieContainer.value?.stop()
-  lottieContainer.value?.destroy()
   videoRef.value?.pause()
   videoRef.value?.removeAttribute('src')
   videoRef.value?.load()

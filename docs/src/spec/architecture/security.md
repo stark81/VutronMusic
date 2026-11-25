@@ -69,7 +69,7 @@ last-reviewed: 2026-09-26
 
 `Constants.LOCAL_SERVER_CSP` 目前只包含 `object-src 'none'; base-uri 'none'; frame-ancestors 'none'`。
 
-未启用 `script-src` / `img-src` / `connect-src` 的原因：本应用是多源在线音乐播放器，需要访问任意 `https:` 源、`blob:` / `data:` 资源以及 `vutron://` 自定义协议，且渲染层依赖 Plyr / vue3-lottie / node-vibrant / soundtouch 等第三方库。收紧这些指令必须逐页面人工验证（尤其确认没有库依赖 `eval`），否则会直接破坏功能。
+未启用 `script-src` / `img-src` / `connect-src` 的原因：本应用是多源在线音乐播放器，需要访问任意 `https:` 源、`blob:` / `data:` 资源以及 `vutron://` 自定义协议，且渲染层依赖 Plyr / dotLottie（WASM）/ node-vibrant / soundtouch 等第三方库。收紧这些指令必须逐页面人工验证（尤其确认没有库依赖 `eval`），否则会直接破坏功能。
 
 ## 三、已知遗留（未在本次修复中处理）
 
