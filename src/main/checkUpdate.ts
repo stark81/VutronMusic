@@ -2,14 +2,19 @@ import { autoUpdater } from 'electron-updater'
 import { parse } from 'node-html-parser'
 import { BrowserWindow, app, dialog, shell } from 'electron'
 import Constants from './utils/Constants'
+import { resolveUpdateChannel } from './utils/updateChannel'
 
 const isMac = Constants.IS_MAC
+
+// Windows/macOS 的 arm64 走独立更新通道（详见 utils/updateChannel.ts 与 issue #374）
+const updateChannel = resolveUpdateChannel(process.platform, process.arch)
 
 autoUpdater.setFeedURL({
   provider: 'github',
   owner: 'stark81',
   repo: 'VutronMusic',
-  private: false
+  private: false,
+  ...(updateChannel ? { channel: updateChannel } : {})
 })
 
 autoUpdater.autoDownload = false

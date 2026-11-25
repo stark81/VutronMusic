@@ -45,6 +45,27 @@ NSIS 安装包配置：一键安装关闭、允许修改安装目录、创建桌
 
 > ⚠️ 这三者是耦合的：改名/改大小写时三处要一起改，否则 GNOME/KDE 会在任务栏多显示一个空图标（[issue #436](https://github.com/stark81/VutronMusic/issues/436)）。别改回「`StartupWMClass` 取 `productName`」的默认行为——`productName` 是 `VutronMusic`，和 Electron 给出的 `vutron` 大小写不一致。`tests/linux-desktop.spec.ts` 会校验这个不变量。
 
+### 自动更新的更新元数据（按架构分通道）
+
+electron-builder 只给 **Linux** 的更新元数据文件名加架构后缀（`latest-linux-arm64.yml`），Windows / macOS 两个架构都写同一个 `latest.yml` / `latest-mac.yml`。同一份 release 同时发 x64 与 arm64 时，后构建的会覆盖先构建的；而 electron-updater 在 Windows 上**没有**架构过滤，x64 客户端会照单全收——v4.0.0 的 `latest.yml` 指向了 `VutronMusic-4.0.0_win_arm64.exe`，所有 x64 用户被推送了 arm64 安装包（[issue #374](https://github.com/stark81/VutronMusic/issues/374)）。
+
+现在的约定：
+
+| 平台 | x64 客户端请求 | arm64 客户端请求 |
+| --- | --- | --- |
+| Windows | `latest.yml` | `latest-arm64.yml` |
+| macOS | `latest-mac.yml` | `latest-arm64-mac.yml` |
+| Linux | `latest-linux.yml` | `latest-linux-arm64.yml`（electron-updater 自己加后缀，不需要自定义通道） |
+
+- **构建端**：CI 给 Windows/macOS 的 arm64 任务传 `UPDATE_CHANNEL=latest-arm64`，`config.js` 把它写进 `publish.channel`；
+- **客户端**：`src/main/utils/updateChannel.ts` 的 `resolveUpdateChannel()` 按 `process.arch` 选同一通道，`checkUpdate.ts` 交给 `setFeedURL({ channel })`；
+- **发布前**：`Verify update metadata per architecture` 校验 6 个 yml 都存在、`latest.yml` 指向 `_x64.exe` 且不含 `arm64`；同名但内容不同的产物会**直接让发布失败**（旧逻辑按文件大小挑一个，正是这次事故的放大器）；
+- **回归**：`tests/update-channel.spec.ts` 校验「客户端请求的文件名」与 CI/打包配置的通道名一致。
+
+> macOS 侧的补充：`MacUpdater` 需要 zip 产物才能自动下载，当前 mac target 只有 `dmg`，所以 macOS 实际只做「发现新版本 → 打开下载页」。分通道是为将来加 zip 做的准备。
+>
+> 已经发布的版本无法自动纠正：修复前发出（如 4.0.0）的 x64 客户端仍依据旧的 `latest.yml` 判断，只能让用户手动下载一次正确安装包；修复后**下一个** release 才会同时提供两套元数据。
+
 ### macOS DMG 的 dmgbuild 来源（当前 26.5.0：系统 Python）
 
 electron-builder 生成 dmg 时依赖 `dmgbuild`，来源随版本不同：
