@@ -134,6 +134,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.github_token }}
           ARCH: ${{ matrix.arch }}
+          # Windows/macOS 的更新元数据文件名不带架构后缀，x64 与 arm64 会互相覆盖，
+          # 导致 x64 客户端下载到 arm64 安装包（issue #374）。arm64 改用独立通道，
+          # 产物为 latest-arm64.yml / latest-arm64-mac.yml（客户端见 src/main/utils/updateChannel.ts）。
+          UPDATE_CHANNEL: ${{ matrix.arch == 'arm64' && 'latest-arm64' || '' }}
         run: yarn build --${{ matrix.arch }} -p never
 
       # Windows artifacts
@@ -255,30 +259,63 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R all-artifacts
 
-      - name: Flatten all artifacts into upload folder (keep larger latest.yml if duplicate)
+      - name: Flatten all artifacts into upload folder
+        shell: bash
         run: |
           mkdir -p upload
-          for f in $(find all-artifacts -type f); do
+          status=0
+          while IFS= read -r f; do
             base=$(basename "$f")
             dest="upload/$base"
-            if [[ "$base" == latest*.yml ]]; then
-              # 如果已经存在同名文件，就比大小
-              if [[ -f "$dest" ]]; then
-                old_size=$(stat -c%s "$dest")
-                new_size=$(stat -c%s "$f")
-                if (( new_size > old_size )); then
-                  echo "⚡ Replacing $base with bigger file ($new_size > $old_size)"
-                  cp "$f" "$dest"
-                else
-                  echo "⚡ Keeping existing $base ($old_size >= $new_size)"
-                fi
-              else
-                cp "$f" "$dest"
+            if [[ -e "$dest" ]]; then
+              # 同名文件只允许内容完全一致（重复下载的同一产物）。
+              # 内容不同说明打包配置冲突——例如 x64 与 arm64 共用 latest.yml（issue #374），
+              # 以前这里按文件大小挑一个，结果挑中 arm64 的元数据，x64 用户于是被推了 arm64 包。
+              if cmp -s "$f" "$dest"; then
+                continue
               fi
+              echo "::error::产物出现同名但内容不同的文件: $base"
+              status=1
             else
               cp "$f" "$dest"
             fi
+          done < <(find all-artifacts -type f)
+          exit $status
+
+      - name: Verify update metadata per architecture
+        shell: bash
+        run: |
+          # 每个平台/架构都必须有各自的更新元数据：缺一个就意味着该平台自动更新失效
+          expected=(
+            latest.yml              # Windows x64
+            latest-arm64.yml        # Windows arm64（独立通道）
+            latest-mac.yml          # macOS x64
+            latest-arm64-mac.yml    # macOS arm64（独立通道）
+            latest-linux.yml        # Linux x64
+            latest-linux-arm64.yml  # Linux arm64（electron-updater 自动加架构后缀）
+          )
+          failed=0
+          for f in "${expected[@]}"; do
+            if [[ ! -f "upload/$f" ]]; then
+              echo "::error::缺少更新元数据 $f"
+              failed=1
+            fi
           done
+
+          # 回归断言：x64 通道不能指向 arm64 安装包（issue #374 的根因）
+          if grep -qi 'arm64' upload/latest.yml; then
+            echo "::error::latest.yml 指向了 arm64 安装包，x64 用户会下载到错误架构"
+            failed=1
+          fi
+          if ! grep -q '_x64\.exe' upload/latest.yml; then
+            echo "::error::latest.yml 未指向 x64 安装包"
+            failed=1
+          fi
+          if ! grep -q '_arm64\.exe' upload/latest-arm64.yml; then
+            echo "::error::latest-arm64.yml 未指向 arm64 安装包"
+            failed=1
+          fi
+          exit $failed
 
       - name: Create release tag if triggered by workflow_dispatch
         if: github.event_name == 'workflow_dispatch'
@@ -292,7 +329,7 @@ jobs:
           echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
       - name: Upload all files to GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.github_token }}
         with:

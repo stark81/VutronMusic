@@ -132,6 +132,30 @@ baseConfig.mac.identity = null
   baseConfig.mac.identity = null
 } */
 
+/*
+ * 自动更新元数据按架构分通道（issue #374）
+ *
+ * electron-builder 只给 Linux 的更新元数据文件名加架构后缀，Windows/macOS 的 x64 与
+ * arm64 会写同一个 latest.yml / latest-mac.yml 互相覆盖：v4.0.0 的 latest.yml 指向了
+ * VutronMusic-4.0.0_win_arm64.exe，导致 x64 用户自动更新下载到 arm64 安装包。
+ *
+ * CI 给 Windows/macOS 的 arm64 任务传 UPDATE_CHANNEL=latest-arm64，产物变成
+ * latest-arm64.yml / latest-arm64-mac.yml；客户端在 src/main/utils/updateChannel.ts
+ * 里按 process.arch 选同名通道，两侧必须保持一致。
+ */
+const updateChannel = (process.env.UPDATE_CHANNEL || '').trim()
+if (updateChannel) {
+  baseConfig.publish = [
+    {
+      provider: 'github',
+      owner: 'stark81',
+      repo: 'VutronMusic',
+      private: false,
+      channel: updateChannel
+    }
+  ]
+}
+
 module.exports = {
   ...baseConfig
 }
